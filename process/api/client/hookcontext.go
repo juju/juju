@@ -48,10 +48,15 @@ func (c HookContextClient) AllDefinitions() ([]charm.Process, error) {
 }
 
 // RegisterProcesses calls the RegisterProcesses API server method.
-func (c HookContextClient) RegisterProcesses(processes ...api.Process) ([]api.ProcessResult, error) {
+func (c HookContextClient) RegisterProcesses(processes ...process.Info) ([]string, error) {
+	procArgs := make([]api.Process, len(processes))
+	for i, proc := range processes {
+		procArgs[i] = api.Proc2api(proc)
+	}
+
 	var result api.ProcessResults
 
-	args := api.RegisterProcessesArgs{Processes: processes}
+	args := api.RegisterProcessesArgs{Processes: procArgs}
 	if err := c.FacadeCall("RegisterProcesses", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -59,11 +64,18 @@ func (c HookContextClient) RegisterProcesses(processes ...api.Process) ([]api.Pr
 		return nil, errors.Errorf(result.Error.GoString())
 	}
 
-	return result.Results, nil
+	ids := make([]string, len(result.Results))
+	for i, r := range result.Results {
+		if r.Error != nil {
+			return nil, errors.Errorf(r.Error.GoString())
+		}
+		ids[i] = r.ID
+	}
+	return ids, nil
 }
 
 // ListProcesses calls the ListProcesses API server method.
-func (c HookContextClient) ListProcesses(ids ...string) ([]api.ListProcessResult, error) {
+func (c HookContextClient) ListProcesses(ids ...string) ([]process.Info, error) {
 	var result api.ListProcessesResults
 
 	args := api.ListProcessesArgs{IDs: ids}
@@ -71,7 +83,23 @@ func (c HookContextClient) ListProcesses(ids ...string) ([]api.ListProcessResult
 		return nil, errors.Trace(err)
 	}
 
-	return result.Results, nil
+	var notFound []string
+	procs := make([]process.Info, len(result.Results))
+	for i, presult := range result.Results {
+		if presult.NotFound {
+			notFound = append(notFound, presult.ID)
+			continue
+		}
+		if presult.Error != nil {
+			return procs, errors.Errorf(presult.Error.GoString())
+		}
+		pp := api.API2Proc(presult.Info)
+		procs[i] = pp
+	}
+	if len(notFound) > 0 {
+		return procs, errors.NotFoundf("%v", notFound)
+	}
+	return procs, nil
 }
 
 // SetProcessesStatus calls the SetProcessesStatus API server method.
@@ -93,50 +121,4 @@ func (c HookContextClient) SetProcessesStatus(status process.Status, pluginStatu
 func (c HookContextClient) UnregisterProcesses(ids ...string) error {
 	args := api.UnregisterProcessesArgs{IDs: ids}
 	return c.FacadeCall("UnregisterProcesses", &args, nil)
-}
-
-// Context Method Implementations
-func (c HookContextClient) List() ([]string, error) {
-	results, err := c.ListProcesses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ids := make([]string, len(results))
-	for i, proc := range results {
-		ids[i] = proc.ID
-	}
-	return ids, nil
-}
-
-func (c HookContextClient) Get(ids ...string) ([]*process.Info, error) {
-	results, err := c.ListProcesses(ids...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var notFound []string
-	procs := make([]*process.Info, len(results))
-	for i, presult := range results {
-		if presult.NotFound {
-			notFound = append(notFound, presult.ID)
-			continue
-		}
-		pp := api.API2Proc(presult.Info)
-		procs[i] = &pp
-	}
-	if len(notFound) > 0 {
-		return procs, errors.NotFoundf("%v", notFound)
-	}
-	return procs, nil
-}
-
-func (c HookContextClient) Set(procs ...*process.Info) error {
-	logger.Tracef("pushing to API: %v", procs)
-
-	procArgs := make([]api.Process, len(procs))
-	for i, proc := range procs {
-		procArgs[i] = api.Proc2api(*proc)
-	}
-	_, err := c.RegisterProcesses(procArgs...)
-	return err
 }

@@ -117,12 +117,13 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 
 	pclient := client.NewHookContextClient(s.facade)
 
-	ids, err := pclient.RegisterProcesses(s.process)
+	procInfo := api.API2Proc(s.process)
+	ids, err := pclient.RegisterProcesses(procInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(len(ids), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(ids[0], gc.Equals, api.ProcessResult{ID: s.process.Details.ID, Error: nil})
+	c.Check(ids[0], gc.Equals, "idfoo")
 }
 
 func (s *clientSuite) TestListAllProcesses(c *gc.C) {
@@ -147,7 +148,9 @@ func (s *clientSuite) TestListAllProcesses(c *gc.C) {
 
 	c.Check(len(processes), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(processes[0], gc.DeepEquals, api.ListProcessResult{ID: "idfoo", Info: s.process, Error: nil})
+
+	proc := api.API2Proc(s.process)
+	c.Check(processes[0], gc.DeepEquals, proc)
 }
 
 func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {

@@ -20,12 +20,10 @@ var logger = loggo.GetLogger("juju.process.context")
 
 // APIClient represents the API needs of a Context.
 type APIClient interface {
-	// List requests the list of registered process IDs from state.
-	List() ([]string, error)
-	// Get requests the process info for the given ID.
-	Get(ids ...string) ([]*process.Info, error)
-	// Set sends a request to update state with the provided processes.
-	Set(procs ...*process.Info) error
+	// ListProcesses requests the process info for the given ID.
+	ListProcesses(ids ...string) ([]process.Info, error)
+	// RegisterProcesses sends a request to update state with the provided processes.
+	RegisterProcesses(procs ...process.Info) ([]string, error)
 	// AllDefinitions returns the process definitions found in the
 	// unit's metadata.
 	AllDefinitions() ([]charm.Process, error)
@@ -51,29 +49,29 @@ type Component interface {
 // Context is the workload process portion of the hook context.
 type Context struct {
 	api       APIClient
-	processes map[string]*process.Info
-	updates   map[string]*process.Info
+	processes map[string]process.Info
+	updates   map[string]process.Info
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
 func NewContext(api APIClient) *Context {
 	return &Context{
 		api:       api,
-		processes: make(map[string]*process.Info),
-		updates:   make(map[string]*process.Info),
+		processes: make(map[string]process.Info),
+		updates:   make(map[string]process.Info),
 	}
 }
 
 // NewContextAPI returns a new jujuc.ContextComponent for workload processes.
 func NewContextAPI(api APIClient) (*Context, error) {
-	ids, err := api.List()
+	procs, err := api.ListProcesses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	ctx := NewContext(api)
-	for _, id := range ids {
-		ctx.processes[id] = nil
+	for _, proc := range procs {
+		ctx.processes[proc.ID()] = proc
 	}
 	return ctx, nil
 }
@@ -103,25 +101,21 @@ func ContextComponent(ctx HookContext) (Component, error) {
 // TODO(ericsnow) Should we build in refreshes in all the methods?
 
 // Processes returns the processes known to the context.
-func (c *Context) Processes() ([]*process.Info, error) {
-	var procs []*process.Info
-	for id, info := range mergeProcMaps(c.processes, c.updates) {
-		if info == nil {
-			fetched, err := c.fetch(id)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			info = fetched
-		}
+func (c *Context) Processes() ([]process.Info, error) {
+	processes := mergeProcMaps(c.processes, c.updates)
+
+	var procs []process.Info
+	for _, info := range processes {
 		procs = append(procs, info)
 	}
+
 	return procs, nil
 }
 
-func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.Info {
+func mergeProcMaps(procs, updates map[string]process.Info) map[string]process.Info {
 	// At this point procs and updates have already been checked for
 	// nil values so we won't see any here.
-	result := make(map[string]*process.Info)
+	result := make(map[string]process.Info)
 	for k, v := range procs {
 		result[k] = v
 	}
@@ -129,16 +123,6 @@ func mergeProcMaps(procs, updates map[string]*process.Info) map[string]*process.
 		result[k] = v
 	}
 	return result
-}
-
-func (c *Context) fetch(id string) (*process.Info, error) {
-	fetched, err := c.api.Get(id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	proc := fetched[0]
-	c.processes[id] = proc
-	return proc, nil
 }
 
 // Get returns the process info corresponding to the given ID.
@@ -152,14 +136,7 @@ func (c *Context) Get(id string) (*process.Info, error) {
 			return nil, errors.NotFoundf("%s", id)
 		}
 	}
-	if actual == nil {
-		fetched, err := c.fetch(id)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		actual = fetched
-	}
-	return actual, nil
+	return &actual, nil
 }
 
 // List returns the sorted names of all registered processes.
@@ -190,7 +167,7 @@ func (c *Context) Set(info process.Info) error {
 	}
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 
-	c.updates[info.ID()] = &info
+	c.updates[info.ID()] = info
 	return nil
 }
 
@@ -215,11 +192,11 @@ func (c *Context) Flush() error {
 		return nil
 	}
 
-	var updates []*process.Info
+	var updates []process.Info
 	for _, info := range c.updates {
 		updates = append(updates, info)
 	}
-	if err := c.api.Set(updates...); err != nil {
+	if _, err := c.api.RegisterProcesses(updates...); err != nil {
 		return errors.Trace(err)
 	}
 

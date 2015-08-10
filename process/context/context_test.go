@@ -33,9 +33,10 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 	context.AddProcs(s.compCtx, s.proc)
 }
 
-func (s *contextSuite) newContext(c *gc.C, procs ...*process.Info) *context.Context {
+func (s *contextSuite) newContext(c *gc.C, procs ...process.Info) *context.Context {
 	ctx := context.NewContext(s.apiClient)
 	for _, proc := range procs {
+		c.Logf("adding proc: %s", proc.ID())
 		context.AddProc(ctx, proc.ID(), proc)
 	}
 	return ctx
@@ -50,7 +51,7 @@ func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
 }
 
 func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
-	expected := []*process.Info{
+	expected := []process.Info{
 		s.newProc("A", "myplugin", "spam", "okay"),
 		s.newProc("B", "myplugin", "eggs", "okay"),
 	}
@@ -60,6 +61,8 @@ func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(procs, gc.HasLen, 2)
+
+	// Map ordering is indeterminate, so this if-else is needed.
 	if procs[0].Name == "A" {
 		c.Check(procs[0], jc.DeepEquals, expected[0])
 		c.Check(procs[1], jc.DeepEquals, expected[1])
@@ -87,7 +90,7 @@ func (s *contextSuite) TestNewContextAPICalls(c *gc.C) {
 	_, err := context.NewContextAPI(s.apiClient)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "List")
+	s.Stub.CheckCallNames(c, "ListProcesses")
 }
 
 func (s *contextSuite) TestNewContextAPIEmpty(c *gc.C) {
@@ -107,7 +110,7 @@ func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
 	_, err := context.NewContextAPI(s.apiClient)
 
 	c.Check(errors.Cause(err), gc.Equals, expected)
-	s.Stub.CheckCallNames(c, "List")
+	s.Stub.CheckCallNames(c, "ListProcesses")
 }
 
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
@@ -153,7 +156,7 @@ func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
 }
 
 func (s *contextSuite) TestProcessesOkay(c *gc.C) {
-	expected := []*process.Info{
+	expected := []process.Info{
 		s.newProc("A", "myplugin", "spam", "okay"),
 		s.newProc("B", "myplugin", "eggs", "okay"),
 		s.newProc("C", "myplugin", "ham", "okay"),
@@ -172,14 +175,14 @@ func (s *contextSuite) TestProcessesAPI(c *gc.C) {
 
 	ctx := context.NewContext(s.apiClient)
 	context.AddProc(ctx, "A/spam", s.apiClient.procs["A/spam"])
-	context.AddProc(ctx, "B/eggs", nil)
-	context.AddProc(ctx, "C/ham", nil)
+	context.AddProc(ctx, "B/eggs", s.apiClient.procs["B/eggs"])
+	context.AddProc(ctx, "C/ham", s.apiClient.procs["C/ham"])
 
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkProcs(c, procs, expected)
-	s.Stub.CheckCallNames(c, "Get", "Get")
+	s.Stub.CheckCallNames(c)
 }
 
 func (s *contextSuite) TestProcessesEmpty(c *gc.C) {
@@ -198,15 +201,15 @@ func (s *contextSuite) TestProcessesAdditions(c *gc.C) {
 	expected = append(expected, infoC, infoD)
 
 	ctx := s.newContext(c, expected[0])
-	context.AddProc(ctx, "B/eggs", nil)
-	ctx.Set(*infoC)
-	ctx.Set(*infoD)
+	context.AddProc(ctx, "B/eggs", s.apiClient.procs["B/eggs"])
+	ctx.Set(infoC)
+	ctx.Set(infoD)
 
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkProcs(c, procs, expected)
-	s.Stub.CheckCallNames(c, "Get")
+	s.Stub.CheckCallNames(c)
 }
 
 func (s *contextSuite) TestProcessesOverrides(c *gc.C) {
@@ -216,16 +219,16 @@ func (s *contextSuite) TestProcessesOverrides(c *gc.C) {
 	expected = append(expected[:1], infoB, infoC)
 
 	ctx := context.NewContext(s.apiClient)
-	context.AddProc(ctx, "A/xyz123", nil)
-	context.AddProc(ctx, "B/xyz456", nil)
-	ctx.Set(*infoB)
-	ctx.Set(*infoC)
+	context.AddProc(ctx, "A/xyz123", s.apiClient.procs["A/xyz123"])
+	context.AddProc(ctx, "B/xyz456", infoB)
+	ctx.Set(infoB)
+	ctx.Set(infoC)
 
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkProcs(c, procs, expected)
-	s.Stub.CheckCallNames(c, "Get")
+	s.Stub.CheckCallNames(c)
 }
 
 func (s *contextSuite) TestGetOkay(c *gc.C) {
@@ -236,34 +239,7 @@ func (s *contextSuite) TestGetOkay(c *gc.C) {
 	info, err := ctx.Get("A/spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, expected)
-	s.Stub.CheckCallNames(c)
-}
-
-func (s *contextSuite) TestGetAPIPull(c *gc.C) {
-	procs := s.apiClient.setNew("A/spam", "B/eggs")
-	expected := procs[0]
-
-	ctx := s.newContext(c, procs[1])
-	context.AddProc(ctx, "A/spam", nil)
-
-	info, err := ctx.Get("A/spam")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(info, jc.DeepEquals, expected)
-	s.Stub.CheckCallNames(c, "Get")
-}
-
-func (s *contextSuite) TestGetAPINoPull(c *gc.C) {
-	procs := s.apiClient.setNew("A/spam", "B/eggs")
-	expected := procs[0]
-
-	ctx := s.newContext(c, procs...)
-
-	info, err := ctx.Get("A/spam")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(info, jc.DeepEquals, expected)
+	c.Check(*info, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
@@ -271,14 +247,17 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 	procs := s.apiClient.setNew("A/spam", "B/eggs")
 	expected := procs[0]
 
+	unexpected := expected
+	unexpected.Details.ID = "C"
+
 	ctx := s.newContext(c, procs[1])
-	context.AddProc(ctx, "A/spam", nil)
+	context.AddProc(ctx, "A/spam", unexpected)
 	context.AddProc(ctx, "A/spam", expected)
 
 	info, err := ctx.Get("A/spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(info, jc.DeepEquals, expected)
+	c.Check(*info, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
@@ -294,13 +273,13 @@ func (s *contextSuite) TestSetOkay(c *gc.C) {
 	ctx := context.NewContext(s.apiClient)
 	before, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Set(*info)
+	err = ctx.Set(info)
 	c.Assert(err, jc.ErrorIsNil)
 	after, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(before, gc.HasLen, 0)
-	c.Check(after, jc.DeepEquals, []*process.Info{info})
+	c.Check(after, jc.DeepEquals, []process.Info{info})
 }
 
 func (s *contextSuite) TestSetOverwrite(c *gc.C) {
@@ -309,13 +288,13 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 	ctx := s.newContext(c, other)
 	before, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Set(*info)
+	err = ctx.Set(info)
 	c.Assert(err, jc.ErrorIsNil)
 	after, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(before, jc.DeepEquals, []*process.Info{other})
-	c.Check(after, jc.DeepEquals, []*process.Info{info})
+	c.Check(before, jc.DeepEquals, []process.Info{other})
+	c.Check(after, jc.DeepEquals, []process.Info{info})
 }
 
 func (s *contextSuite) TestListDefinitions(c *gc.C) {
@@ -339,13 +318,13 @@ func (s *contextSuite) TestFlushDirty(c *gc.C) {
 	info := s.newProc("A", "myplugin", "xyz123", "okay")
 
 	ctx := context.NewContext(s.apiClient)
-	err := ctx.Set(*info)
+	err := ctx.Set(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "Set")
+	s.Stub.CheckCallNames(c, "RegisterProcesses")
 }
 
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {

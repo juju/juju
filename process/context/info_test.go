@@ -143,9 +143,9 @@ func (s *infoSuite) TestInitTooManyArgs(c *gc.C) {
 }
 
 func (s *infoSuite) TestRunWithIDkay(c *gc.C) {
-	s.compCtx.procs["myprocess0/xyz123"] = &proc0
-	s.compCtx.procs["myprocess1/xyz456"] = &proc1
-	s.compCtx.procs["myprocess2/xyz789"] = &proc2
+	s.compCtx.procs["myprocess0/xyz123"] = proc0
+	s.compCtx.procs["myprocess1/xyz456"] = proc1
+	s.compCtx.procs["myprocess2/xyz789"] = proc2
 	s.init(c, "myprocess0/xyz123")
 
 	expected := `
@@ -176,9 +176,9 @@ myprocess0/xyz123:
 }
 
 func (s *infoSuite) TestRunWithoutIDOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0/xyz123"] = &proc0
-	s.compCtx.procs["myprocess1/xyz456"] = &proc1
-	s.compCtx.procs["myprocess2/xyz789"] = &proc2
+	s.compCtx.procs["myprocess0/xyz123"] = proc0
+	s.compCtx.procs["myprocess1/xyz456"] = proc1
+	s.compCtx.procs["myprocess2/xyz789"] = proc2
 	s.init(c, "")
 
 	expected := `
@@ -247,9 +247,9 @@ myprocess2/xyz789:
 }
 
 func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0/xyz123"] = &proc0
-	s.compCtx.procs["myprocess1/xyz456"] = &proc1
-	s.compCtx.procs["myprocess2/xyz789"] = &proc2
+	s.compCtx.procs["myprocess0/xyz123"] = proc0
+	s.compCtx.procs["myprocess1/xyz456"] = proc1
+	s.compCtx.procs["myprocess2/xyz789"] = proc2
 	s.init(c, "myprocess0")
 
 	expected := `
