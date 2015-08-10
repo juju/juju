@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
@@ -157,7 +158,7 @@ func NewStorageProvisioner(
 	l LifecycleManager,
 	e EnvironAccessor,
 	m MachineAccessor,
-	clock Clock,
+	clock clock.Clock,
 ) worker.Worker {
 	w := &storageprovisioner{
 		scope:       scope,
@@ -189,7 +190,7 @@ type storageprovisioner struct {
 	life        LifecycleManager
 	environ     EnvironAccessor
 	machines    MachineAccessor
-	clock       Clock
+	clock       clock.Clock
 }
 
 // Kill implements Worker.Kill().
@@ -431,7 +432,7 @@ type context struct {
 	filesystemAccessor FilesystemAccessor
 	life               LifecycleManager
 	machineAccessor    MachineAccessor
-	time               Clock
+	time               clock.Clock
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume

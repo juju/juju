@@ -20,6 +20,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -784,7 +785,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
 		return newStorageWorker(
 			scope, storageDir, api, api, api, api, api,
-			storageprovisioner.WallClock,
+			clock.WallClock,
 		), nil
 	})
 
@@ -1143,7 +1144,7 @@ func (a *MachineAgent) startEnvWorkers(
 		api := apiSt.StorageProvisioner(scope)
 		return newStorageWorker(
 			scope, "", api, api, api, api, api,
-			storageprovisioner.WallClock,
+			clock.WallClock,
 		), nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {

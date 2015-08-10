@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/leadership"
@@ -215,7 +216,7 @@ func (manager *manager) nextExpiry() <-chan time.Time {
 		return nil
 	}
 	logger.Tracef("waking to expire leases at %s", *nextExpiry)
-	return manager.config.Clock.Alarm(*nextExpiry)
+	return clock.Alarm(manager.config.Clock, *nextExpiry)
 }
 
 // expire will attempt to expire all leases that may have expired. There might

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -1126,7 +1127,7 @@ type workerArgs struct {
 	life        *mockLifecycleManager
 	environ     *mockEnvironAccessor
 	machines    *mockMachineAccessor
-	clock       storageprovisioner.Clock
+	clock       clock.Clock
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {

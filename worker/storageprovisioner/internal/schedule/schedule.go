@@ -8,32 +8,22 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 )
-
-// Clock is an interface for dealing with time, without relying directly
-// on one particular definition of time.
-type Clock interface {
-	// Now returns the current time.
-	Now() time.Time
-
-	// After waits for the duration to elapse and then sends the current
-	// time on the returned channel.
-	After(time.Duration) <-chan time.Time
-}
 
 // Schedule provides a schedule for storage operations, with the following
 // properties:
 //  - fast to add and remove items by key: O(log(n)); n is the total number of items
 //  - fast to identify/remove the next scheduled item: O(log(n))
 type Schedule struct {
-	time  Clock
+	time  clock.Clock
 	items scheduleItems
 	m     map[interface{}]*scheduleItem
 }
 
 // NewSchedule constructs a new schedule, using the given Clock for the Next
 // method.
-func NewSchedule(clock Clock) *Schedule {
+func NewSchedule(clock clock.Clock) *Schedule {
 	return &Schedule{
 		time: clock,
 		m:    make(map[interface{}]*scheduleItem),

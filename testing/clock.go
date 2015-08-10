@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Clock implements state/lease.Clock for testing purposes.
+// Clock implements a mock clock.Clock for testing purposes.
 type Clock struct {
 	mu     sync.Mutex
 	now    time.Time
@@ -21,22 +21,22 @@ func NewClock(now time.Time) *Clock {
 	return &Clock{now: now}
 }
 
-// Now is part of the lease.Clock interface.
+// Now is part of the clock.Clock interface.
 func (clock *Clock) Now() time.Time {
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
 	return clock.now
 }
 
-// Alarm is part of the lease.Clock interface.
-func (clock *Clock) Alarm(t time.Time) <-chan time.Time {
+// After is part of the clock.Clock interface.
+func (clock *Clock) After(d time.Duration) <-chan time.Time {
 	clock.mu.Lock()
 	defer clock.mu.Unlock()
 	notify := make(chan time.Time, 1)
-	if !clock.now.Before(t) {
+	if d <= 0 {
 		notify <- clock.now
 	} else {
-		clock.alarms = append(clock.alarms, alarm{t, notify})
+		clock.alarms = append(clock.alarms, alarm{clock.now.Add(d), notify})
 		sort.Sort(byTime(clock.alarms))
 	}
 	return notify
