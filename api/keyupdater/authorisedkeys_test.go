@@ -29,7 +29,7 @@ var _ = gc.Suite(&keyupdaterSuite{})
 
 func (s *keyupdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	var stateAPI *api.State
+	var stateAPI api.Connection
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	c.Assert(stateAPI, gc.NotNil)
 	s.keyupdater = stateAPI.KeyUpdater()

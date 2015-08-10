@@ -41,7 +41,7 @@ func (s *stateSuite) TestCloseMultipleOk(c *gc.C) {
 // OpenAPIWithoutLogin connects to the API and returns an api.State without
 // actually calling st.Login already. The returned strings are the "tag" and
 // "password" that we would have used to login.
-func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (*api.State, string, string) {
+func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, string, string) {
 	info := s.APIInfo(c)
 	tag := info.Tag
 	password := info.Password

@@ -32,7 +32,7 @@ var _ = gc.Suite(&loggerSuite{})
 
 func (s *loggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	var stateAPI *api.State
+	var stateAPI api.Connection
 	stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 	// Create the logger facade.
 	s.logger = stateAPI.Logger()

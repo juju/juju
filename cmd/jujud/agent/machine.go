@@ -685,7 +685,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 }
 
 func (a *MachineAgent) postUpgradeAPIWorker(
-	st *api.State,
+	st api.Connection,
 	agentConfig agent.Config,
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
@@ -859,7 +859,7 @@ func (a *MachineAgent) Restart() error {
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
-	st *api.State,
+	st api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
@@ -893,7 +893,7 @@ var shouldWriteProxyFiles = func(conf agent.Config) bool {
 
 // setupContainerSupport determines what containers can be run on this machine and
 // initialises suitable infrastructure to support such containers.
-func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
 	// LXC containers are only supported on bare metal and fully virtualized linux systems
 	// Nested LXC containers and Windows machines cannot run LXC containers
@@ -921,7 +921,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 // and a suitable provisioner is started.
 func (a *MachineAgent) updateSupportedContainers(
 	runner worker.Runner,
-	st *api.State,
+	st api.Connection,
 	machineTag string,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
@@ -1181,7 +1181,7 @@ func (a *MachineAgent) startEnvWorkers(
 
 var getFirewallMode = _getFirewallMode
 
-func _getFirewallMode(apiSt *api.State) (string, error) {
+func _getFirewallMode(apiSt api.Connection) (string, error) {
 	envConfig, err := apiSt.Environment().EnvironConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read environment config")
@@ -1626,7 +1626,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+func (a *MachineAgent) setMachineStatus(apiState api.Connection, status params.Status, info string) error {
 	tag := a.Tag().(names.MachineTag)
 	machine, err := apiState.Machiner().Machine(tag)
 	if err != nil {
@@ -1740,7 +1740,7 @@ func (c singularStateConn) Ping() error {
 	return c.session.Ping()
 }
 
-func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
+func metricAPI(st api.Connection) metricsmanager.MetricsManagerClient {
 	return metricsmanager.NewClient(st)
 }
 

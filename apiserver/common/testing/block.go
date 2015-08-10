@@ -19,13 +19,13 @@ import (
 // It provides easy access to switch blocks on
 // as well as test whether operations are blocked or not.
 type BlockHelper struct {
-	ApiState *api.State
+	ApiState api.Connection
 	client   *block.Client
 }
 
 // NewBlockHelper creates a block switch used in testing
 // to manage desired juju blocks.
-func NewBlockHelper(st *api.State) BlockHelper {
+func NewBlockHelper(st api.Connection) BlockHelper {
 	return BlockHelper{
 		ApiState: st,
 		client:   block.NewClient(st),
