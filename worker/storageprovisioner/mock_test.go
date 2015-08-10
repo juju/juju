@@ -449,9 +449,9 @@ type dummyProvider struct {
 
 	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
 	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
-	detachVolumesFunc     func([]storage.VolumeAttachmentParams) error
+	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
 	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) error
-	destroyVolumesFunc    func([]string) []error
+	destroyVolumesFunc    func([]string) ([]error, error)
 }
 
 type dummyVolumeSource struct {
@@ -489,16 +489,15 @@ func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 }
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.
-func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	paramsCopy := make([]storage.VolumeParams, len(params))
 	copy(paramsCopy, params)
 	s.createVolumesArgs = append(s.createVolumesArgs, paramsCopy)
 
-	var volumes []storage.Volume
-	var volumeAttachments []storage.VolumeAttachment
-	for _, p := range params {
+	results := make([]storage.CreateVolumesResult, len(params))
+	for i, p := range params {
 		persistent, _ := p.Attributes["persistent"].(bool)
-		volumes = append(volumes, storage.Volume{
+		results[i].Volume = &storage.Volume{
 			p.Tag,
 			storage.VolumeInfo{
 				Size:       p.Size,
@@ -506,47 +505,47 @@ func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]stor
 				VolumeId:   "id-" + p.Tag.Id(),
 				Persistent: persistent,
 			},
-		})
+		}
 	}
-	return volumes, volumeAttachments, nil
+	return results, nil
 }
 
 // DestroyVolumes destroys volumes.
-func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) []error {
+func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
 	if s.provider.destroyVolumesFunc != nil {
 		return s.provider.destroyVolumesFunc(volumeIds)
 	}
-	return make([]error, len(volumeIds))
+	return make([]error, len(volumeIds)), nil
 }
 
 // AttachVolumes attaches volumes to machines.
-func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
-	var volumeAttachments []storage.VolumeAttachment
-	for _, p := range params {
+func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+	results := make([]storage.AttachVolumesResult, len(params))
+	for i, p := range params {
 		if p.VolumeId == "" {
 			panic("AttachVolumes called with unprovisioned volume")
 		}
 		if p.InstanceId == "" {
 			panic("AttachVolumes called with unprovisioned machine")
 		}
-		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
+		results[i].VolumeAttachment = &storage.VolumeAttachment{
 			p.Volume,
 			p.Machine,
 			storage.VolumeAttachmentInfo{
 				DeviceName: "/dev/sda" + p.Volume.Id(),
 				ReadOnly:   p.ReadOnly,
 			},
-		})
+		}
 	}
-	return volumeAttachments, nil
+	return results, nil
 }
 
 // DetachVolumes detaches volumes from machines.
-func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) error {
+func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) ([]error, error) {
 	if s.provider.detachVolumesFunc != nil {
 		return s.provider.detachVolumesFunc(params)
 	}
-	return nil
+	return make([]error, len(params)), nil
 }
 
 func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {

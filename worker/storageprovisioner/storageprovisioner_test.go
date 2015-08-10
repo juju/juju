@@ -666,12 +666,12 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 	}
 
 	detached := make(chan interface{})
-	s.provider.detachVolumesFunc = func(args []storage.VolumeAttachmentParams) error {
+	s.provider.detachVolumesFunc = func(args []storage.VolumeAttachmentParams) ([]error, error) {
 		c.Assert(args, gc.HasLen, 1)
 		c.Assert(args[0].Machine.String(), gc.Equals, expectedAttachmentIds[0].MachineTag)
 		c.Assert(args[0].Volume.String(), gc.Equals, expectedAttachmentIds[0].AttachmentTag)
 		defer close(detached)
-		return nil
+		return make([]error, len(args)), nil
 	}
 
 	removed := make(chan interface{})
@@ -834,9 +834,9 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 	}
 
 	destroyedChan := make(chan interface{}, 1)
-	s.provider.destroyVolumesFunc = func(volumeIds []string) []error {
+	s.provider.destroyVolumesFunc = func(volumeIds []string) ([]error, error) {
 		destroyedChan <- volumeIds
-		return make([]error, len(volumeIds))
+		return make([]error, len(volumeIds)), nil
 	}
 
 	removedChan := make(chan interface{}, 1)
