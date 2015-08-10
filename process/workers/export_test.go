@@ -7,6 +7,6 @@ import (
 	"github.com/juju/juju/process"
 )
 
-func ExposeChannel(events *EventHandler) chan []process.Event {
+func ExposeChannel(events *EventHandlers) chan []process.Event {
 	return events.events
 }

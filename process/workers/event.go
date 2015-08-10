@@ -10,42 +10,42 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// EventHandler orchestrates handling of events on workload processes.
-type EventHandler struct {
+// EventHandlers orchestrates handling of events on workload processes.
+type EventHandlers struct {
 	events   chan []process.Event
 	handlers []func([]process.Event) error
 }
 
-// NewEventHandler wraps a new EventHandler around the provided channel.
-func NewEventHandler() *EventHandler {
-	eh := &EventHandler{
+// NewEventHandlers wraps a new EventHandler around the provided channel.
+func NewEventHandlers() *EventHandlers {
+	eh := &EventHandlers{
 		events: make(chan []process.Event), // TODO(ericsnow) Set a size?
 	}
 	return eh
 }
 
 // Close cleans up the handler's resources.
-func (eh *EventHandler) Close() {
+func (eh *EventHandlers) Close() {
 	close(eh.events)
 }
 
 // RegisterHandler adds a handler to the list of handlers used when new
 // events are processed.
-func (eh *EventHandler) RegisterHandler(handler func([]process.Event) error) {
+func (eh *EventHandlers) RegisterHandler(handler func([]process.Event) error) {
 	eh.handlers = append(eh.handlers, handler)
 }
 
 // AddEvents adds events to the list of events to be handled.
-func (eh *EventHandler) AddEvents(events ...process.Event) {
+func (eh *EventHandlers) AddEvents(events ...process.Event) {
 	eh.events <- events
 }
 
 // NewWorker wraps the EventHandler in a worker.
-func (eh *EventHandler) NewWorker() (worker.Worker, error) {
+func (eh *EventHandlers) NewWorker() (worker.Worker, error) {
 	return worker.NewSimpleWorker(eh.loop), nil
 }
 
-func (eh *EventHandler) handle(events []process.Event) error {
+func (eh *EventHandlers) handle(events []process.Event) error {
 	for _, handleEvents := range eh.handlers {
 		if err := handleEvents(events); err != nil {
 			return errors.Trace(err)
@@ -54,7 +54,7 @@ func (eh *EventHandler) handle(events []process.Event) error {
 	return nil
 }
 
-func (eh *EventHandler) loop(stopCh <-chan struct{}) error {
+func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 	done := false
 	for !done {
 		select {

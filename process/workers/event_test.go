@@ -19,7 +19,7 @@ type eventHandlerSuite struct {
 var _ = gc.Suite(&eventHandlerSuite{})
 
 func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
-	eh := workers.NewEventHandler()
+	eh := workers.NewEventHandlers()
 	defer eh.Close()
 
 	// TODO(ericsnow) This test is rather weak.
@@ -27,7 +27,7 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
-	eh := workers.NewEventHandler()
+	eh := workers.NewEventHandlers()
 	defer eh.Close()
 	handler := func([]process.Event) error { return nil }
 	eh.RegisterHandler(handler)
@@ -41,7 +41,7 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 		ID:   "spam/eggs",
 	}}
 	//eventsCh := make(chan []process.Event, 2)
-	eh := workers.NewEventHandler()
+	eh := workers.NewEventHandlers()
 	go func() {
 		eh.AddEvents(events...)
 		eh.Close()
@@ -59,7 +59,7 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 		Kind: process.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
-	eh := workers.NewEventHandler()
+	eh := workers.NewEventHandlers()
 	var handled [][]process.Event
 	handler := func(events []process.Event) error {
 		handled = append(handled, events)

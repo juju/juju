@@ -143,8 +143,8 @@ func (workloadProcesses) registerHookContextCommands() {
 	})
 }
 
-func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandler {
-	unitEventHandlers := make(map[string]*workers.EventHandler)
+func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
+	unitEventHandlers := make(map[string]*workers.EventHandlers)
 
 	handlerFuncs := []func([]process.Event) error{
 	// Add to-be-registered handlers here.
@@ -158,7 +158,7 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandler {
 			unitHandler.Close()
 		}
 
-		unitHandler := workers.NewEventHandler()
+		unitHandler := workers.NewEventHandlers()
 		for _, handlerFunc := range handlerFuncs {
 			unitHandler.RegisterHandler(handlerFunc)
 		}
