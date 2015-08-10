@@ -280,18 +280,18 @@ var preferredStreamTests = []struct {
 	expected:       "released",
 }, {
 	currentVers:    "1.22.0",
-	streamInConfig: "testing",
-	expected:       "testing",
+	streamInConfig: "devel",
+	expected:       "devel",
 }, {
 	currentVers: "1.22.0",
 	expected:    "released",
 }, {
 	currentVers: "1.22-beta1",
-	expected:    "testing",
+	expected:    "devel",
 }, {
 	currentVers:    "1.22-beta1",
 	streamInConfig: "released",
-	expected:       "testing",
+	expected:       "devel",
 }, {
 	currentVers:    "1.22-beta1",
 	streamInConfig: "devel",
@@ -299,11 +299,11 @@ var preferredStreamTests = []struct {
 }, {
 	currentVers: "1.22.0",
 	forceDevel:  true,
-	expected:    "testing",
+	expected:    "devel",
 }, {
 	currentVers:  "1.22.0",
 	explicitVers: "1.22-beta1",
-	expected:     "testing",
+	expected:     "devel",
 }, {
 	currentVers:  "1.22-bta1",
 	explicitVers: "1.22.0",

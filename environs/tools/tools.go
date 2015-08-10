@@ -209,14 +209,19 @@ func convertToolsError(err *error) {
 // PreferredStream returns the tools stream used to search for tools, based
 // on the required version, whether devel mode is required, and any user specified stream.
 func PreferredStream(vers *version.Number, forceDevel bool, stream string) string {
+	// If the use has already nominated a specific stream, we'll use that.
 	if stream != "" && stream != ReleasedStream {
 		return stream
 	}
+	// If we're not upgrading from a known version, we use the
+	// currently running version.
 	if vers == nil {
 		vers = &version.Current.Number
 	}
+	// Devel versions are alpha or beta etc as defined by the version tag.
+	// The user can also force the use of devel streams via config.
 	if forceDevel || vers.IsDev() {
-		return TestingStream
+		return DevelStream
 	}
 	return ReleasedStream
 }

@@ -310,7 +310,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	}
 	stream := "released"
 	if toolsVersion != nil && toolsVersion.Tag != "" {
-		stream = "testing"
+		stream = "devel"
 		currentVersion.Tag = toolsVersion.Tag
 	}
 	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, stream, toolsBinaries...)

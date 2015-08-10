@@ -224,7 +224,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		c.Assert(filter.Series, gc.Equals, version.Current.Series)
 		c.Assert(filter.Arch, gc.Equals, version.Current.Arch)
 		if develVersion {
-			c.Assert(stream, gc.Equals, "testing")
+			c.Assert(stream, gc.Equals, "devel")
 		} else {
 			c.Assert(stream, gc.Equals, "released")
 		}
