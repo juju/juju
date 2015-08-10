@@ -49,6 +49,7 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"win7",
 		"win8",
 		"win81",
+		"win10",
 	}
 	series := version.SupportedSeries()
 	sort.Strings(series)
