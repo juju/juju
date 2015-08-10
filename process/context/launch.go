@@ -8,9 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/plugin"
-	"gopkg.in/juju/charm.v5"
 )
 
 // LaunchCommandInfo is the info for the proc-launch command.
@@ -24,14 +21,8 @@ The process name must correspond to one of the processes defined in
 the charm's metadata.yaml.`,
 }
 
-// FindPluginFn will find a plugin given its name.
-type FindPluginFn func(string) (*plugin.Plugin, error)
-
-// LaunchPluginFn will launch a plugin given a plugin and a process definition.
-type LaunchPluginFn func(plugin.Plugin, charm.Process) (process.Details, error)
-
 // NewProcLaunchCommand constructs a new ProcLaunchCommand.
-func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, ctx HookContext) (*ProcLaunchCommand, error) {
+func NewProcLaunchCommand(ctx HookContext) (*ProcLaunchCommand, error) {
 
 	base, err := newRegisteringCommand(ctx)
 	if err != nil {
@@ -40,8 +31,6 @@ func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, 
 
 	c := &ProcLaunchCommand{
 		registeringCommand: *base,
-		findPlugin:         findPlugin,
-		launchPlugin:       launchPlugin,
 	}
 	c.cmdInfo = LaunchCommandInfo
 	c.handleArgs = c.init
@@ -52,9 +41,6 @@ func NewProcLaunchCommand(findPlugin FindPluginFn, launchPlugin LaunchPluginFn, 
 // workflow processes.
 type ProcLaunchCommand struct {
 	registeringCommand
-
-	findPlugin   FindPluginFn
-	launchPlugin LaunchPluginFn
 }
 
 // Run implements cmd.Command.
@@ -69,22 +55,23 @@ func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Move the plugin lookup over to a method in baseCommand.
+	// TODO(ericsnow) Move OS env info into the plugin.
 	// TODO(ericsnow) Fix this to support Windows.
 	envPath := ctx.Getenv("PATH") + ":" + os.Getenv("PATH")
 	if err := os.Setenv("PATH", envPath); err != nil {
 		return errors.Trace(err)
 	}
-	plugin, err := c.findPlugin(info.Type)
+
+	plugin, err := c.compCtx.Plugin(info)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// The plugin is responsible for validating that the launch was
 	// successful and returning an err if not. If err is not set, we
 	// assume success, and that the procDetails are for informational
 	// purposes.
-	procDetails, err := c.launchPlugin(*plugin, info.Process)
+	procDetails, err := plugin.Launch(info.Process)
 	if err != nil {
 		return errors.Trace(err)
 	}

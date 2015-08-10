@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/process/plugin"
 )
 
 var logger = loggo.GetLogger("juju.process.context")
@@ -36,6 +37,8 @@ type APIClient interface {
 
 // omponent provides the hook context data specific to workload processes.
 type Component interface {
+	// Plugin returns the plugin to use for the given proc.
+	Plugin(info *process.Info) (process.Plugin, error)
 	// Get returns the process info corresponding to the given ID.
 	Get(id string) (*process.Info, error)
 	// Set records the process info in the hook context.
@@ -56,9 +59,12 @@ var _ Component = (*Context)(nil)
 type Context struct {
 	api       APIClient
 	addEvents func(...process.Event)
+	plugin    process.Plugin
 	processes map[string]process.Info
 	updates   map[string]process.Info
 	removes   map[string]struct{}
+
+	findPlugin func(string) (process.Plugin, error)
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
@@ -69,6 +75,9 @@ func NewContext(api APIClient, addEvents func(...process.Event)) *Context {
 		processes: make(map[string]process.Info),
 		updates:   make(map[string]process.Info),
 		removes:   make(map[string]struct{}),
+		findPlugin: func(ptype string) (process.Plugin, error) {
+			return plugin.Find(ptype)
+		},
 	}
 }
 
@@ -106,6 +115,19 @@ func ContextComponent(ctx HookContext) (Component, error) {
 		return nil, errors.Errorf("component %q disabled", process.ComponentName)
 	}
 	return compCtx, nil
+}
+
+// Plugin returns the plugin to use in this context.
+func (c *Context) Plugin(info *process.Info) (process.Plugin, error) {
+	if c.plugin != nil {
+		return c.plugin, nil
+	}
+
+	plugin, err := c.findPlugin(info.Type)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return plugin, nil
 }
 
 // TODO(ericsnow) Should we build in refreshes in all the methods?
