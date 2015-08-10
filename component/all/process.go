@@ -175,31 +175,18 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 		}
 		unitEventHandlers[unit] = unitHandler
 
-		// Pull all existing from State (via API) and add an event for each.
 		apiClient := c.newHookContextAPIClient(caller)
 		hctx, err := context.NewContextAPI(apiClient, unitHandler.AddEvents)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		procs, err := apiClient.ListProcesses()
+
+		// Pull all existing from State (via API) and add an event for each.
+		events, err := c.initialEvents(hctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var plugins []process.Plugin
-		for _, proc := range procs {
-			plugin, err := hctx.Plugin(&proc)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			plugins = append(plugins, plugin)
-		}
-		for i, proc := range procs {
-			unitHandler.AddEvents(process.Event{
-				Kind:   process.EventKindTracked,
-				ID:     proc.ID(),
-				Plugin: plugins[i],
-			})
-		}
+		unitHandler.AddEvents(events...)
 
 		// TODO(ericsnow) Handlers need ability to start or stop workers.
 		// TODO(ericsnow) Handlers need ability to make API calls.
@@ -214,6 +201,32 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 	}
 
 	return unitEventHandlers
+}
+
+func (workloadProcesses) initialEvents(hctx context.Component) ([]process.Event, error) {
+	ids, err := hctx.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var events []process.Event
+	for _, id := range ids {
+		proc, err := hctx.Get(id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		plugin, err := hctx.Plugin(proc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		events = append(events, process.Event{
+			Kind:   process.EventKindTracked,
+			ID:     proc.ID(),
+			Plugin: plugin,
+		})
+	}
+	return events, nil
 }
 
 func (workloadProcesses) registerState() {
