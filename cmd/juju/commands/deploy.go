@@ -310,8 +310,11 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	err = registerMeteredCharm(c.RegisterURL, state, csClient.jar, curl.String(), serviceName, client.EnvironmentUUID())
-	if err != nil {
-		return err
+	if params.IsCodeNotImplemented(err) {
+		// The state server is too old to support metering.  Warn
+		// the user, but don't return an error.
+		logger.Warningf("current state server version does not support charm metering")
+		return nil
 	}
 
 	return block.ProcessBlockedError(err, block.BlockChange)

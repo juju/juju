@@ -48,7 +48,7 @@ type APICredentials struct {
 	Password string
 }
 
-// Storage stores environment configuration data.
+// Storage stores environment and server configuration data.
 type Storage interface {
 	// ReadInfo reads information associated with
 	// the environment with the given name.
@@ -63,6 +63,10 @@ type Storage interface {
 	// List returns a slice of existing environment names that the Storage
 	// knows about.
 	List() ([]string, error)
+
+	// ListSystems returns a slice of existing server names that the Storage
+	// knows about.
+	ListSystems() ([]string, error)
 }
 
 // EnvironInfo holds information associated with an environment.

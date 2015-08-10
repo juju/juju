@@ -77,14 +77,11 @@ type volumeAttachment struct {
 
 // volumeDoc records information about a volume in the environment.
 type volumeDoc struct {
-	DocID     string `bson:"_id"`
-	Name      string `bson:"name"`
-	EnvUUID   string `bson:"env-uuid"`
-	Life      Life   `bson:"life"`
-	StorageId string `bson:"storageid,omitempty"`
-	// TODO(axw) 2015-06-22 #1467379
-	// upgrade step to set "attachmentcount" and "binding"
-	// for 1.24 environments.
+	DocID           string        `bson:"_id"`
+	Name            string        `bson:"name"`
+	EnvUUID         string        `bson:"env-uuid"`
+	Life            Life          `bson:"life"`
+	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
 	Binding         string        `bson:"binding,omitempty"`
 	Info            *VolumeInfo   `bson:"info,omitempty"`

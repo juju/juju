@@ -53,6 +53,10 @@ type Factory interface {
 // for a jujuc.Context.
 type StorageContextAccessor interface {
 
+	// StorageTags returns the tags of storage instances attached to
+	// the unit.
+	StorageTags() []names.StorageTag
+
 	// Storage returns the jujuc.ContextStorageAttachment with the
 	// supplied tag if it was found, and whether it was found.
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, bool)

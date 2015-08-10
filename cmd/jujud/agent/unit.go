@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -233,7 +234,7 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 			hookLock,
 			uniter.NewMetricsTimerChooser(),
 			uniter.NewUpdateStatusTimer(),
-			nil,
+			operation.NewExecutor,
 		}
 		return uniter.NewUniter(&uniterParams), nil
 	})

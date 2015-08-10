@@ -43,6 +43,9 @@ var getOSFromSeriesTests = []struct {
 	series: "centos7",
 	want:   version.CentOS,
 }, {
+	series: "arch",
+	want:   version.Arch,
+}, {
 	series: "",
 	err:    "series \"\" not valid",
 },
@@ -73,6 +76,7 @@ func (s *supportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {
 		"win7":    "win7",
 		"win81":   "win81",
 		"centos7": "centos7",
+		"arch":    "rolling",
 	})
 	series := version.OSSupportedSeries(version.Ubuntu)
 	c.Assert(series, jc.SameContents, []string{"trusty", "utopic"})
@@ -80,4 +84,6 @@ func (s *supportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {
 	c.Assert(series, jc.SameContents, []string{"win7", "win81"})
 	series = version.OSSupportedSeries(version.CentOS)
 	c.Assert(series, jc.SameContents, []string{"centos7"})
+	series = version.OSSupportedSeries(version.Arch)
+	c.Assert(series, jc.SameContents, []string{"arch"})
 }

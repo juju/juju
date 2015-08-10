@@ -18,9 +18,9 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.apiserver.metricsmanager")
-	maxBatchesPerSend = 1000
+	maxBatchesPerSend = metricsender.DefaultMaxBatchesPerSend()
 
-	sender metricsender.MetricSender = &metricsender.NopSender{}
+	sender = metricsender.DefaultMetricSender()
 )
 
 func init() {

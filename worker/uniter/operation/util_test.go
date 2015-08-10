@@ -415,7 +415,7 @@ func NewRunActionRunnerFactory(runErr error) *MockRunnerFactory {
 			runner: &MockRunner{
 				MockRunAction: &MockRunAction{err: runErr},
 				context: &MockContext{
-					actionData: &runner.ActionData{ActionName: "some-action-name"},
+					actionData: &runner.ActionData{Name: "some-action-name"},
 				},
 			},
 		},

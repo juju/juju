@@ -27,7 +27,7 @@ type metricRegistrationPost struct {
 	ServiceName     string `json:"service-name"`
 }
 
-func registerMeteredCharm(registrationURL string, state *api.State, jar *cookiejar.Jar, charmURL string, serviceName, environmentUUID string) error {
+var registerMeteredCharm = func(registrationURL string, state *api.State, jar *cookiejar.Jar, charmURL string, serviceName, environmentUUID string) error {
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(charmURL)

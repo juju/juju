@@ -1,24 +1,41 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client
+package common
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
+var sendMetrics = func(st *state.State) error {
+	err := metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), metricsender.DefaultMaxBatchesPerSend())
+	return errors.Trace(err)
+}
+
 // DestroyEnvironment destroys all services and non-manager machine
-// instances in the environment.
-func (c *Client) DestroyEnvironment() (err error) {
-	if err = c.check.DestroyAllowed(); err != nil {
+// instances in the specified environment. This function assumes that all
+// necessary authentication checks have been done.
+func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
+	var err error
+	if environTag != st.EnvironTag() {
+		if st, err = st.ForEnviron(environTag); err != nil {
+			return errors.Trace(err)
+		}
+		defer st.Close()
+	}
+
+	check := NewBlockChecker(st)
+	if err = check.DestroyAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 
-	env, err := c.api.state.Environment()
+	env, err := st.Environment()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -27,9 +44,14 @@ func (c *Client) DestroyEnvironment() (err error) {
 		return errors.Trace(err)
 	}
 
-	machines, err := c.api.state.AllMachines()
+	machines, err := st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	err = sendMetrics(st)
+	if err != nil {
+		logger.Warningf("failed to send leftover metrics: %v", err)
 	}
 
 	// We must destroy instances server-side to support JES (Juju Environment
@@ -37,14 +59,14 @@ func (c *Client) DestroyEnvironment() (err error) {
 	// destroy non-state machines; we leave destroying state servers in non-
 	// hosted environments to the CLI, as otherwise the API server may get cut
 	// off.
-	if err := destroyInstances(c.api.state, machines); err != nil {
+	if err := destroyNonManagerMachines(st, machines); err != nil {
 		return errors.Trace(err)
 	}
 
 	// If this is not the state server environment, remove all documents from
 	// state associated with the environment.
-	if env.UUID() != env.ServerTag().Id() {
-		return errors.Trace(c.api.state.RemoveAllEnvironDocs())
+	if env.EnvironTag() != env.ServerTag() {
+		return errors.Trace(st.RemoveAllEnvironDocs())
 	}
 
 	// Return to the caller. If it's the CLI, it will finish up
@@ -54,9 +76,9 @@ func (c *Client) DestroyEnvironment() (err error) {
 	return nil
 }
 
-// destroyInstances directly destroys all non-manager,
-// non-manual machine instances.
-func destroyInstances(st *state.State, machines []*state.Machine) error {
+// destroyNonManagerMachines directly destroys all non-manager, non-manual
+// machine instances.
+func destroyNonManagerMachines(st *state.State, machines []*state.Machine) error {
 	var ids []instance.Id
 	for _, m := range machines {
 		if m.IsManager() {
@@ -66,11 +88,13 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 			continue
 		}
 		manual, err := m.IsManual()
-		if manual {
-			continue
-		} else if err != nil {
+		if err != nil {
 			return err
+		} else if manual {
+			continue
 		}
+		// There is a possible race here if a machine is being
+		// provisioned, but hasn't yet come up.
 		id, err := m.InstanceId()
 		if err != nil {
 			continue

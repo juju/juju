@@ -4,8 +4,6 @@
 package environmentmanager
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -53,7 +51,7 @@ func (c *Client) ConfigSkeleton(provider, region string) (params.EnvironConfig, 
 func (c *Client) CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error) {
 	var result params.Environment
 	if !names.IsValidUser(owner) {
-		return result, fmt.Errorf("invalid owner name %q", owner)
+		return result, errors.Errorf("invalid owner name %q", owner)
 	}
 	createArgs := params.EnvironmentCreateArgs{
 		OwnerTag: names.NewUserTag(owner).String(),
@@ -72,15 +70,28 @@ func (c *Client) CreateEnvironment(owner string, account, config map[string]inte
 // has access to in the current server.  Only that state server owner
 // can list environments for any user (at this stage).  Other users
 // can only ask about their own environments.
-func (c *Client) ListEnvironments(user string) ([]params.Environment, error) {
-	var result params.EnvironmentList
+func (c *Client) ListEnvironments(user string) ([]base.UserEnvironment, error) {
+	var environments params.UserEnvironmentList
 	if !names.IsValidUser(user) {
-		return nil, fmt.Errorf("invalid user name %q", user)
+		return nil, errors.Errorf("invalid user name %q", user)
 	}
 	entity := params.Entity{names.NewUserTag(user).String()}
-	err := c.facade.FacadeCall("ListEnvironments", entity, &result)
+	err := c.facade.FacadeCall("ListEnvironments", entity, &environments)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return result.Environments, nil
+	result := make([]base.UserEnvironment, len(environments.UserEnvironments))
+	for i, env := range environments.UserEnvironments {
+		owner, err := names.ParseUserTag(env.OwnerTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", env.OwnerTag, i)
+		}
+		result[i] = base.UserEnvironment{
+			Name:           env.Name,
+			UUID:           env.UUID,
+			Owner:          owner.Username(),
+			LastConnection: env.LastConnection,
+		}
+	}
+	return result, nil
 }

@@ -11,6 +11,7 @@ var (
 	WrapNewFacade        = wrapNewFacade
 	NilFacadeRecord      = facadeRecord{}
 	EnvtoolsFindTools    = &envtoolsFindTools
+	SendMetrics          = &sendMetrics
 )
 
 type Patcher interface {
