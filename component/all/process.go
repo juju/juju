@@ -56,8 +56,7 @@ func (c workloadProcesses) registerHookContext(handlers map[string]*workers.Even
 			if unitEventHandler, ok := handlers[unit]; ok {
 				addEvents = unitEventHandler.AddEvents
 			}
-			facadeCaller := base.NewFacadeCallerForVersion(caller, process.ComponentName, 0)
-			hctxClient := client.NewHookContextClient(facadeCaller)
+			hctxClient := c.newHookContextAPIClient(caller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			component, err := context.NewContextAPI(hctxClient, addEvents)
 			if err != nil {
@@ -69,6 +68,11 @@ func (c workloadProcesses) registerHookContext(handlers map[string]*workers.Even
 
 	c.registerHookContextCommands()
 	c.registerHookContextFacade()
+}
+
+func (c workloadProcesses) newHookContextAPIClient(caller base.APICaller) context.APIClient {
+	facadeCaller := base.NewFacadeCallerForVersion(caller, process.ComponentName, 0)
+	return client.NewHookContextClient(facadeCaller)
 }
 
 func (workloadProcesses) registerHookContextFacade() {
