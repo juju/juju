@@ -71,7 +71,6 @@ type Info struct {
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a state server.
 type DialOpts struct {
-
 	// DialAddressInterval is the amount of time to wait
 	// before starting to dial another address.
 	DialAddressInterval time.Duration
