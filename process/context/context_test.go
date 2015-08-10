@@ -28,13 +28,13 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.apiClient = newStubAPIClient(s.Stub)
-	s.compCtx = context.NewContext(s.apiClient)
+	s.compCtx = context.NewContext(s.apiClient, s.addEvents)
 
 	context.AddProcs(s.compCtx, s.proc)
 }
 
 func (s *contextSuite) newContext(c *gc.C, procs ...process.Info) *context.Context {
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	for _, proc := range procs {
 		c.Logf("adding proc: %s", proc.ID())
 		context.AddProc(ctx, proc.ID(), proc)
@@ -42,8 +42,13 @@ func (s *contextSuite) newContext(c *gc.C, procs ...process.Info) *context.Conte
 	return ctx
 }
 
+func (s *contextSuite) addEvents(events ...process.Event) {
+	s.Stub.AddCall("addEvents", events)
+	s.Stub.NextErr()
+}
+
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -75,7 +80,7 @@ func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
 func (s *contextSuite) TestNewContextAPIOkay(c *gc.C) {
 	expected := s.apiClient.setNew("A/xyx123")
 
-	ctx, err := context.NewContextAPI(s.apiClient)
+	ctx, err := context.NewContextAPI(s.apiClient, s.addEvents)
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err := ctx.Processes()
@@ -87,14 +92,14 @@ func (s *contextSuite) TestNewContextAPIOkay(c *gc.C) {
 func (s *contextSuite) TestNewContextAPICalls(c *gc.C) {
 	s.apiClient.setNew("A/xyz123")
 
-	_, err := context.NewContextAPI(s.apiClient)
+	_, err := context.NewContextAPI(s.apiClient, s.addEvents)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "ListProcesses")
 }
 
 func (s *contextSuite) TestNewContextAPIEmpty(c *gc.C) {
-	ctx, err := context.NewContextAPI(s.apiClient)
+	ctx, err := context.NewContextAPI(s.apiClient, s.addEvents)
 	c.Assert(err, jc.ErrorIsNil)
 
 	procs, err := ctx.Processes()
@@ -107,7 +112,7 @@ func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
 	expected := errors.Errorf("<failed>")
 	s.Stub.SetErrors(expected)
 
-	_, err := context.NewContextAPI(s.apiClient)
+	_, err := context.NewContextAPI(s.apiClient, s.addEvents)
 
 	c.Check(errors.Cause(err), gc.Equals, expected)
 	s.Stub.CheckCallNames(c, "ListProcesses")
@@ -115,7 +120,7 @@ func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
 
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
 	hctx, info := s.NewHookContext()
-	expected := context.NewContext(s.apiClient)
+	expected := context.NewContext(s.apiClient, s.addEvents)
 	info.SetComponent(process.ComponentName, expected)
 
 	compCtx, err := context.ContextComponent(hctx)
@@ -173,7 +178,7 @@ func (s *contextSuite) TestProcessesOkay(c *gc.C) {
 func (s *contextSuite) TestProcessesAPI(c *gc.C) {
 	expected := s.apiClient.setNew("A/spam", "B/eggs", "C/ham")
 
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	context.AddProc(ctx, "A/spam", s.apiClient.procs["A/spam"])
 	context.AddProc(ctx, "B/eggs", s.apiClient.procs["B/eggs"])
 	context.AddProc(ctx, "C/ham", s.apiClient.procs["C/ham"])
@@ -186,7 +191,7 @@ func (s *contextSuite) TestProcessesAPI(c *gc.C) {
 }
 
 func (s *contextSuite) TestProcessesEmpty(c *gc.C) {
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	procs, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -218,7 +223,7 @@ func (s *contextSuite) TestProcessesOverrides(c *gc.C) {
 	infoC := s.newProc("C", "myplugin", "xyz789", "okay")
 	expected = append(expected[:1], infoB, infoC)
 
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	context.AddProc(ctx, "A/xyz123", s.apiClient.procs["A/xyz123"])
 	context.AddProc(ctx, "B/xyz456", infoB)
 	ctx.Set(infoB)
@@ -262,7 +267,7 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 }
 
 func (s *contextSuite) TestGetNotFound(c *gc.C) {
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	_, err := ctx.Get("A/spam")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -270,7 +275,7 @@ func (s *contextSuite) TestGetNotFound(c *gc.C) {
 
 func (s *contextSuite) TestSetOkay(c *gc.C) {
 	info := s.newProc("A", "myplugin", "spam", "okay")
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	before, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.Set(info)
@@ -303,7 +308,7 @@ func (s *contextSuite) TestListDefinitions(c *gc.C) {
 		Type: "myplugin",
 	}
 	s.apiClient.definitions["procA"] = definition
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 
 	definitions, err := ctx.ListDefinitions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,7 +322,7 @@ func (s *contextSuite) TestListDefinitions(c *gc.C) {
 func (s *contextSuite) TestFlushDirty(c *gc.C) {
 	info := s.newProc("A", "myplugin", "xyz123", "okay")
 
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	err := ctx.Set(info)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -338,7 +343,7 @@ func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 }
 
 func (s *contextSuite) TestFlushEmpty(c *gc.C) {
-	ctx := context.NewContext(s.apiClient)
+	ctx := context.NewContext(s.apiClient, s.addEvents)
 	err := ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 

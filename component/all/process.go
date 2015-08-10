@@ -34,8 +34,8 @@ type workloadProcesses struct{}
 
 func (c workloadProcesses) registerForServer() error {
 	c.registerState()
-	c.registerWorkers()
-	c.registerHookContext()
+	handlers := c.registerWorkers()
+	c.registerHookContext(handlers)
 	c.registerUnitStatus()
 	return nil
 }
@@ -45,17 +45,22 @@ func (workloadProcesses) registerForClient() error {
 	return nil
 }
 
-func (c workloadProcesses) registerHookContext() {
+func (c workloadProcesses) registerHookContext(handlers map[string]*workers.EventHandlers) {
 	if !markRegistered(process.ComponentName, "hook-context") {
 		return
 	}
 
 	runner.RegisterComponentFunc(process.ComponentName,
 		func(caller base.APICaller) (jujuc.ContextComponent, error) {
+			var unit string // TODO(ericsnow) Pass in an arg?
+			var addEvents func(...process.Event)
+			if unitEventHandler, ok := handlers[unit]; ok {
+				addEvents = unitEventHandler.AddEvents
+			}
 			facadeCaller := base.NewFacadeCallerForVersion(caller, process.ComponentName, 0)
 			hctxClient := client.NewHookContextClient(facadeCaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
-			component, err := context.NewContextAPI(hctxClient)
+			component, err := context.NewContextAPI(hctxClient, addEvents)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -144,6 +149,9 @@ func (workloadProcesses) registerHookContextCommands() {
 }
 
 func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
+	if !markRegistered(process.ComponentName, "workers") {
+		return nil
+	}
 	unitEventHandlers := make(map[string]*workers.EventHandlers)
 
 	handlerFuncs := []func([]process.Event) error{
