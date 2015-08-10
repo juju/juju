@@ -1153,16 +1153,16 @@ func (a *MachineAgent) startEnvWorkers(
 
 	// Addresser Worker needs a networking environment. Check
 	// first before starting the worker.
-	isNetEnv, err := getNetworkingEnvironment(apiSt)
+	isNetEnv, err := isNetworkingEnvironment(apiSt)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot check networking environment")
+		return nil, errors.Annotate(err, "checking environment networking support")
 	}
 	if isNetEnv {
 		singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
 			return newAddresser(apiSt.Addresser())
 		})
 	} else {
-		logger.Debugf("not starting addresser worker, is no networking environment")
+		logger.Debugf("address deallocation not supported: not starting addresser worker")
 	}
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
@@ -1183,7 +1183,7 @@ func (a *MachineAgent) startEnvWorkers(
 	return runner, nil
 }
 
-func getNetworkingEnvironment(apiSt *api.State) (bool, error) {
+func isNetworkingEnvironment(apiSt *api.State) (bool, error) {
 	envConfig, err := apiSt.Environment().EnvironConfig()
 	if err != nil {
 		return false, errors.Annotate(err, "cannot read environment config")

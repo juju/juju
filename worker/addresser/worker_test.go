@@ -138,8 +138,10 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 
 	opsChan := dummyListen()
 
-	_, stop := s.newWorker(c)
-	defer stop()
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
+
 	s.waitForInitialDead(c)
 
 	op1 := waitForReleaseOp(c, opsChan)
@@ -154,8 +156,10 @@ func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
-	_, stop := s.newWorker(c)
-	defer stop()
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
+
 	s.waitForInitialDead(c)
 
 	// Add a new alive address.
@@ -174,8 +178,10 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
-	_, stop := s.newWorker(c)
-	defer stop()
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
+
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
@@ -201,8 +207,10 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 }
 
 func (s *workerSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
-	_, stop := s.newWorker(c)
-	defer stop()
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
+
 	s.waitForInitialDead(c)
 
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
@@ -217,7 +225,7 @@ func (s *workerSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
 
-	// Makre ReleaseAddress work again, it must be cleaned up then.
+	// Make ReleaseAddress work again, it must be cleaned up then.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
 	for a := common.ShortAttempt.Start(); a.Next(); {
@@ -232,8 +240,10 @@ func (s *workerSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
 }
 
 func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
-	_, stop := s.newWorker(c)
-	defer stop()
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
+
 	s.waitForInitialDead(c)
 	opsChan := dummyListen()
 
@@ -251,7 +261,7 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.InstanceId(), gc.Equals, instance.Id("foo"))
 
-	// Wait some time and remove test machine again.
+	// Ensure the alive address is not changed.
 	for a := common.ShortAttempt.Start(); a.Next(); {
 		err = ipAddr.Refresh()
 		c.Assert(err, jc.ErrorIsNil)
@@ -281,15 +291,6 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 			c.Fatalf("IP address not removed")
 		}
 	}
-}
-
-func (s *workerSuite) newWorker(c *gc.C) (worker.Worker, func()) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	stop := func() {
-		worker.Stop(w)
-	}
-	return w, stop
 }
 
 type workerDisabledSuite struct {
@@ -328,8 +329,9 @@ func (s *workerDisabledSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *workerDisabledSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
-	_, stop := s.newWorker(c)
-	defer stop()
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
 
 	// Add a new alive address.
 	addr := network.NewAddress("0.1.2.9")
@@ -347,11 +349,12 @@ func (s *workerDisabledSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 }
 
 func (s *workerDisabledSuite) TestWorkerIgnoresDeadAddresses(c *gc.C) {
-	_, stop := s.newWorker(c)
-	defer stop()
+	w, err := addresser.NewWorker(s.api)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(w)
 
 	// Remove machine with addresses.
-	err := s.machine.EnsureDead()
+	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,13 +365,4 @@ func (s *workerDisabledSuite) TestWorkerIgnoresDeadAddresses(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
 	}
-}
-
-func (s *workerDisabledSuite) newWorker(c *gc.C) (worker.Worker, func()) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	stop := func() {
-		worker.Stop(w)
-	}
-	return w, stop
 }

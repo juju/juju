@@ -54,6 +54,11 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *AddresserSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
+}
+
 func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
 	config := coretesting.EnvironConfig(c)
 	s.st.setConfig(c, config)
@@ -68,6 +73,9 @@ func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
 }
 
 func (s *AddresserSuite) TestEnvironConfigFailure(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
 	s.st.stub.SetErrors(errors.New("ouch"))
 
 	result, err := s.api.EnvironConfig()
@@ -83,14 +91,33 @@ func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
 
 	dead, err := s.st.DeadIPAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(dead), gc.Equals, 2)
+	c.Assert(dead, gc.HasLen, 2)
 
-	err = s.api.CleanupIPAddresses()
-	c.Assert(err, gc.IsNil)
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.IsNil)
 
 	dead, err = s.st.DeadIPAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(dead), gc.Equals, 0)
+	c.Assert(dead, gc.HasLen, 0)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesFailure(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	s.st.stub.SetErrors(errors.New("ouch"))
+
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, "ouch")
+
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(dead, gc.HasLen, 2)
 }
 
 func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {

@@ -24,7 +24,7 @@ type AddresserSuite struct {
 
 var _ = gc.Suite(&AddresserSuite{})
 
-func (s *AddresserSuite) TestNewAPISuccess(c *gc.C) {
+func (s *AddresserSuite) TestNewAPI(c *gc.C) {
 	var called int
 	apiCaller := clientErrorAPICaller(c, "CleanupIPAddresses", nil, &called)
 	api := addresser.NewAPI(apiCaller)
@@ -70,10 +70,10 @@ func (s *AddresserSuite) TestEnvironConfigClientError(c *gc.C) {
 
 func (s *AddresserSuite) TestEnvironConfigServerError(c *gc.C) {
 	var called int
-	expectResults := params.EnvironConfigResult{
+	expectedResults := params.EnvironConfigResult{
 		Config: params.EnvironConfig{"type": "foo"},
 	}
-	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectResults, &called)
+	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectedResults, &called)
 	api := addresser.NewAPI(apiCaller)
 
 	cfg, err := api.EnvironConfig()
@@ -84,21 +84,25 @@ func (s *AddresserSuite) TestEnvironConfigServerError(c *gc.C) {
 
 func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
 	var called int
-	apiCaller := successAPICaller(c, "CleanupIPAddresses", nil, nil, &called)
+	expectedResult := params.ErrorResult{}
+	apiCaller := successAPICaller(c, "CleanupIPAddresses", nil, expectedResult, &called)
 	api := addresser.NewAPI(apiCaller)
 
 	err := api.CleanupIPAddresses()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.IsNil)
 	c.Assert(called, gc.Equals, 1)
 }
 
-func (s *AddresserSuite) TestCleanupIPAddressesClientError(c *gc.C) {
+func (s *AddresserSuite) TestCleanupIPAddressesServerError(c *gc.C) {
 	var called int
-	apiCaller := clientErrorAPICaller(c, "CleanupIPAddresses", nil, &called)
+	expectedResult := params.ErrorResult{
+		Error: apiservertesting.ServerError("server boom!"),
+	}
+	apiCaller := successAPICaller(c, "CleanupIPAddresses", nil, expectedResult, &called)
 	api := addresser.NewAPI(apiCaller)
 
 	err := api.CleanupIPAddresses()
-	c.Assert(err, gc.ErrorMatches, "client error!")
+	c.Assert(err, gc.ErrorMatches, "server boom!")
 	c.Assert(called, gc.Equals, 1)
 }
 

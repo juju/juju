@@ -51,45 +51,51 @@ func NewAddresserAPI(
 }
 
 // CleanupIPAddresses releases and removes the dead IP addresses.
-func (api *AddresserAPI) CleanupIPAddresses() error {
+func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
+	result := params.ErrorResult{}
 	// Create an environment to verify networking support.
 	config, err := api.st.EnvironConfig()
 	if err != nil {
-		return errors.Trace(err)
+		result.Error = common.ServerError(errors.Trace(err))
+		return result
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return errors.Trace(err)
+		result.Error = common.ServerError(errors.Trace(err))
+		return result
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
-		return errors.NotSupportedf("IP address deallocation")
+		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
+		return result
 	}
 	// Retrieve dead addresses, release and remove them.
 	logger.Debugf("retrieving dead IP addresses")
 	ipAddresses, err := api.st.DeadIPAddresses()
 	if err != nil {
-		return errors.Trace(err)
+		result.Error = common.ServerError(errors.Trace(err))
+		return result
 	}
-	var retryIPAddresses []StateIPAddress
+	shallRetry := false
 	for _, ipAddress := range ipAddresses {
 		logger.Debugf("releasing dead IP address %q", ipAddress.Value())
 		err := api.releaseIPAddress(netEnv, ipAddress)
 		if err != nil {
 			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddress.Value(), err)
-			retryIPAddresses = append(retryIPAddresses, ipAddress)
+			shallRetry = true
 			continue
 		}
 		logger.Debugf("removing released IP address %q", ipAddress.Value())
 		err = ipAddress.Remove()
 		if err != nil {
-			return errors.Trace(err)
+			result.Error = common.ServerError(errors.Trace(err))
+			return result
 		}
 	}
-	if len(retryIPAddresses) > 0 {
-		return common.ErrTryAgain
+	if shallRetry {
+		result.Error = common.ServerError(common.ErrTryAgain)
 	}
-	return nil
+	return result
 }
 
 // releaseIPAddress releases one IP address.

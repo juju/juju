@@ -4,7 +4,6 @@
 package addresser
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
@@ -38,9 +37,12 @@ func NewAPI(caller base.APICaller) *API {
 
 // CleanupIPAddresses releases and removes the dead IP addresses.
 func (api *API) CleanupIPAddresses() error {
-	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, nil); err != nil {
-		// TODO(mue) Does tracing make sense here?
-		return errors.Trace(err)
+	var result params.ErrorResult
+	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, &result); err != nil {
+		return err
+	}
+	if result.Error != nil {
+		return result.Error
 	}
 	return nil
 }

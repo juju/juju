@@ -3,6 +3,4 @@
 
 package addresser
 
-import ()
-
 var NewEntityWatcher = &newEntityWatcher

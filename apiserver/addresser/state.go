@@ -28,7 +28,6 @@ type StateIPAddress interface {
 // for the work of the Addresser API.
 type StateInterface interface {
 	state.EnvironAccessor
-	// state.EntityFinder
 
 	// DeadIPAddresses retrieves all dead IP addresses.
 	DeadIPAddresses() ([]StateIPAddress, error)

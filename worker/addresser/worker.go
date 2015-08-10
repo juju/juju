@@ -46,10 +46,14 @@ func (a *addresserHandler) Handle(watcherTags []string) error {
 	err := a.api.CleanupIPAddresses()
 	if err != nil {
 		// TryAgainError are already logged on server-side.
+		// TODO(mue) Add a time based trigger for the cleanup
+		// so that those to try again will be cleaned up even
+		// without lifecycle changes of IP addresses.
 		if !params.IsCodeTryAgain(err) {
 			return errors.Annotate(err, "cannot cleanup IP addresses")
 		}
+	} else {
+		logger.Tracef("released and removed dead IP addresses")
 	}
-	logger.Tracef("released and removed dead IP addresses")
 	return nil
 }

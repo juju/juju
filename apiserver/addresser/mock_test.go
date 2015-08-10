@@ -238,7 +238,7 @@ var _ addresser.StateIPAddress = (*mockIPAddress)(nil)
 func (mip *mockIPAddress) Value() string {
 	mip.stub.MethodCall(mip, "Value")
 	mip.stub.NextErr() // Consume the unused error.
-	return "public:" + mip.value
+	return mip.value
 }
 
 // Tag implements StateIPAddress.
