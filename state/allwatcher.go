@@ -10,12 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"gopkg.in/mgo.v2"
-
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
 )
 
 // allWatcherStateBacking implements Backing by fetching entities for
@@ -40,9 +39,11 @@ type allEnvWatcherStateBacking struct {
 type allWatcherStateCollection struct {
 	// name stores the name of the collection.
 	name string
+
 	// docType stores the type of document
 	// that we use for this collection.
 	docType reflect.Type
+
 	// subsidiary is true if the collection is used only
 	// to modify a primary entity.
 	subsidiary bool
@@ -57,6 +58,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 	for _, collName := range collNames {
 		collection := allWatcherStateCollection{name: collName}
 		switch collName {
+		case environmentsC:
+			collection.docType = reflect.TypeOf(backingEnvironment{})
 		case machinesC:
 			collection.docType = reflect.TypeOf(backingMachine{})
 		case unitsC:
@@ -100,6 +103,31 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 	}
 
 	return collectionByName
+}
+
+type backingEnvironment environmentDoc
+
+func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id string) error {
+	store.Update(&multiwatcher.EnvironmentInfo{
+		EnvUUID:    e.UUID,
+		Name:       e.Name,
+		Life:       multiwatcher.Life(e.Life.String()),
+		Owner:      e.Owner,
+		ServerUUID: e.ServerUUID,
+	})
+	return nil
+}
+
+func (e *backingEnvironment) removed(st *State, store *multiwatcherStore, id string) {
+	store.Remove(multiwatcher.EntityId{
+		Kind:    "environment",
+		EnvUUID: id,
+		Id:      id,
+	})
+}
+
+func (e *backingEnvironment) mongoId() string {
+	return e.UUID
 }
 
 type backingMachine machineDoc
@@ -1016,6 +1044,7 @@ func (b *allWatcherStateBacking) Release() error {
 
 func newAllEnvWatcherStateBacking(st *State) Backing {
 	collections := makeAllWatcherCollectionInfo(
+		environmentsC,
 		machinesC,
 		unitsC,
 		servicesC,
@@ -1076,12 +1105,7 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
 	}
 
-	envUUID, id, ok := splitDocID(change.Id.(string))
-	if !ok {
-		return errors.Errorf("unknown id format: %v", change.Id.(string))
-	}
-
-	st, err := b.stPool.get(envUUID)
+	id, st, err := b.idAndStateForChange(change)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1100,6 +1124,23 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 		return err
 	}
 	return doc.updated(st, all, id)
+}
+
+func (b *allEnvWatcherStateBacking) idAndStateForChange(change watcher.Change) (string, *State, error) {
+	if change.C == environmentsC {
+		return change.Id.(string), b.st, nil
+	}
+
+	envUUID, id, ok := splitDocID(change.Id.(string))
+	if !ok {
+		return "", nil, errors.Errorf("unknown id format: %v", change.Id.(string))
+	}
+
+	st, err := b.stPool.get(envUUID)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return id, st, nil
 }
 
 // Release implements the Backing interface.

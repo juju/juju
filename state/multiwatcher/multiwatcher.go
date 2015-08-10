@@ -324,3 +324,19 @@ const (
 	// BlockChange type identifies change blocks.
 	BlockChange BlockType = "BlockChange"
 )
+
+type EnvironmentInfo struct {
+	EnvUUID    string
+	Name       string
+	Life       Life
+	Owner      string
+	ServerUUID string
+}
+
+func (i *EnvironmentInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:    "environment",
+		EnvUUID: i.EnvUUID,
+		Id:      i.EnvUUID,
+	}
+}

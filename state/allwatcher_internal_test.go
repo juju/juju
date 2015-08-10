@@ -1052,18 +1052,108 @@ func (s *allEnvWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
 }
 
+func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no environment in state -> do nothing",
+				change: watcher.Change{
+					C:  "environments",
+					Id: "non-existing-uuid",
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "environment is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.EnvironmentInfo{
+					EnvUUID: "some-uuid",
+				}},
+				change: watcher.Change{
+					C:  "environments",
+					Id: "some-uuid",
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			env, err := st.Environment()
+			c.Assert(err, jc.ErrorIsNil)
+			return changeTestCase{
+				about: "environment is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  "environments",
+					Id: st.EnvironUUID(),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.EnvironmentInfo{
+						EnvUUID:    env.UUID(),
+						Name:       env.Name(),
+						Life:       multiwatcher.Life("alive"),
+						Owner:      env.Owner().Id(),
+						ServerUUID: env.ServerUUID(),
+					}}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			env, err := st.Environment()
+			c.Assert(err, jc.ErrorIsNil)
+			return changeTestCase{
+				about: "environment is updated if it's in backing and in Store",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.EnvironmentInfo{
+						EnvUUID:    env.UUID(),
+						Name:       "",
+						Life:       multiwatcher.Life("alive"),
+						Owner:      env.Owner().Id(),
+						ServerUUID: env.ServerUUID(),
+					},
+				},
+				change: watcher.Change{
+					C:  "environments",
+					Id: env.UUID(),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.EnvironmentInfo{
+						EnvUUID:    env.UUID(),
+						Name:       env.Name(),
+						Life:       multiwatcher.Life("alive"),
+						Owner:      env.Owner().Id(),
+						ServerUUID: env.ServerUUID(),
+					}}}
+		},
+	}
+	s.performChangeTestCases(c, changeTestFuncs)
+}
+
 func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 	// Set up 2 environments and ensure that GetAll returns the
 	// entities for both of them.
 	entities0 := s.setUpScenario(c, s.state, 2)
-
 	entities1 := s.setUpScenario(c, s.state1, 4)
-
 	expectedEntities := append(entities0, entities1...)
+
+	// allEnvWatcherStateBacking also watches environments so add those in.
+	env, err := s.state.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	env1, err := s.state1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedEntities = append(expectedEntities,
+		&multiwatcher.EnvironmentInfo{
+			EnvUUID:    env.UUID(),
+			Name:       env.Name(),
+			Life:       multiwatcher.Life("alive"),
+			Owner:      env.Owner().Id(),
+			ServerUUID: env.ServerUUID(),
+		},
+		&multiwatcher.EnvironmentInfo{
+			EnvUUID:    env1.UUID(),
+			Name:       env1.Name(),
+			Life:       multiwatcher.Life("alive"),
+			Owner:      env1.Owner().Id(),
+			ServerUUID: env1.ServerUUID(),
+		},
+	)
 
 	b := newAllEnvWatcherStateBacking(s.state)
 	all := newStore()
-	err := b.GetAll(all)
+	err = b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
 	var gotEntities entityInfoSlice = all.All()
 	sort.Sort(gotEntities)
