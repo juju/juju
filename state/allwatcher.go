@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -118,12 +117,13 @@ func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id str
 	return nil
 }
 
-func (e *backingEnvironment) removed(st *State, store *multiwatcherStore, id string) {
+func (e *backingEnvironment) removed(st *State, store *multiwatcherStore, id string) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "environment",
 		EnvUUID: id,
 		Id:      id,
 	})
+	return nil
 }
 
 func (e *backingEnvironment) mongoId() string {
@@ -180,12 +180,13 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	return nil
 }
 
-func (m *backingMachine) removed(st *State, store *multiwatcherStore, id string) {
+func (m *backingMachine) removed(st *State, store *multiwatcherStore, id string) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "machine",
 		EnvUUID: st.EnvironUUID(),
 		Id:      id,
 	})
+	return nil
 }
 
 func (m *backingMachine) mongoId() string {
@@ -351,12 +352,13 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 	return publicAddress, privateAddress, nil
 }
 
-func (u *backingUnit) removed(st *State, store *multiwatcherStore, id string) {
+func (u *backingUnit) removed(st *State, store *multiwatcherStore, id string) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "unit",
 		EnvUUID: st.EnvironUUID(),
 		Id:      id,
 	})
+	return nil
 }
 
 func (u *backingUnit) mongoId() string {
@@ -452,12 +454,13 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 	return nil
 }
 
-func (svc *backingService) removed(st *State, store *multiwatcherStore, id string) {
+func (svc *backingService) removed(st *State, store *multiwatcherStore, id string) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "service",
 		EnvUUID: st.EnvironUUID(),
 		Id:      id,
 	})
+	return nil
 }
 
 // SCHEMACHANGE
@@ -479,12 +482,13 @@ func (a *backingAction) mongoId() string {
 	return a.DocId
 }
 
-func (a *backingAction) removed(st *State, store *multiwatcherStore, id string) {
+func (a *backingAction) removed(st *State, store *multiwatcherStore, id string) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "action",
 		EnvUUID: st.EnvironUUID(),
 		Id:      id,
 	})
+	return nil
 }
 
 func (a *backingAction) updated(st *State, store *multiwatcherStore, id string) error {
@@ -525,12 +529,13 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 	return nil
 }
 
-func (r *backingRelation) removed(st *State, store *multiwatcherStore, id string) {
+func (r *backingRelation) removed(st *State, store *multiwatcherStore, id string) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "relation",
 		EnvUUID: st.EnvironUUID(),
 		Id:      id,
 	})
+	return nil
 }
 
 func (r *backingRelation) mongoId() string {
@@ -549,16 +554,17 @@ func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id stri
 	return nil
 }
 
-func (a *backingAnnotation) removed(st *State, store *multiwatcherStore, id string) {
+func (a *backingAnnotation) removed(st *State, store *multiwatcherStore, id string) error {
 	tag, ok := tagForGlobalKey(id)
 	if !ok {
-		panic(fmt.Errorf("unknown global key %q in state", id))
+		return errors.Errorf("could not parse global key: %q", id)
 	}
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "annotation",
 		EnvUUID: st.EnvironUUID(),
 		Id:      tag,
 	})
+	return nil
 }
 
 func (a *backingAnnotation) mongoId() string {
@@ -579,12 +585,13 @@ func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) e
 	return nil
 }
 
-func (a *backingBlock) removed(st *State, store *multiwatcherStore, id string) {
+func (a *backingBlock) removed(st *State, store *multiwatcherStore, id string) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:    "block",
 		EnvUUID: st.EnvironUUID(),
 		Id:      id,
 	})
+	return nil
 }
 
 func (a *backingBlock) mongoId() string {
@@ -629,7 +636,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	default:
-		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
+		return errors.Errorf("status for unexpected entity with id %q; type %T", id, info)
 	}
 	store.Update(info0)
 	return nil
@@ -703,9 +710,10 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	return nil
 }
 
-func (s *backingStatus) removed(st *State, store *multiwatcherStore, id string) {
+func (s *backingStatus) removed(st *State, store *multiwatcherStore, id string) error {
 	// If the status is removed, the parent will follow not long after,
 	// so do nothing.
+	return nil
 }
 
 func (s *backingStatus) mongoId() string {
@@ -732,13 +740,15 @@ func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id str
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
 	default:
-		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
+		return errors.Errorf("status for unexpected entity with id %q; type %T", id, info)
 	}
 	store.Update(info0)
 	return nil
 }
 
-func (c *backingConstraints) removed(st *State, store *multiwatcherStore, id string) {}
+func (c *backingConstraints) removed(st *State, store *multiwatcherStore, id string) error {
+	return nil
+}
 
 func (c *backingConstraints) mongoId() string {
 	panic("cannot find mongo id from constraints document")
@@ -776,16 +786,16 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 	return nil
 }
 
-func (s *backingSettings) removed(st *State, store *multiwatcherStore, id string) {
+func (s *backingSettings) removed(st *State, store *multiwatcherStore, id string) error {
 	parentID, url, ok := backingEntityIdForSettingsKey(st.EnvironUUID(), id)
 	if !ok {
 		// Service is already gone along with its settings.
-		return
+		return nil
 	}
 	parent := store.Get(parentID)
 	if info, ok := parent.(*multiwatcher.ServiceInfo); ok {
 		if info.CharmURL != url {
-			return
+			return nil
 		}
 		newInfo := *info
 		cleanSettingsMap(*s)
@@ -793,6 +803,7 @@ func (s *backingSettings) removed(st *State, store *multiwatcherStore, id string
 		parent = &newInfo
 		store.Update(parent)
 	}
+	return nil
 }
 
 func (s *backingSettings) mongoId() string {
@@ -849,22 +860,22 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id str
 	return nil
 }
 
-func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id string) {
+func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id string) error {
 	parentID, ok := backingEntityIdForOpenedPortsKey(st.EnvironUUID(), id)
 	if !ok {
-		return
+		return nil
 	}
 	switch info := store.Get(parentID).(type) {
 	case nil:
 		// The parent info doesn't exist. This is unexpected because the port
 		// always refers to a machine. Anyway, ignore the ports for now.
-		return
+		return nil
 	case *multiwatcher.MachineInfo:
 		// Retrieve the units placed in the machine.
 		units, err := st.UnitsFor(info.Id)
 		if err != nil {
 			logger.Errorf("cannot retrieve units for %q: %v", info.Id, err)
-			return
+			return nil
 		}
 		// Update the ports on all units assigned to the machine.
 		for _, u := range units {
@@ -873,6 +884,7 @@ func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id str
 			}
 		}
 	}
+	return nil
 }
 
 func (p *backingOpenedPorts) mongoId() string {
@@ -956,7 +968,7 @@ type backingEntityDoc interface {
 	// removed is called when the document has changed.
 	// The receiving instance will not contain any data.
 	// The mongo _id value of the document is provided in id.
-	removed(st *State, store *multiwatcherStore, id string)
+	removed(st *State, store *multiwatcherStore, id string) error
 
 	// mongoId returns the mongo _id field of the document.
 	// It is currently never called for subsidiary documents.
@@ -1013,7 +1025,7 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
 	c, ok := b.collectionByName[change.C]
 	if !ok {
-		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
+		return errors.Errorf("unknown collection %q in fetch request", change.C)
 	}
 	col, closer := b.st.getCollection(c.name)
 	defer closer()
@@ -1027,8 +1039,8 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	// in, such as settings changes to entities we don't care about.
 	err := col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		doc.removed(b.st, all, id)
-		return nil
+		err := doc.removed(b.st, all, id)
+		return errors.Trace(err)
 	}
 	if err != nil {
 		return err
@@ -1102,7 +1114,7 @@ func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
 	c, ok := b.collectionByName[change.C]
 	if !ok {
-		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
+		return errors.Errorf("unknown collection %q in fetch request", change.C)
 	}
 
 	id, st, err := b.idAndStateForChange(change)
@@ -1117,10 +1129,9 @@ func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watch
 	// TODO - see TODOs in allWatcherStateBacking.Changed()
 	err = col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		doc.removed(st, all, id)
-		return nil
-	}
-	if err != nil {
+		err := doc.removed(st, all, id)
+		return errors.Trace(err)
+	} else if err != nil {
 		return err
 	}
 	return doc.updated(st, all, id)
