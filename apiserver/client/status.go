@@ -225,14 +225,8 @@ func (c *Client) newToolsVersionAvailable() (string, error) {
 	if err != nil {
 		errors.Annotatef(err, "the stored newest available version for juju tools %q is invalid", latestVersion)
 	}
-	envConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return "", errors.Annotate(err, "cannot obtain current environ config")
-	}
-	oldV, ok := envConfig.AgentVersion()
-	if !ok {
-		return "", nil
-	}
+
+	oldV := version.Current.Number
 	if oldV.Compare(v) < 0 {
 		return latestVersion, nil
 	}
