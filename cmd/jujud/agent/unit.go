@@ -214,16 +214,31 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 
 	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
+	workers := a.apiWorkers(runner, st, agentConfig, &uniter.UniterParams{
+		UnitTag:  unitTag,
+		DataDir:  dataDir,
+		HookLock: hookLock,
+	})
+	if err := workers.Start(runner); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cmdutil.NewCloseWorker(logger, runner, st), nil
+}
+
+func (a *UnitAgent) apiWorkers(runner worker.Runner, st *api.State, agentConfig agent.Config, uniterArgs *uniter.UniterParams) worker.Workers {
+	workers := worker.NewWorkers()
+
 	// start proxyupdater first to ensure proxy settings are correct
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+	workers.Add("proxyupdater", func() (worker.Worker, error) {
 		return proxyupdater.New(st.Environment(), false), nil
 	})
 	if feature.IsDbLogEnabled() {
-		runner.StartWorker("logsender", func() (worker.Worker, error) {
+		workers.Add("logsender", func() (worker.Worker, error) {
 			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
 		})
 	}
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+	workers.Add("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewAgentUpgrader(
 			st.Upgrader(),
 			agentConfig,
@@ -232,28 +247,29 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 			a.initialAgentUpgradeCheckComplete,
 		), nil
 	})
-	runner.StartWorker("logger", func() (worker.Worker, error) {
+	workers.Add("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	runner.StartWorker("uniter", func() (worker.Worker, error) {
+
+	workers.Add("uniter", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		uniterParams := uniter.UniterParams{
-			uniterFacade,
-			unitTag,
-			leadership.NewClient(st),
-			dataDir,
-			hookLock,
-			uniter.NewMetricsTimerChooser(),
-			uniter.NewUpdateStatusTimer(),
-			nil,
+			St:                   uniterFacade,
+			UnitTag:              uniterArgs.UnitTag,
+			LeadershipManager:    leadership.NewClient(st),
+			DataDir:              uniterArgs.DataDir,
+			HookLock:             uniterArgs.HookLock,
+			MetricsTimerChooser:  uniter.NewMetricsTimerChooser(),
+			UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+			NewOperationExecutor: nil,
 		}
 		return uniter.NewUniter(&uniterParams), nil
 	})
 
-	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
+	workers.Add("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -261,17 +277,17 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
 	if !featureflag.Enabled(feature.DisableRsyslog) {
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+		workers.Add("rsyslog", func() (worker.Worker, error) {
 			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
 		})
 	}
 
 	for _, name := range unitAgentWorkerNames {
 		newWorker := unitAgentWorkerFuncs[name]
-		runner.StartWorker(name, newWorker)
+		workers.Add(name, newWorker)
 	}
 
-	return cmdutil.NewCloseWorker(logger, runner, st), nil
+	return workers
 }
 
 func (a *UnitAgent) Tag() names.Tag {
