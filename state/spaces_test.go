@@ -195,3 +195,9 @@ func (s *SpacesSuite) TestSpaceSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, expected)
 }
+
+func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces, jc.DeepEquals, []*state.Space{})
+}
