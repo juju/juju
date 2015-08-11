@@ -216,7 +216,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage subnets
 	r.Register(subnet.NewSuperCommand())
-	
+
 	// Manage systems
 	if featureflag.Enabled(feature.JES) {
 		r.Register(system.NewSuperCommand())
