@@ -28,6 +28,7 @@ from jujuconfig import (
 )
 from jujupy import (
     EnvJujuClient,
+    get_cache_path,
     get_local_root,
     jes_home_path,
     SimpleEnvironment,
@@ -133,7 +134,7 @@ def _can_run_ssh():
     return sys.platform != "win32"
 
 
-def dump_env_logs(client, bootstrap_host, artifacts_dir, jenv_path=None):
+def dump_env_logs(client, bootstrap_host, artifacts_dir, runtime_config=None):
     if client.env.local:
         logging.info("Retrieving logs for local environment")
         copy_local_logs(client.env, artifacts_dir)
@@ -153,19 +154,19 @@ def dump_env_logs(client, bootstrap_host, artifacts_dir, jenv_path=None):
             os.mkdir(machine_dir)
             copy_remote_logs(remote, machine_dir)
     archive_logs(artifacts_dir)
-    retain_jenv(jenv_path, artifacts_dir)
+    retain_config(runtime_config, artifacts_dir)
 
 
-def retain_jenv(jenv_path, log_directory):
-    if not jenv_path:
+def retain_config(runtime_config, log_directory):
+    if not runtime_config:
         return False
 
     try:
-        shutil.copy(jenv_path, log_directory)
+        shutil.copy(runtime_config, log_directory)
         return True
     except IOError:
-        print_now("Failed to copy jenv file. Source: %s Destination: %s" %
-                  (jenv_path, log_directory))
+        print_now("Failed to copy file. Source: %s Destination: %s" %
+                  (runtime_config, log_directory))
     return False
 
 
@@ -450,11 +451,14 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     sys.exit(1)
             finally:
                 safe_print_status(client)
-                live_jenv_path = get_jenv_path(client.juju_home,
-                                               client.env.environment)
+                if client.is_jes_enabled():
+                    runtime_config = get_cache_path(client.juju_home)
+                else:
+                    runtime_config = get_jenv_path(client.juju_home,
+                                                   client.env.environment)
                 if host is not None:
                     dump_env_logs(client, host, log_dir,
-                                  jenv_path=live_jenv_path)
+                                  runtime_config=runtime_config)
                 if not keep_env:
                     client.destroy_environment()
         finally:
