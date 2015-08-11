@@ -21,11 +21,11 @@ new_juju=$(find $HOME/candidate/$candidate_version -name juju)
 log_dir=$HOME/log
 
 if [ "$new_to_old" == "true" ]; then
-  initial=$new_juju
-  other=$old_juju
+  server=$new_juju
+  client=$old_juju
 else
-  initial=$old_juju
-  other=$new_juju
+  server=$old_juju
+  client=$new_juju
 fi
 
 env=test-release-aws
@@ -35,4 +35,4 @@ cp $JUJU_HOME/staging-juju-rsa $ssh_home/.ssh/id_rsa
 cp $JUJU_HOME/staging-juju-rsa.pub $ssh_home/.ssh/id_rsa.pub
 export HOME=$ssh_home
 
-$SCRIPT/assess_heterogeneous_control.py $initial $other test-release-aws compatibility-control $log_dir
+$SCRIPT/assess_heterogeneous_control.py $server $client test-release-aws compatibility-control $log_dir
