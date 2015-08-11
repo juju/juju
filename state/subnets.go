@@ -175,6 +175,12 @@ func (s *Subnet) AvailabilityZone() string {
 	return s.doc.AvailabilityZone
 }
 
+// SpaceName returns the space the subnet is associated with. If the subnet is
+// in the default space it will be the empty string.
+func (s *Subnet) SpaceName() string {
+	return s.doc.SpaceName
+}
+
 // Validate validates the subnet, checking the CIDR, VLANTag and
 // AllocatableIPHigh and Low, if present.
 func (s *Subnet) Validate() error {
