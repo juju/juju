@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
@@ -470,7 +471,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := OpenAPIState(a)
+	st, _, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -631,7 +632,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
-	st, entity, err := OpenAPIState(a)
+	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		return nil, err
 	}
@@ -1085,7 +1086,7 @@ func (a *MachineAgent) startEnvWorkers(
 	agentConfig := a.CurrentConfig()
 	apiInfo := agentConfig.APIInfo()
 	apiInfo.EnvironTag = st.EnvironTag()
-	apiSt, err := OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
+	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

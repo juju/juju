@@ -91,11 +91,13 @@ func syslogUser() string {
 	return user
 }
 
-// NewRsyslogConfigWorker returns a worker.Worker that uses
+var NewRsyslogConfigWorker = newRsyslogConfigWorker
+
+// newRsyslogConfigWorker returns a worker.Worker that uses
 // WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
-func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (worker.Worker, error) {
+func newRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (worker.Worker, error) {
 	if version.Current.OS == version.Windows && mode == RsyslogModeAccumulate {
 		return worker.NewNoOpWorker(), nil
 	}

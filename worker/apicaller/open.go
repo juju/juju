@@ -1,10 +1,7 @@
 // Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// This file exists to collect the various bits of code related to OpenAPIState,
-// in preparation for moving them to worker/apicaller and breaking an impending
-// import cycle.
-package agent
+package apicaller
 
 import (
 	"time"

@@ -8,18 +8,17 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 )
 
 var logger = loggo.GetLogger("juju.worker.apicaller")
 
 // openConnection exists to be patched out in export_test.go (and let us test
 // this component without using a real API connection).
-var openConnection = func(agent agent.Agent) (api.Connection, error) {
-	st, _, err := jujudagent.OpenAPIState(agent)
+var openConnection = func(a agent.Agent) (api.Connection, error) {
+	st, _, err := OpenAPIState(a)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
