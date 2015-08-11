@@ -308,6 +308,10 @@ func (f *FakeSubnet) VLANTag() int {
 	return f.info.VLANTag
 }
 
+func (f *FakeSubnet) SpaceName() string {
+	return f.info.SpaceName
+}
+
 // ResetStub resets all recorded calls and errors of the given stub.
 func ResetStub(stub *testing.Stub) {
 	*stub = testing.Stub{}

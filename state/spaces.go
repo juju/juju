@@ -4,8 +4,6 @@
 package state
 
 import (
-	"net"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
@@ -23,13 +21,11 @@ type Space struct {
 }
 
 type spaceDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
-	Life    Life   `bson:"life"`
-
-	Subnets  []string `bson:"subnets"`
-	Name     string   `bson:"name"`
-	IsPublic bool     `bson:"is-public"`
+	DocID    string `bson:"_id"`
+	EnvUUID  string `bson:"env-uuid"`
+	Life     Life   `bson:"life"`
+	Name     string `bson:"name"`
+	IsPublic bool   `bson:"is-public"`
 }
 
 // Life returns whether the space is Alive, Dying or Dead.
@@ -47,9 +43,42 @@ func (s *Space) String() string {
 	return s.doc.Name
 }
 
-// AddSpace creates and returns a new space
+// Name returns the name of the Space.
+func (s *Space) Name() string {
+	return s.doc.Name
+}
+
+// Subnets returns all the subnets associated with the Space.
+func (s *Space) Subnets() (results []*Subnet, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot fetch subnets")
+	name := s.Name()
+
+	subnetsCollection, closer := s.st.getCollection(subnetsC)
+	defer closer()
+
+	var doc struct {
+		CIDR string
+	}
+	iter := subnetsCollection.Find(bson.D{{"space-name", name}}).Iter()
+	for iter.Next(&doc) {
+		subnet, err := s.st.Subnet(doc.CIDR)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, subnet)
+	}
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// AddSpace creates and returns a new space.
 func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpace *Space, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add space %q", name)
+	if !names.IsValidSpace(name) {
+		return nil, errors.NewNotValid(nil, "invalid space name")
+	}
 
 	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
@@ -57,14 +86,9 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 		EnvUUID:  st.EnvironUUID(),
 		Life:     Alive,
 		Name:     name,
-		Subnets:  subnets,
 		IsPublic: isPublic,
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
-
-	if err = newSpace.validate(); err != nil {
-		return nil, err
-	}
 
 	ops := []txn.Op{{
 		C:      spacesC,
@@ -73,9 +97,24 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 		Insert: spaceDoc,
 	}}
 
+	for _, subnetId := range subnets {
+		ops = append(ops, txn.Op{
+			C:      subnetsC,
+			Id:     st.docID(subnetId),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
+		})
+	}
+
 	if err = st.runTransaction(ops); err == txn.ErrAborted {
 		if _, err = st.Space(name); err == nil {
 			return nil, errors.AlreadyExistsf("space %q", name)
+		}
+		for _, subnetId := range subnets {
+			_, err := st.Subnet(subnetId)
+			if errors.IsNotFound(err) {
+				return nil, err
+			}
 		}
 	}
 	return newSpace, errors.Trace(err)
@@ -97,6 +136,23 @@ func (st *State) Space(name string) (*Space, error) {
 		return nil, errors.Annotatef(err, "cannot get space %q", name)
 	}
 	return &Space{st, doc}, nil
+}
+
+// AllSpaces returns all spaces from state.
+func (st *State) AllSpaces() ([]*Space, error) {
+	spacesCollection, closer := st.getCollection(spacesC)
+	defer closer()
+
+	docs := []spaceDoc{}
+	var spaces []*Space
+	err := spacesCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all spaces")
+	}
+	for _, doc := range docs {
+		spaces = append(spaces, &Space{st: st, doc: doc})
+	}
+	return spaces, nil
 }
 
 // EnsureDead sets the Life of the space to Dead, if it's Alive. It
@@ -158,31 +214,5 @@ func (s *Space) Refresh() error {
 	if err != nil {
 		return errors.Errorf("cannot refresh space %q: %v", s, err)
 	}
-	return nil
-}
-
-// validate validates the space, checking the validity of its subnets.
-func (s *Space) validate() error {
-	if !names.IsValidSpace(s.doc.Name) {
-		return errors.NewNotValid(nil, "invalid space name")
-	}
-
-	// We need at least one subnet
-	if len(s.doc.Subnets) == 0 {
-		return errors.NewNotValid(nil, "at least one subnet required")
-	}
-
-	for _, cidr := range s.doc.Subnets {
-		// Check that CIDRs are valid
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return errors.Trace(err)
-		}
-
-		// Check that CIDRs match a subnet entry in state
-		if _, err := s.st.Subnet(cidr); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	return nil
 }

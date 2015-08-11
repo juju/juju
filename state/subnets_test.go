@@ -30,6 +30,7 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 		AllocatableIPLow:  "192.168.1.0",
 		AllocatableIPHigh: "192.168.1.1",
 		AvailabilityZone:  "Timbuktu",
+		SpaceName:         "foo",
 	}
 
 	assertSubnet := func(subnet *state.Subnet) {
@@ -41,6 +42,7 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 		c.Assert(subnet.AvailabilityZone(), gc.Equals, "Timbuktu")
 		c.Assert(subnet.String(), gc.Equals, "192.168.1.0/24")
 		c.Assert(subnet.GoString(), gc.Equals, "192.168.1.0/24")
+		c.Assert(subnet.SpaceName(), gc.Equals, "foo")
 	}
 
 	subnet, err := s.State.AddSubnet(subnetInfo)

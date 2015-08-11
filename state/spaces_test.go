@@ -65,8 +65,14 @@ func (s *SpacesSuite) assertNoSpace(c *gc.C, name string) {
 }
 
 func assertSpace(c *gc.C, space *state.Space, name string, subnets []string, isPublic bool) {
-	c.Assert(state.SpaceDoc(space).Name, gc.Equals, name)
-	c.Assert(state.SpaceDoc(space).Subnets, jc.DeepEquals, subnets)
+	c.Assert(space.Name(), gc.Equals, name)
+	actualSubnets, err := space.Subnets()
+	c.Assert(err, jc.ErrorIsNil)
+	actualSubnetIds := make([]string, len(actualSubnets))
+	for i, subnet := range actualSubnets {
+		actualSubnetIds[i] = subnet.CIDR()
+	}
+	c.Assert(actualSubnetIds, jc.SameContents, subnets)
 	c.Assert(state.SpaceDoc(space).IsPublic, gc.Equals, isPublic)
 
 	c.Assert(space.Life(), gc.Equals, state.Alive)
@@ -148,17 +154,6 @@ func (s *SpacesSuite) TestAddSpaceDuplicateSpace(c *gc.C) {
 	c.Assert(id, gc.Equals, space.ID())
 }
 
-func (s *SpacesSuite) TestAddSpaceNoSubnets(c *gc.C) {
-	name := "my-space"
-	subnets := []string{}
-	isPublic := false
-	s.addSubnets(c, subnets)
-
-	_, err := s.State.AddSpace(name, subnets, isPublic)
-	c.Assert(err, gc.ErrorMatches, "cannot add space \"my-space\": at least one subnet required")
-	s.assertNoSpace(c, name)
-}
-
 func (s *SpacesSuite) TestAddSpaceInvalidName(c *gc.C) {
 	name := "-"
 	subnets := []string{"1.1.1.0/24"}
@@ -181,12 +176,50 @@ func (s *SpacesSuite) TestAddSpaceEmptyName(c *gc.C) {
 	s.assertNoSpace(c, name)
 }
 
-func (s *SpacesSuite) TestAddSpaceInvalidCIDR(c *gc.C) {
+func (s *SpacesSuite) TestSpaceSubnets(c *gc.C) {
 	name := "my-space"
-	subnets := []string{"1.1.1.256/24"}
+	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24", "4.1.1.0/24", "5.1.1.0/24"}
 	isPublic := false
+	s.addSubnets(c, subnets)
 
-	_, err := s.State.AddSpace(name, subnets, isPublic)
-	c.Assert(err, gc.ErrorMatches, "cannot add space \"my-space\": invalid CIDR address: 1.1.1.256/24")
-	s.assertNoSpace(c, name)
+	space, err := s.State.AddSpace(name, subnets, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []*state.Subnet{}
+	for _, cidr := range subnets {
+		subnet, err := s.State.Subnet(cidr)
+		c.Assert(err, jc.ErrorIsNil)
+		expected = append(expected, subnet)
+	}
+	actual, err := space.Subnets()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.DeepEquals, expected)
+}
+
+func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces, jc.DeepEquals, []*state.Space{})
+
+	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24"}
+	isPublic := false
+	s.addSubnets(c, subnets)
+
+	_, err = s.State.AddSpace("first", []string{"1.1.1.0/24"}, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("second", []string{"2.1.1.0/24"}, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("third", []string{"3.1.1.0/24"}, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+
+	first, err := s.State.Space("first")
+	c.Assert(err, jc.ErrorIsNil)
+	second, err := s.State.Space("second")
+	c.Assert(err, jc.ErrorIsNil)
+	third, err := s.State.Space("third")
+	c.Assert(err, jc.ErrorIsNil)
+
+	actual, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third})
 }

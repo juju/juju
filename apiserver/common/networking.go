@@ -21,6 +21,7 @@ type BackingSubnet interface {
 	ProviderId() string
 	AvailabilityZones() []string
 	Status() string
+	SpaceName() string
 }
 
 // BackingSubnetInfo describes a single subnet to be added in the
