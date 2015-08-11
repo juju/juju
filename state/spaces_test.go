@@ -200,4 +200,26 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spaces, jc.DeepEquals, []*state.Space{})
+
+	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24"}
+	isPublic := false
+	s.addSubnets(c, subnets)
+
+	_, err = s.State.AddSpace("first", []string{"1.1.1.0/24"}, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("second", []string{"2.1.1.0/24"}, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("third", []string{"3.1.1.0/24"}, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+
+	first, err := s.State.Space("first")
+	c.Assert(err, jc.ErrorIsNil)
+	second, err := s.State.Space("second")
+	c.Assert(err, jc.ErrorIsNil)
+	third, err := s.State.Space("third")
+	c.Assert(err, jc.ErrorIsNil)
+
+	actual, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third})
 }
