@@ -21,10 +21,9 @@ type Space struct {
 }
 
 type spaceDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
-	Life    Life   `bson:"life"`
-
+	DocID    string `bson:"_id"`
+	EnvUUID  string `bson:"env-uuid"`
+	Life     Life   `bson:"life"`
 	Name     string `bson:"name"`
 	IsPublic bool   `bson:"is-public"`
 }
@@ -44,10 +43,12 @@ func (s *Space) String() string {
 	return s.doc.Name
 }
 
+// Name returns the name of the Space.
 func (s *Space) Name() string {
 	return s.doc.Name
 }
 
+// Subnets returns all the subnets associated with the Space.
 func (s *Space) Subnets() (results []*Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot fetch subnets")
 	name := s.Name()
@@ -72,9 +73,12 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 	return results, nil
 }
 
-// AddSpace creates and returns a new space
+// AddSpace creates and returns a new space.
 func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpace *Space, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add space %q", name)
+	if !names.IsValidSpace(name) {
+		return nil, errors.NewNotValid(nil, "invalid space name")
+	}
 
 	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
@@ -86,16 +90,21 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 
-	if err = newSpace.validate(); err != nil {
-		return nil, err
-	}
-
 	ops := []txn.Op{{
 		C:      spacesC,
 		Id:     spaceID,
 		Assert: txn.DocMissing,
 		Insert: spaceDoc,
 	}}
+
+	for _, subnetId := range subnets {
+		ops = append(ops, txn.Op{
+			C:      subnetsC,
+			Id:     st.docID(subnetId),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
+		})
+	}
 
 	if err = st.runTransaction(ops); err == txn.ErrAborted {
 		if _, err = st.Space(name); err == nil {
@@ -199,23 +208,5 @@ func (s *Space) Refresh() error {
 	if err != nil {
 		return errors.Errorf("cannot refresh space %q: %v", s, err)
 	}
-	return nil
-}
-
-// validate validates the space, checking the validity of its subnets.
-func (s *Space) validate() error {
-	if !names.IsValidSpace(s.doc.Name) {
-		return errors.NewNotValid(nil, "invalid space name")
-	}
-
-	// We need at least one subnet
-	subnets, err := s.Subnets()
-	if err != nil {
-		return err
-	}
-	if len(subnets) == 0 {
-		return errors.NewNotValid(nil, "at least one subnet required")
-	}
-
 	return nil
 }
