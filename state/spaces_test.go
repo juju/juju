@@ -66,7 +66,9 @@ func (s *SpacesSuite) assertNoSpace(c *gc.C, name string) {
 
 func assertSpace(c *gc.C, space *state.Space, name string, subnets []string, isPublic bool) {
 	c.Assert(state.SpaceDoc(space).Name, gc.Equals, name)
-	c.Assert(state.SpaceDoc(space).Subnets, jc.DeepEquals, subnets)
+	err, actualSubnets := space.Subnets()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actualSubnets, jc.SameContents, subnets)
 	c.Assert(state.SpaceDoc(space).IsPublic, gc.Equals, isPublic)
 
 	c.Assert(space.Life(), gc.Equals, state.Alive)
