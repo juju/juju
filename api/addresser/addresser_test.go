@@ -42,46 +42,6 @@ func (s *AddresserSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
-func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
-	var called int
-	expectedConfig := coretesting.EnvironConfig(c)
-	expectedResults := params.EnvironConfigResult{
-		Config: params.EnvironConfig(expectedConfig.AllAttrs()),
-	}
-	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectedResults, &called)
-	api := addresser.NewAPI(apiCaller)
-
-	cfg, err := api.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(cfg, jc.DeepEquals, expectedConfig)
-}
-
-func (s *AddresserSuite) TestEnvironConfigClientError(c *gc.C) {
-	var called int
-	apiCaller := clientErrorAPICaller(c, "EnvironConfig", nil, &called)
-	api := addresser.NewAPI(apiCaller)
-
-	cfg, err := api.EnvironConfig()
-	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(cfg, gc.IsNil)
-	c.Assert(called, gc.Equals, 1)
-}
-
-func (s *AddresserSuite) TestEnvironConfigServerError(c *gc.C) {
-	var called int
-	expectedResults := params.EnvironConfigResult{
-		Config: params.EnvironConfig{"type": "foo"},
-	}
-	apiCaller := successAPICaller(c, "EnvironConfig", nil, expectedResults, &called)
-	api := addresser.NewAPI(apiCaller)
-
-	cfg, err := api.EnvironConfig()
-	c.Assert(err, gc.NotNil)
-	c.Assert(called, gc.Equals, 1)
-	c.Assert(cfg, gc.IsNil)
-}
-
 func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
 	var called int
 	expectedResult := params.ErrorResult{}

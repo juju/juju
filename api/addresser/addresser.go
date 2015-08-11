@@ -7,7 +7,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -18,8 +17,6 @@ const addresserFacade = "Addresser"
 
 // API provides access to the InstancePoller API facade.
 type API struct {
-	*common.EnvironWatcher
-
 	facade base.FacadeCaller
 }
 
@@ -28,10 +25,8 @@ func NewAPI(caller base.APICaller) *API {
 	if caller == nil {
 		panic("caller is nil")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, addresserFacade)
 	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
+		facade: base.NewFacadeCaller(caller, addresserFacade),
 	}
 }
 
