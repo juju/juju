@@ -31,7 +31,7 @@ func init() {
 type EnvironmentManager interface {
 	ConfigSkeleton(args params.EnvironmentSkeletonConfigArgs) (params.EnvironConfigResult, error)
 	CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error)
-	ListEnvironments(user params.Entity) (params.EnvironmentList, error)
+	ListEnvironments(user params.Entity) (params.UserEnvironmentList, error)
 }
 
 // EnvironmentManagerAPI implements the environment manager interface and is
@@ -63,14 +63,25 @@ func NewEnvironmentManagerAPI(
 	}, nil
 }
 
-func (em *EnvironmentManagerAPI) authCheck(user, adminUser names.UserTag) error {
-	authTag := em.authorizer.GetAuthTag()
-	apiUser, ok := authTag.(names.UserTag)
-	if !ok {
-		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+// authCheck checks if the user is acting on their own behalf, or if they
+// are an administrator acting on behalf of another user.
+func (em *EnvironmentManagerAPI) authCheck(user names.UserTag) error {
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := em.authorizer.GetAuthTag().(names.UserTag)
+	isAdmin, err := em.state.IsSystemAdministrator(apiUser)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	logger.Tracef("comparing api user %q against owner %q and admin %q", apiUser, user, adminUser)
-	if apiUser == user || apiUser == adminUser {
+	if isAdmin {
+		logger.Tracef("%q is a system admin", apiUser.Username())
+		return nil
+	}
+
+	// We can't just compare the UserTags themselves as the provider part
+	// may be unset, and gets replaced with 'local'. We must compare against
+	// the Username of the user tag.
+	if apiUser.Username() == user.Username() {
 		return nil
 	}
 	return common.ErrPerm
@@ -286,7 +297,6 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	adminUser := stateServerEnv.Owner()
 
 	ownerTag, err := names.ParseUserTag(args.OwnerTag)
 	if err != nil {
@@ -296,7 +306,7 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 	// Any user is able to create themselves an environment (until real fine
 	// grain permissions are available), and admins (the creator of the state
 	// server environment) are able to create environments for other people.
-	err = em.authCheck(ownerTag, adminUser)
+	err = em.authCheck(ownerTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -325,21 +335,15 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 // has access to in the current server.  Only that state server owner
 // can list environments for any user (at this stage).  Other users
 // can only ask about their own environments.
-func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.EnvironmentList, error) {
-	result := params.EnvironmentList{}
-
-	stateServerEnv, err := em.state.StateServerEnvironment()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	adminUser := stateServerEnv.Owner()
+func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.UserEnvironmentList, error) {
+	result := params.UserEnvironmentList{}
 
 	userTag, err := names.ParseUserTag(user.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	err = em.authCheck(userTag, adminUser)
+	err = em.authCheck(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -350,10 +354,13 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.En
 	}
 
 	for _, env := range environments {
-		result.Environments = append(result.Environments, params.Environment{
-			Name:     env.Name(),
-			UUID:     env.UUID(),
-			OwnerTag: env.Owner().String(),
+		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
+			Environment: params.Environment{
+				Name:     env.Name(),
+				UUID:     env.UUID(),
+				OwnerTag: env.Owner().String(),
+			},
+			LastConnection: env.LastConnection,
 		})
 		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
 	}

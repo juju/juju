@@ -831,6 +831,85 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParams(
 	c.Assert(params, jc.DeepEquals, expect)
 }
 
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationConflictConcurrent(c *gc.C) {
+	s.testFilesystemAttachmentParamsConcurrent(
+		c, "/srv", "/srv",
+		`cannot assign unit "storage-filesystem-after/0" to machine 0: `+
+			`validating filesystem mount points: `+
+			`mount point "/srv" for "data" storage contains mount point "/srv" for "data" storage`)
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationAutoConcurrent(c *gc.C) {
+	s.testFilesystemAttachmentParamsConcurrent(c, "", "", "")
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationAutoAndManualConcurrent(c *gc.C) {
+	s.testFilesystemAttachmentParamsConcurrent(c, "", "/srv", "")
+}
+
+func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C, locBefore, locAfter, expectErr string) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("rootfs", 1024, 1),
+	}
+
+	deploy := func(rev int, location, serviceName string) error {
+		ch := s.createStorageCharmRev(c, "storage-filesystem", charm.Storage{
+			Name:     "data",
+			Type:     charm.StorageFilesystem,
+			CountMin: 1,
+			CountMax: 1,
+			Location: location,
+		}, rev)
+		service := s.AddTestingServiceWithStorage(c, serviceName, ch, storage)
+		unit, err := service.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		return unit.AssignToMachine(machine)
+	}
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := deploy(1, locBefore, "storage-filesystem-before")
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = deploy(2, locAfter, "storage-filesystem-after")
+	if expectErr != "" {
+		c.Assert(err, gc.ErrorMatches, expectErr)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsConcurrentRemove(c *gc.C) {
+	// this creates a filesystem mounted at "/srv".
+	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
+
+	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+		Name:     "data",
+		Type:     charm.StorageFilesystem,
+		CountMin: 1,
+		CountMax: 1,
+		Location: "/not/in/srv",
+	})
+	service := s.AddTestingService(c, "storage-filesystem", ch)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.State.RemoveFilesystemAttachment(
+			machine.MachineTag(), filesystem.FilesystemTag(),
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(c *gc.C) {
 	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
 		Name:     "data",
@@ -850,12 +929,38 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 		`must not fall within "/var/lib/juju/storage"`)
 }
 
+func (s *FilesystemStateSuite) TestFilesystemAttachmentLocationConflict(c *gc.C) {
+	// this creates a filesystem mounted at "/srv".
+	_, machine := s.setupFilesystemAttachment(c, "rootfs")
+
+	ch := s.createStorageCharm(c, "storage-filesystem", charm.Storage{
+		Name:     "data",
+		Type:     charm.StorageFilesystem,
+		CountMin: 1,
+		CountMax: 1,
+		Location: "/srv/within",
+	})
+	svc := s.AddTestingService(c, "storage-filesystem", ch)
+
+	u, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot assign unit "storage-filesystem/0" to machine 0: `+
+			`validating filesystem mount points: `+
+			`mount point "/srv" for filesystem 0/0 contains `+
+			`mount point "/srv/within" for "data" storage`)
+}
+
 func (s *FilesystemStateSuite) setupFilesystemAttachment(c *gc.C, pool string) (state.Filesystem, *state.Machine) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.MachineFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: pool, Size: 1024},
+			Attachment: state.FilesystemAttachmentParams{
+				Location: "/srv",
+			},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -220,7 +220,9 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1024)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf, logsCh)
+	machineAgentFactory := MachineAgentFactoryFn(
+		&agentConf, &agentConf, logsCh, &mockLoopDeviceManager{},
+	)
 	return machineAgentFactory(m.Id())
 }
 
@@ -229,7 +231,10 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(&agentConf, &agentConf, nil),
+			MachineAgentFactoryFn(
+				&agentConf, &agentConf, nil,
+				&mockLoopDeviceManager{},
+			),
 			&agentConf,
 			&agentConf,
 		)
@@ -304,7 +309,10 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, agentConf, nil),
+		MachineAgentFactoryFn(
+			agentConf, agentConf, nil,
+			&mockLoopDeviceManager{},
+		),
 		agentConf,
 		agentConf,
 	)
@@ -330,7 +338,10 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(agentConf, agentConf, nil),
+		MachineAgentFactoryFn(
+			agentConf, agentConf, nil,
+			&mockLoopDeviceManager{},
+		),
 		agentConf,
 		agentConf,
 	)
@@ -2249,4 +2260,15 @@ func mktemp(prefix string, content string) string {
 	}
 	f.Close()
 	return f.Name()
+}
+
+type mockLoopDeviceManager struct {
+	detachLoopDevicesArgRootfs string
+	detachLoopDevicesArgPrefix string
+}
+
+func (m *mockLoopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
+	m.detachLoopDevicesArgRootfs = rootfs
+	m.detachLoopDevicesArgPrefix = prefix
+	return nil
 }

@@ -6,6 +6,7 @@ package openstack
 import (
 	"math"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +15,8 @@ import (
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
 
@@ -22,6 +25,11 @@ const (
 	// autoAssignedMountPoint specifies the value to pass in when
 	// you'd like Cinder to automatically assign a mount point.
 	autoAssignedMountPoint = ""
+
+	volumeStatusAvailable = "available"
+	volumeStatusDeleting  = "deleting"
+	volumeStatusError     = "error"
+	volumeStatusInUse     = "in-use"
 )
 
 type cinderProvider struct {
@@ -44,9 +52,14 @@ func (p *cinderProvider) VolumeSource(environConfig *config.Config, providerConf
 	if err != nil {
 		return nil, err
 	}
+	uuid, ok := environConfig.UUID()
+	if !ok {
+		return nil, errors.NotFoundf("environment UUID")
+	}
 	source := &cinderVolumeSource{
 		storageAdapter: storageAdapter,
 		envName:        environConfig.Name(),
+		envUUID:        uuid,
 	}
 	return source, nil
 }
@@ -85,6 +98,7 @@ func (p *cinderProvider) Dynamic() bool {
 type cinderVolumeSource struct {
 	storageAdapter openstackStorage
 	envName        string // non unique, informational only
+	envUUID        string
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -178,11 +192,28 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 	return storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
 }
 
+// ListVolumes is specified on the storage.VolumeSource interface.
+func (s *cinderVolumeSource) ListVolumes() ([]string, error) {
+	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
+	if err != nil {
+		return nil, err
+	}
+	volumeIds := make([]string, 0, len(cinderVolumes))
+	for _, volume := range cinderVolumes {
+		envUUID, ok := volume.Metadata[tags.JujuEnv]
+		if !ok || envUUID != s.envUUID {
+			continue
+		}
+		volumeIds = append(volumeIds, cinderToJujuVolumeInfo(&volume).VolumeId)
+	}
+	return volumeIds, nil
+}
+
 // DescribeVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
-	cinderVolumes, err := s.storageAdapter.GetVolumesSimple()
+	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
 	if err != nil {
 		return nil, err
 	}
@@ -203,13 +234,63 @@ func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Volu
 
 // DestroyVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) []error {
-	errors := make([]error, len(volumeIds))
+	var wg sync.WaitGroup
+	wg.Add(len(volumeIds))
+	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
-		if err := s.storageAdapter.DeleteVolume(volumeId); err != nil {
-			errors[i] = err
-		}
+		go func(i int, volumeId string) {
+			defer wg.Done()
+			results[i] = s.destroyVolume(volumeId)
+		}(i, volumeId)
 	}
-	return errors
+	wg.Wait()
+	return results
+}
+
+func (s *cinderVolumeSource) destroyVolume(volumeId string) error {
+	logger.Debugf("destroying volume %q", volumeId)
+	// Volumes must not be in-use when destroying. A volume may
+	// still be in-use when the instance it is attached to is
+	// in the process of being terminated.
+	var issuedDetach bool
+	volume, err := s.waitVolume(volumeId, func(v *cinder.Volume) (bool, error) {
+		switch v.Status {
+		default:
+			// Not ready for deletion; keep waiting.
+			return false, nil
+		case volumeStatusAvailable, volumeStatusDeleting, volumeStatusError:
+			return true, nil
+		case volumeStatusInUse:
+			// Detach below.
+			break
+		}
+		// Volume is still attached, so detach it.
+		if !issuedDetach {
+			args := make([]storage.VolumeAttachmentParams, len(v.Attachments))
+			for i, a := range v.Attachments {
+				args[i].VolumeId = volumeId
+				args[i].InstanceId = instance.Id(a.ServerId)
+			}
+			if len(args) > 0 {
+				if err := s.DetachVolumes(args); err != nil {
+					return false, errors.Trace(err)
+				}
+			}
+			issuedDetach = true
+		}
+		return false, nil
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if volume.Status == volumeStatusDeleting {
+		// Already being deleted, nothing to do.
+		return nil
+	}
+	if err := s.storageAdapter.DeleteVolume(volumeId); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ValidateVolumeParams implements storage.VolumeSource.
@@ -288,7 +369,7 @@ func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams
 		// Check to see if the volume is already detached.
 		attachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.InstanceId))
 		if err != nil {
-			return err
+			return errors.Annotate(err, "listing volume attachments")
 		}
 		if err := detachVolume(
 			string(arg.InstanceId),
@@ -296,7 +377,10 @@ func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams
 			attachments,
 			s.storageAdapter,
 		); err != nil {
-			return err
+			return errors.Annotatef(
+				err, "detaching volume %s from server %s",
+				arg.VolumeId, arg.InstanceId,
+			)
 		}
 	}
 	return nil
@@ -334,7 +418,7 @@ func findAttachment(volId string, attachments []nova.VolumeAttachment) *nova.Vol
 
 type openstackStorage interface {
 	GetVolume(volumeId string) (*cinder.Volume, error)
-	GetVolumesSimple() ([]cinder.Volume, error)
+	GetVolumesDetail() ([]cinder.Volume, error)
 	DeleteVolume(volumeId string) error
 	CreateVolume(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
 	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
@@ -352,7 +436,10 @@ func newOpenstackStorageAdapter(environConfig *config.Config) (openstackStorage,
 		return nil, errors.Trace(err)
 	}
 
-	endpoint := authClient.EndpointsForRegion(ecfg.region())["volume"]
+	endpoint, ok := authClient.EndpointsForRegion(ecfg.region())["volume"]
+	if !ok {
+		return nil, errors.Errorf("volume endpoint not found for %q endpoint", ecfg.region())
+	}
 	endpointUrl, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "error parsing endpoint")
@@ -386,9 +473,9 @@ func (ga *openstackStorageAdapter) CreateVolume(args cinder.CreateVolumeVolumePa
 	return &resp.Volume, nil
 }
 
-// GetVolumesSimple is part of the openstackStorage interface.
-func (ga *openstackStorageAdapter) GetVolumesSimple() ([]cinder.Volume, error) {
-	resp, err := ga.cinderClient.GetVolumesSimple()
+// GetVolumesDetail is part of the openstackStorage interface.
+func (ga *openstackStorageAdapter) GetVolumesDetail() ([]cinder.Volume, error) {
+	resp, err := ga.cinderClient.GetVolumesDetail()
 	if err != nil {
 		return nil, err
 	}

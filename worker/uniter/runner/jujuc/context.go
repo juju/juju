@@ -184,6 +184,10 @@ type ContextMetrics interface {
 // ContextStorage is the part of a hook context related to storage
 // resources associated with the unit.
 type ContextStorage interface {
+	// StorageTags returns a list of tags for storage instances
+	// attached to the unit.
+	StorageTags() []names.StorageTag
+
 	// Storage returns the ContextStorageAttachment with the supplied
 	// tag if it was found, and whether it was found.
 	Storage(names.StorageTag) (ContextStorageAttachment, bool)

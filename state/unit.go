@@ -1146,17 +1146,47 @@ var (
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+	originalm := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			m, err = u.st.Machine(m.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return u.assignToMachineOps(m, unused)
+	}
+	if err := u.st.run(buildTxn); err != nil {
+		// Don't wrap the error, as we want to return specific values
+		// as described in the doc comment.
+		return err
+	}
+	u.doc.MachineId = originalm.doc.Id
+	originalm.doc.Clean = false
+	return nil
+}
+
+func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
+	if u.Life() != Alive {
+		return nil, unitNotAliveErr
+	}
+	if m.Life() != Alive {
+		return nil, machineNotAliveErr
+	}
 	if u.doc.Series != m.doc.Series {
-		return fmt.Errorf("series does not match")
+		return nil, fmt.Errorf("series does not match")
 	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
-			return alreadyAssignedErr
+			return nil, alreadyAssignedErr
 		}
-		return nil
+		return nil, jujutxn.ErrNoOperations
 	}
 	if u.doc.Principal != "" {
-		return fmt.Errorf("unit is a subordinate")
+		return nil, fmt.Errorf("unit is a subordinate")
+	}
+	if unused && !m.doc.Clean {
+		return nil, inUseErr
 	}
 	canHost := false
 	for _, j := range m.doc.Jobs {
@@ -1166,29 +1196,36 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		}
 	}
 	if !canHost {
-		return fmt.Errorf("machine %q cannot host units", m)
+		return nil, fmt.Errorf("machine %q cannot host units", m)
 	}
 	// assignToMachine implies assignment to an existing machine,
 	// which is only permitted if unit placement is supported.
 	if err := u.st.supportsUnitPlacement(); err != nil {
-		return err
+		return nil, err
 	}
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	storageOps, volumesAttached, filesystemsAttached, err := u.st.machineStorageOps(
 		&m.doc, storageParams,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
-		m.doc.Id, volumesAttached, filesystemsAttached,
-	))
+	// addMachineStorageAttachmentsOps will add a txn.Op that ensures
+	// that no filesystems were concurrently added to the machine if
+	// any of the filesystems being attached specify a location.
+	attachmentOps, err := addMachineStorageAttachmentsOps(
+		m, volumesAttached, filesystemsAttached,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageOps = append(storageOps, attachmentOps...)
 
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
@@ -1212,32 +1249,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	}}
 	ops = append(ops, storageOps...)
-	err = u.st.runTransaction(ops)
-	if err == nil {
-		u.doc.MachineId = m.doc.Id
-		m.doc.Clean = false
-		return nil
-	}
-	if err != txn.ErrAborted {
-		return err
-	}
-	u0, err := u.st.Unit(u.Name())
-	if err != nil {
-		return err
-	}
-	m0, err := u.st.Machine(m.Id())
-	if err != nil {
-		return err
-	}
-	switch {
-	case u0.Life() != Alive:
-		return unitNotAliveErr
-	case m0.Life() != Alive:
-		return machineNotAliveErr
-	case u0.doc.MachineId != "" || !unused:
-		return alreadyAssignedErr
-	}
-	return inUseErr
+	return ops, nil
 }
 
 // validateDynamicMachineStorageParams validates that the provided machine
@@ -1257,7 +1269,10 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	return validateDynamicStorageParams(m.st, params)
+	if err := validateDynamicStorageParams(m.st, params); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // validateDynamicStorageParams validates that all storage providers required for
@@ -1670,6 +1685,7 @@ func machineStorageParamsForStorageInstance(
 			)
 		}
 		filesystemAttachmentParams := FilesystemAttachmentParams{
+			charmStorage.Location == "", // auto-generated location
 			location,
 			charmStorage.ReadOnly,
 		}
@@ -1840,7 +1856,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// If any required storage s not all dynamic, then assigning
+	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
 	if err != nil {

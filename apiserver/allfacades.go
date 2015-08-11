@@ -37,6 +37,7 @@ import (
 	_ "github.com/juju/juju/apiserver/service"
 	_ "github.com/juju/juju/apiserver/storage"
 	_ "github.com/juju/juju/apiserver/storageprovisioner"
+	_ "github.com/juju/juju/apiserver/systemmanager"
 	_ "github.com/juju/juju/apiserver/uniter"
 	_ "github.com/juju/juju/apiserver/upgrader"
 	_ "github.com/juju/juju/apiserver/usermanager"

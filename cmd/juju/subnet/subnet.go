@@ -85,12 +85,12 @@ type SubnetCommandBase struct {
 
 // NewAPI returns a SubnetAPI for the root api endpoint that the
 // environment command returns.
-func (c *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
+func (s *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
 	// TODO(dimitern): Change this once the API is implemented.
 
-	if c.api != nil {
+	if s.api != nil {
 		// Already created.
-		return c.api, nil
+		return s.api, nil
 	}
 
 	return nil, errors.New("API not implemented yet!")
@@ -104,7 +104,7 @@ var (
 	errNoZones    = errors.New("at least one zone is required")
 )
 
-// CheckArgs is a helper used to validate the number of arguments
+// CheckNumArgs is a helper used to validate the number of arguments
 // passed to Init(). If the number of arguments is X, errors[X] (if
 // set) will be returned, otherwise no error occurs.
 func (s *SubnetCommandBase) CheckNumArgs(args []string, errors []error) error {

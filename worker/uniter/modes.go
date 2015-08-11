@@ -253,11 +253,6 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if !opState.Started {
 		return continueAfter(u, newSimpleRunHookOp(hooks.Start))
 	}
-	// Before entering either Abide loop run update-status hook.
-	if err := u.runOperation(newSimpleRunHookOp(hooks.UpdateStatus)); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
 	defer func() {
@@ -278,107 +273,14 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	return modeAbideAliveLoop(u)
 }
 
-var (
-	// enterLoopIsIdleWaitTime is the time after which we consider "nothing interesting
-	// is happening" and decide that the loop is idling.
-	// After entering idle mode, we will loop every loopIsStillIdleCheckInterval.
-	enterLoopIsIdleWaitTime = 1 * time.Second
-
-	// loopIsIdleCheckInterval is a time interval waits after running
-	// an update-status triggered by mode abide loop idleness after which
-	// idle state will be set.
-	loopIsIdleCheckInterval = 1 * time.Second
-
-	// loopIsStillIdleCheckInterval is a time interval after which the
-	// mode abide loop will check if it is still idle.
-	loopIsStillIdleCheckInterval = 2 * time.Second
-)
-
-// loopIdlenessControl is intended to be used as the idle state keeper
-// for modeAbideAliveLoop in order to properly enter/exit idle loop state
-// and trigger the associate actions around it.
-type loopIdlenessControl struct {
-	enterIdle                      bool
-	idleCheckWaitTime              time.Duration
-	activityRelevantToUpdateStatus bool
-}
-
-func newLoopIdlenessControl() *loopIdlenessControl {
-	return &loopIdlenessControl{}
-}
-
-// becomeOrCheckStillIdle returns a channel that will fire upon waiting
-// a time after updateStatusBeforeBecomingIdle fired and then subsequently
-// after every loopIsStillIdleCheckInterval until something else takes control
-// of the loop again.
-func (i *loopIdlenessControl) becomeOrCheckStillIdle() <-chan time.Time {
-	if i.enterIdle {
-		fireAfter := i.idleCheckWaitTime
-		i.idleCheckWaitTime = loopIsStillIdleCheckInterval
-		return time.After(fireAfter)
-	}
-	return nil
-}
-
-// updateStatusBeforeBecomingIdle returns a channel that will trigger after
-// a prudent time of inactivity has elapsed, this is a sign
-// that our hook queue has been emptied update-status hook
-// will be triggered in case the previous activity made
-// changes that need to reflect in status.
-func (i *loopIdlenessControl) updateStatusBeforeBecomingIdle() <-chan time.Time {
-	if i.enterIdle {
-		return nil
-	}
-	i.idleCheckWaitTime = loopIsIdleCheckInterval
-	return time.After(enterLoopIsIdleWaitTime)
-}
-
-// idle marks the enterIdle flag as true, which means that the loop has
-// already run updateStatusBeforeBecomingIdle after an inactivity period
-// and is now ready to set status idle until something else happens in the
-// loop.
-func (i *loopIdlenessControl) idle() {
-	i.enterIdle = true
-}
-
-func (i *loopIdlenessControl) activity() {
-	i.enterIdle = false
-}
-
-// relevantToUpdateStatusActivity marks the activity flag
-// for activity that is "relevant" to update-status, this
-// means that it will only be marked when the activity
-// is worth of being followed by an update-status hook.
-// When set to true, there will be an update-status hook
-// before entering idleness.
-func (i *loopIdlenessControl) relevantToUpdateStatusActivity() {
-	i.activityRelevantToUpdateStatus = true
-}
-
-func (i *loopIdlenessControl) forgetRelevatToUpdateStatusActivity() {
-	i.activityRelevantToUpdateStatus = false
-}
+// idleWaitTime is the time after which, if there are no uniter events,
+// the agent state becomes idle.
+var idleWaitTime = 2 * time.Second
 
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
-// About idleness: among the many possible branches of modeAbideAliveLoop there
-// is idleness that will set agent status to idle among other things, this
-// deserves a more thorough explanation:
-// Idleness in the loop is time based and deeply tied to update-status hook.
-// Upon waiting a time (enterLoopIsIdleWaitTime) without activity, the loop will
-// fire the beforeBecoming idle case which triggers the update-status hook
-// and sets idle wait time to a shorter time (loopIsIdleCheckInterval) if this time
-// elapses with still no activity the loop will enter the Idle case, which will
-// set the agent status to idle and set itself to wait a larger time
-// (loopIsStillIdleCheckInterval) and reentering the idle case every time in
-// loopIsStillIdleCheckInterval intervals until some activity happens.
-// if the activity is relevant to update-status (worth triggering the hook)
-// the whole process will begin again, if it is not the idle timer remains the
-// same and after loopIsStillIdleCheckInterval it will become idle once again.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
-
 	var leaderElected, leaderDeposed <-chan struct{}
-	idleControl := newLoopIdlenessControl()
 	for {
 		// We expect one or none of these vars to be non-nil; and if none
 		// are, we set the one that should trigger when our leadership state
@@ -406,31 +308,13 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 
 		// update-status hook
 		lastUpdateStatus := time.Unix(u.operationState().UpdateStatusTime, 0)
-		timedUpdateStatus := u.updateStatusAt(
+		updateStatusSignal := u.updateStatusAt(
 			time.Now(), lastUpdateStatus, statusPollInterval,
 		)
 
 		var creator creator
 		select {
-		case <-idleControl.updateStatusBeforeBecomingIdle():
-			idleControl.idle()
-			if !idleControl.activityRelevantToUpdateStatus {
-				idleControl.relevantToUpdateStatusActivity()
-				continue
-			}
-
-			creator = newSimpleRunHookOp(hooks.UpdateStatus)
-			if err := u.runOperation(creator); err != nil {
-				return nil, errors.Trace(err)
-			}
-			idleControl.relevantToUpdateStatusActivity()
-			continue
-		case <-timedUpdateStatus:
-			// we dont want update-status to trigger an update-status upon
-			// becoming idle again.
-			idleControl.forgetRelevatToUpdateStatusActivity()
-			creator = newSimpleRunHookOp(hooks.UpdateStatus)
-		case <-idleControl.becomeOrCheckStillIdle():
+		case <-time.After(idleWaitTime):
 			if err := setAgentStatus(u, params.StatusIdle, "", nil); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -449,21 +333,18 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newUpdateStorageOp(tags)
 		case <-u.f.ConfigEvents():
 			creator = newSimpleRunHookOp(hooks.ConfigChanged)
-			idleControl.relevantToUpdateStatusActivity()
 		case <-u.f.MeterStatusEvents():
 			creator = newSimpleRunHookOp(hooks.MeterStatusChanged)
-			idleControl.relevantToUpdateStatusActivity()
 		case <-collectMetricsSignal:
 			creator = newSimpleRunHookOp(hooks.CollectMetrics)
-			idleControl.relevantToUpdateStatusActivity()
 		case <-sendMetricsSignal:
 			creator = newSendMetricsOp()
+		case <-updateStatusSignal:
+			creator = newSimpleRunHookOp(hooks.UpdateStatus)
 		case hookInfo := <-u.relations.Hooks():
 			creator = newRunHookOp(hookInfo)
-			idleControl.relevantToUpdateStatusActivity()
 		case hookInfo := <-u.storage.Hooks():
 			creator = newRunHookOp(hookInfo)
-			idleControl.relevantToUpdateStatusActivity()
 		case <-leaderElected:
 			// This operation queues a hook, better to let ModeContinue pick up
 			// after it than to duplicate queued-hook handling here.
@@ -473,13 +354,10 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			creator = newResignLeadershipOp()
 		case <-u.f.LeaderSettingsEvents():
 			creator = newSimpleRunHookOp(hook.LeaderSettingsChanged)
-			idleControl.relevantToUpdateStatusActivity()
 		}
-
 		if err := u.runOperation(creator); err != nil {
 			return nil, errors.Trace(err)
 		}
-		idleControl.activity()
 	}
 }
 
