@@ -306,15 +306,6 @@ func volumesToInterfaces(volumes []*volume) []Volume {
 	return result
 }
 
-// PersistentVolumes returns any alive persistent Volumes scoped to the environment or any machine.
-func (st *State) PersistentVolumes() ([]Volume, error) {
-	volumes, err := st.volumes(bson.D{{"info.persistent", true}})
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get persistent volumes")
-	}
-	return volumesToInterfaces(volumes), nil
-}
-
 func (st *State) storageInstanceVolume(tag names.StorageTag) (*volume, error) {
 	return st.volume(
 		bson.D{{"storageid", tag.Id()}},
