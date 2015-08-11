@@ -4,12 +4,12 @@
 package subnets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 // TestAll is the main test function for this package
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
 }
