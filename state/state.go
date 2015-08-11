@@ -1217,6 +1217,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		AllocatableIPHigh: args.AllocatableIPHigh,
 		AllocatableIPLow:  args.AllocatableIPLow,
 		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
 	}
 	subnet = &Subnet{doc: subDoc, st: st}
 	err = subnet.Validate()

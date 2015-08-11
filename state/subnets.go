@@ -38,6 +38,10 @@ type SubnetInfo struct {
 	// AvailabilityZone describes which availability zone this subnet is in. It can
 	// be empty if the provider does not support availability zones.
 	AvailabilityZone string
+
+	// SpaceName is the name of the space the subnet is associated with. It
+	// can be empty if the subnet is in the default space.
+	SpaceName string
 }
 
 type Subnet struct {
