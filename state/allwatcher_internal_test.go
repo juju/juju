@@ -1122,6 +1122,32 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
+func (s *allEnvWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
+	// Ensure an entity is removed when a change is seen but
+	// the environment the entity belonged to has already died.
+
+	b := newAllEnvWatcherStateBacking(s.state)
+	defer b.Release()
+	all := newStore()
+
+	// Insert a machine for an environment that doesn't actually
+	// exist (mimics env removal).
+	all.Update(&multiwatcher.MachineInfo{
+		EnvUUID: "uuid",
+		Id:      "0",
+	})
+	c.Assert(all.All(), gc.HasLen, 1)
+
+	err := b.Changed(all, watcher.Change{
+		C:  "machines",
+		Id: ensureEnvUUID("uuid", "0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Entity info should be gone now.
+	c.Assert(all.All(), gc.HasLen, 0)
+}
+
 func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 	// Set up 2 environments and ensure that GetAll returns the
 	// entities for both of them.
