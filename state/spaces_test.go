@@ -175,3 +175,23 @@ func (s *SpacesSuite) TestAddSpaceEmptyName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot add space \"\": invalid space name")
 	s.assertNoSpace(c, name)
 }
+
+func (s *SpacesSuite) TestSpaceSubnets(c *gc.C) {
+	name := "my-space"
+	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24", "4.1.1.0/24", "5.1.1.0/24"}
+	isPublic := false
+	s.addSubnets(c, subnets)
+
+	space, err := s.State.AddSpace(name, subnets, isPublic)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []*state.Subnet{}
+	for _, cidr := range subnets {
+		subnet, err := s.State.Subnet(cidr)
+		c.Assert(err, jc.ErrorIsNil)
+		expected = append(expected, subnet)
+	}
+	actual, err := space.Subnets()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, jc.DeepEquals, expected)
+}
