@@ -1,7 +1,6 @@
 #!/bin/bash
-# As a member of juju-qa,  Visit each the jenkins master and slaves
-# and update their branches.
-# passing 'true' as an arg will driect the script to try to update cloud-city.
+# Update the required resources on the Jenkins master and slaves.
+# the --cloud-city option will also update credential and configs.
 set -eux
 
 MASTER="juju-ci.vapour.ws"
@@ -36,7 +35,7 @@ if [[ "$CLOUD_CITY" == "true" ]]; then
     (cd ~/cloud-city; bzr revert; cd -)
     bzr pull -d ~/cloud-city ~/cloud-city.new
     rm -r ~/cloud-city.new
-    sudo chown -R jenkins:jenkins ~/cloud-city
+    sudo chown -R jenkins ~/cloud-city
     chmod -R go-w ~/cloud-city
     chmod 700 ~/cloud-city
     chmod 700 ~/cloud-city/gnupg

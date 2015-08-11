@@ -142,22 +142,22 @@ class CandidateTestCase(TestCase):
                 with patch(
                         'candidate.get_artifacts', autospec=True) as ga_mock:
                     download_candidate_files(
-                        credentials, 'gitbr:1.21:gh', '~/candidate', '1234')
+                        credentials, '1.24.4', '~/candidate', '1234')
         args, kwargs = pd_mock.call_args
-        self.assertEqual(('~/candidate/1.21-artifacts', False, False), args)
+        self.assertEqual(('~/candidate/1.24.4-artifacts', False, False), args)
         args, kwargs = fprn_mock.call_args
         self.assertEqual((Credentials('jrandom', 'password1'), '1234'), args)
         self.assertEqual(2, ga_mock.call_count)
         output, args, kwargs = ga_mock.mock_calls[0]
         self.assertEqual(
             (credentials, 'build-revision', '1234',
-             'buildvars.json', '~/candidate/1.21-artifacts'), args)
+             'buildvars.json', '~/candidate/1.24.4-artifacts'), args)
         options = {'verbose': False, 'dry_run': False}
         self.assertEqual(options, kwargs)
         output, args, kwargs = ga_mock.mock_calls[1]
         self.assertEqual(
             (credentials, 'publish-revision', 5678, 'juju-core*',
-             '~/candidate/1.21-artifacts'),
+             '~/candidate/1.24.4-artifacts'),
             args)
         self.assertEqual(options, kwargs)
 
@@ -169,10 +169,10 @@ class CandidateTestCase(TestCase):
                 with patch(
                         'candidate.get_artifacts', autospec=True) as ga_mock:
                     download_candidate_files(
-                        credentials, 'gitbr:1.21:gh', '~/candidate', '1234',
+                        credentials, '1.24.4', '~/candidate', '1234',
                         dry_run=True, verbose=True)
         args, kwargs = pd_mock.call_args
-        self.assertEqual(('~/candidate/1.21-artifacts', True, True), args)
+        self.assertEqual(('~/candidate/1.24.4-artifacts', True, True), args)
         args, kwargs = ga_mock.call_args
         options = {'verbose': True, 'dry_run': True}
         self.assertEqual(options, kwargs)
@@ -207,14 +207,15 @@ class CandidateTestCase(TestCase):
         self.assertEqual((['dpkg', '--print-architecture'], ), args)
 
     def setup_extract_candidates(self, dry_run=False, verbose=False):
+        version = '1.2.3'
         with temp_dir() as base_dir:
             artifacts_dir_path = os.path.join(base_dir, 'master-artifacts')
             os.makedirs(artifacts_dir_path)
             buildvars_path = os.path.join(artifacts_dir_path, 'buildvars.json')
             with open(buildvars_path, 'w') as bv:
-                json.dump(dict(version='1.2.3'), bv)
+                json.dump(dict(version=version), bv)
             os.utime(buildvars_path, (1426186437, 1426186437))
-            master_dir_path = os.path.join(base_dir, 'master')
+            master_dir_path = os.path.join(base_dir, version)
             os.makedirs(master_dir_path)
             package_path = os.path.join(master_dir_path, 'foo.deb')
             with patch('candidate.prepare_dir') as pd_mock:

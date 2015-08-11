@@ -75,7 +75,7 @@ def prepare_dir(dir_path, dry_run=False, verbose=False):
         os.makedirs(dir_path)
 
 
-def download_candidate_files(credentials, branch, path, br_number,
+def download_candidate_files(credentials, release_number, path, br_number,
                              pr_number=None, dry_run=False, verbose=False):
     """Download the files from the build-revision and publish-revision jobs.
 
@@ -83,8 +83,7 @@ def download_candidate_files(credentials, branch, path, br_number,
     All the binary and source packages from the last successful build of
     publish revision are downloaded.
     """
-    branch_name = branch.split(':')[1]
-    artifact_dir_name = '%s-artifacts' % branch_name
+    artifact_dir_name = '%s-artifacts' % release_number
     candidate_dir = os.path.join(path, artifact_dir_name)
     prepare_dir(candidate_dir, dry_run, verbose)
     get_artifacts(
@@ -120,7 +119,7 @@ def get_package(artifacts_path, version):
 def extract_candidates(path, dry_run=False, verbose=False):
     """Extract all the candidate juju binaries for the local machine.
 
-    Each candidate will be extracted to a directory named after the branch
+    Each candidate will be extracted to a directory named after the version
     the artifacts (packages) were made from. Thus the package that matches
     the localhost's series and architecture in the master-artifacts/ directory
     will be extracted to a sibling directory named "master/" The buildvars.json
@@ -134,8 +133,7 @@ def extract_candidates(path, dry_run=False, verbose=False):
             buildvars = json.load(bf)
         version = buildvars['version']
         package_path = get_package(artifacts_path, version)
-        branch_name = dir_name.split('-')[0]
-        candidate_path = os.path.join(path, branch_name)
+        candidate_path = os.path.join(path, version)
         if verbose:
             print('extracting %s to %s' % (package_path, candidate_path))
         prepare_dir(candidate_path, dry_run, verbose)
@@ -237,7 +235,7 @@ def parse_args(args=None):
         '-p', '--pr-number',
         help="The specific publish-revision-revision number.")
     parser_update.add_argument(
-        'branch', help='The successfully test branch location.')
+        'release_number', help='The successfully test branch release number.')
     parser_update.add_argument(
         'path', help='The path to save the candiate data to.')
     add_credential_args(parser_update)
@@ -268,7 +266,7 @@ def main(argv):
     try:
         if args.command == 'download':
             download_candidate_files(
-                credentials, args.branch, args.path, args.br_number,
+                credentials, args.release_number, args.path, args.br_number,
                 args.pr_number, dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'extract':
             extract_candidates(

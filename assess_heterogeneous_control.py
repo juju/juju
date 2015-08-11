@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
+import logging
 from textwrap import dedent
 from subprocess import CalledProcessError
 
@@ -14,12 +15,13 @@ from jujupy import (
     )
 from deploy_stack import (
     check_token,
-    dump_logs,
+    dump_env_logs,
     get_machine_dns_name,
     get_random_string,
     update_env,
     )
 from jujuci import add_credential_args
+from utility import configure_logging
 
 
 def bootstrap_client(client, upload_tools):
@@ -51,7 +53,7 @@ def dumping_env(client, host, log_dir):
         try:
             yield
         finally:
-            dump_logs(client.env, host, log_dir)
+            dump_env_logs(client, host, log_dir)
     except:
         client.destroy_environment()
         raise
@@ -226,6 +228,7 @@ def parse_args(argv=None):
 
 def main():
     args = parse_args()
+    configure_logging(logging.INFO)
     assess_heterogeneous(args.initial, args.other, args.base_environment,
                          args.environment_name, args.log_dir,
                          args.upload_tools, args.debug, args.agent_url)
