@@ -1565,11 +1565,20 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	}
 
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
-	// This can return a 404 error if the address has already been released
-	// or is unknown by maas. However this, like any other error, would be
-	// unexpected - so we don't treat it specially and just return it to
-	// the caller.
-	return ReleaseIPAddress(ipaddresses, addr)
+	for a := shortAttempt.Start(); a.Next(); {
+		// This can return a 404 error if the address has already been released
+		// or is unknown by maas. However this, like any other error, would be
+		// unexpected - so we don't treat it specially and just return it to
+		// the caller.
+		err = ReleaseIPAddress(ipaddresses, addr)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		logger.Warningf("failed to release address %q from instance %q", addr, instId)
+	}
+	return err
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
