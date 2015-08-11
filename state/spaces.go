@@ -110,6 +110,12 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 		if _, err = st.Space(name); err == nil {
 			return nil, errors.AlreadyExistsf("space %q", name)
 		}
+		for _, subnetId := range subnets {
+			_, err := st.Subnet(subnetId)
+			if errors.IsNotFound(err) {
+				return nil, err
+			}
+		}
 	}
 	return newSpace, errors.Trace(err)
 }
