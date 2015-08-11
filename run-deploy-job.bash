@@ -34,8 +34,12 @@ dpkg -x $deb extracted-bin
 JUJU_BIN=$(dirname $(find extracted-bin -name 'juju'))
 $SCRIPTS/jujuci.py get-build-vars --summary --env $ENV $revision_build
 if [[ $VERSION =~ ^1\.2[1-2].*$ ]]; then
-    echo "Setting the defaul juju to 1.20.11."
+    echo "Setting the default juju to 1.20.11."
     export PATH="$HOME/old-juju/1.20.11/usr/lib/juju-1.20.11/bin:$PATH"
+fi
+if [[ $VERSION =~ ^1\.23.*$ ]]; then
+    echo "Setting the default juju to 1.22.6."
+    export PATH="$HOME/old-juju/1.22.6/usr/lib/juju-1.22.6/bin:$PATH"
 fi
 
 timeout -s INT $timeout $SCRIPTS/deploy_job.py --series $series\
