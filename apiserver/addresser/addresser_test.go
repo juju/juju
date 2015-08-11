@@ -59,32 +59,6 @@ func (s *AddresserSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
-	config := coretesting.EnvironConfig(c)
-	s.st.setConfig(c, config)
-
-	result, err := s.api.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
-		Config: config.AllAttrs(),
-	})
-
-	s.st.stub.CheckCallNames(c, "EnvironConfig")
-}
-
-func (s *AddresserSuite) TestEnvironConfigFailure(c *gc.C) {
-	config := testingEnvConfig(c)
-	s.st.setConfig(c, config)
-
-	s.st.stub.SetErrors(errors.New("ouch"))
-
-	result, err := s.api.EnvironConfig()
-	c.Assert(err, gc.ErrorMatches, "ouch")
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
-
-	s.st.stub.CheckCallNames(c, "EnvironConfig")
-}
-
 func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
 	config := testingEnvConfig(c)
 	s.st.setConfig(c, config)

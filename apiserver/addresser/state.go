@@ -4,6 +4,7 @@
 package addresser
 
 import (
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -27,7 +28,8 @@ type StateIPAddress interface {
 // StateInterface defines the needed methods of state.State
 // for the work of the Addresser API.
 type StateInterface interface {
-	state.EnvironAccessor
+	// EnvironConfig retrieves the environment configuration.
+	EnvironConfig() (*config.Config, error)
 
 	// DeadIPAddresses retrieves all dead IP addresses.
 	DeadIPAddresses() ([]StateIPAddress, error)
@@ -49,7 +51,8 @@ func (s stateShim) DeadIPAddresses() ([]StateIPAddress, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Sadly need this trick for mocking.
+	// Convert []*state.IPAddress into []StateIPAddress. Direct
+	// casts of complete slices are not possible.
 	stateIPAddresses := make([]StateIPAddress, len(ipAddresses))
 	for i, ipAddress := range ipAddresses {
 		stateIPAddresses[i] = StateIPAddress(ipAddress)

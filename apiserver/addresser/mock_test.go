@@ -30,7 +30,6 @@ type mockState struct {
 	config      *config.Config
 	ipAddresses map[string]*mockIPAddress
 
-	configWatchers    []*mockConfigWatcher
 	ipAddressWatchers []*mockIPAddressWatcher
 }
 
@@ -88,41 +87,6 @@ func (mst *mockState) setConfig(c *gc.C, newConfig *config.Config) {
 	defer mst.mu.Unlock()
 
 	mst.config = newConfig
-
-	// Notify any watchers for the changes.
-	for _, w := range mst.configWatchers {
-		w.incoming <- struct{}{}
-	}
-}
-
-// WatchForEnvironConfigChanges implements StateInterface.
-func (mst *mockState) WatchForEnvironConfigChanges() state.NotifyWatcher {
-	mst.mu.Lock()
-	defer mst.mu.Unlock()
-
-	mst.stub.MethodCall(mst, "WatchForEnvironConfigChanges")
-	mst.stub.NextErr()
-	return mst.nextEnvironConfigChangesWatcher()
-}
-
-// addEnvironConfigChangesWatcher adds an environment config changes watches.
-func (mst *mockState) addEnvironConfigChangesWatcher(err error) *mockConfigWatcher {
-	w := newMockConfigWatcher(err)
-	mst.configWatchers = append(mst.configWatchers, w)
-	return w
-}
-
-// nextEnvironConfigChangesWatcher returns an environment
-// config changes watcher.
-func (mst *mockState) nextEnvironConfigChangesWatcher() *mockConfigWatcher {
-	if len(mst.configWatchers) == 0 {
-		panic("ran out of watchers")
-	}
-
-	w := mst.configWatchers[0]
-	mst.configWatchers = mst.configWatchers[1:]
-	w.start()
-	return w
 }
 
 // IPAddress implements StateInterface.
@@ -302,130 +266,54 @@ func (mip *mockIPAddress) MACAddress() string {
 	return mip.macaddr
 }
 
-// mockBaseWatcher is a helper for the watcher mocks.
-type mockBaseWatcher struct {
-	err error
-
-	closeChanges func()
-	done         chan struct{}
-}
-
-var _ state.Watcher = (*mockBaseWatcher)(nil)
-
-func newMockBaseWatcher(err error, closeChanges func()) *mockBaseWatcher {
-	w := &mockBaseWatcher{
-		err:          err,
-		closeChanges: closeChanges,
-		done:         make(chan struct{}),
-	}
-	if err != nil {
-		w.Stop()
-	}
-	return w
-}
-
-// Kill implements state.Watcher.
-func (mbw *mockBaseWatcher) Kill() {}
-
-// Stop implements state.Watcher.
-func (mbw *mockBaseWatcher) Stop() error {
-	select {
-	case <-mbw.done:
-		// Closed.
-	default:
-		// Signal the loop we want to stop.
-		close(mbw.done)
-		// Signal the clients we've closed.
-		mbw.closeChanges()
-	}
-	return mbw.err
-}
-
-// Wait implements state.Watcher.
-func (mbw *mockBaseWatcher) Wait() error {
-	return mbw.Stop()
-}
-
-// Err implements state.Watcher.
-func (mbw *mockBaseWatcher) Err() error {
-	return mbw.err
-}
-
-// mockConfigWatcher notifies about config changes.
-type mockConfigWatcher struct {
-	*mockBaseWatcher
-
-	wontStart bool
-	incoming  chan struct{}
-	changes   chan struct{}
-}
-
-var _ state.NotifyWatcher = (*mockConfigWatcher)(nil)
-
-func newMockConfigWatcher(err error) *mockConfigWatcher {
-	changes := make(chan struct{})
-	mcw := &mockConfigWatcher{
-		wontStart:       false,
-		incoming:        make(chan struct{}),
-		changes:         changes,
-		mockBaseWatcher: newMockBaseWatcher(err, func() { close(changes) }),
-	}
-	return mcw
-}
-
-// start starts the backend loop depending on a field setting.
-func (mcw *mockConfigWatcher) start() {
-	if mcw.wontStart {
-		// Set manually by tests that need it.
-		mcw.Stop()
-		return
-	}
-	go mcw.loop()
-}
-
-func (mcw *mockConfigWatcher) loop() {
-	// Prepare initial event.
-	outChanges := mcw.changes
-	// Forward any incoming changes until stopped.
-	for {
-		select {
-		case <-mcw.done:
-			return
-		case outChanges <- struct{}{}:
-			outChanges = nil
-		case <-mcw.incoming:
-			outChanges = mcw.changes
-		}
-	}
-}
-
-// Changes implements state.NotifyWatcher.
-func (mcw *mockConfigWatcher) Changes() <-chan struct{} {
-	return mcw.changes
-}
-
 // mockIPAddressWatcher notifies about IP address changes.
 type mockIPAddressWatcher struct {
-	*mockBaseWatcher
-
+	err       error
 	initial   []string
 	wontStart bool
 	incoming  chan []string
 	changes   chan []string
+	done      chan struct{}
 }
 
 var _ state.StringsWatcher = (*mockIPAddressWatcher)(nil)
 
 func newMockIPAddressWatcher(initial []string) *mockIPAddressWatcher {
-	changes := make(chan []string)
 	mipw := &mockIPAddressWatcher{
-		initial:         initial,
-		wontStart:       false,
-		changes:         changes,
-		incoming:        make(chan []string),
-		mockBaseWatcher: newMockBaseWatcher(nil, func() { close(changes) }),
+		initial:   initial,
+		wontStart: false,
+		incoming:  make(chan []string),
+		changes:   make(chan []string),
+		done:      make(chan struct{}),
 	}
 	return mipw
+}
+
+// Kill implements state.Watcher.
+func (mipw *mockIPAddressWatcher) Kill() {}
+
+// Stop implements state.Watcher.
+func (mipw *mockIPAddressWatcher) Stop() error {
+	select {
+	case <-mipw.done:
+		// Closed.
+	default:
+		// Signal the loop we want to stop.
+		close(mipw.done)
+		// Signal the clients we've closed.
+		close(mipw.changes)
+	}
+	return mipw.err
+}
+
+// Wait implements state.Watcher.
+func (mipw *mockIPAddressWatcher) Wait() error {
+	return mipw.Stop()
+}
+
+// Err implements state.Watcher.
+func (mipw *mockIPAddressWatcher) Err() error {
+	return mipw.err
 }
 
 // start starts the backend loop depending on a field setting.

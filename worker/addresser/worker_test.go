@@ -295,7 +295,6 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 type workerDisabledSuite struct {
 	testing.JujuConnSuite
-	machine *state.Machine
 
 	apiSt *api.State
 	api   *apiaddresser.API
@@ -311,57 +310,43 @@ func (s *workerDisabledSuite) SetUpTest(c *gc.C) {
 	s.apiSt, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.api = s.apiSt.Addresser()
 
-	// Create a machine.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	s.machine = machine
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create address and assign to machine.
-	addr := network.NewAddress("0.1.2.3")
-	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.AllocateTo(s.machine.Id(), "wobble", "")
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.State.StartSync()
 }
 
-func (s *workerDisabledSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
+func (s *workerDisabledSuite) TestWorkerIgnoresAddresses(c *gc.C) {
 	w, err := addresser.NewWorker(s.api)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(w)
 
-	// Add a new alive address.
-	addr := network.NewAddress("0.1.2.9")
+	// Create a machine.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create addresses and assign to machine,
+	// set second one to dead.
+	addr := network.NewAddress("0.1.2.3")
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.AllocateTo(s.machine.Id(), "wobble", "")
+	err = ipAddr.AllocateTo(machine.Id(), "wobble", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The worker must not kill this address.
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		ipAddr, err := s.State.IPAddress("0.1.2.9")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
-	}
-}
-
-func (s *workerDisabledSuite) TestWorkerIgnoresDeadAddresses(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
+	addr = network.NewAddress("0.1.2.4")
+	ipAddr, err = s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
-
-	// Remove machine with addresses.
-	err = s.machine.EnsureDead()
+	err = ipAddr.AllocateTo(machine.Id(), "wobble", "")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
+	err = ipAddr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The worker must not remove this address.
+	// The worker must not kill these addresses.
 	for a := common.ShortAttempt.Start(); a.Next(); {
 		ipAddr, err := s.State.IPAddress("0.1.2.3")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
+
+		ipAddr, err = s.State.IPAddress("0.1.2.4")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
 	}

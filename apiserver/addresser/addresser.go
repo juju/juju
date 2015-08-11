@@ -23,8 +23,6 @@ var logger = loggo.GetLogger("juju.apiserver.addresser")
 
 // AddresserAPI provides access to the Addresser API facade.
 type AddresserAPI struct {
-	*common.EnvironWatcher
-
 	st         StateInterface
 	resources  *common.Resources
 	authorizer common.Authorizer
@@ -43,10 +41,9 @@ func NewAddresserAPI(
 	}
 	sti := getState(st)
 	return &AddresserAPI{
-		EnvironWatcher: common.NewEnvironWatcher(sti, resources, authorizer),
-		st:             sti,
-		resources:      resources,
-		authorizer:     authorizer,
+		st:         sti,
+		resources:  resources,
+		authorizer: authorizer,
 	}, nil
 }
 
@@ -56,11 +53,13 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	// Create an environment to verify networking support.
 	config, err := api.st.EnvironConfig()
 	if err != nil {
+		err = errors.Annotate(err, "getting environment config")
 		result.Error = common.ServerError(errors.Trace(err))
 		return result
 	}
 	env, err := environs.New(config)
 	if err != nil {
+		err = errors.Annotate(err, "validating environment config")
 		result.Error = common.ServerError(errors.Trace(err))
 		return result
 	}
@@ -73,26 +72,29 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	logger.Debugf("retrieving dead IP addresses")
 	ipAddresses, err := api.st.DeadIPAddresses()
 	if err != nil {
+		err = errors.Annotate(err, "getting dead addresses")
 		result.Error = common.ServerError(errors.Trace(err))
 		return result
 	}
-	shallRetry := false
+	canRetry := false
 	for _, ipAddress := range ipAddresses {
 		logger.Debugf("releasing dead IP address %q", ipAddress.Value())
 		err := api.releaseIPAddress(netEnv, ipAddress)
 		if err != nil {
 			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddress.Value(), err)
-			shallRetry = true
+			canRetry = true
 			continue
 		}
 		logger.Debugf("removing released IP address %q", ipAddress.Value())
 		err = ipAddress.Remove()
 		if err != nil {
+			logger.Warningf("failled to remove released IP address %q: %v", ipAddress.Value(), err)
+			err = errors.Annotatef(err, "removing IP address %q", ipAddress.Value())
 			result.Error = common.ServerError(errors.Trace(err))
 			return result
 		}
 	}
-	if shallRetry {
+	if canRetry {
 		result.Error = common.ServerError(common.ErrTryAgain)
 	}
 	return result

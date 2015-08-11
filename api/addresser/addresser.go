@@ -38,6 +38,8 @@ func NewAPI(caller base.APICaller) *API {
 // CleanupIPAddresses releases and removes the dead IP addresses.
 func (api *API) CleanupIPAddresses() error {
 	var result params.ErrorResult
+	// If not all IP addresses could be released and removed a params.ErrTryAgain
+	// is returned.
 	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, &result); err != nil {
 		return err
 	}
