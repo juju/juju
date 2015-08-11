@@ -2618,14 +2618,9 @@ func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
 	}
 }
 
-func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
-	ok, message := jc.DeepEquals.Check([]interface{}{got, want}, []string{"got", "want"})
-	if !ok {
-		c.Logf(message)
-	}
-	return ok
-}
-
+// assertEntitiesEqual is a specialised version of the typical
+// jc.DeepEquals check that provides more informative output when
+// comparing EntityInfo slices.
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(got) == 0 {
 		got = nil
@@ -2633,7 +2628,8 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(want) == 0 {
 		want = nil
 	}
-	if jcDeepEqualsCheck(c, got, want) {
+
+	if deepEqual(c, got, want) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
@@ -2655,7 +2651,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
-			if !jcDeepEqualsCheck(c, g, w) {
+			if !deepEqual(c, g, w) {
 				firstDiffError += "\n"
 				firstDiffError += fmt.Sprintf("first difference at position %d", i)
 				firstDiffError += "got: \n"
@@ -2668,4 +2664,12 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		c.Errorf(firstDiffError)
 	}
 	c.FailNow()
+}
+
+func deepEqual(c *gc.C, got, want interface{}) bool {
+	same, err := jc.DeepEqual(got, want)
+	if err != nil {
+		c.Fatal(err.Error())
+	}
+	return same
 }
