@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -39,6 +40,8 @@ import (
 type UnitSuite struct {
 	coretesting.GitSuite
 	agenttesting.AgentSuite
+
+	stub *gitjujutesting.Stub
 }
 
 var _ = gc.Suite(&UnitSuite{})
@@ -56,9 +59,14 @@ func (s *UnitSuite) TearDownSuite(c *gc.C) {
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.AgentSuite.SetUpTest(c)
+
+	s.stub = &gitjujutesting.Stub{}
 }
 
 func (s *UnitSuite) TearDownTest(c *gc.C) {
+	unitAgentWorkerNames = nil
+	unitAgentWorkerFuncs = make(map[string]func() (worker.Worker, error))
+
 	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
@@ -94,6 +102,23 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
+}
+
+func (s *UnitSuite) TestRegisterUnitAgentWorker(c *gc.C) {
+	var called []string
+	newWorker := func() (worker.Worker, error) {
+		called = append(called, "newWorker")
+		return nil, nil
+	}
+	err := RegisterUnitAgentWorker("spam", newWorker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(unitAgentWorkerNames, jc.DeepEquals, []string{"spam"})
+	// We can't compare functions so we jump through hoops instead.
+	c.Check(unitAgentWorkerFuncs, gc.HasLen, 1)
+	registered := unitAgentWorkerFuncs["spam"]
+	registered()
+	c.Check(called, jc.DeepEquals, []string{"newWorker"})
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
@@ -423,6 +448,32 @@ func (s *UnitSuite) TestUnitAgentAPIWorkerErrorClosesAPI(c *gc.C) {
 
 	c.Assert(worker, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot set unit agent version: test failure")
+}
+
+func (s *UnitSuite) TestUnitAgentAPIWorkers(c *gc.C) {
+	newWorker := func() (worker.Worker, error) {
+		return worker.NewSimpleWorker(func(<-chan struct{}) error { return nil }), nil
+	}
+	err := RegisterUnitAgentWorker("spam", newWorker)
+	c.Assert(err, jc.ErrorIsNil)
+	err = RegisterUnitAgentWorker("eggs", newWorker)
+	c.Assert(err, jc.ErrorIsNil)
+
+	a := NewUnitAgent(nil, nil)
+	workers := a.apiWorkers(nil, nil, nil, nil)
+	ids := workers.IDs()
+
+	expected := []string{
+		"proxyupdater",
+		"upgrader",
+		"logger",
+		"uniter",
+		"apiaddressupdater",
+		"rsyslog",
+		"spam",
+		"eggs",
+	}
+	c.Check(ids, jc.DeepEquals, expected)
 }
 
 type unitAgentUpgrader struct{}
