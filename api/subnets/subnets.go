@@ -5,8 +5,10 @@ package subnets
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 var logger = loggo.GetLogger("juju.api.subnets")
@@ -27,4 +29,21 @@ func NewAPI(caller base.APICaller) *API {
 	return &API{
 		facade: facadeCaller,
 	}
+}
+
+func (api *API) AddSubnet(cidr, providerId, space string, zones []string) (params.ErrorResults, error) {
+	var response params.ErrorResults
+	spaceTag := names.NewSpaceTag(space).String()
+	subnetTag := names.NewSubnetTag(cidr).String()
+	params := params.AddSubnetsParams{
+		Subnets: []params.AddSubnetParams{
+			{
+				SubnetTag:        subnetTag,
+				SubnetProviderId: providerId,
+				SpaceTag:         spaceTag,
+				Zones:            zones,
+			}},
+	}
+	err := api.facade.FacadeCall("AddSubnets", params, &response)
+	return response, err
 }
