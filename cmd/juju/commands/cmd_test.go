@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/status"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -100,7 +101,7 @@ var EnvironmentInitTests = []func() (envcmd.EnvironCommand, []string){
 	func() (envcmd.EnvironCommand, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
-	func() (envcmd.EnvironCommand, []string) { return new(StatusCommand), nil },
+	func() (envcmd.EnvironCommand, []string) { return new(status.StatusCommand), nil },
 }
 
 // TestEnvironmentInit tests that all commands which accept
