@@ -1027,7 +1027,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, OpenstackRenderer{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
