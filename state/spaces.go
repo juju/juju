@@ -56,18 +56,14 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 	subnetsCollection, closer := s.st.getCollection(subnetsC)
 	defer closer()
 
-	var doc struct {
-		CIDR string
-	}
+	var doc subnetDoc
 	iter := subnetsCollection.Find(bson.D{{"space-name", name}}).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
-		subnet, err := s.st.Subnet(doc.CIDR)
-		if err != nil {
-			return results, err
-		}
+		subnet := &Subnet{s.st, doc}
 		results = append(results, subnet)
 	}
-	if err := iter.Close(); err != nil {
+	if err := iter.Err(); err != nil {
 		return nil, err
 	}
 	return results, nil
@@ -98,6 +94,9 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 	}}
 
 	for _, subnetId := range subnets {
+		// TODO:(mfoord) once we have refcounting for subnets we should
+		// also assert that the refcount is zero as moving the space of a
+		// subnet in use is not permitted.
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
 			Id:     st.docID(subnetId),
@@ -117,7 +116,7 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 			}
 		}
 	}
-	return newSpace, errors.Trace(err)
+	return newSpace, err
 }
 
 // Space returns a space from state that matches the provided name. An error
@@ -138,19 +137,19 @@ func (st *State) Space(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// AllSpaces returns all spaces from state.
+// AllSpaces returns all spaces for the environment.
 func (st *State) AllSpaces() ([]*Space, error) {
 	spacesCollection, closer := st.getCollection(spacesC)
 	defer closer()
 
 	docs := []spaceDoc{}
-	var spaces []*Space
 	err := spacesCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all spaces")
 	}
-	for _, doc := range docs {
-		spaces = append(spaces, &Space{st: st, doc: doc})
+	spaces := make([]*Space, len(docs))
+	for i, doc := range docs {
+		spaces[i] = &Space{st: st, doc: doc}
 	}
 	return spaces, nil
 }
