@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -252,7 +253,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
-	result, err := providerinit.ComposeUserData(cfg, cloudcfg)
+	result, err := providerinit.ComposeUserData(cfg, cloudcfg, &openstack.OpenstackRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	unzipped, err := utils.Gunzip(result)
@@ -355,7 +356,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 
 	cicompose, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)
-	expected, err := providerinit.ComposeUserData(&cfg, cicompose)
+	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(expected), gc.Equals, string(got))

@@ -4,8 +4,6 @@
 package gce
 
 import (
-	"encoding/base64"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -197,7 +195,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 // getMetadata builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
 func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, GCERenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -208,14 +206,13 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
 	metadata := map[string]string{
 		metadataKeyIsState: metadataValueFalse,
 		// We store a gz snapshop of information that is used by
 		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
 		// for the instance. Due to a limitation with GCE and binary blobs
 		// we base64 encode the data before storing it.
-		metadataKeyCloudInit: b64UserData,
+		metadataKeyCloudInit: string(userData),
 		// Valid encoding values are determined by the cloudinit GCE data source.
 		// See: http://cloudinit.readthedocs.org
 		metadataKeyEncoding: "base64",
