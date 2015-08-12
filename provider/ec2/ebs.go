@@ -324,13 +324,6 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 		return nil, nil, errors.Annotate(err, "tagging volume")
 	}
 
-	// Attach.
-	nextDeviceName := blockDeviceNamer(inst)
-	_, actualDeviceName, err := v.attachOneVolume(nextDeviceName, resp.Volume.Id, instId)
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "attaching %v to %v", resp.Volume.Id, instId)
-	}
-
 	volume := storage.Volume{
 		p.Tag,
 		storage.VolumeInfo{
@@ -339,14 +332,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 			Persistent: true,
 		},
 	}
-	volumeAttachment := storage.VolumeAttachment{
-		p.Tag,
-		p.Attachment.Machine,
-		storage.VolumeAttachmentInfo{
-			DeviceName: actualDeviceName,
-		},
-	}
-	return &volume, &volumeAttachment, nil
+	return &volume, nil, nil
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
@@ -377,12 +363,13 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 	results := make([]storage.DescribeVolumesResult, len(resp.Volumes))
 	for i, vol := range resp.Volumes {
 		results[i].VolumeInfo = &storage.VolumeInfo{
-			Size:     gibToMib(uint64(vol.Size)),
-			VolumeId: vol.Id,
+			Size:       gibToMib(uint64(vol.Size)),
+			VolumeId:   vol.Id,
+			Persistent: true,
 		}
 		for _, attachment := range vol.Attachments {
-			if !attachment.DeleteOnTermination {
-				results[i].VolumeInfo.Persistent = true
+			if attachment.DeleteOnTermination {
+				results[i].VolumeInfo.Persistent = false
 				break
 			}
 		}
@@ -659,11 +646,16 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 		Total: 5 * time.Second,
 		Delay: 200 * time.Millisecond,
 	}
+	var lastStatus string
 	volume, err := v.waitVolume(volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
+		lastStatus = volume.Status
 		return volume.Status != volumeStatusCreating, nil
 	})
 	if err == errWaitVolumeTimeout {
-		return nil, errors.Errorf("timed out waiting for volume %v to become available", volumeId)
+		return nil, errors.Errorf(
+			"timed out waiting for volume %v to become available (%v)",
+			volumeId, lastStatus,
+		)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -546,6 +546,9 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	})
 }
 
+// TODO(axw) add tests for attempting to attach while
+// a volume is still in the "creating" state.
+
 func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
