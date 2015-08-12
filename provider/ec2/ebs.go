@@ -374,8 +374,17 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 	if err != nil {
 		return nil, err
 	}
-	results := make([]storage.DescribeVolumesResult, len(resp.Volumes))
-	for i, vol := range resp.Volumes {
+	byId := make(map[string]ec2.Volume)
+	for _, vol := range resp.Volumes {
+		byId[vol.Id] = vol
+	}
+	results := make([]storage.DescribeVolumesResult, len(volIds))
+	for i, volId := range volIds {
+		vol, ok := byId[volId]
+		if !ok {
+			results[i].Error = errors.NotFoundf("%s", volId)
+			continue
+		}
 		results[i].VolumeInfo = &storage.VolumeInfo{
 			Size:     gibToMib(uint64(vol.Size)),
 			VolumeId: vol.Id,
