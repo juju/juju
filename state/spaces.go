@@ -56,18 +56,14 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 	subnetsCollection, closer := s.st.getCollection(subnetsC)
 	defer closer()
 
-	var doc struct {
-		CIDR string
-	}
+	var doc subnetDoc
 	iter := subnetsCollection.Find(bson.D{{"space-name", name}}).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
-		subnet, err := s.st.Subnet(doc.CIDR)
-		if err != nil {
-			return results, err
-		}
+		subnet := &Subnet{s.st, doc}
 		results = append(results, subnet)
 	}
-	if err := iter.Close(); err != nil {
+	if err := iter.Err(); err != nil {
 		return nil, err
 	}
 	return results, nil
