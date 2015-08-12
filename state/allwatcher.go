@@ -6,6 +6,7 @@ package state
 import (
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -1234,12 +1235,17 @@ func newStatePool(ssSt *State) *statePool {
 // statePool is a simple cache of State instances for multiple environments.
 type statePool struct {
 	ssSt *State
+	// mu protects pool
+	mu   sync.Mutex
 	pool map[string]*State
 }
 
 // get returns a State for a given environment from the pool, creating
 // one if required.
 func (p *statePool) get(envUUID string) (*State, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	st, ok := p.pool[envUUID]
 	if ok {
 		return st, nil
@@ -1255,6 +1261,9 @@ func (p *statePool) get(envUUID string) (*State, error) {
 
 // closeAll closes all State instances in the pool.
 func (p *statePool) closeAll() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	var lastErr error
 	for _, st := range p.pool {
 		err := st.Close()
@@ -1262,5 +1271,6 @@ func (p *statePool) closeAll() error {
 			lastErr = err
 		}
 	}
+	p.pool = make(map[string]*State)
 	return errors.Annotate(lastErr, "at least one error closing a state")
 }
