@@ -116,7 +116,7 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 			}
 		}
 	}
-	return newSpace, errors.Trace(err)
+	return newSpace, err
 }
 
 // Space returns a space from state that matches the provided name. An error
