@@ -5,7 +5,6 @@ package maas
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"net"
@@ -753,10 +752,9 @@ func (environ *maasEnviron) acquireNode(
 
 // startNode installs and boots a node.
 func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) error {
-	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {series},
-		"user_data":     {userDataParam},
+		"user_data":     {string(userdata)},
 	}
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
@@ -983,7 +981,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
+	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg

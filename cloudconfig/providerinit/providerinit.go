@@ -7,16 +7,13 @@
 package providerinit
 
 import (
-	"encoding/base64"
-	"errors"
-	"fmt"
-
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/version"
 )
 
@@ -45,55 +42,37 @@ func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.Clo
 
 // ComposeUserData fills out the provided cloudinit configuration structure
 // so it is suitable for initialising a machine with the given configuration,
-// and then renders it and returns it as a binary (gzipped) blob of user data.
+// and then renders it and encodes it using the supplied renderer.
+// When calling ComposeUserData a encoding implementation must be chosen from
+// the providerinit/encoders package according to the need of the provider.
 //
 // If the provided cloudcfg is nil, a new one will be created internally.
-func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig) ([]byte, error) {
+func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig, renderer renderers.ProviderRenderer) ([]byte, error) {
 	if cloudcfg == nil {
 		var err error
 		cloudcfg, err = cloudinit.New(icfg.Series)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	_, err := configureCloudinit(icfg, cloudcfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	operatingSystem, err := version.GetOSFromSeries(icfg.Series)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	switch operatingSystem {
-	case version.Ubuntu, version.CentOS:
-		return gzippedUserdata(cloudcfg)
-	case version.Windows:
-		return encodedUserdata(cloudcfg)
-	default:
-		return nil, errors.New(fmt.Sprintf("Cannot compose userdata for os %s", operatingSystem))
-	}
-}
-
-// gzippedUserdata returns the rendered userdata in a gzipped format
-func gzippedUserdata(cloudcfg cloudinit.CloudConfig) ([]byte, error) {
-	data, err := cloudcfg.RenderYAML()
-	logger.Tracef("Generated cloud init:\n%s", string(data))
+	// This might get replaced by a renderer.RenderUserdata which will either
+	// render it as YAML or Bash since some CentOS images might ship without cloudnit
+	udata, err := cloudcfg.RenderYAML()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return utils.Gzip(data), nil
-}
-
-// encodedUserdata for now is used on windows and it retuns a powershell script
-// which has the userdata embedded as base64(gzip(userdata))
-// We need this because most cloud provider do not accept gzipped userdata on
-// windows and they have size limitations
-func encodedUserdata(cloudcfg cloudinit.CloudConfig) ([]byte, error) {
-	zippedData, err := gzippedUserdata(cloudcfg)
+	udata, err = renderer.EncodeUserdata(udata, operatingSystem)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
-	base64Data := base64.StdEncoding.EncodeToString(zippedData)
-	return []byte(fmt.Sprintf(cloudconfig.UserdataScript, base64Data)), nil
+	logger.Tracef("Generated cloud init:\n%s", string(udata))
+	return udata, err
 }
