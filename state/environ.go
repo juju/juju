@@ -386,12 +386,12 @@ func checkManualMachines(machines []*Machine) error {
 // found.
 func (e *Environment) ensureDestroyable() error {
 
-	// TODO(waigani) bug #1475212: Environment destroy can miss manual machines and
-	// persistent volumes. We need to be able to assert the absence of these
-	// as part of the destroy txn, but in order to do this  manual machines
-	// and persistent volumes need to add refcounts to their environments.
+	// TODO(waigani) bug #1475212: Environment destroy can miss manual
+	// machines. We need to be able to assert the absence of these as
+	// part of the destroy txn, but in order to do this  manual machines
+	// need to add refcounts to their environments.
 
-	// First, check for manual machines. We bail out if there are any,
+	// Check for manual machines. We bail out if there are any,
 	// to stop the user from prematurely hobbling the environment.
 	machines, err := e.st.AllMachines()
 	if err != nil {
@@ -402,14 +402,6 @@ func (e *Environment) ensureDestroyable() error {
 		return errors.Trace(err)
 	}
 
-	// If there are any persistent volumes, the environment can't be destroyed.
-	volumes, err := e.st.PersistentVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(volumes) > 0 {
-		return ErrPersistentVolumesExist
-	}
 	return nil
 }
 
