@@ -29,7 +29,7 @@ else
   client=$new_juju
 fi
 
-env=test-release-aws
+env=test-reliability-aws
 ssh_home="/tmp/sshhome"
 mkdir -p $ssh_home/.ssh
 cp $JUJU_HOME/staging-juju-rsa $ssh_home/.ssh/id_rsa
@@ -37,4 +37,4 @@ cp $JUJU_HOME/staging-juju-rsa.pub $ssh_home/.ssh/id_rsa.pub
 export HOME=$ssh_home
 
 ~/Bin/juju destroy-environment --force -y $env || true
-$SCRIPT/assess_heterogeneous_control.py $server $client test-release-aws compatibility-control $log_dir
+$SCRIPT/assess_heterogeneous_control.py $server $client $env compatibility-control $log_dir

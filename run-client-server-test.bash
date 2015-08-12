@@ -8,7 +8,7 @@ usage() {
 }
 test $# -eq 4 || usage
 
-user="$1"
+user_at_host="$1"
 old_version="$2"
 candidate_version="$3"
 new_to_old="$4"
@@ -19,4 +19,4 @@ install:
   remote: [$SCRIPTS/run-client-server-test-remote.bash]
 command: [remote/run-client-server-test-remote.bash $old_version $candidate_version $new_to_old]
 EOT
-workspace-run temp-config.yaml $user
+workspace-run temp-config.yaml $user_at_host
