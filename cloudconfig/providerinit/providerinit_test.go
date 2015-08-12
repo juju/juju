@@ -5,6 +5,8 @@
 package providerinit_test
 
 import (
+	"encoding/base64"
+	"fmt"
 	"path"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -294,4 +297,66 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		c.Check(config["package_upgrade"], jc.IsTrue)
 		c.Check(len(runCmd) > 2, jc.IsTrue)
 	}
+}
+
+func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
+	series := "win8"
+	tools := &tools.Tools{
+		URL:     "http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz",
+		Version: version.MustParseBinary("1.2.3-win8-amd64"),
+		Size:    10,
+		SHA256:  "1234",
+	}
+	dataDir, err := paths.DataDir(series)
+	c.Assert(err, jc.ErrorIsNil)
+	logDir, err := paths.LogDir(series)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := instancecfg.InstanceConfig{
+		MachineId:        "10",
+		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+		Tools:            tools,
+		Series:           series,
+		Bootstrap:        false,
+		Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		MachineNonce:     "FAKE_NONCE",
+		MongoInfo: &mongo.MongoInfo{
+			Tag:      names.NewMachineTag("10"),
+			Password: "arble",
+			Info: mongo.Info{
+				CACert: "CA CERT\n" + testing.CACert,
+				Addrs:  []string{"state-addr.testing.invalid:12345"},
+			},
+		},
+		APIInfo: &api.Info{
+			Addrs:      []string{"state-addr.testing.invalid:54321"},
+			Password:   "bletch",
+			CACert:     "CA CERT\n" + testing.CACert,
+			Tag:        names.NewMachineTag("10"),
+			EnvironTag: testing.EnvironmentTag,
+		},
+		MachineAgentServiceName: "jujud-machine-10",
+		DataDir:                 dataDir,
+		LogDir:                  path.Join(logDir, "juju"),
+		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
+	}
+
+	ci, err := cloudinit.New("win8")
+	c.Assert(err, jc.ErrorIsNil)
+
+	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
+	got := []byte(fmt.Sprintf(cloudconfig.UserdataScript, base64Data))
+
+	cicompose, err := cloudinit.New("win8")
+	c.Assert(err, jc.ErrorIsNil)
+	expected, err := providerinit.ComposeUserData(&cfg, cicompose)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(string(expected), gc.Equals, string(got))
 }
