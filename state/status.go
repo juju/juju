@@ -174,7 +174,7 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 		C:      statusesC,
 		Id:     st.docID(globalKey),
 		Assert: txn.DocMissing,
-		Insert: doc,
+		Insert: &doc,
 	}
 }
 
