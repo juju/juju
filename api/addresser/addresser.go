@@ -39,10 +39,10 @@ func (api *API) CleanupIPAddresses() error {
 	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, &result); err != nil {
 		return errors.Trace(err)
 	}
-	if result.Error != nil {
-		return result.Error
+	if result.Error == nil {
+		return nil
 	}
-	return nil
+	return errors.Trace(result.Error)
 }
 
 var newEntityWatcher = watcher.NewEntityWatcher
@@ -60,9 +60,9 @@ func (api *API) WatchIPAddresses() (watcher.EntityWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if result.Error != nil {
-		return nil, errors.Trace(result.Error)
+	if result.Error == nil {
+		w := newEntityWatcher(api.facade.RawAPICaller(), result)
+		return w, nil
 	}
-	w := newEntityWatcher(api.facade.RawAPICaller(), result)
-	return w, nil
+	return nil, errors.Trace(result.Error)
 }

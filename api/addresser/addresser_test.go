@@ -49,7 +49,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
 	api := addresser.NewAPI(apiCaller)
 
 	err := api.CleanupIPAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 1)
 }
 
@@ -101,7 +101,7 @@ func (s *AddresserSuite) TestWatchIPAddressesClientError(c *gc.C) {
 	api := addresser.NewAPI(apiCaller)
 	w, err := api.WatchIPAddresses()
 
-	c.Assert(w, gc.IsNil)
+	c.Assert(w, jc.ErrorIsNil)
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(called, gc.Equals, 1)
 }
@@ -115,7 +115,7 @@ func (s *AddresserSuite) TestWatchIPAddressesServerError(c *gc.C) {
 	api := addresser.NewAPI(apiCaller)
 
 	w, err := api.WatchIPAddresses()
-	c.Assert(w, gc.IsNil)
+	c.Assert(w, jc.ErrorIsNil)
 	c.Assert(err, gc.ErrorMatches, "server boom!")
 	c.Assert(called, gc.Equals, 1)
 }
