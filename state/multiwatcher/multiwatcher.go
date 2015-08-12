@@ -90,6 +90,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Unexpected operation %q", operation)
 	}
 	switch entityKind {
+	case "environment":
+		d.Entity = new(EnvironmentInfo)
 	case "machine":
 		d.Entity = new(MachineInfo)
 	case "service":
@@ -102,6 +104,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(AnnotationInfo)
 	case "block":
 		d.Entity = new(BlockInfo)
+	case "action":
+		d.Entity = new(ActionInfo)
 	default:
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
