@@ -31,7 +31,7 @@ type EntityInfo interface {
 	EntityId() EntityId
 }
 
-// EntityId unique identifies an entity being tracked by the
+// EntityId uniquely identifies an entity being tracked by the
 // multiwatcherStore.
 type EntityId struct {
 	Kind    string
