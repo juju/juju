@@ -4,6 +4,7 @@ set -eu
 usage() {
     echo "usage: $0 old-version candidate-version new-to-old"
     echo "Example: $0 1.21.1 1.24.3 false"
+    exit 1
 }
 test $# -eq 3 || usage
 old_version="$1"
@@ -28,11 +29,12 @@ else
   client=$new_juju
 fi
 
-env=test-release-aws
+env=test-reliability-aws
 ssh_home="/tmp/sshhome"
 mkdir -p $ssh_home/.ssh
 cp $JUJU_HOME/staging-juju-rsa $ssh_home/.ssh/id_rsa
 cp $JUJU_HOME/staging-juju-rsa.pub $ssh_home/.ssh/id_rsa.pub
 export HOME=$ssh_home
 
-$SCRIPT/assess_heterogeneous_control.py $server $client test-release-aws compatibility-control $log_dir
+~/Bin/juju destroy-environment --force -y $env || true
+$SCRIPT/assess_heterogeneous_control.py $server $client $env compatibility-control $log_dir
