@@ -1030,8 +1030,6 @@ func (st *State) VolumeStatus(tag names.VolumeTag) (StatusInfo, error) {
 }
 
 // SetVolumeStatus sets the status of the specified volume.
-//
-// TODO(axw) create upgrade step to add status to existing volume docs.
 func (st *State) SetVolumeStatus(tag names.VolumeTag, status Status, info string, data map[string]interface{}) error {
 	switch status {
 	case StatusAttaching, StatusAttached, StatusDetaching, StatusDestroying:
