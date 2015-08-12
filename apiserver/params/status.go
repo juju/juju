@@ -326,3 +326,22 @@ const (
 	// been asked to offer.
 	StatusActive Status = "active"
 )
+
+const (
+	// Status values specific to storage.
+
+	// StatusAttaching indicates that the storage is being attached
+	// to a machine.
+	StatusAttaching Status = "attaching"
+
+	// StatusAttached indicates that the storage is attached to a
+	// machine.
+	StatusAttached Status = "attached"
+
+	// StatusDetaching indicates that the storage is being detached
+	// from a machine.
+	StatusDetaching Status = "detaching"
+
+	// StatusDestroying indicates that the storage is being destroyed.
+	StatusDestroying Status = "destroying"
+)
