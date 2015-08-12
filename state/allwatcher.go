@@ -874,13 +874,17 @@ func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id str
 		// Retrieve the units placed in the machine.
 		units, err := st.UnitsFor(info.Id)
 		if err != nil {
-			logger.Errorf("cannot retrieve units for %q: %v", info.Id, err)
+			// An error isn't returned here because the watcher is
+			// always acting a little behind reality. It is reasonable
+			// that entities have been deleted from State but we're
+			// still seeing events related to them from the watcher.
+			logger.Warningf("cannot retrieve units for %q: %v", info.Id, err)
 			return nil
 		}
 		// Update the ports on all units assigned to the machine.
 		for _, u := range units {
 			if err := updateUnitPorts(st, store, u); err != nil {
-				logger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
+				logger.Warningf("cannot update unit ports for %q: %v", u.Name(), err)
 			}
 		}
 	}
