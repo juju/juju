@@ -554,7 +554,7 @@ var _ = gc.Suite(&clientSuite{})
 
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
-func clearSinceTimes(status *api.Status) {
+func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
 			unit.Workload.Since = nil
