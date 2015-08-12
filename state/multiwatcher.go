@@ -107,6 +107,9 @@ type Backing interface {
 	// Unwatch stops watching for changes on the
 	// given channel.
 	Unwatch(in chan<- watcher.Change)
+
+	// Release cleans up resources opened by the Backing.
+	Release() error
 }
 
 // request holds a message from the Multiwatcher to the

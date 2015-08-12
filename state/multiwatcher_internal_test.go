@@ -883,6 +883,10 @@ func (b *storeManagerTestBacking) GetAll(all *multiwatcherStore) error {
 	return nil
 }
 
+func (b *storeManagerTestBacking) Release() error {
+	return nil
+}
+
 func (b *storeManagerTestBacking) updateEntity(info multiwatcher.EntityInfo) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -892,7 +896,7 @@ func (b *storeManagerTestBacking) updateEntity(info multiwatcher.EntityInfo) {
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
 			C:     id.Kind,
-			Id:    createDocID(id.EnvUUID, id.Id),
+			Id:    ensureEnvUUID(id.EnvUUID, id.Id),
 			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
 		}
 	}
@@ -912,7 +916,7 @@ func (b *storeManagerTestBacking) deleteEntity(id multiwatcher.EntityId) {
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
 			C:     id.Kind,
-			Id:    createDocID(id.EnvUUID, id.Id),
+			Id:    ensureEnvUUID(id.EnvUUID, id.Id),
 			Revno: -1,
 		}
 	}
