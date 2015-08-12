@@ -705,6 +705,7 @@ func volumeAttachmentsFromStorage(in []storage.VolumeAttachment) []params.Volume
 			v.Machine.String(),
 			params.VolumeAttachmentInfo{
 				v.DeviceName,
+				v.BusAddress,
 				v.ReadOnly,
 			},
 		}
