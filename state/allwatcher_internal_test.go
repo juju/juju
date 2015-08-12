@@ -668,7 +668,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	defer tw.Stop()
 
 	// Expect to see events for the already created machines first.
-	deltas := tw.All()
+	deltas := tw.All(2)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			EnvUUID:   s.state.EnvironUUID(),
@@ -723,7 +723,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Look for the state changes from the allwatcher.
-	deltas = tw.All()
+	deltas = tw.All(5)
 
 	zeroOutTimestampsForDeltas(c, deltas)
 
@@ -991,6 +991,7 @@ func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFunc
 			}
 			err = b.Changed(all, test1.change)
 			c.Assert(err, jc.ErrorIsNil)
+
 			entities = all.All()
 
 			// substNilSinceTimeForEntities gets upset if it sees non-nil
@@ -1205,7 +1206,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Expect to see events for the already created environments and
 	// machines first.
-	deltas := tw.All()
+	deltas := tw.All(4)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.EnvironmentInfo{
 			EnvUUID:    env0.UUID(),
@@ -1279,7 +1280,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(m20.Id(), gc.Equals, "0")
 
 	// Look for the state changes from the allwatcher.
-	deltas = tw.All()
+	deltas = tw.All(7)
 
 	zeroOutTimestampsForDeltas(c, deltas)
 
@@ -1363,16 +1364,15 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st2.EnvironUUID(),
-			Id:         "0",
-			Status:     multiwatcher.Status("pending"),
-			StatusData: make(map[string]interface{}),
-			Life:       multiwatcher.Life("alive"),
-			Series:     "trusty",
-			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses:  []network.Address{},
-			HasVote:    false,
-			WantsVote:  false,
+			EnvUUID:   st2.EnvironUUID(),
+			Id:        "0",
+			Status:    multiwatcher.Status("pending"),
+			Life:      multiwatcher.Life("alive"),
+			Series:    "trusty",
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
 		},
 	}})
 }
@@ -2816,15 +2816,50 @@ func (tw *testWatcher) Next(timeout time.Duration) []multiwatcher.Delta {
 	}
 }
 
-func (tw *testWatcher) All() []multiwatcher.Delta {
-	var allDeltas []multiwatcher.Delta
+func (tw *testWatcher) NumDeltas() int {
+	count := 0
 	tw.st.StartSync()
 	for {
-		deltas := tw.Next(testing.ShortWait)
-		if len(deltas) == 0 {
+		// TODO(mjs) - this is somewhat fragile. There are no
+		// guarentees that the watcher will be able to return deltas
+		// in ShortWait time.
+		deltas := len(tw.Next(testing.ShortWait))
+		if deltas == 0 {
 			break
 		}
-		allDeltas = append(allDeltas, deltas...)
+		count += deltas
+	}
+	return count
+}
+
+func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
+	var allDeltas []multiwatcher.Delta
+	tw.st.StartSync()
+
+	//  Wait up to LongWait for the expected deltas to arrive, unless
+	//  we don't expect any (then just wait for ShortWait).
+	maxDuration := testing.LongWait
+	if expectedCount <= 0 {
+		maxDuration = testing.ShortWait
+	}
+
+	now := time.Now()
+	maxTime := now.Add(maxDuration)
+	for {
+		remaining := maxTime.Sub(now)
+		if remaining < time.Duration(0) {
+			break // timed out
+		}
+
+		deltas := tw.Next(remaining)
+		if len(deltas) > 0 {
+			allDeltas = append(allDeltas, deltas...)
+			if len(allDeltas) >= expectedCount {
+				break
+			}
+		}
+
+		now = time.Now()
 	}
 	return allDeltas
 }
@@ -2835,11 +2870,11 @@ func (tw *testWatcher) Stop() {
 }
 
 func (tw *testWatcher) AssertNoChange() {
-	tw.c.Assert(tw.All(), gc.HasLen, 0)
+	tw.c.Assert(tw.NumDeltas(), gc.Equals, 0)
 }
 
 func (tw *testWatcher) AssertChanges() {
-	tw.c.Assert(len(tw.All()), jc.GreaterThan, 0)
+	tw.c.Assert(tw.NumDeltas(), jc.GreaterThan, 0)
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo
