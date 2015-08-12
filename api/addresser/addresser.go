@@ -4,6 +4,7 @@
 package addresser
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
@@ -30,13 +31,13 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
-// CleanupIPAddresses releases and removes the dead IP addresses.
+// CleanupIPAddresses releases and removes the dead IP addresses. If not
+//all IP addresses could be released and removed a params.ErrTryAgain
+// is returned.
 func (api *API) CleanupIPAddresses() error {
 	var result params.ErrorResult
-	// If not all IP addresses could be released and removed a params.ErrTryAgain
-	// is returned.
 	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, &result); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if result.Error != nil {
 		return result.Error
@@ -54,13 +55,13 @@ func (api *API) WatchIPAddresses() (watcher.EntityWatcher, error) {
 	var result params.EntityWatchResult
 	err := api.facade.FacadeCall("WatchIPAddresses", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
 	w := newEntityWatcher(api.facade.RawAPICaller(), result)
 	return w, nil

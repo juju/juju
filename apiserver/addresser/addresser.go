@@ -87,11 +87,14 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 		}
 		logger.Debugf("removing released IP address %q", ipAddress.Value())
 		err = ipAddress.Remove()
+		if errors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
-			logger.Warningf("failed to remove released IP address %q: %v", ipAddress.Value(), err)
+			logger.Warningf("failed to remove released IP address %q: %v (will retry)", ipAddress.Value(), err)
 			err = errors.Annotatef(err, "removing IP address %q", ipAddress.Value())
-			result.Error = common.ServerError(errors.Trace(err))
-			return result
+			canRetry = true
+			continue
 		}
 	}
 	if canRetry {

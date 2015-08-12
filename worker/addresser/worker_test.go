@@ -27,38 +27,59 @@ import (
 
 type workerSuite struct {
 	testing.JujuConnSuite
-	machine  *state.Machine
-	machine2 *state.Machine
 
-	apiSt *api.State
-	api   *apiaddresser.API
+	Enabled  bool
+	MachineA *state.Machine
+	MachineB *state.Machine
+
+	Worker  worker.Worker
+	OpsChan chan dummy.Operation
+
+	APIState *api.State
+	API      *apiaddresser.API
 }
-
-var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.AddressAllocation)
+	if s.Enabled {
+		s.SetFeatureFlags(feature.AddressAllocation)
+	}
+
 	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
-	s.apiSt, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	s.api = s.apiSt.Addresser()
+	s.APIState, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.API = s.APIState.Addresser()
 
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	s.machine = machine
+	machineA, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	s.MachineA = machineA
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	err = s.MachineA.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// this machine will be destroyed after address creation to test the
+	// This machine will be destroyed after address creation to test the
 	// handling of addresses for machines that have gone.
-	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	s.machine2 = machine2
+	machineB, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	s.MachineB = machineB
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createAddresses(c)
 	s.State.StartSync()
+
+	s.OpsChan = make(chan dummy.Operation, 10)
+	dummy.Listen(s.OpsChan)
+
+	// Start the Addresser worker.
+	w, err := addresser.NewWorker(s.API)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Worker = w
+
+	s.waitForInitialDead(c)
+}
+
+func (s *workerSuite) TearDownTest(c *gc.C) {
+	c.Assert(worker.Stop(s.Worker), jc.ErrorIsNil)
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *workerSuite) createAddresses(c *gc.C) {
@@ -70,54 +91,70 @@ func (s *workerSuite) createAddresses(c *gc.C) {
 		ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 		c.Assert(err, jc.ErrorIsNil)
 		if i%2 == 1 {
-			err = ipAddr.AllocateTo(s.machine2.Id(), "wobble", "")
+			err = ipAddr.AllocateTo(s.MachineB.Id(), "wobble", "")
 		} else {
-			err = ipAddr.AllocateTo(s.machine.Id(), "wobble", "")
+			err = ipAddr.AllocateTo(s.MachineA.Id(), "wobble", "")
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 	// Two of the addresses start out allocated to this
 	// machine which we destroy to test the handling of
 	// addresses allocated to dead machines.
-	err := s.machine2.EnsureDead()
+	err := s.MachineB.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine2.Remove()
+	err = s.MachineB.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func dummyListen() chan dummy.Operation {
-	opsChan := make(chan dummy.Operation, 25)
-	dummy.Listen(opsChan)
-	return opsChan
 }
 
 func (s *workerSuite) waitForInitialDead(c *gc.C) {
 	for a := common.ShortAttempt.Start(); a.Next(); {
 		dead, err := s.State.DeadIPAddresses()
 		c.Assert(err, jc.ErrorIsNil)
-		if len(dead) == 0 {
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("timeout waiting for initial change (dead: %#v)", dead)
+		if s.Enabled {
+			// We expect dead IP addresses to be removed with
+			// enabled Addresser worker.
+			if len(dead) == 0 {
+				break
+			}
+			if !a.HasNext() {
+				c.Fatalf("timeout waiting for initial change (dead: %#v)", dead)
+			}
+		} else {
+			// Without Addresser worker the dead IP addresses
+			// will stay.
+			if len(dead) == 0 {
+				c.Fatal("IP addresses unexpectedly removed")
+			}
 		}
 	}
 }
 
-func waitForReleaseOp(c *gc.C, opsChan chan dummy.Operation) dummy.OpReleaseAddress {
+func (s *workerSuite) waitForReleaseOp(c *gc.C) dummy.OpReleaseAddress {
 	var releaseOp dummy.OpReleaseAddress
 	var ok bool
 	select {
-	case op := <-opsChan:
+	case op := <-s.OpsChan:
 		releaseOp, ok = op.(dummy.OpReleaseAddress)
 		c.Assert(ok, jc.IsTrue)
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while expecting operation")
+		c.Fatalf("timeout while expecting release operation")
 	}
 	return releaseOp
 }
 
-func makeReleaseOp(digit int) dummy.OpReleaseAddress {
+func (s *workerSuite) assertNoReleaseOp(c *gc.C) {
+	select {
+	case op := <-s.OpsChan:
+		_, ok := op.(dummy.OpReleaseAddress)
+		if ok {
+			c.Fatalf("received unexpected release operation")
+		}
+	case <-time.After(coretesting.ShortWait):
+		return
+	}
+}
+
+func (s *workerSuite) makeReleaseOp(digit int) dummy.OpReleaseAddress {
 	return dummy.OpReleaseAddress{
 		Env:        "dummyenv",
 		InstanceId: "foo",
@@ -126,48 +163,55 @@ func makeReleaseOp(digit int) dummy.OpReleaseAddress {
 	}
 }
 
-func (s *workerSuite) assertStop(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), jc.ErrorIsNil)
+func (s *workerSuite) assertIPAddressLife(c *gc.C, digit int, life state.Life) {
+	ipAddr, err := s.State.IPAddress(fmt.Sprintf("0.1.2.%d", digit))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Life(), gc.Equals, life)
 }
 
-func (s *workerSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
-	// we start with two dead addresses
-	dead, err := s.State.DeadIPAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dead, gc.HasLen, 2)
+// workerEnabledSuite runs the test with the enabled address allocation.
+type workerEnabledSuite struct {
+	workerSuite
+}
 
-	opsChan := dummyListen()
+var _ = gc.Suite(&workerEnabledSuite{})
 
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
+func (s *workerEnabledSuite) SetUpTest(c *gc.C) {
+	s.workerSuite.Enabled = true
 
-	s.waitForInitialDead(c)
+	s.workerSuite.SetUpTest(c)
+}
 
-	op1 := waitForReleaseOp(c, opsChan)
-	op2 := waitForReleaseOp(c, opsChan)
-	expected := []dummy.OpReleaseAddress{makeReleaseOp(4), makeReleaseOp(6)}
+func (s *workerEnabledSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
+	// Wait for releases of 0.1.2.4 and 0.1.2.6 first. It's
+	// explicitely needed for this test for the assertion.
+	op1 := s.waitForReleaseOp(c)
+	op2 := s.waitForReleaseOp(c)
+
+	expected := []dummy.OpReleaseAddress{s.makeReleaseOp(4), s.makeReleaseOp(6)}
 
 	// The machines are dead, so ReleaseAddress should be called with
 	// instance.UnknownId.
 	expected[0].InstanceId = instance.UnknownId
 	expected[1].InstanceId = instance.UnknownId
+
 	c.Assert([]dummy.OpReleaseAddress{op1, op2}, jc.SameContents, expected)
 }
 
-func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
-
-	s.waitForInitialDead(c)
+func (s *workerEnabledSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
+	// Wait for releases of 0.1.2.4 and 0.1.2.6 first. Result is not needed.
+	s.waitForReleaseOp(c)
+	s.waitForReleaseOp(c)
 
 	// Add a new alive address.
 	addr := network.NewAddress("0.1.2.9")
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.AllocateTo(s.machine.Id(), "wobble", "")
+	err = ipAddr.AllocateTo(s.MachineA.Id(), "wobble", "")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert no ReleaseAddress call..
+	s.assertNoReleaseOp(c)
 
 	// The worker must not kill this address.
 	for a := common.ShortAttempt.Start(); a.Next(); {
@@ -177,22 +221,20 @@ func (s *workerSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
+func (s *workerEnabledSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
+	// Wait for releases of 0.1.2.4 and 0.1.2.6 first. Result is not needed.
+	s.waitForReleaseOp(c)
+	s.waitForReleaseOp(c)
 
-	s.waitForInitialDead(c)
-	opsChan := dummyListen()
-
+	// Kill IP address.
 	addr, err := s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 	err = addr.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for ReleaseAddress attempt.
-	op := waitForReleaseOp(c, opsChan)
-	c.Assert(op, jc.DeepEquals, makeReleaseOp(3))
+	op := s.waitForReleaseOp(c)
+	c.Assert(op, jc.DeepEquals, s.makeReleaseOp(3))
 
 	// The address should have been removed from state.
 	for a := common.ShortAttempt.Start(); a.Next(); {
@@ -206,13 +248,12 @@ func (s *workerSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
+func (s *workerEnabledSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
+	// Wait for releases of 0.1.2.4 and 0.1.2.6 first. Result is not needed.
+	s.waitForReleaseOp(c)
+	s.waitForReleaseOp(c)
 
-	s.waitForInitialDead(c)
-
+	// Break ReleaseAddress and kill IP address 0.1.2.3.
 	s.AssertConfigParameterUpdated(c, "broken", "ReleaseAddress")
 
 	ipAddr, err := s.State.IPAddress("0.1.2.3")
@@ -224,6 +265,8 @@ func (s *workerSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
 	ipAddr, err = s.State.IPAddress("0.1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
+
+	s.assertNoReleaseOp(c)
 
 	// Make ReleaseAddress work again, it must be cleaned up then.
 	s.AssertConfigParameterUpdated(c, "broken", "")
@@ -239,13 +282,10 @@ func (s *workerSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
 	}
 }
 
-func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
-
-	s.waitForInitialDead(c)
-	opsChan := dummyListen()
+func (s *workerEnabledSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
+	// Wait for releases of 0.1.2.4 and 0.1.2.6 first. Result is not needed.
+	s.waitForReleaseOp(c)
+	s.waitForReleaseOp(c)
 
 	// Add special test machine.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -278,8 +318,8 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
 
 	// Wait for ReleaseAddress attempt.
-	op := waitForReleaseOp(c, opsChan)
-	c.Assert(op, jc.DeepEquals, makeReleaseOp(9))
+	op := s.waitForReleaseOp(c)
+	c.Assert(op, jc.DeepEquals, s.makeReleaseOp(9))
 
 	// The address should have been removed from state.
 	for a := common.ShortAttempt.Start(); a.Next(); {
@@ -293,61 +333,25 @@ func (s *workerSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	}
 }
 
+// workerEnabledSuite runs the test with the disabled address allocation.
 type workerDisabledSuite struct {
-	testing.JujuConnSuite
-
-	apiSt *api.State
-	api   *apiaddresser.API
+	workerSuite
 }
 
 var _ = gc.Suite(&workerDisabledSuite{})
 
 func (s *workerDisabledSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	// Unbreak dummy provider methods.
-	s.AssertConfigParameterUpdated(c, "broken", "")
+	s.workerSuite.Enabled = false
 
-	s.apiSt, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	s.api = s.apiSt.Addresser()
-
-	s.State.StartSync()
+	s.workerSuite.SetUpTest(c)
 }
 
 func (s *workerDisabledSuite) TestWorkerIgnoresAddresses(c *gc.C) {
-	w, err := addresser.NewWorker(s.api)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
-
-	// Create a machine.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create addresses and assign to machine,
-	// set second one to dead.
-	addr := network.NewAddress("0.1.2.3")
-	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.AllocateTo(machine.Id(), "wobble", "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr = network.NewAddress("0.1.2.4")
-	ipAddr, err = s.State.AddIPAddress(addr, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.AllocateTo(machine.Id(), "wobble", "")
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// The worker must not kill these addresses.
 	for a := common.ShortAttempt.Start(); a.Next(); {
-		ipAddr, err := s.State.IPAddress("0.1.2.3")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
-
-		ipAddr, err = s.State.IPAddress("0.1.2.4")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
+		s.assertIPAddressLife(c, 3, state.Alive)
+		s.assertIPAddressLife(c, 4, state.Dead)
+		s.assertIPAddressLife(c, 5, state.Alive)
+		s.assertIPAddressLife(c, 6, state.Dead)
 	}
 }

@@ -85,8 +85,10 @@ func (s *AddresserSuite) TestCleanupIPAddressesFailure(c *gc.C) {
 
 	s.st.stub.SetErrors(errors.New("ouch"))
 
+	// First action is getting the environment configuration,
+	// so the injected error is returned here.
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.ErrorMatches, "ouch")
+	c.Assert(apiErr.Error, gc.ErrorMatches, "getting environment config: ouch")
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()
