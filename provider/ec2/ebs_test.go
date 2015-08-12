@@ -348,6 +348,7 @@ func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 
 	vols, err := vs.DescribeVolumes([]string{"vol-0", "vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(describeVolumesResults(vols))
 	c.Assert(vols, gc.HasLen, 2)
 	c.Assert(vols, jc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
@@ -362,6 +363,27 @@ func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 			Persistent: true,
 		},
 	}})
+}
+
+type describeVolumesResults []storage.DescribeVolumesResult
+
+func (r describeVolumesResults) Len() int {
+	return len(r)
+}
+
+func (r describeVolumesResults) Swap(i, j int) {
+	r[i], r[j] = r[j], r[i]
+}
+
+func (r describeVolumesResults) Less(i, j int) bool {
+	var iVolumeId, jVolumeId string
+	if r[i].VolumeInfo != nil {
+		iVolumeId = r[i].VolumeInfo.VolumeId
+	}
+	if r[j].VolumeInfo != nil {
+		jVolumeId = r[j].VolumeInfo.VolumeId
+	}
+	return iVolumeId < jVolumeId
 }
 
 func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
