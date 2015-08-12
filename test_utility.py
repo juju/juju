@@ -301,6 +301,15 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertTrue(args.upload_tools)
 
+    def test_using_jes_upload_tools(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--upload-tools']
+        parser = add_basic_testing_arguments(ArgumentParser(), using_jes=True)
+        with patch.object(parser, 'error') as mock_error:
+            parser.parse_args(cmd_line)
+        mock_error.assert_called_once_with(
+            'unrecognized arguments: --upload-tools')
+
     def test_bootstrap_host(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
                     '--bootstrap-host', 'bar']

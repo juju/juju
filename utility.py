@@ -217,7 +217,7 @@ def s3_cmd(params, drop_output=False):
         return subprocess.check_output(command)
 
 
-def add_basic_testing_arguments(parser):
+def add_basic_testing_arguments(parser, using_jes=False):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures
@@ -229,9 +229,11 @@ def add_basic_testing_arguments(parser):
     There are many optional args that either update the env's config or
     manipulate the juju command line options to test in controlled situations
     or in uncommon substrates: --debug, --verbose, --agent-url, --agent-stream,
-    --series ,--upload-tools, --bootstrap-host, --machine, --keep-env.
+    --series, --bootstrap-host, --machine, --keep-env. If not using_jes, the
+    --upload-tools arg will also be added.
 
     :param parser: an ArgumentParser.
+    :param using_jes: whether args should be tailored for JES testing.
     """
     # Required positional arguments.
     # (name, help)
@@ -244,7 +246,7 @@ def add_basic_testing_arguments(parser):
     for p_arg in positional_args:
         name, help_txt = p_arg
         parser.add_argument(name, help=help_txt)
-    parser.add_argument('--debug', action='store_true', default=False,
+    parser.add_argument('--debug', action='store_true',
                         help='Pass --debug to Juju.')
     parser.add_argument('--verbose', action='store_const',
                         default=logging.INFO, const=logging.DEBUG,
@@ -255,14 +257,15 @@ def add_basic_testing_arguments(parser):
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
-    parser.add_argument('--upload-tools', action='store_true', default=False,
-                        help='upload local version of tools to bootstrap.')
+    if not using_jes:
+        parser.add_argument('--upload-tools', action='store_true',
+                            help='upload local version of tools to bootstrap.')
     parser.add_argument('--bootstrap-host',
                         help='The host to use for bootstrap.')
     parser.add_argument('--machine', help='A machine to add or when used with '
                         'KVM based MaaS, a KVM image to start.',
                         action='append', default=[])
-    parser.add_argument('--keep-env', action='store_true', default=False,
+    parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
                         ' completes.')
     return parser
