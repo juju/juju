@@ -734,3 +734,16 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	ch <- c.now
 	return ch
 }
+
+type mockStatusSetter struct {
+	args      []params.EntityStatus
+	setStatus func([]params.EntityStatus) error
+}
+
+func (m *mockStatusSetter) SetStatus(args []params.EntityStatus) error {
+	if m.setStatus != nil {
+		return m.setStatus(args)
+	}
+	m.args = append(m.args, args...)
+	return nil
+}

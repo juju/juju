@@ -63,6 +63,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		&mockLifecycleManager{},
 		newMockEnvironAccessor(c),
 		newMockMachineAccessor(c),
+		&mockStatusSetter{},
 		&mockClock{},
 	)
 	worker.Kill()
@@ -194,6 +195,19 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 		30 * time.Minute,
 		30 * time.Minute,
 	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: ""},
+	})
 }
 
 func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
@@ -262,6 +276,20 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 		30 * time.Minute, // ceiling reached
 		30 * time.Minute,
 		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+		{Tag: "volume-1", Status: "attaching", Info: ""},        // CreateVolumes
+		{Tag: "volume-1", Status: "attaching", Info: "badness"}, // AttachVolumes
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attached", Info: ""},
 	})
 }
 
@@ -1108,6 +1136,9 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args.clock == nil {
 		args.clock = &mockClock{}
 	}
+	if args.statusSetter == nil {
+		args.statusSetter = &mockStatusSetter{}
+	}
 	return storageprovisioner.NewStorageProvisioner(
 		args.scope,
 		"storage-dir",
@@ -1116,18 +1147,20 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args.life,
 		args.environ,
 		args.machines,
+		args.statusSetter,
 		args.clock,
 	)
 }
 
 type workerArgs struct {
-	scope       names.Tag
-	volumes     *mockVolumeAccessor
-	filesystems *mockFilesystemAccessor
-	life        *mockLifecycleManager
-	environ     *mockEnvironAccessor
-	machines    *mockMachineAccessor
-	clock       clock.Clock
+	scope        names.Tag
+	volumes      *mockVolumeAccessor
+	filesystems  *mockFilesystemAccessor
+	life         *mockLifecycleManager
+	environ      *mockEnvironAccessor
+	machines     *mockMachineAccessor
+	clock        clock.Clock
+	statusSetter *mockStatusSetter
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {
