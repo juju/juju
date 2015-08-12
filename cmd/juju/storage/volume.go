@@ -23,15 +23,14 @@ const volumeCmdPurpose = "manage storage volumes"
 // NewVolumeSuperCommand creates the storage volume super subcommand and
 // registers the subcommands that it supports.
 func NewVolumeSuperCommand() cmd.Command {
-	poolcmd := Command{
-		SuperCommand: *jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
-			Name:        "volume",
-			Doc:         volumeCmdDoc,
-			UsagePrefix: "juju storage",
-			Purpose:     volumeCmdPurpose,
-		})}
+	poolcmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
+		Name:        "volume",
+		Doc:         volumeCmdDoc,
+		UsagePrefix: "juju storage",
+		Purpose:     volumeCmdPurpose,
+	})
 	poolcmd.Register(envcmd.Wrap(&VolumeListCommand{}))
-	return &poolcmd
+	return poolcmd
 }
 
 // VolumeCommandBase is a helper base structure for volume commands.

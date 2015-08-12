@@ -36,7 +36,7 @@ var (
 )
 
 func newUserInfoCommand() cmd.Command {
-	return envcmd.Wrap(user.NewInfoCommand(&fakeUserInfoAPI{}))
+	return envcmd.WrapSystem(user.NewInfoCommand(&fakeUserInfoAPI{}))
 }
 
 type fakeUserInfoAPI struct{}

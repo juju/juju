@@ -4,9 +4,9 @@
 package util
 
 import (
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -14,7 +14,7 @@ import (
 // type configures them.
 type AgentApiManifoldConfig struct {
 	AgentName     string
-	ApiCallerName string
+	APICallerName string
 }
 
 // AgentApiStartFunc encapsulates the behaviour that varies among AgentApiManifolds.
@@ -27,7 +27,7 @@ func AgentApiManifold(config AgentApiManifoldConfig, start AgentApiStartFunc) de
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiCallerName,
+			config.APICallerName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			var agent agent.Agent
@@ -35,7 +35,7 @@ func AgentApiManifold(config AgentApiManifoldConfig, start AgentApiStartFunc) de
 				return nil, err
 			}
 			var apiCaller base.APICaller
-			if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
+			if err := getResource(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			return start(agent, apiCaller)

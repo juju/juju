@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -134,7 +135,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
-func (s *baseSuite) openAs(c *gc.C, tag names.Tag) *api.State {
+func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 	info := s.APIInfo(c)
 	info.Tag = tag
 	// Must match defaultPassword()
@@ -156,20 +157,20 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) *api.State {
 // to the scenario not calling SetAgentPresence on the respective entities,
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
-var scenarioStatus = &api.Status{
+var scenarioStatus = &params.FullStatus{
 	EnvironmentName: "dummyenv",
-	Machines: map[string]api.MachineStatus{
+	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",
 			InstanceId: instance.Id("i-machine-0"),
-			Agent: api.AgentStatus{
+			Agent: params.AgentStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
-			Containers:     map[string]api.MachineStatus{},
+			Containers:     map[string]params.MachineStatus{},
 			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 			HasVote:        false,
 			WantsVote:      true,
@@ -177,14 +178,14 @@ var scenarioStatus = &api.Status{
 		"1": {
 			Id:         "1",
 			InstanceId: instance.Id("i-machine-1"),
-			Agent: api.AgentStatus{
+			Agent: params.AgentStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
-			Containers:     map[string]api.MachineStatus{},
+			Containers:     map[string]params.MachineStatus{},
 			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
@@ -192,32 +193,38 @@ var scenarioStatus = &api.Status{
 		"2": {
 			Id:         "2",
 			InstanceId: instance.Id("i-machine-2"),
-			Agent: api.AgentStatus{
+			Agent: params.AgentStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
-			Containers:     map[string]api.MachineStatus{},
+			Containers:     map[string]params.MachineStatus{},
 			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
 		},
 	},
-	Services: map[string]api.ServiceStatus{
+	Services: map[string]params.ServiceStatus{
 		"logging": {
 			Charm: "local:quantal/logging-1",
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
 			},
 			SubordinateTo: []string{"wordpress"},
+			// TODO(fwereade): why does the subordinate have no service status?
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
-			Units:         map[string]api.UnitStatus{},
+			Units:         map[string]params.UnitStatus{},
+			Status: params.AgentStatus{
+				Status: "unknown",
+				Info:   "Waiting for agent initialization to finish",
+				Data:   map[string]interface{}{},
+			},
 		},
 		"wordpress": {
 			Charm: "local:quantal/wordpress-3",
@@ -225,34 +232,34 @@ var scenarioStatus = &api.Status{
 				"logging-dir": {"logging"},
 			},
 			SubordinateTo: []string{},
-			Status: api.AgentStatus{
+			Status: params.AgentStatus{
 				Status: "error",
 				Info:   "blam",
 				Data:   map[string]interface{}{"remote-unit": "logging/0", "foo": "bar", "relation-id": "0"},
 			},
-			Units: map[string]api.UnitStatus{
+			Units: map[string]params.UnitStatus{
 				"wordpress/0": {
-					Workload: api.AgentStatus{
+					Workload: params.AgentStatus{
 						Status: "error",
 						Info:   "blam",
 						Data:   map[string]interface{}{"relation-id": "0"},
 					},
-					UnitAgent: api.AgentStatus{
+					UnitAgent: params.AgentStatus{
 						Status: "idle",
 						Data:   make(map[string]interface{}),
 					},
 					AgentState:     "error",
 					AgentStateInfo: "blam",
 					Machine:        "1",
-					Subordinates: map[string]api.UnitStatus{
+					Subordinates: map[string]params.UnitStatus{
 						"logging/0": {
 							AgentState: "pending",
-							Workload: api.AgentStatus{
+							Workload: params.AgentStatus{
 								Status: "unknown",
 								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
-							UnitAgent: api.AgentStatus{
+							UnitAgent: params.AgentStatus{
 								Status: "allocating",
 								Data:   map[string]interface{}{},
 							},
@@ -261,27 +268,27 @@ var scenarioStatus = &api.Status{
 				},
 				"wordpress/1": {
 					AgentState: "pending",
-					Workload: api.AgentStatus{
+					Workload: params.AgentStatus{
 						Status: "unknown",
 						Info:   "Waiting for agent initialization to finish",
 						Data:   make(map[string]interface{}),
 					},
-					UnitAgent: api.AgentStatus{
+					UnitAgent: params.AgentStatus{
 						Status: "allocating",
 						Info:   "",
 						Data:   make(map[string]interface{}),
 					},
 
 					Machine: "2",
-					Subordinates: map[string]api.UnitStatus{
+					Subordinates: map[string]params.UnitStatus{
 						"logging/1": {
 							AgentState: "pending",
-							Workload: api.AgentStatus{
+							Workload: params.AgentStatus{
 								Status: "unknown",
 								Info:   "Waiting for agent initialization to finish",
 								Data:   make(map[string]interface{}),
 							},
-							UnitAgent: api.AgentStatus{
+							UnitAgent: params.AgentStatus{
 								Status: "allocating",
 								Info:   "",
 								Data:   make(map[string]interface{}),
@@ -292,11 +299,11 @@ var scenarioStatus = &api.Status{
 			},
 		},
 	},
-	Relations: []api.RelationStatus{
+	Relations: []params.RelationStatus{
 		{
 			Id:  0,
 			Key: "logging:logging-directory wordpress:logging-dir",
-			Endpoints: []api.EndpointStatus{
+			Endpoints: []params.EndpointStatus{
 				{
 					ServiceName: "logging",
 					Name:        "logging-directory",
@@ -314,7 +321,7 @@ var scenarioStatus = &api.Status{
 			Scope:     "container",
 		},
 	},
-	Networks: map[string]api.NetworkStatus{},
+	Networks: map[string]params.NetworkStatus{},
 }
 
 // setUpScenario makes an environment scenario suitable for

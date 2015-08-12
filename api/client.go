@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -42,170 +41,9 @@ type Client struct {
 	st     *State
 }
 
-// NetworksSpecification holds the enabled and disabled networks for a
-// service.
-type NetworksSpecification struct {
-	Enabled  []string
-	Disabled []string
-}
-
-// AgentStatus holds status info about a machine or unit agent.
-type AgentStatus struct {
-	Status  params.Status
-	Info    string
-	Data    map[string]interface{}
-	Since   *time.Time
-	Kind    params.HistoryKind
-	Version string
-	Life    string
-	Err     error
-}
-
-// MachineStatus holds status info about a machine.
-type MachineStatus struct {
-	Agent AgentStatus
-
-	// The following fields mirror fields in AgentStatus (introduced
-	// in 1.19.x). The old fields below are being kept for
-	// compatibility with old clients.
-	// They can be removed once API versioning lands.
-	AgentState     params.Status
-	AgentStateInfo string
-	AgentVersion   string
-	Life           string
-	Err            error
-
-	DNSName       string
-	InstanceId    instance.Id
-	InstanceState string
-	Series        string
-	Id            string
-	Containers    map[string]MachineStatus
-	Hardware      string
-	Jobs          []multiwatcher.MachineJob
-	HasVote       bool
-	WantsVote     bool
-}
-
-// ServiceStatus holds status info about a service.
-type ServiceStatus struct {
-	Err           error
-	Charm         string
-	Exposed       bool
-	Life          string
-	Relations     map[string][]string
-	Networks      NetworksSpecification
-	CanUpgradeTo  string
-	SubordinateTo []string
-	Units         map[string]UnitStatus
-	Status        AgentStatus
-}
-
-// UnitStatusHistory holds a slice of statuses.
-type UnitStatusHistory struct {
-	Statuses []AgentStatus
-}
-
-// UnitStatus holds status info about a unit.
-type UnitStatus struct {
-	// UnitAgent holds the status for a unit's agent.
-	UnitAgent AgentStatus
-
-	// Workload holds the status for a unit's workload
-	Workload AgentStatus
-
-	// Until Juju 2.0, we need to continue to return legacy agent state values
-	// as top level struct attributes when the "FullStatus" API is called.
-	AgentState     params.Status
-	AgentStateInfo string
-	AgentVersion   string
-	Life           string
-	Err            error
-
-	Machine       string
-	OpenedPorts   []string
-	PublicAddress string
-	Charm         string
-	Subordinates  map[string]UnitStatus
-
-	// Components is a map from component name to the component's status.
-	Components map[string]ComponentStatus
-}
-
-// NewComponentStatus returns a ComponentStatus object wrapping the given value.
-func NewComponentStatus(val interface{}) ComponentStatus {
-	return ComponentStatus{val: val}
-}
-
-// ComponentStatus makes it easy to serialize and deserialize multiple types in
-// the same map in a type safe way. ComponentStatus serializes identically the
-// the interface{} that it wraps.  When it deserializes, it simply copies the
-// json bytes, which can then be accessed by the Bytes() method, and manually
-// deserialized into the correct type.
-type ComponentStatus struct {
-	val interface{}
-	b   []byte
-}
-
-// UnmarshalJSON copies the json bytes into this object internally for later
-// retrieval via the Bytes() method.
-func (c *ComponentStatus) UnmarshalJSON(b []byte) error {
-	c.b = make([]byte, len(b))
-	copy(c.b, b)
-	return nil
-}
-
-// MarshalJSON returns the JSON bytes for the wrapped interface{} value.
-func (c ComponentStatus) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.val)
-}
-
-// Bytes returns the json bytes for unmarshaling to the original type.
-func (c ComponentStatus) Bytes() []byte {
-	return c.b
-}
-
-// RelationStatus holds status info about a relation.
-type RelationStatus struct {
-	Id        int
-	Key       string
-	Interface string
-	Scope     charm.RelationScope
-	Endpoints []EndpointStatus
-}
-
-// EndpointStatus holds status info about a single endpoint
-type EndpointStatus struct {
-	ServiceName string
-	Name        string
-	Role        charm.RelationRole
-	Subordinate bool
-}
-
-func (epStatus *EndpointStatus) String() string {
-	return epStatus.ServiceName + ":" + epStatus.Name
-}
-
-// NetworkStatus holds status info about a network.
-type NetworkStatus struct {
-	Err        error
-	ProviderId network.Id
-	CIDR       string
-	VLANTag    int
-}
-
-// Status holds information about the status of a juju environment.
-type Status struct {
-	EnvironmentName string
-	Machines        map[string]MachineStatus
-	Services        map[string]ServiceStatus
-	Networks        map[string]NetworkStatus
-	Relations       []RelationStatus
-}
-
 // Status returns the status of the juju environment.
-func (c *Client) Status(patterns []string) (*Status, error) {
-	var result Status
+func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
+	var result params.FullStatus
 	p := params.StatusParams{Patterns: patterns}
 	if err := c.facade.FacadeCall("FullStatus", p, &result); err != nil {
 		return nil, err
@@ -215,8 +53,8 @@ func (c *Client) Status(patterns []string) (*Status, error) {
 
 // UnitStatusHistory retrieves the last <size> results of <kind:combined|agent|workload> status
 // for <unitName> unit
-func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*UnitStatusHistory, error) {
-	var results UnitStatusHistory
+func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*params.UnitStatusHistory, error) {
+	var results params.UnitStatusHistory
 	args := params.StatusHistory{
 		Kind: kind,
 		Size: size,
@@ -225,27 +63,17 @@ func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, siz
 	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
-			return &UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
+			return &params.UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
 		}
-		return &UnitStatusHistory{}, errors.Trace(err)
+		return &params.UnitStatusHistory{}, errors.Trace(err)
 	}
 	return &results, nil
 }
 
-// LegacyMachineStatus holds just the instance-id of a machine.
-type LegacyMachineStatus struct {
-	InstanceId string // Not type instance.Id just to match original api.
-}
-
-// LegacyStatus holds minimal information on the status of a juju environment.
-type LegacyStatus struct {
-	Machines map[string]LegacyMachineStatus
-}
-
 // LegacyStatus is a stub version of Status that 1.16 introduced. Should be
 // removed along with structs when api versioning makes it safe to do so.
-func (c *Client) LegacyStatus() (*LegacyStatus, error) {
-	var result LegacyStatus
+func (c *Client) LegacyStatus() (*params.LegacyStatus, error) {
+	var result params.LegacyStatus
 	if err := c.facade.FacadeCall("Status", nil, &result); err != nil {
 		return nil, err
 	}

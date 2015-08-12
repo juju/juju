@@ -90,7 +90,7 @@ func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
 type machineSuite struct {
 	testing.JujuConnSuite
 	machine *state.Machine
-	st      *api.State
+	st      api.Connection
 }
 
 var _ = gc.Suite(&machineSuite{})

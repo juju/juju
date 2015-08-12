@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -57,9 +58,6 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	// TODO(katco-): As state gets broken up, remove this.
-	*LeasePersistor
-
 	environTag names.EnvironTag
 	serverTag  names.EnvironTag
 	mongoInfo  *mongo.MongoInfo
@@ -183,7 +181,7 @@ func (st *State) start(serverTag names.EnvironTag) error {
 	}
 
 	logger.Infof("creating lease client as %s", clientId)
-	clock := lease.SystemClock{}
+	clock := GetClock()
 	leaseClient, err := lease.NewClient(lease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
@@ -1123,6 +1121,21 @@ func (st *State) AddService(
 		OwnerTag:      owner,
 	}
 	svc := newService(st, svcDoc)
+
+	statusDoc := statusDoc{
+		EnvUUID: st.EnvironUUID(),
+		// TODO(fwereade): this violates the spec. Should be "waiting".
+		// Implemented like this to be consistent with incorrect add-unit
+		// behaviour.
+		Status:     StatusUnknown,
+		StatusInfo: MessageWaitForAgentInit,
+		Updated:    time.Now().UnixNano(),
+		// This exists to preserve questionable unit-aggregation behaviour
+		// while we work out how to switch to an implementation that makes
+		// sense. It is also set in AddMissingServiceStatuses.
+		NeverSet: true,
+	}
+
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
@@ -1134,6 +1147,7 @@ func (st *State) AddService(
 		createStorageConstraintsOp(svc.globalKey(), storage),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		addLeadershipSettingsOp(svc.Tag().Id()),
+		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
 			C:      settingsrefsC,
 			Id:     st.docID(svc.settingsKey()),
@@ -1141,8 +1155,7 @@ func (st *State) AddService(
 			Insert: settingsRefsDoc{
 				RefCount: 1,
 				EnvUUID:  st.EnvironUUID()},
-		},
-		{
+		}, {
 			C:      servicesC,
 			Id:     serviceID,
 			Assert: txn.DocMissing,
@@ -1156,11 +1169,11 @@ func (st *State) AddService(
 	}
 	ops = append(ops, peerOps...)
 
+	// At the last moment before inserting the service, prime status history.
+	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
+
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		err := env.Refresh()
-		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-			return nil, errors.Errorf("environment is no longer alive")
-		} else if err != nil {
+		if err := checkEnvLife(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Errorf("service already exists")
@@ -1223,16 +1236,22 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	if err != nil {
 		return nil, err
 	}
-	ops := []txn.Op{{
-		C:      subnetsC,
-		Id:     subnetID,
-		Assert: txn.DocMissing,
-		Insert: subDoc,
-	}}
+	ops := []txn.Op{
+		assertEnvAliveOp(st.EnvironUUID()),
+		{
+			C:      subnetsC,
+			Id:     subnetID,
+			Assert: txn.DocMissing,
+			Insert: subDoc,
+		},
+	}
 
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
+		if err := checkEnvLife(st); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if _, err = st.Subnet(args.CIDR); err == nil {
 			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 		} else if err != nil {
@@ -1289,15 +1308,21 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
 	doc := st.newNetworkDoc(args)
-	ops := []txn.Op{{
-		C:      networksC,
-		Id:     doc.DocID,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
+	ops := []txn.Op{
+		assertEnvAliveOp(st.EnvironUUID()),
+		{
+			C:      networksC,
+			Id:     doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		},
+	}
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
+		if err := checkEnvLife(st); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if _, err = st.Network(args.Name); err == nil {
 			return nil, errors.AlreadyExistsf("network %q", args.Name)
 		} else if err != nil {

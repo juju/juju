@@ -5,12 +5,12 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 )
 
 type mockAPIState struct {
-	close func(juju.APIState) error
+	api.Connection
+	close func(api.Connection) error
 
 	addr         string
 	apiHostPorts [][]network.HostPort
@@ -40,6 +40,6 @@ func (s *mockAPIState) ServerTag() (names.EnvironTag, error) {
 	return names.EnvironTag{}, errors.NotImplementedf("ServerTag")
 }
 
-func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 	panic("api.Open called unexpectedly")
 }

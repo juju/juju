@@ -9,8 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/state/lease"
 )
 
@@ -111,7 +113,7 @@ func (manager *manager) choose(blocks blocks) error {
 	}
 }
 
-// ClaimLeadership is part of the leadership.Manager interface.
+// ClaimLeadership is part of the leadership.Claimer interface.
 func (manager *manager) ClaimLeadership(serviceName, unitName string, duration time.Duration) error {
 	return claim{
 		serviceName: serviceName,
@@ -153,14 +155,18 @@ func (manager *manager) handleClaim(claim claim) error {
 	return nil
 }
 
-// CheckLeadership is part of the leadership.Manager interface.
-func (manager *manager) CheckLeadership(serviceName, unitName string) (Token, error) {
-	return check{
+// LeadershipCheck is part of the leadership.Checker interface.
+//
+// The token returned will accept a `*[]txn.Op` passed to Check, and will
+// populate it with transaction operations that will fail if the unit is
+// not leader of the service.
+func (manager *manager) LeadershipCheck(serviceName, unitName string) leadership.Token {
+	return token{
 		serviceName: serviceName,
 		unitName:    unitName,
-		response:    make(chan Token),
+		checks:      manager.checks,
 		abort:       manager.tomb.Dying(),
-	}.invoke(manager.checks)
+	}
 }
 
 // handleCheck processes and responds to the supplied check. It will only return
@@ -175,15 +181,15 @@ func (manager *manager) handleCheck(check check) error {
 		}
 		info, found = client.Leases()[check.serviceName]
 	}
-	var result Token
 	if found && info.Holder == check.unitName {
-		result = token{info.AssertOp}
+		check.succeed(info.AssertOp)
+	} else {
+		check.fail()
 	}
-	check.respond(result)
 	return nil
 }
 
-// BlockUntilLeadershipReleased is part of the leadership.Manager interface.
+// BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (manager *manager) BlockUntilLeadershipReleased(serviceName string) error {
 	return block{
 		serviceName: serviceName,
@@ -206,11 +212,11 @@ func (manager *manager) nextExpiry() <-chan time.Time {
 		nextExpiry = &info.Expiry
 	}
 	if nextExpiry == nil {
-		logger.Debugf("no leases recorded; never waking for expiry")
+		logger.Tracef("no leases recorded; never waking for expiry")
 		return nil
 	}
-	logger.Debugf("waking to expire leases at %s", *nextExpiry)
-	return manager.config.Clock.Alarm(*nextExpiry)
+	logger.Tracef("waking to expire leases at %s", *nextExpiry)
+	return clock.Alarm(manager.config.Clock, *nextExpiry)
 }
 
 // expire will attempt to expire all leases that may have expired. There might
@@ -219,6 +225,7 @@ func (manager *manager) nextExpiry() <-chan time.Time {
 // client will have been updated and we'll see fresh info when we scan for new
 // expiries next time through the loop. It will return only unrecoverable errors.
 func (manager *manager) expire() error {
+	logger.Tracef("expiring leases...")
 	client := manager.config.Client
 	leases := client.Leases()
 

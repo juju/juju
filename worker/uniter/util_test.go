@@ -34,14 +34,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
+	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/metrics"
@@ -83,7 +83,8 @@ type context struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
-	leader                 leadership.LeadershipManager
+	leaderClaimer          coreleadership.Claimer
+	leaderTracker          *mockLeaderTracker
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
@@ -127,14 +128,6 @@ func (ctx *context) setExpectedError(err string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
-	// We need this lest leadership calls block forever.
-	lease, err := lease.NewLeaseManager(ctx.st)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		lease.Kill()
-		c.Assert(lease.Wait(), jc.ErrorIsNil)
-	}()
-
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
@@ -162,7 +155,9 @@ func (ctx *context) apiLogin(c *gc.C) {
 	ctx.api, err = st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
-	ctx.leader = leadership.NewLeadershipManager(lease.Manager())
+	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
+	ctx.leaderTracker = newMockLeaderTracker(ctx)
+	ctx.leaderTracker.setLeader(c, true)
 }
 
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
@@ -246,16 +241,12 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	c.Logf("ctx.waitHooks     : %#v", ctx.hooks)
 	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}
 	for i, e := range ctx.hooks {
 		if ctx.hooksCompleted[i] != e {
-			c.Logf("hooks missmatch at: %d", i)
-			c.Logf("expected: %q", e)
-			c.Logf("obtained: %q", ctx.hooksCompleted[i])
 			return false, false
 		}
 	}
@@ -328,7 +319,7 @@ func startupHooks(minion bool) []string {
 	if minion {
 		leaderHook = "leader-settings-changed"
 	}
-	return []string{"install", leaderHook, "config-changed", "start", "update-status"}
+	return []string{"install", leaderHook, "config-changed", "start"}
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
@@ -416,7 +407,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 
 type createUniter struct {
 	minion       bool
-	executorFunc func(*uniter.Uniter) (operation.Executor, error)
+	executorFunc uniter.NewExecutorFunc
 }
 
 func (s createUniter) step(c *gc.C, ctx *context) {
@@ -459,7 +450,7 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 
 type startUniter struct {
 	unitTag         string
-	newExecutorFunc func(*uniter.Uniter) (operation.Executor, error)
+	newExecutorFunc uniter.NewExecutorFunc
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -479,18 +470,23 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
+	operationExecutor := operation.NewExecutor
+	if s.newExecutorFunc != nil {
+		operationExecutor = s.newExecutorFunc
+	}
+
 	uniterParams := uniter.UniterParams{
-		St:                ctx.api,
+		UniterFacade:      ctx.api,
 		UnitTag:           tag,
-		LeadershipManager: ctx.leader,
+		LeadershipTracker: ctx.leaderTracker,
 		DataDir:           ctx.dataDir,
-		HookLock:          lock,
+		MachineLock:       lock,
 		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
 			ctx.collectMetricsTicker.ReturnTimer,
 			ctx.sendMetricsTicker.ReturnTimer,
 		),
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
-		NewOperationExecutor: s.newExecutorFunc,
+		NewOperationExecutor: operationExecutor,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
@@ -577,8 +573,7 @@ func (s verifyWaiting) step(c *gc.C, ctx *context) {
 }
 
 type verifyRunning struct {
-	minion      bool
-	waitForIdle bool
+	minion bool
 }
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
@@ -588,13 +583,7 @@ func (s verifyRunning) step(c *gc.C, ctx *context) {
 	if s.minion {
 		hooks = append(hooks, "leader-settings-changed")
 	}
-	// first update status before entering modeAbideAliveLoop second
-	// one entering idleLoop after config-changed.
 	hooks = append(hooks, "config-changed")
-	if s.waitForIdle {
-		step(c, ctx, waitUnitAgent{status: params.StatusIdle})
-
-	}
 	step(c, ctx, waitHooks(hooks))
 }
 
@@ -617,10 +606,10 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	})
 	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
-			step(c, ctx, waitHooksWithoutExpectingUpdateStatus{"fail-" + hook})
+			step(c, ctx, waitHooks{"fail-" + hook})
 			break
 		}
-		step(c, ctx, waitHooksWithoutExpectingUpdateStatus{hook})
+		step(c, ctx, waitHooks{hook})
 	}
 	step(c, ctx, verifyCharm{})
 }
@@ -643,7 +632,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 			step(c, ctx, waitHooks{"fail-" + hook})
 			break
 		}
-		step(c, ctx, waitHooksWithoutExpectingUpdateStatus{hook})
+		step(c, ctx, waitHooks{hook})
 	}
 	step(c, ctx, verifyCharm{})
 }
@@ -777,47 +766,15 @@ func (s waitUnitAgent) step(c *gc.C, ctx *context) {
 	}
 }
 
-type waitHooksWithoutExpectingUpdateStatus []string
-
-func (s waitHooksWithoutExpectingUpdateStatus) step(c *gc.C, ctx *context) {
-	waitHooksStep([]string(s), c, ctx, false)
-}
-
 type waitHooks []string
 
 func (s waitHooks) step(c *gc.C, ctx *context) {
-	waitHooksStep([]string(s), c, ctx, true)
-}
-
-// waitHookStep will wait for a set of hooks to happen or fail.
-// additionally if updateStatus specified we will wait for an update-status
-// hook call at the end, product of re-entering abideAliveLoop idleness.
-func waitHooksStep(s []string, c *gc.C, ctx *context, updateStatus bool) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
 		ctx.s.BackingState.StartSync()
 		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
-	var (
-		endsInFailure bool
-		endsInStop    bool
-	)
-	lastHook := ""
-	// an update-status hook will be added at the end of the wait list unless:
-	// * the last hook is an update-status
-	// * the last hook is a failure
-	// * the last hook is stop
-	if len(ctx.hooks) > 0 {
-		lastHook = ctx.hooks[len(ctx.hooks)-1]
-		endsInFailure = strings.HasPrefix(lastHook, "fail-")
-		endsInStop = lastHook == "stop"
-		if len(s) > 0 && updateStatus && !endsInFailure && !endsInStop &&
-			lastHook != "update-status" {
-			ctx.hooks = append(ctx.hooks, "update-status")
-		}
-	}
-
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
 	match, overshoot := ctx.matchHooks(c)
 	if overshoot && len(s) == 0 {
@@ -829,7 +786,6 @@ func waitHooksStep(s []string, c *gc.C, ctx *context, updateStatus bool) {
 	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
-		time.Sleep(coretesting.ShortWait)
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, _ = ctx.matchHooks(c); match {
@@ -953,18 +909,11 @@ func (s collectMetricsTick) step(c *gc.C, ctx *context) {
 	}
 }
 
-type updateStatusHookTick struct {
-	expectFail bool
-}
+type updateStatusHookTick struct{}
 
 func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 	err := ctx.updateStatusHookTicker.Tick()
-	if s.expectFail {
-		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
-
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type sendMetricsTick struct {
@@ -1573,42 +1522,119 @@ func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
 	ctx.wg.Wait()
 }
 
-const otherLeader = "some-other-unit/123"
-
 type forceMinion struct{}
 
 func (forceMinion) step(c *gc.C, ctx *context) {
-	// TODO(fwereade): this is designed to work when the uniter is still running,
-	// which is... unexpected, because the uniter's running a tracker that will
-	// do its best to maintain leadership. But... it's possible for us to make it
-	// resign by going via the lease manager directly, and we can be confident
-	// that the uniter's tracker *will* see the problem when it fails to renew.
-	// This lets us test the uniter's behaviour under bizarre/adverse conditions
-	// (in addition to working just fine when the uniter's not running).
-	for i := 0; i < 3; i++ {
-		c.Logf("deposing local unit (attempt %d)", i)
-		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("promoting other unit (attempt %d)", i)
-		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
-		if err == nil {
-			return
-		} else if errors.Cause(err) != leadership.ErrClaimDenied {
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-	c.Fatalf("failed to promote a different leader")
+	ctx.leaderTracker.setLeader(c, false)
 }
 
 type forceLeader struct{}
 
 func (forceLeader) step(c *gc.C, ctx *context) {
-	c.Logf("deposing other unit")
-	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("promoting local unit")
-	err = ctx.leader.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
+	ctx.leaderTracker.setLeader(c, true)
+}
+
+func newMockLeaderTracker(ctx *context) *mockLeaderTracker {
+	return &mockLeaderTracker{
+		ctx: ctx,
+	}
+}
+
+type mockLeaderTracker struct {
+	mu       sync.Mutex
+	ctx      *context
+	isLeader bool
+	waiting  []chan struct{}
+}
+
+func (mock *mockLeaderTracker) ServiceName() string {
+	return mock.ctx.svc.Name()
+}
+
+func (mock *mockLeaderTracker) ClaimDuration() time.Duration {
+	return 30 * time.Second
+}
+
+func (mock *mockLeaderTracker) ClaimLeader() leadership.Ticket {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if mock.isLeader {
+		return fastTicket{true}
+	}
+	return fastTicket{}
+}
+
+func (mock *mockLeaderTracker) WaitLeader() leadership.Ticket {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if mock.isLeader {
+		return fastTicket{}
+	}
+	return mock.waitTicket()
+}
+
+func (mock *mockLeaderTracker) WaitMinion() leadership.Ticket {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if !mock.isLeader {
+		return fastTicket{}
+	}
+	return mock.waitTicket()
+}
+
+func (mock *mockLeaderTracker) waitTicket() leadership.Ticket {
+	// very internal, expects mu to be locked already
+	ch := make(chan struct{})
+	mock.waiting = append(mock.waiting, ch)
+	return waitTicket{ch}
+}
+
+func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if mock.isLeader == isLeader {
+		return
+	}
+	if isLeader {
+		err := mock.ctx.leaderClaimer.ClaimLeadership(
+			mock.ctx.svc.Name(), mock.ctx.unit.Name(), time.Minute,
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		leaseClock.Advance(61 * time.Second)
+		time.Sleep(coretesting.ShortWait)
+	}
+	mock.isLeader = isLeader
+	for _, ch := range mock.waiting {
+		close(ch)
+	}
+	mock.waiting = nil
+}
+
+type waitTicket struct {
+	ch chan struct{}
+}
+
+func (t waitTicket) Ready() <-chan struct{} {
+	return t.ch
+}
+
+func (t waitTicket) Wait() bool {
+	return false
+}
+
+type fastTicket struct {
+	value bool
+}
+
+func (fastTicket) Ready() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
+func (t fastTicket) Wait() bool {
+	return t.value
 }
 
 type setLeaderSettings map[string]string
@@ -1616,22 +1642,21 @@ type setLeaderSettings map[string]string
 func (s setLeaderSettings) step(c *gc.C, ctx *context) {
 	// We do this directly on State, not the API, so we don't have to worry
 	// about getting an API conn for whatever unit's meant to be leader.
-	settings, err := ctx.st.ReadLeadershipSettings(ctx.svc.Name())
+	err := ctx.svc.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
-	for key := range settings.Map() {
-		settings.Delete(key)
-	}
-	for key, value := range s {
-		settings.Set(key, value)
-	}
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	ctx.s.BackingState.StartSync()
+}
+
+type successToken struct{}
+
+func (successToken) Check(interface{}) error {
+	return nil
 }
 
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.api.LeadershipSettings.Read(ctx.svc.Name())
+	actual, err := ctx.svc.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }
@@ -1845,23 +1870,6 @@ func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
 	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
-}
-
-type shortWaitEnterLoopIsIdleTime struct {
-	burstSteps []stepper
-}
-
-func (s shortWaitEnterLoopIsIdleTime) step(c *gc.C, ctx *context) {
-	restoreInterval := gt.PatchValue(uniter.EnterLoopIsIdleTime, 0*time.Second)
-	for _, burstStep := range s.burstSteps {
-		step(c, ctx, burstStep)
-	}
-	defer restoreInterval()
-
-}
-
-func ust(summary string, steps ...stepper) uniterTest {
-	return ut(summary, shortWaitEnterLoopIsIdleTime{steps})
 }
 
 type expectError struct {

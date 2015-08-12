@@ -554,7 +554,7 @@ var _ = gc.Suite(&clientSuite{})
 
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
-func clearSinceTimes(status *api.Status) {
+func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
 			unit.Workload.Since = nil
@@ -2455,6 +2455,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:                 s.State.EnvironUUID(),
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
@@ -3731,4 +3732,16 @@ func (s *clientSuite) TestBlockDestroyDestroyRelation(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyRelation")
 	endpoints := []string{"wordpress", "mysql"}
 	s.assertDestroyRelation(c, endpoints)
+}
+
+func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
+	// The full tests for DestroyEnvironment are in environmentmanager.
+	// Here we just test that things are hooked up such that we can destroy
+	// the environment through the client endpoint to support older juju clients.
+	err := s.APIState.Client().DestroyEnvironment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
 }

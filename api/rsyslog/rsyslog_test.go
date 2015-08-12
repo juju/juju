@@ -19,7 +19,7 @@ import (
 type rsyslogSuite struct {
 	testing.JujuConnSuite
 
-	st      *api.State
+	st      api.Connection
 	machine *state.Machine
 	rsyslog *rsyslog.State
 }

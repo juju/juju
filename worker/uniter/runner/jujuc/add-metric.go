@@ -5,15 +5,14 @@ package jujuc
 
 import (
 	"fmt"
-	"strings"
 	"time"
+
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 )
-
-const builtinMetricPrefix string = "juju"
 
 // Metric represents a single metric set by the charm.
 type Metric struct {
@@ -27,11 +26,6 @@ type AddMetricCommand struct {
 	cmd.CommandBase
 	ctx     Context
 	Metrics []Metric
-}
-
-// IsBuiltinMetric returns true if the metric key provided is in the builtin metric namespace.
-func IsBuiltinMetric(key string) bool {
-	return strings.HasPrefix(key, builtinMetricPrefix)
 }
 
 // NewAddMetricCommand generates a new AddMetricCommand.
@@ -67,7 +61,7 @@ func (c *AddMetricCommand) Init(args []string) error {
 // Run adds metrics to the hook context.
 func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
 	for _, metric := range c.Metrics {
-		if IsBuiltinMetric(metric.Key) {
+		if charm.IsBuiltinMetric(metric.Key) {
 			return errors.Errorf("%v uses a reserved prefix", metric.Key)
 		}
 		err := c.ctx.AddMetric(metric.Key, metric.Value, metric.Time)

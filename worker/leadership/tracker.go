@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.worker.leadership")
 // tracker implements TrackerWorker.
 type tracker struct {
 	tomb        tomb.Tomb
-	leadership  leadership.LeadershipManager
+	claimer     leadership.Claimer
 	unitName    string
 	serviceName string
 	duration    time.Duration
@@ -42,13 +42,13 @@ type tracker struct {
 // leadership for the duration supplied here without generating additional calls
 // to the supplied manager (which may very well be on the other side of a
 // network connection).
-func NewTrackerWorker(tag names.UnitTag, leadership leadership.LeadershipManager, duration time.Duration) TrackerWorker {
+func NewTrackerWorker(tag names.UnitTag, claimer leadership.Claimer, duration time.Duration) TrackerWorker {
 	unitName := tag.Id()
 	serviceName, _ := names.UnitService(unitName)
 	t := &tracker{
 		unitName:          unitName,
 		serviceName:       serviceName,
-		leadership:        leadership,
+		claimer:           claimer,
 		duration:          duration,
 		claimTickets:      make(chan chan bool),
 		waitLeaderTickets: make(chan chan bool),
@@ -165,7 +165,7 @@ func (t *tracker) refresh() error {
 	logger.Debugf("checking %s for %s leadership", t.unitName, t.serviceName)
 	leaseDuration := 2 * t.duration
 	untilTime := time.Now().Add(leaseDuration)
-	err := t.leadership.ClaimLeadership(t.serviceName, t.unitName, leaseDuration)
+	err := t.claimer.ClaimLeadership(t.serviceName, t.unitName, leaseDuration)
 	switch {
 	case err == nil:
 		return t.setLeader(untilTime)
@@ -206,7 +206,7 @@ func (t *tracker) setMinion() error {
 		go func() {
 			defer close(t.claimLease)
 			logger.Debugf("%s waiting for %s leadership release", t.unitName, t.serviceName)
-			err := t.leadership.BlockUntilLeadershipReleased(t.serviceName)
+			err := t.claimer.BlockUntilLeadershipReleased(t.serviceName)
 			if err != nil {
 				logger.Warningf("error while %s waiting for %s leadership release: %v", t.unitName, t.serviceName, err)
 			}

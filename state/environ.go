@@ -82,6 +82,25 @@ func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
 	return env, nil
 }
 
+// AllEnvironments returns all the environments in the system.
+func (st *State) AllEnvironments() ([]*Environment, error) {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []environmentDoc
+	err := environments.Find(nil).All(&envDocs)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*Environment, len(envDocs))
+	for i, doc := range envDocs {
+		result[i] = &Environment{st: st, doc: doc}
+	}
+
+	return result, nil
+}
+
 // NewEnvironment creates a new environment with its own UUID and
 // prepares it for use. Environment and State instances for the new
 // environment are returned.
@@ -204,13 +223,17 @@ func (e *Environment) Config() (*config.Config, error) {
 	if e.st.environTag.Id() == e.UUID() {
 		return e.st.EnvironConfig()
 	}
-	// The active environment isn't the same as the environment
-	// we are querying.
-	envState, err := e.st.ForEnviron(e.ServerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
+	envState := e.st
+	if envState.environTag != e.EnvironTag() {
+		// The active environment isn't the same as the environment
+		// we are querying.
+		var err error
+		envState, err = e.st.ForEnviron(e.EnvironTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer envState.Close()
 	}
-	defer envState.Close()
 	return envState.EnvironConfig()
 }
 
@@ -363,12 +386,12 @@ func checkManualMachines(machines []*Machine) error {
 // found.
 func (e *Environment) ensureDestroyable() error {
 
-	// TODO(waigani) bug #1475212: Environment destroy can miss manual machines and
-	// persistent volumes. We need to be able to assert the absence of these
-	// as part of the destroy txn, but in order to do this  manual machines
-	// and persistent volumes need to add refcounts to their environments.
+	// TODO(waigani) bug #1475212: Environment destroy can miss manual
+	// machines. We need to be able to assert the absence of these as
+	// part of the destroy txn, but in order to do this  manual machines
+	// need to add refcounts to their environments.
 
-	// First, check for manual machines. We bail out if there are any,
+	// Check for manual machines. We bail out if there are any,
 	// to stop the user from prematurely hobbling the environment.
 	machines, err := e.st.AllMachines()
 	if err != nil {
@@ -379,14 +402,6 @@ func (e *Environment) ensureDestroyable() error {
 		return errors.Trace(err)
 	}
 
-	// If there are any persistent volumes, the environment can't be destroyed.
-	volumes, err := e.st.PersistentVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(volumes) > 0 {
-		return ErrPersistentVolumesExist
-	}
 	return nil
 }
 
@@ -467,9 +482,15 @@ func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 
 // assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
+	return assertEnvAliveOp(e.UUID())
+}
+
+// assertEnvAliveOp returns a txn.Op that asserts the given
+// environment UUID refers to an Alive environment.
+func assertEnvAliveOp(envUUID string) txn.Op {
 	return txn.Op{
 		C:      environmentsC,
-		Id:     e.UUID(),
+		Id:     envUUID,
 		Assert: isEnvAliveDoc,
 	}
 }
@@ -479,6 +500,19 @@ func (e *Environment) assertAliveOp() txn.Op {
 // Environment documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should
 // be considered to have the value Alive.
+//
+// TODO(mjs) - this should be removed with existing uses replaced with
+// isAliveDoc. A DB migration should convert nil to Alive.
 var isEnvAliveDoc = bson.D{
 	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
+}
+
+func checkEnvLife(st *State) error {
+	env, err := st.Environment()
+	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
+		return errors.New("environment is no longer alive")
+	} else if err != nil {
+		return errors.Annotate(err, "unable to read environment")
+	}
+	return nil
 }

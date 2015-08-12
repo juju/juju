@@ -62,6 +62,17 @@ VERSION_ID="7"
 	"centos7",
 	"",
 }, {
+	`NAME="Arch Linux"
+ID=arch
+PRETTY_NAME="Arch Linux"
+ANSI_COLOR="0;36"
+HOME_URL="https://www.archlinux.org/"
+SUPPORT_URL="https://bbs.archlinux.org/"
+BUG_REPORT_URL="https://bugs.archlinux.org/"
+`,
+	"arch",
+	"",
+}, {
 	`NAME="Ubuntu"
 VERSION="14.04.1 LTS, Trusty Tahr"
 ID=ubuntu

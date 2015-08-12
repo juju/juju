@@ -1,17 +1,26 @@
-package leadership
+// Copyright 2014-2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package leadership_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
+	coreleadership "github.com/juju/juju/leadership"
 )
 
-func init() {
-	gc.Suite(&settingsSuite{})
+// TODO(fwereade): this is *severely* undertested.
+type settingsSuite struct {
+	testing.IsolationSuite
 }
 
-type settingsSuite struct{}
+var _ = gc.Suite(&settingsSuite{})
 
 func (s *settingsSuite) TestReadSettings(c *gc.C) {
 
@@ -22,8 +31,8 @@ func (s *settingsSuite) TestReadSettings(c *gc.C) {
 		c.Check(serviceId, gc.Equals, StubServiceNm)
 		return settingsToReturn, nil
 	}
-	stubAuthorizer := &stubAuthorizer{}
-	accessor := NewLeadershipSettingsAccessor(stubAuthorizer, nil, getSettings, nil, nil)
+	authorizer := stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
+	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, nil, getSettings, nil, nil)
 
 	results, err := accessor.Read(params.Entities{
 		[]params.Entity{
@@ -39,22 +48,27 @@ func (s *settingsSuite) TestReadSettings(c *gc.C) {
 
 func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 
+	expectToken := &fakeToken{}
+
+	numLeaderCheckCalls := 0
+	leaderCheck := func(serviceId, unitId string) coreleadership.Token {
+		numLeaderCheckCalls++
+		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(unitId, gc.Equals, StubUnitNm)
+		return expectToken
+	}
+
 	numWriteSettingCalls := 0
-	writeSettings := func(serviceId string, settings map[string]string) error {
+	writeSettings := func(token coreleadership.Token, serviceId string, settings map[string]string) error {
 		numWriteSettingCalls++
 		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(token, gc.Equals, expectToken)
+		c.Check(settings, jc.DeepEquals, map[string]string{"baz": "biz"})
 		return nil
 	}
 
-	numIsLeaderCalls := 0
-	isLeader := func(serviceId, unitId string) (bool, error) {
-		numIsLeaderCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
-		c.Check(unitId, gc.Equals, StubUnitNm)
-		return true, nil
-	}
-
-	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, nil, nil, writeSettings, isLeader)
+	authorizer := stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
+	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, nil, nil, leaderCheck, writeSettings)
 
 	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
 		[]params.MergeLeadershipSettingsParam{
@@ -68,19 +82,32 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].Error, gc.IsNil)
 	c.Check(numWriteSettingCalls, gc.Equals, 1)
-	c.Check(numIsLeaderCalls, gc.Equals, 1)
+	c.Check(numLeaderCheckCalls, gc.Equals, 1)
 }
 
-func (s *settingsSuite) TestWriteSettingFailsForNonLeader(c *gc.C) {
-	numIsLeaderCalls := 0
-	isLeader := func(serviceId, unitId string) (bool, error) {
-		numIsLeaderCalls++
+func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
+
+	expectToken := &fakeToken{}
+
+	numLeaderCheckCalls := 0
+	leaderCheck := func(serviceId, unitId string) coreleadership.Token {
+		numLeaderCheckCalls++
 		c.Check(serviceId, gc.Equals, StubServiceNm)
 		c.Check(unitId, gc.Equals, StubUnitNm)
-		return false, nil
+		return expectToken
 	}
 
-	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, nil, nil, nil, isLeader)
+	numWriteSettingCalls := 0
+	writeSettings := func(token coreleadership.Token, serviceId string, settings map[string]string) error {
+		numWriteSettingCalls++
+		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(token, gc.Equals, expectToken)
+		c.Check(settings, jc.DeepEquals, map[string]string{"baz": "biz"})
+		return errors.New("zap blort")
+	}
+
+	authorizer := stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
+	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, nil, nil, leaderCheck, writeSettings)
 
 	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
 		[]params.MergeLeadershipSettingsParam{
@@ -92,7 +119,9 @@ func (s *settingsSuite) TestWriteSettingFailsForNonLeader(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Check(results.Results[0].Error, gc.ErrorMatches, "zap blort")
+	c.Check(numWriteSettingCalls, gc.Equals, 1)
+	c.Check(numLeaderCheckCalls, gc.Equals, 1)
 }
 
 func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
@@ -104,7 +133,8 @@ func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
 		return "foo", nil
 	}
 
-	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, registerWatcher, nil, nil, nil)
+	authorizer := &stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
+	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, registerWatcher, nil, nil, nil)
 
 	results, err := accessor.WatchLeadershipSettings(params.Entities{[]params.Entity{
 		{names.NewServiceTag(StubServiceNm).String()},
@@ -112,4 +142,8 @@ func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
+}
+
+type fakeToken struct {
+	coreleadership.Token
 }

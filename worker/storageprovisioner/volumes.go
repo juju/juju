@@ -98,16 +98,75 @@ func volumeAttachmentsChanged(ctx *context, ids []params.MachineStorageId) error
 // removing them from provisioning-pending as necessary.
 func processDyingVolumes(ctx *context, tags []names.Tag) error {
 	for _, tag := range tags {
-		delete(ctx.pendingVolumes, tag.(names.VolumeTag))
+		removePendingVolume(ctx, tag.(names.VolumeTag))
 	}
 	return nil
+}
+
+// updateVolume updates the context with the given volume info.
+func updateVolume(ctx *context, info storage.Volume) {
+	ctx.volumes[info.Tag] = info
+	for id, params := range ctx.incompleteVolumeAttachmentParams {
+		if params.VolumeId == "" && id.AttachmentTag == info.Tag.String() {
+			params.VolumeId = info.VolumeId
+			updatePendingVolumeAttachment(ctx, id, params)
+		}
+	}
+}
+
+// updatePendingVolume adds the given volume params to either the incomplete
+// set or the schedule. If the params are incomplete due to a missing instance
+// ID, updatePendingVolume will request that the machine be watched so its
+// instance ID can be learned.
+func updatePendingVolume(ctx *context, params storage.VolumeParams) {
+	if params.Attachment.InstanceId == "" {
+		watchMachine(ctx, params.Attachment.Machine)
+		ctx.incompleteVolumeParams[params.Tag] = params
+	} else {
+		delete(ctx.incompleteVolumeParams, params.Tag)
+		scheduleOperations(ctx, &createVolumeOp{args: params})
+	}
+}
+
+// removePendingVolume removes the specified pending volume from the
+// incomplete set and/or the schedule if it exists there.
+func removePendingVolume(ctx *context, tag names.VolumeTag) {
+	delete(ctx.incompleteVolumeParams, tag)
+	ctx.schedule.Remove(tag)
+}
+
+// updatePendingVolumeAttachment adds the given volume attachment params to
+// either the incomplete set or the schedule. If the params are incomplete
+// due to a missing instance ID, updatePendingVolumeAttachment will request
+// that the machine be watched so its instance ID can be learned.
+func updatePendingVolumeAttachment(
+	ctx *context,
+	id params.MachineStorageId,
+	params storage.VolumeAttachmentParams,
+) {
+	if params.InstanceId == "" {
+		watchMachine(ctx, params.Machine)
+	} else if params.VolumeId != "" {
+		delete(ctx.incompleteVolumeAttachmentParams, id)
+		scheduleOperations(ctx, &attachVolumeOp{args: params})
+		return
+	}
+	ctx.incompleteVolumeAttachmentParams[id] = params
+}
+
+// removePendingVolumeAttachment removes the specified pending volume
+// attachment from the incomplete set and/or the schedule if it exists
+// there.
+func removePendingVolumeAttachment(ctx *context, id params.MachineStorageId) {
+	delete(ctx.incompleteVolumeAttachmentParams, id)
+	ctx.schedule.Remove(id)
 }
 
 // processDeadVolumes processes the VolumeResults for Dead volumes,
 // deprovisioning volumes and removing from state as necessary.
 func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []params.VolumeResult) error {
 	for _, tag := range tags {
-		delete(ctx.pendingVolumes, tag)
+		removePendingVolume(ctx, tag)
 	}
 	var destroy []names.VolumeTag
 	var remove []names.Tag
@@ -119,7 +178,7 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
 			}
-			ctx.volumes[tag] = volume
+			updateVolume(ctx, volume)
 			destroy = append(destroy, tag)
 			continue
 		}
@@ -140,9 +199,13 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 		}
 		for i, tag := range destroy {
 			if err := errorResults[i]; err != nil {
+				// TODO(axw) we should update the volume's status
+				// rather than returning an error here, and attempt
+				// destroying again later.
 				return errors.Annotatef(err, "destroying %s", names.ReadableString(tag))
 			}
 			remove = append(remove, tag)
+			delete(ctx.volumes, tag)
 		}
 	}
 	if err := removeEntities(ctx, remove); err != nil {
@@ -158,11 +221,8 @@ func processDyingVolumeAttachments(
 	ids []params.MachineStorageId,
 	volumeAttachmentResults []params.VolumeAttachmentResult,
 ) error {
-	if len(ids) == 0 {
-		return nil
-	}
 	for _, id := range ids {
-		delete(ctx.pendingVolumeAttachments, id)
+		removePendingVolumeAttachment(ctx, id)
 	}
 	detach := make([]params.MachineStorageId, 0, len(ids))
 	remove := make([]params.MachineStorageId, 0, len(ids))
@@ -178,6 +238,9 @@ func processDyingVolumeAttachments(
 		}
 		return errors.Annotatef(result.Error, "getting information for volume attachment %v", id)
 	}
+	if len(detach)+len(remove) == 0 {
+		return nil
+	}
 	if len(detach) > 0 {
 		attachmentParams, err := volumeAttachmentParams(ctx, detach)
 		if err != nil {
@@ -187,6 +250,9 @@ func processDyingVolumeAttachments(
 			return errors.Annotate(err, "detaching volumes")
 		}
 		remove = append(remove, detach...)
+	}
+	for _, id := range remove {
+		delete(ctx.volumeAttachments, id)
 	}
 	if err := removeAttachments(ctx, remove); err != nil {
 		return errors.Annotate(err, "removing attachments from state")
@@ -208,8 +274,8 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 			if err != nil {
 				return errors.Annotate(err, "getting volume info")
 			}
-			ctx.volumes[volumeTag] = volume
-			delete(ctx.pendingVolumes, volumeTag)
+			updateVolume(ctx, volume)
+			removePendingVolume(ctx, volumeTag)
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
@@ -228,68 +294,8 @@ func processAliveVolumes(ctx *context, tags []names.Tag, volumeResults []params.
 	if err != nil {
 		return errors.Annotate(err, "getting volume params")
 	}
-	for i, params := range volumeParams {
-		if params.Attachment.InstanceId == "" {
-			watchMachine(ctx, params.Attachment.Machine)
-		}
-		ctx.pendingVolumes[pending[i]] = params
-	}
-	return nil
-}
-
-// processPendingVolumes creates as many of the pending volumes as possible,
-// first ensuring that their prerequisites have been met.
-func processPendingVolumes(ctx *context) error {
-	if len(ctx.pendingVolumes) == 0 {
-		logger.Tracef("no pending volumes")
-		return nil
-	}
-	ready := make([]storage.VolumeParams, 0, len(ctx.pendingVolumes))
-	for tag, volumeParams := range ctx.pendingVolumes {
-		if volumeParams.Attachment.InstanceId == "" {
-			logger.Debugf("machine %v has not been provisioned yet", volumeParams.Attachment.Machine.Id())
-			continue
-		}
-		ready = append(ready, volumeParams)
-		delete(ctx.pendingVolumes, tag)
-	}
-	if len(ready) == 0 {
-		return nil
-	}
-	volumes, volumeAttachments, err := createVolumes(ctx.environConfig, ctx.storageDir, ready)
-	if err != nil {
-		return errors.Annotate(err, "creating volumes")
-	}
-	if len(volumes) == 0 {
-		return nil
-	}
-	// TODO(axw) we need to be able to list volumes in the provider,
-	// by environment, so that we can "harvest" them if they're
-	// unknown. This will take care of killing volumes that we fail
-	// to record in state.
-	errorResults, err := ctx.volumeAccessor.SetVolumeInfo(volumesFromStorage(volumes))
-	if err != nil {
-		return errors.Annotate(err, "publishing volumes to state")
-	}
-	for i, result := range errorResults {
-		if result.Error != nil {
-			return errors.Annotatef(
-				result.Error, "publishing volume %s to state",
-				volumes[i].Tag.Id(),
-			)
-		}
-	}
-	for _, v := range volumes {
-		ctx.volumes[v.Tag] = v
-	}
-	// Note: the storage provisioner that creates a volume is also
-	// responsible for creating the volume attachment. It is therefore
-	// safe to set the volume attachment info after the volume info,
-	// without leading to the possibility of concurrent, duplicate
-	// attachments.
-	err = setVolumeAttachmentInfo(ctx, volumeAttachments)
-	if err != nil {
-		return errors.Trace(err)
+	for _, params := range volumeParams {
+		updatePendingVolume(ctx, params)
 	}
 	return nil
 }
@@ -306,7 +312,6 @@ func processAliveVolumeAttachments(
 	pending := make([]params.MachineStorageId, 0, len(ids))
 	for i, result := range volumeAttachmentResults {
 		if result.Error == nil {
-			delete(ctx.pendingVolumeAttachments, ids[i])
 			// Volume attachment is already provisioned: if we
 			// didn't (re)attach in this session, then we must
 			// do so now.
@@ -320,6 +325,7 @@ func processAliveVolumeAttachments(
 				"%s is already attached to %s, %s",
 				ids[i].AttachmentTag, ids[i].MachineTag, action,
 			)
+			removePendingVolumeAttachment(ctx, ids[i])
 			continue
 		}
 		if !params.IsCodeNotProvisioned(result.Error) {
@@ -339,10 +345,10 @@ func processAliveVolumeAttachments(
 		return errors.Trace(err)
 	}
 	for i, params := range params {
-		if params.InstanceId == "" {
-			watchMachine(ctx, params.Machine)
+		if volume, ok := ctx.volumes[params.Volume]; ok {
+			params.VolumeId = volume.VolumeId
 		}
-		ctx.pendingVolumeAttachments[pending[i]] = params
+		updatePendingVolumeAttachment(ctx, pending[i], params)
 	}
 	return nil
 }
@@ -369,93 +375,128 @@ func volumeAttachmentParams(
 	return attachmentParams, nil
 }
 
-// processPendingVolumeAttachments creates as many of the pending volume
-// attachments as possible, first ensuring that their prerequisites have
-// been met.
-func processPendingVolumeAttachments(ctx *context) error {
-	if len(ctx.pendingVolumeAttachments) == 0 {
-		logger.Tracef("no pending volume attachments")
-		return nil
+// createVolumes creates volumes with the specified parameters.
+func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error {
+	volumeParams := make([]storage.VolumeParams, 0, len(ops))
+	for _, op := range ops {
+		volumeParams = append(volumeParams, op.args)
 	}
-	ready := make([]storage.VolumeAttachmentParams, 0, len(ctx.pendingVolumeAttachments))
-	for id, params := range ctx.pendingVolumeAttachments {
-		volume, ok := ctx.volumes[params.Volume]
-		if !ok {
-			// volume hasn't been provisioned yet
-			logger.Debugf("volume %v has not been provisioned yet", params.Volume.Id())
-			continue
-		}
-		if params.InstanceId == "" {
-			logger.Debugf("machine %v has not been provisioned yet", params.Machine.Id())
-			continue
-		}
-		params.VolumeId = volume.VolumeId
-		ready = append(ready, params)
-		delete(ctx.pendingVolumeAttachments, id)
-	}
-	if len(ready) == 0 {
-		return nil
-	}
-	volumeAttachments, err := createVolumeAttachments(ctx.environConfig, ctx.storageDir, ready)
+	paramsBySource, volumeSources, err := volumeParamsBySource(
+		ctx.environConfig, ctx.storageDir, volumeParams,
+	)
 	if err != nil {
-		return errors.Annotate(err, "creating volume attachments")
+		return errors.Trace(err)
 	}
-	if err := setVolumeAttachmentInfo(ctx, volumeAttachments); err != nil {
+	var reschedule []scheduleOp
+	var volumes []storage.Volume
+	var volumeAttachments []storage.VolumeAttachment
+	for sourceName, volumeParams := range paramsBySource {
+		logger.Debugf("creating volumes: %v", volumeParams)
+		volumeSource := volumeSources[sourceName]
+		results, err := volumeSource.CreateVolumes(volumeParams)
+		if err != nil {
+			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
+		}
+		for i, result := range results {
+			if result.Error != nil {
+				// TODO(axw) record the error in the volume's status.
+				logger.Errorf(
+					"failed to create %s: %v",
+					names.ReadableString(volumeParams[i].Tag),
+					result.Error,
+				)
+				// Reschedule the volume creation.
+				reschedule = append(reschedule, ops[volumeParams[i].Tag])
+				continue
+			}
+			volumes = append(volumes, *result.Volume)
+			if result.VolumeAttachment != nil {
+				volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
+			}
+		}
+	}
+	if len(reschedule) > 0 {
+		scheduleOperations(ctx, reschedule...)
+	}
+	if len(volumes) == 0 {
+		return nil
+	}
+	// TODO(axw) we need to be able to list volumes in the provider,
+	// by environment, so that we can "harvest" them if they're
+	// unknown. This will take care of killing volumes that we fail
+	// to record in state.
+	errorResults, err := ctx.volumeAccessor.SetVolumeInfo(volumesFromStorage(volumes))
+	if err != nil {
+		return errors.Annotate(err, "publishing volumes to state")
+	}
+	for i, result := range errorResults {
+		if result.Error != nil {
+			logger.Errorf(
+				"publishing volume %s to state: %v",
+				volumes[i].Tag.Id(),
+				result.Error,
+			)
+		}
+	}
+	for _, v := range volumes {
+		updateVolume(ctx, v)
+	}
+	// Note: the storage provisioner that creates a volume is also
+	// responsible for creating the volume attachment. It is therefore
+	// safe to set the volume attachment info after the volume info,
+	// without leading to the possibility of concurrent, duplicate
+	// attachments.
+	err = setVolumeAttachmentInfo(ctx, volumeAttachments)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-// createVolumes creates volumes with the specified parameters.
-func createVolumes(
-	environConfig *config.Config,
-	baseStorageDir string,
-	params []storage.VolumeParams,
-) ([]storage.Volume, []storage.VolumeAttachment, error) {
-	paramsBySource, volumeSources, err := volumeParamsBySource(
-		environConfig, baseStorageDir, params,
-	)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	var allVolumes []storage.Volume
-	var allVolumeAttachments []storage.VolumeAttachment
-	for sourceName, params := range paramsBySource {
-		logger.Debugf("creating volumes: %v", params)
-		volumeSource := volumeSources[sourceName]
-		volumes, volumeAttachments, err := volumeSource.CreateVolumes(params)
-		if err != nil {
-			return nil, nil, errors.Annotatef(err, "creating volumes from source %q", sourceName)
-		}
-		allVolumes = append(allVolumes, volumes...)
-		allVolumeAttachments = append(allVolumeAttachments, volumeAttachments...)
-	}
-	return allVolumes, allVolumeAttachments, nil
-}
-
 // createVolumeAttachments creates volume attachments with the specified parameters.
-func createVolumeAttachments(
-	environConfig *config.Config,
-	baseStorageDir string,
-	params []storage.VolumeAttachmentParams,
-) ([]storage.VolumeAttachment, error) {
+func createVolumeAttachments(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp) error {
+	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
+	for _, op := range ops {
+		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
+	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		environConfig, baseStorageDir, params,
+		ctx.environConfig, ctx.storageDir, volumeAttachmentParams,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	var allVolumeAttachments []storage.VolumeAttachment
-	for sourceName, params := range paramsBySource {
-		logger.Debugf("attaching volumes: %v", params)
+	var reschedule []scheduleOp
+	var volumeAttachments []storage.VolumeAttachment
+	for sourceName, volumeAttachmentParams := range paramsBySource {
+		logger.Debugf("attaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
-		volumeAttachments, err := volumeSource.AttachVolumes(params)
+		results, err := volumeSource.AttachVolumes(volumeAttachmentParams)
 		if err != nil {
-			return nil, errors.Annotatef(err, "attaching volumes from source %q", sourceName)
+			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
-		allVolumeAttachments = append(allVolumeAttachments, volumeAttachments...)
+		for i, result := range results {
+			if result.Error != nil {
+				p := volumeAttachmentParams[i]
+				// TODO(axw) record the error in the volume's status.
+				logger.Errorf("attaching volume: %v", result.Error)
+				// Reschedule the volume attachment.
+				id := params.MachineStorageId{
+					MachineTag:    p.Machine.String(),
+					AttachmentTag: p.Volume.String(),
+				}
+				reschedule = append(reschedule, ops[id])
+				continue
+			}
+			volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
+		}
 	}
-	return allVolumeAttachments, nil
+	if len(reschedule) > 0 {
+		scheduleOperations(ctx, reschedule...)
+	}
+	if err := setVolumeAttachmentInfo(ctx, volumeAttachments); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAttachment) error {
@@ -481,10 +522,11 @@ func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAtt
 			)
 		}
 		// Record the volume attachment in the context.
-		ctx.volumeAttachments[params.MachineStorageId{
+		id := params.MachineStorageId{
 			MachineTag:    volumeAttachments[i].Machine.String(),
 			AttachmentTag: volumeAttachments[i].Volume.String(),
-		}] = volumeAttachments[i]
+		}
+		ctx.volumeAttachments[id] = volumeAttachments[i]
 	}
 	return nil
 }
@@ -500,7 +542,7 @@ func destroyVolumes(ctx *context, tags []names.VolumeTag) ([]error, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var errs []error
+	var allErrs []error
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("destroying volumes from %q: %v", sourceName, params)
 		volumeSource := volumeSources[sourceName]
@@ -512,9 +554,13 @@ func destroyVolumes(ctx *context, tags []names.VolumeTag) ([]error, error) {
 			}
 			volumeIds[i] = volume.VolumeId
 		}
-		errs = append(errs, volumeSource.DestroyVolumes(volumeIds)...)
+		errs, err := volumeSource.DestroyVolumes(volumeIds)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		allErrs = append(allErrs, errs...)
 	}
-	return errs, nil
+	return allErrs, nil
 }
 
 // volumeParams obtains the specified volumes' parameters.
@@ -592,8 +638,16 @@ func detachVolumes(ctx *context, attachments []storage.VolumeAttachmentParams) e
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("detaching volumes: %v", params)
 		volumeSource := volumeSources[sourceName]
-		if err := volumeSource.DetachVolumes(params); err != nil {
+		errs, err := volumeSource.DetachVolumes(params)
+		if err != nil {
 			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
+		}
+		for _, err := range errs {
+			if err != nil {
+				// TODO(axw) we should set the volume's status
+				// and reschedule detachment for later.
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil
@@ -651,6 +705,7 @@ func volumeAttachmentsFromStorage(in []storage.VolumeAttachment) []params.Volume
 			v.Machine.String(),
 			params.VolumeAttachmentInfo{
 				v.DeviceName,
+				v.BusAddress,
 				v.ReadOnly,
 			},
 		}
@@ -670,25 +725,6 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 			in.Info.HardwareId,
 			in.Info.Size,
 			in.Info.Persistent,
-		},
-	}, nil
-}
-
-func volumeAttachmentFromParams(in params.VolumeAttachment) (storage.VolumeAttachment, error) {
-	volumeTag, err := names.ParseVolumeTag(in.VolumeTag)
-	if err != nil {
-		return storage.VolumeAttachment{}, errors.Trace(err)
-	}
-	machineTag, err := names.ParseMachineTag(in.MachineTag)
-	if err != nil {
-		return storage.VolumeAttachment{}, errors.Trace(err)
-	}
-	return storage.VolumeAttachment{
-		volumeTag,
-		machineTag,
-		storage.VolumeAttachmentInfo{
-			in.Info.DeviceName,
-			in.Info.ReadOnly,
 		},
 	}, nil
 }
@@ -759,4 +795,25 @@ func volumeAttachmentParamsFromParams(in params.VolumeAttachmentParams) (storage
 		Volume:   volumeTag,
 		VolumeId: in.VolumeId,
 	}, nil
+}
+
+type createVolumeOp struct {
+	exponentialBackoff
+	args storage.VolumeParams
+}
+
+func (op *createVolumeOp) key() interface{} {
+	return op.args.Tag
+}
+
+type attachVolumeOp struct {
+	exponentialBackoff
+	args storage.VolumeAttachmentParams
+}
+
+func (op *attachVolumeOp) key() interface{} {
+	return params.MachineStorageId{
+		MachineTag:    op.args.Machine.String(),
+		AttachmentTag: op.args.Volume.String(),
+	}
 }

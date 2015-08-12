@@ -30,6 +30,15 @@ type BlockDevice struct {
 	// name, as the hardware ID is immutable.
 	HardwareId string `yaml:"hardwareid,omitempty"`
 
+	// BusAddress is the bus address: where the block device is attached
+	// to the machine. This is currently only populated for disks attached
+	// to the SCSI bus.
+	//
+	// The format for this is <bus>@<bus-specific-address> as according to
+	// "lshw -businfo". For example, for a SCSI disk with Host=1, Bus=2,
+	// Target=3, Lun=4, we populate this field with "scsi@1:2.3.4".
+	BusAddress string `yaml:"busaddress,omitempty"`
+
 	// Size is the size of the block device, in MiB.
 	Size uint64 `yaml:"size"`
 
