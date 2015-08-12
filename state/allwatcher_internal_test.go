@@ -45,11 +45,13 @@ options:
 
 type allWatcherBaseSuite struct {
 	internalStateSuite
+	envCount int
 }
 
 func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
+	s.envCount++
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
-		"name": "newtestenv",
+		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
 	_, st, err := s.state.NewEnvironment(cfg, s.owner)
@@ -662,11 +664,11 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
-	tw := newTestWatcher(s.state, c)
+	tw := newTestAllWatcher(s.state, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created machines first.
-	deltas := tw.All()
+	deltas := tw.All(2)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			EnvUUID:   s.state.EnvironUUID(),
@@ -721,21 +723,10 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Look for the state changes from the allwatcher.
-	deltas = tw.All()
-	// Zero out any updated timestamps for unit or service status values
-	// so we can easily check the results.
-	for i, delta := range deltas {
-		if unitInfo, ok := delta.Entity.(*multiwatcher.UnitInfo); ok {
-			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
-			substNilSinceTimeForStatus(c, &unitInfo.AgentStatus)
-			delta.Entity = unitInfo
-		}
-		if serviceInfo, ok := delta.Entity.(*multiwatcher.ServiceInfo); ok {
-			substNilSinceTimeForStatus(c, &serviceInfo.Status)
-			delta.Entity = serviceInfo
-		}
-		deltas[i] = delta
-	}
+	deltas = tw.All(5)
+
+	zeroOutTimestampsForDeltas(c, deltas)
+
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			EnvUUID:                 s.state.EnvironUUID(),
@@ -941,9 +932,9 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 			}
 			otherState := s.newState(c)
 
-			w1 := newTestWatcher(s.state, c)
+			w1 := newTestAllWatcher(s.state, c)
 			defer w1.Stop()
-			w2 := newTestWatcher(otherState, c)
+			w2 := newTestAllWatcher(otherState, c)
 			defer w2.Stop()
 
 			checkIsolationForEnv(s.state, w1, w2)
@@ -1000,6 +991,7 @@ func (s *allEnvWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFunc
 			}
 			err = b.Changed(all, test1.change)
 			c.Assert(err, jc.ErrorIsNil)
+
 			entities = all.All()
 
 			// substNilSinceTimeForEntities gets upset if it sees non-nil
@@ -1188,6 +1180,203 @@ func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 	assertEntitiesEqual(c, gotEntities, expectedEntities)
 }
 
+// TestStateWatcher tests the integration of the state watcher with
+// allEnvWatcherStateBacking. Most of the logic is comprehensively
+// tested elsewhere - this just tests end-to-end.
+func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
+	st0 := s.state
+	env0, err := st0.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	st1 := s.state1
+	env1, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create some initial machines across 2 environments
+	m00, err := st0.AddMachine("trusty", JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m00.Id(), gc.Equals, "0")
+
+	m10, err := st1.AddMachine("saucy", JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m10.Id(), gc.Equals, "0")
+
+	tw := newTestAllEnvWatcher(st0, c)
+	defer tw.Stop()
+
+	// Expect to see events for the already created environments and
+	// machines first.
+	deltas := tw.All(4)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &multiwatcher.EnvironmentInfo{
+			EnvUUID:    env0.UUID(),
+			Name:       env0.Name(),
+			Life:       "alive",
+			Owner:      env0.Owner().Id(),
+			ServerUUID: env0.ServerUUID(),
+		},
+	}, {
+		Entity: &multiwatcher.EnvironmentInfo{
+			EnvUUID:    env1.UUID(),
+			Name:       env1.Name(),
+			Life:       "alive",
+			Owner:      env1.Owner().Id(),
+			ServerUUID: env1.ServerUUID(),
+		},
+	}, {
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:   st0.EnvironUUID(),
+			Id:        "0",
+			Status:    multiwatcher.Status("pending"),
+			Life:      multiwatcher.Life("alive"),
+			Series:    "trusty",
+			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: true,
+		},
+	}, {
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:   st1.EnvironUUID(),
+			Id:        "0",
+			Status:    multiwatcher.Status("pending"),
+			Life:      multiwatcher.Life("alive"),
+			Series:    "saucy",
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
+		},
+	}})
+
+	// Make some changes to the state, including the addition of a new
+	// environment.
+	err = m00.SetProvisioned("i-0", "bootstrap_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m10.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m10.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m10.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	m11, err := st1.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m11.Id(), gc.Equals, "1")
+
+	wordpress := AddTestingService(c, st1, "wordpress", AddTestingCharm(c, st1, "wordpress"), s.owner)
+	wu, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = wu.AssignToMachine(m11)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st2 := s.newState(c)
+	env2, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	m20, err := st2.AddMachine("trusty", JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m20.Id(), gc.Equals, "0")
+
+	// Look for the state changes from the allwatcher.
+	deltas = tw.All(7)
+
+	zeroOutTimestampsForDeltas(c, deltas)
+
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:                 st0.EnvironUUID(),
+			Id:                      "0",
+			InstanceId:              "i-0",
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "trusty",
+			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Addresses:               []network.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
+		},
+	}, {
+		Removed: true,
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:   st1.EnvironUUID(),
+			Id:        "0",
+			Status:    multiwatcher.Status("pending"),
+			Life:      multiwatcher.Life("alive"),
+			Series:    "saucy",
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []network.Address{},
+		},
+	}, {
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:   st1.EnvironUUID(),
+			Id:        "1",
+			Status:    multiwatcher.Status("pending"),
+			Life:      multiwatcher.Life("alive"),
+			Series:    "quantal",
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
+		},
+	}, {
+		Entity: &multiwatcher.ServiceInfo{
+			EnvUUID:  st1.EnvironUUID(),
+			Name:     "wordpress",
+			CharmURL: "local:quantal/quantal-wordpress-3",
+			OwnerTag: s.owner.String(),
+			Life:     "alive",
+			Config:   make(map[string]interface{}),
+			Status: multiwatcher.StatusInfo{
+				Current: "unknown",
+				Message: "Waiting for agent initialization to finish",
+				Data:    map[string]interface{}{},
+			},
+		},
+	}, {
+		Entity: &multiwatcher.UnitInfo{
+			EnvUUID:   st1.EnvironUUID(),
+			Name:      "wordpress/0",
+			Service:   "wordpress",
+			Series:    "quantal",
+			MachineId: "1",
+			Status:    "pending",
+			WorkloadStatus: multiwatcher.StatusInfo{
+				Current: "unknown",
+				Message: "Waiting for agent initialization to finish",
+				Data:    map[string]interface{}{},
+			},
+			AgentStatus: multiwatcher.StatusInfo{
+				Current: "allocating",
+				Message: "",
+				Data:    map[string]interface{}{},
+			},
+		},
+	}, {
+		Entity: &multiwatcher.EnvironmentInfo{
+			EnvUUID:    env2.UUID(),
+			Name:       env2.Name(),
+			Life:       "alive",
+			Owner:      env2.Owner().Id(),
+			ServerUUID: env2.ServerUUID(),
+		},
+	}, {
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:   st2.EnvironUUID(),
+			Id:        "0",
+			Status:    multiwatcher.Status("pending"),
+			Life:      multiwatcher.Life("alive"),
+			Series:    "trusty",
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
+		},
+	}})
+}
+
 func (s *allEnvWatcherStateSuite) TestStatePool(c *gc.C) {
 	envUUID0 := s.state.EnvironUUID()
 	envUUID1 := s.state1.EnvironUUID()
@@ -1221,6 +1410,20 @@ func (s *allEnvWatcherStateSuite) TestStatePool(c *gc.C) {
 	st1__, err := p.get(envUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1__, gc.Not(gc.Equals), st1)
+}
+
+func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
+	for i, delta := range deltas {
+		if unitInfo, ok := delta.Entity.(*multiwatcher.UnitInfo); ok {
+			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
+			substNilSinceTimeForStatus(c, &unitInfo.AgentStatus)
+			delta.Entity = unitInfo
+		} else if serviceInfo, ok := delta.Entity.(*multiwatcher.ServiceInfo); ok {
+			substNilSinceTimeForStatus(c, &serviceInfo.Status)
+			delta.Entity = serviceInfo
+		}
+		deltas[i] = delta
+	}
 }
 
 // The testChange* funcs are extracted so the test cases can be used
@@ -2566,20 +2769,29 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 	runChangeTests(c, changeTestFuncs)
 }
 
+func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
+	return newTestWatcher(newAllWatcherStateBacking(st), st, c)
+}
+
+func newTestAllEnvWatcher(st *State, c *gc.C) *testWatcher {
+	return newTestWatcher(newAllEnvWatcherStateBacking(st), st, c)
+}
+
 type testWatcher struct {
 	st     *State
 	c      *gc.C
+	b      Backing
 	w      *Multiwatcher
 	deltas chan []multiwatcher.Delta
 }
 
-func newTestWatcher(st *State, c *gc.C) *testWatcher {
-	b := newAllWatcherStateBacking(st)
+func newTestWatcher(b Backing, st *State, c *gc.C) *testWatcher {
 	sm := newStoreManager(b)
 	w := NewMultiwatcher(sm)
 	tw := &testWatcher{
 		st:     st,
 		c:      c,
+		b:      b,
 		w:      w,
 		deltas: make(chan []multiwatcher.Delta),
 	}
@@ -2604,29 +2816,65 @@ func (tw *testWatcher) Next(timeout time.Duration) []multiwatcher.Delta {
 	}
 }
 
-func (tw *testWatcher) All() []multiwatcher.Delta {
-	var allDeltas []multiwatcher.Delta
+func (tw *testWatcher) NumDeltas() int {
+	count := 0
 	tw.st.StartSync()
 	for {
-		deltas := tw.Next(testing.ShortWait)
-		if len(deltas) == 0 {
+		// TODO(mjs) - this is somewhat fragile. There are no
+		// guarentees that the watcher will be able to return deltas
+		// in ShortWait time.
+		deltas := len(tw.Next(testing.ShortWait))
+		if deltas == 0 {
 			break
 		}
-		allDeltas = append(allDeltas, deltas...)
+		count += deltas
+	}
+	return count
+}
+
+func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
+	var allDeltas []multiwatcher.Delta
+	tw.st.StartSync()
+
+	//  Wait up to LongWait for the expected deltas to arrive, unless
+	//  we don't expect any (then just wait for ShortWait).
+	maxDuration := testing.LongWait
+	if expectedCount <= 0 {
+		maxDuration = testing.ShortWait
+	}
+
+	now := time.Now()
+	maxTime := now.Add(maxDuration)
+	for {
+		remaining := maxTime.Sub(now)
+		if remaining < time.Duration(0) {
+			break // timed out
+		}
+
+		deltas := tw.Next(remaining)
+		if len(deltas) > 0 {
+			allDeltas = append(allDeltas, deltas...)
+			if len(allDeltas) >= expectedCount {
+				break
+			}
+		}
+
+		now = time.Now()
 	}
 	return allDeltas
 }
 
 func (tw *testWatcher) Stop() {
 	tw.c.Assert(tw.w.Stop(), jc.ErrorIsNil)
+	tw.b.Release()
 }
 
 func (tw *testWatcher) AssertNoChange() {
-	tw.c.Assert(tw.All(), gc.HasLen, 0)
+	tw.c.Assert(tw.NumDeltas(), gc.Equals, 0)
 }
 
 func (tw *testWatcher) AssertChanges() {
-	tw.c.Assert(len(tw.All()), jc.GreaterThan, 0)
+	tw.c.Assert(tw.NumDeltas(), jc.GreaterThan, 0)
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo
