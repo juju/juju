@@ -20,7 +20,10 @@ from jujupy import (
     make_safe_config,
     SimpleEnvironment,
     )
-from utility import add_basic_testing_arguments
+from utility import (
+    add_basic_testing_arguments,
+    print_now,
+)
 
 
 def make_hosted_env_client(client, suffix):
@@ -111,7 +114,7 @@ def hosted_environment(system_client, suffix):
 def check_services(client):
     token = env_token(client.env.environment)
     client.juju('set', ('dummy-source', 'token=%s' % token))
-    print("checking services in " + client.env.environment)
+    print_now("checking services in " + client.env.environment)
     check_token(client, token)
 
 

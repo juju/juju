@@ -1,14 +1,17 @@
 from argparse import Namespace
 import unittest
 from mock import (
+    Mock,
     patch,
     )
 from assess_jes_deploy import (
+    check_services,
     env_token,
     jes_setup,
-    check_services,
+    make_hosted_env_client,
 )
 from jujupy import (
+    EnvJujuClient,
     EnvJujuClient25,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
@@ -40,6 +43,7 @@ class TestJES(unittest.TestCase):
         env = client._shell_environ()
         self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
+    @patch('assess_jes_deploy.print_now', autospec=True)
     @patch('assess_jes_deploy.get_random_string', autospec=True)
     @patch('assess_jes_deploy.EnvJujuClient.juju', autospec=True)
     @patch('assess_jes_deploy.check_token', autospec=True)
@@ -47,7 +51,8 @@ class TestJES(unittest.TestCase):
             self,
             check_token_func,
             juju_func,
-            get_random_string_func):
+            get_random_string_func,
+            print_now_func):
         get_random_string_func.return_value = 'fakeran'
 
         client = self.mock_client()
@@ -56,8 +61,8 @@ class TestJES(unittest.TestCase):
 
         juju_func.assert_called_once_with(
             client, 'set', ('dummy-source', 'token=tokenfakeran'))
-        check_token_func.assert_called_once_with(
-            client, 'tokenfakeran')
+        check_token_func.assert_called_once_with(client, 'tokenfakeran')
+        print_now_func.assert_called_once_with('checking services in token')
 
     @patch('assess_jes_deploy.EnvJujuClient.get_full_path')
     @patch('assess_jes_deploy.EnvJujuClient.add_ssh_machines', autospec=True)
@@ -107,3 +112,23 @@ class TestJES(unittest.TestCase):
             'some_url', 'devel', 'log/dir', True, True, permanent=True)
 
         add_ssh_machines_func.assert_called_once_with(client, ['0'])
+
+    @patch('assess_jes_deploy.EnvJujuClient.by_version')
+    def test_make_hosted_env_client(
+            self,
+            by_version_func):
+        client = Mock()
+        by_version_func.return_value = client
+
+        env = SimpleEnvironment('env', {'type': 'any'})
+        old_client = EnvJujuClient(env, None, '/a/path')
+        make_hosted_env_client(old_client, 'test')
+
+        self.assertEqual(by_version_func.call_count, 1)
+        call_args = by_version_func.call_args[0]
+        self.assertIsInstance(call_args[0], SimpleEnvironment)
+        self.assertEqual(call_args[0].environment, 'env-test')
+        self.assertEqual(call_args[0].config, {'type': 'any'})
+        self.assertEqual(call_args[1:], ('/a/path', False))
+
+        client.enable_jes.assert_called_once_with()
