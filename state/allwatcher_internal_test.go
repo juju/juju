@@ -662,7 +662,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
-	tw := newTestWatcher(s.state, c)
+	tw := newTestAllWatcher(s.state, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created machines first.
@@ -941,9 +941,9 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 			}
 			otherState := s.newState(c)
 
-			w1 := newTestWatcher(s.state, c)
+			w1 := newTestAllWatcher(s.state, c)
 			defer w1.Stop()
-			w2 := newTestWatcher(otherState, c)
+			w2 := newTestAllWatcher(otherState, c)
 			defer w2.Stop()
 
 			checkIsolationForEnv(s.state, w1, w2)
@@ -2566,6 +2566,14 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 	runChangeTests(c, changeTestFuncs)
 }
 
+func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
+	return newTestWatcher(newAllWatcherStateBacking(st), st, c)
+}
+
+func newTestAllEnvWatcher(st *State, c *gc.C) *testWatcher {
+	return newTestWatcher(newAllEnvWatcherStateBacking(st), st, c)
+}
+
 type testWatcher struct {
 	st     *State
 	c      *gc.C
@@ -2573,8 +2581,7 @@ type testWatcher struct {
 	deltas chan []multiwatcher.Delta
 }
 
-func newTestWatcher(st *State, c *gc.C) *testWatcher {
-	b := newAllWatcherStateBacking(st)
+func newTestWatcher(b Backing, st *State, c *gc.C) *testWatcher {
 	sm := newStoreManager(b)
 	w := NewMultiwatcher(sm)
 	tw := &testWatcher{
