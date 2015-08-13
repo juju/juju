@@ -65,7 +65,7 @@ func (api *API) CreateSubnet(cidr, space string, zones []string, isPublic bool) 
 	return response, err
 }
 
-func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) (params.ListSubnetsResults, error) {
+func (api *API) ListSubnets(spaceTag names.SpaceTag, zone string) (params.ListSubnetsResults, error) {
 	var response params.ListSubnetsResults
 	params := params.ListSubnetsParams{
 		Filters: []params.ListSubnetsFilterParams{
