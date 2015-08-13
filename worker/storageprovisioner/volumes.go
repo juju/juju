@@ -390,6 +390,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 	var reschedule []scheduleOp
 	var volumes []storage.Volume
 	var volumeAttachments []storage.VolumeAttachment
+	var statuses []params.EntityStatus
 	for sourceName, volumeParams := range paramsBySource {
 		logger.Debugf("creating volumes: %v", volumeParams)
 		volumeSource := volumeSources[sourceName]
@@ -398,25 +399,42 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
 		}
 		for i, result := range results {
+			statuses = append(statuses, params.EntityStatus{
+				Tag:    volumeParams[i].Tag.String(),
+				Status: params.StatusAttaching,
+			})
+			status := &statuses[len(statuses)-1]
 			if result.Error != nil {
-				// TODO(axw) record the error in the volume's status.
-				logger.Errorf(
+				// Reschedule the volume creation.
+				reschedule = append(reschedule, ops[volumeParams[i].Tag])
+
+				// Note: we keep the status as "pending" to indicate
+				// that we will retry. When we distinguish between
+				// transient and permanent errors, we will set the
+				// status to "error" for permanent errors.
+				status.Status = params.StatusPending
+				status.Info = result.Error.Error()
+				logger.Debugf(
 					"failed to create %s: %v",
 					names.ReadableString(volumeParams[i].Tag),
 					result.Error,
 				)
-				// Reschedule the volume creation.
-				reschedule = append(reschedule, ops[volumeParams[i].Tag])
 				continue
 			}
 			volumes = append(volumes, *result.Volume)
 			if result.VolumeAttachment != nil {
+				status.Status = params.StatusAttached
 				volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 			}
 		}
 	}
 	if len(reschedule) > 0 {
 		scheduleOperations(ctx, reschedule...)
+	}
+	if len(statuses) > 0 {
+		if err := ctx.statusSetter.SetStatus(statuses); err != nil {
+			logger.Errorf("failed to set status: %v", err)
+		}
 	}
 	if len(volumes) == 0 {
 		return nil
@@ -467,6 +485,7 @@ func createVolumeAttachments(ctx *context, ops map[params.MachineStorageId]*atta
 	}
 	var reschedule []scheduleOp
 	var volumeAttachments []storage.VolumeAttachment
+	var statuses []params.EntityStatus
 	for sourceName, volumeAttachmentParams := range paramsBySource {
 		logger.Debugf("attaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
@@ -475,16 +494,32 @@ func createVolumeAttachments(ctx *context, ops map[params.MachineStorageId]*atta
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
 		for i, result := range results {
+			p := volumeAttachmentParams[i]
+			statuses = append(statuses, params.EntityStatus{
+				Tag:    p.Volume.String(),
+				Status: params.StatusAttached,
+			})
+			status := &statuses[len(statuses)-1]
 			if result.Error != nil {
-				p := volumeAttachmentParams[i]
-				// TODO(axw) record the error in the volume's status.
-				logger.Errorf("attaching volume: %v", result.Error)
 				// Reschedule the volume attachment.
 				id := params.MachineStorageId{
 					MachineTag:    p.Machine.String(),
 					AttachmentTag: p.Volume.String(),
 				}
 				reschedule = append(reschedule, ops[id])
+
+				// Note: we keep the status as "attaching" to
+				// indicate that we will retry. When we distinguish
+				// between transient and permanent errors, we will
+				// set the status to "error" for permanent errors.
+				status.Status = params.StatusAttaching
+				status.Info = result.Error.Error()
+				logger.Debugf(
+					"failed to attach %s to %s: %v",
+					names.ReadableString(p.Volume),
+					names.ReadableString(p.Machine),
+					result.Error,
+				)
 				continue
 			}
 			volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
@@ -492,6 +527,11 @@ func createVolumeAttachments(ctx *context, ops map[params.MachineStorageId]*atta
 	}
 	if len(reschedule) > 0 {
 		scheduleOperations(ctx, reschedule...)
+	}
+	if len(statuses) > 0 {
+		if err := ctx.statusSetter.SetStatus(statuses); err != nil {
+			logger.Errorf("failed to set status: %v", err)
+		}
 	}
 	if err := setVolumeAttachmentInfo(ctx, volumeAttachments); err != nil {
 		return errors.Trace(err)

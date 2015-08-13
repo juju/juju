@@ -785,7 +785,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		api := st.StorageProvisioner(scope)
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
 		return newStorageWorker(
-			scope, storageDir, api, api, api, api, api,
+			scope, storageDir, api, api, api, api, api, api,
 			clock.WallClock,
 		), nil
 	})
@@ -1144,7 +1144,7 @@ func (a *MachineAgent) startEnvWorkers(
 		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
 		return newStorageWorker(
-			scope, "", api, api, api, api, api,
+			scope, "", api, api, api, api, api, api,
 			clock.WallClock,
 		), nil
 	})
