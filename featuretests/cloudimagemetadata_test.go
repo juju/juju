@@ -28,8 +28,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 		Series:          "series",
 		Arch:            "arch",
 		VirtualType:     "virtType",
-		RootStorageType: "rootStorageType",
-		RootStorageSize: "rootStorageSize"}
+		RootStorageType: "rootStorageType"}
 
 	m := cloudimagemetadata.Metadata{attrs, "1"}
 	err = s.State.CloudImageMetadataStorage.SaveMetadata(m)

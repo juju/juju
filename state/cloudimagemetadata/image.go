@@ -13,30 +13,22 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/mongo"
 )
 
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
 type storage struct {
-	envuuid        string
-	collection     string
-	runTransaction func(jujutxn.TransactionSource) error
-	getCollection  func(string) (_ mongo.Collection, closer func())
+	envuuid    string
+	collection string
+	store      DataStore
 }
 
 var _ Storage = (*storage)(nil)
 
 // NewStorage constructs a new Storage that stores image metadata
-// in the provided collection using the provided transaction runner.
-func NewStorage(
-	envuuid string,
-	collectionName string,
-	runTransaction func(jujutxn.TransactionSource) error,
-	getCollection func(string) (_ mongo.Collection, closer func()),
-) Storage {
-	return &storage{envuuid, collectionName, runTransaction, getCollection}
+// in the provided data store.
+func NewStorage(envuuid, collectionName string, store DataStore) Storage {
+	return &storage{envuuid, collectionName, store}
 }
 
 var emptyMetadata = Metadata{}
@@ -73,7 +65,7 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 		return []txn.Op{op}, nil
 	}
 
-	err := s.runTransaction(buildTxn)
+	err := s.store.RunTransaction(buildTxn)
 	if err != nil {
 		return errors.Annotatef(err, "cannot save metadata for cloud image %v", newDoc.ImageId)
 	}
@@ -81,7 +73,7 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 }
 
 func (s *storage) getMetadata(id string) (Metadata, error) {
-	coll, closer := s.getCollection(s.collection)
+	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
 	var old imagesMetadataDoc
@@ -98,7 +90,7 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 // FindMetadata implements Storage.FindMetadata.
 // Results are sorted by date created.
 func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) {
-	coll, closer := s.getCollection(s.collection)
+	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
 	searchCriteria := buildSearchClauses(criteria)

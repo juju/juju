@@ -10,6 +10,7 @@ import (
 	"github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -18,7 +19,7 @@ import (
 type cloudImageMetadataSuite struct {
 	testing.IsolatedMgoSuite
 
-	runner  txn.Runner
+	access  *TestMongo
 	storage cloudimagemetadata.Storage
 }
 
@@ -33,16 +34,9 @@ func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.IsolatedMgoSuite.SetUpTest(c)
 
 	db := s.MgoSuite.Session.DB("juju")
-	collectionAccessor := func(name string) (_ mongo.Collection, closer func()) {
-		return mongo.WrapCollection(db.C(name)), func() {}
-	}
 
-	s.runner = txn.NewRunner(txn.RunnerParams{Database: db})
-	runTransaction := func(transactions txn.TransactionSource) error {
-		return s.runner.Run(transactions)
-	}
-
-	s.storage = cloudimagemetadata.NewStorage(envName, collectionName, runTransaction, collectionAccessor)
+	s.access = NewTestMongo(db)
+	s.storage = cloudimagemetadata.NewStorage(envName, collectionName, s.access)
 }
 
 func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
@@ -255,7 +249,7 @@ func (s *cloudImageMetadataSuite) assertConcurrentSave(c *gc.C, metadata0, metad
 	addMetadata := func() {
 		s.assertRecordMetadata(c, metadata0)
 	}
-	defer txntesting.SetBeforeHooks(c, s.runner, addMetadata).Check()
+	defer txntesting.SetBeforeHooks(c, s.access.runner, addMetadata).Check()
 	s.assertRecordMetadata(c, metadata1)
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, expected...)
 }
@@ -269,4 +263,32 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloud
 	metadata, err := s.storage.FindMetadata(criteria)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, jc.SameContents, expected)
+}
+
+// TestMongo exposes database operations. It uses a real database -- we can't mock
+// mongo out, we need to check it really actually works -- but it's good to
+// have the runner accessible for adversarial transaction tests.
+type TestMongo struct {
+	database *mgo.Database
+	runner   txn.Runner
+}
+
+// NewMongo returns a *TestMongo backed by the supplied database.
+func NewTestMongo(database *mgo.Database) *TestMongo {
+	return &TestMongo{
+		database: database,
+		runner: txn.NewRunner(txn.RunnerParams{
+			Database: database,
+		}),
+	}
+}
+
+// GetCollection is part of the lease.Mongo interface.
+func (m *TestMongo) GetCollection(name string) (mongo.Collection, func()) {
+	return mongo.CollectionFromName(m.database, name)
+}
+
+// RunTransaction is part of the lease.Mongo interface.
+func (m *TestMongo) RunTransaction(getTxn txn.TransactionSource) error {
+	return m.runner.Run(getTxn)
 }

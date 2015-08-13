@@ -3,6 +3,12 @@
 
 package cloudimagemetadata
 
+import (
+	jujutxn "github.com/juju/txn"
+
+	"github.com/juju/juju/mongo"
+)
+
 // MetadataAttributes contains cloud image metadata attributes.
 type MetadataAttributes struct {
 	// Stream contains reference to a particular stream,
@@ -49,4 +55,14 @@ type Storage interface {
 	// criteria or a "not found" error if none match.
 	// Empty criteria will return all cloud image metadata.
 	FindMetadata(criteria MetadataAttributes) ([]Metadata, error)
+}
+
+// DataStore exposes data store operations for use by the cloud image metadata package.
+type DataStore interface {
+
+	// RunTransaction should probably delegate to a jujutxn.Runner's Run method.
+	RunTransaction(jujutxn.TransactionSource) error
+
+	// GetCollection should probably call the mongo.CollectionFromName func.
+	GetCollection(name string) (collection mongo.Collection, closer func())
 }
