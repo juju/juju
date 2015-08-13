@@ -160,9 +160,11 @@ func (c workloads) registerWorkers() map[string]*workers.EventHandlers {
 		workers.StatusEventHandler,
 	}
 
-	newWorkerFunc := func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
-		// At this point no workload workload workers are running for the unit.
-		if unitHandler, ok := unitEventHandlers[unit]; ok {
+	newWorkerFunc := func(config unit.ManifoldsConfig, caller base.APICaller) (func() (worker.Worker, error), error) {
+		// At this point no workload workers are running for the unit.
+
+		unitName := config.Agent.CurrentConfig().Tag().String()
+		if unitHandler, ok := unitEventHandlers[unitName]; ok {
 			// The worker must have restarted.
 			// TODO(ericsnow) Could cause panics?
 			unitHandler.Close()
@@ -170,11 +172,12 @@ func (c workloads) registerWorkers() map[string]*workers.EventHandlers {
 
 		apiClient := c.newHookContextAPIClient(caller)
 
+		var runner worker.Runner // TODO(ericsnow) Wrap a dependency engine in a runner.
 		unitHandler := workers.NewEventHandlers(apiClient, runner)
 		for _, handlerFunc := range handlerFuncs {
 			unitHandler.RegisterHandler(handlerFunc)
 		}
-		unitEventHandlers[unit] = unitHandler
+		unitEventHandlers[unitName] = unitHandler
 
 		// Pull all existing from State (via API) and add an event for each.
 		hctx, err := context.NewContextAPI(apiClient, unitHandler.AddEvents)

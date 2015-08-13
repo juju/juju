@@ -407,35 +407,6 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
-// XXX Sort this out...
-//func (s *UnitSuite) TestUnitAgentAPIWorkers(c *gc.C) {
-//	err := RegisterUnitAgentWorker("spam", s.newWorkerFunc)
-//	c.Assert(err, jc.ErrorIsNil)
-//	err = RegisterUnitAgentWorker("eggs", s.newWorkerFunc)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	a := NewUnitAgent(nil, nil)
-//	a.UnitName = "a-service/0"
-//	workers, err := a.apiWorkers(nil, nil, nil, nil)
-//	c.Assert(err, jc.ErrorIsNil)
-//	ids := workers.IDs()
-//
-//	expected := []string{
-//		"proxyupdater",
-//		"upgrader",
-//		"logger",
-//		"uniter",
-//		"apiaddressupdater",
-//		"rsyslog",
-//		"spam",
-//		"eggs",
-//	}
-//	c.Check(ids, jc.DeepEquals, expected)
-//	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorkerFunc")
-//	c.Check(s.stub.Calls()[0].Args[0], gc.Equals, "a-service/0")
-//	c.Check(s.stub.Calls()[1].Args[0], gc.Equals, "a-service/0")
-//}
-
 func (s *UnitSuite) TestUseLumberjack(c *gc.C) {
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, gc.IsNil)
