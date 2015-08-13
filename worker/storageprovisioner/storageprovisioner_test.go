@@ -63,6 +63,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		&mockLifecycleManager{},
 		newMockEnvironAccessor(c),
 		newMockMachineAccessor(c),
+		&mockStatusSetter{},
 		&mockClock{},
 	)
 	worker.Kill()
@@ -139,6 +140,61 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 }
 
+func (s *storageProvisionerSuite) TestCreateVolumeCreatesAttachment(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+
+	volumeAttachmentInfoSet := make(chan interface{})
+	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
+		defer close(volumeAttachmentInfoSet)
+		return make([]params.ErrorResult, len(volumeAttachments)), nil
+	}
+
+	s.provider.createVolumesFunc = func(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+		volumeAccessor.provisionedAttachments[params.MachineStorageId{
+			MachineTag:    args[0].Attachment.Machine.String(),
+			AttachmentTag: args[0].Attachment.Volume.String(),
+		}] = params.VolumeAttachment{
+			VolumeTag:  args[0].Attachment.Volume.String(),
+			MachineTag: args[0].Attachment.Machine.String(),
+		}
+		return []storage.CreateVolumesResult{{
+			Volume: &storage.Volume{
+				Tag: args[0].Tag,
+				VolumeInfo: storage.VolumeInfo{
+					VolumeId: "vol-ume",
+				},
+			},
+			VolumeAttachment: &storage.VolumeAttachment{
+				Volume:  args[0].Attachment.Volume,
+				Machine: args[0].Attachment.Machine,
+			},
+		}}, nil
+	}
+
+	attachVolumesCalled := make(chan interface{})
+	s.provider.attachVolumesFunc = func(args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+		defer close(attachVolumesCalled)
+		return nil, errors.New("should not be called")
+	}
+
+	args := &workerArgs{volumes: volumeAccessor}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}}
+	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment set")
+
+	// The worker should create volumes according to ids "1".
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
+	assertNoEvent(c, attachVolumesCalled, "AttachVolumes called")
+}
+
 func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
@@ -193,6 +249,19 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 		30 * time.Minute, // ceiling reached
 		30 * time.Minute,
 		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "pending", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: ""},
 	})
 }
 
@@ -262,6 +331,20 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 		30 * time.Minute, // ceiling reached
 		30 * time.Minute,
 		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+		{Tag: "volume-1", Status: "attaching", Info: ""},        // CreateVolumes
+		{Tag: "volume-1", Status: "attaching", Info: "badness"}, // AttachVolumes
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attaching", Info: "badness"},
+		{Tag: "volume-1", Status: "attached", Info: ""},
 	})
 }
 
@@ -1108,6 +1191,9 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args.clock == nil {
 		args.clock = &mockClock{}
 	}
+	if args.statusSetter == nil {
+		args.statusSetter = &mockStatusSetter{}
+	}
 	return storageprovisioner.NewStorageProvisioner(
 		args.scope,
 		"storage-dir",
@@ -1116,18 +1202,20 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args.life,
 		args.environ,
 		args.machines,
+		args.statusSetter,
 		args.clock,
 	)
 }
 
 type workerArgs struct {
-	scope       names.Tag
-	volumes     *mockVolumeAccessor
-	filesystems *mockFilesystemAccessor
-	life        *mockLifecycleManager
-	environ     *mockEnvironAccessor
-	machines    *mockMachineAccessor
-	clock       clock.Clock
+	scope        names.Tag
+	volumes      *mockVolumeAccessor
+	filesystems  *mockFilesystemAccessor
+	life         *mockLifecycleManager
+	environ      *mockEnvironAccessor
+	machines     *mockMachineAccessor
+	clock        clock.Clock
+	statusSetter *mockStatusSetter
 }
 
 func waitChannel(c *gc.C, ch <-chan interface{}, activity string) interface{} {

@@ -76,14 +76,14 @@ func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.srv.startServer(c)
-	s.Tests.SetUpTest(c)
 	s.PatchValue(&version.Current, version.Binary{
-		Number: version.Current.Number,
+		Number: testing.FakeVersionNumber,
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+	s.BaseSuite.SetUpTest(c)
+	s.srv.startServer(c)
+	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
 }
 
@@ -342,13 +342,12 @@ func (s *ebsVolumeSuite) TestDestroyVolumesStillAttached(c *gc.C) {
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
 }
 
-func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
+func (s *ebsVolumeSuite) TestDescribeVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	s.assertCreateVolumes(c, vs, "")
 
 	vols, err := vs.DescribeVolumes([]string{"vol-0", "vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 2)
 	c.Assert(vols, jc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
 			Size:       10240,
@@ -362,6 +361,14 @@ func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
 			Persistent: true,
 		},
 	}})
+}
+
+func (s *ebsVolumeSuite) TestDescribeVolumesNotFound(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	vols, err := vs.DescribeVolumes([]string{"vol-42"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
+	c.Assert(vols[0].Error, gc.ErrorMatches, "vol-42 not found")
 }
 
 func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
@@ -545,6 +552,9 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 		},
 	})
 }
+
+// TODO(axw) add tests for attempting to attach while
+// a volume is still in the "creating" state.
 
 func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)

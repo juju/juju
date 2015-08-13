@@ -4,10 +4,10 @@
 package logger
 
 import (
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logger"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
 )
@@ -23,8 +23,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker trivially wraps NewLogger to specialise an AgentApiManifold.
-var newWorker = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	currentConfig := agent.CurrentConfig()
+var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+	currentConfig := a.CurrentConfig()
 	loggerFacade := logger.NewState(apiCaller)
 	return NewLogger(loggerFacade, currentConfig), nil
 }

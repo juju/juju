@@ -715,19 +715,19 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
 	if !provider.Supports(storage.StorageKindFilesystem) {
-		var volumeOp txn.Op
+		var volumeOps []txn.Op
 		volumeParams := VolumeParams{
 			params.storage,
 			filesystemTag, // volume is bound to filesystem
 			params.Pool,
 			params.Size,
 		}
-		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams, machineId)
+		volumeOps, volumeTag, err = st.addVolumeOps(volumeParams, machineId)
 		if err != nil {
 			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "creating backing volume")
 		}
 		volumeId = volumeTag.Id()
-		ops = append(ops, volumeOp)
+		ops = append(ops, volumeOps...)
 	}
 
 	filesystemOp := txn.Op{

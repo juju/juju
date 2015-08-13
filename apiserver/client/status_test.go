@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -112,19 +112,19 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 var testUnits = []struct {
 	unitName       string
 	setStatus      *state.MeterStatus
-	expectedStatus *api.MeterStatus
+	expectedStatus *params.MeterStatus
 }{{
 	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
-	expectedStatus: &api.MeterStatus{Color: "green", Message: "test information"},
+	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
 }, {
 	setStatus:      &state.MeterStatus{Code: state.MeterAmber, Info: "test information"},
-	expectedStatus: &api.MeterStatus{Color: "amber", Message: "test information"},
+	expectedStatus: &params.MeterStatus{Color: "amber", Message: "test information"},
 }, {
 	setStatus:      &state.MeterStatus{Code: state.MeterRed, Info: "test information"},
-	expectedStatus: &api.MeterStatus{Color: "red", Message: "test information"},
+	expectedStatus: &params.MeterStatus{Color: "red", Message: "test information"},
 }, {
 	setStatus:      &state.MeterStatus{Code: state.MeterGreen, Info: "test information"},
-	expectedStatus: &api.MeterStatus{Color: "green", Message: "test information"},
+	expectedStatus: &params.MeterStatus{Color: "green", Message: "test information"},
 }, {},
 }
 

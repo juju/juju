@@ -28,6 +28,7 @@ type StorageProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.EnvironWatcher
 	*common.InstanceIdGetter
+	*common.StatusSetter
 
 	st                       provisionerState
 	settings                 poolmanager.SettingsManager
@@ -164,6 +165,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
 		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
+		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
 		st:                       stateInterface,
 		settings:                 settings,

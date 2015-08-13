@@ -443,19 +443,6 @@ func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
 	c.Assert(tags, jc.SameContents, expected)
 }
 
-func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
-	_, _, persistentVolumes := s.assertCreateVolumes(c)
-	c.Assert(persistentVolumes, gc.HasLen, 1)
-
-	volumes, err := s.State.PersistentVolumes()
-	c.Assert(err, jc.ErrorIsNil)
-	tags := make([]names.VolumeTag, len(volumes))
-	for i, v := range volumes {
-		tags[i] = v.VolumeTag()
-	}
-	c.Assert(tags, jc.SameContents, persistentVolumes)
-}
-
 func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent []names.VolumeTag) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -722,8 +709,14 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 
 	allVolumes, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	persistentVolumes, err := s.State.PersistentVolumes()
-	c.Assert(err, jc.ErrorIsNil)
+
+	persistentVolumes := make([]state.Volume, 0, len(allVolumes))
+	for _, v := range allVolumes {
+		info, err := v.Info()
+		if err == nil && info.Persistent {
+			persistentVolumes = append(persistentVolumes, v)
+		}
+	}
 	c.Assert(len(allVolumes), jc.GreaterThan, len(persistentVolumes))
 
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)

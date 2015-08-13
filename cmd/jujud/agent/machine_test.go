@@ -64,6 +64,7 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -119,6 +120,7 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
+	s.AgentSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -1192,7 +1194,7 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 		agent := NewAgentConf(conf.DataDir())
 		err := agent.ReadConfig(tagString)
 		c.Assert(err, jc.ErrorIsNil)
-		st, gotEntity, err := OpenAPIState(agent)
+		st, gotEntity, err := apicaller.OpenAPIState(agent)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
@@ -1431,6 +1433,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
 		_ clock.Clock,
 	) worker.Worker {
 		c.Check(scope, gc.Equals, m.Tag())
@@ -1467,6 +1470,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
 		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
@@ -1851,6 +1855,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
 		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners

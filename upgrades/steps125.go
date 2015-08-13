@@ -76,6 +76,12 @@ func stateStepsFor125() []Step {
 			run: func(context Context) error {
 				return state.AddBindingToFilesystems(context.State())
 			}},
+		&upgradeStep{
+			description: "add status to volume",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddVolumeStatus(context.State())
+			}},
 	}
 }
 

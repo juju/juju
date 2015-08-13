@@ -54,7 +54,7 @@ func registerAmazonTests() {
 		"control-bucket": "juju-test-" + uniqueName,
 		"admin-secret":   "for real",
 		"firewall-mode":  config.FwInstance,
-		"agent-version":  version.Current.Number.String(),
+		"agent-version":  coretesting.FakeVersionNumber.String(),
 	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
@@ -87,13 +87,13 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.BaseSuite.SetUpTest(c)
-	t.LiveTests.SetUpTest(c)
 	t.BaseSuite.PatchValue(&version.Current, version.Binary{
-		Number: version.Current.Number,
+		Number: coretesting.FakeVersionNumber,
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+	t.BaseSuite.SetUpTest(c)
+	t.LiveTests.SetUpTest(c)
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {

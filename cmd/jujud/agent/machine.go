@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
@@ -121,6 +122,7 @@ var (
 	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
+	newAddresser             = addresser.NewWorker
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
@@ -470,7 +472,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := OpenAPIState(a)
+	st, _, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -631,7 +633,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
-	st, entity, err := OpenAPIState(a)
+	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		return nil, err
 	}
@@ -784,7 +786,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		api := st.StorageProvisioner(scope)
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
 		return newStorageWorker(
-			scope, storageDir, api, api, api, api, api,
+			scope, storageDir, api, api, api, api, api, api,
 			clock.WallClock,
 		), nil
 	})
@@ -1085,7 +1087,7 @@ func (a *MachineAgent) startEnvWorkers(
 	agentConfig := a.CurrentConfig()
 	apiInfo := agentConfig.APIInfo()
 	apiInfo.EnvironTag = st.EnvironTag()
-	apiSt, err := OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
+	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1131,9 +1133,6 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
-	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-		return addresser.NewWorker(st)
-	})
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
@@ -1143,7 +1142,7 @@ func (a *MachineAgent) startEnvWorkers(
 		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
 		return newStorageWorker(
-			scope, "", api, api, api, api, api,
+			scope, "", api, api, api, api, api, api,
 			clock.WallClock,
 		), nil
 	})
@@ -1160,6 +1159,19 @@ func (a *MachineAgent) startEnvWorkers(
 		return newCleaner(apiSt.Cleaner()), nil
 	})
 
+	// Addresser Worker needs a networking environment. Check
+	// first before starting the worker.
+	isNetEnv, err := isNetworkingEnvironment(apiSt)
+	if err != nil {
+		return nil, errors.Annotate(err, "checking environment networking support")
+	}
+	if isNetEnv {
+		singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+			return newAddresser(apiSt.Addresser())
+		})
+	} else {
+		logger.Debugf("address deallocation not supported: not starting addresser worker")
+	}
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
 	// environments are capable of managing ports
@@ -1177,6 +1189,19 @@ func (a *MachineAgent) startEnvWorkers(
 	}
 
 	return runner, nil
+}
+
+func isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
+	envConfig, err := apiConn.Environment().EnvironConfig()
+	if err != nil {
+		return false, errors.Annotate(err, "cannot read environment config")
+	}
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return false, errors.Annotate(err, "cannot get environment")
+	}
+	_, ok := environs.SupportsNetworking(env)
+	return ok, nil
 }
 
 var getFirewallMode = _getFirewallMode

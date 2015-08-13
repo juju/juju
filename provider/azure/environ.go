@@ -896,7 +896,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
 	// Generate a Network Configuration with the initially required ports open.
 	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(stateServer), nil)
-	role := gwacl.NewRole(
+	role := gwacl.NewLinuxRole(
 		roleSize, roleName, vhd,
 		[]gwacl.ConfigurationSet{*linuxConfigurationSet, *networkConfigurationSet},
 	)

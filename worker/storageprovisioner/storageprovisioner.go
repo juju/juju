@@ -130,6 +130,11 @@ type LifecycleManager interface {
 	RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
+// StatusSetter defines an interface used to set the status of entities.
+type StatusSetter interface {
+	SetStatus([]params.EntityStatus) error
+}
+
 // EnvironAccessor defines an interface used to enable a storage provisioner
 // worker to watch changes to and read environment config, to use when
 // provisioning storage.
@@ -158,6 +163,7 @@ func NewStorageProvisioner(
 	l LifecycleManager,
 	e EnvironAccessor,
 	m MachineAccessor,
+	s StatusSetter,
 	clock clock.Clock,
 ) worker.Worker {
 	w := &storageprovisioner{
@@ -168,6 +174,7 @@ func NewStorageProvisioner(
 		life:        l,
 		environ:     e,
 		machines:    m,
+		status:      s,
 		clock:       clock,
 	}
 	go func() {
@@ -190,6 +197,7 @@ type storageprovisioner struct {
 	life        LifecycleManager
 	environ     EnvironAccessor
 	machines    MachineAccessor
+	status      StatusSetter
 	clock       clock.Clock
 }
 
@@ -273,6 +281,7 @@ func (w *storageprovisioner) loop() error {
 		filesystemAccessor:                w.filesystems,
 		life:                              w.life,
 		machineAccessor:                   w.machines,
+		statusSetter:                      w.status,
 		time:                              w.clock,
 		volumes:                           make(map[names.VolumeTag]storage.Volume),
 		volumeAttachments:                 make(map[params.MachineStorageId]storage.VolumeAttachment),
@@ -432,6 +441,7 @@ type context struct {
 	filesystemAccessor FilesystemAccessor
 	life               LifecycleManager
 	machineAccessor    MachineAccessor
+	statusSetter       StatusSetter
 	time               clock.Clock
 
 	// volumes contains information about provisioned volumes.

@@ -56,7 +56,7 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"control-bucket": "test-bucket",
 	"access-key":     "x",
 	"secret-key":     "x",
-	"agent-version":  version.Current.Number.String(),
+	"agent-version":  coretesting.FakeVersionNumber.String(),
 })
 
 func registerLocalTests() {
@@ -191,15 +191,15 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
+	t.PatchValue(&version.Current, version.Binary{
+		Number: coretesting.FakeVersionNumber,
+		Series: coretesting.FakeDefaultSeries,
+		Arch:   arch.AMD64,
+	})
 	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
-	t.PatchValue(&version.Current, version.Binary{
-		Number: version.Current.Number,
-		Series: coretesting.FakeDefaultSeries,
-		Arch:   arch.AMD64,
-	})
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {

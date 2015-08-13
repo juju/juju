@@ -242,7 +242,10 @@ func (v *mockVolumeAccessor) VolumeAttachmentParams(ids []params.MachineStorageI
 }
 
 func (v *mockVolumeAccessor) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
-	return v.setVolumeInfo(volumes)
+	if v.setVolumeInfo != nil {
+		return v.setVolumeInfo(volumes)
+	}
+	return make([]params.ErrorResult, len(volumes)), nil
 }
 
 func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
@@ -733,4 +736,17 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	ch := make(chan time.Time, 1)
 	ch <- c.now
 	return ch
+}
+
+type mockStatusSetter struct {
+	args      []params.EntityStatus
+	setStatus func([]params.EntityStatus) error
+}
+
+func (m *mockStatusSetter) SetStatus(args []params.EntityStatus) error {
+	if m.setStatus != nil {
+		return m.setStatus(args)
+	}
+	m.args = append(m.args, args...)
+	return nil
 }
