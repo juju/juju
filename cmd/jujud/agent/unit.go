@@ -154,17 +154,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
-
-	// XXX sort this out...
-	//for _, name := range unitAgentWorkerNames {
-	//      newWorkerFunc := unitAgentWorkerFuncs[name]
-	//      newWorker, err := newWorkerFunc(a.UnitName, st, runner)
-	//      if err != nil {
-	//              return workers, errors.Trace(err)
-	//      }
-	//      workers.Add(name, newWorker)
-	//}
-
 	return engine, nil
 }
 

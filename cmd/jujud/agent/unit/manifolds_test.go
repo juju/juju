@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
 )
 
 type ManifoldsSuite struct {
@@ -38,8 +39,21 @@ func (s *ManifoldsSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *ManifoldsSuite) newWorkerFunc(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
-	s.stub.AddCall("newWorkerFunc", unit, caller, runner)
+func (s *ManifoldsSuite) getResourceFunc(apiCaller base.APICaller) dependency.GetResourceFunc {
+	return func(name string, out interface{}) error {
+		s.stub.AddCall("getResource", name, out)
+		if err := s.stub.NextErr(); err != nil {
+			return errors.Trace(err)
+		}
+
+		unpacked := out.(*base.APICaller)
+		*unpacked = apiCaller
+		return nil
+	}
+}
+
+func (s *ManifoldsSuite) newWorkerFunc(config unit.ManifoldsConfig, caller base.APICaller) (func() (worker.Worker, error), error) {
+	s.stub.AddCall("newWorkerFunc", config, caller)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -50,8 +64,8 @@ func (s *ManifoldsSuite) newWorkerFunc(unit string, caller base.APICaller, runne
 			return nil, errors.Trace(err)
 		}
 
-		loop := func(<-chan struct{}) error {
-			s.stub.AddCall("loop")
+		loop := func(stopCh <-chan struct{}) error {
+			s.stub.AddCall("loop", stopCh)
 			if err := s.stub.NextErr(); err != nil {
 				return errors.Trace(err)
 			}
@@ -68,17 +82,24 @@ func (s *ManifoldsSuite) TestRegisterWorker(c *gc.C) {
 
 	// We can't compare functions so we jump through hoops instead.
 	c.Check(unit.RegisteredWorkers, gc.HasLen, 1)
+	var config unit.ManifoldsConfig
 	registered := unit.RegisteredWorkers["spam"]
-	newWorker, err := registered("a-service/0", nil, nil)
+	newWorker, err := registered(config, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	newWorker()
 	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorker")
 }
 
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
-	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+	for _, name := range []string{"spam", "eggs"} {
+		err := unit.RegisterWorker(name, s.newWorkerFunc)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	config := unit.ManifoldsConfig{
 		Agent: fakeAgent{},
-	})
+	}
+	manifolds := unit.Manifolds(config)
 
 	var names []string
 	for name, manifold := range manifolds {
@@ -98,7 +119,12 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 		unit.RsyslogConfigUpdaterName,
 		unit.UniterName,
 		unit.UpgraderName,
+		"spam",
+		"eggs",
 	})
+	s.stub.CheckCalls(c, nil)
+	manifolds["spam"].Start(s.getResourceFunc(nil))
+	s.stub.CheckCallNames(c, "getResource", "newWorkerFunc", "newWorker")
 }
 
 // TODO(cmars) 2015/08/10: rework this into builtin Engine cycle checker.

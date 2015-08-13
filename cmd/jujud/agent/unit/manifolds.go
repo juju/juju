@@ -27,7 +27,7 @@ import (
 
 // TODO(ericsnow) Switch to manifolds.
 
-type workerFactory func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error)
+type workerFactory func(config ManifoldsConfig, caller base.APICaller) (func() (worker.Worker, error), error)
 
 var (
 	registeredWorkers = make(map[string]workerFactory)
@@ -63,7 +63,7 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
-	return dependency.Manifolds{
+	manifolds := dependency.Manifolds{
 
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -162,6 +162,32 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLockName:       MachineLockName,
 		}),
 	}
+
+	for name, newWorkerFunc := range registeredWorkers {
+		startFunc := func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+			var caller base.APICaller
+			err := getResource(APICallerName, &caller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			newWorker, err := newWorkerFunc(config, caller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			worker, err := newWorker()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return worker, nil
+		}
+		manifold := dependency.Manifold{
+			Inputs: []string{APICallerName},
+			Start:  startFunc,
+		}
+		manifolds[name] = manifold
+	}
+
+	return manifolds
 }
 
 const (
