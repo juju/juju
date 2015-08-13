@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -64,23 +66,67 @@ func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
 	s.st.setConfig(c, config)
 
 	dead, err := s.st.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dead, gc.HasLen, 2)
 
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.IsNil)
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
 
 	dead, err = s.st.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dead, gc.HasLen, 0)
 }
 
-func (s *AddresserSuite) TestCleanupIPAddressesFailure(c *gc.C) {
+func (s *AddresserSuite) TestReleaseAddress(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	// Cleanup initial dead IP addresses.
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
+
+	// Prepare tests.
+	called := 0
+	s.PatchValue(addresser.NetEnvReleaseAddress, func(env environs.NetworkingEnviron,
+		instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
+		called++
+		c.Assert(instId, gc.Equals, instance.Id("a3"))
+		c.Assert(subnetId, gc.Equals, network.Id("a"))
+		c.Assert(addr, gc.Equals, network.NewAddress("0.1.2.3"))
+		c.Assert(macAddress, gc.Equals, "fff3")
+		return nil
+	})
+
+	// Set address 0.1.2.3 to dead.
+	s.st.setDead(c, "0.1.2.3")
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 1)
+
+	apiErr = s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+	c.Assert(called, gc.Equals, 1)
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesConfigGetFailure(c *gc.C) {
 	config := testingEnvConfig(c)
 	s.st.setConfig(c, config)
 
 	dead, err := s.st.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dead, gc.HasLen, 2)
 
 	s.st.stub.SetErrors(errors.New("ouch"))
@@ -92,7 +138,43 @@ func (s *AddresserSuite) TestCleanupIPAddressesFailure(c *gc.C) {
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
+	config := tidelandTestingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	// Validation of configuration fails due to illegal provider.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "tideland"`)
+
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesNotSupportedFailure(c *gc.C) {
+	config := mockTestingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	// The tideland environment does not support networking.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, "IP address deallocation not supported")
+
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dead, gc.HasLen, 2)
 }
 
@@ -128,6 +210,28 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 // the dummy provider.
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env.Config()
+}
+
+// tidelandTestingEnvConfig prepares an environment configuration using
+// the illegal tideland provider.
+func tidelandTestingEnvConfig(c *gc.C) *config.Config {
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "tideland",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+// mockTestingEnvConfig prepares an environment configuration using
+// the mock provider which does not support networking.
+func mockTestingEnvConfig(c *gc.C) *config.Config {
+	environs.RegisterProvider("mock", mockEnvironProvider{})
+	cfg, err := config.New(config.NoDefaults, mockConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
 	c.Assert(err, jc.ErrorIsNil)

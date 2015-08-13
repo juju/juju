@@ -15,10 +15,13 @@ import (
 	jujutxn "github.com/juju/txn"
 
 	"github.com/juju/juju/apiserver/addresser"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // mockState implements StateInterface and allows inspection of called
@@ -43,24 +46,34 @@ func newMockState() *mockState {
 }
 
 func (mst *mockState) setUpState() {
+	mst.mu.Lock()
+	defer mst.mu.Unlock()
+
 	ips := []struct {
-		value string
-		uuid  string
-		life  state.Life
+		value      string
+		uuid       string
+		life       state.Life
+		subnetId   string
+		instanceId string
+		macaddr    string
 	}{
-		{"0.1.2.3", "00000000-1111-2222-3333-0123456789ab", state.Alive},
-		{"0.1.2.4", "00000000-1111-2222-4444-0123456789ab", state.Alive},
-		{"0.1.2.5", "00000000-1111-2222-5555-0123456789ab", state.Alive},
-		{"0.1.2.6", "00000000-1111-2222-6666-0123456789ab", state.Dead},
-		{"0.1.2.7", "00000000-1111-2222-7777-0123456789ab", state.Dead},
+		{"0.1.2.3", "00000000-1111-2222-3333-0123456789ab", state.Alive, "a", "a3", "fff3"},
+		{"0.1.2.4", "00000000-1111-2222-4444-0123456789ab", state.Alive, "b", "b4", "fff4"},
+		{"0.1.2.5", "00000000-1111-2222-5555-0123456789ab", state.Alive, "b", "b5", "fff5"},
+		{"0.1.2.6", "00000000-1111-2222-6666-0123456789ab", state.Dead, "c", "c6", "fff6"},
+		{"0.1.2.7", "00000000-1111-2222-7777-0123456789ab", state.Dead, "c", "c7", "fff7"},
 	}
 	for _, ip := range ips {
 		mst.ipAddresses[ip.value] = &mockIPAddress{
-			stub:  mst.stub,
-			st:    mst,
-			value: ip.value,
-			tag:   names.NewIPAddressTag(ip.uuid),
-			life:  ip.life,
+			stub:       mst.stub,
+			st:         mst,
+			value:      ip.value,
+			tag:        names.NewIPAddressTag(ip.uuid),
+			life:       ip.life,
+			subnetId:   ip.subnetId,
+			instanceId: instance.Id(ip.instanceId),
+			addr:       network.NewAddress(ip.value),
+			macaddr:    ip.macaddr,
 		}
 	}
 }
@@ -103,6 +116,17 @@ func (mst *mockState) IPAddress(value string) (addresser.StateIPAddress, error) 
 		return nil, errors.NotFoundf("IP address %s", value)
 	}
 	return ipAddress, nil
+}
+
+// setDead sets a mock IP address in state to dead.
+func (mst *mockState) setDead(c *gc.C, value string) {
+	mst.mu.Lock()
+	defer mst.mu.Unlock()
+
+	ipAddress, found := mst.ipAddresses[value]
+	c.Assert(found, gc.Equals, true)
+
+	ipAddress.life = state.Dead
 }
 
 // DeadIPAddresses implements StateInterface.
@@ -217,16 +241,6 @@ func (mip *mockIPAddress) Life() state.Life {
 	mip.stub.MethodCall(mip, "Life")
 	mip.stub.NextErr() // Consume the unused error.
 	return mip.life
-}
-
-// EnsureDead implements StateIPAddress.
-func (mip *mockIPAddress) EnsureDead() error {
-	mip.stub.MethodCall(mip, "EnsureDead")
-	if err := mip.stub.NextErr(); err != nil {
-		return err
-	}
-	mip.life = state.Dead
-	return nil
 }
 
 // Remove implements StateIPAddress.
@@ -348,4 +362,39 @@ func (mipw *mockIPAddressWatcher) loop() {
 // Changes implements state.StringsWatcher.
 func (mipw *mockIPAddressWatcher) Changes() <-chan []string {
 	return mipw.changes
+}
+
+// mockConfig returns a configuration for the usage of the
+// mock provider below.
+func mockConfig() coretesting.Attrs {
+	return dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "mock",
+	})
+}
+
+// mockEnviron is an environment without networking support.
+type mockEnviron struct {
+	environs.Environ
+}
+
+func (e mockEnviron) Config() *config.Config {
+	cfg, err := config.New(config.NoDefaults, mockConfig())
+	if err != nil {
+		panic("invalid configuration for testing")
+	}
+	return cfg
+}
+
+// mockEnvironProvider is the smallest possible provider to
+// test the addresses without networking support.
+type mockEnvironProvider struct {
+	environs.EnvironProvider
+}
+
+func (p mockEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	return &mockEnviron{}, nil
+}
+
+func (p mockEnvironProvider) Open(*config.Config) (environs.Environ, error) {
+	return &mockEnviron{}, nil
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// StetIPAddress defines the needed methods of state.IPAddress
+// StateIPAddress defines the needed methods of state.IPAddress
 // for the work of the Addresser API.
 type StateIPAddress interface {
 	state.Entity

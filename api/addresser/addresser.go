@@ -32,7 +32,7 @@ func NewAPI(caller base.APICaller) *API {
 }
 
 // CleanupIPAddresses releases and removes the dead IP addresses. If not
-//all IP addresses could be released and removed a params.ErrTryAgain
+// all IP addresses could be released and removed a params.ErrTryAgain
 // is returned.
 func (api *API) CleanupIPAddresses() error {
 	var result params.ErrorResult
@@ -54,9 +54,6 @@ var newEntityWatcher = watcher.NewEntityWatcher
 func (api *API) WatchIPAddresses() (watcher.EntityWatcher, error) {
 	var result params.EntityWatchResult
 	err := api.facade.FacadeCall("WatchIPAddresses", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

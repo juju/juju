@@ -163,10 +163,22 @@ func (s *workerSuite) makeReleaseOp(digit int) dummy.OpReleaseAddress {
 	}
 }
 
-func (s *workerSuite) assertIPAddressLife(c *gc.C, digit int, life state.Life) {
-	ipAddr, err := s.State.IPAddress(fmt.Sprintf("0.1.2.%d", digit))
+func (s *workerSuite) assertIPAddressLife(c *gc.C, value string, life state.Life) {
+	ipAddr, err := s.State.IPAddress(value)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Life(), gc.Equals, life)
+}
+
+func (s *workerSuite) assertIPAddressRemoved(c *gc.C, value string) {
+	for a := common.ShortAttempt.Start(); a.Next(); {
+		_, err := s.State.IPAddress(value)
+		if errors.IsNotFound(err) {
+			break
+		}
+		if !a.HasNext() {
+			c.Fatalf("IP address not removed")
+		}
+	}
 }
 
 // workerEnabledSuite runs the test with the enabled address allocation.
@@ -215,9 +227,7 @@ func (s *workerEnabledSuite) TestWorkerIgnoresAliveAddresses(c *gc.C) {
 
 	// The worker must not kill this address.
 	for a := common.ShortAttempt.Start(); a.Next(); {
-		ipAddr, err := s.State.IPAddress("0.1.2.9")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
+		s.assertIPAddressLife(c, "0.1.2.9", state.Alive)
 	}
 }
 
@@ -237,15 +247,7 @@ func (s *workerEnabledSuite) TestWorkerRemovesDeadAddress(c *gc.C) {
 	c.Assert(op, jc.DeepEquals, s.makeReleaseOp(3))
 
 	// The address should have been removed from state.
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		_, err := s.State.IPAddress("0.1.2.3")
-		if errors.IsNotFound(err) {
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("IP address not removed")
-		}
-	}
+	s.assertIPAddressRemoved(c, "0.1.2.3")
 }
 
 func (s *workerEnabledSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
@@ -262,24 +264,14 @@ func (s *workerEnabledSuite) TestWorkerAcceptsBrokenRelease(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The address should stay in state.
-	ipAddr, err = s.State.IPAddress("0.1.2.3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
-
+	s.assertIPAddressLife(c, "0.1.2.3", state.Dead)
 	s.assertNoReleaseOp(c)
 
 	// Make ReleaseAddress work again, it must be cleaned up then.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		_, err := s.State.IPAddress("0.1.2.3")
-		if errors.IsNotFound(err) {
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("IP address not removed")
-		}
-	}
+	// The address should have been removed from state.
+	s.assertIPAddressRemoved(c, "0.1.2.3")
 }
 
 func (s *workerEnabledSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
@@ -303,9 +295,7 @@ func (s *workerEnabledSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 
 	// Ensure the alive address is not changed.
 	for a := common.ShortAttempt.Start(); a.Next(); {
-		err = ipAddr.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ipAddr.Life(), gc.Equals, state.Alive)
+		s.assertIPAddressLife(c, ipAddr.Value(), state.Alive)
 	}
 
 	err = machine.EnsureDead()
@@ -313,24 +303,14 @@ func (s *workerEnabledSuite) TestMachineRemovalTriggersWorker(c *gc.C) {
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = ipAddr.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.Life(), gc.Equals, state.Dead)
+	s.assertIPAddressLife(c, ipAddr.Value(), state.Dead)
 
 	// Wait for ReleaseAddress attempt.
 	op := s.waitForReleaseOp(c)
 	c.Assert(op, jc.DeepEquals, s.makeReleaseOp(9))
 
 	// The address should have been removed from state.
-	for a := common.ShortAttempt.Start(); a.Next(); {
-		_, err := s.State.IPAddress("0.1.2.9")
-		if errors.IsNotFound(err) {
-			break
-		}
-		if !a.HasNext() {
-			c.Fatalf("IP address not removed")
-		}
-	}
+	s.assertIPAddressRemoved(c, "0.1.2.9")
 }
 
 // workerEnabledSuite runs the test with the disabled address allocation.
@@ -349,9 +329,9 @@ func (s *workerDisabledSuite) SetUpTest(c *gc.C) {
 func (s *workerDisabledSuite) TestWorkerIgnoresAddresses(c *gc.C) {
 	// The worker must not kill these addresses.
 	for a := common.ShortAttempt.Start(); a.Next(); {
-		s.assertIPAddressLife(c, 3, state.Alive)
-		s.assertIPAddressLife(c, 4, state.Dead)
-		s.assertIPAddressLife(c, 5, state.Alive)
-		s.assertIPAddressLife(c, 6, state.Dead)
+		s.assertIPAddressLife(c, "0.1.2.3", state.Alive)
+		s.assertIPAddressLife(c, "0.1.2.4", state.Dead)
+		s.assertIPAddressLife(c, "0.1.2.5", state.Alive)
+		s.assertIPAddressLife(c, "0.1.2.6", state.Dead)
 	}
 }

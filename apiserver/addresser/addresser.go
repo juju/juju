@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -54,13 +55,13 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	config, err := api.st.EnvironConfig()
 	if err != nil {
 		err = errors.Annotate(err, "getting environment config")
-		result.Error = common.ServerError(errors.Trace(err))
+		result.Error = common.ServerError(err)
 		return result
 	}
 	env, err := environs.New(config)
 	if err != nil {
 		err = errors.Annotate(err, "validating environment config")
-		result.Error = common.ServerError(errors.Trace(err))
+		result.Error = common.ServerError(err)
 		return result
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
@@ -73,26 +74,26 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	ipAddresses, err := api.st.DeadIPAddresses()
 	if err != nil {
 		err = errors.Annotate(err, "getting dead addresses")
-		result.Error = common.ServerError(errors.Trace(err))
+		result.Error = common.ServerError(err)
 		return result
 	}
 	canRetry := false
 	for _, ipAddress := range ipAddresses {
-		logger.Debugf("releasing dead IP address %q", ipAddress.Value())
+		ipAddressValue := ipAddress.Value()
+		logger.Debugf("releasing dead IP address %q", ipAddressValue)
 		err := api.releaseIPAddress(netEnv, ipAddress)
 		if err != nil {
-			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddress.Value(), err)
+			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddressValue, err)
 			canRetry = true
 			continue
 		}
-		logger.Debugf("removing released IP address %q", ipAddress.Value())
+		logger.Debugf("removing released IP address %q", ipAddressValue)
 		err = ipAddress.Remove()
 		if errors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
-			logger.Warningf("failed to remove released IP address %q: %v (will retry)", ipAddress.Value(), err)
-			err = errors.Annotatef(err, "removing IP address %q", ipAddress.Value())
+			logger.Warningf("failed to remove released IP address %q: %v (will retry)", ipAddressValue, err)
 			canRetry = true
 			continue
 		}
@@ -101,6 +102,12 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 		result.Error = common.ServerError(common.ErrTryAgain)
 	}
 	return result
+}
+
+// netEnvReleaseAddress is used for testability.
+var netEnvReleaseAddress = func(env environs.NetworkingEnviron,
+	instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
+	return env.ReleaseAddress(instId, subnetId, addr, macAddress)
 }
 
 // releaseIPAddress releases one IP address.
@@ -113,7 +120,7 @@ func (api *AddresserAPI) releaseIPAddress(netEnv environs.NetworkingEnviron, ipA
 	}
 	// Now release the IP address.
 	subnetId := network.Id(ipAddress.SubnetId())
-	err = netEnv.ReleaseAddress(ipAddress.InstanceId(), subnetId, ipAddress.Address(), ipAddress.MACAddress())
+	err = netEnvReleaseAddress(netEnv, ipAddress.InstanceId(), subnetId, ipAddress.Address(), ipAddress.MACAddress())
 	if err != nil {
 		return errors.Trace(err)
 	}
