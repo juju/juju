@@ -169,7 +169,8 @@ func StartInstanceWithParams(
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
 	}
-	possibleTools, err := tools.FindTools(env, -1, -1, filter)
+	stream := tools.PreferredStream(&agentVersion, env.Config().Development(), env.Config().AgentStream())
+	possibleTools, err := tools.FindTools(env, -1, -1, stream, filter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
