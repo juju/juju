@@ -4,12 +4,16 @@
 package subnets_test
 
 import (
+	"errors"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/subnets"
+	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/names"
 )
 
 // SubnetsSuite tests the client side subnets API
@@ -44,4 +48,55 @@ func (s *SubnetsSuite) TestNewAPISuccess(c *gc.C) {
 func (s *SubnetsSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	panicFunc := func() { subnets.NewAPI(nil) }
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
+}
+
+func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) apitesting.CheckArgs {
+	spaceTag := names.NewSpaceTag(space).String()
+	subnetTag := names.NewSubnetTag(cidr).String()
+
+	expectArgs := params.AddSubnetsParams{
+		Subnets: []params.AddSubnetParams{
+			{
+				SpaceTag:         spaceTag,
+				SubnetTag:        subnetTag,
+				SubnetProviderId: providerId,
+				Zones:            zones,
+			}}}
+
+	expectResults := params.ErrorResults{}
+
+	args := apitesting.CheckArgs{
+		Facade:  "Subnets",
+		Method:  "AddSubnets",
+		Args:    expectArgs,
+		Results: expectResults,
+	}
+
+	return args
+}
+
+func (s *SpacesSuite) TestAddSubnet(c *gc.C) {
+	cidr := "1.1.1.0/24"
+	providerId := "foo"
+	space := "bar"
+	zones := []string{"foo", "bar"}
+	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
+	s.init(c, &args, nil)
+	results, err := s.api.AddSubnet(cidr, providerId, space, zones)
+	c.Assert(s.called, gc.Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, args.Results)
+}
+
+func (s *SpacesSuite) TestAddSubnetFails(c *gc.C) {
+	cidr := "1.1.1.0/24"
+	providerId := "foo"
+	space := "bar"
+	zones := []string{"foo", "bar"}
+	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
+	s.init(c, &args, errors.New("bang"))
+	results, err := s.api.AddSubnet(cidr, providerId, space, zones)
+	c.Check(s.called, gc.Equals, 1)
+	c.Assert(err, gc.ErrorMatches, "bang")
+	c.Assert(results, gc.DeepEquals, args.Results)
 }
