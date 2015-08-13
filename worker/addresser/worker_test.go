@@ -35,8 +35,8 @@ type workerSuite struct {
 	Worker  worker.Worker
 	OpsChan chan dummy.Operation
 
-	APIState *api.State
-	API      *apiaddresser.API
+	APIConnection api.Connection
+	API           *apiaddresser.API
 }
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
@@ -48,8 +48,8 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	// Unbreak dummy provider methods.
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
-	s.APIState, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	s.API = s.APIState.Addresser()
+	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	s.API = s.APIConnection.Addresser()
 
 	machineA, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	s.MachineA = machineA

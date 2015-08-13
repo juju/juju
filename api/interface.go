@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
@@ -165,6 +166,7 @@ type Connection interface {
 	Environment() *environment.Facade
 	Logger() *apilogger.State
 	KeyUpdater() *keyupdater.State
+	Addresser() *addresser.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
