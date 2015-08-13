@@ -67,3 +67,14 @@ func (api *API) CreateSubnet(cidr, space string, zones []string, vlanTag int) (p
 	err := api.facade.FacadeCall("CreateSubnets", params, &response)
 	return response, err
 }
+
+func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) (params.ListSubnetsResults, error) {
+	var response params.ListSubnetsResults
+	params := params.ListSubnetsParams{
+		Filters: []params.ListSubnetsFilterParams{
+			{SpaceTag: spaceTag.String(), Zone: zone},
+		},
+	}
+	err := api.facade.FacadeCall("ListSubnets", params, &response)
+	return response, err
+}

@@ -497,6 +497,23 @@ type SpaceResults struct {
 	Results []SpaceResult `json:"Results"`
 }
 
+// ListSubnetsResults holds the result of a ListSubnets API call.
+type ListSubnetsResults struct {
+	Results []Subnet `json:"Results"`
+}
+
+// ListSubnetsParams holds the arguments of a ListSubnets API call.
+type ListSubnetsParams struct {
+	Filters []ListSubnetsFilterParams `json:"Filters"`
+}
+
+// ListSubnetsFilterParams holds an optional Space Tag and Availability Zone
+// for filtering the subnets returned by a ListSubnets call.
+type ListSubnetsFilterParams struct {
+	SpaceTag string `json:"SpaceTag,omitempty"`
+	Zone     string `json:"Zone,omitempty"`
+}
+
 // AddSubnetsParams holds the arguments of AddSubnets API call.
 type AddSubnetsParams struct {
 	Subnets []AddSubnetParams `json:"Subnets"`
