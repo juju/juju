@@ -1,8 +1,10 @@
 from mock import patch
 import os
+from StringIO import StringIO
 from unittest import TestCase
 
 from publish_streams import (
+    get_remote_file,
     main,
     parse_args,
 )
@@ -27,3 +29,10 @@ class PublishStreamsTestCase(TestCase):
         p_mock.assert_called_with(
             'released', os.path.expanduser('~/juju-dist'),
             'aws', remote_root='testing', dry_run=False, verbose=False)
+
+    @patch('publish_streams.urllib2.urlopen', autospec=True)
+    def test_get_remote_file(self, uo_mock):
+        uo_mock.return_value = StringIO('data')
+        content = get_remote_file('http://foo/bar.json')
+        uo_mock.assert_called_with('http://foo/bar.json')
+        self.assertEqual('data', content)

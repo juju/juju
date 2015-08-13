@@ -6,6 +6,7 @@ from argparse import ArgumentParser
 import os
 import sys
 import traceback
+import urllib2
 
 
 AWS = "http://juju-dist.s3.amazonaws.com"
@@ -17,6 +18,16 @@ HP = (
     "https://region-a.geo-1.objects.hpcloudsvc.com"
     "/v1/60502529753910/juju-dist")
 JOYENT = "https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"
+
+
+def get_remote_file(url):
+    response = urllib2.urlopen(url)
+    content = response.read()
+    return content
+
+
+def verify(stream, location, cloud, remote_root=None):
+    return True, None
 
 
 def publish(stream, location, cloud,
@@ -37,7 +48,7 @@ def parse_args(args=None):
         '-r', '--remote-root', default=None,
         help='An alternate root to publish to such as testing or weekly.')
     parser.add_argument(
-        'stream', help='The agent-stream/tree to publish.',
+        'stream', help='The agent-stream to publish.',
         choices=['released', 'proposed', 'devel'])
     parser.add_argument(
         'location', type=os.path.expanduser,
