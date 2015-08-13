@@ -6,7 +6,11 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/errors"
+
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -20,6 +24,23 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 )
+
+// TODO(ericsnow) Switch to manifolds.
+
+type workerFactory func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error)
+
+var (
+	registeredWorkers = make(map[string]workerFactory)
+)
+
+// RegisterWorker adds the worker to the list of workers to start.
+func RegisterWorker(name string, newWorkerFunc workerFactory) error {
+	if _, ok := registeredWorkers[name]; ok {
+		return errors.Errorf("worker %q already registered", name)
+	}
+	registeredWorkers[name] = newWorkerFunc
+	return nil
+}
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {

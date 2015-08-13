@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
@@ -18,7 +17,6 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
@@ -31,23 +29,6 @@ import (
 var (
 	agentLogger = loggo.GetLogger("juju.jujud")
 )
-
-type unitAgentWorkerFactory func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error)
-
-var (
-	unitAgentWorkerNames []string
-	unitAgentWorkerFuncs = make(map[string]unitAgentWorkerFactory)
-)
-
-// RegisterUnitAgentWorker adds the worker to the list of workers to start.
-func RegisterUnitAgentWorker(name string, newWorkerFunc unitAgentWorkerFactory) error {
-	if _, ok := unitAgentWorkerFuncs[name]; ok {
-		return errors.Errorf("worker %q already registered", name)
-	}
-	unitAgentWorkerFuncs[name] = newWorkerFunc
-	unitAgentWorkerNames = append(unitAgentWorkerNames, name)
-	return nil
-}
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
