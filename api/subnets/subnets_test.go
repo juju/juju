@@ -75,6 +75,31 @@ func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) apitesti
 	return args
 }
 
+func makeCreateSubnetsArgs(cidr, space string, zones []string, isPublic bool) apitesting.CheckArgs {
+	spaceTag := names.NewSpaceTag(space).String()
+	subnetTag := names.NewSubnetTag(cidr).String()
+
+	expectArgs := params.CreateSubnetsParams{
+		Subnets: []params.CreateSubnetParams{
+			{
+				SpaceTag:  spaceTag,
+				SubnetTag: subnetTag,
+				Zones:     zones,
+				IsPublic:  isPublic,
+			}}}
+
+	expectResults := params.ErrorResults{}
+
+	args := apitesting.CheckArgs{
+		Facade:  "Subnets",
+		Method:  "CreateSubnets",
+		Args:    expectArgs,
+		Results: expectResults,
+	}
+
+	return args
+}
+
 func (s *SpacesSuite) TestAddSubnet(c *gc.C) {
 	cidr := "1.1.1.0/24"
 	providerId := "foo"
@@ -96,6 +121,32 @@ func (s *SpacesSuite) TestAddSubnetFails(c *gc.C) {
 	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
 	s.init(c, &args, errors.New("bang"))
 	results, err := s.api.AddSubnet(cidr, providerId, space, zones)
+	c.Check(s.called, gc.Equals, 1)
+	c.Assert(err, gc.ErrorMatches, "bang")
+	c.Assert(results, gc.DeepEquals, args.Results)
+}
+
+func (s *SpacesSuite) TestCreateSubnet(c *gc.C) {
+	cidr := "1.1.1.0/24"
+	space := "bar"
+	zones := []string{"foo", "bar"}
+	isPublic := true
+	args := makeCreateSubnetsArgs(cidr, space, zones, isPublic)
+	s.init(c, &args, nil)
+	results, err := s.api.CreateSubnet(cidr, space, zones, isPublic)
+	c.Assert(s.called, gc.Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, args.Results)
+}
+
+func (s *SpacesSuite) TestCreateSubnetFails(c *gc.C) {
+	cidr := "1.1.1.0/24"
+	isPublic := true
+	space := "bar"
+	zones := []string{"foo", "bar"}
+	args := makeCreateSubnetsArgs(cidr, space, zones, isPublic)
+	s.init(c, &args, errors.New("bang"))
+	results, err := s.api.CreateSubnet(cidr, space, zones, isPublic)
 	c.Check(s.called, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
 	c.Assert(results, gc.DeepEquals, args.Results)
