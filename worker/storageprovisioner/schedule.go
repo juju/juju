@@ -22,6 +22,9 @@ const maxRetryDelay = 30 * time.Minute
 // that operations with the same delay will be
 // batched together.
 func scheduleOperations(ctx *context, ops ...scheduleOp) {
+	if len(ops) == 0 {
+		return
+	}
 	now := ctx.time.Now()
 	for _, op := range ops {
 		k := op.key()

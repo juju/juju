@@ -189,24 +189,12 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 		}
 		return errors.Annotatef(result.Error, "getting volume information for volume %s", tag.Id())
 	}
-	if len(destroy)+len(remove) == 0 {
-		return nil
-	}
 	if len(destroy) > 0 {
-		errorResults, err := destroyVolumes(ctx, destroy)
-		if err != nil {
-			return errors.Annotate(err, "destroying volumes")
-		}
+		ops := make([]scheduleOp, len(destroy))
 		for i, tag := range destroy {
-			if err := errorResults[i]; err != nil {
-				// TODO(axw) we should update the volume's status
-				// rather than returning an error here, and attempt
-				// destroying again later.
-				return errors.Annotatef(err, "destroying %s", names.ReadableString(tag))
-			}
-			remove = append(remove, tag)
-			delete(ctx.volumes, tag)
+			ops[i] = &destroyVolumeOp{tag: tag}
 		}
+		scheduleOperations(ctx, ops...)
 	}
 	if err := removeEntities(ctx, remove); err != nil {
 		return errors.Annotate(err, "removing volumes from state")
@@ -428,14 +416,8 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			}
 		}
 	}
-	if len(reschedule) > 0 {
-		scheduleOperations(ctx, reschedule...)
-	}
-	if len(statuses) > 0 {
-		if err := ctx.statusSetter.SetStatus(statuses); err != nil {
-			logger.Errorf("failed to set status: %v", err)
-		}
-	}
+	scheduleOperations(ctx, reschedule...)
+	setStatus(ctx, statuses)
 	if len(volumes) == 0 {
 		return nil
 	}
@@ -525,14 +507,8 @@ func createVolumeAttachments(ctx *context, ops map[params.MachineStorageId]*atta
 			volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 		}
 	}
-	if len(reschedule) > 0 {
-		scheduleOperations(ctx, reschedule...)
-	}
-	if len(statuses) > 0 {
-		if err := ctx.statusSetter.SetStatus(statuses); err != nil {
-			logger.Errorf("failed to set status: %v", err)
-		}
-	}
+	scheduleOperations(ctx, reschedule...)
+	setStatus(ctx, statuses)
 	if err := setVolumeAttachmentInfo(ctx, volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
@@ -572,36 +548,60 @@ func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAtt
 	return nil
 }
 
-func destroyVolumes(ctx *context, tags []names.VolumeTag) ([]error, error) {
+func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) error {
+	tags := make([]names.VolumeTag, 0, len(ops))
+	for tag := range ops {
+		tags = append(tags, tag)
+	}
 	volumeParams, err := volumeParams(ctx, tags)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
 		ctx.environConfig, ctx.storageDir, volumeParams,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	var allErrs []error
-	for sourceName, params := range paramsBySource {
-		logger.Debugf("destroying volumes from %q: %v", sourceName, params)
+	var remove []names.Tag
+	var reschedule []scheduleOp
+	var statuses []params.EntityStatus
+	for sourceName, volumeParams := range paramsBySource {
+		logger.Debugf("destroying volumes from %q: %v", sourceName, volumeParams)
 		volumeSource := volumeSources[sourceName]
-		volumeIds := make([]string, len(params))
-		for i, params := range params {
-			volume, ok := ctx.volumes[params.Tag]
+		volumeIds := make([]string, len(volumeParams))
+		for i, volumeParams := range volumeParams {
+			volume, ok := ctx.volumes[volumeParams.Tag]
 			if !ok {
-				return nil, errors.NotFoundf("volume %s", params.Tag.Id())
+				return errors.NotFoundf("volume %s", volumeParams.Tag.Id())
 			}
 			volumeIds[i] = volume.VolumeId
 		}
 		errs, err := volumeSource.DestroyVolumes(volumeIds)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
-		allErrs = append(allErrs, errs...)
+		for i, err := range errs {
+			tag := volumeParams[i].Tag
+			if err == nil {
+				remove = append(remove, tag)
+				continue
+			}
+			// Failed to destroy volume; reschedule and update status.
+			reschedule = append(reschedule, ops[tag])
+			statuses = append(statuses, params.EntityStatus{
+				Tag:    tag.String(),
+				Status: params.StatusDestroying,
+				Info:   err.Error(),
+			})
+		}
 	}
-	return allErrs, nil
+	scheduleOperations(ctx, reschedule...)
+	setStatus(ctx, statuses)
+	if err := removeEntities(ctx, remove); err != nil {
+		return errors.Annotate(err, "removing volumes from state")
+	}
+	return nil
 }
 
 // volumeParams obtains the specified volumes' parameters.
@@ -845,6 +845,15 @@ type createVolumeOp struct {
 
 func (op *createVolumeOp) key() interface{} {
 	return op.args.Tag
+}
+
+type destroyVolumeOp struct {
+	exponentialBackoff
+	tag names.VolumeTag
+}
+
+func (op *destroyVolumeOp) key() interface{} {
+	return op.tag
 }
 
 type attachVolumeOp struct {

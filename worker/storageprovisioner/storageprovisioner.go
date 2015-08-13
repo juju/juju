@@ -403,6 +403,7 @@ func processPending(ctx *context) error {
 func processSchedule(ctx *context) error {
 	ready := ctx.schedule.Ready(ctx.time.Now())
 	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
+	destroyVolumeOps := make(map[names.VolumeTag]*destroyVolumeOp)
 	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
 	for _, item := range ready {
 		op := item.(scheduleOp)
@@ -410,8 +411,15 @@ func processSchedule(ctx *context) error {
 		switch op := op.(type) {
 		case *createVolumeOp:
 			createVolumeOps[key.(names.VolumeTag)] = op
+		case *destroyVolumeOp:
+			destroyVolumeOps[key.(names.VolumeTag)] = op
 		case *attachVolumeOp:
 			attachVolumeOps[key.(params.MachineStorageId)] = op
+		}
+	}
+	if len(destroyVolumeOps) > 0 {
+		if err := destroyVolumes(ctx, destroyVolumeOps); err != nil {
+			return errors.Annotate(err, "destroying volumes")
 		}
 	}
 	if len(createVolumeOps) > 0 {
