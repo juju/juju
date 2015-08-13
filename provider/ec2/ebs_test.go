@@ -76,14 +76,14 @@ func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.srv.startServer(c)
-	s.Tests.SetUpTest(c)
 	s.PatchValue(&version.Current, version.Binary{
-		Number: version.Current.Number,
+		Number: testing.FakeVersionNumber,
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+	s.BaseSuite.SetUpTest(c)
+	s.srv.startServer(c)
+	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
 }
 

@@ -77,7 +77,7 @@ func registerLocalTests() {
 		TenantName: "some tenant",
 	}
 	config := makeTestConfig(cred)
-	config["agent-version"] = version.Current.Number.String()
+	config["agent-version"] = coretesting.FakeVersionNumber.String()
 	config["authorized-keys"] = "fakekey"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
@@ -229,6 +229,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	s.env = s.Prepare(c)
@@ -1123,7 +1124,7 @@ func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
 
 func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{} {
 	attrs := makeTestConfig(s.cred)
-	attrs["agent-version"] = version.Current.Number.String()
+	attrs["agent-version"] = coretesting.FakeVersionNumber.String()
 	attrs["authorized-keys"] = "fakekey"
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
@@ -1145,6 +1146,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -1754,10 +1756,10 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"region":          s.cred.Region,
 		"auth-url":        s.cred.URL,
 		"tenant-name":     s.cred.TenantName,
-		"agent-version":   version.Current.Number.String(),
+		"agent-version":   coretesting.FakeVersionNumber.String(),
 		"authorized-keys": "fakekey",
 	})
-
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	// Serve fake tools and image metadata using "filestorage",
 	// rather than Swift as the rest of the tests do.
 	storageDir := c.MkDir()

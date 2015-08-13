@@ -55,6 +55,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 }
 

@@ -80,6 +80,7 @@ func configGetter(c *gc.C) configFunc {
 }
 
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
 	env := &mockEnviron{
@@ -124,6 +125,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
