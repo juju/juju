@@ -513,6 +513,20 @@ type AddSubnetParams struct {
 	Zones            []string `json:"Zones,omitempty"`
 }
 
+// CreateSubnetsParams holds the arguments of CreateSubnets API call.
+type CreateSubnetsParams struct {
+	Subnets []CreateSubnetParams `json:"Subnets"`
+}
+
+// CreateSubnetParams holds a subnet and space tags, vlan tag,
+// and a list of zones to associate the subnet to.
+type CreateSubnetParams struct {
+	SubnetTag string   `json:"SubnetTag,omitempty"`
+	SpaceTag  string   `json:"SpaceTag"`
+	Zones     []string `json:"Zones,omitempty"`
+	VLANTag   int      `json:"VLANTag,omitempty"`
+}
+
 // CreateSpacesParams olds the arguments of the AddSpaces API call.
 type CreateSpacesParams struct {
 	Spaces []CreateSpaceParams `json:"Spaces"`
