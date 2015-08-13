@@ -506,6 +506,9 @@ type VolumeInstance struct {
 	// UnitTag is the tag of the unit attached to storage instance
 	// for this volume.
 	UnitTag string `json:"unit,omitempty"`
+
+	// Status contains the current status of the volume.
+	Status EntityStatus `json:"status"`
 }
 
 // VolumeItem contain volume, its attachments
