@@ -110,7 +110,7 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 
 // setStatus sets the given entity statuses, if any. If setting
 // the status fails the error is logged but otherwise ignored.
-func setStatus(ctx *context, statuses []params.EntityStatus) {
+func setStatus(ctx *context, statuses []params.EntityStatusArgs) {
 	if len(statuses) > 0 {
 		if err := ctx.statusSetter.SetStatus(statuses); err != nil {
 			logger.Errorf("failed to set status: %v", err)

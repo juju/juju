@@ -27,7 +27,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 	var reschedule []scheduleOp
 	var volumes []storage.Volume
 	var volumeAttachments []storage.VolumeAttachment
-	var statuses []params.EntityStatus
+	var statuses []params.EntityStatusArgs
 	for sourceName, volumeParams := range paramsBySource {
 		logger.Debugf("creating volumes: %v", volumeParams)
 		volumeSource := volumeSources[sourceName]
@@ -36,7 +36,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
 		}
 		for i, result := range results {
-			statuses = append(statuses, params.EntityStatus{
+			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
 				Status: params.StatusAttaching,
 			})
@@ -116,7 +116,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 	}
 	var reschedule []scheduleOp
 	var volumeAttachments []storage.VolumeAttachment
-	var statuses []params.EntityStatus
+	var statuses []params.EntityStatusArgs
 	for sourceName, volumeAttachmentParams := range paramsBySource {
 		logger.Debugf("attaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
@@ -126,7 +126,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 		}
 		for i, result := range results {
 			p := volumeAttachmentParams[i]
-			statuses = append(statuses, params.EntityStatus{
+			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Volume.String(),
 				Status: params.StatusAttached,
 			})
@@ -182,7 +182,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 	}
 	var remove []names.Tag
 	var reschedule []scheduleOp
-	var statuses []params.EntityStatus
+	var statuses []params.EntityStatusArgs
 	for sourceName, volumeParams := range paramsBySource {
 		logger.Debugf("destroying volumes from %q: %v", sourceName, volumeParams)
 		volumeSource := volumeSources[sourceName]
@@ -206,7 +206,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 			}
 			// Failed to destroy volume; reschedule and update status.
 			reschedule = append(reschedule, ops[tag])
-			statuses = append(statuses, params.EntityStatus{
+			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
 				Status: params.StatusDestroying,
 				Info:   err.Error(),
@@ -234,7 +234,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 		return errors.Trace(err)
 	}
 	var reschedule []scheduleOp
-	var statuses []params.EntityStatus
+	var statuses []params.EntityStatusArgs
 	var remove []params.MachineStorageId
 	for sourceName, volumeAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching volumes: %+v", volumeAttachmentParams)
@@ -245,7 +245,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 		}
 		for i, err := range errs {
 			p := volumeAttachmentParams[i]
-			statuses = append(statuses, params.EntityStatus{
+			statuses = append(statuses, params.EntityStatusArgs{
 				Tag: p.Volume.String(),
 				// TODO(axw) when we support multiple
 				// attachment, we'll have to check if

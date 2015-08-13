@@ -339,8 +339,16 @@ type InstancesInfo struct {
 	Machines []InstanceInfo
 }
 
-// EntityStatus holds an entity tag, status and extra info.
+// EntityStatus holds the status of an entity.
 type EntityStatus struct {
+	Status Status
+	Info   string
+	Data   map[string]interface{}
+	Since  *time.Time
+}
+
+// EntityStatus holds parameters for setting the status of a single entity.
+type EntityStatusArgs struct {
 	Tag    string
 	Status Status
 	Info   string
@@ -349,7 +357,7 @@ type EntityStatus struct {
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
-	Entities []EntityStatus
+	Entities []EntityStatusArgs
 }
 
 // InstanceStatus holds an entity tag and instance status.
