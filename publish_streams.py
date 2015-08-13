@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import difflib
 import os
 import sys
 import traceback
@@ -24,6 +25,17 @@ def get_remote_file(url):
     response = urllib2.urlopen(url)
     content = response.read()
     return content
+
+
+def diff_files(local, url):
+    with open(local, 'r') as f:
+        local_lines = f.read().splitlines()
+    remote_lines = get_remote_file(url).splitlines()
+    diff_gen = difflib.unified_diff(local_lines, remote_lines, local, url)
+    diff = '\n'.join([l for l in diff_gen])
+    if diff:
+        return False, diff
+    return True, None
 
 
 def verify(stream, location, cloud, remote_root=None):

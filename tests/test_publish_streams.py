@@ -4,10 +4,13 @@ from StringIO import StringIO
 from unittest import TestCase
 
 from publish_streams import (
+    diff_files,
     get_remote_file,
     main,
     parse_args,
 )
+
+from utils import temp_dir
 
 
 class PublishStreamsTestCase(TestCase):
@@ -36,3 +39,8 @@ class PublishStreamsTestCase(TestCase):
         content = get_remote_file('http://foo/bar.json')
         uo_mock.assert_called_with('http://foo/bar.json')
         self.assertEqual('data', content)
+
+    @patch('publish_streams.get_remote_file', autospec=True)
+    def test_diff_files(self, gr_mock):
+        with temp_dir() as base:
+            identical, diff = diff_files()
