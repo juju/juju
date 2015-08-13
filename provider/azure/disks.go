@@ -23,7 +23,9 @@ const (
 
 const (
 	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for Azure disks.
-	volumeSizeMaxGiB = 1023 // 1023 GiB
+	//
+	// See: https://azure.microsoft.com/en-gb/documentation/articles/virtual-machines-disks-vhds/
+	volumeSizeMaxGiB = 1023
 )
 
 // azureStorageProvider is a storage provider for Azure disks.

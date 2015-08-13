@@ -5,6 +5,7 @@ package azure
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net/http"
 
 	"github.com/juju/names"
@@ -16,7 +17,10 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-const mediaLinkPrefix = "https://account-name.blob.core.windows.net/vhds/deadbeef-0bad-400d-8000-4b1d0d06f00d/"
+var mediaLinkPrefix = fmt.Sprintf(
+	"https://account-name.blob.core.windows.net/vhds/%s/",
+	testing.EnvironmentTag.Id(),
+)
 
 type storageProviderSuite struct {
 	testing.BaseSuite
@@ -44,22 +48,6 @@ var _ = gc.Suite(&azureVolumeSuite{})
 
 type azureVolumeSuite struct {
 	testing.BaseSuite
-}
-
-func (s *azureVolumeSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *azureVolumeSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *azureVolumeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *azureVolumeSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *azureVolumeSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.VolumeSource {
