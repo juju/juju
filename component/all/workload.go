@@ -15,7 +15,7 @@ import (
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
-	"github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -199,7 +199,7 @@ func (c workloads) registerWorkers() map[string]*workers.EventHandlers {
 
 		return newWorker, nil
 	}
-	err := agent.RegisterUnitAgentWorker(workload.ComponentName, newWorkerFunc)
+	err := unit.RegisterWorker(workload.ComponentName, newWorkerFunc)
 	if err != nil {
 		panic(err)
 	}

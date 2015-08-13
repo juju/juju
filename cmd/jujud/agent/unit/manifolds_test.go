@@ -4,19 +4,76 @@
 package unit_test
 
 import (
+	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 type ManifoldsSuite struct {
 	testing.BaseSuite
+
+	stub *gitjujutesting.Stub
 }
 
 var _ = gc.Suite(&ManifoldsSuite{})
+
+func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	s.stub = &gitjujutesting.Stub{}
+}
+
+func (s *ManifoldsSuite) TearDownTest(c *gc.C) {
+	for name := range unit.RegisteredWorkers {
+		delete(unit.RegisteredWorkers, name)
+	}
+
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *ManifoldsSuite) newWorkerFunc(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
+	s.stub.AddCall("newWorkerFunc", unit, caller, runner)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return func() (worker.Worker, error) {
+		s.stub.AddCall("newWorker")
+		if err := s.stub.NextErr(); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		loop := func(<-chan struct{}) error {
+			s.stub.AddCall("loop")
+			if err := s.stub.NextErr(); err != nil {
+				return errors.Trace(err)
+			}
+
+			return nil
+		}
+		return worker.NewSimpleWorker(loop), nil
+	}, nil
+}
+
+func (s *ManifoldsSuite) TestRegisterWorker(c *gc.C) {
+	err := unit.RegisterWorker("spam", s.newWorkerFunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We can't compare functions so we jump through hoops instead.
+	c.Check(unit.RegisteredWorkers, gc.HasLen, 1)
+	registered := unit.RegisteredWorkers["spam"]
+	newWorker, err := registered("a-service/0", nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	newWorker()
+	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorker")
+}
 
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	manifolds := unit.Manifolds(unit.ManifoldsConfig{
