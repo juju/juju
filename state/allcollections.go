@@ -304,11 +304,7 @@ func allCollections() collectionSchema {
 		},
 
 		// This collection holds information about custom cloud image metadata.
-		cloudimagemetadataC: {
-			indexes: []mgo.Index{{
-				Key: []string{"env-uuid"},
-			}},
-		},
+		cloudimagemetadataC: {},
 
 		// ----------------------
 
