@@ -128,6 +128,20 @@ func (engine *engine) Install(name string, manifold Manifold) error {
 	}
 }
 
+// Report grabs status information about the engine.
+func (engine *engine) Report() map[string]interface{} {
+	status := map[string]interface{}{}
+	manifolds := map[string]interface{}{}
+
+	status["is-dying"] = engine.isDying()
+	status["manifold-count"] = len(engine.manifolds)
+	for k, v := range engine.manifolds {
+		manifolds[k] = v.Report()
+	}
+	status["manifolds"] = manifolds
+	return status
+}
+
 // gotInstall handles the params originally supplied to Install. It must only be
 // called from the loop goroutine.
 func (engine *engine) gotInstall(name string, manifold Manifold) error {

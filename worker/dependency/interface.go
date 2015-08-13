@@ -20,6 +20,8 @@ type Engine interface {
 
 	// Engine is just another Worker.
 	worker.Worker
+
+	Reporter
 }
 
 // Manifold defines the behaviour of a node in an Engine's dependency graph. It's
@@ -36,10 +38,20 @@ type Manifold struct {
 	// Start is used to create a worker for the manifold. It must not be nil.
 	Start StartFunc
 
+	// Report is used to return status information about the manifold.
+	Reporter ReportFunc
+
 	// Output is used to implement a GetResourceFunc for manifolds that declare
 	// a dependency on this one; it can be nil if your manifold is a leaf node,
 	// or if it exposes no services to its dependents.
 	Output OutputFunc
+}
+
+func (m *Manifold) Report() map[string]interface{} {
+	if m.Reporter != nil {
+		return m.Reporter()
+	}
+	return nil
 }
 
 // Manifolds conveniently represents several Manifolds.
@@ -89,3 +101,6 @@ type OutputFunc func(in worker.Worker, out interface{}) error
 // an error that satisfies the engine's IsFatalFunc, the engine will stop all
 // its workers, shut itself down, and return the original fatal error via Wait().
 type IsFatalFunc func(err error) bool
+
+// ReportFunc is used to return status information about the manifold.
+type ReportFunc func() map[string]interface{}
