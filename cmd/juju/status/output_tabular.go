@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 // FormatTabular returns a tabular summary of machines, services, and
@@ -37,7 +38,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	units := make(map[string]unitStatus)
 	p("[Services]")
 	p("NAME\tSTATUS\tEXPOSED\tCHARM")
-	for _, svcName := range sortStringsNaturally(stringKeysFromMap(fs.Services)) {
+	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Services)) {
 		svc := fs.Services[svcName]
 		for un, u := range svc.Units {
 			units[un] = u
@@ -81,7 +82,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	p("\n[Units]")
 	p(strings.Join(header, "\t"))
-	for _, name := range sortStringsNaturally(stringKeysFromMap(units)) {
+	for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
 		const indentationLevel = 1
@@ -91,7 +92,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	p("\n[Machines]")
 	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
-	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
+	for _, name := range common.SortStringsNaturally(stringKeysFromMap(fs.Machines)) {
 		m := fs.Machines[name]
 		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
 	}

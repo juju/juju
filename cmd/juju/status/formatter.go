@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -144,7 +145,7 @@ func (sf *statusFormatter) getServiceStatusInfo(service params.ServiceStatus) st
 		Version: service.Status.Version,
 	}
 	if service.Status.Since != nil {
-		info.Since = formatStatusTime(service.Status.Since, sf.isoTime)
+		info.Since = common.FormatTime(service.Status.Since, sf.isoTime)
 	}
 	return info
 }
@@ -205,7 +206,7 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusI
 		Version: unit.Workload.Version,
 	}
 	if unit.Workload.Since != nil {
-		info.Since = formatStatusTime(unit.Workload.Since, sf.isoTime)
+		info.Since = common.FormatTime(unit.Workload.Since, sf.isoTime)
 	}
 	return info
 }
@@ -218,7 +219,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 		Version: unit.UnitAgent.Version,
 	}
 	if unit.UnitAgent.Since != nil {
-		info.Since = formatStatusTime(unit.UnitAgent.Since, sf.isoTime)
+		info.Since = common.FormatTime(unit.UnitAgent.Since, sf.isoTime)
 	}
 	return info
 }

@@ -10,11 +10,12 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/juju/osenv"
-	"launchpad.net/gnuflag"
 )
 
 type StatusHistoryCommand struct {
@@ -102,7 +103,7 @@ func (c *StatusHistoryCommand) Run(ctx *cmd.Context) error {
 	table := [][]string{{"TIME", "TYPE", "STATUS", "MESSAGE"}}
 	lengths := []int{1, 1, 1, 1}
 	for _, v := range statuses.Statuses {
-		fields := []string{formatStatusTime(v.Since, c.isoTime), string(v.Kind), string(v.Status), v.Info}
+		fields := []string{common.FormatTime(v.Since, c.isoTime), string(v.Kind), string(v.Status), v.Info}
 		for k, v := range fields {
 			if len(v) > lengths[k] {
 				lengths[k] = len(v)
