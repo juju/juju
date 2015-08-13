@@ -59,9 +59,16 @@ func (s *funcMetadataSuite) TestSearchCriteriaWithStorageType(c *gc.C) {
 }
 
 func (s *funcMetadataSuite) TestSearchCriteriaWithStorageSize(c *gc.C) {
-	// There should be no size in criteria. In this case, criteria must be empty.
+	// There should be no size in criteria - criteria must be empty.
 	s.assertSearchCriteriaBuilt(c,
 		cloudimagemetadata.MetadataAttributes{RootStorageSize: 0},
+		nil)
+}
+
+func (s *funcMetadataSuite) TestSearchCriteriaWithSource(c *gc.C) {
+	// There should be no source in criteria - criteria must be empty.
+	s.assertSearchCriteriaBuilt(c,
+		cloudimagemetadata.MetadataAttributes{Source: cloudimagemetadata.SourceType("source")},
 		nil)
 }
 

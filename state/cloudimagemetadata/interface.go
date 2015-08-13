@@ -5,18 +5,37 @@ package cloudimagemetadata
 
 // MetadataAttributes contains cloud image metadata attributes.
 type MetadataAttributes struct {
-	Stream          string
-	Region          string
-	Series          string
-	Arch            string
-	VirtualType     string
+	// Stream contains reference to a particular stream,
+	// for e.g. "daily" or "released"
+	Stream string
+
+	// Region is the name of cloud region associated with the image.
+	Region string
+
+	// Series is Os version, for e.g. "quantal".
+	Series string
+
+	// Arch is the architecture for this cloud image, for e.g. "amd64"
+	Arch string
+
+	// VirtualType contains the type of the cloud image, for e.g. "pv", "hvm". "kvm".
+	VirtualType string
+
+	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string
+
+	// RootStorageSize contains size of root storage in gigabytes (GB).
 	RootStorageSize uint64
+
+	// Source describes where this image is coming from: is it public? custom?
+	Source SourceType
 }
 
 // Metadata describes a cloud image metadata.
 type Metadata struct {
 	MetadataAttributes
+
+	// ImageId contains image identifier.
 	ImageId string
 }
 

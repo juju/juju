@@ -116,6 +116,36 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{Region: "region"}, expected...)
 }
 
+func (s *cloudImageMetadataSuite) TestFindMetadataSourceOrder(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region",
+		Series:          "series",
+		Arch:            "arch",
+		VirtualType:     "virtualType",
+		RootStorageType: "rootStorageType",
+		Source:          cloudimagemetadata.Public,
+	}
+
+	_, err := s.storage.FindMetadata(attrs)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// save public
+	m := cloudimagemetadata.Metadata{attrs, "1"}
+	s.assertRecordMetadata(c, m)
+
+	// save custom
+	attrs.Source = cloudimagemetadata.Custom
+	m = cloudimagemetadata.Metadata{attrs, "2"}
+	s.assertRecordMetadata(c, m)
+
+	all, err := s.storage.FindMetadata(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 2)
+	// First one must always be custom one
+	c.Assert(all[0].Source, gc.DeepEquals, cloudimagemetadata.Custom)
+}
+
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
@@ -150,7 +180,6 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 	c.Assert(all, jc.SameContents, []cloudimagemetadata.Metadata{
 		metadata1,
 	})
-
 }
 
 func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrently(c *gc.C) {
@@ -180,8 +209,6 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataDiffImageConcurrently(c *g
 	metadata0 := cloudimagemetadata.Metadata{attrs, "0"}
 	metadata1 := cloudimagemetadata.Metadata{attrs, "1"}
 
-	// TODO (anastasiamac 2015-08-5)
-	// There should be only 1 image metadata for an attribute set, not 2 as currently.
 	s.assertConcurrentSave(c,
 		metadata0, // add this one
 		metadata1, // overwrite it with this one
@@ -201,6 +228,26 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageConcurrently(c *g
 		metadata0, // add this one
 		metadata0, // add it again
 		metadata0, // varify only one is in the list
+	)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageDiffSourceConcurrently(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream: "stream",
+		Series: "series",
+		Arch:   "arch",
+		Source: cloudimagemetadata.Public,
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, "0"}
+
+	attrs.Source = cloudimagemetadata.Custom
+	metadata1 := cloudimagemetadata.Metadata{attrs, "0"}
+
+	s.assertConcurrentSave(c,
+		metadata0,
+		metadata1,
+		metadata0,
+		metadata1,
 	)
 }
 

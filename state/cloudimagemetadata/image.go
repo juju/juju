@@ -4,11 +4,13 @@
 package cloudimagemetadata
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -40,57 +42,58 @@ func NewStorage(
 var emptyMetadata = Metadata{}
 
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
-// If desired metadata
-//     * does not exist - we insert it;
-//     * exists         - we delete the old record and insert a new one.
 func (s *storage) SaveMetadata(metadata Metadata) error {
 	newDoc := s.mongoDoc(metadata)
 
-	insertOp := txn.Op{
-		C:      s.collection,
-		Id:     newDoc.ImageId,
-		Assert: txn.DocMissing,
-		Insert: &newDoc,
-	}
-
-	removeOp := func(imageId string) txn.Op {
-		return txn.Op{
-			C:      s.collection,
-			Id:     imageId,
-			Assert: txn.DocExists,
-			Remove: true,
-		}
-	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Check if this image metadata is already known.
-		all, err := s.FindMetadata(metadata.MetadataAttributes)
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, errors.Trace(err)
-			}
+		op := txn.Op{
+			C:  s.collection,
+			Id: newDoc.Id,
 		}
 
-		if len(all) > 0 {
-			logger.Debugf("updating metadata for cloud image %v", newDoc.ImageId)
-			// More than one metadata is not expected, but is not lethal:
-			// let's delete them all.
-			txns := make([]txn.Op, len(all)+1)
-			for i, one := range all {
-				txns[i] = removeOp(one.ImageId)
-			}
-			txns[len(all)] = insertOp
-			return txns, nil
+		// Check if this image metadata is already known.
+		existing, err := s.getMetadata(newDoc.Id)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		logger.Debugf("inserting metadata for cloud image %v", newDoc.ImageId)
-		return []txn.Op{insertOp}, nil
+		if existing.MetadataAttributes == metadata.MetadataAttributes {
+			// may need to updated imageId
+			if existing.ImageId != metadata.ImageId {
+				op.Assert = txn.DocExists
+				op.Update = bson.D{{"$set", bson.D{{"image_id", metadata.ImageId}}}}
+				logger.Debugf("updating cloud image id for metadata %v", newDoc.Id)
+			} else {
+				return nil, jujutxn.ErrNoOperations
+			}
+		} else {
+			op.Assert = txn.DocMissing
+			op.Insert = &newDoc
+			logger.Debugf("inserting cloud image metadata for %v", newDoc.Id)
+		}
+		return []txn.Op{op}, nil
 	}
 
 	err := s.runTransaction(buildTxn)
 	if err != nil {
+		fmt.Printf("\n IS NO OP? %t (%v)\n", err == jujutxn.ErrNoOperations, err)
 		return errors.Annotatef(err, "cannot save metadata for cloud image %v", newDoc.ImageId)
 	}
 	return nil
+}
+
+func (s *storage) getMetadata(id string) (Metadata, error) {
+	coll, closer := s.getCollection(s.collection)
+	defer closer()
+
+	var old imagesMetadataDoc
+	err := coll.Find(bson.D{{"_id", id}}).One(&old)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return emptyMetadata, nil
+		}
+		return emptyMetadata, errors.Trace(err)
+	}
+	return old.metadata(), nil
 }
 
 // FindMetadata implements Storage.FindMetadata.
@@ -101,7 +104,7 @@ func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) 
 
 	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
-	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {
+	if err := coll.Find(searchCriteria).Sort("source", "date_created").All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(docs) == 0 {
@@ -141,8 +144,8 @@ func buildSearchClauses(criteria MetadataAttributes) bson.D {
 		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
 	}
 
-	// Size is not a discriminating attribute for cloud image metadata.
-	// It is not included in search criteria.
+	// Size and source are not discriminating attributes for cloud image metadata.
+	// They are not included in search criteria.
 
 	if len(all.Map()) == 0 {
 		return nil
@@ -156,8 +159,13 @@ type imagesMetadataDoc struct {
 	// EnvUUID is the environment identifier.
 	EnvUUID string `bson:"env-uuid"`
 
-	// ImageId contains unique natural key for cloud image metadata - an image id.
-	ImageId string `bson:"_id"`
+	// Id contains unique key for cloud image metadata.
+	// This is an amalgamation of all deterministic metadata attributes to ensure
+	// that there can be a public and custom image for the same attributes set.
+	Id string `bson:"_id"`
+
+	// ImageId is an image identifier.
+	ImageId string `bson:"image_id"`
 
 	// Stream contains reference to a particular stream,
 	// for e.g. "daily" or "released"
@@ -178,12 +186,26 @@ type imagesMetadataDoc struct {
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string `bson:"root_storage_type,omitempty"`
 
-	// RootStorageSize contains size of root storage in MB.
+	// RootStorageSize contains size of root storage in gigabytes (GB).
 	RootStorageSize uint64 `bson:"root_storage_size"`
 
 	// DateCreated is the date/time when this doc was created
 	DateCreated time.Time `bson:"date_created"`
+
+	// Source describes where this image is coming from: is it public? custom?
+	Source SourceType `bson:"source"`
 }
+
+// SourceType values define source type.
+type SourceType string
+
+const (
+	// Public type identifies image as public.
+	Public SourceType = "public"
+
+	// Custom type identifies image as custom.
+	Custom SourceType = "custom"
+)
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	return Metadata{
@@ -194,7 +216,8 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
 			RootStorageSize: m.RootStorageSize,
-			VirtualType:     m.VirtualType},
+			VirtualType:     m.VirtualType,
+			Source:          m.Source},
 		m.ImageId,
 	}
 }
@@ -202,6 +225,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 	return imagesMetadataDoc{
 		EnvUUID:         s.envuuid,
+		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,
 		Series:          m.Series,
@@ -211,5 +235,17 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		RootStorageSize: m.RootStorageSize,
 		ImageId:         m.ImageId,
 		DateCreated:     time.Now(),
+		Source:          m.Source,
 	}
+}
+
+func buildKey(m Metadata) string {
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s",
+		m.Stream,
+		m.Region,
+		m.Series,
+		m.Arch,
+		m.VirtualType,
+		m.RootStorageType,
+		m.Source)
 }
