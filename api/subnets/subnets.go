@@ -48,10 +48,7 @@ func (api *API) AddSubnet(cidr, providerId, space string, zones []string) (param
 	return response, err
 }
 
-// XXX The call to CreateSubnet in cmd/juju/subnets/create.go passes an
-// undocumented (as in not in the network model doc) "public" flag and doesn't
-// pass vlanTag.
-func (api *API) CreateSubnet(cidr, space string, zones []string, vlanTag int) (params.ErrorResults, error) {
+func (api *API) CreateSubnet(cidr, space string, zones []string, isPublic bool) (params.ErrorResults, error) {
 	var response params.ErrorResults
 	spaceTag := names.NewSpaceTag(space).String()
 	subnetTag := names.NewSubnetTag(cidr).String()
@@ -61,7 +58,7 @@ func (api *API) CreateSubnet(cidr, space string, zones []string, vlanTag int) (p
 				SubnetTag: subnetTag,
 				SpaceTag:  spaceTag,
 				Zones:     zones,
-				VLANTag:   vlanTag,
+				IsPublic:  isPublic,
 			}},
 	}
 	err := api.facade.FacadeCall("CreateSubnets", params, &response)

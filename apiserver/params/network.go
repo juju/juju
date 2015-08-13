@@ -542,6 +542,7 @@ type CreateSubnetParams struct {
 	SpaceTag  string   `json:"SpaceTag"`
 	Zones     []string `json:"Zones,omitempty"`
 	VLANTag   int      `json:"VLANTag,omitempty"`
+	IsPublic  bool     `json:"IsPublic"`
 }
 
 // CreateSpacesParams olds the arguments of the AddSpaces API call.

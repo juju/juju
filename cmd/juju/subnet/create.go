@@ -81,6 +81,8 @@ func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 // arguments for sanity and sets up the command to run.
 func (c *CreateCommand) Init(args []string) error {
 	// Ensure we have at least 3 arguments.
+	// TODO:(mfoord) we need to support VLANTag as an additional optional
+	// argument.
 	err := c.CheckNumArgs(args, []error{errNoCIDR, errNoSpace, errNoZones})
 	if err != nil {
 		return err
