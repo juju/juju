@@ -15,16 +15,23 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.dependency")
 
+// EngineConfig defines the parameters needed to create a new engine.
+type EngineConfig struct {
+	IsFatal     IsFatalFunc
+	ErrorDelay  time.Duration
+	BounceDelay time.Duration
+}
+
 // NewEngine returns an Engine that will maintain any installed Manifolds until
 // either the engine is stopped or one of the manifolds' workers returns an error
 // that satisfies isFatal. The caller takes responsibility for the returned Engine:
 // it's responsible for Kill()ing the Engine when no longer used, and must handle
 // any error from Wait().
-func NewEngine(isFatal IsFatalFunc, errorDelay, bounceDelay time.Duration) Engine {
+func NewEngine(config EngineConfig) Engine {
 	engine := &engine{
-		isFatal:     isFatal,
-		errorDelay:  errorDelay,
-		bounceDelay: bounceDelay,
+		isFatal:     config.IsFatal,
+		errorDelay:  config.ErrorDelay,
+		bounceDelay: config.BounceDelay,
 
 		manifolds:  map[string]Manifold{},
 		dependents: map[string][]string{},

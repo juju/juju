@@ -34,7 +34,13 @@ func (s *EngineSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *EngineSuite) startEngine(c *gc.C, isFatal dependency.IsFatalFunc) {
-	s.engine = dependency.NewEngine(isFatal, coretesting.ShortWait/2, coretesting.ShortWait/10)
+	config := dependency.EngineConfig{
+		IsFatal:     isFatal,
+		ErrorDelay:  coretesting.ShortWait / 2,
+		BounceDelay: coretesting.ShortWait / 10,
+	}
+
+	s.engine = dependency.NewEngine(config)
 }
 
 func (s *EngineSuite) stopEngine(c *gc.C) {
