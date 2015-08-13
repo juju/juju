@@ -4,6 +4,7 @@
 package unit_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -22,10 +23,25 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 		Agent: fakeAgent{},
 	})
 
+	var names []string
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
 		c.Check(manifold.Start, gc.NotNil)
+		names = append(names, name)
 	}
+	c.Check(names, jc.SameContents, []string{
+		unit.AgentName,
+		unit.APIAdddressUpdaterName,
+		unit.APICallerName,
+		unit.LeadershipTrackerName,
+		unit.LoggingConfigUpdaterName,
+		unit.LogSenderName,
+		unit.MachineLockName,
+		unit.ProxyConfigUpdaterName,
+		unit.RsyslogConfigUpdaterName,
+		unit.UniterName,
+		unit.UpgraderName,
+	})
 }
 
 // TODO(cmars) 2015/08/10: rework this into builtin Engine cycle checker.
