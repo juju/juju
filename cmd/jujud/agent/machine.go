@@ -122,6 +122,7 @@ var (
 	newResumer               = resumer.NewResumer
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
+	newAddresser             = addresser.NewWorker
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
@@ -1132,9 +1133,6 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("minunitsworker", func() (worker.Worker, error) {
 		return minunitsworker.NewMinUnitsWorker(st), nil
 	})
-	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-		return addresser.NewWorker(st)
-	})
 
 	// Start workers that use an API connection.
 	singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
@@ -1161,6 +1159,20 @@ func (a *MachineAgent) startEnvWorkers(
 		return newCleaner(apiSt.Cleaner()), nil
 	})
 
+	// Addresser Worker needs a networking environment. Check
+	// first before starting the worker.
+	isNetEnv, err := getNetworkingEnvironment(apiSt)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot check metworking environment")
+	}
+	if isNetEnv {
+		singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+			return newAddresser(apiSt.Addresser())
+		})
+	} else {
+		logger.Debugf("not starting addresser worker, don't having a networking environment")
+	}
+
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
 	// environments are capable of managing ports
@@ -1178,6 +1190,19 @@ func (a *MachineAgent) startEnvWorkers(
 	}
 
 	return runner, nil
+}
+
+func getNetworkingEnvironment(apiSt *api.State) (bool, error) {
+	envConfig, err := apiSt.Environment().EnvironConfig()
+	if err != nil {
+		return false, errors.Annotate(err, "cannot read environment config")
+	}
+	env, err := environs.New(config)
+	if err != nil {
+		return false, errors.Annotate(err, "cannot get environment")
+	}
+	_, ok := environs.SupportsNetworking(env)
+	return ok, nil
 }
 
 var getFirewallMode = _getFirewallMode

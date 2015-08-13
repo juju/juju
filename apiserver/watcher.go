@@ -303,7 +303,7 @@ type EntityWatcher interface {
 	// MapChanges maps the received strings to their according tag strings.
 	// The EntityFinder interface representing state or a mock has to be
 	// upcasted into the needed sub-interface of state for the real mapping.
-	MapChanges(st *state.State, in []string) ([]string, error)
+	MapChanges(in []string) ([]string, error)
 }
 
 // srvEntityWatcher defines the API for methods on a state.StringsWatcher.
@@ -339,7 +339,7 @@ func newEntityWatcher(st *state.State, resources *common.Resources, auth common.
 // or the Watch call that created the srvEntityWatcher.
 func (w *srvEntityWatcher) Next() (params.EntityWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
-		mapped, err := w.watcher.MapChanges(w.st, changes)
+		mapped, err := w.watcher.MapChanges(changes)
 		if err != nil {
 			return params.EntityWatchResult{}, errors.Annotate(err, "cannot map changes")
 		}

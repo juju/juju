@@ -14,6 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -32,6 +38,7 @@ var _ = gc.Suite(&AddresserSuite{})
 
 func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		EnvironManager: true,
@@ -109,15 +116,31 @@ func (s *AddresserSuite) TestLifeFail(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `IP address ipaddress-00000000-1111-2222-9999-ffffffffffff not found`)
 }
 
+func (s *AddresserSuite) TestReleaseIPAddresses(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"},
+			{Tag: "ipaddress-00000000-1111-2222-6666-0123456789ab"},
+		},
+	}
+	result, err := s.api.ReleaseIPAddresses(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(result.Results), gc.Equals, 2)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "try again")
+	c.Assert(result.Results[1].Error, gc.IsNil)
+}
+
 func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-6666-0123456789ab"}},
+		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-7777-0123456789ab"}},
 	}
 	result, err := s.api.Remove(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(result.Results), gc.Equals, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-
 }
 
 func (s *AddresserSuite) TestRemoveFail(c *gc.C) {
@@ -128,7 +151,6 @@ func (s *AddresserSuite) TestRemoveFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(result.Results), gc.Equals, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `cannot remove entity "ipaddress-00000000-1111-2222-3333-0123456789ab": still alive`)
-
 }
 
 func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
@@ -157,4 +179,14 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.st, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
+}
+
+// testingEnvConfig prepares an environment configuration using
+// the dummy provider.
+func testingEnvConfig(c *gc.C) *config.Config {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env.Config()
 }

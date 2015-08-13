@@ -4,6 +4,10 @@
 package addresser
 
 import (
+	"github.com/juju/names"
+
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -13,6 +17,13 @@ type StateIPAddress interface {
 	state.Entity
 	state.EnsureDeader
 	state.Remover
+
+	Value() string
+	Life() state.Life
+	SubnetId() string
+	InstanceId() instance.Id
+	Address() network.Address
+	MACAddress() string
 }
 
 // StateInterface defines the needed methods of state.State
@@ -23,6 +34,9 @@ type StateInterface interface {
 
 	// IPAddress retrieves an IP address by its value.
 	IPAddress(value string) (StateIPAddress, error)
+
+	// IPAddress retrieves an IP address by its tag.
+	IPAddressByTag(tag names.IPAddressTag) (StateIPAddress, error)
 
 	// WatchIPAddresses notifies about lifecycle changes
 	// of IP addresses.
@@ -35,6 +49,10 @@ type stateShim struct {
 
 func (s stateShim) IPAddress(value string) (StateIPAddress, error) {
 	return s.State.IPAddress(value)
+}
+
+func (s stateShim) IPAddressByTag(tag names.IPAddressTag) (StateIPAddress, error) {
+	return s.State.IPAddressByTag(tag)
 }
 
 var getState = func(st *state.State) StateInterface {

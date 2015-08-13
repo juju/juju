@@ -4,124 +4,116 @@
 package addresser
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
+	apiaddresser "github.com/juju/juju/api/addresser"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.addresser")
 
-type releaser interface {
-	// ReleaseAddress has the same signature as the same method in the
-	// environs.Networking interface.
-	ReleaseAddress(instance.Id, network.Id, network.Address, string) error
-}
-
-// stateAddresser defines the State methods used by the addresserHandler
-type stateAddresser interface {
-	DeadIPAddresses() ([]*state.IPAddress, error)
-	EnvironConfig() (*config.Config, error)
-	IPAddress(string) (*state.IPAddress, error)
-	Machine(string) (*state.Machine, error)
-	WatchIPAddresses() state.StringsWatcher
-}
-
 type addresserHandler struct {
-	st       stateAddresser
-	releaser releaser
+	api *apiaddresser.API
 }
 
 // NewWorker returns a worker that keeps track of
 // IP address lifecycles, releaseing and removing Dead addresses.
-func NewWorker(st stateAddresser) (worker.Worker, error) {
-	config, err := st.EnvironConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
+func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
+	ah := &addresserHandler{
+		api: api,
 	}
-	environ, err := environs.New(config)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// If netEnviron is nil the worker will start but won't do anything as
-	// no IP addresses will be created or destroyed.
-	netEnviron, _ := environs.SupportsNetworking(environ)
-	a := newWorkerWithReleaser(st, netEnviron)
-	return a, nil
-}
-
-func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
-	a := &addresserHandler{
-		st:       st,
-		releaser: releaser,
-	}
-	w := worker.NewStringsWorker(a)
-	return w
-}
-
-// Handle is part of the StringsWorker interface.
-func (a *addresserHandler) Handle(ids []string) error {
-	if a.releaser == nil {
-		return nil
-	}
-	for _, id := range ids {
-		logger.Debugf("received notification about address %v", id)
-		addr, err := a.st.IPAddress(id)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				logger.Debugf("address %v was removed; skipping", id)
-				continue
-			}
-			return err
-		}
-		if addr.Life() != state.Dead {
-			logger.Debugf("address %v is not Dead (life %q); skipping", id, addr.Life())
-			continue
-		}
-		err = a.releaseIPAddress(addr)
-		if err != nil {
-			return err
-		}
-		logger.Debugf("address %v released", id)
-		err = addr.Remove()
-		if err != nil {
-			return err
-		}
-		logger.Debugf("address %v removed", id)
-	}
-	return nil
-}
-
-func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value())
-	logger.Debugf("attempting to release dead address %#v", addr.Value())
-
-	subnetId := network.Id(addr.SubnetId())
-	for attempt := common.ShortAttempt.Start(); attempt.Next(); {
-		err = a.releaser.ReleaseAddress(addr.InstanceId(), subnetId, addr.Address(), addr.MACAddress())
-		if err == nil {
-			return nil
-		}
-	}
-	// Don't remove the address from state so we
-	// can retry releasing the address later.
-	logger.Warningf("cannot release address %q: %v (will retry)", addr.Value(), err)
-	return errors.Trace(err)
+	aw := worker.NewStringsWorker(ah)
+	return aw, nil
 }
 
 // SetUp is part of the StringsWorker interface.
-func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
-	return a.st.WatchIPAddresses(), nil
+func (a *addresserHandler) SetUp() (watcher.StringsWatcher, error) {
+	// WatchIPAddresses returns an EntityWatcher which is a StringsWatcher.
+	return a.api.WatchIPAddresses()
 }
 
 // TearDown is part of the StringsWorker interface.
 func (a *addresserHandler) TearDown() error {
 	return nil
+}
+
+// Handle is part of the Worker interface.
+func (a *addresserHandler) Handle(watcherTags []string) error {
+	// Convert received tag strings into tags.
+	tags := make([]names.IPAddressTag, len(watcherTags))
+	for i, watcherTag := range watcherTags {
+		tag, err := names.ParseIPAddressTag(watcherTag)
+		if err != nil {
+			return errors.Annotatef(err, "cannot parse IP address tag %q", watcherTag)
+		}
+		tags[i] = tag
+	}
+	// Retrieve IP addresses and process them.
+	ipAddresses, err := a.api.IPAddresses(tags...)
+	if err != nil {
+		if err != common.ErrPartialResults {
+			return errors.Annotate(err, "cannot retrieve IP addresses")
+		}
+		return errors.Trace(err)
+	}
+	toBeReleased := []names.IPAddressTag{}
+	for i, ipAddress := range ipAddresses {
+		tag := tags[i]
+		if ipAddress == nil {
+			logger.Debugf("IP address %v already removed; skipping", tag)
+			continue
+		}
+		if ipAddress.Life() != params.Dead {
+			logger.Tracef("IP address %v is not dead (life %q); skipping", tag, ipAddress.Life())
+			continue
+		}
+		toBeReleased = append(toBeReleased, tag)
+	}
+	// Release the IP addresses.
+	retry, err := a.api.ReleaseIPAddresses(toBeReleased...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(retry) > 0 {
+		var tags []string
+		for _, tag := range retry {
+			tags = append(tags, tag.String())
+		}
+		logger.Debugf("%d IP addresses not released (will retry): %v", len(retry), strings.Join(tags, "\n"))
+	}
+	// Finally remove the released ones.
+	toBeRemoved := tagDifference(toBeReleased, retry)
+	if err := a.api.Remove(toBeRemoved...); err != nil {
+		return errors.Annotate(err, "cannot remove all released IP addresses")
+	}
+	logger.Tracef("released and removed dead IP addresses: %+v", toBeRemoved)
+	return nil
+}
+
+// tagDifference returns to be released tags minus those where the releasing
+// failed. Those are the ones for removal. Sadly this is needed as the typed
+// tag slices cannot be used directly for set. *sigh*
+func tagDifference(releasedTags, retryTags []names.IPAddressTag) []names.IPAddressTag {
+	releasedSet := set.NewTags()
+	for _, releasedTag := range releasedTags {
+		releasedSet.Add(releasedTag)
+	}
+	retrySet := set.NewTags()
+	for _, retryTag := range retryTags {
+		retrySet.Add(retryTag)
+	}
+	removeSet := releasedSet.Difference(retrySet)
+	removeTags := []names.IPAddressTag{}
+	for _, removeTag := range removeSet.Values() {
+		removeTags = append(removeTags, removeTag.(names.IPAddressTag))
+	}
+	return removeTags
 }
