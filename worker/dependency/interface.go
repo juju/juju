@@ -89,3 +89,6 @@ type OutputFunc func(in worker.Worker, out interface{}) error
 // an error that satisfies the engine's IsFatalFunc, the engine will stop all
 // its workers, shut itself down, and return the original fatal error via Wait().
 type IsFatalFunc func(err error) bool
+
+// MoreImportantFunc is used to determine which of two errors is more important.
+type MoreImportantFunc func(err0, err1 error) error
