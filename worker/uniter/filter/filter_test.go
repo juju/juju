@@ -34,7 +34,7 @@ type FilterSuite struct {
 	wpcharm    *state.Charm
 	machine    *state.Machine
 
-	st     *api.State
+	st     api.Connection
 	uniter *apiuniter.State
 }
 

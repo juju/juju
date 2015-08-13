@@ -48,7 +48,7 @@ func almostSeconds(seconds int) time.Duration {
 }
 
 // Fixture allows us to test a leadership.ManagerWorker with a usefully-mocked
-// lease.Clock and lease.Client.
+// clock.Clock and lease.Client.
 type Fixture struct {
 
 	// leases contains the leases the lease.Client should report when the

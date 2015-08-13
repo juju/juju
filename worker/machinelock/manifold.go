@@ -8,9 +8,9 @@ import (
 	"github.com/juju/utils/fslock"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
 )
@@ -36,8 +36,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker creates a degenerate worker that provides access to an fslock.
-func newWorker(agent agent.Agent) (worker.Worker, error) {
-	dataDir := agent.CurrentConfig().DataDir()
+func newWorker(a agent.Agent) (worker.Worker, error) {
+	dataDir := a.CurrentConfig().DataDir()
 	lock, err := createLock(dataDir)
 	if err != nil {
 		return nil, errors.Trace(err)

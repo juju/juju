@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -1088,9 +1087,9 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 }
 
 func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
-	op, tag, err := state.AddVolumeOp(s.State, params, machineId)
+	ops, tag, err := state.AddVolumeOps(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RunTransaction(s.State, []txn.Op{op})
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, jc.ErrorIsNil)
 	return tag
 }

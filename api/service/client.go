@@ -24,12 +24,12 @@ var logger = loggo.GetLogger("juju.api.service")
 // Client allows access to the service API end point.
 type Client struct {
 	base.ClientFacade
-	st     *api.State
+	st     api.Connection
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the service api.
-func NewClient(st *api.State) *Client {
+func NewClient(st api.Connection) *Client {
 	frontend, backend := base.NewClientFacade(st, "Service")
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }

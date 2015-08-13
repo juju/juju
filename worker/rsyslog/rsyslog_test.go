@@ -224,7 +224,7 @@ func (s *RsyslogSuite) TestNamespace(c *gc.C) {
 // testNamespace starts a worker and ensures that
 // the rsyslog config file has the expected filename,
 // and the appropriate log dir is used.
-func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag names.Tag, namespace, expectedFilename, expectedLogDir string) {
+func (s *RsyslogSuite) testNamespace(c *gc.C, st api.Connection, tag names.Tag, namespace, expectedFilename, expectedLogDir string) {
 	restarted := make(chan struct{}, 2) // once for create, once for teardown
 	s.PatchValue(rsyslog.RestartRsyslog, func() error {
 		restarted <- struct{}{}

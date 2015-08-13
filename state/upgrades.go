@@ -1966,3 +1966,56 @@ func changeStatusHistoryEntityId(st *State) error {
 	}
 	return nil
 }
+
+// AddVolumeStatus ensures each volume has a status doc.
+func AddVolumeStatus(st *State) error {
+	return runForAllEnvStates(st, func(st *State) error {
+		volumes, err := st.AllVolumes()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ops []txn.Op
+		for _, volume := range volumes {
+			_, err := volume.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Annotate(err, "getting status")
+			}
+			// If the volume has not been provisioned, then
+			// it should be Pending; if it has been provisioned,
+			// but there is an unprovisioned attachment, then
+			// it should be Attaching; otherwise it is Attached.
+			status, err := upgradingVolumeStatus(st, volume)
+			if err != nil {
+				return errors.Annotate(err, "deciding volume status")
+			}
+			ops = append(ops, createStatusOp(st, volume.globalKey(), statusDoc{
+				Status:  status,
+				Updated: time.Now().UnixNano(),
+			}))
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runTransaction(ops))
+		}
+		return nil
+	})
+}
+
+func upgradingVolumeStatus(st *State, volume Volume) (Status, error) {
+	if _, err := volume.Info(); errors.IsNotProvisioned(err) {
+		return StatusPending, nil
+	}
+	attachments, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, attachment := range attachments {
+		_, err := attachment.Info()
+		if errors.IsNotProvisioned(err) {
+			return StatusAttaching, nil
+		}
+	}
+	return StatusAttached, nil
+}

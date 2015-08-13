@@ -548,11 +548,11 @@ func (st *State) machineStorageOps(
 
 	// Create volumes and volume attachments.
 	for _, v := range args.volumes {
-		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
+		ops, tag, err := st.addVolumeOps(v.Volume, mdoc.Id)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}
-		volumeOps = append(volumeOps, op)
+		volumeOps = append(volumeOps, ops...)
 		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
 			tag, v.Attachment,
 		})

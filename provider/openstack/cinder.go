@@ -104,61 +104,20 @@ type cinderVolumeSource struct {
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 
 // CreateVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) (_ []storage.Volume, _ []storage.VolumeAttachment, resultErr error) {
-	volumes := make([]storage.Volume, len(args))
+func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
 		volume, err := s.createVolume(arg)
 		if err != nil {
-			return nil, nil, err
+			results[i].Error = errors.Trace(err)
+			continue
 		}
-		volumes[i] = volume
-
-		// If the method exits with an error, be sure to delete any
-		// created volumes so that we're idempotent. We create several
-		// clousures instead of one to take advantage of the loop
-		// parameter.
-		defer func(arg storage.VolumeParams, volume storage.Volume) {
-			if resultErr == nil {
-				return
-			}
-			attachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.Attachment.InstanceId))
-			if err != nil {
-				logger.Warningf("could not list volumes while cleaning up: %v", err)
-				return
-			}
-			if err := detachVolume(
-				string(arg.Attachment.InstanceId),
-				volume.VolumeId,
-				attachments,
-				s.storageAdapter,
-			); err != nil {
-				logger.Warningf("could not detach volumes while cleaning up: %v", err)
-				return
-			}
-			if err := s.storageAdapter.DeleteVolume(volume.VolumeId); err != nil {
-				logger.Warningf("could not delete volumes while cleaning up: %v", err)
-			}
-		}(arg, volume)
+		results[i].Volume = volume
 	}
-
-	attachmentParams := make([]storage.VolumeAttachmentParams, len(volumes))
-	for i, volume := range volumes {
-		attachmentParams[i] = *args[i].Attachment
-		attachmentParams[i].VolumeId = volume.VolumeId
-		attachmentParams[i].Volume = volume.Tag
-	}
-	attachments, err := s.AttachVolumes(attachmentParams)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return volumes, attachments, nil
+	return results, nil
 }
 
-func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Volume, error) {
-	if b, ok := arg.Attributes[storage.Persistent]; ok && !b.(bool) {
-		return storage.Volume{}, errors.New("cannot create a non-persistent Cinder volume")
-	}
+func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Volume, error) {
 	var metadata interface{}
 	if len(arg.ResourceTags) > 0 {
 		metadata = arg.ResourceTags
@@ -173,23 +132,24 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (storage.Vol
 		Metadata:         metadata,
 	})
 	if err != nil {
-		return storage.Volume{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	// The response may (will?) come back before the volume transitions to,
+	// The response may (will?) come back before the volume transitions to
 	// "creating", in which case it will not have a size or status. Wait for
 	// the volume to transition, so we can record its actual size.
-	cinderVolume, err = s.waitVolume(cinderVolume.ID, func(v *cinder.Volume) (bool, error) {
+	volumeId := cinderVolume.ID
+	cinderVolume, err = s.waitVolume(volumeId, func(v *cinder.Volume) (bool, error) {
 		return v.Status != "", nil
 	})
 	if err != nil {
-		if err := s.DestroyVolumes([]string{cinderVolume.ID}); err != nil {
-			logger.Warningf("destroying volume %s: %s", cinderVolume.ID, err)
+		if err := s.storageAdapter.DeleteVolume(volumeId); err != nil {
+			logger.Warningf("destroying volume %s: %s", volumeId, err)
 		}
-		return storage.Volume{}, errors.Errorf("waiting for volume to be provisioned: %s", err)
+		return nil, errors.Errorf("waiting for volume to be provisioned: %s", err)
 	}
 	logger.Debugf("created volume: %+v", cinderVolume)
-	return storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
+	return &storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
@@ -210,30 +170,32 @@ func (s *cinderVolumeSource) ListVolumes() ([]string, error) {
 }
 
 // DescribeVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
+func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
 	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	volumesById := make(map[string]*cinder.Volume)
 	for i, volume := range cinderVolumes {
 		volumesById[volume.ID] = &cinderVolumes[i]
 	}
-	volumes := make([]storage.VolumeInfo, len(volumeIds))
+	results := make([]storage.DescribeVolumesResult, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		cinderVolume, ok := volumesById[volumeId]
 		if !ok {
-			return nil, errors.NotFoundf("volume %q", volumeId)
+			results[i].Error = errors.NotFoundf("volume %q", volumeId)
+			continue
 		}
-		volumes[i] = cinderToJujuVolumeInfo(cinderVolume)
+		info := cinderToJujuVolumeInfo(cinderVolume)
+		results[i].VolumeInfo = &info
 	}
-	return volumes, nil
+	return results, nil
 }
 
 // DestroyVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) []error {
+func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
 	var wg sync.WaitGroup
 	wg.Add(len(volumeIds))
 	results := make([]error, len(volumeIds))
@@ -244,7 +206,7 @@ func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) []error {
 		}(i, volumeId)
 	}
 	wg.Wait()
-	return results
+	return results, nil
 }
 
 func (s *cinderVolumeSource) destroyVolume(volumeId string) error {
@@ -272,8 +234,14 @@ func (s *cinderVolumeSource) destroyVolume(volumeId string) error {
 				args[i].InstanceId = instance.Id(a.ServerId)
 			}
 			if len(args) > 0 {
-				if err := s.DetachVolumes(args); err != nil {
+				results, err := s.DetachVolumes(args)
+				if err != nil {
 					return false, errors.Trace(err)
+				}
+				for _, err := range results {
+					if err != nil {
+						return false, errors.Trace(err)
+					}
 				}
 			}
 			issuedDetach = true
@@ -299,23 +267,24 @@ func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 }
 
 // AttachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
-	attachments := make([]storage.VolumeAttachment, len(args))
+func (s *cinderVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
 		attachment, err := s.attachVolume(arg)
 		if err != nil {
-			return nil, errors.Trace(err)
+			results[i].Error = errors.Trace(err)
+			continue
 		}
-		attachments[i] = attachment
+		results[i].VolumeAttachment = attachment
 	}
-	return attachments, nil
+	return results, nil
 }
 
-func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (storage.VolumeAttachment, error) {
+func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*storage.VolumeAttachment, error) {
 	// Check to see if the volume is already attached.
 	existingAttachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.InstanceId))
 	if err != nil {
-		return storage.VolumeAttachment{}, err
+		return nil, err
 	}
 	novaAttachment := findAttachment(arg.VolumeId, existingAttachments)
 	if novaAttachment == nil {
@@ -323,7 +292,7 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 		if _, err := s.waitVolume(arg.VolumeId, func(v *cinder.Volume) (bool, error) {
 			return v.Status == "available", nil
 		}); err != nil {
-			return storage.VolumeAttachment{}, errors.Annotate(err, "waiting for volume to become available")
+			return nil, errors.Annotate(err, "waiting for volume to become available")
 		}
 		novaAttachment, err = s.storageAdapter.AttachVolume(
 			string(arg.InstanceId),
@@ -331,10 +300,10 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (s
 			autoAssignedMountPoint,
 		)
 		if err != nil {
-			return storage.VolumeAttachment{}, err
+			return nil, err
 		}
 	}
-	return storage.VolumeAttachment{
+	return &storage.VolumeAttachment{
 		arg.Volume,
 		arg.Machine,
 		storage.VolumeAttachmentInfo{
@@ -364,12 +333,14 @@ func (s *cinderVolumeSource) waitVolume(
 }
 
 // DetachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) error {
-	for _, arg := range args {
+func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) ([]error, error) {
+	results := make([]error, len(args))
+	for i, arg := range args {
 		// Check to see if the volume is already detached.
 		attachments, err := s.storageAdapter.ListVolumeAttachments(string(arg.InstanceId))
 		if err != nil {
-			return errors.Annotate(err, "listing volume attachments")
+			results[i] = errors.Annotate(err, "listing volume attachments")
+			continue
 		}
 		if err := detachVolume(
 			string(arg.InstanceId),
@@ -377,21 +348,20 @@ func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams
 			attachments,
 			s.storageAdapter,
 		); err != nil {
-			return errors.Annotatef(
+			results[i] = errors.Annotatef(
 				err, "detaching volume %s from server %s",
 				arg.VolumeId, arg.InstanceId,
 			)
+			continue
 		}
 	}
-	return nil
+	return results, nil
 }
 
 func cinderToJujuVolumeInfo(volume *cinder.Volume) storage.VolumeInfo {
 	return storage.VolumeInfo{
-		VolumeId: volume.ID,
-		Size:     uint64(volume.Size * 1024),
-		// TODO(axw) there is currently no way to mark a volume as
-		// "delete on termination", so all volumes are persistent.
+		VolumeId:   volume.ID,
+		Size:       uint64(volume.Size * 1024),
 		Persistent: true,
 	}
 }

@@ -13,10 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -354,36 +351,6 @@ func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers
 		c.Assert(obtained.DisplayName(), gc.Equals, expectedUsers[i].DisplayName())
 		c.Assert(obtained.CreatedBy(), gc.Equals, expectedUsers[i].CreatedBy())
 	}
-}
-
-func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C) {
-	// Create a persistent volume.
-	// TODO(wallyworld) - consider moving this to factory
-	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType)
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	ch := s.AddTestingCharm(c, "storage-block2")
-	storage := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("persistent-block", 1024, 1),
-	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-
-	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
-	c.Assert(err, jc.ErrorIsNil)
-	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-ume"}
-	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	// TODO(wallyworld) when we can destroy/remove volume, ensure env can then be destroyed
-	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
 }
 
 func (s *EnvironSuite) TestAllEnvironments(c *gc.C) {

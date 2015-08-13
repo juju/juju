@@ -8,6 +8,7 @@ package diskmanager
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -117,6 +118,14 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 			// "in use" so the device cannot be used.
 			dev.InUse = true
 		}
+
+		// Add additional information from sysfs.
+		if err := addHardwareInfo(&dev); err != nil {
+			logger.Errorf(
+				"error getting hardware info for %q from sysfs: %v",
+				dev.DeviceName, err,
+			)
+		}
 		blockDeviceMap[dev.DeviceName] = dev
 	}
 	if err := s.Err(); err != nil {
@@ -154,4 +163,85 @@ var blockDeviceInUse = func(dev storage.BlockDevice) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+// addHardwareInfo adds additional information about the hardware, and how it is
+// attached to the machine, to the given BlockDevice.
+func addHardwareInfo(dev *storage.BlockDevice) error {
+	logger.Tracef(`executing "udevadm info" for %s`, dev.DeviceName)
+	output, err := exec.Command(
+		"udevadm", "info",
+		"-q", "property",
+		"--path", "/block/"+dev.DeviceName,
+	).Output()
+	if err != nil {
+		msg := "udevadm failed"
+		if output := bytes.TrimSpace(output); len(output) > 0 {
+			msg += fmt.Sprintf(" (%s)", output)
+		}
+		return errors.Annotate(err, msg)
+	}
+
+	var devpath, idBus, idSerial string
+
+	s := bufio.NewScanner(bytes.NewReader(output))
+	for s.Scan() {
+		line := s.Text()
+		sep := strings.IndexRune(line, '=')
+		if sep == -1 {
+			logger.Debugf("unexpected udevadm output line: %q", line)
+			continue
+		}
+		key, value := line[:sep], line[sep+1:]
+		switch key {
+		case "DEVPATH":
+			devpath = value
+		case "ID_BUS":
+			idBus = value
+		case "ID_SERIAL":
+			idSerial = value
+		default:
+			logger.Tracef("ignoring line: %q", line)
+		}
+	}
+	if err := s.Err(); err != nil {
+		return errors.Annotate(err, "cannot parse udevadm output")
+	}
+
+	if idBus != "" && idSerial != "" {
+		// ID_BUS will be something like "scsi" or "ata";
+		// ID_SERIAL will be soemthing like ${MODEL}_${SERIALNO};
+		// and together they make up the symlink in /dev/disk/by-id.
+		dev.HardwareId = idBus + "-" + idSerial
+	}
+
+	// For devices on the SCSI bus, we include the address. This is to
+	// support storage providers where the SCSI address may be specified,
+	// but the device name can not (and may change, depending on timing).
+	if idBus == "scsi" && devpath != "" {
+		// DEVPATH will be "<uninteresting stuff>/<SCSI address>/block/<device>".
+		re := regexp.MustCompile(fmt.Sprintf(
+			`^.*/(\d+):(\d+):(\d+):(\d+)/block/%s$`,
+			regexp.QuoteMeta(dev.DeviceName),
+		))
+		submatch := re.FindStringSubmatch(devpath)
+		if submatch != nil {
+			// We use the address scheme used by lshw: bus@address. We don't use
+			// lshw because it does things we don't need, and that slows it down.
+			//
+			// In DEVPATH, the address format is "H:C:T:L" ([H]ost, [C]hannel,
+			// [T]arget, [L]un); the lshw address format is "H:C.T.L"
+			dev.BusAddress = fmt.Sprintf(
+				"scsi@%s:%s.%s.%s",
+				submatch[1], submatch[2], submatch[3], submatch[4],
+			)
+		} else {
+			logger.Debugf(
+				"non matching DEVPATH for %q: %q",
+				dev.DeviceName, devpath,
+			)
+		}
+	}
+
+	return nil
 }

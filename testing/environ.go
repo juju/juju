@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/juju/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -31,6 +32,9 @@ func init() {
 }
 
 const FakeDefaultSeries = "trusty"
+
+// FakeVersionNumber is a valid version number that can be used in testing.
+var FakeVersionNumber = version.MustParse("1.99.0")
 
 // EnvironmentTag is a defined known valid UUID that can be used in testing.
 var EnvironmentTag = names.NewEnvironTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -63,6 +64,7 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -118,6 +120,7 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
+	s.AgentSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -265,7 +268,7 @@ const initialMachinePassword = "machine-password-1234567890"
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 	s.metricAPI = newMockMetricAPI()
-	s.PatchValue(&getMetricAPI, func(_ *api.State) apimetricsmanager.MetricsManagerClient {
+	s.PatchValue(&getMetricAPI, func(_ api.Connection) apimetricsmanager.MetricsManagerClient {
 		return s.metricAPI
 	})
 	s.AddCleanup(func(*gc.C) { s.metricAPI.Stop() })
@@ -630,7 +633,7 @@ func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 const startWorkerWait = 250 * time.Millisecond
 
 func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
-	s.PatchValue(&getFirewallMode, func(*api.State) (string, error) {
+	s.PatchValue(&getFirewallMode, func(api.Connection) (string, error) {
 		return config.FwNone, nil
 	})
 	started := make(chan struct{})
@@ -896,10 +899,10 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 func (s *MachineSuite) assertJobWithAPI(
 	c *gc.C,
 	job state.MachineJob,
-	test func(agent.Config, *api.State),
+	test func(agent.Config, api.Connection),
 ) {
 	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st interface{}) {
-		test(cfg, st.(*api.State))
+		test(cfg, st.(api.Connection))
 	})
 }
 
@@ -1133,19 +1136,19 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 }
 
 func (s *MachineSuite) TestOpenStateFailsForJobHostUnits(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
 		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 	})
 }
 
 func (s *MachineSuite) TestOpenStateFailsForJobManageNetworking(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageNetworking, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageNetworking, func(conf agent.Config, st api.Connection) {
 		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 	})
 }
 
 func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
 		s.AssertCanOpenState(c, conf.Tag(), conf.DataDir())
 	})
 }
@@ -1191,7 +1194,7 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 		agent := NewAgentConf(conf.DataDir())
 		err := agent.ReadConfig(tagString)
 		c.Assert(err, jc.ErrorIsNil)
-		st, gotEntity, err := OpenAPIState(agent)
+		st, gotEntity, err := apicaller.OpenAPIState(agent)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
@@ -1222,7 +1225,7 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 	_, err := os.Stat(JujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
 		// juju-run should have been created
 		_, err := os.Stat(JujuRun)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1239,7 +1242,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(JujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
 		// juju-run should have been recreated
 		_, err := os.Stat(JujuRun)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1291,7 +1294,7 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 	s.AgentSuite.PatchValue(&proxyupdater.New, mockNew)
 
 	s.primeAgent(c, version.Current, state.JobHostUnits)
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
 		for {
 			select {
 			case <-time.After(coretesting.LongWait):
@@ -1333,7 +1336,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 		created <- mode
 		return newDummyWorker(), nil
 	})
-	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, job, func(conf agent.Config, st api.Connection) {
 		select {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timeout while waiting for rsyslog worker to be created")
@@ -1430,6 +1433,8 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
+		_ clock.Clock,
 	) worker.Worker {
 		c.Check(scope, gc.Equals, m.Tag())
 		// storageDir is not empty for machine scoped storage provisioners
@@ -1465,6 +1470,8 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
+		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
@@ -1848,6 +1855,8 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
+		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {

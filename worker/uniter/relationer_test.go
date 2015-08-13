@@ -35,7 +35,7 @@ type RelationerSuite struct {
 	dir     *relation.StateDir
 	dirPath string
 
-	st         *api.State
+	st         api.Connection
 	uniter     *apiuniter.State
 	apiRelUnit *apiuniter.RelationUnit
 }

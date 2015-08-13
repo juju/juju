@@ -123,11 +123,11 @@ type mockContext struct {
 	messages        []string
 	agentConfig     *mockAgentConfig
 	realAgentConfig agent.ConfigSetter
-	apiState        *api.State
+	apiState        api.Connection
 	state           *state.State
 }
 
-func (c *mockContext) APIState() *api.State {
+func (c *mockContext) APIState() api.Connection {
 	return c.apiState
 }
 

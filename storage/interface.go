@@ -69,7 +69,7 @@ type VolumeSource interface {
 	// CreateVolumes creates volumes with the specified parameters. If the
 	// volumes are initially attached, then CreateVolumes returns
 	// information about those attachments too.
-	CreateVolumes(params []VolumeParams) ([]Volume, []VolumeAttachment, error)
+	CreateVolumes(params []VolumeParams) ([]CreateVolumesResult, error)
 
 	// ListVolumes lists the provider volume IDs for every volume
 	// created by this volume source.
@@ -77,11 +77,11 @@ type VolumeSource interface {
 
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
-	DescribeVolumes(volIds []string) ([]VolumeInfo, error)
+	DescribeVolumes(volIds []string) ([]DescribeVolumesResult, error)
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
-	DestroyVolumes(volIds []string) []error
+	DestroyVolumes(volIds []string) ([]error, error)
 
 	// ValidateVolumeParams validates the provided volume creation
 	// parameters, returning an error if they are invalid.
@@ -97,7 +97,7 @@ type VolumeSource interface {
 	// recording in state. For example, the ec2 provider must reject
 	// an attempt to attach a volume to an instance if they are in
 	// different availability zones.
-	AttachVolumes(params []VolumeAttachmentParams) ([]VolumeAttachment, error)
+	AttachVolumes(params []VolumeAttachmentParams) ([]AttachVolumesResult, error)
 
 	// DetachVolumes detaches the volumes with the specified provider
 	// volume IDs from the instances with the corresponding index.
@@ -105,7 +105,7 @@ type VolumeSource interface {
 	// TODO(axw) we need to record in state whether or not volumes
 	// are detachable, and reject attempts to attach/detach on
 	// that basis.
-	DetachVolumes(params []VolumeAttachmentParams) error
+	DetachVolumes(params []VolumeAttachmentParams) ([]error, error)
 }
 
 // FilesystemSource provides an interface for creating, destroying and
@@ -261,4 +261,27 @@ type FilesystemAttachmentParams struct {
 	// Path is the path at which the filesystem is to be mounted on the machine that
 	// this attachment corresponds to.
 	Path string
+}
+
+// CreateVolumesResult contains the result of a VolumeSource.CreateVolumes call
+// for one volume. Volume and VolumeAttachment should only be used if Error is
+// nil.
+type CreateVolumesResult struct {
+	Volume           *Volume
+	VolumeAttachment *VolumeAttachment
+	Error            error
+}
+
+// DescribeVolumesResult contains the result of a VolumeSource.DescribeVolumes call
+// for one volume. Volume should only be used if Error is nil.
+type DescribeVolumesResult struct {
+	VolumeInfo *VolumeInfo
+	Error      error
+}
+
+// AttachVolumesResult contains the result of a VolumeSource.AttachVolumes call
+// for one volume. VolumeAttachment should only be used if Error is nil.
+type AttachVolumesResult struct {
+	VolumeAttachment *VolumeAttachment
+	Error            error
 }

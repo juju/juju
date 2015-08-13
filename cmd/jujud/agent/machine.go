@@ -20,6 +20,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -65,6 +66,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
@@ -470,7 +472,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := OpenAPIState(a)
+	st, _, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -631,7 +633,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
-	st, entity, err := OpenAPIState(a)
+	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +687,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 }
 
 func (a *MachineAgent) postUpgradeAPIWorker(
-	st *api.State,
+	st api.Connection,
 	agentConfig agent.Config,
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
@@ -783,7 +785,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		scope := agentConfig.Tag()
 		api := st.StorageProvisioner(scope)
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		return newStorageWorker(scope, storageDir, api, api, api, api, api), nil
+		return newStorageWorker(
+			scope, storageDir, api, api, api, api, api, api,
+			clock.WallClock,
+		), nil
 	})
 
 	// Check if the network management is disabled.
@@ -856,7 +861,7 @@ func (a *MachineAgent) Restart() error {
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
-	st *api.State,
+	st api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
@@ -890,7 +895,7 @@ var shouldWriteProxyFiles = func(conf agent.Config) bool {
 
 // setupContainerSupport determines what containers can be run on this machine and
 // initialises suitable infrastructure to support such containers.
-func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
 	// LXC containers are only supported on bare metal and fully virtualized linux systems
 	// Nested LXC containers and Windows machines cannot run LXC containers
@@ -918,7 +923,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 // and a suitable provisioner is started.
 func (a *MachineAgent) updateSupportedContainers(
 	runner worker.Runner,
-	st *api.State,
+	st api.Connection,
 	machineTag string,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
@@ -1082,7 +1087,7 @@ func (a *MachineAgent) startEnvWorkers(
 	agentConfig := a.CurrentConfig()
 	apiInfo := agentConfig.APIInfo()
 	apiInfo.EnvironTag = st.EnvironTag()
-	apiSt, err := OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
+	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1136,7 +1141,10 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
-		return newStorageWorker(scope, "", api, api, api, api, api), nil
+		return newStorageWorker(
+			scope, "", api, api, api, api, api, api,
+			clock.WallClock,
+		), nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
@@ -1198,7 +1206,7 @@ func isNetworkingEnvironment(apiSt *api.State) (bool, error) {
 
 var getFirewallMode = _getFirewallMode
 
-func _getFirewallMode(apiSt *api.State) (string, error) {
+func _getFirewallMode(apiSt api.Connection) (string, error) {
 	envConfig, err := apiSt.Environment().EnvironConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read environment config")
@@ -1643,7 +1651,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+func (a *MachineAgent) setMachineStatus(apiState api.Connection, status params.Status, info string) error {
 	tag := a.Tag().(names.MachineTag)
 	machine, err := apiState.Machiner().Machine(tag)
 	if err != nil {
@@ -1757,7 +1765,7 @@ func (c singularStateConn) Ping() error {
 	return c.session.Ping()
 }
 
-func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
+func metricAPI(st api.Connection) metricsmanager.MetricsManagerClient {
 	return metricsmanager.NewClient(st)
 }
 

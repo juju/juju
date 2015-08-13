@@ -1,10 +1,7 @@
 // Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// This file exists to collect the various bits of code related to OpenAPIState,
-// in preparation for moving them to worker/apicaller and breaking an impending
-// import cycle.
-package agent
+package apicaller
 
 import (
 	"time"
@@ -34,7 +31,7 @@ var (
 // This happens only the first time an agent tries to connect
 // after an upgrade.  If there is no environment UUID set, then
 // use login version 1.
-func openAPIForAgent(info *api.Info, opts api.DialOpts) (*api.State, error) {
+func openAPIForAgent(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	if info.EnvironTag.Id() == "" {
 		return api.OpenWithVersion(info, opts, 1)
 	}
@@ -44,7 +41,7 @@ func openAPIForAgent(info *api.Info, opts api.DialOpts) (*api.State, error) {
 // OpenAPIState opens the API using the given information. The agent's
 // password is changed if the fallback password was used to connect to
 // the API.
-func OpenAPIState(a agent.Agent) (_ *api.State, _ *apiagent.Entity, err error) {
+func OpenAPIState(a agent.Agent) (_ api.Connection, _ *apiagent.Entity, err error) {
 	agentConfig := a.CurrentConfig()
 	info := agentConfig.APIInfo()
 	st, usedOldPassword, err := openAPIStateUsingInfo(info, agentConfig.OldPassword())
@@ -132,12 +129,12 @@ func setAgentPassword(newPw, oldPw string, a agent.Agent, entity *apiagent.Entit
 // OpenAPIStateUsingInfo opens the API using the given API
 // information, and returns the opened state and the api entity with
 // the given tag.
-func OpenAPIStateUsingInfo(info *api.Info, oldPassword string) (*api.State, error) {
+func OpenAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, error) {
 	st, _, err := openAPIStateUsingInfo(info, oldPassword)
 	return st, err
 }
 
-func openAPIStateUsingInfo(info *api.Info, oldPassword string) (*api.State, bool, error) {
+func openAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, bool, error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,

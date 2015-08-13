@@ -53,7 +53,7 @@ type CommonProvisionerSuite struct {
 	// defaultConstraints are used when adding a machine and then later in test assertions.
 	defaultConstraints constraints.Value
 
-	st          *api.State
+	st          api.Connection
 	provisioner *apiprovisioner.State
 }
 
@@ -518,7 +518,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, stor, s.cfg.AgentStream(), s.cfg.AgentStream(), availableVersions...)
 
 	// Extract the tools that we expect to actually match.
-	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{
+	expectedList, err := tools.FindTools(s.Environ, -1, -1, s.cfg.AgentStream(), coretools.Filter{
 		Number: currentVersion.Number,
 		Series: currentVersion.Series,
 	})
