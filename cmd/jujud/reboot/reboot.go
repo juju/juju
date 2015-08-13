@@ -43,12 +43,12 @@ var tmpFile = func() (*os.File, error) {
 // once all containers have shut down, or a timeout is reached
 type Reboot struct {
 	acfg     agent.Config
-	apistate *api.State
+	apistate api.Connection
 	tag      names.MachineTag
 	st       *reboot.State
 }
 
-func NewRebootWaiter(apistate *api.State, acfg agent.Config) (*Reboot, error) {
+func NewRebootWaiter(apistate api.Connection, acfg agent.Config) (*Reboot, error) {
 	rebootState, err := apistate.Reboot()
 	if err != nil {
 		return nil, errors.Trace(err)

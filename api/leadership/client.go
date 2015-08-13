@@ -25,12 +25,12 @@ type client struct {
 	base.FacadeCaller
 }
 
-// NewClient returns a new LeadershipManager backed by the supplied api caller.
-func NewClient(caller base.APICaller) leadership.LeadershipManager {
+// NewClient returns a new leadership.Claimer backed by the supplied api caller.
+func NewClient(caller base.APICaller) leadership.Claimer {
 	return &client{base.NewFacadeCaller(caller, "LeadershipService")}
 }
 
-// ClaimLeadership implements LeadershipManager.
+// ClaimLeadership is part of the leadership.Claimer interface.
 func (c *client) ClaimLeadership(serviceId, unitId string, duration time.Duration) error {
 
 	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(serviceId, unitId, duration))
@@ -50,23 +50,7 @@ func (c *client) ClaimLeadership(serviceId, unitId string, duration time.Duratio
 	return nil
 }
 
-// ReleaseLeadership implements LeadershipManager.
-func (c *client) ReleaseLeadership(serviceId, unitId string) error {
-	results, err := c.bulkReleaseLeadership(c.prepareReleaseLeadership(serviceId, unitId))
-	if err != nil {
-		return err
-	}
-
-	// TODO(fwereade): this is not a rightful panic; we don't know who'll be using
-	// this client, and/or whether or not we're running critical code in the same
-	// process.
-	if err := results.Results[0].Error; err != nil {
-		return err
-	}
-	return nil
-}
-
-// BlockUntilLeadershipReleased implements LeadershipManager.
+// BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
 	const friendlyErrMsg = "error blocking on leadership release"
 	var result params.ErrorResult
@@ -93,15 +77,6 @@ func (c *client) prepareClaimLeadership(serviceId, unitId string, duration time.
 	}
 }
 
-// prepareReleaseLeadership creates a single set of params in
-// preperation for making a bulk call.
-func (c *client) prepareReleaseLeadership(serviceId, unitId string) params.ReleaseLeadershipParams {
-	return params.ReleaseLeadershipParams{
-		names.NewServiceTag(serviceId).String(),
-		names.NewUnitTag(unitId).String(),
-	}
-}
-
 //
 // Bulk calls.
 //
@@ -117,20 +92,5 @@ func (c *client) bulkClaimLeadership(args ...params.ClaimLeadershipParams) (*par
 	if err := c.FacadeCall("ClaimLeadership", bulkParams, &results); err != nil {
 		return nil, errors.Annotate(err, "error making a leadership claim")
 	}
-	return &results, nil
-}
-
-func (c *client) bulkReleaseLeadership(args ...params.ReleaseLeadershipParams) (*params.ReleaseLeadershipBulkResults, error) {
-	// Don't make the jump over the network if we don't have to.
-	if len(args) <= 0 {
-		return &params.ReleaseLeadershipBulkResults{}, nil
-	}
-
-	bulkParams := params.ReleaseLeadershipBulkParams{args}
-	var results params.ReleaseLeadershipBulkResults
-	if err := c.FacadeCall("ReleaseLeadership", bulkParams, &results); err != nil {
-		return nil, errors.Annotate(err, "cannot release leadership")
-	}
-
 	return &results, nil
 }

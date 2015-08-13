@@ -77,14 +77,11 @@ type volumeAttachment struct {
 
 // volumeDoc records information about a volume in the environment.
 type volumeDoc struct {
-	DocID     string `bson:"_id"`
-	Name      string `bson:"name"`
-	EnvUUID   string `bson:"env-uuid"`
-	Life      Life   `bson:"life"`
-	StorageId string `bson:"storageid,omitempty"`
-	// TODO(axw) 2015-06-22 #1467379
-	// upgrade step to set "attachmentcount" and "binding"
-	// for 1.24 environments.
+	DocID           string        `bson:"_id"`
+	Name            string        `bson:"name"`
+	EnvUUID         string        `bson:"env-uuid"`
+	Life            Life          `bson:"life"`
+	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
 	Binding         string        `bson:"binding,omitempty"`
 	Info            *VolumeInfo   `bson:"info,omitempty"`
@@ -129,6 +126,7 @@ type VolumeInfo struct {
 // VolumeAttachmentInfo describes information about a volume attachment.
 type VolumeAttachmentInfo struct {
 	DeviceName string `bson:"devicename,omitempty"`
+	BusAddress string `bson:"busaddress,omitempty"`
 	ReadOnly   bool   `bson:"read-only"`
 }
 
@@ -307,15 +305,6 @@ func volumesToInterfaces(volumes []*volume) []Volume {
 		result[i] = v
 	}
 	return result
-}
-
-// PersistentVolumes returns any alive persistent Volumes scoped to the environment or any machine.
-func (st *State) PersistentVolumes() ([]Volume, error) {
-	volumes, err := st.volumes(bson.D{{"info.persistent", true}})
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get persistent volumes")
-	}
-	return volumesToInterfaces(volumes), nil
 }
 
 func (st *State) storageInstanceVolume(tag names.StorageTag) (*volume, error) {

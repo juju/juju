@@ -66,11 +66,11 @@ func (s *SenderSuite) startServer(c *gc.C, handler http.Handler) func() {
 	}
 }
 
-var _ metricsender.MetricSender = (*metricsender.DefaultSender)(nil)
+var _ metricsender.MetricSender = (*metricsender.HttpSender)(nil)
 
-// TestDefaultSender checks that if the default sender
+// TestHttpSender checks that if the default sender
 // is in use metrics get sent
-func (s *SenderSuite) TestDefaultSender(c *gc.C) {
+func (s *SenderSuite) TestHttpSender(c *gc.C) {
 	metricCount := 3
 	expectedCharmUrl, _ := s.unit.CharmURL()
 
@@ -83,7 +83,7 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	for i := range metrics {
 		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 	}
-	var sender metricsender.DefaultSender
+	var sender metricsender.HttpSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -165,7 +165,7 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		for i := range batches {
 			batches[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 		}
-		var sender metricsender.DefaultSender
+		var sender metricsender.HttpSender
 		err := metricsender.SendMetrics(s.State, &sender, 10)
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, batch := range batches {
@@ -194,7 +194,7 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
-	var sender metricsender.DefaultSender
+	var sender metricsender.HttpSender
 	err = metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -239,7 +239,7 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 		c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 	}
 
-	var sender metricsender.DefaultSender
+	var sender metricsender.HttpSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -261,7 +261,7 @@ func (s *SenderSuite) TestGracePeriodResponse(c *gc.C) {
 	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false})
 	cleanup := s.startServer(c, testHandler(c, nil, nil, 47*time.Hour))
 	defer cleanup()
-	var sender metricsender.DefaultSender
+	var sender metricsender.HttpSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
@@ -274,7 +274,7 @@ func (s *SenderSuite) TestNegativeGracePeriodResponse(c *gc.C) {
 
 	cleanup := s.startServer(c, testHandler(c, nil, nil, -47*time.Hour))
 	defer cleanup()
-	var sender metricsender.DefaultSender
+	var sender metricsender.HttpSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
@@ -287,7 +287,7 @@ func (s *SenderSuite) TestZeroGracePeriodResponse(c *gc.C) {
 
 	cleanup := s.startServer(c, testHandler(c, nil, nil, 0))
 	defer cleanup()
-	var sender metricsender.DefaultSender
+	var sender metricsender.HttpSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()

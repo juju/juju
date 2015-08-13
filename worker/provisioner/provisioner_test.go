@@ -53,7 +53,7 @@ type CommonProvisionerSuite struct {
 	// defaultConstraints are used when adding a machine and then later in test assertions.
 	defaultConstraints constraints.Value
 
-	st          *api.State
+	st          api.Connection
 	provisioner *apiprovisioner.State
 }
 

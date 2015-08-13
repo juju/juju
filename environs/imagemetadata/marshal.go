@@ -68,14 +68,14 @@ func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Ti
 	cloud.Format = simplestreams.ProductFormat
 	cloud.ContentId = ImageContentId
 	cloud.Products = make(map[string]simplestreams.MetadataCatalog)
-	itemsversion := updated.Format("20060201") // YYYYMMDD
+	itemsversion := updated.Format("20060102") // YYYYMMDD
 	for _, t := range metadata {
-		toWrite := &ImageMetadata{
-			Id:         t.Id,
-			RegionName: t.RegionName,
-			Endpoint:   t.Endpoint,
-			VirtType:   t.VirtType,
-		}
+		toWrite := *t
+		// These fields are not required in the individual
+		// record values - they are recorded at the top level.
+		toWrite.RegionAlias = ""
+		toWrite.Version = ""
+		toWrite.Arch = ""
 		if catalog, ok := cloud.Products[t.productId()]; ok {
 			catalog.Items[itemsversion].Items[t.Id] = toWrite
 		} else {

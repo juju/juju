@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
@@ -78,6 +79,22 @@ func (s *Storage) AddUnitStorage(all map[string]params.StorageConstraints) {
 type ContextStorage struct {
 	contextBase
 	info *Storage
+}
+
+// StorageTags implements jujuc.ContextStorage.
+func (c *ContextStorage) StorageTags() []names.StorageTag {
+	c.stub.AddCall("StorageTags")
+	c.stub.NextErr()
+
+	tags := set.NewTags()
+	for tag := range c.info.Storage {
+		tags.Add(tag)
+	}
+	storageTags := make([]names.StorageTag, tags.Size())
+	for i, tag := range tags.SortedValues() {
+		storageTags[i] = tag.(names.StorageTag)
+	}
+	return storageTags
 }
 
 // Storage implements jujuc.ContextStorage.

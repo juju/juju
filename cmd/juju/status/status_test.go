@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package status
@@ -18,7 +18,6 @@ import (
 	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
@@ -213,14 +212,22 @@ var (
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"service-status": M{},
-		"charm":          "cs:quantal/dummy-1",
-		"exposed":        false,
+		"service-status": M{
+			"current": "unknown",
+			"message": "Waiting for agent initialization to finish",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"charm":   "cs:quantal/dummy-1",
+		"exposed": false,
 	}
 	exposedService = M{
-		"service-status": M{},
-		"charm":          "cs:quantal/dummy-1",
-		"exposed":        true,
+		"service-status": M{
+			"current": "unknown",
+			"message": "Waiting for agent initialization to finish",
+			"since":   "01 Apr 15 01:23+10:00",
+		},
+		"charm":   "cs:quantal/dummy-1",
+		"exposed": true,
 	}
 )
 
@@ -357,18 +364,26 @@ var statusTests = []testCase{
 				},
 				"services": M{
 					"networks-service": M{
-						"service-status": M{},
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
 						"networks": M{
 							"enabled":  L{"net1", "net2"},
 							"disabled": L{"foo", "bar", "no", "good"},
 						},
 					},
 					"no-networks-service": M{
-						"service-status": M{},
-						"charm":          "cs:quantal/dummy-1",
-						"exposed":        false,
+						"service-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"charm":   "cs:quantal/dummy-1",
+						"exposed": false,
 						"networks": M{
 							"disabled": L{"mynet"},
 						},
@@ -2180,6 +2195,154 @@ var statusTests = []testCase{
 				},
 			},
 		},
+	), test(
+		"deploy two services; set meter statuses on one",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", network.NewAddresses("dummyenv-2.dns")},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", state.StatusStarted, ""},
+
+		addMachine{machineId: "3", job: state.JobHostUnits},
+		setAddresses{"3", network.NewAddresses("dummyenv-3.dns")},
+		startAliveMachine{"3"},
+		setMachineStatus{"3", state.StatusStarted, ""},
+
+		addMachine{machineId: "4", job: state.JobHostUnits},
+		setAddresses{"4", network.NewAddresses("dummyenv-4.dns")},
+		startAliveMachine{"4"},
+		setMachineStatus{"4", state.StatusStarted, ""},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+		setServiceExposed{"mysql", true},
+
+		addService{name: "servicewithmeterstatus", charm: "mysql"},
+
+		addAliveUnit{"mysql", "1"},
+		addAliveUnit{"servicewithmeterstatus", "2"},
+		addAliveUnit{"servicewithmeterstatus", "3"},
+		addAliveUnit{"servicewithmeterstatus", "4"},
+
+		setServiceExposed{"mysql", true},
+
+		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
+		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
+		setAgentStatus{"servicewithmeterstatus/0", state.StatusIdle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/0", state.StatusActive, "", nil},
+		setAgentStatus{"servicewithmeterstatus/1", state.StatusIdle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/1", state.StatusActive, "", nil},
+		setAgentStatus{"servicewithmeterstatus/2", state.StatusIdle, "", nil},
+		setUnitStatus{"servicewithmeterstatus/2", state.StatusActive, "", nil},
+
+		setUnitMeterStatus{"servicewithmeterstatus/1", "GREEN", "test green status"},
+		setUnitMeterStatus{"servicewithmeterstatus/2", "RED", "test red status"},
+
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+					"3": machine3,
+					"4": machine4,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "dummyenv-1.dns",
+							},
+						},
+					},
+
+					"servicewithmeterstatus": M{
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": false,
+						"service-status": M{
+							"current": "active",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"servicewithmeterstatus/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "dummyenv-2.dns",
+							},
+							"servicewithmeterstatus/1": M{
+								"machine":     "3",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"meter-status": M{
+									"color":   "green",
+									"message": "test green status",
+								},
+								"public-address": "dummyenv-3.dns",
+							},
+							"servicewithmeterstatus/2": M{
+								"machine":     "4",
+								"agent-state": "started",
+								"workload-status": M{
+									"current": "active",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"agent-status": M{
+									"current": "idle",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"meter-status": M{
+									"color":   "red",
+									"message": "test red status",
+								},
+								"public-address": "dummyenv-4.dns",
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -2454,6 +2617,19 @@ func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	}
 }
 
+type setUnitMeterStatus struct {
+	unitName string
+	color    string
+	message  string
+}
+
+func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(s.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetMeterStatus(s.color, s.message)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type setUnitStatus struct {
 	unitName   string
 	status     state.Status
@@ -2683,18 +2859,18 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 }
 
 type fakeApiClient struct {
-	statusReturn *api.Status
+	statusReturn *params.FullStatus
 	patternsUsed []string
 	closeCalled  bool
 }
 
-func newFakeApiClient(statusReturn *api.Status) fakeApiClient {
+func newFakeApiClient(statusReturn *params.FullStatus) fakeApiClient {
 	return fakeApiClient{
 		statusReturn: statusReturn,
 	}
 }
 
-func (a *fakeApiClient) Status(patterns []string) (*api.Status, error) {
+func (a *fakeApiClient) Status(patterns []string) (*params.FullStatus, error) {
 	a.patternsUsed = patterns
 	return a.statusReturn, nil
 }
@@ -2709,9 +2885,9 @@ func (a *fakeApiClient) Close() error {
 // Agent field (they were introduced at the same time).
 func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	// Construct an older style status response
-	client := newFakeApiClient(&api.Status{
+	client := newFakeApiClient(&params.FullStatus{
 		EnvironmentName: "dummyenv",
-		Machines: map[string]api.MachineStatus{
+		Machines: map[string]params.MachineStatus{
 			"0": {
 				// Agent field intentionally not set
 				Id:             "0",
@@ -2719,7 +2895,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentState:     "down",
 				AgentStateInfo: "(started)",
 				Series:         "quantal",
-				Containers:     map[string]api.MachineStatus{},
+				Containers:     map[string]params.MachineStatus{},
 				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 				HasVote:        false,
 				WantsVote:      true,
@@ -2731,19 +2907,19 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentState:     "started",
 				AgentStateInfo: "hello",
 				Series:         "quantal",
-				Containers:     map[string]api.MachineStatus{},
+				Containers:     map[string]params.MachineStatus{},
 				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				HasVote:        false,
 				WantsVote:      false,
 			},
 		},
-		Services: map[string]api.ServiceStatus{
+		Services: map[string]params.ServiceStatus{
 			"mysql": {
 				Charm: "local:quantal/mysql-1",
 				Relations: map[string][]string{
 					"server": {"wordpress"},
 				},
-				Units: map[string]api.UnitStatus{
+				Units: map[string]params.UnitStatus{
 					"mysql/0": {
 						// Agent field intentionally not set
 						Machine:    "1",
@@ -2756,7 +2932,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				Relations: map[string][]string{
 					"db": {"mysql"},
 				},
-				Units: map[string]api.UnitStatus{
+				Units: map[string]params.UnitStatus{
 					"wordpress/0": {
 						// Agent field intentionally not set
 						AgentState:     "error",
@@ -2766,7 +2942,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				},
 			},
 		},
-		Networks: map[string]api.NetworkStatus{},
+		Networks: map[string]params.NetworkStatus{},
 		// Relations field intentionally not set
 	})
 	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
@@ -2950,13 +3126,25 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 
 	ctx.run(c, steps)
 
-	const expected = `
+	const expectedV1 = `
 - mysql/0: dummyenv-2.dns (started)
   - logging/1: dummyenv-2.dns (error)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
 `
+	assertOneLineStatus(c, expectedV1)
 
+	const expectedV2 = `
+- mysql/0: dummyenv-2.dns (agent:idle, workload:active)
+  - logging/1: dummyenv-2.dns (agent:idle, workload:error)
+- wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
+  - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+`
+	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
+	assertOneLineStatus(c, expectedV2)
+}
+
+func assertOneLineStatus(c *gc.C, expected string) {
 	code, stdout, stderr := runStatus(c, "--format", "oneline")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
@@ -2974,6 +3162,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, expected)
 }
+
 func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	ctx := s.newContext(c)
 	steps := []stepper{
@@ -3133,7 +3322,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 
 	client := fakeApiClient{}
 	var status = client.Status
-	s.PatchValue(&status, func(_ []string) (*api.Status, error) {
+	s.PatchValue(&status, func(_ []string) (*params.FullStatus, error) {
 		return nil, nil
 	})
 	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
@@ -3564,22 +3753,22 @@ func (*simpleStatusSuite) TestFormatUnitProcesses(c *gc.C) {
 
 	f := statusFormatter{}
 
-	unit := api.UnitStatus{
-		Components: map[string]api.ComponentStatus{
-			"comp1": api.NewComponentStatus("bar comp status"),
+	unit := params.UnitStatus{
+		Components: map[string]params.ComponentStatus{
+			"comp1": params.NewComponentStatus("bar comp status"),
 		},
 	}
+	status := f.formatUnit(unitFormatInfo{unit: unit})
 
-	status := f.formatUnit(unit, "doesn't matter")
 	var val interface{} = "foo"
 	c.Assert(status.Components, gc.DeepEquals, map[string]interface{}{"comp1": val})
 }
 
 func (*simpleStatusSuite) TestFormatUnitNoProcesses(c *gc.C) {
 	f := statusFormatter{}
-	unit := api.UnitStatus{}
+	unit := params.UnitStatus{}
+	status := f.formatUnit(unitFormatInfo{unit: unit})
 
-	status := f.formatUnit(unit, "doesn't matter")
 	c.Assert(status.Components, gc.IsNil)
 }
 

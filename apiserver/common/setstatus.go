@@ -15,13 +15,16 @@ import (
 
 // ServiceStatusSetter implements a SetServiceStatus method to be
 // used by facades that can change a service status.
+// This is only slightly less evil than ServiceStatusGetter. We have
+// StatusSetter already; all this does is set the status for the wrong
+// entity, and render the auth so confused as to be ~worthless.
 type ServiceStatusSetter struct {
-	st           state.EntityFinder
+	st           *state.State
 	getCanModify GetAuthFunc
 }
 
 // NewServiceStatusSetter returns a ServiceStatusSetter.
-func NewServiceStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *ServiceStatusSetter {
+func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ServiceStatusSetter {
 	return &ServiceStatusSetter{
 		st:           st,
 		getCanModify: getCanModify,
@@ -30,38 +33,70 @@ func NewServiceStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *Se
 
 // SetStatus sets the status on the service given by the unit in args if the unit is the leader.
 func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
-	return serviceSetStatus(s, args, serviceFromUnitTag, isLeader)
-}
-
-func serviceSetStatus(s *ServiceStatusSetter, args params.SetStatus, getService serviceGetter, isLeaderCheck isLeaderFunc) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+
 	canModify, err := s.getCanModify()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+
 	for i, arg := range args.Entities {
-		leader, err := isLeaderCheck(s.st, arg.Tag)
+
+		// TODO(fwereade): the auth is basically nonsense, and basically only
+		// works by coincidence. Read carefully.
+
+		// We "know" that arg.Tag is either the calling unit or its service
+		// (because getCanModify is authUnitOrService, and we'll fail out if
+		// it isn't); and, in practice, it's always going to be the calling
+		// unit (because, /sigh, we don't actually use service tags to refer
+		// to services in this method).
+		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		if !leader {
-			result.Results[i].Error = ServerError(ErrIsNotLeader)
+		if !canModify(tag) {
+			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		service, err := getService(s.st, arg.Tag)
+		unitTag, ok := tag.(names.UnitTag)
+		if !ok {
+			// No matter what the canModify says, if this entity is not
+			// a unit, we say "NO".
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		unitId := unitTag.Id()
+
+		// Now we have the unit, we can get the service that should have been
+		// specified in the first place...
+		serviceId, err := names.UnitService(unitId)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		service, err := s.st.Service(serviceId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
 
-		if !canModify(service.Tag()) {
-			result.Results[i].Error = ServerError(ErrPerm)
+		// ...and set the status, conditional on the unit being (and remaining)
+		// service leader.
+		checker := s.st.LeadershipChecker()
+		token := checker.LeadershipCheck(serviceId, unitId)
+
+		// TODO(fwereade) pass token into SetStatus instead of checking here.
+		if err := token.Check(nil); err != nil {
+			// TODO(fwereade) this should probably be ErrPerm is certain cases,
+			// but I don't think I implemented an exported ErrNotLeader. I
+			// should have done, though.
+			result.Results[i].Error = ServerError(err)
 			continue
 		}
 
@@ -96,6 +131,8 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info
 		return err
 	}
 	switch entity := entity.(type) {
+	case *state.Service:
+		return ErrPerm
 	case state.StatusSetter:
 		return entity.SetStatus(state.Status(status), info, data)
 	default:
@@ -118,7 +155,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
+			result.Results[i].Error = ServerError(err)
 			continue
 		}
 		err = ErrPerm
@@ -162,6 +199,9 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 }
 
 // UpdateStatus updates the status data of each given entity.
+// TODO(fwereade): WTF. This method exists *only* for the convenience of the
+// *client* API -- and is itself completely broken -- but we still expose it
+// in every facade with a StatusSetter? FFS.
 func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),

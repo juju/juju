@@ -29,7 +29,7 @@ const worstCase = 5 * time.Second
 type LoggerSuite struct {
 	testing.JujuConnSuite
 
-	apiRoot   *api.State
+	apiRoot   api.Connection
 	loggerApi *apilogger.State
 	machine   *state.Machine
 }

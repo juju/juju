@@ -29,7 +29,7 @@ type deployerSuite struct {
 	testing.JujuConnSuite
 	*apitesting.APIAddresserTests
 
-	stateAPI *api.State
+	stateAPI api.Connection
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves

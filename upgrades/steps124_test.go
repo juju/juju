@@ -30,8 +30,18 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 		"add instance id field to IP addresses",
 		"add UUID field to IP addresses",
 		"migrate charm archives into environment storage",
+		"change entityid field on status history to globalkey",
+		"change updated field on statushistory from time to int",
+		"change updated field on status from time to int",
 	}
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
+}
+
+func (s *steps124Suite) TestStateStepsFor1244(c *gc.C) {
+	expected := []string{
+		"add missing service statuses",
+	}
+	assertStateSteps(c, version.MustParse("1.24.4"), expected)
 }
 
 func (s *steps124Suite) TestStepsFor124(c *gc.C) {

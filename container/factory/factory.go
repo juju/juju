@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/storage/looputil"
 )
 
 // NewContainerManager creates the appropriate container.Manager for the
@@ -20,7 +21,7 @@ func NewContainerManager(forType instance.ContainerType, conf container.ManagerC
 ) (container.Manager, error) {
 	switch forType {
 	case instance.LXC:
-		return lxc.NewContainerManager(conf, imageURLGetter)
+		return lxc.NewContainerManager(conf, imageURLGetter, looputil.NewLoopDeviceManager())
 	case instance.KVM:
 		return kvm.NewContainerManager(conf)
 	}

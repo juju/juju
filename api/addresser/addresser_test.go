@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -35,7 +36,7 @@ func (s *AddresserSuite) TestNewAPISuccess(c *gc.C) {
 	c.Check(called, gc.Equals, 0)
 
 	// Make a call so that an error will be returned.
-	addresses, err := api.IPAddress(names.NewIPAddressTag("00000000-0000-0000-0000-000000000000"))
+	addresses, err := api.IPAddresses(names.NewIPAddressTag("00000000-0000-0000-0000-000000000000"))
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(addresses, gc.IsNil)
 	c.Assert(called, gc.Equals, 1)
@@ -87,30 +88,35 @@ func (s *AddresserSuite) TestEnvironConfigServerError(c *gc.C) {
 }
 
 func (s *AddresserSuite) TestIPAddressesSuccess(c *gc.C) {
-	tests := []struct {
-		tag  names.IPAddressTag
-		life params.Life
-	}{
-		{names.NewIPAddressTag("11111111-0000-0000-0000-000000000000"), params.Alive},
-		{names.NewIPAddressTag("22222222-0000-0000-0000-000000000000"), params.Dying},
-		{names.NewIPAddressTag("33333333-0000-0000-0000-000000000000"), params.Dead},
-	}
-	for _, test := range tests {
-		var called int
-		args := params.Entities{
-			Entities: []params.Entity{{Tag: test.tag.String()}},
-		}
-		results := params.LifeResults{
-			Results: []params.LifeResult{{test.life, nil}},
-		}
-		apiCaller := successAPICaller(c, "Life", args, results, &called)
-		api := addresser.NewAPI(apiCaller)
+	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
+	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
+	tag3 := names.NewIPAddressTag("33333333-0000-0000-0000-000000000000")
 
-		ipAddress, err := api.IPAddress(test.tag)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(called, gc.Equals, 1)
-		c.Check(ipAddress.Tag(), gc.Equals, test.tag)
-		c.Check(ipAddress.Life(), gc.Equals, test.life)
+	var called int
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag1.String()},
+			{Tag: tag2.String()},
+			{Tag: tag3.String()},
+		},
+	}
+	results := params.LifeResults{
+		Results: []params.LifeResult{
+			{Life: params.Alive},
+			{Life: params.Dying},
+			{Life: params.Dead},
+		},
+	}
+	apiCaller := successAPICaller(c, "Life", args, results, &called)
+	api := addresser.NewAPI(apiCaller)
+
+	ipAddresses, err := api.IPAddresses(tag1, tag2, tag3)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, gc.Equals, 1)
+	c.Assert(len(ipAddresses), gc.Equals, 3)
+	for i, ipAddress := range ipAddresses {
+		c.Check(ipAddress.Tag().String(), gc.Equals, args.Entities[i].Tag)
+		c.Check(ipAddress.Life(), gc.Equals, results.Results[i].Life)
 	}
 }
 
@@ -119,44 +125,64 @@ func (s *AddresserSuite) TestIPAddressesClientError(c *gc.C) {
 	apiCaller := clientErrorAPICaller(c, "Life", nil, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress, err := api.IPAddress(names.NewIPAddressTag("00000000-0000-0000-0000-000000000000"))
+	ipAddresses, err := api.IPAddresses(names.NewIPAddressTag("00000000-0000-0000-0000-000000000000"))
 	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(ipAddress, gc.IsNil)
+	c.Assert(ipAddresses, gc.IsNil)
 	c.Assert(called, gc.Equals, 1)
 }
 
 func (s *AddresserSuite) TestIPAddressesServerError(c *gc.C) {
+	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
+	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
+
 	var called int
-	tag := names.NewIPAddressTag("00000000-0000-0000-0000-000000000000")
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+		Entities: []params.Entity{
+			{Tag: tag1.String()},
+			{Tag: tag2.String()},
+		},
 	}
 	results := params.LifeResults{
-		Results: []params.LifeResult{{"", apiservertesting.ServerError("server boom!")}},
+		Results: []params.LifeResult{
+			{params.Alive, nil},
+			{"", apiservertesting.ServerError("server failure")},
+		},
 	}
 	apiCaller := successAPICaller(c, "Life", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress, err := api.IPAddress(tag)
-	c.Assert(ipAddress, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "server boom!")
+	ipAddresses, err := api.IPAddresses(tag1, tag2)
+	c.Assert(len(ipAddresses), gc.Equals, 2)
+	c.Assert(ipAddresses[0].Tag().String(), gc.Equals, tag1.String())
+	c.Assert(ipAddresses[1], gc.IsNil)
+	c.Assert(err, gc.Equals, common.ErrPartialResults)
 	c.Assert(called, gc.Equals, 1)
 }
 
 func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {
+	tag1 := names.NewIPAddressTag("11111111-0000-0000-0000-000000000000")
+	tag2 := names.NewIPAddressTag("22222222-0000-0000-0000-000000000000")
+	tag3 := names.NewIPAddressTag("33333333-0000-0000-0000-000000000000")
+
 	var called int
-	tag := names.NewIPAddressTag("00000000-0000-0000-0000-000000000000")
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+		Entities: []params.Entity{
+			{Tag: tag1.String()},
+			{Tag: tag2.String()},
+			{Tag: tag3.String()},
+		},
 	}
 	results := params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{nil}, {nil}, {nil}},
 	}
 	apiCaller := successAPICaller(c, "Remove", args, results, &called)
 	api := addresser.NewAPI(apiCaller)
 
-	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
-	err := ipAddress.Remove()
+	ipAddress1 := addresser.NewIPAddress(api, tag1, params.Alive)
+	ipAddress2 := addresser.NewIPAddress(api, tag2, params.Dying)
+	ipAddress3 := addresser.NewIPAddress(api, tag3, params.Dead)
+
+	err := api.Remove(ipAddress1, ipAddress2, ipAddress3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 1)
 }
@@ -168,7 +194,7 @@ func (s *AddresserSuite) TestRemoveClientError(c *gc.C) {
 	api := addresser.NewAPI(apiCaller)
 
 	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
-	err := ipAddress.Remove()
+	err := api.Remove(ipAddress)
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(called, gc.Equals, 1)
 }
@@ -186,7 +212,7 @@ func (s *AddresserSuite) TestRemoveServerError(c *gc.C) {
 	api := addresser.NewAPI(apiCaller)
 
 	ipAddress := addresser.NewIPAddress(api, tag, params.Alive)
-	err := ipAddress.Remove()
+	err := api.Remove(ipAddress)
 	c.Assert(err, gc.ErrorMatches, "server boom!")
 	c.Assert(called, gc.Equals, 1)
 }

@@ -304,6 +304,19 @@ func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachm
 	return nil, false
 }
 
+// StorageTags returns the names.StorageTags for the active storage attachments.
+func (a *Attachments) StorageTags() []names.StorageTag {
+	tags := set.NewTags()
+	for tag := range a.storagers {
+		tags.Add(tag)
+	}
+	storageTags := make([]names.StorageTag, tags.Size())
+	for i, tag := range tags.SortedValues() {
+		storageTags[i] = tag.(names.StorageTag)
+	}
+	return storageTags
+}
+
 // ValidateHook validates the hook against the current state.
 func (a *Attachments) ValidateHook(hi hook.Info) error {
 	storager, err := a.storagerForHook(hi)

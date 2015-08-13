@@ -46,7 +46,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	node1.Set("bar", "2")
 
 	// Flush the context with a failure.
-	err = ctx.FlushContext("some badge", errors.New("blam pow"))
+	err = ctx.Flush("some badge", errors.New("blam pow"))
 	c.Assert(err, gc.ErrorMatches, "blam pow")
 
 	// Check that the changes have not been written to state.
@@ -74,7 +74,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 	node1.Set("qux", "4")
 
 	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
+	err = ctx.Flush("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the changes have been written to state.
@@ -157,7 +157,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	})
 
 	// Flush the context with a success.
-	err = ctx.FlushContext("some badge", nil)
+	err = ctx.Flush("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify the unit ranges are now open.
@@ -181,7 +181,7 @@ func (s *FlushContextSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 
 	// Flush the context with an error.
 	msg := "test fail run hook"
-	err := ctx.FlushContext("test fail run hook", errors.New(msg))
+	err := ctx.Flush("test fail run hook", errors.New(msg))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 
 	all, err := s.State.AllStorageInstances()
@@ -200,7 +200,7 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 		})
 
 	// Flush the context with a success.
-	err := ctx.FlushContext("success", nil)
+	err := ctx.Flush("success", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `.*storage "allecto" not found.*`)
 
 	all, err := s.State.AllStorageInstances()
@@ -217,7 +217,7 @@ func (s *FlushContextSuite) TestFlushClosesMetricsRecorder(c *gc.C) {
 	err := ctx.AddMetric("key", "value", time.Now())
 
 	// Flush the context with a success.
-	err = ctx.FlushContext("success", nil)
+	err = ctx.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
@@ -237,7 +237,7 @@ func (s *FlushContextSuite) TestBuiltinMetric(c *gc.C) {
 		paths.GetMetricsSpoolDir(),
 	)
 
-	err = ctx.FlushContext("some badge", nil)
+	err = ctx.Flush("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -255,7 +255,7 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 		paths.GetMetricsSpoolDir(),
 	)
 
-	err = ctx.FlushContext("some badge", nil)
+	err = ctx.Flush("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,7 +268,7 @@ func (s *FlushContextSuite) TestRecorderIsClosedAfterBuiltIn(c *gc.C) {
 	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("juju-units"), paths)
 	runner.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
 
-	err := ctx.FlushContext("some badge", nil)
+	err := ctx.Flush("some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
 }
