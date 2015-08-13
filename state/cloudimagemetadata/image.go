@@ -75,7 +75,6 @@ func (s *storage) SaveMetadata(metadata Metadata) error {
 
 	err := s.runTransaction(buildTxn)
 	if err != nil {
-		fmt.Printf("\n IS NO OP? %t (%v)\n", err == jujutxn.ErrNoOperations, err)
 		return errors.Annotatef(err, "cannot save metadata for cloud image %v", newDoc.ImageId)
 	}
 	return nil
