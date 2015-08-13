@@ -68,6 +68,7 @@ func NewEngine(config EngineConfig) (Engine, error) {
 		install: make(chan installTicket),
 		started: make(chan startedTicket),
 		stopped: make(chan stoppedTicket),
+		report:  make(chan reportTicket),
 	}
 	go func() {
 		defer engine.tomb.Done()
@@ -99,11 +100,12 @@ type engine struct {
 	// current holds the active worker information for each installed manifold.
 	current map[string]workerInfo
 
-	// install, started, and stopped each communicate requests and changes into
+	// install, started, report and stopped each communicate requests and changes into
 	// the loop goroutine.
 	install chan installTicket
 	started chan startedTicket
 	stopped chan stoppedTicket
+	report  chan reportTicket
 }
 
 // loop serializes manifold install operations and worker start/stop notifications.
@@ -130,6 +132,9 @@ func (engine *engine) loop() error {
 			engine.gotStarted(ticket.name, ticket.worker)
 		case ticket := <-engine.stopped:
 			engine.gotStopped(ticket.name, ticket.error)
+		case ticket := <-engine.report:
+			// This is safe so long as the report method reads the result.
+			ticket.result <- engine.gotReport()
 		}
 		if engine.isDying() {
 			if engine.allStopped() {
@@ -163,6 +168,37 @@ func (engine *engine) Install(name string, manifold Manifold) error {
 		// This is safe so long as the loop sends a result.
 		return <-result
 	}
+}
+
+// Report grabs status information about the engine.
+func (engine *engine) Report() map[string]interface{} {
+	report := make(chan map[string]interface{})
+	select {
+	case <-engine.tomb.Dying():
+		return map[string]interface{}{"error": "engine is shutting down"}
+	case engine.report <- reportTicket{report}:
+		// This is safe so long as the loop sends a result.
+		return <-report
+	}
+}
+
+func (engine *engine) gotReport() map[string]interface{} {
+	status := map[string]interface{}{}
+	workers := map[string]interface{}{}
+
+	status["is-dying"] = engine.isDying()
+	status["manifold-count"] = len(engine.manifolds)
+	for name, info := range engine.current {
+		worker := map[string]interface{}{}
+		worker["starting"] = info.starting
+		worker["stopping"] = info.stopping
+		if reportWorker, ok := info.worker.(Reporter); ok {
+			worker["report"] = reportWorker.Report()
+		}
+		workers[name] = worker
+	}
+	status["workers"] = workers
+	return status
 }
 
 // gotInstall handles the params originally supplied to Install. It must only be
@@ -489,4 +525,10 @@ type startedTicket struct {
 type stoppedTicket struct {
 	name  string
 	error error
+}
+
+// reportTicket is used by the engine to notify the loop that a status report
+// should be generated.
+type reportTicket struct {
+	result chan map[string]interface{}
 }

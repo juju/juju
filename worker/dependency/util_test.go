@@ -117,6 +117,12 @@ func (w *minimalWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
+func (w *minimalWorker) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"key1": "hello there",
+	}
+}
+
 func startMinimalWorker(_ dependency.GetResourceFunc) (worker.Worker, error) {
 	w := &minimalWorker{}
 	go func() {
