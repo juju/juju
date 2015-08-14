@@ -360,4 +360,8 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	if len(after) > 0 {
 		c.Fatalf("Expected 0 len, got %d", len(after))
 	}
+
+	err = ctx.Flush()
+	c.Assert(err, jc.ErrorIsNil)
+	s.apiClient.stub.CheckCallNames(c, "Untrack")
 }

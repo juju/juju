@@ -207,24 +207,21 @@ func (c *Context) ListDefinitions() ([]charm.Process, error) {
 func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
 
-	if len(c.updates) == 0 {
-		return nil
+	if len(c.updates) > 0 {
+		var updates []process.Info
+		for _, info := range c.updates {
+			updates = append(updates, info)
+		}
+		if _, err := c.api.RegisterProcesses(updates...); err != nil {
+			return errors.Trace(err)
+		}
+		for k, v := range c.updates {
+			c.processes[k] = v
+		}
+		c.updates = map[string]process.Info{}
 	}
 
-	var updates []process.Info
-	for _, info := range c.updates {
-		updates = append(updates, info)
-	}
-	if _, err := c.api.RegisterProcesses(updates...); err != nil {
-		return errors.Trace(err)
-	}
-
-	for k, v := range c.updates {
-		c.processes[k] = v
-	}
-	c.updates = nil
-
-	removes := make([]string, len(c.removes), 0)
+	removes := make([]string, 0, len(c.removes))
 	for id := range c.removes {
 		removes = append(removes, id)
 	}
