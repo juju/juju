@@ -70,9 +70,11 @@ type State struct {
 	pwatcher          *presence.Watcher
 	leadershipManager leadership.ManagerWorker
 
-	// mu guards allManager.
-	mu         sync.Mutex
-	allManager *storeManager
+	// mu guards allManager, allEnvManager & allEnvWatcherBacking
+	mu                   sync.Mutex
+	allManager           *storeManager
+	allEnvManager        *storeManager
+	allEnvWatcherBacking Backing
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -295,6 +297,16 @@ func (st *State) Watch() *Multiwatcher {
 	}
 	st.mu.Unlock()
 	return NewMultiwatcher(st.allManager)
+}
+
+func (st *State) WatchAllEnvs() *Multiwatcher {
+	st.mu.Lock()
+	if st.allEnvManager == nil {
+		st.allEnvWatcherBacking = newAllEnvWatcherStateBacking(st)
+		st.allEnvManager = newStoreManager(st.allEnvWatcherBacking)
+	}
+	st.mu.Unlock()
+	return NewMultiwatcher(st.allEnvManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
