@@ -27,18 +27,37 @@ def get_remote_file(url):
     return content
 
 
-def diff_files(local, url):
+def diff_files(local, remote):
     with open(local, 'r') as f:
         local_lines = f.read().splitlines()
-    remote_lines = get_remote_file(url).splitlines()
-    diff_gen = difflib.unified_diff(local_lines, remote_lines, local, url)
+    remote_lines = get_remote_file(remote).splitlines()
+    diff_gen = difflib.unified_diff(local_lines, remote_lines, local, remote)
     diff = '\n'.join([l for l in diff_gen])
     if diff:
         return False, diff
     return True, None
 
 
-def verify(stream, location, cloud, remote_root=None):
+def verify_metadata(location, cloud, remote_root=None, verbose=False):
+    local_metadata = os.path.join(location, 'tools', 'streams', 'v1')
+    if remote_root:
+        url = '{}/{}'.format(cloud, remote_root)
+    else:
+        url = cloud
+    remote_metadata = '{}/tools/streams/v1'.format(url)
+    if verbose:
+        print('comparing {} to {}'.format(local_metadata, remote_metadata))
+    for data_file in os.listdir(local_metadata):
+        if data_file.endswith('.json'):
+            local_file = os.path.join(local_metadata, data_file)
+            remote_file = '{}/{}'.format(remote_metadata, data_file)
+            if verbose:
+                print('comparing {}'.format(data_file))
+            identical, diff = diff_files(local_file, remote_file)
+            if not identical:
+                return False, diff
+    if verbose:
+        print('All json matches')
     return True, None
 
 

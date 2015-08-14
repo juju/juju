@@ -5,10 +5,12 @@ from StringIO import StringIO
 from unittest import TestCase
 
 from publish_streams import (
+    AWS,
     diff_files,
     get_remote_file,
     main,
     parse_args,
+    verify_metadata,
 )
 
 from utils import temp_dir
@@ -49,9 +51,9 @@ class PublishStreamsTestCase(TestCase):
             with open(local_path, 'w') as local_file:
                 local_file.write('one\ntwo\nthree')
             identical, diff = diff_files(local_path, 'http://foo/bar.json')
-            self.assertTrue(identical)
-            self.assertIsNone(diff)
-            gr_mock.assert_called_with('http://foo/bar.json')
+        self.assertTrue(identical)
+        self.assertIsNone(diff)
+        gr_mock.assert_called_with('http://foo/bar.json')
 
     @patch('publish_streams.get_remote_file', autospec=True)
     def test_diff_files_different(self, gr_mock):
@@ -61,14 +63,34 @@ class PublishStreamsTestCase(TestCase):
             with open(local_path, 'w') as local_file:
                 local_file.write('one\ntwo\nthree')
             identical, diff = diff_files(local_path, 'http://foo/bar.json')
-            self.assertFalse(identical)
-            normalized_diff = re.sub('/tmp/.*/bar', '/tmp/bar', diff)
-            self.assertEqual(
-                '--- /tmp/bar.json\n\n'
-                '+++ http://foo/bar.json\n\n'
-                '@@ -1,3 +1,3 @@\n\n'
-                ' one\n'
-                ' two\n'
-                '-three\n'
-                '+four',
-                normalized_diff)
+        self.assertFalse(identical)
+        normalized_diff = re.sub('/tmp/.*/bar', '/tmp/bar', diff)
+        self.assertEqual(
+            '--- /tmp/bar.json\n\n'
+            '+++ http://foo/bar.json\n\n'
+            '@@ -1,3 +1,3 @@\n\n'
+            ' one\n'
+            ' two\n'
+            '-three\n'
+            '+four',
+            normalized_diff)
+
+    @patch('publish_streams.diff_files', autospec=True)
+    def test_verify_metadata(self, df_mock):
+        df_mock.return_value = (True, None)
+        with temp_dir() as base:
+            metadata_path = os.path.join(base, 'tools', 'streams', 'v1')
+            os.makedirs(metadata_path)
+            metadata_file = os.path.join(metadata_path, 'bar.json')
+            metadasta_sig = os.path.join(metadata_path, 'bar.json.sig')
+            with open(metadata_file, 'w') as local_file:
+                local_file.write('bar.json')
+            with open(metadasta_sig, 'w') as local_file:
+                local_file.write('bar.json.sig')
+            identical, diff = verify_metadata(
+                base, AWS, remote_root=None, verbose=False)
+        self.assertTrue(identical)
+        self.assertIsNone(diff)
+        self.assertEqual(1, df_mock.call_count)
+        df_mock.assert_called_with(
+            metadata_file, '{}/tools/streams/v1/bar.json'.format(AWS))
