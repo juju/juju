@@ -13,10 +13,13 @@ STREAM_KEY_TEMPLATE = 'com.ubuntu.juju:{}:tools'
 
 
 def copy(location, from_stream, to_stream, dry_run=False, verbose=False):
-    with open(location, 'r') as f:
-        index = json.load(f)
+    with open(location, 'r') as index_file:
+        index = json.load(index_file)
     from_key = STREAM_KEY_TEMPLATE.format(from_stream)
     to_key = STREAM_KEY_TEMPLATE.format(to_stream)
+    if to_key in index['index']:
+        raise ValueError('{} is already defined in {}'.format(
+                         to_key, location))
     stanza = dict(index['index'][from_key])
     index['index'][to_key] = stanza
     if verbose:
@@ -24,8 +27,8 @@ def copy(location, from_stream, to_stream, dry_run=False, verbose=False):
         print('copied {} with {} to {}'.format(
               from_stream, product_path, to_stream))
     if not dry_run:
-        with open(location, 'w') as f:
-            json.dump(index, f, indent=4)
+        with open(location, 'w') as index_file:
+            json.dump(index, index_file, indent=4)
 
 
 def parse_args(args=None):
@@ -45,7 +48,7 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-def main(argv):
+def main(argv=None):
     """Copy simple stream stanzas."""
     args = parse_args(argv)
     try:
