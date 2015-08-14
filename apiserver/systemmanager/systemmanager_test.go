@@ -4,17 +4,22 @@
 package systemmanager_test
 
 import (
+	"time"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/systemmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -23,6 +28,7 @@ type systemManagerSuite struct {
 
 	systemManager *systemmanager.SystemManagerAPI
 	resources     *common.Resources
+	authorizer    apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&systemManagerSuite{})
@@ -32,11 +38,11 @@ func (s *systemManagerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	authoriser := apiservertesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
 
-	systemManager, err := systemmanager.NewSystemManagerAPI(s.State, s.resources, authoriser)
+	systemManager, err := systemmanager.NewSystemManagerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.systemManager = systemManager
 
@@ -178,4 +184,35 @@ func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
 func (s *systemManagerSuite) TestRemoveBlocksNotAll(c *gc.C) {
 	err := s.systemManager.RemoveBlocks(params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
+}
+
+func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
+	watcherId, err := s.systemManager.WatchAllEnvs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcherAPI_, err := apiserver.NewAllWatcher(s.State, s.resources, s.authorizer, watcherId.AllWatcherId)
+	c.Assert(err, jc.ErrorIsNil)
+	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
+	defer func() {
+		err := watcherAPI.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	resultC := make(chan params.AllWatcherNextResults)
+	go func() {
+		result, err := watcherAPI.Next()
+		c.Assert(err, jc.ErrorIsNil)
+		resultC <- result
+	}()
+
+	select {
+	case result := <-resultC:
+		// Expect to see the initial environment be reported.
+		deltas := result.Deltas
+		c.Assert(deltas, gc.HasLen, 1)
+		envInfo := deltas[0].Entity.(*multiwatcher.EnvironmentInfo)
+		c.Assert(envInfo.EnvUUID, gc.Equals, s.State.EnvironUUID())
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
 }
