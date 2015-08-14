@@ -1565,7 +1565,9 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	}
 
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	retries := 0
 	for a := shortAttempt.Start(); a.Next(); {
+		retries++
 		// This can return a 404 error if the address has already been released
 		// or is unknown by maas. However this, like any other error, would be
 		// unexpected - so we don't treat it specially and just return it to
@@ -1574,10 +1576,10 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 		if err == nil {
 			break
 		}
-		logger.Warningf("failed to release address %q from instance %q, will retry", addr, instId)
+		logger.Infof("failed to release address %q from instance %q, will retry", addr, instId)
 	}
 	if err != nil {
-		logger.Warningf("failed to release address %q from instance %q", addr, instId)
+		logger.Warningf("failed to release address %q from instance %q after %d attempts: %v", addr, instId, retries, err)
 	}
 	return err
 }
