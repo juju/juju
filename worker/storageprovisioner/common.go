@@ -90,6 +90,9 @@ func removeEntities(ctx *context, tags []names.Tag) error {
 
 // removeAttachments removes each specified attachment from state.
 func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	errorResults, err := ctx.life.RemoveAttachments(ids)
 	if err != nil {
 		return errors.Annotate(err, "removing attachments")

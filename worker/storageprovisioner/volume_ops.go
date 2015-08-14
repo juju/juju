@@ -222,27 +222,64 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 }
 
 // detachVolumes destroys volume attachments with the specified parameters.
-func detachVolumes(ctx *context, attachments []storage.VolumeAttachmentParams) error {
+func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp) error {
+	volumeAttachmentParams := make([]storage.VolumeAttachmentParams, 0, len(ops))
+	for _, op := range ops {
+		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
+	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir, attachments,
+		ctx.environConfig, ctx.storageDir, volumeAttachmentParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for sourceName, params := range paramsBySource {
-		logger.Debugf("detaching volumes: %v", params)
+	var reschedule []scheduleOp
+	var statuses []params.EntityStatus
+	var remove []params.MachineStorageId
+	for sourceName, volumeAttachmentParams := range paramsBySource {
+		logger.Debugf("detaching volumes: %+v", volumeAttachmentParams)
 		volumeSource := volumeSources[sourceName]
-		errs, err := volumeSource.DetachVolumes(params)
+		errs, err := volumeSource.DetachVolumes(volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
 		}
-		for _, err := range errs {
-			if err != nil {
-				// TODO(axw) we should set the volume's status
-				// and reschedule detachment for later.
-				return errors.Trace(err)
+		for i, err := range errs {
+			p := volumeAttachmentParams[i]
+			statuses = append(statuses, params.EntityStatus{
+				Tag: p.Volume.String(),
+				// TODO(axw) when we support multiple
+				// attachment, we'll have to check if
+				// there are any other attachments
+				// before saying the status "detached".
+				Status: params.StatusDetached,
+			})
+			id := params.MachineStorageId{
+				MachineTag:    p.Machine.String(),
+				AttachmentTag: p.Volume.String(),
 			}
+			status := &statuses[len(statuses)-1]
+			if err != nil {
+				reschedule = append(reschedule, ops[id])
+				status.Status = params.StatusDetaching
+				status.Info = err.Error()
+				logger.Debugf(
+					"failed to detach %s from %s: %v",
+					names.ReadableString(p.Volume),
+					names.ReadableString(p.Machine),
+					err,
+				)
+				continue
+			}
+			remove = append(remove, id)
 		}
+	}
+	scheduleOperations(ctx, reschedule...)
+	setStatus(ctx, statuses)
+	if err := removeAttachments(ctx, remove); err != nil {
+		return errors.Annotate(err, "removing attachments from state")
+	}
+	for _, id := range remove {
+		delete(ctx.volumeAttachments, id)
 	}
 	return nil
 }
@@ -379,6 +416,18 @@ type attachVolumeOp struct {
 }
 
 func (op *attachVolumeOp) key() interface{} {
+	return params.MachineStorageId{
+		MachineTag:    op.args.Machine.String(),
+		AttachmentTag: op.args.Volume.String(),
+	}
+}
+
+type detachVolumeOp struct {
+	exponentialBackoff
+	args storage.VolumeAttachmentParams
+}
+
+func (op *detachVolumeOp) key() interface{} {
 	return params.MachineStorageId{
 		MachineTag:    op.args.Machine.String(),
 		AttachmentTag: op.args.Volume.String(),

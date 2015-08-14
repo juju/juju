@@ -144,6 +144,10 @@ const (
 	// from a machine.
 	StatusDetaching Status = "detaching"
 
+	// StatusDetached indicates that the storage is not attached to any
+	// machine.
+	StatusDetached Status = "detached"
+
 	// StatusDestroying indicates that the storage is being destroyed.
 	StatusDestroying Status = "destroying"
 )

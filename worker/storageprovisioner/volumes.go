@@ -225,24 +225,22 @@ func processDyingVolumeAttachments(
 		}
 		return errors.Annotatef(result.Error, "getting information for volume attachment %v", id)
 	}
-	if len(detach)+len(remove) == 0 {
-		return nil
-	}
 	if len(detach) > 0 {
 		attachmentParams, err := volumeAttachmentParams(ctx, detach)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := detachVolumes(ctx, attachmentParams); err != nil {
-			return errors.Annotate(err, "detaching volumes")
+		ops := make([]scheduleOp, len(attachmentParams))
+		for i, p := range attachmentParams {
+			ops[i] = &detachVolumeOp{args: p}
 		}
-		remove = append(remove, detach...)
-	}
-	for _, id := range remove {
-		delete(ctx.volumeAttachments, id)
+		scheduleOperations(ctx, ops...)
 	}
 	if err := removeAttachments(ctx, remove); err != nil {
 		return errors.Annotate(err, "removing attachments from state")
+	}
+	for _, id := range remove {
+		delete(ctx.volumeAttachments, id)
 	}
 	return nil
 }

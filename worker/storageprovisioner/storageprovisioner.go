@@ -405,6 +405,7 @@ func processSchedule(ctx *context) error {
 	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
 	destroyVolumeOps := make(map[names.VolumeTag]*destroyVolumeOp)
 	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
+	detachVolumeOps := make(map[params.MachineStorageId]*detachVolumeOp)
 	for _, item := range ready {
 		op := item.(scheduleOp)
 		key := op.key()
@@ -415,6 +416,8 @@ func processSchedule(ctx *context) error {
 			destroyVolumeOps[key.(names.VolumeTag)] = op
 		case *attachVolumeOp:
 			attachVolumeOps[key.(params.MachineStorageId)] = op
+		case *detachVolumeOp:
+			detachVolumeOps[key.(params.MachineStorageId)] = op
 		}
 	}
 	if len(destroyVolumeOps) > 0 {
@@ -427,9 +430,14 @@ func processSchedule(ctx *context) error {
 			return errors.Annotate(err, "creating volumes")
 		}
 	}
+	if len(detachVolumeOps) > 0 {
+		if err := detachVolumes(ctx, detachVolumeOps); err != nil {
+			return errors.Annotate(err, "detaching volumes")
+		}
+	}
 	if len(attachVolumeOps) > 0 {
 		if err := attachVolumes(ctx, attachVolumeOps); err != nil {
-			return errors.Annotate(err, "creating volume attachments")
+			return errors.Annotate(err, "attaching volumes")
 		}
 	}
 	return nil
