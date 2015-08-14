@@ -951,6 +951,99 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 	waitChannel(c, removed, "waiting for attachment to be removed")
 }
 
+func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
+	machine := names.NewMachineTag("1")
+	volume := names.NewVolumeTag("1")
+	attachmentId := params.MachineStorageId{
+		MachineTag: machine.String(), AttachmentTag: volume.String(),
+	}
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedAttachments[attachmentId] = params.VolumeAttachment{
+		MachineTag: machine.String(),
+		VolumeTag:  volume.String(),
+	}
+	volumeAccessor.provisionedVolumes[volume.String()] = params.Volume{
+		VolumeTag: volume.String(),
+		Info: params.VolumeInfo{
+			VolumeId: "vol-123",
+		},
+	}
+	volumeAccessor.provisionedMachines[machine.String()] = instance.Id("already-provisioned-1")
+
+	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
+		return []params.LifeResult{{Life: params.Dying}}, nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var detachVolumeTimes []time.Time
+
+	s.provider.detachVolumesFunc = func(args []storage.VolumeAttachmentParams) ([]error, error) {
+		detachVolumeTimes = append(detachVolumeTimes, clock.Now())
+		if len(detachVolumeTimes) < 10 {
+			return []error{errors.New("badness")}, nil
+		}
+		return []error{nil}, nil
+	}
+
+	removed := make(chan interface{})
+	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
+		close(removed)
+		return make([]params.ErrorResult, len(ids)), nil
+	}
+
+	args := &workerArgs{
+		volumes: volumeAccessor,
+		clock:   clock,
+		life: &mockLifecycleManager{
+			attachmentLife:    attachmentLife,
+			removeAttachments: removeAttachments,
+		},
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.volumesWatcher.changes <- []string{volume.Id()}
+	args.environ.watcher.changes <- struct{}{}
+	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{attachmentId}
+	waitChannel(c, removed, "waiting for attachment to be removed")
+	c.Assert(detachVolumeTimes, gc.HasLen, 10)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(detachVolumeTimes[0], gc.Equals, time.Time{})
+
+	delays := make([]time.Duration, len(detachVolumeTimes)-1)
+	for i := range detachVolumeTimes[1:] {
+		delays[i] = detachVolumeTimes[i+1].Sub(detachVolumeTimes[i])
+	}
+	c.Assert(delays, jc.DeepEquals, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		4 * time.Minute,
+		8 * time.Minute,
+		16 * time.Minute,
+		30 * time.Minute, // ceiling reached
+		30 * time.Minute,
+		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+		{Tag: "volume-1", Status: "detaching", Info: "badness"}, // DetachVolumes
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detaching", Info: "badness"},
+		{Tag: "volume-1", Status: "detached", Info: ""},
+	})
+}
+
 func (s *storageProvisionerSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	removed := make(chan interface{})
 	removeAttachments := func(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
@@ -1113,6 +1206,83 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 	}
 	c.Assert(removed, jc.SameContents, []names.Tag{provisionedVolume, unprovisionedVolume})
 	assertNoEvent(c, removedChan, "volumes removed")
+}
+
+func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
+	volume := names.NewVolumeTag("1")
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionVolume(volume)
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		return []params.LifeResult{{Life: params.Dead}}, nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var destroyVolumeTimes []time.Time
+
+	s.provider.destroyVolumesFunc = func(volumeIds []string) ([]error, error) {
+		destroyVolumeTimes = append(destroyVolumeTimes, clock.Now())
+		if len(destroyVolumeTimes) < 10 {
+			return []error{errors.New("badness")}, nil
+		}
+		return []error{nil}, nil
+	}
+
+	removedChan := make(chan interface{}, 1)
+	remove := func(tags []names.Tag) ([]params.ErrorResult, error) {
+		removedChan <- tags
+		return make([]params.ErrorResult, len(tags)), nil
+	}
+
+	args := &workerArgs{
+		volumes: volumeAccessor,
+		clock:   clock,
+		life: &mockLifecycleManager{
+			life:   life,
+			remove: remove,
+		},
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.volumesWatcher.changes <- []string{volume.Id()}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, removedChan, "waiting for volume to be removed")
+	c.Assert(destroyVolumeTimes, gc.HasLen, 10)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(destroyVolumeTimes[0], gc.Equals, time.Time{})
+
+	delays := make([]time.Duration, len(destroyVolumeTimes)-1)
+	for i := range destroyVolumeTimes[1:] {
+		delays[i] = destroyVolumeTimes[i+1].Sub(destroyVolumeTimes[i])
+	}
+	c.Assert(delays, jc.DeepEquals, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		4 * time.Minute,
+		8 * time.Minute,
+		16 * time.Minute,
+		30 * time.Minute, // ceiling reached
+		30 * time.Minute,
+		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+		{Tag: "volume-1", Status: "destroying", Info: "badness"},
+	})
 }
 
 func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
