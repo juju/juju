@@ -63,7 +63,7 @@ def verify_metadata(location, cloud, remote_root=None, verbose=False):
 
 def publish(stream, location, cloud,
             remote_root=None, dry_run=False, verbose=False):
-    pass
+    verify_metadata(location, cloud, remote_root=remote_root, verbose=verbose)
 
 
 def parse_args(args=None):
