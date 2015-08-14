@@ -1,7 +1,7 @@
-// Copyright 2014-2015 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package leadership_test
+package leadership
 
 /*
 Test that the service is translating incoming parameters to the
@@ -18,10 +18,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/leadership"
+	"github.com/juju/juju/leadership"
 )
 
 type leadershipSuite struct {
@@ -32,22 +30,30 @@ var _ = gc.Suite(&leadershipSuite{})
 
 const (
 	StubServiceNm = "stub-service"
-	StubUnitNm    = "stub-service/0"
+	StubUnitNm    = "stub-unit/0"
 )
 
-type stubClaimer struct {
+type stubLeadershipManager struct {
 	ClaimLeadershipFn              func(sid, uid string, duration time.Duration) error
+	ReleaseLeadershipFn            func(sid, uid string) error
 	BlockUntilLeadershipReleasedFn func(serviceId string) error
 }
 
-func (m *stubClaimer) ClaimLeadership(sid, uid string, duration time.Duration) error {
+func (m *stubLeadershipManager) ClaimLeadership(sid, uid string, duration time.Duration) error {
 	if m.ClaimLeadershipFn != nil {
 		return m.ClaimLeadershipFn(sid, uid, duration)
 	}
 	return nil
 }
 
-func (m *stubClaimer) BlockUntilLeadershipReleased(serviceId string) error {
+func (m *stubLeadershipManager) ReleaseLeadership(sid, uid string) error {
+	if m.ReleaseLeadershipFn != nil {
+		return m.ReleaseLeadershipFn(sid, uid)
+	}
+	return nil
+}
+
+func (m *stubLeadershipManager) BlockUntilLeadershipReleased(serviceId string) error {
 	if m.BlockUntilLeadershipReleasedFn != nil {
 		return m.BlockUntilLeadershipReleasedFn(serviceId)
 	}
@@ -55,21 +61,26 @@ func (m *stubClaimer) BlockUntilLeadershipReleased(serviceId string) error {
 }
 
 type stubAuthorizer struct {
-	common.Authorizer
-	tag names.Tag
+	AuthOwnerFn     func(names.Tag) bool
+	AuthUnitAgentFn func() bool
 }
 
-func (m stubAuthorizer) AuthUnitAgent() bool {
-	_, ok := m.tag.(names.UnitTag)
-	return ok
+func (m *stubAuthorizer) AuthMachineAgent() bool { return true }
+func (m *stubAuthorizer) AuthUnitAgent() bool {
+	if m.AuthUnitAgentFn != nil {
+		return m.AuthUnitAgentFn()
+	}
+	return true
 }
-func (m stubAuthorizer) AuthOwner(tag names.Tag) bool {
-	return tag == m.tag
+func (m *stubAuthorizer) AuthOwner(tag names.Tag) bool {
+	if m.AuthOwnerFn != nil {
+		return m.AuthOwnerFn(tag)
+	}
+	return true
 }
-
-func (m stubAuthorizer) GetAuthTag() names.Tag {
-	return m.tag
-}
+func (m *stubAuthorizer) AuthEnvironManager() bool { return true }
+func (m *stubAuthorizer) AuthClient() bool         { return true }
+func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubUnitNm) }
 
 func checkDurationEquals(c *gc.C, actual, expect time.Duration) {
 	delta := actual - expect
@@ -79,29 +90,17 @@ func checkDurationEquals(c *gc.C, actual, expect time.Duration) {
 	c.Check(delta, jc.LessThan, time.Microsecond)
 }
 
-func newLeadershipService(
-	c *gc.C, claimer coreleadership.Claimer, authorizer common.Authorizer,
-) leadership.LeadershipService {
-	if authorizer == nil {
-		authorizer = stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
-	}
-	result, err := leadership.NewLeadershipService(claimer, authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-	return result
-}
-
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
-	claimer := &stubClaimer{
-		ClaimLeadershipFn: func(sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
-			c.Check(uid, gc.Equals, StubUnitNm)
-			expectDuration := time.Duration(299.9 * float64(time.Second))
-			checkDurationEquals(c, duration, expectDuration)
-			return nil
-		},
+	var ldrMgr stubLeadershipManager
+	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
+		c.Check(sid, gc.Equals, StubServiceNm)
+		c.Check(uid, gc.Equals, StubUnitNm)
+		expectDuration := time.Duration(299.9 * float64(time.Second))
+		checkDurationEquals(c, duration, expectDuration)
+		return nil
 	}
 
-	ldrSvc := newLeadershipService(c, claimer, nil)
+	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -118,17 +117,16 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
-	claimer := &stubClaimer{
-		ClaimLeadershipFn: func(sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
-			c.Check(uid, gc.Equals, StubUnitNm)
-			expectDuration := time.Duration(5.001 * float64(time.Second))
-			checkDurationEquals(c, duration, expectDuration)
-			return errors.Annotatef(coreleadership.ErrClaimDenied, "obfuscated")
-		},
+	var ldrMgr stubLeadershipManager
+	ldrMgr.ClaimLeadershipFn = func(sid, uid string, duration time.Duration) error {
+		c.Check(sid, gc.Equals, StubServiceNm)
+		c.Check(uid, gc.Equals, StubUnitNm)
+		expectDuration := time.Duration(5.001 * float64(time.Second))
+		checkDurationEquals(c, duration, expectDuration)
+		return errors.Annotatef(leadership.ErrClaimDenied, "obfuscated")
 	}
 
-	ldrSvc := newLeadershipService(c, claimer, nil)
+	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -145,8 +143,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
-	ldrSvc := newLeadershipService(c, nil, nil)
-
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -162,8 +159,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
-	ldrSvc := newLeadershipService(c, nil, nil)
-
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -179,8 +175,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
-	ldrSvc := newLeadershipService(c, nil, nil)
-
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -196,8 +191,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
 }
 
 func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
-	ldrSvc := newLeadershipService(c, nil, nil)
-
+	ldrSvc := &leadershipService{authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -212,27 +206,51 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 	c.Check(results.Results[0].Error, gc.ErrorMatches, "invalid duration")
 }
 
-func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
-	claimer := &stubClaimer{
-		BlockUntilLeadershipReleasedFn: func(sid string) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
-			return nil
-		},
+func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
+
+	var ldrMgr stubLeadershipManager
+	ldrMgr.ReleaseLeadershipFn = func(sid, uid string) error {
+		c.Check(sid, gc.Equals, StubServiceNm)
+		c.Check(uid, gc.Equals, StubUnitNm)
+		return nil
 	}
 
-	ldrSvc := newLeadershipService(c, claimer, nil)
+	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
+	results, err := ldrSvc.ReleaseLeadership(params.ReleaseLeadershipBulkParams{
+		Params: []params.ReleaseLeadershipParams{
+			{
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
+			},
+		},
+	})
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
+
+	var ldrMgr stubLeadershipManager
+	ldrMgr.BlockUntilLeadershipReleasedFn = func(sid string) error {
+		c.Check(sid, gc.Equals, StubServiceNm)
+		return nil
+	}
+
+	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result.Error, gc.IsNil)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
+func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		tag: names.NewUnitTag("lol-different/123"),
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
-	ldrSvc := newLeadershipService(c, nil, authorizer)
+	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
@@ -245,35 +263,39 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *gc.C) {
-	ldrSvc := newLeadershipService(c, nil, nil)
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
-		Params: []params.ClaimLeadershipParams{
+func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
+	authorizer := &stubAuthorizer{
+		AuthUnitAgentFn: func() bool { return false },
+	}
+
+	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
+	results, err := ldrSvc.ReleaseLeadership(params.ReleaseLeadershipBulkParams{
+		Params: []params.ReleaseLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag("lol-different").String(),
-				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
-				DurationSeconds: 123.45,
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 	c.Check(results.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
-func (s *leadershipSuite) TestCreateUnauthorized(c *gc.C) {
+func (s *leadershipSuite) TestBlockUntilLeadershipReleasedErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		tag: names.NewMachineTag("123"),
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
-	ldrSvc, err := leadership.NewLeadershipService(nil, authorizer)
-	c.Check(ldrSvc, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "permission denied")
-	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
+	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
+	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
+
+	// Overall function call should succeed, but operations should
+	// fail with a permissions issue.
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
 }

@@ -58,8 +58,9 @@ func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
-	dt.os = version.Unknown
-	dt.setVersion(s)
+	s.PatchVersion(version.Binary{
+		OS: version.Unknown,
+	})
 }
 
 func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {

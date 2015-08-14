@@ -69,7 +69,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	err := ssh.AddKeys(authenticationworker.SSHUser, s.existingKeys...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var apiRoot api.Connection
+	var apiRoot *api.State
 	apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
 	c.Assert(apiRoot, gc.NotNil)
 	s.keyupdaterApi = apiRoot.KeyUpdater()

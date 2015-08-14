@@ -15,10 +15,9 @@ var getState = func(st *state.State) stateInterface {
 }
 
 type stateInterface interface {
-	EnvironmentsForUser(names.UserTag) ([]*state.UserEnvironment, error)
-	IsSystemAdministrator(user names.UserTag) (bool, error)
-	NewEnvironment(*config.Config, names.UserTag) (*state.Environment, *state.State, error)
 	StateServerEnvironment() (*state.Environment, error)
+	NewEnvironment(*config.Config, names.UserTag) (*state.Environment, *state.State, error)
+	EnvironmentsForUser(names.UserTag) ([]*state.Environment, error)
 }
 
 type stateShim struct {

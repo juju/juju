@@ -5,7 +5,6 @@ package leadership
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/state/lease"
 )
@@ -14,7 +13,7 @@ import (
 // Manager.
 type ManagerConfig struct {
 	Client lease.Client
-	Clock  clock.Clock
+	Clock  lease.Clock
 }
 
 // Validate returns an error if the configuration contains invalid information

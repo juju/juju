@@ -22,7 +22,7 @@ import (
 type uniterSuite struct {
 	testing.JujuConnSuite
 
-	st                 api.Connection
+	st                 *api.State
 	stateServerMachine *state.Machine
 	wordpressMachine   *state.Machine
 	wordpressService   *state.Service

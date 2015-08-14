@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
@@ -78,18 +76,9 @@ var (
 
 type OpenstackStorage openstackStorage
 
-func NewCinderProvider(s OpenstackStorage) storage.Provider {
-	return &cinderProvider{
-		func(*config.Config) (openstackStorage, error) {
-			return openstackStorage(s), nil
-		},
-	}
-}
-
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
-	envUUID := testing.EnvironmentTag.Id()
-	return &cinderVolumeSource{openstackStorage(s), envName, envUUID}
+	return &cinderVolumeSource{openstackStorage(s), envName}
 }
 
 var indexData = `

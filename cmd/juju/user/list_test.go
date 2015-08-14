@@ -27,7 +27,7 @@ type UserListCommandSuite struct {
 var _ = gc.Suite(&UserListCommandSuite{})
 
 func newUserListCommand() cmd.Command {
-	return envcmd.WrapSystem(user.NewListCommand(&fakeUserListAPI{}))
+	return envcmd.Wrap(user.NewListCommand(&fakeUserListAPI{}))
 }
 
 type fakeUserListAPI struct{}

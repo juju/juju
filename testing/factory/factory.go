@@ -81,7 +81,6 @@ type ServiceParams struct {
 	Name    string
 	Charm   *state.Charm
 	Creator names.Tag
-	Status  *state.StatusInfo
 }
 
 // UnitParams are used to create units.
@@ -90,7 +89,6 @@ type UnitParams struct {
 	Machine     *state.Machine
 	Password    string
 	SetCharmURL bool
-	Status      *state.StatusInfo
 }
 
 // RelationParams are used to create relations.
@@ -334,12 +332,6 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	_ = params.Creator.(names.UserTag)
 	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-
-	if params.Status != nil {
-		err = service.SetStatus(params.Status.Status, params.Status.Message, params.Status.Data)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
 	return service
 }
 
@@ -380,11 +372,6 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	err = unit.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
-
-	if params.Status != nil {
-		err = unit.SetStatus(params.Status.Status, params.Status.Message, params.Status.Data)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 
 	return unit, params.Password
 }

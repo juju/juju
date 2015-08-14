@@ -48,22 +48,16 @@ func addIPAddress(st *State, addr network.Address, subnetid string) (ipaddress *
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
-	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
-		{
-			C:      ipaddressesC,
-			Id:     addressID,
-			Assert: txn.DocMissing,
-			Insert: ipDoc,
-		},
-	}
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     addressID,
+		Assert: txn.DocMissing,
+		Insert: ipDoc,
+	}}
 
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
-			return nil, errors.Trace(err)
-		}
 		if _, err = st.IPAddress(addr.Value); err == nil {
 			return nil, errors.AlreadyExistsf("address")
 		}
@@ -394,12 +388,8 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 			return errors.Annotatef(err, "cannot get machine %q instance ID", machineId)
 		}
 	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if err := checkEnvLife(i.st); err != nil {
-				return nil, errors.Trace(err)
-			}
 			if err := i.Refresh(); errors.IsNotFound(err) {
 				return nil, err
 			} else if i.Life() == Dead {
@@ -411,20 +401,18 @@ func (i *IPAddress) AllocateTo(machineId, interfaceId, macAddress string) (err e
 			}
 
 		}
-		return []txn.Op{
-			assertEnvAliveOp(i.st.EnvironUUID()),
-			{
-				C:      ipaddressesC,
-				Id:     i.doc.DocID,
-				Assert: append(isAliveDoc, bson.DocElem{"state", AddressStateUnknown}),
-				Update: bson.D{{"$set", bson.D{
-					{"machineid", machineId},
-					{"interfaceid", interfaceId},
-					{"instanceid", instId},
-					{"macaddress", macAddress},
-					{"state", string(AddressStateAllocated)},
-				}}},
-			}}, nil
+		return []txn.Op{{
+			C:      ipaddressesC,
+			Id:     i.doc.DocID,
+			Assert: append(isAliveDoc, bson.DocElem{"state", AddressStateUnknown}),
+			Update: bson.D{{"$set", bson.D{
+				{"machineid", machineId},
+				{"interfaceid", interfaceId},
+				{"instanceid", instId},
+				{"macaddress", macAddress},
+				{"state", string(AddressStateAllocated)},
+			}}},
+		}}, nil
 	}
 
 	err = i.st.run(buildTxn)

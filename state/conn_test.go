@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -33,6 +34,7 @@ type ConnSuite struct {
 	units        *mgo.Collection
 	stateServers *mgo.Collection
 	policy       statetesting.MockPolicy
+	factory      *factory.Factory
 	envTag       names.EnvironTag
 }
 
@@ -45,6 +47,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.StateSuite.SetUpTest(c)
 
 	cs.envTag = cs.State.EnvironTag()
+	cs.factory = factory.NewFactory(cs.State)
 
 	jujuDB := cs.MgoSuite.Session.DB("juju")
 	cs.annotations = jujuDB.C("annotations")

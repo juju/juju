@@ -121,8 +121,7 @@ type UnitSettings struct {
 // MachineInfo holds the information about a Machine
 // that is watched by StateMultiwatcher.
 type MachineInfo struct {
-	EnvUUID                  string
-	Id                       string
+	Id                       string `bson:"_id"`
 	InstanceId               string
 	Status                   Status
 	StatusInfo               string
@@ -155,8 +154,7 @@ type StatusInfo struct {
 }
 
 type ServiceInfo struct {
-	EnvUUID     string
-	Name        string
+	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
 	OwnerTag    string
@@ -176,8 +174,7 @@ func (i *ServiceInfo) EntityId() EntityId {
 }
 
 type UnitInfo struct {
-	EnvUUID        string
-	Name           string
+	Name           string `bson:"_id"`
 	Service        string
 	Series         string
 	CharmURL       string
@@ -204,17 +201,16 @@ func (i *UnitInfo) EntityId() EntityId {
 }
 
 type ActionInfo struct {
-	EnvUUID    string
-	Id         string
-	Receiver   string
-	Name       string
-	Parameters map[string]interface{}
-	Status     string
-	Message    string
-	Results    map[string]interface{}
-	Enqueued   time.Time
-	Started    time.Time
-	Completed  time.Time
+	Id         string                 `bson:"_id"`
+	Receiver   string                 `bson:"receiver"`
+	Name       string                 `bson:"name"`
+	Parameters map[string]interface{} `bson:"parameters"`
+	Status     string                 `bson:"status"`
+	Message    string                 `bson:"message"`
+	Results    map[string]interface{} `bson:"results"`
+	Enqueued   time.Time              `bson:"enqueued"`
+	Started    time.Time              `bson:"started"`
+	Completed  time.Time              `bson:"completed"`
 }
 
 func (i *ActionInfo) EntityId() EntityId {
@@ -225,8 +221,7 @@ func (i *ActionInfo) EntityId() EntityId {
 }
 
 type RelationInfo struct {
-	EnvUUID   string
-	Key       string
+	Key       string `bson:"_id"`
 	Id        int
 	Endpoints []Endpoint
 }
@@ -239,7 +234,6 @@ func (i *RelationInfo) EntityId() EntityId {
 }
 
 type AnnotationInfo struct {
-	EnvUUID     string
 	Tag         string
 	Annotations map[string]string
 }
@@ -288,11 +282,10 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 // BlockInfo holds the information about blocks
 // in this environment that are watched.
 type BlockInfo struct {
-	EnvUUID string
-	Id      string
-	Type    BlockType
-	Message string
-	Tag     string
+	Id      string    `bson:"_id"`
+	Type    BlockType `bson:"type"`
+	Message string    `bson:"message,omitempty"`
+	Tag     string    `bson:"tag"`
 }
 
 // EntityId returns block id.

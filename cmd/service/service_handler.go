@@ -16,39 +16,31 @@ type SystemService struct {
 	// by the service handler.
 	Name string
 	// Cmd is the function the service handler will run as a service.
-	Cmd func(args []string) int
+	Cmd func(args []string)
 	// Args is passed to Cmd() as function arguments.
 	Args []string
 }
 
 // Execute implements the svc.Handler interface
-func (s *SystemService) Execute(args []string, changeReq <-chan svc.ChangeRequest, changes chan<- svc.Status) (bool, uint32) {
+func (s *SystemService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (bool, uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 
-	errChannel := make(chan int, 1)
-
-	go func() {
-		err := s.Cmd(s.Args)
-		errChannel <- err
-	}()
+	go s.Cmd(s.Args)
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	for {
-		select {
-		case r := <-changeReq:
-			switch r.Cmd {
-			case svc.Interrogate:
-				changes <- r.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				changes <- svc.Status{State: svc.StopPending}
-				return false, 0
-			}
-		case err := <-errChannel:
-			return false, uint32(err)
+	for c := range r {
+		switch c.Cmd {
+		case svc.Interrogate:
+			changes <- c.CurrentStatus
+		case svc.Stop, svc.Shutdown:
+			// TODO (gabriel-samfira): Add more robust handling of service termination
+			changes <- svc.Status{State: svc.StopPending}
+			return false, 0
 		}
 	}
+	return false, 0
 }
 
 // Run runs the service

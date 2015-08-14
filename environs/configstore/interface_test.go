@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 
@@ -46,45 +45,21 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
 }
 
-func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName, envUUID, serverUUID string) {
+func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName string) {
 	info := store.CreateInfo(envName)
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost"},
-		CACert:      testing.CACert,
-		EnvironUUID: envUUID,
-		ServerUUID:  serverUUID,
-	})
 	err := info.Write()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *interfaceSuite) TestList(c *gc.C) {
 	store := s.NewStore(c)
-	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
-	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
-
-	s.SetFeatureFlags(feature.JES)
-	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
-	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")
+	s.createInitialisedEnvironment(c, store, "enva")
+	s.createInitialisedEnvironment(c, store, "envb")
+	s.createInitialisedEnvironment(c, store, "envc")
 
 	environs, err := store.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
-}
-
-func (s *interfaceSuite) TestListSystems(c *gc.C) {
-	store := s.NewStore(c)
-	s.createInitialisedEnvironment(c, store, "enva", "enva-uuid", "")
-	s.createInitialisedEnvironment(c, store, "envb", "envb-uuid", "")
-
-	s.SetFeatureFlags(feature.JES)
-	s.createInitialisedEnvironment(c, store, "envc", "envc-uuid", "envc-uuid")
-	s.createInitialisedEnvironment(c, store, "envd", "envd-uuid", "envc-uuid")
-	s.createInitialisedEnvironment(c, store, "system", "", "system-uuid")
-
-	environs, err := store.ListSystems()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc", "system"})
 }
 
 func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {

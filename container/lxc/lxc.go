@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/version"
 )
 
@@ -45,7 +44,6 @@ var (
 	LxcObjectFactory = golxc.Factory()
 	runtimeGOOS      = runtime.GOOS
 	runningInsideLXC = lxcutils.RunningInsideLXC
-	writeWgetTmpFile = ioutil.WriteFile
 )
 
 const (
@@ -105,7 +103,6 @@ type containerManager struct {
 	useAUFS           bool
 	backingFilesystem string
 	imageURLGetter    container.ImageURLGetter
-	loopDeviceManager looputil.LoopDeviceManager
 }
 
 // containerManager implements container.Manager.
@@ -114,11 +111,7 @@ var _ container.Manager = (*containerManager)(nil)
 // NewContainerManager returns a manager object that can start and
 // stop lxc containers. The containers that are created are namespaced
 // by the name parameter inside the given ManagerConfig.
-func NewContainerManager(
-	conf container.ManagerConfig,
-	imageURLGetter container.ImageURLGetter,
-	loopDeviceManager looputil.LoopDeviceManager,
-) (container.Manager, error) {
+func NewContainerManager(conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
 	name := conf.PopValue(container.ConfigName)
 	if name == "" {
 		return nil, errors.Errorf("name is required")
@@ -158,7 +151,6 @@ func NewContainerManager(
 		useAUFS:           useAUFS,
 		backingFilesystem: backingFS,
 		imageURLGetter:    imageURLGetter,
-		loopDeviceManager: loopDeviceManager,
 	}, nil
 }
 
@@ -452,13 +444,12 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Write the wget script.  Don't use a proxy when getting
-	// the image as it's going through the state server.
+	// Write the wget script.
 	wgetTmpl := `#!/bin/bash
-/usr/bin/wget --no-proxy --ca-certificate=%s $*
+/usr/bin/wget --ca-certificate=%s $*
 `
 	wget := fmt.Sprintf(wgetTmpl, caCertPath)
-	err = writeWgetTmpFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
+	err = ioutil.WriteFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
 	if err != nil {
 		defer closer()
 		return nil, nil, errors.Trace(err)
@@ -773,14 +764,6 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 			return err
 		}
 	}
-
-	// Detach loop devices backed by files inside the container's rootfs.
-	rootfs := filepath.Join(LxcContainerDir, name, "rootfs")
-	if err := manager.loopDeviceManager.DetachLoopDevices(rootfs, "/"); err != nil {
-		logger.Errorf("failed to detach loop devices from lxc container: %v", err)
-		return err
-	}
-
 	if err := lxcContainer.Destroy(); err != nil {
 		logger.Errorf("failed to destroy lxc container: %v", err)
 		return err

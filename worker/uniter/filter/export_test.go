@@ -3,6 +3,8 @@
 
 package filter
 
+var NewWorker = &newWorker
+
 func DummyFilter() Filter {
 	// This should, obviously, not be used except for type tests that don't
 	// try to do anything with it (eg TestOutput*).

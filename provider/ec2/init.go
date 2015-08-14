@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -20,4 +21,7 @@ func init() {
 
 	// Inform the storage provider registry about the AWS providers.
 	registry.RegisterEnvironStorageProviders(providerType, EBS_ProviderType)
+
+	// Register cloud local storage as simplestreams image data source.
+	environs.RegisterImageDataSourceFunc(common.CloudLocalStorageDesc, getCustomImageSource)
 }

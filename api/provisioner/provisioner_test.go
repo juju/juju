@@ -48,7 +48,7 @@ type provisionerSuite struct {
 	*apitesting.EnvironWatcherTests
 	*apitesting.APIAddresserTests
 
-	st      api.Connection
+	st      *api.State
 	machine *state.Machine
 
 	provisioner *provisioner.State

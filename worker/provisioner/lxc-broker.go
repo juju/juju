@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -54,9 +53,7 @@ func newLxcBroker(
 	enableNAT bool,
 	defaultMTU int,
 ) (environs.InstanceBroker, error) {
-	manager, err := lxc.NewContainerManager(
-		managerConfig, imageURLGetter, looputil.NewLoopDeviceManager(),
-	)
+	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
 		return nil, err
 	}

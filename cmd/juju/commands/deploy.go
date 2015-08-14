@@ -310,11 +310,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	err = registerMeteredCharm(c.RegisterURL, state, csClient.jar, curl.String(), serviceName, client.EnvironmentUUID())
-	if params.IsCodeNotImplemented(err) {
-		// The state server is too old to support metering.  Warn
-		// the user, but don't return an error.
-		logger.Warningf("current state server version does not support charm metering")
-		return nil
+	if err != nil {
+		return err
 	}
 
 	return block.ProcessBlockedError(err, block.BlockChange)
@@ -354,7 +351,7 @@ type metricCredentialsAPI interface {
 
 type metricsCredentialsAPIImpl struct {
 	api   *apiservice.Client
-	state api.Connection
+	state *api.State
 }
 
 // SetMetricCredentials sets the credentials on the service.
@@ -375,6 +372,6 @@ func (s *metricsCredentialsAPIImpl) Close() error {
 	return nil
 }
 
-var getMetricCredentialsAPI = func(state api.Connection) (metricCredentialsAPI, error) {
+var getMetricCredentialsAPI = func(state *api.State) (metricCredentialsAPI, error) {
 	return &metricsCredentialsAPIImpl{api: apiservice.NewClient(state), state: state}, nil
 }

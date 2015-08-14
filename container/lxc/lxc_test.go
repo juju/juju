@@ -48,11 +48,10 @@ func Test(t *stdtesting.T) {
 type LxcSuite struct {
 	lxctesting.TestSuite
 
-	events            chan mock.Event
-	useClone          bool
-	useAUFS           bool
-	logDir            string
-	loopDeviceManager mockLoopDeviceManager
+	events   chan mock.Event
+	useClone bool
+	useAUFS  bool
+	logDir   string
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -93,7 +92,6 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.ContainerFactory.AddListener(s.events)
 	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
 	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
-	s.loopDeviceManager = mockLoopDeviceManager{}
 }
 
 func (s *LxcSuite) TearDownTest(c *gc.C) {
@@ -158,7 +156,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
-		}, &containertesting.MockURLGetter{}, nil)
+		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
@@ -599,10 +597,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
-	manager, err := lxc.NewContainerManager(
-		params, &containertesting.MockURLGetter{},
-		&s.loopDeviceManager,
-	)
+	manager, err := lxc.NewContainerManager(params, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
@@ -611,7 +606,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
-	}, &containertesting.MockURLGetter{}, nil)
+	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
@@ -867,10 +862,6 @@ func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
-
-	c.Assert(s.loopDeviceManager.detachLoopDevicesArgs, jc.DeepEquals, [][]string{
-		{filepath.Join(s.LxcDir, name, "rootfs"), "/"},
-	})
 }
 
 func (s *LxcSuite) TestDestroyContainerNameClash(c *gc.C) {
@@ -1251,26 +1242,4 @@ func (s *LxcSuite) TestIsLXCSupportedNonLinuxSystem(c *gc.C) {
 	supports, err := lxc.IsLXCSupported()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsFalse)
-}
-
-func (s *LxcSuite) TestWgetEnvironmentUsesNoProxy(c *gc.C) {
-	var wgetScript []byte
-	fakeCert := []byte("fakeCert")
-	s.PatchValue(lxc.WriteWgetTmpFile, func(filename string, data []byte, perm os.FileMode) error {
-		wgetScript = data
-		return nil
-	})
-	_, closer, err := lxc.WgetEnvironment(fakeCert)
-	c.Assert(err, jc.ErrorIsNil)
-	defer closer()
-	c.Assert(string(wgetScript), jc.Contains, "/usr/bin/wget --no-proxy --ca-certificate")
-}
-
-type mockLoopDeviceManager struct {
-	detachLoopDevicesArgs [][]string
-}
-
-func (m *mockLoopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
-	m.detachLoopDevicesArgs = append(m.detachLoopDevicesArgs, []string{rootfs, prefix})
-	return nil
 }

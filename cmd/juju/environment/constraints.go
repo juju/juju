@@ -23,9 +23,9 @@ precedence.
 
 See Also:
    juju help constraints
-   juju help environment set-constraints
+   juju environment help set-constraints
    juju help deploy
-   juju help machine add
+   juju machine help add
    juju help add-unit
 `
 
@@ -46,9 +46,9 @@ Example:
 
 See Also:
    juju help constraints
-   juju help environment get-constraints
+   juju environment help get-constraints
    juju help deploy
-   juju help machine add
+   juju machine help add
    juju help add-unit
 `
 

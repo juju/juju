@@ -4,6 +4,8 @@
 package user_test
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -22,9 +24,7 @@ import (
 // This suite provides basic tests for the "user add" command
 type UserAddCommandSuite struct {
 	BaseSuite
-	mockAPI        *mockAddUserAPI
-	randomPassword string
-	serverFilename string
+	mockAPI *mockAddUserAPI
 }
 
 var _ = gc.Suite(&UserAddCommandSuite{})
@@ -32,19 +32,16 @@ var _ = gc.Suite(&UserAddCommandSuite{})
 func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockAddUserAPI{}
-	s.randomPassword = ""
-	s.serverFilename = ""
-	s.PatchValue(user.RandomPasswordNotify, func(pwd string) {
-		s.randomPassword = pwd
+	s.PatchValue(user.GetAddUserAPI, func(c *user.AddCommand) (user.AddUserAPI, error) {
+		return s.mockAPI, nil
 	})
-	s.PatchValue(user.ServerFileNotify, func(filename string) {
-		s.serverFilename = filename
+	s.PatchValue(user.GetShareEnvAPI, func(c *user.AddCommand) (user.ShareEnvironmentAPI, error) {
+		return s.mockAPI, nil
 	})
 }
 
-func (s *UserAddCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	addCommand := envcmd.WrapSystem(user.NewAddCommand(s.mockAPI))
-	return testing.RunCommand(c, addCommand, args...)
+func newUserAddCommand() cmd.Command {
+	return envcmd.Wrap(&user.AddCommand{})
 }
 
 func (s *UserAddCommandSuite) TestInit(c *gc.C) {
@@ -53,22 +50,25 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		user        string
 		displayname string
 		outPath     string
+		generate    bool
 		errorString string
 	}{
 		{
 			errorString: "no username supplied",
 		}, {
-			args:    []string{"foobar"},
-			user:    "foobar",
-			outPath: "foobar.server",
+			args: []string{"foobar"},
+			user: "foobar",
 		}, {
 			args:        []string{"foobar", "Foo Bar"},
 			user:        "foobar",
 			displayname: "Foo Bar",
-			outPath:     "foobar.server",
 		}, {
 			args:        []string{"foobar", "Foo Bar", "extra"},
 			errorString: `unrecognized args: \["extra"\]`,
+		}, {
+			args:     []string{"foobar", "--generate"},
+			user:     "foobar",
+			generate: true,
 		}, {
 			args:    []string{"foobar", "--output", "somefile"},
 			user:    "foobar",
@@ -86,55 +86,114 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 			c.Check(addUserCmd.User, gc.Equals, test.user)
 			c.Check(addUserCmd.DisplayName, gc.Equals, test.displayname)
 			c.Check(addUserCmd.OutPath, gc.Equals, test.outPath)
+			c.Check(addUserCmd.Generate, gc.Equals, test.generate)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
 		}
 	}
 }
 
-func (s *UserAddCommandSuite) TestRandomPassword(c *gc.C) {
-	_, err := s.run(c, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.randomPassword, gc.HasLen, 24)
+// serializedCACert adjusts the testing.CACert for the test below.
+func serializedCACert() string {
+	parts := strings.Split(testing.CACert, "\n")
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+	return strings.Join(parts[:len(parts)-1], "\n")
 }
 
-func (s *UserAddCommandSuite) TestUsername(c *gc.C) {
-	context, err := s.run(c, "foobar")
+func assertJENVContents(c *gc.C, filename, username, password string) {
+	raw, err := ioutil.ReadFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]interface{}{
+		"user":          username,
+		"password":      password,
+		"state-servers": []interface{}{"127.0.0.1:12345"},
+		"ca-cert":       serializedCACert(),
+		"environ-uuid":  "env-uuid",
+	}
+	c.Assert(string(raw), jc.YAMLEquals, expected)
+}
+
+func (s *UserAddCommandSuite) AssertJENVContents(c *gc.C, filename string) {
+	assertJENVContents(c, filename, s.mockAPI.username, s.mockAPI.password)
+}
+
+func (s *UserAddCommandSuite) TestAddUserJustUsername(c *gc.C) {
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "")
+	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
 	expected := `
+password:
+type password again:
 user "foobar" added
-server file written to .*foobar.server
+environment file written to .*foobar.jenv
 `[1:]
-	c.Assert(testing.Stderr(context), gc.Matches, expected)
-	s.assertServerFileMatches(c, s.serverFilename, "foobar", s.randomPassword)
+	c.Assert(testing.Stdout(context), gc.Matches, expected)
+	c.Assert(testing.Stderr(context), gc.Equals, "To generate a random strong password, use the --generate flag.\n")
+	s.AssertJENVContents(c, context.AbsPath("foobar.jenv"))
 }
 
-func (s *UserAddCommandSuite) TestUsernameAndDisplayname(c *gc.C) {
-	context, err := s.run(c, "foobar", "Foo Bar")
+func (s *UserAddCommandSuite) TestAddUserUsernameAndDisplayname(c *gc.C) {
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "Foo Bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "Foo Bar")
 	expected := `user "Foo Bar (foobar)" added`
-	c.Assert(testing.Stderr(context), jc.Contains, expected)
-	s.assertServerFileMatches(c, s.serverFilename, "foobar", s.randomPassword)
+	c.Assert(testing.Stdout(context), jc.Contains, expected)
+	s.AssertJENVContents(c, context.AbsPath("foobar.jenv"))
 }
 
 func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
 	// Block operation
 	s.mockAPI.blocked = true
-	_, err := s.run(c, "foobar", "Foo Bar")
+	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "Foo Bar")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
+func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--generate")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
+	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
+	c.Assert(s.mockAPI.password, gc.HasLen, 24)
+	expected := `
+user "foobar" added
+environment file written to .*foobar.jenv
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Matches, expected)
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+	s.AssertJENVContents(c, context.AbsPath("foobar.jenv"))
+}
+
 func (s *UserAddCommandSuite) TestAddUserErrorResponse(c *gc.C) {
 	s.mockAPI.failMessage = "failed to create user, chaos ensues"
-	_, err := s.run(c, "foobar")
-	c.Assert(err, gc.ErrorMatches, s.mockAPI.failMessage)
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--generate")
+	c.Assert(err, gc.ErrorMatches, "failed to create user, chaos ensues")
+	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
+	c.Assert(s.mockAPI.displayname, gc.Equals, "")
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+}
+
+func (s *UserAddCommandSuite) TestJenvOutput(c *gc.C) {
+	outputName := filepath.Join(c.MkDir(), "output")
+	context, err := testing.RunCommand(c, newUserAddCommand(),
+		"foobar", "--output", outputName)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertJENVContents(c, context.AbsPath(outputName+".jenv"))
+}
+
+func (s *UserAddCommandSuite) TestJenvOutputWithSuffix(c *gc.C) {
+	outputName := filepath.Join(c.MkDir(), "output.jenv")
+	context, err := testing.RunCommand(c, newUserAddCommand(),
+		"foobar", "--output", outputName)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertJENVContents(c, context.AbsPath(outputName))
 }
 
 type mockAddUserAPI struct {
@@ -160,6 +219,14 @@ func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.
 		return names.NewLocalUserTag(username), nil
 	}
 	return names.UserTag{}, errors.New(m.failMessage)
+}
+
+func (m *mockAddUserAPI) ShareEnvironment(users ...names.UserTag) error {
+	if m.shareFailMsg != "" {
+		return errors.New(m.shareFailMsg)
+	}
+	m.sharedUsers = users
+	return nil
 }
 
 func (*mockAddUserAPI) Close() error {

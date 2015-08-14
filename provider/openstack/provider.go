@@ -770,11 +770,7 @@ func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	if !ecfg.SSLHostnameVerification() {
 		newClient = client.NewNonValidatingClient
 	}
-	client := newClient(cred, authMode, nil)
-	// By default, the client requires "compute" and
-	// "object-store". Juju only requires "compute".
-	client.SetRequiredServiceTypes([]string{"compute"})
-	return client
+	return newClient(cred, authMode, nil)
 }
 
 var authenticateClient = func(e *environ) error {
@@ -1667,6 +1663,14 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 		Region:   region,
 		Endpoint: e.ecfg().authURL(),
 	}, nil
+}
+
+func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	_, ok := env.(*environ)
+	if !ok {
+		return nil, errors.NotSupportedf("non-openstack environment")
+	}
+	return common.GetCustomImageSource(env)
 }
 
 // TagInstance implements environs.InstanceTagger.

@@ -30,7 +30,7 @@ type RevisionUpdateSuite struct {
 	testing.CharmSuite
 	jujutesting.JujuConnSuite
 
-	st             api.Connection
+	st             *api.State
 	versionUpdater *charmrevisionworker.RevisionUpdateWorker
 }
 

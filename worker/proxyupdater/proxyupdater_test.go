@@ -31,7 +31,7 @@ import (
 type ProxyUpdaterSuite struct {
 	jujutesting.JujuConnSuite
 
-	apiRoot        api.Connection
+	apiRoot        *api.State
 	environmentAPI *environment.Facade
 	machine        *state.Machine
 

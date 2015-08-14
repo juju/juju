@@ -11,20 +11,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 
 	jujuerrors "github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 	"gopkg.in/goose.v1/testservices/hook"
-	"gopkg.in/goose.v1/testservices/identityservice"
-	"gopkg.in/goose.v1/testservices/novaservice"
 	"gopkg.in/goose.v1/testservices/openstackservice"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -33,7 +28,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
@@ -46,7 +40,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -58,7 +51,6 @@ type ProviderSuite struct {
 
 var _ = gc.Suite(&ProviderSuite{})
 var _ = gc.Suite(&localHTTPSServerSuite{})
-var _ = gc.Suite(&noSwiftSuite{})
 
 func (s *ProviderSuite) SetUpTest(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
@@ -100,16 +92,12 @@ type localServer struct {
 	Server          *httptest.Server
 	Mux             *http.ServeMux
 	oldHandler      http.Handler
-	Nova            *novaservice.Nova
+	Service         *openstackservice.Openstack
 	restoreTimeouts func()
 	UseTLS          bool
 }
 
-type newOpenstackFunc func(*http.ServeMux, *identity.Credentials, identity.AuthMode) *novaservice.Nova
-
-func (s *localServer) start(
-	c *gc.C, cred *identity.Credentials, newOpenstackFunc newOpenstackFunc,
-) {
+func (s *localServer) start(c *gc.C, cred *identity.Credentials) {
 	// Set up the HTTP server.
 	if s.UseTLS {
 		s.Server = httptest.NewTLSServer(nil)
@@ -122,9 +110,10 @@ func (s *localServer) start(
 	s.Server.Config.Handler = s.Mux
 	cred.URL = s.Server.URL
 	c.Logf("Started service at: %v", s.Server.URL)
-	s.Nova = newOpenstackFunc(s.Mux, cred, identity.AuthUserPass)
+	s.Service = openstackservice.New(cred, identity.AuthUserPass)
+	s.Service.SetupHTTP(s.Mux)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
-	s.Nova.SetAvailabilityZones(
+	s.Service.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{Name: "test-unavailable"},
 		nova.AvailabilityZone{
 			Name: "test-available",
@@ -149,31 +138,14 @@ type localLiveSuite struct {
 	srv localServer
 }
 
-func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
-	// Override the cinder storage provider, since there is no test
-	// double for cinder.
-	old, err := registry.StorageProvider(openstack.CinderProviderType)
-	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterProvider(openstack.CinderProviderType, nil)
-	registry.RegisterProvider(
-		openstack.CinderProviderType,
-		openstack.NewCinderProvider(&mockAdapter{}),
-	)
-	s.AddSuiteCleanup(func(*gc.C) {
-		registry.RegisterProvider(openstack.CinderProviderType, nil)
-		registry.RegisterProvider(openstack.CinderProviderType, old)
-	})
-}
-
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
-	s.srv.start(c, s.cred, newFullOpenstackService)
+	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	overrideCinderProvider(c, &s.CleanupSuite)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -212,13 +184,12 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	overrideCinderProvider(c, &s.CleanupSuite)
 	c.Logf("Running local tests")
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.srv.start(c, s.cred, newFullOpenstackService)
+	s.srv.start(c, s.cred)
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,7 +229,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
@@ -336,14 +307,14 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 // bootstrapping and starting an instance should occur without any attempt to
 // allocate a public address.
 func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add floating IP should not have been called")
 		},
 	)
 	defer cleanup()
-	cleanup = s.srv.Nova.RegisterControlPoint(
+	cleanup = s.srv.Service.Nova.RegisterControlPoint(
 		"addServerFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add server floating IP should not have been called")
@@ -483,7 +454,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
 	// Force an error when a security group is deleted.
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"removeSecurityGroup",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
@@ -680,7 +651,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 
 	env := s.Prepare(c)
 	// HP servers are available once they are BUILD(spawning).
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			details := args[0].(*nova.ServerDetail)
@@ -706,7 +677,7 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
 	env := s.Prepare(c)
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			details := args[0].(*nova.ServerDetail)
@@ -741,7 +712,7 @@ func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
 	env := s.Prepare(c)
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"server",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("strange error not instance")
@@ -758,7 +729,7 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
 	env := s.Prepare(c)
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"matchServers",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("strange error no instances")
@@ -817,7 +788,7 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -827,8 +798,8 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	// The image-metadata-url ends with "/juju-dist-test/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
+	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
@@ -844,11 +815,12 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 	env := s.Open(c)
 	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 2)
+	c.Assert(sources, gc.HasLen, 3)
 
 	// Check that data sources are in the right order
 	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
-	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
+	c.Check(sources[1].Description(), gc.Equals, "cloud local storage")
+	c.Check(sources[2].Description(), gc.Equals, "default cloud images")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -985,7 +957,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
-	t.srv.Nova.SetAvailabilityZones() // no availability zone support
+	t.srv.Service.Nova.SetAvailabilityZones() // no availability zone support
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
@@ -998,25 +970,23 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
+	assertSourcesContains(c, params.Sources, "cloud local storage")
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, jc.SameContents, []string{"id-y"})
 }
 
-func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
-	src := func(env environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("my datasource", "bar", false), nil
+func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
+	found := false
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		if s.Description() == expected {
+			found = true
+			break
+		}
 	}
-	environs.RegisterUserImageDataSourceFunc("my func", src)
-	env := s.Open(c)
-	sources, err := environs.ImageMetadataSources(env)
-	c.Assert(err, jc.ErrorIsNil)
-	var sourceIds []string
-	for _, s := range sources {
-		sourceIds = append(sourceIds, s.Description())
-	}
-	c.Assert(sourceIds, jc.DeepEquals, []string{"image-metadata-url", "my datasource", "keystone catalog", "default cloud images"})
+	c.Assert(found, jc.IsTrue)
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
@@ -1116,11 +1086,6 @@ type localHTTPSServerSuite struct {
 	env   environs.Environ
 }
 
-func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	overrideCinderProvider(c, &s.CleanupSuite)
-}
-
 func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{} {
 	attrs := makeTestConfig(s.cred)
 	attrs["agent-version"] = version.Current.Number.String()
@@ -1153,7 +1118,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 		TenantName: "some tenant",
 	}
 	// Note: start() will change cred.URL to point to s.srv.Server.URL
-	s.srv.start(c, cred, newFullOpenstackService)
+	s.srv.start(c, cred)
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
@@ -1233,7 +1198,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 4)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
@@ -1561,7 +1526,7 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	t.srv.Nova.SetAvailabilityZones(
+	t.srv.Service.Nova.SetAvailabilityZones(
 		// bootstrap node will be on az1.
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1589,7 +1554,7 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cleanup := t.srv.Nova.RegisterControlPoint(
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			serverDetail := args[0].(*nova.ServerDetail)
@@ -1607,7 +1572,7 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	t.srv.Nova.SetAvailabilityZones(
+	t.srv.Service.Nova.SetAvailabilityZones(
 		// bootstrap node will be on az1.
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1628,7 +1593,7 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cleanup := t.srv.Nova.RegisterControlPoint(
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			serverDetail := args[0].(*nova.ServerDetail)
@@ -1717,101 +1682,4 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	assertMetadata(extraKey, extraValue)
-}
-
-// noSwiftSuite contains tests that run against an OpenStack service double
-// that lacks Swift.
-type noSwiftSuite struct {
-	coretesting.BaseSuite
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
-}
-
-func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
-}
-
-func (s *noSwiftSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.cred = &identity.Credentials{
-		User:       "fred",
-		Secrets:    "secret",
-		Region:     "some-region",
-		TenantName: "some tenant",
-	}
-	s.srv.start(c, s.cred, newNovaOnlyOpenstackService)
-
-	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":            "sample-no-swift",
-		"type":            "openstack",
-		"auth-mode":       "userpass",
-		"control-bucket":  "juju-test-no-swift",
-		"username":        s.cred.User,
-		"password":        s.cred.Secrets,
-		"region":          s.cred.Region,
-		"auth-url":        s.cred.URL,
-		"tenant-name":     s.cred.TenantName,
-		"agent-version":   version.Current.Number.String(),
-		"authorized-keys": "fakekey",
-	})
-
-	// Serve fake tools and image metadata using "filestorage",
-	// rather than Swift as the rest of the tests do.
-	storageDir := c.MkDir()
-	imagesDir := filepath.Join(storageDir, "images")
-	toolsDir := filepath.Join(storageDir, "tools")
-	for _, dir := range []string{imagesDir, toolsDir} {
-		err := os.MkdirAll(dir, 0755)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	toolsStorage, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, jc.ErrorIsNil)
-	envtesting.UploadFakeTools(c, toolsStorage, "released", "released")
-	s.PatchValue(&tools.DefaultBaseURL, storageDir)
-	imageStorage, err := filestorage.NewFileStorageWriter(imagesDir)
-	openstack.UseTestImageData(imageStorage, s.cred)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, storageDir)
-
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	configStore := configstore.NewMem()
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configStore)
-	c.Assert(err, jc.ErrorIsNil)
-	s.env = env
-}
-
-func (s *noSwiftSuite) TearDownTest(c *gc.C) {
-	s.srv.stop()
-	s.BaseSuite.TearDownTest(c)
-}
-
-func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	service := openstackservice.New(cred, auth)
-	service.SetupHTTP(mux)
-	return service.Nova
-}
-
-func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService identityservice.IdentityService
-	if auth == identity.AuthKeyPair {
-		identityService = identityservice.NewKeyPair()
-	} else {
-		identityService = identityservice.NewUserPass()
-	}
-	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
-	if cred.TenantName == "" {
-		panic("Openstack service double requires a tenant to be specified.")
-	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService)
-	identityService.SetupHTTP(mux)
-	novaService.SetupHTTP(mux)
-	return novaService
 }

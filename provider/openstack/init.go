@@ -6,6 +6,7 @@ package openstack
 import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -16,7 +17,9 @@ const (
 func init() {
 	environs.RegisterProvider(providerType, environProvider{})
 
-	logger.Infof("openstack init")
+	// Register cloud local storage as simplestreams image data source.
+	environs.RegisterImageDataSourceFunc(common.CloudLocalStorageDesc, getCustomImageSource)
+
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 	tools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 

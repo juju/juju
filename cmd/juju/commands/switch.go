@@ -24,7 +24,7 @@ type SwitchCommand struct {
 }
 
 var switchDoc = `
-Show or change the default juju environment or system name.
+Show or change the default juju environment name.
 
 If no command line parameters are passed, switch will output the current
 environment as defined by the file $JUJU_HOME/current-environment.
@@ -34,13 +34,11 @@ current environment file if it represents a valid environment name as
 specified in the environments.yaml file.
 `
 
-const systemSuffix = " (system)"
-
 func (c *SwitchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
 		Args:    "[environment name]",
-		Purpose: "show or change the default juju environment or system name",
+		Purpose: "show or change the default juju environment name",
 		Doc:     switchDoc,
 		Aliases: []string{"env"},
 	}
@@ -56,21 +54,16 @@ func (c *SwitchCommand) Init(args []string) (err error) {
 	return
 }
 
-func getConfigstoreOptions() (set.Strings, set.Strings, error) {
+func getConfigstoreEnvironments() (set.Strings, error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to get config store")
+		return nil, errors.Annotate(err, "failed to get config store")
 	}
-	environmentNames, err := store.List()
+	other, err := store.List()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to list environments in config store")
+		return nil, errors.Annotate(err, "failed to list environments in config store")
 	}
-	systemNames, err := store.ListSystems()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to list systems in config store")
-	}
-	// Also include the systems.
-	return set.NewStrings(environmentNames...), set.NewStrings(systemNames...), nil
+	return set.NewStrings(other...), nil
 }
 
 func (c *SwitchCommand) Run(ctx *cmd.Context) error {
@@ -86,22 +79,18 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	}
 
 	names := set.NewStrings(environments.Names()...)
-	configEnvirons, configSystems, err := getConfigstoreOptions()
+	configEnvirons, err := getConfigstoreEnvironments()
 	if err != nil {
 		return err
 	}
 	names = names.Union(configEnvirons)
-	names = names.Union(configSystems)
 
 	if c.List {
-		// List all environments and systems.
+		// List all environments.
 		if c.EnvName != "" {
 			return errors.New("cannot switch and list at the same time")
 		}
 		for _, name := range names.SortedValues() {
-			if configSystems.Contains(name) && !configEnvirons.Contains(name) {
-				name += systemSuffix
-			}
 			fmt.Fprintf(ctx.Stdout, "%s\n", name)
 		}
 		return nil
@@ -117,38 +106,32 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	current, isSystem, err := envcmd.CurrentConnectionName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if current == "" {
-		current = environments.Default
-	} else if isSystem {
-		current += systemSuffix
+	currentEnv := envcmd.ReadCurrentEnvironment()
+	if currentEnv == "" {
+		currentEnv = environments.Default
 	}
 
 	// Handle the different operation modes.
 	switch {
-	case c.EnvName == "" && current == "":
+	case c.EnvName == "" && currentEnv == "":
 		// Nothing specified and nothing to switch to.
 		return errors.New("no currently specified environment")
 	case c.EnvName == "":
 		// Simply print the current environment.
-		fmt.Fprintf(ctx.Stdout, "%s\n", current)
-		return nil
+		fmt.Fprintf(ctx.Stdout, "%s\n", currentEnv)
 	default:
 		// Switch the environment.
 		if !names.Contains(c.EnvName) {
-			return errors.Errorf("%q is not a name of an existing defined environment or system", c.EnvName)
+			return errors.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
-		// If the name is not in the environment set, but is in the system
-		// set, then write the name into the current system file.
-		logger.Debugf("systems: %v", configSystems)
-		logger.Debugf("environs: %v", configEnvirons)
-		newEnv := c.EnvName
-		if configSystems.Contains(newEnv) && !configEnvirons.Contains(newEnv) {
-			return envcmd.SetCurrentSystem(ctx, newEnv)
+		if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
+			return err
 		}
-		return envcmd.SetCurrentEnvironment(ctx, newEnv)
+		if currentEnv == "" {
+			fmt.Fprintf(ctx.Stdout, "-> %s\n", c.EnvName)
+		} else {
+			fmt.Fprintf(ctx.Stdout, "%s -> %s\n", currentEnv, c.EnvName)
+		}
 	}
+	return nil
 }

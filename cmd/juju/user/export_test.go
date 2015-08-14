@@ -3,48 +3,41 @@
 
 package user
 
-var (
-	RandomPasswordNotify = &randomPasswordNotify
-	ReadPassword         = &readPassword
-	ServerFileNotify     = &serverFileNotify
-	WriteServerFile      = writeServerFile
+import (
+	"github.com/juju/cmd"
 )
 
-// NewAddCommand returns an AddCommand with the api provided as specified.
-func NewAddCommand(api AddUserAPI) *AddCommand {
-	return &AddCommand{
-		api: api,
-	}
+var (
+	ReadPassword = &readPassword
+	// add
+	GetAddUserAPI  = &getAddUserAPI
+	GetShareEnvAPI = &getShareEnvAPI
+	// change password
+	GetChangePasswordAPI     = &getChangePasswordAPI
+	GetEnvironInfoWriter     = &getEnvironInfoWriter
+	GetConnectionCredentials = &getConnectionCredentials
+	// disable and enable
+	GetDisableUserAPI = &getDisableUserAPI
+)
+
+// DisenableCommand is used for testing both Disable and Enable user commands.
+type DisenableCommand interface {
+	cmd.Command
+	Username() string
 }
 
-// NewChangePasswordCommand returns a ChangePasswordCommand with the api
-// and writer provided as specified.
-func NewChangePasswordCommand(api ChangePasswordAPI, writer EnvironInfoCredsWriter) *ChangePasswordCommand {
-	return &ChangePasswordCommand{
-		api:    api,
-		writer: writer,
-	}
+func (c *DisableCommand) Username() string {
+	return c.user
 }
 
-// NewDisableCommand returns a DisableCommand with the api provided as
-// specified.
-func NewDisableCommand(api DisenableUserAPI) *DisableCommand {
-	return &DisableCommand{
-		DisenableUserBase{
-			api: api,
-		},
-	}
+func (c *EnableCommand) Username() string {
+	return c.user
 }
 
-// NewEnableCommand returns a EnableCommand with the api provided as
-// specified.
-func NewEnableCommand(api DisenableUserAPI) *EnableCommand {
-	return &EnableCommand{
-		DisenableUserBase{
-			api: api,
-		},
-	}
-}
+var (
+	_ DisenableCommand = (*DisableCommand)(nil)
+	_ DisenableCommand = (*EnableCommand)(nil)
+)
 
 // NewInfoCommand returns an InfoCommand with the api provided as specified.
 func NewInfoCommand(api UserInfoAPI) *InfoCommand {

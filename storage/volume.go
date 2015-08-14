@@ -56,13 +56,6 @@ type VolumeAttachmentInfo struct {
 	// field must be left blank.
 	DeviceName string
 
-	// BusAddress is the bus address, where the volume is attached to
-	// the machine.
-	//
-	// The format of this field must match the field of the same name
-	// in BlockDevice.
-	BusAddress string
-
 	// ReadOnly signifies whether the volume is read only or writable.
 	ReadOnly bool
 }

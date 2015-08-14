@@ -30,7 +30,7 @@ type machinerSuite struct {
 	testing.JujuConnSuite
 	*apitesting.APIAddresserTests
 
-	st      api.Connection
+	st      *api.State
 	machine *state.Machine
 
 	machiner *machiner.State

@@ -48,9 +48,6 @@ type ImageMetadataCommand struct {
 	ImageId        string
 	Region         string
 	Endpoint       string
-	Stream         string
-	VirtType       string
-	Storage        string
 	privateStorage string
 }
 
@@ -79,9 +76,6 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
 	f.StringVar(&c.Endpoint, "u", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
-	f.StringVar(&c.Stream, "stream", imagemetadata.ReleasedStream, "the image stream")
-	f.StringVar(&c.VirtType, "virt-type", "", "the image virtualisation type")
-	f.StringVar(&c.Storage, "storage", "", "the type of root storage")
 }
 
 // setParams sets parameters based on the environment configuration
@@ -173,11 +167,8 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	}
 	out := context.Stdout
 	im := &imagemetadata.ImageMetadata{
-		Id:       c.ImageId,
-		Arch:     c.Arch,
-		Stream:   c.Stream,
-		VirtType: c.VirtType,
-		Storage:  c.Storage,
+		Id:   c.ImageId,
+		Arch: c.Arch,
 	}
 	cloudSpec := simplestreams.CloudSpec{
 		Region:   c.Region,

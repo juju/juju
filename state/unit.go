@@ -389,16 +389,17 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return setDyingOps, nil
 	}
 
-	// See if the unit agent has started running.
-	// If so then we can't set directly to dead.
 	agentStatusDocId := u.globalAgentKey()
-	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
+	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if agentStatusInfo.Status != StatusAllocating {
+
+	// See if the unit's machine has been allocated.
+	// If already allocated, then we can't set directly to dead.
+	if agentStatusDoc.Status != StatusAllocating {
 		return setDyingOps, nil
 	}
 
@@ -794,7 +795,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Agent Returns an agent by its unit's name.
-func (u *Unit) Agent() *UnitAgent {
+func (u *Unit) Agent() Entity {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
 }
 
@@ -817,7 +818,7 @@ func (u *Unit) AgentStatus() (StatusInfo, error) {
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this unit.
 func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
+	return statusHistory(size, u.globalKey(), u.st)
 }
 
 // Status returns the status of the unit.
@@ -828,19 +829,22 @@ func (u *Unit) Status() (StatusInfo, error) {
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
-	// TODO(fwereade) as on unitagent, this transformation does not belong here.
-	// For now, pretend we're always reading the unit status.
-	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
+	doc, err := getStatus(u.st, u.globalAgentKey())
 	if err != nil {
 		return StatusInfo{}, err
 	}
-	if info.Status != StatusError {
-		info, err = getStatus(u.st, u.globalKey(), "unit")
+	if doc.Status != StatusError {
+		doc, err = getStatus(u.st, u.globalKey())
 		if err != nil {
 			return StatusInfo{}, err
 		}
 	}
-	return info, nil
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
@@ -849,16 +853,36 @@ func (u *Unit) Status() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !ValidWorkloadStatus(status) {
-		return errors.Errorf("cannot set invalid status %q", status)
+	oldDoc, err := getStatus(u.st, u.globalKey())
+	if IsStatusNotFound(err) {
+		logger.Debugf("there is no state for %q yet", u.globalKey())
+	} else if err != nil {
+		logger.Debugf("cannot get state for %q yet", u.globalKey())
 	}
-	return setStatus(u.st, setStatusParams{
-		badge:     "unit",
-		globalKey: u.globalKey(),
-		status:    status,
-		message:   info,
-		rawData:   data,
-	})
+
+	doc, err := newUnitStatusDoc(status, info, data)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: notDeadDoc,
+	},
+		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
+	}
+	err = u.st.runTransaction(ops)
+	if err != nil {
+		return errors.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
+	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, u.globalKey(), u.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+	return nil
 }
 
 // OpenPorts opens the given port range and protocol for the unit, if
@@ -1147,47 +1171,17 @@ var (
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
-	originalm := m
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			m, err = u.st.Machine(m.Id())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		return u.assignToMachineOps(m, unused)
-	}
-	if err := u.st.run(buildTxn); err != nil {
-		// Don't wrap the error, as we want to return specific values
-		// as described in the doc comment.
-		return err
-	}
-	u.doc.MachineId = originalm.doc.Id
-	originalm.doc.Clean = false
-	return nil
-}
-
-func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
-	if u.Life() != Alive {
-		return nil, unitNotAliveErr
-	}
-	if m.Life() != Alive {
-		return nil, machineNotAliveErr
-	}
 	if u.doc.Series != m.doc.Series {
-		return nil, fmt.Errorf("series does not match")
+		return fmt.Errorf("series does not match")
 	}
 	if u.doc.MachineId != "" {
 		if u.doc.MachineId != m.Id() {
-			return nil, alreadyAssignedErr
+			return alreadyAssignedErr
 		}
-		return nil, jujutxn.ErrNoOperations
+		return nil
 	}
 	if u.doc.Principal != "" {
-		return nil, fmt.Errorf("unit is a subordinate")
-	}
-	if unused && !m.doc.Clean {
-		return nil, inUseErr
+		return fmt.Errorf("unit is a subordinate")
 	}
 	canHost := false
 	for _, j := range m.doc.Jobs {
@@ -1197,36 +1191,29 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		}
 	}
 	if !canHost {
-		return nil, fmt.Errorf("machine %q cannot host units", m)
+		return fmt.Errorf("machine %q cannot host units", m)
 	}
 	// assignToMachine implies assignment to an existing machine,
 	// which is only permitted if unit placement is supported.
 	if err := u.st.supportsUnitPlacement(); err != nil {
-		return nil, err
+		return err
 	}
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	storageOps, volumesAttached, filesystemsAttached, err := u.st.machineStorageOps(
 		&m.doc, storageParams,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	// addMachineStorageAttachmentsOps will add a txn.Op that ensures
-	// that no filesystems were concurrently added to the machine if
-	// any of the filesystems being attached specify a location.
-	attachmentOps, err := addMachineStorageAttachmentsOps(
-		m, volumesAttached, filesystemsAttached,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	storageOps = append(storageOps, attachmentOps...)
+	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
+		m.doc.Id, volumesAttached, filesystemsAttached,
+	))
 
 	assert := append(isAliveDoc, bson.D{
 		{"$or", []bson.D{
@@ -1250,7 +1237,32 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	}}
 	ops = append(ops, storageOps...)
-	return ops, nil
+	err = u.st.runTransaction(ops)
+	if err == nil {
+		u.doc.MachineId = m.doc.Id
+		m.doc.Clean = false
+		return nil
+	}
+	if err != txn.ErrAborted {
+		return err
+	}
+	u0, err := u.st.Unit(u.Name())
+	if err != nil {
+		return err
+	}
+	m0, err := u.st.Machine(m.Id())
+	if err != nil {
+		return err
+	}
+	switch {
+	case u0.Life() != Alive:
+		return unitNotAliveErr
+	case m0.Life() != Alive:
+		return machineNotAliveErr
+	case u0.doc.MachineId != "" || !unused:
+		return alreadyAssignedErr
+	}
+	return inUseErr
 }
 
 // validateDynamicMachineStorageParams validates that the provided machine
@@ -1270,10 +1282,7 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	if err := validateDynamicStorageParams(m.st, params); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return validateDynamicStorageParams(m.st, params)
 }
 
 // validateDynamicStorageParams validates that all storage providers required for
@@ -1686,7 +1695,6 @@ func machineStorageParamsForStorageInstance(
 			)
 		}
 		filesystemAttachmentParams := FilesystemAttachmentParams{
-			charmStorage.Location == "", // auto-generated location
 			location,
 			charmStorage.ReadOnly,
 		}
@@ -1857,7 +1865,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// If required storage is not all dynamic, then assigning
+	// If any required storage s not all dynamic, then assigning
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
 	if err != nil {

@@ -511,7 +511,6 @@ func convertStateVolumeAttachmentToParams(attachment state.VolumeAttachment) par
 	if info, err := attachment.Info(); err == nil {
 		result.Info = params.VolumeAttachmentInfo{
 			info.DeviceName,
-			info.BusAddress,
 			info.ReadOnly,
 		}
 	}

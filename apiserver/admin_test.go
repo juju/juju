@@ -89,11 +89,11 @@ var _ = gc.Suite(&loginAncientSuite{
 	},
 })
 
-func (s *baseLoginSuite) setupServer(c *gc.C) (api.Connection, func()) {
+func (s *baseLoginSuite) setupServer(c *gc.C) (*api.State, func()) {
 	return s.setupServerForEnvironment(c, s.State.EnvironTag())
 }
 
-func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, envTag names.EnvironTag) (api.Connection, func()) {
+func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, envTag names.EnvironTag) (*api.State, func()) {
 	info, cleanup := s.setupServerForEnvironmentWithValidator(c, envTag, nil)
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -568,7 +568,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 	validator := func(params.LoginRequest) error {
 		return nil
 	}
-	checker := func(c *gc.C, loginErr error, st api.Connection) {
+	checker := func(c *gc.C, loginErr error, st *api.State) {
 		c.Assert(loginErr, gc.IsNil)
 
 		// Ensure an API call that would be restricted during
@@ -583,7 +583,7 @@ func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
 	validator := func(params.LoginRequest) error {
 		return errors.New("Login not allowed")
 	}
-	checker := func(c *gc.C, loginErr error, _ api.Connection) {
+	checker := func(c *gc.C, loginErr error, _ *api.State) {
 		// error is wrapped in API server
 		c.Assert(loginErr, gc.ErrorMatches, "Login not allowed")
 	}
@@ -594,10 +594,10 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	validator := func(params.LoginRequest) error {
 		return apiserver.UpgradeInProgressError
 	}
-	checker := func(c *gc.C, loginErr error, st api.Connection) {
+	checker := func(c *gc.C, loginErr error, st *api.State) {
 		c.Assert(loginErr, gc.IsNil)
 
-		var statusResult params.FullStatus
+		var statusResult api.Status
 		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -624,7 +624,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 	checkLogin(names.NewMachineTag("99999"))
 }
 
-type validationChecker func(c *gc.C, err error, st api.Connection)
+type validationChecker func(c *gc.C, err error, st *api.State)
 
 func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
 	info, cleanup := s.setupServerWithValidator(c, validator)
@@ -682,7 +682,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 	}
 }
 
-func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) api.Connection {
+func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) *api.State {
 	info.Tag = nil
 	info.Password = ""
 	st, err := api.Open(info, fastDialOpts)
@@ -907,7 +907,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
 }
 
-func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.EnvironTag) {
+func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st *api.State, expected names.EnvironTag) {
 	// Look at what the api thinks it has.
 	tag, err := st.EnvironTag()
 	c.Assert(err, jc.ErrorIsNil)

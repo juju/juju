@@ -20,7 +20,7 @@ import (
 type firewallerSuite struct {
 	testing.JujuConnSuite
 
-	st       api.Connection
+	st       *api.State
 	machines []*state.Machine
 	service  *state.Service
 	charm    *state.Charm

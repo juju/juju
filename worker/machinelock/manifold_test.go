@@ -10,8 +10,9 @@ import (
 	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
+	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/machinelock"
@@ -120,12 +121,12 @@ type dummyAgent struct {
 	agent.Agent
 }
 
-func (_ dummyAgent) CurrentConfig() agent.Config {
+func (_ dummyAgent) CurrentConfig() coreagent.Config {
 	return &dummyAgentConfig{}
 }
 
 type dummyAgentConfig struct {
-	agent.Config
+	coreagent.Config
 }
 
 func (_ dummyAgentConfig) DataDir() string {

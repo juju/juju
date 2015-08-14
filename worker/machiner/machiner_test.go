@@ -125,7 +125,7 @@ func TestPackage(t *stdtesting.T) {
 type MachinerStateSuite struct {
 	testing.JujuConnSuite
 
-	st            api.Connection
+	st            *api.State
 	machinerState *apimachiner.State
 	machine       *state.Machine
 	apiMachine    *apimachiner.Machine

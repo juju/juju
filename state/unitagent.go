@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // UnitAgent represents the state of a service's unit agent.
@@ -32,52 +33,64 @@ func (u *UnitAgent) String() string {
 
 // Status returns the status of the unit agent.
 func (u *UnitAgent) Status() (StatusInfo, error) {
-	info, err := getStatus(u.st, u.globalKey(), "agent")
+	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return StatusInfo{}, errors.Trace(err)
 	}
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
-	// TODO(fwereade): this should absolutely not be happpening in the model.
-	if info.Status == StatusError {
+	if doc.Status == StatusError {
 		return StatusInfo{
 			Status:  StatusIdle,
 			Message: "",
 			Data:    map[string]interface{}{},
-			Since:   info.Since,
+			Since:   doc.Updated,
 		}, nil
 	}
-	return info, nil
+	return StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    doc.StatusData,
+		Since:   doc.Updated,
+	}, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
 func (u *UnitAgent) SetStatus(status Status, info string, data map[string]interface{}) (err error) {
-	switch status {
-	case StatusIdle, StatusExecuting, StatusRebooting, StatusFailed:
-	case StatusError:
-		if info == "" {
-			return errors.Errorf("cannot set status %q without info", status)
-		}
-	case StatusAllocating, StatusLost:
-		return errors.Errorf("cannot set status %q", status)
-	default:
-		return errors.Errorf("cannot set invalid status %q", status)
+	oldDoc, err := getStatus(u.st, u.globalKey())
+	if IsStatusNotFound(err) {
+		logger.Debugf("there is no state for %q yet", u.globalKey())
+	} else if err != nil {
+		logger.Debugf("cannot get state for %q yet", u.globalKey())
 	}
-	return setStatus(u.st, setStatusParams{
-		badge:     "agent",
-		globalKey: u.globalKey(),
-		status:    status,
-		message:   info,
-		rawData:   data,
-	})
+
+	doc, err := newUnitAgentStatusDoc(status, info, data)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{
+		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
+	}
+	err = u.st.runTransaction(ops)
+	if err != nil {
+		return errors.Errorf("cannot set status of unit agent %q: %v", u, onAbort(err, ErrDead))
+	}
+
+	if oldDoc.Status != "" {
+		if err := updateStatusHistory(oldDoc, u.globalKey(), u.st); err != nil {
+			logger.Errorf("could not record status history before change to %q: %v", status, err)
+		}
+	}
+
+	return nil
 }
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this agent.
 func (u *UnitAgent) StatusHistory(size int) ([]StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
+	return statusHistory(size, u.globalKey(), u.st)
 }
 
 // unitAgentGlobalKey returns the global database key for the named unit.

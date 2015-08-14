@@ -30,7 +30,7 @@ var _ = gc.Suite(&workerSuite{})
 type workerSuite struct {
 	testing.JujuConnSuite
 
-	apiSt api.Connection
+	apiSt *api.State
 	api   *apiinstancepoller.API
 }
 

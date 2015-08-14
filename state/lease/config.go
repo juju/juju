@@ -4,9 +4,10 @@
 package lease
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/mongo"
 )
@@ -19,6 +20,17 @@ type Mongo interface {
 
 	// GetCollection should probably call the mongo.CollectionFromName func.
 	GetCollection(name string) (collection mongo.Collection, closer func())
+}
+
+// Clock exposes wall-clock time for use by and with the lease package.
+type Clock interface {
+
+	// Now returns the current wall-clock time.
+	Now() time.Time
+
+	// Alarm returns a channel that will have the time sent on it at some point
+	// after the supplied time occurs.
+	Alarm(time.Time) <-chan time.Time
 }
 
 // ClientConfig contains the resources and information required to create
@@ -42,7 +54,7 @@ type ClientConfig struct {
 	Mongo Mongo
 
 	// Clock exposes the wall-clock time to a Client.
-	Clock clock.Clock
+	Clock Clock
 }
 
 // Validate returns an error if the supplied config is not valid.

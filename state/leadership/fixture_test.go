@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
-	"github.com/juju/juju/testing"
 )
 
 var (
@@ -47,8 +46,8 @@ func almostSeconds(seconds int) time.Duration {
 	return (time.Second * time.Duration(seconds)) - time.Nanosecond
 }
 
-// Fixture allows us to test a leadership.ManagerWorker with a usefully-mocked
-// clock.Clock and lease.Client.
+// Fixture allows us to test a leadership.Manager with a usefully-mocked
+// lease.Clock and lease.Client.
 type Fixture struct {
 
 	// leases contains the leases the lease.Client should report when the
@@ -68,8 +67,8 @@ type Fixture struct {
 
 // RunTest sets up a Manager and a Clock and passes them into the supplied
 // test function. The manager will be cleaned up afterwards.
-func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *testing.Clock)) {
-	clock := testing.NewClock(defaultClockStart)
+func (fix *Fixture) RunTest(c *gc.C, test func(leadership.ManagerWorker, *Clock)) {
+	clock := NewClock(defaultClockStart)
 	client := NewClient(fix.leases, fix.expectCalls)
 	manager, err := leadership.NewManager(leadership.ManagerConfig{
 		Clock:  clock,
