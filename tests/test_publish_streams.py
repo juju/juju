@@ -5,11 +5,12 @@ from StringIO import StringIO
 from unittest import TestCase
 
 from publish_streams import (
-    AWS,
+    CPCS,
     diff_files,
     get_remote_file,
     main,
     parse_args,
+    publish,
     verify_metadata,
 )
 
@@ -87,13 +88,12 @@ class PublishStreamsTestCase(TestCase):
                 local_file.write('bar.json')
             with open(metadasta_sig, 'w') as local_file:
                 local_file.write('bar.json.sig')
-            identical, diff = verify_metadata(
-                base, AWS, remote_root=None, verbose=False)
+            identical, diff = verify_metadata(base, CPCS.AWS, verbose=False)
         self.assertTrue(identical)
         self.assertIsNone(diff)
         self.assertEqual(1, df_mock.call_count)
         df_mock.assert_called_with(
-            metadata_file, '{}/tools/streams/v1/bar.json'.format(AWS))
+            metadata_file, '{}/tools/streams/v1/bar.json'.format(CPCS.AWS))
 
     @patch('publish_streams.diff_files', autospec=True)
     def test_verify_metadata_with_root_faile(self, df_mock):
@@ -104,23 +104,24 @@ class PublishStreamsTestCase(TestCase):
             metadata_file = os.path.join(metadata_path, 'bar.json')
             with open(metadata_file, 'w') as local_file:
                 local_file.write('bar.json')
-            identical, diff = verify_metadata(base, AWS)
+            identical, diff = verify_metadata(base, CPCS.AWS)
         self.assertFalse(identical)
         self.assertEqual(diff, 'different')
         df_mock.assert_called_with(
-            metadata_file, '{}/tools/streams/v1/bar.json'.format(AWS))
+            metadata_file, '{}/tools/streams/v1/bar.json'.format(CPCS.AWS))
 
-    @patch('publish_streams.diff_files', autospec=True)
-    def test_verify_metadata_with_root(self, df_mock):
-        df_mock.return_value = (True, None)
-        with temp_dir() as base:
-            metadata_path = os.path.join(base, 'tools', 'streams', 'v1')
-            os.makedirs(metadata_path)
-            metadata_file = os.path.join(metadata_path, 'bar.json')
-            with open(metadata_file, 'w') as local_file:
-                local_file.write('bar.json')
-            identical, diff = verify_metadata(base, AWS, remote_root='weekly')
-        self.assertTrue(identical)
-        self.assertIsNone(diff)
-        df_mock.assert_called_with(
-            metadata_file, '{}/weekly/tools/streams/v1/bar.json'.format(AWS))
+    @patch('publish_streams.verify_metadata', autospec=True)
+    def test_publish(self, vm_mock):
+        vm_mock.return_value = (True, None)
+        publish('testing', '/streams/juju-dist', 'aws',
+                remote_root=None, dry_run=False, verbose=False)
+        vm_mock.assert_called_with(
+            '/streams/juju-dist', CPCS.AWS, verbose=False)
+
+    @patch('publish_streams.verify_metadata', autospec=True)
+    def test_publish_with_remote(self, vm_mock):
+        vm_mock.return_value = (True, None)
+        publish('testing', '/streams/juju-dist', 'aws',
+                remote_root='weekly', dry_run=False, verbose=False)
+        vm_mock.assert_called_with(
+            '/streams/juju-dist', '%s/weekly' % CPCS.AWS, verbose=False)

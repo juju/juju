@@ -2,6 +2,8 @@
 
 from __future__ import print_function
 
+__metaclass__ = type
+
 from argparse import ArgumentParser
 import difflib
 import os
@@ -10,15 +12,24 @@ import traceback
 import urllib2
 
 
-AWS = "http://juju-dist.s3.amazonaws.com"
-AZURE = "https://jujutools.blob.core.windows.net/juju-tools"
-CANONISTACK = (
-    "https://swift.canonistack.canonical.com"
-    "/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-dist")
-HP = (
-    "https://region-a.geo-1.objects.hpcloudsvc.com"
-    "/v1/60502529753910/juju-dist")
-JOYENT = "https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"
+class CPCS:
+    AWS = "http://juju-dist.s3.amazonaws.com"
+    AZURE = "https://jujutools.blob.core.windows.net/juju-tools"
+    CANONISTACK = (
+        "https://swift.canonistack.canonical.com"
+        "/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-dist")
+    HP = (
+        "https://region-a.geo-1.objects.hpcloudsvc.com"
+        "/v1/60502529753910/juju-dist")
+    JOYENT = (
+        "https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist")
+
+    @classmethod
+    def get(cls, name):
+        proper_name = name.upper()
+        if proper_name in cls.__dict__:
+            return cls.__dict__[proper_name]
+        raise ValueError('{} is not a registered CPC'.format(proper_name))
 
 
 def get_remote_file(url):
@@ -38,13 +49,9 @@ def diff_files(local, remote):
     return True, None
 
 
-def verify_metadata(location, cloud, remote_root=None, verbose=False):
+def verify_metadata(location, remote_stream, verbose=False):
     local_metadata = os.path.join(location, 'tools', 'streams', 'v1')
-    if remote_root:
-        url = '{}/{}'.format(cloud, remote_root)
-    else:
-        url = cloud
-    remote_metadata = '{}/tools/streams/v1'.format(url)
+    remote_metadata = '{}/tools/streams/v1'.format(remote_stream)
     if verbose:
         print('comparing {} to {}'.format(local_metadata, remote_metadata))
     for data_file in os.listdir(local_metadata):
@@ -63,7 +70,11 @@ def verify_metadata(location, cloud, remote_root=None, verbose=False):
 
 def publish(stream, location, cloud,
             remote_root=None, dry_run=False, verbose=False):
-    verify_metadata(location, cloud, remote_root=remote_root, verbose=verbose)
+    if remote_root:
+        remote_stream = '{}/{}'.format(CPCS.get(cloud), remote_root)
+    else:
+        remote_stream = CPCS.get(cloud)
+    verify_metadata(location, remote_stream, verbose=verbose)
 
 
 def parse_args(args=None):
