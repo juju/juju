@@ -194,14 +194,14 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 	c.Check(numStubCalls, gc.Equals, 1)
 }
 
-func (s *clientSuite) TestUnregisterProcesses(c *gc.C) {
+func (s *clientSuite) TestUntrack(c *gc.C) {
 	numStubCalls := 0
 
 	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
 		numStubCalls++
-		c.Check(name, gc.Equals, "UnregisterProcesses")
+		c.Check(name, gc.Equals, "Untrack")
 
-		typedParams, ok := params.(*api.UnregisterProcessesArgs)
+		typedParams, ok := params.(*api.UntrackArgs)
 		c.Assert(ok, gc.Equals, true)
 
 		c.Check(len(typedParams.IDs), gc.Equals, 1)
@@ -210,7 +210,7 @@ func (s *clientSuite) TestUnregisterProcesses(c *gc.C) {
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	err := pclient.UnregisterProcesses(s.tag)
+	err := pclient.Untrack([]string{s.tag})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
