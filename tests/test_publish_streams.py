@@ -1,5 +1,6 @@
 from mock import patch
 import os
+import re
 from StringIO import StringIO
 from unittest import TestCase
 
@@ -42,5 +43,32 @@ class PublishStreamsTestCase(TestCase):
 
     @patch('publish_streams.get_remote_file', autospec=True)
     def test_diff_files(self, gr_mock):
+        gr_mock.return_value = 'one\ntwo\nthree'
         with temp_dir() as base:
-            identical, diff = diff_files()
+            local_path = os.path.join(base, 'bar.json')
+            with open(local_path, 'w') as local_file:
+                local_file.write('one\ntwo\nthree')
+            identical, diff = diff_files(local_path, 'http://foo/bar.json')
+            self.assertTrue(identical)
+            self.assertIsNone(diff)
+            gr_mock.assert_called_with('http://foo/bar.json')
+
+    @patch('publish_streams.get_remote_file', autospec=True)
+    def test_diff_files_different(self, gr_mock):
+        gr_mock.return_value = 'one\ntwo\nfour'
+        with temp_dir() as base:
+            local_path = os.path.join(base, 'bar.json')
+            with open(local_path, 'w') as local_file:
+                local_file.write('one\ntwo\nthree')
+            identical, diff = diff_files(local_path, 'http://foo/bar.json')
+            self.assertFalse(identical)
+            normalized_diff = re.sub('/tmp/.*/bar', '/tmp/bar', diff)
+            self.assertEqual(
+                '--- /tmp/bar.json\n\n'
+                '+++ http://foo/bar.json\n\n'
+                '@@ -1,3 +1,3 @@\n\n'
+                ' one\n'
+                ' two\n'
+                '-three\n'
+                '+four',
+                normalized_diff)
