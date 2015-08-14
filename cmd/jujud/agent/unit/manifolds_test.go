@@ -32,8 +32,8 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TearDownTest(c *gc.C) {
-	for name := range unit.RegisteredWorkers {
-		delete(unit.RegisteredWorkers, name)
+	for name := range unit.RegisteredManifolds {
+		delete(unit.RegisteredManifolds, name)
 	}
 
 	s.BaseSuite.TearDownTest(c)
@@ -52,14 +52,16 @@ func (s *ManifoldsSuite) getResourceFunc(apiCaller base.APICaller) dependency.Ge
 	}
 }
 
-func (s *ManifoldsSuite) newWorkerFunc(config unit.ManifoldsConfig, caller base.APICaller) (func() (worker.Worker, error), error) {
-	s.stub.AddCall("newWorkerFunc", config, caller)
+func (s *ManifoldsSuite) newManifold(config unit.ManifoldsConfig) (dependency.Manifold, error) {
+	var manifold dependency.Manifold
+
+	s.stub.AddCall("newManifold", config)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+		return manifold, errors.Trace(err)
 	}
 
-	return func() (worker.Worker, error) {
-		s.stub.AddCall("newWorker")
+	manifold.Start = func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+		s.stub.AddCall("Start", getResource)
 		if err := s.stub.NextErr(); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -73,33 +75,35 @@ func (s *ManifoldsSuite) newWorkerFunc(config unit.ManifoldsConfig, caller base.
 			return nil
 		}
 		return worker.NewSimpleWorker(loop), nil
-	}, nil
+	}
+	return manifold, nil
 }
 
-func (s *ManifoldsSuite) TestRegisterWorker(c *gc.C) {
-	err := unit.RegisterWorker("spam", s.newWorkerFunc)
+func (s *ManifoldsSuite) TestRegisterManifold(c *gc.C) {
+	err := unit.RegisterManifold("spam", s.newManifold)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We can't compare functions so we jump through hoops instead.
-	c.Check(unit.RegisteredWorkers, gc.HasLen, 1)
+	c.Check(unit.RegisteredManifolds, gc.HasLen, 1)
 	var config unit.ManifoldsConfig
-	registered := unit.RegisteredWorkers["spam"]
-	newWorker, err := registered(config, nil)
+	registered := unit.RegisteredManifolds["spam"]
+	manifold, err := registered(config)
 	c.Assert(err, jc.ErrorIsNil)
-	newWorker()
-	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorker")
+	manifold.Start(nil)
+	s.stub.CheckCallNames(c, "newManifold", "Start")
 }
 
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	for _, name := range []string{"spam", "eggs"} {
-		err := unit.RegisterWorker(name, s.newWorkerFunc)
+		err := unit.RegisterManifold(name, s.newManifold)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	config := unit.ManifoldsConfig{
 		Agent: fakeAgent{},
 	}
-	manifolds := unit.Manifolds(config)
+	manifolds, err := unit.Manifolds(config)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var names []string
 	for name, manifold := range manifolds {
@@ -122,16 +126,18 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 		"spam",
 		"eggs",
 	})
-	s.stub.CheckCalls(c, nil)
+	s.stub.CheckCallNames(c, "newManifold", "newManifold")
+	s.stub.ResetCalls()
 	manifolds["spam"].Start(s.getResourceFunc(nil))
-	s.stub.CheckCallNames(c, "getResource", "newWorkerFunc", "newWorker")
+	s.stub.CheckCallNames(c, "Start")
 }
 
 // TODO(cmars) 2015/08/10: rework this into builtin Engine cycle checker.
 func (s *ManifoldsSuite) TestAcyclic(c *gc.C) {
-	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+	manifolds, err := unit.Manifolds(unit.ManifoldsConfig{
 		Agent: fakeAgent{},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	count := len(manifolds)
 
 	// Set of vars for depth-first topological sort of manifolds. (Note that,

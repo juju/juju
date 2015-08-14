@@ -4,11 +4,11 @@
 package agent
 
 import (
-	"fmt"
 	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
@@ -79,7 +79,7 @@ func (a *UnitAgent) Init(args []string) error {
 		return cmdutil.RequiredError("unit-name")
 	}
 	if !names.IsValidUnit(a.UnitName) {
-		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
+		return errors.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
@@ -132,11 +132,14 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
-	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+	manifolds, err := unit.Manifolds(unit.ManifoldsConfig{
 		Agent:               agent.APIHostPortsSetter{a},
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	config := dependency.EngineConfig{
 		IsFatal:       cmdutil.IsFatal,
@@ -152,7 +155,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		if err := worker.Stop(engine); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return engine, nil
 }

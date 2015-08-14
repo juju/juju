@@ -9,8 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -25,20 +23,18 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-// TODO(ericsnow) Switch to manifolds.
-
-type workerFactory func(config ManifoldsConfig, caller base.APICaller) (func() (worker.Worker, error), error)
+type manifoldFactory func(config ManifoldsConfig) (dependency.Manifold, error)
 
 var (
-	registeredWorkers = make(map[string]workerFactory)
+	registeredManifolds = make(map[string]manifoldFactory)
 )
 
-// RegisterWorker adds the worker to the list of workers to start.
-func RegisterWorker(name string, newWorkerFunc workerFactory) error {
-	if _, ok := registeredWorkers[name]; ok {
-		return errors.Errorf("worker %q already registered", name)
+// RegisterManifold adds the worker to the list of workers to start.
+func RegisterManifold(name string, newManifold manifoldFactory) error {
+	if _, ok := registeredManifolds[name]; ok {
+		return errors.Errorf("%q manifold already registered", name)
 	}
-	registeredWorkers[name] = newWorkerFunc
+	registeredManifolds[name] = newManifold
 	return nil
 }
 
@@ -62,7 +58,7 @@ type ManifoldsConfig struct {
 // through a dependency engine yet.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+func Manifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
 	manifolds := dependency.Manifolds{
 
 		// The agent manifold references the enclosing agent, and is the
@@ -163,31 +159,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 	}
 
-	for name, newWorkerFunc := range registeredWorkers {
-		startFunc := func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			var caller base.APICaller
-			err := getResource(APICallerName, &caller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			newWorker, err := newWorkerFunc(config, caller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			worker, err := newWorker()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return worker, nil
+	for name, newManifold := range registeredManifolds {
+		if _, ok := manifolds[name]; ok {
+			return manifolds, errors.Errorf("%q manifold already added", name)
 		}
-		manifold := dependency.Manifold{
-			Inputs: []string{APICallerName},
-			Start:  startFunc,
+
+		manifold, err := newManifold(config)
+		if err != nil {
+			return manifolds, errors.Trace(err)
 		}
 		manifolds[name] = manifold
 	}
 
-	return manifolds
+	return manifolds, nil
 }
 
 const (

@@ -4,5 +4,5 @@
 package unit
 
 var (
-	RegisteredWorkers = registeredWorkers
+	RegisteredManifolds = registeredManifolds
 )
