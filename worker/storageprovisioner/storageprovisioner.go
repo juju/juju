@@ -428,7 +428,7 @@ func processSchedule(ctx *context) error {
 		}
 	}
 	if len(attachVolumeOps) > 0 {
-		if err := createVolumeAttachments(ctx, attachVolumeOps); err != nil {
+		if err := attachVolumes(ctx, attachVolumeOps); err != nil {
 			return errors.Annotate(err, "creating volume attachments")
 		}
 	}
