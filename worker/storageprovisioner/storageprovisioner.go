@@ -132,7 +132,7 @@ type LifecycleManager interface {
 
 // StatusSetter defines an interface used to set the status of entities.
 type StatusSetter interface {
-	SetStatus([]params.EntityStatus) error
+	SetStatus([]params.EntityStatusArgs) error
 }
 
 // EnvironAccessor defines an interface used to enable a storage provisioner

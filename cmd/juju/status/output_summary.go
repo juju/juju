@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 // FormatSummary returns a summary of the current environment
@@ -53,7 +54,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 	p(" ")
 
 	p("# SERVICES:", fmt.Sprintf(" (%d)", len(fs.Services)))
-	for _, svcName := range sortStringsNaturally(stringKeysFromMap(svcExposure)) {
+	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
@@ -121,7 +122,7 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 }
 
 func (f *summaryFormatter) printStateToCount(m map[params.Status]int) {
-	for _, status := range sortStringsNaturally(stringKeysFromMap(m)) {
+	for _, status := range common.SortStringsNaturally(stringKeysFromMap(m)) {
 		numInStatus := m[params.Status(status)]
 		f.delimitValuesWithTabs(status+":", fmt.Sprintf(" %d ", numInStatus))
 	}
@@ -155,7 +156,7 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 
 func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
 	stateToMachine := make(map[params.Status]int)
-	for _, name := range sortStringsNaturally(stringKeysFromMap(machines)) {
+	for _, name := range common.SortStringsNaturally(stringKeysFromMap(machines)) {
 		m := machines[name]
 		f.resolveAndTrackIp(m.DNSName)
 
@@ -170,10 +171,10 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 
 func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]serviceStatus) map[string]map[bool]int {
 	svcExposure := make(map[string]map[bool]int)
-	for _, name := range sortStringsNaturally(stringKeysFromMap(services)) {
+	for _, name := range common.SortStringsNaturally(stringKeysFromMap(services)) {
 		s := services[name]
 		// Grab unit states
-		for _, un := range sortStringsNaturally(stringKeysFromMap(s.Units)) {
+		for _, un := range common.SortStringsNaturally(stringKeysFromMap(s.Units)) {
 			u := s.Units[un]
 			f.trackUnit(un, u, 0)
 			recurseUnits(u, 1, f.trackUnit)

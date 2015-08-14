@@ -251,7 +251,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 		30 * time.Minute,
 	})
 
-	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
 		{Tag: "volume-1", Status: "pending", Info: "badness"},
 		{Tag: "volume-1", Status: "pending", Info: "badness"},
 		{Tag: "volume-1", Status: "pending", Info: "badness"},
@@ -333,7 +333,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 		30 * time.Minute,
 	})
 
-	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
 		{Tag: "volume-1", Status: "attaching", Info: ""},        // CreateVolumes
 		{Tag: "volume-1", Status: "attaching", Info: "badness"}, // AttachVolumes
 		{Tag: "volume-1", Status: "attaching", Info: "badness"},
@@ -1030,7 +1030,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 		30 * time.Minute,
 	})
 
-	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
 		{Tag: "volume-1", Status: "detaching", Info: "badness"}, // DetachVolumes
 		{Tag: "volume-1", Status: "detaching", Info: "badness"},
 		{Tag: "volume-1", Status: "detaching", Info: "badness"},
@@ -1272,7 +1272,7 @@ func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
 		30 * time.Minute,
 	})
 
-	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatus{
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
 		{Tag: "volume-1", Status: "destroying", Info: "badness"},
 		{Tag: "volume-1", Status: "destroying", Info: "badness"},
 		{Tag: "volume-1", Status: "destroying", Info: "badness"},

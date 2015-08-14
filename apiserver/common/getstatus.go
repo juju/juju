@@ -188,3 +188,13 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 	}
 	return result, nil
 }
+
+// EntityStatusFromState converts a state.StatusInfo into a params.EntityStatus.
+func EntityStatusFromState(status state.StatusInfo) params.EntityStatus {
+	return params.EntityStatus{
+		params.Status(status.Status),
+		status.Message,
+		status.Data,
+		status.Since,
+	}
+}

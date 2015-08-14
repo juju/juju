@@ -1,14 +1,21 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package status
+package common
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 )
+
+// SortStringsNaturally sorts strings according to their natural sort order.
+func SortStringsNaturally(s []string) []string {
+	sort.Sort(naturally(s))
+	return s
+}
 
 type naturally []string
 

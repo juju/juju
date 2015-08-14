@@ -72,7 +72,7 @@ func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: m.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}

@@ -384,6 +384,10 @@ func (m *mockVolume) Info() (state.VolumeInfo, error) {
 	return state.VolumeInfo{}, errors.NotProvisionedf("%v", m.tag)
 }
 
+func (m *mockVolume) Status() (state.StatusInfo, error) {
+	return state.StatusInfo{Status: state.StatusAttached}, nil
+}
+
 type mockFilesystem struct {
 	state.Filesystem
 	tag names.FilesystemTag
