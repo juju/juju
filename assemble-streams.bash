@@ -475,6 +475,9 @@ generate_streams() {
     if [[ $((minor_version)) == 21 ]]; then
         $SCRIPT_DIR/generate_index.py -v $DEST_DIST/tools/
     fi
+    if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
+        $SCRIPT_DIR/copy_stream.py $STREAM_DIR/index2.json released devel
+    fi
     set +x
     echo "The tools are in ${DEST_DIST}."
 
