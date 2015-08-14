@@ -73,6 +73,17 @@ type engine struct {
 	stopped chan stoppedTicket
 }
 
+func (engine *engine) Manifold(inputs ...string) Manifold {
+	return Manifold{
+		Inputs: inputs,
+		Start: func(getResource GetResourceFunc) (worker.Worker, error) {
+			return engine, nil
+		},
+		Reporter: engine.Report,
+		Output:   nil,
+	}
+}
+
 // loop serializes manifold install operations and worker start/stop notifications.
 // It's notable for its oneShotDying var, which is necessary because any number of
 // start/stop notification could be in flight at the point the engine needs to stop;
@@ -126,6 +137,20 @@ func (engine *engine) Install(name string, manifold Manifold) error {
 		// This is safe so long as the loop sends a result.
 		return <-result
 	}
+}
+
+// Report grabs status information about the engine.
+func (engine *engine) Report() map[string]interface{} {
+	status := map[string]interface{}{}
+	manifolds := map[string]interface{}{}
+
+	status["is-dying"] = engine.isDying()
+	status["manifold-count"] = len(engine.manifolds)
+	for k, v := range engine.manifolds {
+		manifolds[k] = v.Report()
+	}
+	status["manifolds"] = manifolds
+	return status
 }
 
 // gotInstall handles the params originally supplied to Install. It must only be
