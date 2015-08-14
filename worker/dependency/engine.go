@@ -73,6 +73,17 @@ type engine struct {
 	stopped chan stoppedTicket
 }
 
+func (engine *engine) Manifold(inputs ...string) Manifold {
+	return Manifold{
+		Inputs: inputs,
+		Start: func(getResource GetResourceFunc) (worker.Worker, error) {
+			return engine, nil
+		},
+		Reporter: engine.Report,
+		Output:   nil,
+	}
+}
+
 // loop serializes manifold install operations and worker start/stop notifications.
 // It's notable for its oneShotDying var, which is necessary because any number of
 // start/stop notification could be in flight at the point the engine needs to stop;

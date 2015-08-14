@@ -4,6 +4,7 @@
 package dependency_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -314,6 +315,44 @@ func (s *EngineSuite) TestRestartRestartsDependents(c *gc.C) {
 	// ...but should still cause all 3 workers to bounce.
 	mh1.AssertOneStart(c)
 	mh2.AssertOneStart(c)
+	mh3.AssertOneStart(c)
+}
+
+func (s *EngineSuite) TestRestartRestartsDependentsWithNestedEngines(c *gc.C) {
+
+	// Start a dependency chain of 3 workers.
+	// 2 are standard manifolds.
+	mh1 := newManifoldHarness()
+	err := s.engine.Install("error-task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertOneStart(c)
+	mh2 := newManifoldHarness("error-task")
+	err = s.engine.Install("restart-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+
+	// the 3rd is an engine that depends on the error-task
+	isFatal := func(error) bool { return false }
+	engine := dependency.NewEngine(isFatal, coretesting.ShortWait/2, coretesting.ShortWait/10)
+	err = s.engine.Install("engine", engine.Manifold("error-task"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// this engine has one dependant manifold.
+	mh3 := newManifoldHarness()
+	err = engine.Install("sub engine task", mh3.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	fmt.Println(s.engine.Report())
+	mh3.AssertOneStart(c)
+
+	// Once they're all running, induce an error at the top level, which will
+	// cause the next level to be killed cleanly....
+	mh1.InjectError(c, errors.New("ZAP"))
+
+	// ...and should only cause 2 manifolds to bounce.
+	mh1.AssertOneStart(c)
+	mh2.AssertOneStart(c)
+	// We fail this assert, this still some thinking to be done about
+	// what it means to nest engines.
 	mh3.AssertOneStart(c)
 }
 

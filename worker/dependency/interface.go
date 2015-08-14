@@ -22,6 +22,8 @@ type Engine interface {
 	worker.Worker
 
 	Reporter
+
+	Manifold(inputs ...string) Manifold
 }
 
 // Manifold defines the behaviour of a node in an Engine's dependency graph. It's
