@@ -365,3 +365,17 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiClient.stub.CheckCallNames(c, "Untrack")
 }
+
+func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
+	info := s.newProc("A", "myplugin", "spam", "okay")
+	ctx := context.NewContext(s.apiClient)
+	err := ctx.Set(info)
+	c.Assert(err, jc.ErrorIsNil)
+	before, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(before, jc.DeepEquals, []process.Info{info})
+	ctx.Untrack("not gonna match")
+	after, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(after, gc.DeepEquals, before)
+}
