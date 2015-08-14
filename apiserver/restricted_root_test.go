@@ -35,6 +35,9 @@ func (r *restrictedRootSuite) assertMethodAllowed(c *gc.C, rootName string, vers
 }
 
 func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
+	r.assertMethodAllowed(c, "AllEnvWatcher", 1, "Next")
+	r.assertMethodAllowed(c, "AllEnvWatcher", 1, "Stop")
+
 	r.assertMethodAllowed(c, "EnvironmentManager", 1, "CreateEnvironment")
 	r.assertMethodAllowed(c, "EnvironmentManager", 1, "ListEnvironments")
 
