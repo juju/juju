@@ -43,7 +43,8 @@ func (s *eventHandlerSuite) handler(events []workload.Event, apiClient context.A
 }
 
 func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
-	eh := workers.NewEventHandlers(s.apiClient, s.runner)
+	eh := workers.NewEventHandlers()
+	eh.Init(s.apiClient, s.runner)
 	defer eh.Close()
 
 	// TODO(ericsnow) This test is rather weak.
@@ -51,7 +52,8 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
-	eh := workers.NewEventHandlers(s.apiClient, s.runner)
+	eh := workers.NewEventHandlers()
+	eh.Init(s.apiClient, s.runner)
 	defer eh.Close()
 	eh.RegisterHandler(s.handler)
 
@@ -63,7 +65,8 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 		Kind: workload.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
-	eh := workers.NewEventHandlers(s.apiClient, s.runner)
+	eh := workers.NewEventHandlers()
+	eh.Init(s.apiClient, s.runner)
 	go func() {
 		eh.AddEvents(events...)
 		eh.Close()
@@ -81,7 +84,8 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 		Kind: workload.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
-	eh := workers.NewEventHandlers(s.apiClient, s.runner)
+	eh := workers.NewEventHandlers()
+	eh.Init(s.apiClient, s.runner)
 	eh.RegisterHandler(s.handler)
 	w, err := eh.NewWorker()
 	c.Assert(err, jc.ErrorIsNil)

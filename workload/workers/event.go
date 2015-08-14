@@ -33,14 +33,17 @@ type EventHandlers struct {
 }
 
 // NewEventHandlers wraps a new EventHandler around the provided channel.
-func NewEventHandlers(apiClient context.APIClient, runner Runner) *EventHandlers {
+func NewEventHandlers() *EventHandlers {
 	workloadEventLogger.Debugf("new event handler created")
 	eh := &EventHandlers{
-		events:    make(chan []workload.Event),
-		apiClient: apiClient,
-		runner:    newTrackingRunner(runner),
+		events: make(chan []workload.Event),
 	}
 	return eh
+}
+
+func (eh *EventHandlers) Init(apiClient context.APIClient, runner Runner) {
+	eh.apiClient = apiClient
+	eh.runner = newTrackingRunner(runner)
 }
 
 // Close cleans up the handler's resources.
