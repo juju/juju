@@ -7,7 +7,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
@@ -28,7 +27,7 @@ func (s *ClientPersistenceSuite) TestNewClientInvalidClockDoc(c *gc.C) {
 		Namespace:  "namespace",
 		Collection: "collection",
 		Mongo:      NewMongo(s.db),
-		Clock:      clock.WallClock,
+		Clock:      lease.SystemClock{},
 	}
 	dbKey := "clock#namespace#"
 	err := s.db.C("collection").Insert(bson.M{"_id": dbKey})
@@ -45,7 +44,7 @@ func (s *ClientPersistenceSuite) TestNewClientInvalidLeaseDoc(c *gc.C) {
 		Namespace:  "namespace",
 		Collection: "collection",
 		Mongo:      NewMongo(s.db),
-		Clock:      clock.WallClock,
+		Clock:      lease.SystemClock{},
 	}
 	err := s.db.C("collection").Insert(bson.M{
 		"_id":       "snagglepuss",

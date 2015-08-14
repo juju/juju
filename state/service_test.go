@@ -320,7 +320,6 @@ func (s *ServiceSuite) TestSetCharmWithDyingService(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	_, err := s.mysql.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)

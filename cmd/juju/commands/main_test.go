@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/service"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -65,22 +64,22 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "no params shows help",
 		args:    []string{},
 		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "juju help is the same as juju",
 		args:    []string{"help"},
 		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "juju --help works too",
 		args:    []string{"--help"},
 		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "juju help basics is the same as juju",
 		args:    []string{"help", "basics"},
 		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
+		out:     strings.TrimLeft(helpBasics, "\n"),
 	}, {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
@@ -312,8 +311,6 @@ var topicNames = []string{
 	"global-options",
 	"glossary",
 	"hpcloud-provider",
-	"juju",
-	"juju-systems",
 	"local-provider",
 	"logging",
 	"maas-provider",
@@ -321,7 +318,6 @@ var topicNames = []string{
 	"placement",
 	"plugins",
 	"topics",
-	"users",
 }
 
 func (s *MainSuite) TestHelpTopics(c *gc.C) {

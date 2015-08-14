@@ -230,9 +230,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 
 	// The default environment is now the newly imported one, and the output
 	// reflects the change.
-	currEnv, err := envcmd.ReadCurrentEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currEnv, gc.Equals, "testing")
+	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "testing")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> testing\n")
 
 	// Trying to import the jenv with the same name a second time raises an
@@ -246,10 +244,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 	ctx, err = testing.RunCommand(c, jenvCmd, f.Name(), "another")
 	c.Assert(err, jc.ErrorIsNil)
 	assertJenvContents(c, contents, "another")
-
-	currEnv, err = envcmd.ReadCurrentEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currEnv, gc.Equals, "another")
+	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "another")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "testing -> another\n")
 }
 
@@ -269,9 +264,7 @@ func (*jenvSuite) TestSuccessCustomEnvironmentName(c *gc.C) {
 
 	// The default environment is now the newly imported one, and the output
 	// reflects the change.
-	currEnv, err := envcmd.ReadCurrentEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currEnv, gc.Equals, "my-env")
+	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "my-env")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "erewhemos -> my-env\n")
 }
 

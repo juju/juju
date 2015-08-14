@@ -36,7 +36,7 @@ type deployerSuite struct {
 	SimpleToolsFixture
 
 	machine       *state.Machine
-	stateAPI      api.Connection
+	stateAPI      *api.State
 	deployerState *apideployer.State
 }
 

@@ -18,5 +18,5 @@ func init() {
 }
 
 func main() {
-	MainWrapper(os.Args)
+	Main(os.Args)
 }

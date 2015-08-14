@@ -38,7 +38,7 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 
 	// This determines the client used in SendHTTPRequest().
 	s.PatchValue(api.NewHTTPClient,
-		func(api.Connection) apihttp.HTTPClient {
+		func(*api.State) apihttp.HTTPClient {
 			return s.Fake
 		},
 	)

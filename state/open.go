@@ -56,13 +56,6 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 	}
 	logger.Debugf("connection established")
 
-	err = mongodbLogin(session, info)
-	if err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	logger.Debugf("mongodb login successful")
-
 	// In rare circumstances, we may be upgrading from pre-1.23, and not have the
 	// environment UUID available. In that case we need to infer what it might be;
 	// we depend on the assumption that this is the only circumstance in which
@@ -71,7 +64,6 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 		logger.Warningf("creating state without environment tag; inferring bootstrap environment")
 		ssInfo, err := readRawStateServerInfo(session)
 		if err != nil {
-			session.Close()
 			return nil, errors.Trace(err)
 		}
 		tag = ssInfo.EnvironmentTag
@@ -83,21 +75,6 @@ func open(tag names.EnvironTag, info *mongo.MongoInfo, opts mongo.DialOpts, poli
 		return nil, errors.Trace(err)
 	}
 	return st, nil
-}
-
-// mongodbLogin logs in to the mongodb admin database.
-func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
-	admin := session.DB("admin")
-	if mongoInfo.Tag != nil {
-		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
-		}
-	} else if mongoInfo.Password != "" {
-		if err := admin.Login(mongo.AdminUser, mongoInfo.Password); err != nil {
-			return maybeUnauthorized(err, "cannot log in to admin database")
-		}
-	}
-	return nil
 }
 
 // Initialize sets up an initial empty state and returns it.
@@ -232,6 +209,17 @@ func isUnauthorized(err error) bool {
 // pwatcher, leadershipManager, or serverTag. You must start() the returned
 // *State before it will function correctly.
 func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
+	admin := session.DB("admin")
+	if mongoInfo.Tag != nil {
+		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
+		}
+	} else if mongoInfo.Password != "" {
+		if err := admin.Login(mongo.AdminUser, mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, "cannot log in to admin database")
+		}
+	}
+
 	// Set up database.
 	rawDB := session.DB(jujuDB)
 	database, err := allCollections().Load(rawDB, environTag.Id())
@@ -243,14 +231,16 @@ func newState(environTag names.EnvironTag, session *mgo.Session, mongoInfo *mong
 	}
 
 	// Create State.
-	return &State{
+	st := &State{
 		environTag: environTag,
 		mongoInfo:  mongoInfo,
 		session:    session,
 		database:   database,
 		policy:     policy,
 		watcher:    watcher.New(rawDB.C(txnLogC)),
-	}, nil
+	}
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.run, st.getCollection)
+	return st, nil
 }
 
 // MongoConnectionInfo returns information for connecting to mongo

@@ -15,22 +15,32 @@ import (
 
 type DisableUserSuite struct {
 	BaseSuite
-	mock *mockDisenableUserAPI
+	mock mockDisableUserAPI
 }
 
 var _ = gc.Suite(&DisableUserSuite{})
 
-func (s *DisableUserSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.mock = &mockDisenableUserAPI{}
-}
-
 type disenableCommand interface {
 	cmd.Command
-	Username() string
+	username() string
 }
 
-func (s *DisableUserSuite) testInit(c *gc.C, command disenableCommand) {
+func (s *DisableUserSuite) disableUserCommand() cmd.Command {
+	return envcmd.Wrap(&user.DisableCommand{})
+}
+
+func (s *DisableUserSuite) enableUserCommand() cmd.Command {
+	return envcmd.Wrap(&user.EnableCommand{})
+}
+
+func (s *DisableUserSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(user.GetDisableUserAPI, func(*user.DisenableUserBase) (user.DisenableUserAPI, error) {
+		return &s.mock, nil
+	})
+}
+
+func (s *DisableUserSuite) testInit(c *gc.C, command user.DisenableCommand) {
 	for i, test := range []struct {
 		args     []string
 		errMatch string
@@ -65,37 +75,35 @@ func (s *DisableUserSuite) TestInit(c *gc.C) {
 
 func (s *DisableUserSuite) TestDisable(c *gc.C) {
 	username := "testing"
-	disableCommand := envcmd.WrapSystem(user.NewDisableCommand(s.mock))
-	_, err := testing.RunCommand(c, disableCommand, username)
+	_, err := testing.RunCommand(c, s.disableUserCommand(), username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.disable, gc.Equals, username)
 }
 
 func (s *DisableUserSuite) TestEnable(c *gc.C) {
 	username := "testing"
-	enableCommand := envcmd.WrapSystem(user.NewEnableCommand(s.mock))
-	_, err := testing.RunCommand(c, enableCommand, username)
+	_, err := testing.RunCommand(c, s.enableUserCommand(), username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.enable, gc.Equals, username)
 }
 
-type mockDisenableUserAPI struct {
+type mockDisableUserAPI struct {
 	enable  string
 	disable string
 }
 
-var _ user.DisenableUserAPI = (*mockDisenableUserAPI)(nil)
+var _ user.DisenableUserAPI = (*mockDisableUserAPI)(nil)
 
-func (m *mockDisenableUserAPI) Close() error {
+func (m *mockDisableUserAPI) Close() error {
 	return nil
 }
 
-func (m *mockDisenableUserAPI) EnableUser(username string) error {
+func (m *mockDisableUserAPI) EnableUser(username string) error {
 	m.enable = username
 	return nil
 }
 
-func (m *mockDisenableUserAPI) DisableUser(username string) error {
+func (m *mockDisableUserAPI) DisableUser(username string) error {
 	m.disable = username
 	return nil
 }

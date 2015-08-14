@@ -18,16 +18,13 @@ import (
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/environment"
-	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
@@ -81,26 +78,24 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		Doc:             jujuDoc,
 		MissingCallback: RunPlugin,
 	})
-	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
+	jcmd.AddHelpTopic("basics", "Basic commands", helpBasics)
 	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
-		helptopics.LocalProvider)
+		helpProviderStart+helpLocalProvider+helpProviderEnd)
 	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
-		helptopics.OpenstackProvider, "openstack")
+		helpProviderStart+helpOpenstackProvider+helpProviderEnd, "openstack")
 	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
-		helptopics.EC2Provider, "ec2", "aws", "amazon")
+		helpProviderStart+helpEC2Provider+helpProviderEnd, "ec2", "aws", "amazon")
 	jcmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
-		helptopics.HPCloud, "hpcloud", "hp-cloud")
+		helpProviderStart+helpHPCloud+helpProviderEnd, "hpcloud", "hp-cloud")
 	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
-		helptopics.AzureProvider, "azure")
+		helpProviderStart+helpAzureProvider+helpProviderEnd, "azure")
 	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",
-		helptopics.MAASProvider, "maas")
-	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopics.Constraints)
-	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopics.Placement)
-	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
-	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
-	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
-	jcmd.AddHelpTopic("juju-systems", "About Juju Environment Systems (JES)", helptopics.JujuSystems)
-	jcmd.AddHelpTopic("users", "About users in Juju", helptopics.Users)
+		helpProviderStart+helpMAASProvider+helpProviderEnd, "maas")
+	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
+	jcmd.AddHelpTopic("placement", "How to use placement directives", helpPlacement)
+	jcmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
+	jcmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
+
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	registerCommands(jcmd, ctx)
@@ -212,18 +207,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage storage
 	r.Register(storage.NewSuperCommand())
-
-	// Manage systems
-	if featureflag.Enabled(feature.JES) {
-		r.Register(system.NewSuperCommand())
-		r.RegisterSuperAlias("systems", "system", "list", nil)
-
-		// Add top level aliases of the same name as the subcommands.
-		r.RegisterSuperAlias("environments", "system", "environments", nil)
-		r.RegisterSuperAlias("login", "system", "login", nil)
-		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
-		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
-	}
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle

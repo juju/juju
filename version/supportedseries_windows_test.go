@@ -33,7 +33,6 @@ func (s *supportedSeriesWindowsSuite) TestSeriesVersion(c *gc.C) {
 
 func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 	expectedSeries := []string{
-		"arch",
 		"centos7",
 		"precise",
 		"quantal",

@@ -27,6 +27,9 @@ const (
 type loopProvider struct {
 	// run is a function used for running commands on the local machine.
 	run runCommandFunc
+	// runningInsideLXC is a function that determines whether or not
+	// the code is running within an LXC container.
+	runningInsideLXC func() (bool, error)
 }
 
 var _ storage.Provider = (*loopProvider)(nil)
@@ -59,12 +62,17 @@ func (lp *loopProvider) VolumeSource(
 	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
+	insideLXC, err := lp.runningInsideLXC()
+	if err != nil {
+		return nil, err
+	}
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 	return &loopVolumeSource{
 		&osDirFuncs{lp.run},
 		lp.run,
 		storageDir,
+		insideLXC,
 	}, nil
 }
 
@@ -94,24 +102,25 @@ func (*loopProvider) Dynamic() bool {
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {
-	dirFuncs   dirFuncs
-	run        runCommandFunc
-	storageDir string
+	dirFuncs         dirFuncs
+	run              runCommandFunc
+	storageDir       string
+	runningInsideLXC bool
 }
 
 var _ storage.VolumeSource = (*loopVolumeSource)(nil)
 
 // CreateVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
-	results := make([]storage.CreateVolumesResult, len(args))
+func (lvs *loopVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
+	volumes := make([]storage.Volume, len(args))
 	for i, arg := range args {
 		volume, err := lvs.createVolume(arg)
 		if err != nil {
-			results[i].Error = errors.Annotate(err, "creating volume")
+			return nil, nil, errors.Annotate(err, "creating volume")
 		}
-		results[i].Volume = &volume
+		volumes[i] = volume
 	}
-	return results, nil
+	return volumes, nil, nil
 }
 
 func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.Volume, error) {
@@ -128,6 +137,10 @@ func (lvs *loopVolumeSource) createVolume(params storage.VolumeParams) (storage.
 		storage.VolumeInfo{
 			VolumeId: volumeId,
 			Size:     params.Size,
+			// Loop devices may outlive LXC containers. If we're
+			// running inside an LXC container, mark the volume as
+			// persistent.
+			Persistent: lvs.runningInsideLXC,
 		},
 	}, nil
 }
@@ -136,27 +149,21 @@ func (lvs *loopVolumeSource) volumeFilePath(tag names.VolumeTag) string {
 	return filepath.Join(lvs.storageDir, tag.String())
 }
 
-// ListVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) ListVolumes() ([]string, error) {
-	// TODO(axw) implement this when we need it.
-	return nil, errors.NotImplementedf("ListVolumes")
-}
-
 // DescribeVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (lvs *loopVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.VolumeInfo, error) {
 	// TODO(axw) implement this when we need it.
 	return nil, errors.NotImplementedf("DescribeVolumes")
 }
 
 // DestroyVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
+func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) []error {
 	results := make([]error, len(volumeIds))
 	for i, volumeId := range volumeIds {
 		if err := lvs.destroyVolume(volumeId); err != nil {
 			results[i] = errors.Annotatef(err, "destroying %q", volumeId)
 		}
 	}
-	return results, nil
+	return results
 }
 
 func (lvs *loopVolumeSource) destroyVolume(volumeId string) error {
@@ -181,27 +188,26 @@ func (lvs *loopVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 }
 
 // AttachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
-	results := make([]storage.AttachVolumesResult, len(args))
+func (lvs *loopVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
+	attachments := make([]storage.VolumeAttachment, len(args))
 	for i, arg := range args {
 		attachment, err := lvs.attachVolume(arg)
 		if err != nil {
-			results[i].Error = errors.Annotatef(err, "attaching volume %v", arg.Volume.Id())
-			continue
+			return nil, errors.Annotatef(err, "attaching volume %v", arg.Volume.Id())
 		}
-		results[i].VolumeAttachment = attachment
+		attachments[i] = attachment
 	}
-	return results, nil
+	return attachments, nil
 }
 
-func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*storage.VolumeAttachment, error) {
+func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (storage.VolumeAttachment, error) {
 	loopFilePath := lvs.volumeFilePath(arg.Volume)
 	deviceName, err := attachLoopDevice(lvs.run, loopFilePath, arg.ReadOnly)
 	if err != nil {
 		os.Remove(loopFilePath)
-		return nil, errors.Annotate(err, "attaching loop device")
+		return storage.VolumeAttachment{}, errors.Annotate(err, "attaching loop device")
 	}
-	return &storage.VolumeAttachment{
+	return storage.VolumeAttachment{
 		arg.Volume,
 		arg.Machine,
 		storage.VolumeAttachmentInfo{
@@ -212,14 +218,13 @@ func (lvs *loopVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 }
 
 // DetachVolumes is defined on the VolumeSource interface.
-func (lvs *loopVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) ([]error, error) {
-	results := make([]error, len(args))
-	for i, arg := range args {
+func (lvs *loopVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) error {
+	for _, arg := range args {
 		if err := lvs.detachVolume(arg.Volume); err != nil {
-			results[i] = errors.Annotatef(err, "detaching volume %s", arg.Volume.Id())
+			return errors.Annotatef(err, "detaching volume %s", arg.Volume.Id())
 		}
 	}
-	return results, nil
+	return nil
 }
 
 func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {

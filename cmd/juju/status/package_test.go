@@ -1,14 +1,20 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package status_test
+// TODO(dimitern): bug http://pad.lv/1425569
+// Disabled until we have time to fix these tests on i386 properly.
+//
+// +build !386
+
+package status
 
 import (
-	"testing"
+	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+func TestPackage(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
 }

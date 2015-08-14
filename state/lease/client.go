@@ -100,7 +100,7 @@ func (client *client) request(name string, request Request, getOps opsFunc, verb
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
 	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Tracef("%s lease %q for %s (attempt %d)", verb, name, request, attempt)
+		client.logger.Debugf("%s lease %q for %s (attempt %d)", verb, name, request, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
@@ -144,7 +144,7 @@ func (client *client) ExpireLease(name string) error {
 
 	// No cache updates needed, only deletes; no closure here.
 	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Tracef("expiring lease %q (attempt %d)", name, attempt)
+		client.logger.Debugf("expiring lease %q (attempt %d)", name, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
@@ -176,7 +176,7 @@ func (client *client) ExpireLease(name string) error {
 
 // Refresh is part of the Client interface.
 func (client *client) Refresh() error {
-	client.logger.Tracef("refreshing")
+	client.logger.Debugf("refreshing")
 
 	// Always read entries before skews, because skews are written before
 	// entries; we increase the risk of reading older skew data, but (should)
@@ -213,11 +213,11 @@ func (client *client) ensureClockDoc() error {
 
 	clockDocId := client.clockDocId()
 	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Tracef("checking clock %q (attempt %d)", clockDocId, attempt)
+		client.logger.Debugf("checking clock %q (attempt %d)", clockDocId, attempt)
 		var clockDoc clockDoc
 		err := collection.FindId(clockDocId).One(&clockDoc)
 		if err == nil {
-			client.logger.Tracef("clock already exists")
+			client.logger.Debugf("clock already exists")
 			if err := clockDoc.validate(); err != nil {
 				return nil, errors.Annotatef(err, "corrupt clock document")
 			}
@@ -226,7 +226,7 @@ func (client *client) ensureClockDoc() error {
 		if err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
-		client.logger.Tracef("creating clock")
+		client.logger.Debugf("creating clock")
 		newClockDoc, err := newClockDoc(client.config.Namespace)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -427,7 +427,7 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 	latestExpiry := skew.Latest(lastEntry.expiry)
 	now := client.config.Clock.Now()
 	if !now.After(latestExpiry) {
-		client.logger.Tracef("lease %q expires in the future", name)
+		client.logger.Debugf("lease %q expires in the future", name)
 		return nil, ErrInvalid
 	}
 

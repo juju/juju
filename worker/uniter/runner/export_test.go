@@ -40,8 +40,7 @@ func PatchNewLeadershipContext(f LeadershipContextFunc) func() {
 
 func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.Settings) {
 	f := f0.(*factory)
-	cf := f.contextFactory.(*contextFactory)
-	members := cf.relationCaches[relId].members
+	members := f.relationCaches[relId].members
 	if members[unitName] == nil {
 		members[unitName] = params.Settings{}
 	}
@@ -52,8 +51,7 @@ func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings param
 
 func CachedSettings(f0 Factory, relId int, unitName string) (params.Settings, bool) {
 	f := f0.(*factory)
-	cf := f.contextFactory.(*contextFactory)
-	settings, found := cf.relationCaches[relId].members[unitName]
+	settings, found := f.relationCaches[relId].members[unitName]
 	return settings, found
 }
 
@@ -110,6 +108,7 @@ func NewHookContext(
 	remoteUnitName string,
 	relations map[int]*ContextRelation,
 	apiAddrs []string,
+	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
 	charmMetrics *charm.Metrics,
@@ -128,6 +127,7 @@ func NewHookContext(
 		remoteUnitName:     remoteUnitName,
 		relations:          relations,
 		apiAddrs:           apiAddrs,
+		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
 		metricsRecorder:    nil,
 		definedMetrics:     charmMetrics,

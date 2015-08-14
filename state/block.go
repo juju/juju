@@ -21,9 +21,6 @@ type Block interface {
 	// Id returns this block's id.
 	Id() string
 
-	// EnvUUID returns the environment UUID associated with this block.
-	EnvUUID() string
-
 	// Tag returns tag for the entity that is being blocked
 	Tag() (names.Tag, error)
 
@@ -101,22 +98,17 @@ type blockDoc struct {
 	Message string    `bson:"message,omitempty"`
 }
 
-// Id is part of the state.Block interface.
+// Implementation for Block.Id().
 func (b *block) Id() string {
 	return b.doc.DocID
 }
 
-// EnvUUID is part of the state.Block interface.
-func (b *block) EnvUUID() string {
-	return b.doc.EnvUUID
-}
-
-// Message is part of the state.Block interface.
+// Implementation for Block.Message().
 func (b *block) Message() string {
 	return b.doc.Message
 }
 
-// Tag is part of the state.Block interface.
+// Implementation for Block.Tag().
 func (b *block) Tag() (names.Tag, error) {
 	tag, err := names.ParseTag(b.doc.Tag)
 	if err != nil {
@@ -125,7 +117,7 @@ func (b *block) Tag() (names.Tag, error) {
 	return tag, nil
 }
 
-// Type is part of the state.Block interface.
+// Implementation for Block.Type().
 func (b *block) Type() BlockType {
 	return b.doc.Type
 }
@@ -179,48 +171,6 @@ func (st *State) AllBlocks() ([]Block, error) {
 		blocks[i] = &block{doc}
 	}
 	return blocks, nil
-}
-
-// AllBlocksForSystem returns all blocks in any environments on
-// the system.
-func (st *State) AllBlocksForSystem() ([]Block, error) {
-	blocksCollection, closer := st.getRawCollection(blocksC)
-	defer closer()
-
-	var bdocs []blockDoc
-	err := blocksCollection.Find(nil).All(&bdocs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all blocks")
-	}
-	blocks := make([]Block, len(bdocs))
-	for i, doc := range bdocs {
-		blocks[i] = &block{doc}
-	}
-
-	return blocks, nil
-}
-
-// RemoveAllBlocksForSystem removes all the blocks for the system.
-// It does not prevent new blocks from being added during / after
-// removal.
-func (st *State) RemoveAllBlocksForSystem() error {
-	blocks, err := st.AllBlocksForSystem()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	ops := []txn.Op{}
-	for _, blk := range blocks {
-		ops = append(ops, txn.Op{
-			C:      blocksC,
-			Id:     blk.Id(),
-			Remove: true,
-		})
-	}
-
-	// Use runRawTransaction as we might be removing docs across
-	// multiple environments.
-	return st.runRawTransaction(ops)
 }
 
 // setEnvironmentBlock updates the blocks collection with the

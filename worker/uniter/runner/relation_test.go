@@ -23,7 +23,7 @@ type ContextRelationSuite struct {
 	rel *state.Relation
 	ru  *state.RelationUnit
 
-	st         api.Connection
+	st         *api.State
 	uniter     *apiuniter.State
 	apiRelUnit *apiuniter.RelationUnit
 }

@@ -21,6 +21,6 @@ type volumeSuite struct {
 var _ = gc.Suite(&volumeSuite{})
 
 func (s *volumeSuite) TestVolumeHelp(c *gc.C) {
-	s.command = storage.NewVolumeSuperCommand()
+	s.command = storage.NewVolumeSuperCommand().(*storage.Command)
 	s.assertHelp(c, expectedVolumeCommmandNames)
 }

@@ -6,11 +6,9 @@ package storageprovisioner_test
 import (
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -249,7 +247,7 @@ func (v *mockVolumeAccessor) SetVolumeAttachmentInfo(volumeAttachments []params.
 	if v.setVolumeAttachmentInfo != nil {
 		return v.setVolumeAttachmentInfo(volumeAttachments)
 	}
-	return make([]params.ErrorResult, len(volumeAttachments)), nil
+	return nil, nil
 }
 
 func newMockVolumeAccessor() *mockVolumeAccessor {
@@ -451,11 +449,9 @@ type dummyProvider struct {
 
 	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
 	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
-	createVolumesFunc     func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
-	attachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
-	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
+	detachVolumesFunc     func([]storage.VolumeAttachmentParams) error
 	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) error
-	destroyVolumesFunc    func([]string) ([]error, error)
+	destroyVolumesFunc    func([]string) []error
 }
 
 type dummyVolumeSource struct {
@@ -493,19 +489,16 @@ func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 }
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.
-func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
-	if s.provider != nil && s.provider.createVolumesFunc != nil {
-		return s.provider.createVolumesFunc(params)
-	}
-
+func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.Volume, []storage.VolumeAttachment, error) {
 	paramsCopy := make([]storage.VolumeParams, len(params))
 	copy(paramsCopy, params)
 	s.createVolumesArgs = append(s.createVolumesArgs, paramsCopy)
 
-	results := make([]storage.CreateVolumesResult, len(params))
-	for i, p := range params {
+	var volumes []storage.Volume
+	var volumeAttachments []storage.VolumeAttachment
+	for _, p := range params {
 		persistent, _ := p.Attributes["persistent"].(bool)
-		results[i].Volume = &storage.Volume{
+		volumes = append(volumes, storage.Volume{
 			p.Tag,
 			storage.VolumeInfo{
 				Size:       p.Size,
@@ -513,51 +506,47 @@ func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]stor
 				VolumeId:   "id-" + p.Tag.Id(),
 				Persistent: persistent,
 			},
-		}
+		})
 	}
-	return results, nil
+	return volumes, volumeAttachments, nil
 }
 
 // DestroyVolumes destroys volumes.
-func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
+func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) []error {
 	if s.provider.destroyVolumesFunc != nil {
 		return s.provider.destroyVolumesFunc(volumeIds)
 	}
-	return make([]error, len(volumeIds)), nil
+	return make([]error, len(volumeIds))
 }
 
 // AttachVolumes attaches volumes to machines.
-func (s *dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
-	if s.provider != nil && s.provider.attachVolumesFunc != nil {
-		return s.provider.attachVolumesFunc(params)
-	}
-
-	results := make([]storage.AttachVolumesResult, len(params))
-	for i, p := range params {
+func (*dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.VolumeAttachment, error) {
+	var volumeAttachments []storage.VolumeAttachment
+	for _, p := range params {
 		if p.VolumeId == "" {
 			panic("AttachVolumes called with unprovisioned volume")
 		}
 		if p.InstanceId == "" {
 			panic("AttachVolumes called with unprovisioned machine")
 		}
-		results[i].VolumeAttachment = &storage.VolumeAttachment{
+		volumeAttachments = append(volumeAttachments, storage.VolumeAttachment{
 			p.Volume,
 			p.Machine,
 			storage.VolumeAttachmentInfo{
 				DeviceName: "/dev/sda" + p.Volume.Id(),
 				ReadOnly:   p.ReadOnly,
 			},
-		}
+		})
 	}
-	return results, nil
+	return volumeAttachments, nil
 }
 
 // DetachVolumes detaches volumes from machines.
-func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) ([]error, error) {
+func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) error {
 	if s.provider.detachVolumesFunc != nil {
 		return s.provider.detachVolumesFunc(params)
 	}
-	return make([]error, len(params)), nil
+	return nil
 }
 
 func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
@@ -705,32 +694,4 @@ func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 		instanceIds: make(map[names.MachineTag]instance.Id),
 		watcher:     &mockNotifyWatcher{make(chan struct{}, 1)},
 	}
-}
-
-type mockClock struct {
-	gitjujutesting.Stub
-	now       time.Time
-	nowFunc   func() time.Time
-	afterFunc func(time.Duration) <-chan time.Time
-}
-
-func (c *mockClock) Now() time.Time {
-	c.MethodCall(c, "Now")
-	if c.nowFunc != nil {
-		return c.nowFunc()
-	}
-	return c.now
-}
-
-func (c *mockClock) After(d time.Duration) <-chan time.Time {
-	c.MethodCall(c, "After", d)
-	if c.afterFunc != nil {
-		return c.afterFunc(d)
-	}
-	if d > 0 {
-		c.now = c.now.Add(d)
-	}
-	ch := make(chan time.Time, 1)
-	ch <- c.now
-	return ch
 }

@@ -23,11 +23,6 @@ type MetricSender interface {
 	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
-var (
-	defaultMaxBatchesPerSend              = 10
-	defaultSender            MetricSender = &NopSender{}
-)
-
 func handleResponse(mm *state.MetricsManager, st *state.State, response wireformat.Response) {
 	for _, envResp := range response.EnvResponses {
 		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
@@ -106,14 +101,4 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 	logger.Infof("metrics collection summary: sent:%d unsent:%d", sent, unsent)
 
 	return nil
-}
-
-// DefaultMaxBatchesPerSend returns the default number of batches per send.
-func DefaultMaxBatchesPerSend() int {
-	return defaultMaxBatchesPerSend
-}
-
-// DefaultMetricSender returns the default metric sender.
-func DefaultMetricSender() MetricSender {
-	return defaultSender
 }

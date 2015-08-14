@@ -28,7 +28,7 @@ type RebootSuite struct {
 
 	acfg    agent.Config
 	mgoInst testing.MgoInstance
-	st      api.Connection
+	st      *api.State
 
 	tmpDir           string
 	rebootScriptName string

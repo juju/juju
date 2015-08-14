@@ -19,7 +19,7 @@ Examples:
   juju user disable foobar
 
 See Also:
-  juju help user enable
+  juju enable
 `
 
 const enableUserDoc = `
@@ -31,14 +31,13 @@ Examples:
   juju user enable foobar
 
 See Also:
-  juju help user disable
+  juju disable
 `
 
 // DisenableUserBase common code for enable/disable user commands
 type DisenableUserBase struct {
 	UserCommandBase
-	api  DisenableUserAPI
-	User string
+	user string
 }
 
 // DisableCommand disables users.
@@ -76,17 +75,8 @@ func (c *DisenableUserBase) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no username supplied")
 	}
-	// TODO(thumper): support multiple users in one command,
-	// and also verify that the values are valid user names.
-	c.User = args[0]
+	c.user = args[0]
 	return cmd.CheckEmpty(args[1:])
-}
-
-// Username is here entirely for testing purposes to allow both the
-// DisableCommand and EnableCommand to support a common interface that is able
-// to ask for the command line supplied username.
-func (c *DisenableUserBase) Username() string {
-	return c.User
 }
 
 // DisenableUserAPI defines the API methods that the disable and enable
@@ -98,43 +88,37 @@ type DisenableUserAPI interface {
 }
 
 func (c *DisenableUserBase) getDisableUserAPI() (DisenableUserAPI, error) {
-	return c.NewUserManagerAPIClient()
+	return c.NewUserManagerClient()
 }
 
 var getDisableUserAPI = (*DisenableUserBase).getDisableUserAPI
 
-// Run implements Command.Run.
+// Info implements Command.Run.
 func (c *DisableCommand) Run(ctx *cmd.Context) error {
-	if c.api == nil {
-		api, err := c.NewUserManagerAPIClient()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		c.api = api
-		defer c.api.Close()
+	client, err := getDisableUserAPI(&c.DisenableUserBase)
+	if err != nil {
+		return err
 	}
-
-	if err := c.api.DisableUser(c.User); err != nil {
+	defer client.Close()
+	err = client.DisableUser(c.user)
+	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	ctx.Infof("User %q disabled", c.User)
+	ctx.Infof("User %q disabled", c.user)
 	return nil
 }
 
-// Run implements Command.Run.
+// Info implements Command.Run.
 func (c *EnableCommand) Run(ctx *cmd.Context) error {
-	if c.api == nil {
-		api, err := c.NewUserManagerAPIClient()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		c.api = api
-		defer c.api.Close()
+	client, err := getDisableUserAPI(&c.DisenableUserBase)
+	if err != nil {
+		return err
 	}
-
-	if err := c.api.EnableUser(c.User); err != nil {
+	defer client.Close()
+	err = client.EnableUser(c.user)
+	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	ctx.Infof("User %q enabled", c.User)
+	ctx.Infof("User %q enabled", c.user)
 	return nil
 }

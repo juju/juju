@@ -11,18 +11,18 @@ import (
 	"github.com/juju/juju/leadership"
 )
 
-type StubClaimer struct {
-	leadership.Claimer
+type StubLeadershipManager struct {
+	leadership.LeadershipManager
 	*testing.Stub
 	releases chan struct{}
 }
 
-func (stub *StubClaimer) ClaimLeadership(serviceName, unitName string, duration time.Duration) error {
+func (stub *StubLeadershipManager) ClaimLeadership(serviceName, unitName string, duration time.Duration) error {
 	stub.MethodCall(stub, "ClaimLeadership", serviceName, unitName, duration)
 	return stub.NextErr()
 }
 
-func (stub *StubClaimer) BlockUntilLeadershipReleased(serviceName string) error {
+func (stub *StubLeadershipManager) BlockUntilLeadershipReleased(serviceName string) error {
 	stub.MethodCall(stub, "BlockUntilLeadershipReleased", serviceName)
 	<-stub.releases
 	return stub.NextErr()

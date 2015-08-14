@@ -22,7 +22,6 @@ const (
 	Windows
 	OSX
 	CentOS
-	Arch
 )
 
 func (t OSType) String() string {
@@ -35,8 +34,6 @@ func (t OSType) String() string {
 		return "OSX"
 	case CentOS:
 		return "CentOS"
-	case Arch:
-		return "Arch"
 	}
 	return "Unknown"
 }
@@ -65,10 +62,6 @@ func IsUnknownSeriesVersionError(err error) bool {
 	return ok
 }
 
-var defaultVersionIDs = map[string]string{
-	"arch": "rolling",
-}
-
 // seriesVersions provides a mapping between series names and versions.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
@@ -90,15 +83,10 @@ var seriesVersions = map[string]string{
 	"win8":        "win8",
 	"win81":       "win81",
 	"centos7":     "centos7",
-	"arch":        "rolling",
 }
 
 var centosSeries = map[string]string{
 	"centos7": "centos7",
-}
-
-var archSeries = map[string]string{
-	"arch": "rolling",
 }
 
 var ubuntuSeries = map[string]string{
@@ -155,9 +143,6 @@ func GetOSFromSeries(series string) (OSType, error) {
 	}
 	if _, ok := centosSeries[series]; ok {
 		return CentOS, nil
-	}
-	if _, ok := archSeries[series]; ok {
-		return Arch, nil
 	}
 	for _, val := range windowsVersions {
 		if val == series {

@@ -23,6 +23,11 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 )
 
+var ErrPersistentVolumesExist = errors.New(`
+Environment cannot be destroyed until all persistent volumes have been destroyed.
+Run "juju storage list" to display persistent storage volumes.
+`[1:])
+
 // StorageInstance represents the state of a unit or service-wide storage
 // instance in the environment.
 type StorageInstance interface {
@@ -477,19 +482,15 @@ func unitAssignedMachineStorageOps(
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
+	storageOps, volumesAttached, filesystemsAttached, err := st.machineStorageOps(
 		&m.doc, storageParams,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attachmentOps, err := addMachineStorageAttachmentsOps(
-		m, volumeAttachments, filesystemAttachments,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	storageOps = append(storageOps, attachmentOps...)
+	storageOps = append(storageOps, addMachineStorageAttachmentsOp(
+		m.doc.Id, volumesAttached, filesystemsAttached,
+	))
 	return storageOps, nil
 }
 

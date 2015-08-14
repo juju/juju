@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	CertDir               = &certDir
 	NewWebsocketDialer    = newWebsocketDialer
 	NewWebsocketDialerPtr = &newWebsocketDialer
 	WebsocketDialConfig   = &websocketDialConfig

@@ -29,7 +29,7 @@ func TestAll(t *stdtesting.T) {
 type machineUpgraderSuite struct {
 	testing.JujuConnSuite
 
-	stateAPI api.Connection
+	stateAPI *api.State
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves

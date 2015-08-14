@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	_ "gopkg.in/mgo.v2/bson"
 
@@ -31,7 +30,7 @@ func (s *ClientSimpleRaceSuite) TestNewClient_WorksDespite_CreateClockRace(c *gc
 			Namespace:  "ns",
 			Collection: "leases",
 			Mongo:      NewMongo(s.db),
-			Clock:      clock.WallClock,
+			Clock:      lease.SystemClock{},
 		}
 	}
 	sutConfig := config("sut")

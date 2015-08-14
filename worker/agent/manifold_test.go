@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 )
@@ -33,7 +32,7 @@ func (s *ManifoldSuite) TestOutput(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	defer assertStop(c, agentWorker)
 
-	var outputAgent coreagent.Agent
+	var outputAgent agent.Agent
 	err = manifold.Output(agentWorker, &outputAgent)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(outputAgent, jc.DeepEquals, inputAgent)
@@ -49,7 +48,7 @@ func (s *ManifoldSuite) TestOutputStoppedWorker(c *gc.C) {
 	// whether the (degenerate) worker is alive or not -- so no defer here.
 	assertStop(c, agentWorker)
 
-	var outputAgent coreagent.Agent
+	var outputAgent agent.Agent
 	err = manifold.Output(agentWorker, &outputAgent)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(outputAgent, jc.DeepEquals, inputAgent)
@@ -61,7 +60,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 
 	var badWorker worker.Worker
 
-	var outputAgent coreagent.Agent
+	var outputAgent agent.Agent
 	err := manifold.Output(badWorker, &outputAgent)
 	c.Check(err.Error(), gc.Equals, "expected *agent.agentWorker->*agent.Agent; got <nil>->*agent.Agent")
 }
@@ -80,7 +79,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 }
 
 type dummyAgent struct {
-	coreagent.Agent
+	agent.Agent
 }
 
 func assertStop(c *gc.C, w worker.Worker) {

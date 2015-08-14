@@ -25,6 +25,6 @@ type storageSuite struct {
 var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) TestHelp(c *gc.C) {
-	s.command = storage.NewSuperCommand()
+	s.command = storage.NewSuperCommand().(*storage.Command)
 	s.assertHelp(c, expectedSubCommmandNames)
 }

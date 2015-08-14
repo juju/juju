@@ -116,9 +116,8 @@ func UseTestInstanceTypeData(content instanceTypeCost) {
 }
 
 var (
-	ShortAttempt         = &shortAttempt
-	StorageAttempt       = &storageAttempt
-	DestroyVolumeAttempt = &destroyVolumeAttempt
+	ShortAttempt   = &shortAttempt
+	StorageAttempt = &storageAttempt
 )
 
 func EC2ErrCode(err error) string {

@@ -26,10 +26,6 @@ type attachmentsSuite struct {
 
 var _ = gc.Suite(&attachmentsSuite{})
 
-func assertStorageTags(c *gc.C, a *storage.Attachments, tags ...names.StorageTag) {
-	c.Assert(a.StorageTags(), jc.SameContents, tags)
-}
-
 func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
 	stateDir := filepath.Join(c.MkDir(), "nonexistent")
 	unitTag := names.NewUnitTag("mysql/0")
@@ -92,7 +88,6 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 			StorageId: storageTag.Id(),
 		})
 		c.Assert(err, gc.ErrorMatches, `unknown storage "data/0"`)
-		assertStorageTags(c, att) // no active attachment
 	})
 	c.Assert(called, gc.Equals, 1)
 
@@ -120,7 +115,6 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 			StorageId: "data/1",
 		})
 		c.Assert(err, gc.ErrorMatches, `unknown storage "data/1"`)
-		assertStorageTags(c, att, storageTag)
 	})
 	c.Assert(called, gc.Equals, 2)
 	c.Assert(filepath.Join(stateDir, "data-0"), jc.IsNonEmptyFile)
@@ -205,7 +199,6 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	// There should be no context for data/0 until a hook is queued.
 	_, ok := att.Storage(storageTag)
 	c.Assert(ok, jc.IsFalse)
-	assertStorageTags(c, att)
 
 	err = att.UpdateStorage([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,7 +207,6 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag.Id(),
 	})
-	assertStorageTags(c, att, storageTag)
 
 	ctx, ok := att.Storage(storageTag)
 	c.Assert(ok, jc.IsTrue)
@@ -445,13 +437,11 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedAlive(c *gc.C) {
 	// data/0 is initially unattached and untracked, so
 	// updating with Alive will cause a storager to be
 	// started and a storage-attached event to be emitted.
-	assertStorageTags(c, s.att)
 	for i := 0; i < 2; i++ {
 		// Updating twice, to ensure idempotency.
 		err := s.att.UpdateStorage([]names.StorageTag{s.storageTag0})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	assertStorageTags(c, s.att, s.storageTag0)
 	hi := waitOneHook(c, s.att.Hooks())
 	c.Assert(hi, gc.Equals, hook.Info{
 		Kind:      hooks.StorageAttached,
@@ -468,7 +458,6 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoHooks(c, s.att.Hooks())
 	c.Assert(s.att.Pending(), gc.Equals, 0)
-	assertStorageTags(c, s.att)
 }
 
 func (s *attachmentsUpdateSuite) TestAttachmentsRefresh(c *gc.C) {
@@ -520,5 +509,4 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateShortCircuitNoHooks(c *gc.
 	})
 	c.Assert(err, gc.ErrorMatches, `unknown storage "data/1"`)
 	c.Assert(s.att.Pending(), gc.Equals, 0)
-	assertStorageTags(c, s.att)
 }

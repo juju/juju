@@ -10,31 +10,29 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 )
 
 // ErrIsNotLeader is an error for operations that require for a
 // unit to be the leader but it was not the case.
-// TODO(fwereade) why do we have an alternative implementation of ErrPerm
-// that is exported (implying people will be able to meaningfully check it)
-// but not actually handled anywhere or converted into an error code by the
-// api server?
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // StatusGetter implements a common Status method for use by
 // various facades.
 type StatusGetter struct {
 	st           state.EntityFinder
-	getCanAccess GetAuthFunc
+	getcanAccess GetAuthFunc
 }
 
 // NewStatusGetter returns a new StatusGetter. The GetAuthFunc will be
 // used on each invocation of Status to determine current
 // permissions.
-func NewStatusGetter(st state.EntityFinder, getCanAccess GetAuthFunc) *StatusGetter {
+func NewStatusGetter(st state.EntityFinder, getcanAccess GetAuthFunc) *StatusGetter {
 	return &StatusGetter{
 		st:           st,
-		getCanAccess: getCanAccess,
+		getcanAccess: getcanAccess,
 	}
 }
 
@@ -64,7 +62,7 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}
-	canAccess, err := s.getCanAccess()
+	canAccess, err := s.getcanAccess()
 	if err != nil {
 		return params.StatusResults{}, err
 	}
@@ -84,98 +82,130 @@ func (s *StatusGetter) Status(args params.Entities) (params.StatusResults, error
 }
 
 // ServiceStatusGetter is a StatusGetter for combined service and unit statuses.
-// TODO(fwereade) this is completely evil and should never have been created.
-// We have a perfectly adequate StatusGetter already, that accepts bulk args;
-// all this does is break the user model, break the api model, and lie about
-// unit statuses).
 type ServiceStatusGetter struct {
-	st           *state.State
-	getCanAccess GetAuthFunc
+	st           state.EntityFinder
+	getcanAccess GetAuthFunc
 }
 
 // NewServiceStatusGetter returns a ServiceStatusGetter.
-func NewServiceStatusGetter(st *state.State, getCanAccess GetAuthFunc) *ServiceStatusGetter {
+func NewServiceStatusGetter(st state.EntityFinder, getcanAccess GetAuthFunc) *ServiceStatusGetter {
 	return &ServiceStatusGetter{
 		st:           st,
-		getCanAccess: getCanAccess,
+		getcanAccess: getcanAccess,
 	}
+}
+
+// StatusService interface represents an Service that can return Status for itself
+// and its Units.
+type StatusService interface {
+	state.Entity
+	Status() (state.StatusInfo, error)
+	ServiceAndUnitsStatus() (state.StatusInfo, map[string]state.StatusInfo, error)
+	SetStatus(state.Status, string, map[string]interface{}) error
+}
+
+type serviceGetter func(state.EntityFinder, string) (StatusService, error)
+
+type isLeaderFunc func(state.EntityFinder, string) (bool, error)
+
+func getUnit(st state.EntityFinder, unitTag string) (*state.Unit, error) {
+	tag, err := names.ParseUnitTag(unitTag)
+	if err != nil {
+		return nil, err
+	}
+	entity, err := st.FindEntity(tag)
+	if err != nil {
+
+		return nil, err
+	}
+	unit, ok := entity.(*state.Unit)
+	if !ok {
+		return nil, err
+	}
+	return unit, nil
+}
+
+func serviceFromUnitTag(st state.EntityFinder, unitTag string) (StatusService, error) {
+	unit, err := getUnit(st, unitTag)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot obtain unit %q to obtain service", unitTag)
+	}
+	var service StatusService
+	service, err = unit.Service()
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
+// isLeader will return true if the unitTag passed corresponds to the leader.
+// TODO(perrito666): this must go in 1.25, it is not a fault proof approach
+// it cannot guarantee that the unit will be leader during the duration of
+// wathever operation we are doing nor has a sane approach to obtaining a
+// lease manager.
+func isLeader(st state.EntityFinder, unitTag string) (bool, error) {
+
+	unit, err := getUnit(st, unitTag)
+	if err != nil {
+		return false, errors.Annotatef(err, "cannot obtain unit %q to check leadership", unitTag)
+	}
+	service, err := unit.Service()
+	if err != nil {
+		return false, err
+	}
+
+	leaseManager := lease.Manager()
+	leadershipManager := leadership.NewLeadershipManager(leaseManager)
+	return leadershipManager.Leader(service.Name(), unit.Name())
 }
 
 // Status returns the status of the Service for each given Unit tag.
 func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatusResults, error) {
-	result := params.ServiceStatusResults{
+	return serviceStatus(s, args, serviceFromUnitTag, isLeader)
+}
+
+func serviceStatus(s *ServiceStatusGetter, args params.Entities, getService serviceGetter, isLeaderCheck isLeaderFunc) (params.ServiceStatusResults, error) {
+	results := params.ServiceStatusResults{
 		Results: make([]params.ServiceStatusResult, len(args.Entities)),
 	}
-	canAccess, err := s.getCanAccess()
+	canAccess, err := s.getcanAccess()
 	if err != nil {
 		return params.ServiceStatusResults{}, err
 	}
 
-	for i, arg := range args.Entities {
-		// TODO(fwereade): the auth is basically nonsense, and basically only
-		// works by coincidence (and is happening at the wrong layer anyway).
-		// Read carefully.
-
-		// We "know" that arg.Tag is either the calling unit or its service
-		// (because getCanAccess is authUnitOrService, and we'll fail out if
-		// it isn't); and, in practice, it's always going to be the calling
-		// unit (because, /sigh, we don't actually use service tags to refer
-		// to services in this method).
-		tag, err := names.ParseTag(arg.Tag)
+	for i, serviceUnit := range args.Entities {
+		leader, err := isLeaderCheck(s.st, serviceUnit.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			results.Results[i].Error = ServerError(err)
 			continue
 		}
-		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
+		if !leader {
+			results.Results[i].Error = ServerError(ErrIsNotLeader)
 			continue
 		}
-		unitTag, ok := tag.(names.UnitTag)
-		if !ok {
-			// No matter what the canAccess says, if this entity is not
-			// a unit, we say "NO".
-			result.Results[i].Error = ServerError(ErrPerm)
-			continue
-		}
-		unitId := unitTag.Id()
-
-		// Now we have the unit, we can get the service that should have been
-		// specified in the first place...
-		serviceId, err := names.UnitService(unitId)
+		var service StatusService
+		service, err = getService(s.st, serviceUnit.Tag)
 		if err != nil {
-			result.Results[i].Error = ServerError(err)
+			results.Results[i].Error = ServerError(err)
 			continue
 		}
-		service, err := s.st.Service(serviceId)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-
-		// ...so we can check the unit's service leadership...
-		checker := s.st.LeadershipChecker()
-		token := checker.LeadershipCheck(serviceId, unitId)
-		if err := token.Check(nil); err != nil {
-			// TODO(fwereade) this should probably be ErrPerm is certain cases,
-			// but I don't think I implemented an exported ErrNotLeader. I
-			// should have done, though.
-			result.Results[i].Error = ServerError(err)
+		if !canAccess(service.Tag()) {
+			results.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
 
-		// ...and collect the results.
 		serviceStatus, unitStatuses, err := service.ServiceAndUnitsStatus()
 		if err != nil {
-			result.Results[i].Service.Error = ServerError(err)
-			result.Results[i].Error = ServerError(err)
+			results.Results[i].Service.Error = ServerError(err)
+			results.Results[i].Error = ServerError(err)
 			continue
 		}
-		result.Results[i].Service.Status = params.Status(serviceStatus.Status)
-		result.Results[i].Service.Info = serviceStatus.Message
-		result.Results[i].Service.Data = serviceStatus.Data
-		result.Results[i].Service.Since = serviceStatus.Since
+		results.Results[i].Service.Status = params.Status(serviceStatus.Status)
+		results.Results[i].Service.Info = serviceStatus.Message
+		results.Results[i].Service.Data = serviceStatus.Data
+		results.Results[i].Service.Since = serviceStatus.Since
 
-		result.Results[i].Units = make(map[string]params.StatusResult, len(unitStatuses))
+		results.Results[i].Units = make(map[string]params.StatusResult, len(unitStatuses))
 		for uTag, r := range unitStatuses {
 			ur := params.StatusResult{
 				Status: params.Status(r.Status),
@@ -183,8 +213,8 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 				Data:   r.Data,
 				Since:  r.Since,
 			}
-			result.Results[i].Units[uTag] = ur
+			results.Results[i].Units[uTag] = ur
 		}
 	}
-	return result, nil
+	return results, nil
 }

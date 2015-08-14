@@ -151,9 +151,7 @@ func (st *mockState) AddMachineInsideMachine(template state.MachineTemplate, par
 	panic("not implemented")
 }
 
-type mockBlock struct {
-	state.Block
-}
+type mockBlock struct{}
 
 func (st *mockBlock) Id() string {
 	return "id"
@@ -169,8 +167,4 @@ func (st *mockBlock) Type() state.BlockType {
 
 func (st *mockBlock) Message() string {
 	return "not allowed"
-}
-
-func (st *mockBlock) EnvUUID() string {
-	return "uuid"
 }

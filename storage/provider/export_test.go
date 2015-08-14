@@ -19,18 +19,20 @@ var Getpagesize = &getpagesize
 func LoopVolumeSource(
 	storageDir string,
 	run func(string, ...string) (string, error),
+	insideLXC bool,
 ) (storage.VolumeSource, *MockDirFuncs) {
 	dirFuncs := &MockDirFuncs{
 		osDirFuncs{run},
 		set.NewStrings(),
 	}
-	return &loopVolumeSource{dirFuncs, run, storageDir}, dirFuncs
+	return &loopVolumeSource{dirFuncs, run, storageDir, insideLXC}, dirFuncs
 }
 
 func LoopProvider(
 	run func(string, ...string) (string, error),
+	insideLXC func() (bool, error),
 ) storage.Provider {
-	return &loopProvider{run}
+	return &loopProvider{run, insideLXC}
 }
 
 func NewMockManagedFilesystemSource(
