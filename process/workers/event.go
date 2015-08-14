@@ -5,14 +5,12 @@ package workers
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/worker"
 )
-
-// TODO(ericsnow) Wrap runners so that handler-started workers are
-// stopped when the EventHandlers is stopped/closed.
 
 // Runner is the portion of worker.Worker needed for Event handlers.
 type Runner interface {
@@ -28,22 +26,26 @@ type EventHandlers struct {
 	handlers []func([]process.Event, context.APIClient, Runner) error
 
 	apiClient context.APIClient
-	runner    Runner
+	runner    *trackingRunner
 }
 
 // NewEventHandlers wraps a new EventHandler around the provided channel.
 func NewEventHandlers(apiClient context.APIClient, runner Runner) *EventHandlers {
 	eh := &EventHandlers{
-		events:    make(chan []process.Event), // TODO(ericsnow) Set a size?
+		events:    make(chan []process.Event),
 		apiClient: apiClient,
-		runner:    runner,
+		runner:    newTrackingRunner(runner),
 	}
 	return eh
 }
 
 // Close cleans up the handler's resources.
-func (eh *EventHandlers) Close() {
+func (eh *EventHandlers) Close() error {
 	close(eh.events)
+	if err := eh.runner.stopAll(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // RegisterHandler adds a handler to the list of handlers used when new
@@ -86,5 +88,45 @@ func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 		}
 	}
 	// TODO(ericsnow) Call eh.Close() here?
+	return nil
+}
+
+type trackingRunner struct {
+	Runner
+	running set.Strings
+}
+
+func newTrackingRunner(runner Runner) *trackingRunner {
+	return &trackingRunner{
+		Runner:  runner,
+		running: set.NewStrings(),
+	}
+}
+
+// StartWorker implements Runner.
+func (r *trackingRunner) Startworker(id string, newWorker func() (worker.Worker, error)) error {
+	if err := r.Runner.StartWorker(id, newWorker); err != nil {
+		return errors.Trace(err)
+	}
+	r.running.Add(id)
+	return nil
+}
+
+// StopWorker implements Runner.
+func (r *trackingRunner) StopWorker(id string) error {
+	if err := r.Runner.StopWorker(id); err != nil {
+		return errors.Trace(err)
+	}
+	r.running.Remove(id) // TODO(ericsnow) Move above StopWorker?
+	return nil
+
+}
+
+func (r *trackingRunner) stopAll() error {
+	for _, id := range r.running.Values() {
+		if err := r.StopWorker(id); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }

@@ -98,8 +98,10 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 		unhandled = append(unhandled, event)
 	}
 	c.Check(unhandled, gc.HasLen, 0)
-	s.stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "handler",
-		Args:     []interface{}{events, s.apiClient, s.runner},
-	}})
+	s.stub.CheckCallNames(c, "handler")
+	c.Check(s.stub.Calls()[0].Args[0], gc.DeepEquals, events)
+	c.Check(s.stub.Calls()[0].Args[1], gc.DeepEquals, s.apiClient)
+	runner, running := workers.ExposeRunner(s.stub.Calls()[0].Args[2].(workers.Runner))
+	c.Check(runner, jc.DeepEquals, s.runner)
+	c.Check(running.Values(), gc.HasLen, 0)
 }
