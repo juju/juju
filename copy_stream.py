@@ -17,9 +17,8 @@ def copy(location, from_stream, to_stream, dry_run=False, verbose=False):
         index = json.load(index_file)
     from_key = STREAM_KEY_TEMPLATE.format(from_stream)
     to_key = STREAM_KEY_TEMPLATE.format(to_stream)
-    if to_key in index['index']:
-        raise ValueError('{} is already defined in {}'.format(
-                         to_key, location))
+    if to_key in index['index'] and verbose:
+        print('Redefining {} in index2.json'.print(to_key))
     stanza = dict(index['index'][from_key])
     index['index'][to_key] = stanza
     if verbose:
