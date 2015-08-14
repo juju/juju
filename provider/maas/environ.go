@@ -1574,6 +1574,7 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 		if err == nil {
 			break
 		}
+		logger.Warningf("failed to release address %q from instance %q, will retry", addr, instId)
 	}
 	if err != nil {
 		logger.Warningf("failed to release address %q from instance %q", addr, instId)

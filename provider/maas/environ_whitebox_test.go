@@ -1432,25 +1432,19 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 
 func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 	// Patch short attempt params.
-	shortAttemptOrig := shortAttempt
-	shortAttempt = utils.AttemptStrategy{
+	suite.PatchValue(&shortAttempt, utils.AttemptStrategy{
 		Min: 5,
-	}
-	defer func() {
-		// Restore original short attempt.
-		shortAttempt = shortAttemptOrig
-	}()
+	})
 	// Patch IP address release call to MAAS.
 	retries := 0
-	releaseIPAddressOrig := ReleaseIPAddress
-	ReleaseIPAddress = func(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
+	enoughRetries := 10
+	suite.PatchValue(&ReleaseIPAddress, func(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
 		retries++
-		return errors.New("ouch")
-	}
-	defer func() {
-		// Restore the original release func.
-		ReleaseIPAddress = releaseIPAddressOrig
-	}()
+		if retries < enoughRetries {
+			return errors.New("ouch")
+		}
+		return nil
+	})
 
 	testInstance := suite.createSubnets(c, false)
 	env := suite.makeEnviron()
@@ -1464,20 +1458,14 @@ func (suite *environSuite) TestReleaseAddressRetry(c *gc.C) {
 	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	expected := fmt.Sprintf("(?s).*failed to release IP address %q from instance %q: ouch", ipAddress, testInstance.Id())
 	c.Assert(err, gc.ErrorMatches, expected)
-	c.Assert(retries == 5, gc.Equals, true)
+	c.Assert(retries, gc.Equals, 5)
 
 	// Now let it succeed after 3 retries.
 	retries = 0
-	ReleaseIPAddress = func(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
-		retries++
-		if retries < 3 {
-			return errors.New("ouch")
-		}
-		return nil
-	}
+	enoughRetries = 3
 	err = env.ReleaseAddress(testInstance.Id(), "bar", ipAddress, macAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retries == 3, gc.Equals, true)
+	c.Assert(retries, gc.Equals, 3)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
