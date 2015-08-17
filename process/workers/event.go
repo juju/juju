@@ -16,6 +16,12 @@ import (
 
 var workloadEventLogger = loggo.GetLogger("juju.workload.workers.event")
 
+const (
+	resEvents    = "events"
+	resRunner    = "runner"
+	resAPIClient = "apiclient"
+)
+
 // Runner is the portion of worker.Worker needed for Event handlers.
 type Runner interface {
 	// Start a worker using the provided func.
@@ -68,11 +74,12 @@ func (eh *EventHandlers) AddEvents(events ...process.Event) {
 	eh.events <- events
 }
 
+// Manifolds returns the set of manifolds that should be added for the unit.
 func (eh *EventHandlers) Manifolds() dependency.Manifolds {
 	return dependency.Manifolds{
-		"events":    eh.eventsManifold(),
-		"runner":    eh.runnerManifold(),
-		"apiclient": eh.apiManifold(),
+		resEvents:    eh.eventsManifold(),
+		resRunner:    eh.runnerManifold(),
+		resAPIClient: eh.apiManifold(),
 	}
 }
 
