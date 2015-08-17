@@ -19,26 +19,29 @@ const (
 	confDir
 	jujuRun
 	certDir
+	metricsSpoolDir
 )
 
 var nixVals = map[osVarType]string{
-	tmpDir:     "/tmp",
-	logDir:     "/var/log",
-	dataDir:    "/var/lib/juju",
-	storageDir: "/var/lib/juju/storage",
-	confDir:    "/etc/juju",
-	jujuRun:    "/usr/bin/juju-run",
-	certDir:    "/etc/juju/certs.d",
+	tmpDir:          "/tmp",
+	logDir:          "/var/log",
+	dataDir:         "/var/lib/juju",
+	storageDir:      "/var/lib/juju/storage",
+	confDir:         "/etc/juju",
+	jujuRun:         "/usr/bin/juju-run",
+	certDir:         "/etc/juju/certs.d",
+	metricsSpoolDir: "/var/lib/juju/spool",
 }
 
 var winVals = map[osVarType]string{
-	tmpDir:     "C:/Juju/tmp",
-	logDir:     "C:/Juju/log",
-	dataDir:    "C:/Juju/lib/juju",
-	storageDir: "C:/Juju/lib/juju/storage",
-	confDir:    "C:/Juju/etc",
-	jujuRun:    "C:/Juju/bin/juju-run.exe",
-	certDir:    "C:/Juju/certs",
+	tmpDir:          "C:/Juju/tmp",
+	logDir:          "C:/Juju/log",
+	dataDir:         "C:/Juju/lib/juju",
+	storageDir:      "C:/Juju/lib/juju/storage",
+	confDir:         "C:/Juju/etc",
+	jujuRun:         "C:/Juju/bin/juju-run.exe",
+	certDir:         "C:/Juju/certs",
+	metricsSpoolDir: "C:/Juju/lib/juju/spool",
 }
 
 // osVal will lookup the value of the key valname
@@ -74,6 +77,12 @@ func LogDir(series string) (string, error) {
 // store tools, charms, locks, etc
 func DataDir(series string) (string, error) {
 	return osVal(series, dataDir)
+}
+
+// MetricsSpoolDir returns a filesystem path to the folder used by juju
+// to store metrics.
+func MetricsSpoolDir(series string) (string, error) {
+	return osVal(series, metricsSpoolDir)
 }
 
 // CertDir returns a filesystem path to the folder used by juju to

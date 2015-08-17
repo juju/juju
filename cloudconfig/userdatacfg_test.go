@@ -1255,9 +1255,12 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		logDir, err := paths.LogDir(test.cfg.Series)
 		c.Assert(err, jc.ErrorIsNil)
+		metricsSpoolDir, err := paths.MetricsSpoolDir(test.cfg.Series)
+		c.Assert(err, jc.ErrorIsNil)
 
 		test.cfg.DataDir = dataDir
 		test.cfg.LogDir = path.Join(logDir, "juju")
+		test.cfg.MetricsSpoolDir = metricsSpoolDir
 
 		ci, err := cloudinit.New("win8")
 		c.Assert(err, jc.ErrorIsNil)
