@@ -639,7 +639,7 @@ func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
 	return result.Combine()
 }
 
-// WatchAll holds the id of the newly-created AllWatcher.
+// WatchAll holds the id of the newly-created AllWatcher/AllEnvWatcher.
 type WatchAll struct {
 	AllWatcherId string
 }
@@ -651,7 +651,7 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 	if err := c.facade.FacadeCall("WatchAll", nil, info); err != nil {
 		return nil, err
 	}
-	return newAllWatcher(c.st, &info.AllWatcherId), nil
+	return NewAllWatcher(c.st, &info.AllWatcherId), nil
 }
 
 // GetAnnotations returns annotations that have been set on the given entity.
