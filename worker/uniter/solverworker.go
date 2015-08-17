@@ -35,12 +35,15 @@ func NewSolverWorker(
 func (w *solverWorker) loop() error {
 	for {
 		remoteState := w.watcher.Snapshot()
-		op := w.solver.NextOp(remoteState)
-		for op != nil {
+		op, err := w.solver.NextOp(w.executor.State(), remoteState)
+		for err != solver.ErrNoOperation {
+			if err != nil {
+				return errors.Trace(err)
+			}
 			if err := w.executor.Run(op); err != nil {
 				return errors.Trace(err)
 			}
-			op = w.solver.NextOp(remoteState)
+			op, err = w.solver.NextOp(w.executor.State(), remoteState)
 		}
 		select {
 		case <-w.tomb.Dying():
