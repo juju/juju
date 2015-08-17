@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/context"
 )
@@ -67,6 +68,65 @@ func (eh *EventHandlers) AddEvents(events ...workload.Event) {
 	eh.events <- events
 }
 
+func (eh *EventHandlers) Manifolds() dependency.Manifolds {
+	return dependency.Manifolds{
+		"events":    eh.eventsManifold(),
+		"runner":    eh.runnerManifold(),
+		"apiclient": eh.apiManifold(),
+	}
+}
+
+func (eh *EventHandlers) eventsManifold() dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{},
+		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
+			// Pull all existing from State (via API) and add an event for each.
+			events, err := InitialEvents(eh.apiClient)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			worker, err := eh.NewWorker()
+			if err == nil {
+				return nil, errors.Trace(err)
+			}
+
+			// These must be added *after* the worker is started.
+			eh.AddEvents(events...)
+
+			return worker, nil
+		},
+	}
+}
+
+func (eh *EventHandlers) runnerManifold() dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{},
+		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
+			loop := func(<-chan struct{}) error { return nil }
+			return worker.NewSimpleWorker(loop), nil
+		},
+		Output: func(in worker.Worker, out interface{}) error {
+			// TODO(ericsnow) provide the runner
+			return nil
+		},
+	}
+}
+
+func (eh *EventHandlers) apiManifold() dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{},
+		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
+			loop := func(<-chan struct{}) error { return nil }
+			return worker.NewSimpleWorker(loop), nil
+		},
+		Output: func(in worker.Worker, out interface{}) error {
+			// TODO(ericsnow) provide the API client
+			return nil
+		},
+	}
+}
+
 // NewWorker wraps the EventHandler in a worker.
 func (eh *EventHandlers) NewWorker() (worker.Worker, error) {
 	workloadEventLogger.Debugf("starting new worker")
@@ -102,9 +162,15 @@ func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 }
 
 // InitialEvents returns the events that correspond to the current Juju state.
-func InitialEvents(hctx context.Component) ([]workload.Event, error) {
+func InitialEvents(apiClient context.APIClient) ([]workload.Event, error) {
 	// TODO(ericsnow) Use an API call that returns all of them at once,
 	// rather than using a Get call for each?
+
+	hctx, err := context.NewContextAPI(apiClient, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ids, err := hctx.List()
 	if err != nil {
 		return nil, errors.Trace(err)
