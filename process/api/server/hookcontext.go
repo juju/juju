@@ -147,8 +147,8 @@ func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api
 	return r, nil
 }
 
-// UnregisterProcesses marks the identified process as unregistered.
-func (a HookContextAPI) UnregisterProcesses(args api.UnregisterProcessesArgs) (api.ProcessResults, error) {
+// Untrack marks the identified process as unregistered.
+func (a HookContextAPI) Untrack(args api.UntrackArgs) (api.ProcessResults, error) {
 	r := api.ProcessResults{}
 	for _, id := range args.IDs {
 		res := api.ProcessResult{

@@ -388,13 +388,13 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
-func (suite) TestUnregisterProcesses(c *gc.C) {
+func (suite) TestUntrack(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
-	args := api.UnregisterProcessesArgs{
+	args := api.UntrackArgs{
 		IDs: []string{"fooID/bar"},
 	}
-	res, err := a.UnregisterProcesses(args)
+	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(st.id, gc.Equals, "fooID/bar")
@@ -405,6 +405,37 @@ func (suite) TestUnregisterProcesses(c *gc.C) {
 			Error: nil,
 		}},
 	}
+	c.Assert(res, gc.DeepEquals, expected)
+}
+
+func (suite) TestUntrackEmptyID(c *gc.C) {
+	st := &FakeState{}
+	a := HookContextAPI{st}
+	args := api.UntrackArgs{
+		IDs: []string{""},
+	}
+	res, err := a.Untrack(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(st.id, gc.Equals, "")
+
+	expected := api.ProcessResults{Results: []api.ProcessResult{api.ProcessResult{ID: ""}}}
+	c.Assert(res, gc.DeepEquals, expected)
+}
+
+func (suite) TestUntrackEmpty(c *gc.C) {
+	st := &FakeState{}
+	st.id = "foo"
+	a := HookContextAPI{st}
+	args := api.UntrackArgs{
+		IDs: []string{},
+	}
+	res, err := a.Untrack(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(st.id, gc.Equals, "foo")
+
+	expected := api.ProcessResults{}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 

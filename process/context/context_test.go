@@ -344,3 +344,37 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 
 	s.Stub.CheckCallNames(c)
 }
+
+func (s *contextSuite) TestUntrackOkay(c *gc.C) {
+	info := s.newProc("A", "myplugin", "spam", "okay")
+	ctx := context.NewContext(s.apiClient)
+	err := ctx.Set(info)
+	c.Assert(err, jc.ErrorIsNil)
+	before, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(before, jc.DeepEquals, []process.Info{info})
+	ctx.Untrack(info.ID())
+	err = ctx.Flush()
+	c.Assert(err, jc.ErrorIsNil)
+	s.apiClient.stub.CheckCallNames(c, "RegisterProcesses", "Untrack")
+	after, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if len(after) > 0 {
+		c.Fatalf("Expected 0 len, got %d", len(after))
+	}
+}
+
+func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
+	info := s.newProc("A", "myplugin", "spam", "okay")
+	ctx := context.NewContext(s.apiClient)
+	err := ctx.Set(info)
+	c.Assert(err, jc.ErrorIsNil)
+	before, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(before, jc.DeepEquals, []process.Info{info})
+	ctx.Untrack("not gonna match")
+	after, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(after, gc.DeepEquals, before)
+}

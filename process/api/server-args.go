@@ -88,8 +88,8 @@ type SetProcessStatusArg struct {
 	PluginStatus PluginStatus
 }
 
-// UnregisterProcessesArgs are the arguments for the UnregisterProcesses endpoint.
-type UnregisterProcessesArgs struct {
+// UntrackArgs are the arguments for the Untrack endpoint.
+type UntrackArgs struct {
 	// IDs is a list of IDs of processes.
 	IDs []string
 }

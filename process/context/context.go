@@ -24,6 +24,8 @@ type APIClient interface {
 	ListProcesses(ids ...string) ([]process.Info, error)
 	// RegisterProcesses sends a request to update state with the provided processes.
 	RegisterProcesses(procs ...process.Info) ([]string, error)
+	// Untrack removes the processes from our list of processes to track.
+	Untrack(ids []string) error
 	// AllDefinitions returns the process definitions found in the
 	// unit's metadata.
 	AllDefinitions() ([]charm.Process, error)
@@ -38,6 +40,8 @@ type Component interface {
 	Get(id string) (*process.Info, error)
 	// Set records the process info in the hook context.
 	Set(info process.Info) error
+	// Untrack removes the process from our list of processes to track.
+	Untrack(id string)
 	// List returns the list of registered process IDs.
 	List() ([]string, error)
 	// ListDefinitions returns the charm-defined processes.
@@ -46,11 +50,14 @@ type Component interface {
 	Flush() error
 }
 
+var _ Component = (*Context)(nil)
+
 // Context is the workload process portion of the hook context.
 type Context struct {
 	api       APIClient
 	processes map[string]process.Info
 	updates   map[string]process.Info
+	removes   map[string]struct{}
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
@@ -59,6 +66,7 @@ func NewContext(api APIClient) *Context {
 		api:       api,
 		processes: make(map[string]process.Info),
 		updates:   make(map[string]process.Info),
+		removes:   make(map[string]struct{}),
 	}
 }
 
@@ -103,7 +111,6 @@ func ContextComponent(ctx HookContext) (Component, error) {
 // Processes returns the processes known to the context.
 func (c *Context) Processes() ([]process.Info, error) {
 	processes := mergeProcMaps(c.processes, c.updates)
-
 	var procs []process.Info
 	for _, info := range processes {
 		procs = append(procs, info)
@@ -158,17 +165,27 @@ func (c *Context) List() ([]string, error) {
 	return ids, nil
 }
 
+// TODO(ericsnow) rename to Track
+
 // Set records the process info in the hook context.
 func (c *Context) Set(info process.Info) error {
+	// TODO(ericsnow) rename to Track
 	logger.Tracef("adding %q to hook context: %#v", info.ID(), info)
 
 	if err := info.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
-
-	c.updates[info.ID()] = info
+	id := info.ID()
+	c.updates[id] = info
 	return nil
+}
+
+// Untrack tells juju to stop tracking this process.
+func (c *Context) Untrack(id string) {
+	// We assume that flush always gets called immediately after a set/untrack,
+	// so we don't have to worry about conflicting updates/deletes.
+	c.removes[id] = struct{}{}
 }
 
 // ListDefinitions returns the unit's charm-defined processes.
@@ -188,21 +205,31 @@ func (c *Context) ListDefinitions() ([]charm.Process, error) {
 func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
 
-	if len(c.updates) == 0 {
-		return nil
+	// TODO(natefinch): make this a noop and move this code into set/untrack.
+
+	if len(c.updates) > 0 {
+
+		var updates []process.Info
+		for _, info := range c.updates {
+			updates = append(updates, info)
+		}
+		if _, err := c.api.RegisterProcesses(updates...); err != nil {
+			return errors.Trace(err)
+		}
+		for k, v := range c.updates {
+			c.processes[k] = v
+		}
+		c.updates = map[string]process.Info{}
 	}
 
-	var updates []process.Info
-	for _, info := range c.updates {
-		updates = append(updates, info)
+	if len(c.removes) > 0 {
+		removes := make([]string, 0, len(c.removes))
+		for id := range c.removes {
+			removes = append(removes, id)
+			delete(c.processes, id)
+		}
+		c.api.Untrack(removes)
+		c.removes = map[string]struct{}{}
 	}
-	if _, err := c.api.RegisterProcesses(updates...); err != nil {
-		return errors.Trace(err)
-	}
-
-	for k, v := range c.updates {
-		c.processes[k] = v
-	}
-	c.updates = nil
 	return nil
 }

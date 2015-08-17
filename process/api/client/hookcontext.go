@@ -117,8 +117,8 @@ func (c HookContextClient) SetProcessesStatus(status process.Status, pluginStatu
 	return c.FacadeCall("SetProcessesStatus", &args, nil)
 }
 
-// UnregisterProcesses calls the UnregisterProcesses API server method.
-func (c HookContextClient) UnregisterProcesses(ids ...string) error {
-	args := api.UnregisterProcessesArgs{IDs: ids}
-	return c.FacadeCall("UnregisterProcesses", &args, nil)
+// Untrack calls the Untrack API server method.
+func (c HookContextClient) Untrack(ids []string) error {
+	args := api.UntrackArgs{IDs: ids}
+	return c.FacadeCall("Untrack", &args, nil)
 }

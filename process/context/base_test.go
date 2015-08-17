@@ -94,10 +94,13 @@ func (c stubHookContext) Component(name string) (context.Component, error) {
 	return compCtx, nil
 }
 
+var _ context.Component = (*stubContextComponent)(nil)
+
 type stubContextComponent struct {
 	stub        *testing.Stub
 	procs       map[string]process.Info
 	definitions map[string]charm.Process
+	untracks    map[string]struct{}
 }
 
 func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
@@ -105,6 +108,7 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 		stub:        stub,
 		procs:       make(map[string]process.Info),
 		definitions: make(map[string]charm.Process),
+		untracks:    make(map[string]struct{}),
 	}
 }
 
@@ -142,6 +146,12 @@ func (c *stubContextComponent) Set(info process.Info) error {
 
 	c.procs[info.ID()] = info
 	return nil
+}
+
+func (c *stubContextComponent) Untrack(id string) {
+	c.stub.AddCall("Untrack", id)
+
+	c.untracks[id] = struct{}{}
 }
 
 func (c *stubContextComponent) ListDefinitions() ([]charm.Process, error) {
@@ -259,4 +269,16 @@ func (c *stubAPIClient) RegisterProcesses(procs ...process.Info) ([]string, erro
 		ids = append(ids, proc.ID())
 	}
 	return ids, nil
+}
+
+func (c *stubAPIClient) Untrack(ids []string) error {
+	c.stub.AddCall("Untrack", ids)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, id := range ids {
+		delete(c.procs, id)
+	}
+	return nil
 }
