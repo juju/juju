@@ -166,7 +166,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	// Create the new subnet.
 	err = api.CreateSubnet(c.CIDR, c.Space, c.Zones.SortedValues(), c.IsPublic)
 	if err != nil {
-		return errors.Annotatef(err, "cannot create subnet %q", c.CIDR)
+		return errors.Annotatef(err, "cannot create subnet %q", c.CIDR.Id())
 	}
 
 	zones := strings.Join(c.Zones.SortedValues(), ", ")
@@ -176,7 +176,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Infof(
 		"created a %s subnet %q in space %q with zones %s",
-		accessType, c.CIDR, c.Space.Id(), zones,
+		accessType, c.CIDR.Id(), c.Space.Id(), zones,
 	)
 	return nil
 }

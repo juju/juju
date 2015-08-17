@@ -93,10 +93,10 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	if c.CIDR.String() != "" && c.RawCIDR != c.CIDR.String() {
+	if c.CIDR.Id() != "" && c.RawCIDR != c.CIDR.Id() {
 		ctx.Infof(
 			"WARNING: using CIDR %q instead of the incorrectly specified %q.",
-			c.CIDR, c.RawCIDR,
+			c.CIDR.Id(), c.RawCIDR,
 		)
 	}
 
@@ -108,13 +108,13 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("ERROR: %v.", err)
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "cannot add subnet %q", c.CIDR)
+		return errors.Annotatef(err, "cannot add subnet %q", c.CIDR.Id())
 	}
 
-	if c.CIDR.String() == "" {
+	if c.CIDR.Id() == "" {
 		ctx.Infof("added subnet with ProviderId %q in space %q", c.ProviderId, c.Space.Id())
 	} else {
-		ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR, c.Space.Id())
+		ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR.Id(), c.Space.Id())
 	}
 	return nil
 }

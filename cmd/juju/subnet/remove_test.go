@@ -5,6 +5,7 @@ package subnet_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -57,8 +58,8 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			c.Check(command.CIDR, gc.Equals, test.expectCIDR)
 		}
-		c.Check(command.CIDR, gc.Equals, test.expectCIDR)
 
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
@@ -73,7 +74,7 @@ func (s *RemoveSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", "10.20.0.0/16")
+	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("10.20.0.0/16"))
 }
 
 func (s *RemoveSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
@@ -84,7 +85,7 @@ func (s *RemoveSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", "2001:db8::/32")
+	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("2001:db8::/32"))
 }
 
 func (s *RemoveSuite) TestRunWithNonExistingSubnetFails(c *gc.C) {
@@ -97,7 +98,7 @@ func (s *RemoveSuite) TestRunWithNonExistingSubnetFails(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", "10.10.0.0/24")
+	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("10.10.0.0/24"))
 }
 
 func (s *RemoveSuite) TestRunWithSubnetInUseFails(c *gc.C) {
@@ -109,7 +110,7 @@ func (s *RemoveSuite) TestRunWithSubnetInUseFails(c *gc.C) {
 	)
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
-	s.api.CheckCall(c, 0, "RemoveSubnet", "10.10.0.0/24")
+	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("10.10.0.0/24"))
 }
 
 func (s *RemoveSuite) TestRunAPIConnectFails(c *gc.C) {

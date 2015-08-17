@@ -72,9 +72,9 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 	// Try removing the subnet.
 	err = api.RemoveSubnet(c.CIDR)
 	if err != nil {
-		return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR)
+		return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR.Id())
 	}
 
-	ctx.Infof("marked subnet %q for removal", c.CIDR)
+	ctx.Infof("marked subnet %q for removal", c.CIDR.Id())
 	return nil
 }
