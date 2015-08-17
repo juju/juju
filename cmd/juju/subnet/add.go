@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/names"
 )
 
@@ -15,7 +16,7 @@ import (
 type AddCommand struct {
 	SubnetCommandBase
 
-	CIDR       string
+	CIDR       names.SubnetTag
 	RawCIDR    string // before normalizing (e.g. 10.10.0.0/8 to 10.0.0.0/8)
 	ProviderId string
 	Space      names.SpaceTag
@@ -93,28 +94,28 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	if c.CIDR != "" && c.RawCIDR != c.CIDR {
+	if c.CIDR.Id() != "" && c.RawCIDR != c.CIDR.Id() {
 		ctx.Infof(
 			"WARNING: using CIDR %q instead of the incorrectly specified %q.",
-			c.CIDR, c.RawCIDR,
+			c.CIDR.Id(), c.RawCIDR,
 		)
 	}
 
 	// Add the existing subnet.
-	err = api.AddSubnet(c.CIDR, c.ProviderId, c.Space, c.Zones)
+	err = api.AddSubnet(c.CIDR, network.Id(c.ProviderId), c.Space, c.Zones)
 	// TODO(dimitern): Change this once the API returns a concrete error.
 	if err != nil && strings.Contains(err.Error(), "multiple subnets with") {
 		// Special case: multiple subnets with the same CIDR exist
 		ctx.Infof("ERROR: %v.", err)
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "cannot add subnet %q", c.CIDR)
+		return errors.Annotatef(err, "cannot add subnet %q", c.CIDR.Id())
 	}
 
-	if c.CIDR == "" {
+	if c.CIDR.Id() == "" {
 		ctx.Infof("added subnet with ProviderId %q in space %q", c.ProviderId, c.Space.Id())
 	} else {
-		ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR, c.Space.Id())
+		ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR.Id(), c.Space.Id())
 	}
 	return nil
 }

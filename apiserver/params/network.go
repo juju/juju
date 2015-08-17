@@ -497,6 +497,23 @@ type SpaceResults struct {
 	Results []SpaceResult `json:"Results"`
 }
 
+// ListSubnetsResults holds the result of a ListSubnets API call.
+type ListSubnetsResults struct {
+	Results []Subnet `json:"Results"`
+}
+
+// ListSubnetsParams holds the arguments of a ListSubnets API call.
+type ListSubnetsParams struct {
+	Filters []ListSubnetsFilterParams `json:"Filters"`
+}
+
+// ListSubnetsFilterParams holds an optional Space Tag and Availability Zone
+// for filtering the subnets returned by a ListSubnets call.
+type ListSubnetsFilterParams struct {
+	SpaceTag string `json:"SpaceTag,omitempty"`
+	Zone     string `json:"Zone,omitempty"`
+}
+
 // AddSubnetsParams holds the arguments of AddSubnets API call.
 type AddSubnetsParams struct {
 	Subnets []AddSubnetParams `json:"Subnets"`
@@ -511,6 +528,21 @@ type AddSubnetParams struct {
 	SubnetProviderId string   `json:"SubnetProviderId,omitempty"`
 	SpaceTag         string   `json:"SpaceTag"`
 	Zones            []string `json:"Zones,omitempty"`
+}
+
+// CreateSubnetsParams holds the arguments of CreateSubnets API call.
+type CreateSubnetsParams struct {
+	Subnets []CreateSubnetParams `json:"Subnets"`
+}
+
+// CreateSubnetParams holds a subnet and space tags, vlan tag,
+// and a list of zones to associate the subnet to.
+type CreateSubnetParams struct {
+	SubnetTag string   `json:"SubnetTag,omitempty"`
+	SpaceTag  string   `json:"SpaceTag"`
+	Zones     []string `json:"Zones,omitempty"`
+	VLANTag   int      `json:"VLANTag,omitempty"`
+	IsPublic  bool     `json:"IsPublic"`
 }
 
 // CreateSpacesParams olds the arguments of the AddSpaces API call.

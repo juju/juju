@@ -129,13 +129,12 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			c.Check(command.CIDR.Id(), gc.Equals, test.expectCIDR)
+			c.Check(command.Space.Id(), gc.Equals, test.expectSpace)
+			c.Check(command.Zones.SortedValues(), jc.DeepEquals, test.expectZones)
+			c.Check(command.IsPublic, gc.Equals, test.expectPublic)
+			c.Check(command.IsPrivate, gc.Equals, test.expectPrivate)
 		}
-		c.Check(command.CIDR, gc.Equals, test.expectCIDR)
-		c.Check(command.Space.Id(), gc.Equals, test.expectSpace)
-		c.Check(command.Zones.SortedValues(), jc.DeepEquals, test.expectZones)
-		c.Check(command.IsPublic, gc.Equals, test.expectPublic)
-		c.Check(command.IsPrivate, gc.Equals, test.expectPrivate)
-
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
 	}
@@ -150,7 +149,7 @@ func (s *CreateSuite) TestRunOneZoneSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.20.0.0/24", names.NewSpaceTag("myspace"), s.Strings("zone1"), false,
+		names.NewSubnetTag("10.20.0.0/24"), names.NewSpaceTag("myspace"), s.Strings("zone1"), false,
 	)
 }
 
@@ -163,7 +162,7 @@ func (s *CreateSuite) TestRunWithPublicAndIPv6CIDRSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"2001:db8::/32", names.NewSpaceTag("space"), s.Strings("zone1"), true,
+		names.NewSubnetTag("2001:db8::/32"), names.NewSpaceTag("space"), s.Strings("zone1"), true,
 	)
 }
 
@@ -178,7 +177,7 @@ func (s *CreateSuite) TestRunWithMultipleZonesSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.20.0.0/24", names.NewSpaceTag("foo"), s.Strings("zone1", "zone2"), false,
+		names.NewSubnetTag("10.20.0.0/24"), names.NewSpaceTag("foo"), s.Strings("zone1", "zone2"), false,
 	)
 }
 
@@ -203,7 +202,7 @@ func (s *CreateSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.10.0.0/24", names.NewSpaceTag("space"), s.Strings("zone1"), false,
+		names.NewSubnetTag("10.10.0.0/24"), names.NewSpaceTag("space"), s.Strings("zone1"), false,
 	)
 }
 
@@ -218,7 +217,7 @@ func (s *CreateSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AllZones", "CreateSubnet", "Close")
 	s.api.CheckCall(c, 1, "CreateSubnet",
-		"10.10.0.0/24", names.NewSpaceTag("space"), s.Strings("zone1"), false,
+		names.NewSubnetTag("10.10.0.0/24"), names.NewSpaceTag("space"), s.Strings("zone1"), false,
 	)
 }
 

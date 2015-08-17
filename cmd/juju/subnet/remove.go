@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 )
 
 // RemoveCommand calls the API to remove an existing, unused subnet
@@ -15,7 +16,7 @@ import (
 type RemoveCommand struct {
 	SubnetCommandBase
 
-	CIDR string
+	CIDR names.SubnetTag
 }
 
 const removeCommandDoc = `
@@ -71,9 +72,9 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 	// Try removing the subnet.
 	err = api.RemoveSubnet(c.CIDR)
 	if err != nil {
-		return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR)
+		return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR.Id())
 	}
 
-	ctx.Infof("marked subnet %q for removal", c.CIDR)
+	ctx.Infof("marked subnet %q for removal", c.CIDR.Id())
 	return nil
 }

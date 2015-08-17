@@ -58,8 +58,8 @@ func (api *API) CreateSpace(name string, subnetIds []string, public bool) (param
 }
 
 // ListSpaces lists all available spaces and their associated subnets.
-func (api *API) ListSpaces() (params.ListSpacesResults, error) {
+func (api *API) ListSpaces() ([]params.Space, error) {
 	var response params.ListSpacesResults
 	err := api.facade.FacadeCall("ListSpaces", nil, &response)
-	return response, err
+	return response.Results, err
 }

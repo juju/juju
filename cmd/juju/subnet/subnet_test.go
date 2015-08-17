@@ -90,7 +90,7 @@ func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *gc.C) {
 		output    string
 		expectErr string
 	}{{
-		about:  "valid IPv4 CIDR, struct=false",
+		about:  "valid IPv4 CIDR, strict=false",
 		input:  "10.0.5.0/24",
 		strict: false,
 		output: "10.0.5.0/24",
@@ -147,7 +147,7 @@ func (s *SubnetCommandBaseSuite) TestValidateCIDR(c *gc.C) {
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
-		c.Check(validated, gc.Equals, test.output)
+		c.Check(validated.Id(), gc.Equals, test.output)
 	}
 }
 
