@@ -10,6 +10,10 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
+var (
+	DefaultUniterStateDir = defaultUniterStateDir
+)
+
 func Password(config Config) string {
 	c := config.(*configInternal)
 	if c.stateDetails == nil {
