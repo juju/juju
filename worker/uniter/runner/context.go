@@ -29,7 +29,7 @@ var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // ComponentFunc is a factory function for Context components.
-type ComponentFunc func(caller base.APICaller) (jujuc.ContextComponent, error)
+type ComponentFunc func(unit string, caller base.APICaller) (jujuc.ContextComponent, error)
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
@@ -192,7 +192,7 @@ func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 		return nil, errors.NotFoundf("context component %q", name)
 	}
 	facade := ctx.state.Facade()
-	compCtx, err := compCtxFunc(facade.RawAPICaller())
+	compCtx, err := compCtxFunc(ctx.unitName, facade.RawAPICaller())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

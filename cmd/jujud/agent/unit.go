@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/feature"
@@ -39,6 +40,23 @@ var (
 	agentLogger         = loggo.GetLogger("juju.jujud")
 	reportClosedUnitAPI = func(io.Closer) {}
 )
+
+type unitAgentWorkerFactory func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error)
+
+var (
+	unitAgentWorkerNames []string
+	unitAgentWorkerFuncs = make(map[string]unitAgentWorkerFactory)
+)
+
+// RegisterUnitAgentWorker adds the worker to the list of workers to start.
+func RegisterUnitAgentWorker(name string, newWorkerFunc unitAgentWorkerFactory) error {
+	if _, ok := unitAgentWorkerFuncs[name]; ok {
+		return errors.Errorf("worker %q already registered", name)
+	}
+	unitAgentWorkerFuncs[name] = newWorkerFunc
+	unitAgentWorkerNames = append(unitAgentWorkerNames, name)
+	return nil
+}
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
@@ -199,16 +217,34 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 
 	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
+	workers, err := a.apiWorkers(runner, st, agentConfig, &uniter.UniterParams{
+		UnitTag:  unitTag,
+		DataDir:  dataDir,
+		HookLock: hookLock,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := workers.Start(runner); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cmdutil.NewCloseWorker(logger, runner, st), nil
+}
+
+func (a *UnitAgent) apiWorkers(runner worker.Runner, st *api.State, agentConfig agent.Config, uniterArgs *uniter.UniterParams) (worker.Workers, error) {
+	workers := worker.NewWorkers()
+
 	// start proxyupdater first to ensure proxy settings are correct
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+	workers.Add("proxyupdater", func() (worker.Worker, error) {
 		return proxyupdater.New(st.Environment(), false), nil
 	})
 	if feature.IsDbLogEnabled() {
-		runner.StartWorker("logsender", func() (worker.Worker, error) {
+		workers.Add("logsender", func() (worker.Worker, error) {
 			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
 		})
 	}
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+	workers.Add("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewAgentUpgrader(
 			st.Upgrader(),
 			agentConfig,
@@ -217,28 +253,29 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 			a.initialAgentUpgradeCheckComplete,
 		), nil
 	})
-	runner.StartWorker("logger", func() (worker.Worker, error) {
+	workers.Add("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	runner.StartWorker("uniter", func() (worker.Worker, error) {
+
+	workers.Add("uniter", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		uniterParams := uniter.UniterParams{
-			uniterFacade,
-			unitTag,
-			leadership.NewClient(st),
-			dataDir,
-			hookLock,
-			uniter.NewMetricsTimerChooser(),
-			uniter.NewUpdateStatusTimer(),
-			nil,
+			St:                   uniterFacade,
+			UnitTag:              uniterArgs.UnitTag,
+			LeadershipManager:    leadership.NewClient(st),
+			DataDir:              uniterArgs.DataDir,
+			HookLock:             uniterArgs.HookLock,
+			MetricsTimerChooser:  uniter.NewMetricsTimerChooser(),
+			UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+			NewOperationExecutor: nil,
 		}
 		return uniter.NewUniter(&uniterParams), nil
 	})
 
-	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
+	workers.Add("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -246,11 +283,21 @@ func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
 		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
 	if !featureflag.Enabled(feature.DisableRsyslog) {
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+		workers.Add("rsyslog", func() (worker.Worker, error) {
 			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
 		})
 	}
-	return cmdutil.NewCloseWorker(logger, runner, st), nil
+
+	for _, name := range unitAgentWorkerNames {
+		newWorkerFunc := unitAgentWorkerFuncs[name]
+		newWorker, err := newWorkerFunc(a.UnitName, st, runner)
+		if err != nil {
+			return workers, errors.Trace(err)
+		}
+		workers.Add(name, newWorker)
+	}
+
+	return workers, nil
 }
 
 func (a *UnitAgent) Tag() names.Tag {

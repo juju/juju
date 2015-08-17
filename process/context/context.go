@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/process/plugin"
 )
 
 var logger = loggo.GetLogger("juju.process.context")
@@ -36,6 +37,8 @@ type APIClient interface {
 
 // omponent provides the hook context data specific to workload processes.
 type Component interface {
+	// Plugin returns the plugin to use for the given proc.
+	Plugin(info *process.Info) (process.Plugin, error)
 	// Get returns the process info corresponding to the given ID.
 	Get(id string) (*process.Info, error)
 	// Set records the process info in the hook context.
@@ -55,29 +58,39 @@ var _ Component = (*Context)(nil)
 // Context is the workload process portion of the hook context.
 type Context struct {
 	api       APIClient
+	plugin    process.Plugin
 	processes map[string]process.Info
 	updates   map[string]process.Info
 	removes   map[string]struct{}
+
+	addEvents func(...process.Event)
+	// FindPlugin is the function used to find the plugin for the given
+	// plugin name.
+	FindPlugin func(pluginName string) (process.Plugin, error)
 }
 
 // NewContext returns a new jujuc.ContextComponent for workload processes.
-func NewContext(api APIClient) *Context {
+func NewContext(api APIClient, addEvents func(...process.Event)) *Context {
 	return &Context{
 		api:       api,
 		processes: make(map[string]process.Info),
 		updates:   make(map[string]process.Info),
 		removes:   make(map[string]struct{}),
+		addEvents: addEvents,
+		FindPlugin: func(ptype string) (process.Plugin, error) {
+			return plugin.Find(ptype)
+		},
 	}
 }
 
 // NewContextAPI returns a new jujuc.ContextComponent for workload processes.
-func NewContextAPI(api APIClient) (*Context, error) {
+func NewContextAPI(api APIClient, addEvents func(...process.Event)) (*Context, error) {
 	procs, err := api.ListProcesses()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ctx := NewContext(api)
+	ctx := NewContext(api, addEvents)
 	for _, proc := range procs {
 		ctx.processes[proc.ID()] = proc
 	}
@@ -104,6 +117,19 @@ func ContextComponent(ctx HookContext) (Component, error) {
 		return nil, errors.Errorf("component %q disabled", process.ComponentName)
 	}
 	return compCtx, nil
+}
+
+// Plugin returns the plugin to use in this context.
+func (c *Context) Plugin(info *process.Info) (process.Plugin, error) {
+	if c.plugin != nil {
+		return c.plugin, nil
+	}
+
+	plugin, err := c.FindPlugin(info.Type)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return plugin, nil
 }
 
 // TODO(ericsnow) Should we build in refreshes in all the methods?
@@ -207,11 +233,21 @@ func (c *Context) Flush() error {
 
 	// TODO(natefinch): make this a noop and move this code into set/untrack.
 
+	var events []process.Event
 	if len(c.updates) > 0 {
-
 		var updates []process.Info
 		for _, info := range c.updates {
 			updates = append(updates, info)
+
+			plugin, err := c.Plugin(&info)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			events = append(events, process.Event{
+				Kind:   process.EventKindTracked,
+				ID:     info.ID(),
+				Plugin: plugin,
+			})
 		}
 		if _, err := c.api.RegisterProcesses(updates...); err != nil {
 			return errors.Trace(err)
@@ -221,15 +257,29 @@ func (c *Context) Flush() error {
 		}
 		c.updates = map[string]process.Info{}
 	}
-
 	if len(c.removes) > 0 {
 		removes := make([]string, 0, len(c.removes))
 		for id := range c.removes {
+			info := c.processes[id]
 			removes = append(removes, id)
 			delete(c.processes, id)
+
+			plugin, err := c.Plugin(&info)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			events = append(events, process.Event{
+				Kind:   process.EventKindUntracked,
+				ID:     id,
+				Plugin: plugin,
+			})
 		}
 		c.api.Untrack(removes)
 		c.removes = map[string]struct{}{}
 	}
+	if len(events) > 0 {
+		c.addEvents(events...)
+	}
+
 	return nil
 }

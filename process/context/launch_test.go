@@ -1,15 +1,12 @@
 package context_test
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
-	"github.com/juju/juju/process/plugin"
 )
 
 type launchCmdSuite struct {
@@ -23,7 +20,7 @@ func (s *launchCmdSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *launchCmdSuite) TestInitReturnsNoErr(c *gc.C) {
-	cmd, err := context.NewProcLaunchCommand(nil, nil, s.Ctx)
+	cmd, err := context.NewProcLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmd.Init([]string{s.proc.Name})
@@ -31,7 +28,7 @@ func (s *launchCmdSuite) TestInitReturnsNoErr(c *gc.C) {
 }
 
 func (s *launchCmdSuite) TestInitInvalidArgsReturnsErr(c *gc.C) {
-	cmd, err := context.NewProcLaunchCommand(nil, nil, s.Ctx)
+	cmd, err := context.NewProcLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmd.Init([]string{"mock-name", "invalid-arg"})
@@ -44,80 +41,71 @@ func (s *launchCmdSuite) TestInitInvalidArgsReturnsErr(c *gc.C) {
 }
 
 func (s *launchCmdSuite) TestRun(c *gc.C) {
+	// TODO(ericsnow) Setting these to empty maps should not be necessary.
+	s.proc.Process.TypeOptions = map[string]string{}
+	s.proc.Process.EnvVars = map[string]string{}
 
-	var mockPlugin *plugin.Plugin
-
-	numLaunchPluginCalls := 0
-	launchPlugin := func(p plugin.Plugin, proc charm.Process) (process.Details, error) {
-		numLaunchPluginCalls++
-		c.Check(p, gc.DeepEquals, *mockPlugin)
-		return process.Details{
-			ID: "id",
-			Status: process.PluginStatus{
-				State: "foo",
-			},
-		}, nil
+	plugin := &stubPlugin{stub: s.Stub}
+	plugin.details = process.Details{
+		ID: "id",
+		Status: process.PluginStatus{
+			State: "foo",
+		},
 	}
+	s.compCtx.plugin = plugin
 
-	numFindPluginCalls := 0
-	findPlugin := func(pluginName string) (*plugin.Plugin, error) {
-		numFindPluginCalls++
-		mockPlugin = &plugin.Plugin{
-			Name:       pluginName,
-			Executable: "mock-path",
-		}
-		return mockPlugin, nil
-	}
-
-	cmd, err := context.NewProcLaunchCommand(findPlugin, launchPlugin, s.Ctx)
+	cmd, err := context.NewProcLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
 	s.setMetadata(s.proc)
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
+	s.Stub.ResetCalls()
 
 	s.checkRun(c, "", "")
-	c.Check(numLaunchPluginCalls, gc.Equals, 1)
-	c.Check(numFindPluginCalls, gc.Equals, 1)
+	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Plugin", "Launch", "Set", "Flush")
+	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{&s.proc})
+	c.Check(s.Stub.Calls()[3].Args, jc.DeepEquals, []interface{}{s.proc.Process})
 }
 
 func (s *launchCmdSuite) TestRunCantFindPlugin(c *gc.C) {
+	plugin := &stubPlugin{stub: s.Stub}
+	failure := errors.NotFoundf("mock-error")
+	s.compCtx.plugin = plugin
 
-	findPlugin := func(pluginName string) (*plugin.Plugin, error) {
-		return nil, fmt.Errorf("mock-error")
-	}
-
-	cmd, err := context.NewProcLaunchCommand(findPlugin, nil, s.Ctx)
+	cmd, err := context.NewProcLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
 	s.setMetadata(s.proc)
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Stub.ResetCalls()
+	s.Stub.SetErrors(nil, nil, failure)
 
 	err = s.cmd.Run(s.cmdCtx)
-	c.Assert(err, gc.ErrorMatches, "mock-error")
+	c.Assert(errors.Cause(err), gc.Equals, failure)
+	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Plugin")
 }
 
 func (s *launchCmdSuite) TestLaunchCommandErrorRunning(c *gc.C) {
+	plugin := &stubPlugin{stub: s.Stub}
+	failure := errors.Errorf("mock-error")
+	s.compCtx.plugin = plugin
 
-	findPlugin := func(pluginName string) (*plugin.Plugin, error) {
-		return &plugin.Plugin{}, nil
-	}
-
-	launchPlugin := func(p plugin.Plugin, proc charm.Process) (process.Details, error) {
-		return process.Details{}, fmt.Errorf("mock-error")
-	}
-
-	cmd, err := context.NewProcLaunchCommand(findPlugin, launchPlugin, s.Ctx)
+	cmd, err := context.NewProcLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "process-launch", cmd)
 	s.setMetadata(s.proc)
 
 	err = cmd.Init([]string{s.proc.Name})
 	c.Assert(err, jc.ErrorIsNil)
+	s.Stub.ResetCalls()
+	s.Stub.SetErrors(nil, nil, nil, failure)
 
 	err = cmd.Run(s.cmdCtx)
-	c.Check(err, gc.ErrorMatches, "mock-error")
+	c.Assert(errors.Cause(err), gc.Equals, failure)
+	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Plugin", "Launch")
 }

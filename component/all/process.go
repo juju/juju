@@ -15,14 +15,16 @@ import (
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
+	"github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/api/client"
 	"github.com/juju/juju/process/api/server"
 	"github.com/juju/juju/process/context"
-	"github.com/juju/juju/process/plugin"
 	procstate "github.com/juju/juju/process/state"
 	"github.com/juju/juju/process/status"
+	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -30,8 +32,9 @@ import (
 type workloadProcesses struct{}
 
 func (c workloadProcesses) registerForServer() error {
-	c.registerHookContext()
 	c.registerState()
+	handlers := c.registerWorkers()
+	c.registerHookContext(handlers)
 	c.registerUnitStatus()
 	return nil
 }
@@ -41,17 +44,20 @@ func (workloadProcesses) registerForClient() error {
 	return nil
 }
 
-func (c workloadProcesses) registerHookContext() {
+func (c workloadProcesses) registerHookContext(handlers map[string]*workers.EventHandlers) {
 	if !markRegistered(process.ComponentName, "hook-context") {
 		return
 	}
 
 	runner.RegisterComponentFunc(process.ComponentName,
-		func(caller base.APICaller) (jujuc.ContextComponent, error) {
-			facadeCaller := base.NewFacadeCallerForVersion(caller, process.ComponentName, 0)
-			hctxClient := client.NewHookContextClient(facadeCaller)
+		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
+			var addEvents func(...process.Event)
+			if unitEventHandler, ok := handlers[unit]; ok {
+				addEvents = unitEventHandler.AddEvents
+			}
+			hctxClient := c.newHookContextAPIClient(caller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
-			component, err := context.NewContextAPI(hctxClient)
+			component, err := context.NewContextAPI(hctxClient, addEvents)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -61,6 +67,11 @@ func (c workloadProcesses) registerHookContext() {
 
 	c.registerHookContextCommands()
 	c.registerHookContextFacade()
+}
+
+func (c workloadProcesses) newHookContextAPIClient(caller base.APICaller) context.APIClient {
+	facadeCaller := base.NewFacadeCallerForVersion(caller, process.ComponentName, 0)
+	return client.NewHookContextClient(facadeCaller)
 }
 
 func (workloadProcesses) registerHookContextFacade() {
@@ -121,7 +132,7 @@ func (workloadProcesses) registerHookContextCommands() {
 	name = context.LaunchCommandInfo.Name
 	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadProcessesHookContext{ctx}
-		cmd, err := context.NewProcLaunchCommand(plugin.Find, plugin.Plugin.Launch, compCtx)
+		cmd, err := context.NewProcLaunchCommand(compCtx)
 		if err != nil {
 			panic(err)
 		}
@@ -137,6 +148,89 @@ func (workloadProcesses) registerHookContextCommands() {
 		}
 		return cmd
 	})
+}
+
+func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
+	if !markRegistered(process.ComponentName, "workers") {
+		return nil
+	}
+	unitEventHandlers := make(map[string]*workers.EventHandlers)
+
+	handlerFuncs := []func([]process.Event, context.APIClient, workers.Runner) error{
+	// Add to-be-registered handlers here.
+	}
+
+	newWorkerFunc := func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
+		// At this point no workload process workers are running for the unit.
+		if unitHandler, ok := unitEventHandlers[unit]; ok {
+			// The worker must have restarted.
+			// TODO(ericsnow) Could cause panics?
+			unitHandler.Close()
+		}
+
+		apiClient := c.newHookContextAPIClient(caller)
+
+		unitHandler := workers.NewEventHandlers(apiClient, runner)
+		for _, handlerFunc := range handlerFuncs {
+			unitHandler.RegisterHandler(handlerFunc)
+		}
+		unitEventHandlers[unit] = unitHandler
+
+		// Pull all existing from State (via API) and add an event for each.
+		hctx, err := context.NewContextAPI(apiClient, unitHandler.AddEvents)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		events, err := c.initialEvents(hctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		newWorker := func() (worker.Worker, error) {
+			worker, err := unitHandler.NewWorker()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			unitHandler.AddEvents(events...)
+			return worker, nil
+		}
+
+		// TODO(ericsnow) Start a state watcher?
+
+		return newWorker, nil
+	}
+	err := agent.RegisterUnitAgentWorker(process.ComponentName, newWorkerFunc)
+	if err != nil {
+		panic(err)
+	}
+
+	return unitEventHandlers
+}
+
+func (workloadProcesses) initialEvents(hctx context.Component) ([]process.Event, error) {
+	ids, err := hctx.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var events []process.Event
+	for _, id := range ids {
+		proc, err := hctx.Get(id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		plugin, err := hctx.Plugin(proc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		events = append(events, process.Event{
+			Kind:   process.EventKindTracked,
+			ID:     proc.ID(),
+			Plugin: plugin,
+		})
+	}
+	return events, nil
 }
 
 func (workloadProcesses) registerState() {
