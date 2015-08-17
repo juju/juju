@@ -227,6 +227,9 @@ func (sa *StubAPI) RemoveSubnet(subnetCIDR names.SubnetTag) error {
 
 func (sa *StubAPI) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
 	if withSpace == nil {
+		// Due to the way CheckCall works (using jc.DeepEquals
+		// internally), we need to pass an explicit nil here, rather
+		// than a pointer to a names.SpaceTag pointing to nil.
 		sa.MethodCall(sa, "ListSubnets", nil, withZone)
 	} else {
 		sa.MethodCall(sa, "ListSubnets", withSpace, withZone)
