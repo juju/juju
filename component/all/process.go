@@ -185,11 +185,19 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		unitHandler.AddEvents(events...)
+
+		newWorker := func() (worker.Worker, error) {
+			worker, err := unitHandler.NewWorker()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			unitHandler.AddEvents(events...)
+			return worker, nil
+		}
 
 		// TODO(ericsnow) Start a state watcher?
 
-		return unitHandler.NewWorker, nil
+		return newWorker, nil
 	}
 	err := agent.RegisterUnitAgentWorker(process.ComponentName, newWorkerFunc)
 	if err != nil {
