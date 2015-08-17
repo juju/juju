@@ -110,6 +110,9 @@ type InstanceConfig struct {
 	MachineContainerHostname string
 
 	// Networks holds a list of networks the instances should be on.
+	//
+	// TODO(dimitern): Drop this in a follow-up in favor or spaces
+	// constraints.
 	Networks []string
 
 	// AuthorizedKeys specifies the keys that are allowed to

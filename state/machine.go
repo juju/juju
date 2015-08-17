@@ -1261,6 +1261,9 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 // RequestedNetworks returns the list of network names the machine
 // should be on. Unlike networks specified with constraints, these
 // networks are required to be present on the machine.
+//
+// TODO(dimitern): Drop this when we can use space bindings derived
+// from constraints.
 func (m *Machine) RequestedNetworks() ([]string, error) {
 	return readRequestedNetworks(m.st, m.globalKey())
 }

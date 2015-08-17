@@ -32,7 +32,7 @@ type DeployCommand struct {
 	ServiceName  string
 	Config       cmd.FileVar
 	Constraints  constraints.Value
-	Networks     string
+	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
 	RegisterURL  string
@@ -204,6 +204,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
 
+	// TODO(dimitern): Drop --networks and use spaces constraints
+	// below in a follow-up.
 	requestedNetworks, err := networkNamesToTags(parseNetworks(c.Networks))
 	if err != nil {
 		return err

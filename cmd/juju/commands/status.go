@@ -352,6 +352,7 @@ func (sf *statusFormatter) format() formattedStatus {
 	for sn, s := range sf.status.Services {
 		out.Services[sn] = sf.formatService(sn, s)
 	}
+	// TODO(dimitern): Drop this and the related code in a follow-up.
 	for k, n := range sf.status.Networks {
 		if out.Networks == nil {
 			out.Networks = make(map[string]networkStatus)

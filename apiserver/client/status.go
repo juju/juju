@@ -578,6 +578,7 @@ func (context *statusContext) processService(service *state.Service) (status api
 			return
 		}
 	}
+	// TODO(dimitern): Drop support for this in a follow-up.
 	if len(networks) > 0 || cons.HaveNetworks() {
 		// Only the explicitly requested networks (using "juju deploy
 		// <svc> --networks=...") will be enabled, and altough when

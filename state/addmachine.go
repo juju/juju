@@ -56,6 +56,8 @@ type MachineTemplate struct {
 
 	// RequestedNetworks holds a list of network names the machine
 	// should be part of.
+	//
+	// TODO(dimitern): Drop this in favor of constraints in a follow-up.
 	RequestedNetworks []string
 
 	// Volumes holds the parameters for volumes that are to be created
