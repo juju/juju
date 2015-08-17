@@ -1172,6 +1172,7 @@ func (a *MachineAgent) startEnvWorkers(
 	} else {
 		logger.Debugf("address deallocation not supported: not starting addresser worker")
 	}
+
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
 	// environments are capable of managing ports
@@ -1191,7 +1192,9 @@ func (a *MachineAgent) startEnvWorkers(
 	return runner, nil
 }
 
-func isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
+var isNetworkingEnvironment = _isNetworkingEnvironment
+
+func _isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
 	envConfig, err := apiConn.Environment().EnvironConfig()
 	if err != nil {
 		return false, errors.Annotate(err, "cannot read environment config")

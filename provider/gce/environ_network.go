@@ -11,6 +11,11 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
+// SupportsNetworking implements the NetworkingEnviron interface.
+func (env *environ) SupportsNetworking() bool {
+	return false
+}
+
 // AllocateAddress implements environs.Environ, but is not implmemented.
 func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address, macAddress, hostname string) error {
 	return errors.Trace(errNotImplemented)

@@ -255,8 +255,8 @@ type environState struct {
 	ops          chan<- Operation
 	statePolicy  state.Policy
 	mu           sync.Mutex
-	maxId        int // maximum instance id allocated so far.
-	maxAddr      int // maximum allocated address last byte
+	maxId        int // Maximum instance id allocated so far.
+	maxAddr      int // Maximum allocated address last byte.
 	insts        map[instance.Id]*dummyInstance
 	globalPorts  map[network.PortRange]bool
 	bootstrapped bool
@@ -1091,6 +1091,11 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 		return false, nil
 	}
 	return true, nil
+}
+
+// SupportsNetworking implements the NetworkingEnviron interface.
+func (env *environ) SupportsNetworking() bool {
+	return environs.AddressAllocationEnabled()
 }
 
 // AllocateAddress requests an address to be allocated for the
