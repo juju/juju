@@ -204,7 +204,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,^net2"))
 }
 
-func (s *DeploySuite) TestNetworks(c *gc.C) {
+func (s *DeploySuite) TestNetworksDoesNothing(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +212,7 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	networks, err := service.Networks()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, jc.DeepEquals, []string{"net1", "net2"})
+	c.Assert(networks, jc.DeepEquals, []string{})
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))

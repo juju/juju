@@ -122,7 +122,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
-	f.StringVar(&c.Networks, "networks", "", "(deprecated) bind the service to specific networks")
+	f.StringVar(&c.Networks, "networks", "", "deprecated: use spaces to deploy to specific networks.")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
@@ -191,21 +191,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
 
-	requestedNetworks, err := networkNamesToTags(parseNetworks(c.Networks))
-	if err != nil {
-		return err
-	}
-	// We need to ensure network names are valid below, but we don't need them here.
-	_, err = networkNamesToTags(c.Constraints.IncludeNetworks())
-	if err != nil {
-		return err
-	}
-	_, err = networkNamesToTags(c.Constraints.ExcludeNetworks())
-	if err != nil {
-		return err
-	}
-	haveNetworks := len(requestedNetworks) > 0 || c.Constraints.HaveNetworks()
-
 	charmInfo, err := client.CharmInfo(curl.String())
 	if err != nil {
 		return err
@@ -257,7 +242,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.Constraints,
 			c.PlacementSpec,
 			c.Placement,
-			requestedNetworks,
+			[]string{},
 			c.Storage,
 		)
 		if params.IsCodeNotImplemented(err) {
@@ -266,35 +251,17 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	if haveNetworks {
-		// TODO: Hello reviewer, should we have more help in this message?
-		// Is printing to the terminal a good idea?
-		// Should I do some logger magic to print to the terminal, or is fmt OK?
-		msg := "the option --networks is deprecated"
-		fmt.Printf("Warning: %s\n", msg)
-		logger.Warningf(msg)
+	if len(c.Networks) > 0 {
+		ctx.Infof("use of --networks is deprecated and is ignored. Please use spaces to manage placement within networks")
 	}
-	err = client.ServiceDeployWithNetworks(
+
+	err = client.ServiceDeploy(
 		curl.String(),
 		serviceName,
 		numUnits,
 		string(configYAML),
 		c.Constraints,
-		c.PlacementSpec,
-		requestedNetworks,
-	)
-	if params.IsCodeNotImplemented(err) {
-		if haveNetworks {
-			return errors.New("cannot use --networks/--constraints networks=...: not supported by the API server")
-		}
-		err = client.ServiceDeploy(
-			curl.String(),
-			serviceName,
-			numUnits,
-			string(configYAML),
-			c.Constraints,
-			c.PlacementSpec)
-	}
+		c.PlacementSpec)
 
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
