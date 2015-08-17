@@ -93,18 +93,16 @@ func (eh *EventHandlers) eventsManifold() dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			worker, err := eh.NewWorker()
-			if err == nil {
-				return nil, errors.Trace(err)
-			}
-
+			workloadEventLogger.Debugf("starting new worker")
+			w := worker.NewSimpleWorker(eh.loop)
 			// These must be added *after* the worker is started.
 			eh.AddEvents(events...)
-
-			return worker, nil
+			return w, nil
 		},
 	}
 }
+
+// TODO(ericsnow) Use worker.util.ValueWorker in runnerManifold and apiManifold.
 
 func (eh *EventHandlers) runnerManifold() dependency.Manifold {
 	return dependency.Manifold{
@@ -132,12 +130,6 @@ func (eh *EventHandlers) apiManifold() dependency.Manifold {
 			return nil
 		},
 	}
-}
-
-// NewWorker wraps the EventHandler in a worker.
-func (eh *EventHandlers) NewWorker() (worker.Worker, error) {
-	workloadEventLogger.Debugf("starting new worker")
-	return worker.NewSimpleWorker(eh.loop), nil
 }
 
 func (eh *EventHandlers) handle(events []process.Event) error {

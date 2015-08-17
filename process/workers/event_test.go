@@ -4,6 +4,8 @@
 package workers_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
 	workertesting "github.com/juju/juju/worker/testing"
 )
 
@@ -21,7 +24,7 @@ type eventHandlerSuite struct {
 
 	stub      *gitjujutesting.Stub
 	runner    *workertesting.StubRunner
-	apiClient context.APIClient // TODO(ericsnow) Use a stub.
+	apiClient *stubAPIClient
 }
 
 var _ = gc.Suite(&eventHandlerSuite{})
@@ -31,6 +34,7 @@ func (s *eventHandlerSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &gitjujutesting.Stub{}
 	s.runner = workertesting.NewStubRunner(s.stub)
+	s.apiClient = &stubAPIClient{stub: s.stub}
 }
 
 func (s *eventHandlerSuite) handler(events []process.Event, apiClient context.APIClient, runner workers.Runner) error {
@@ -79,21 +83,30 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 	c.Check(got, jc.DeepEquals, [][]process.Event{events})
 }
 
-func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
+func (s *eventHandlerSuite) TestManifolds(c *gc.C) {
 	events := []process.Event{{
 		Kind: process.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
+	engine, err := dependency.NewEngine(dependency.EngineConfig{
+		IsFatal:       func(error) bool { return false },
+		MoreImportant: func(_ error, worst error) error { return worst },
+		ErrorDelay:    3 * time.Second,
+		BounceDelay:   10 * time.Second,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	eh := workers.NewEventHandlers()
 	eh.Init(s.apiClient, s.runner)
 	eh.RegisterHandler(s.handler)
-	w, err := eh.NewWorker()
+	manifolds := eh.Manifolds()
+	err = dependency.Install(engine, manifolds)
 	c.Assert(err, jc.ErrorIsNil)
 
 	eh.AddEvents(events...)
 
-	w.Kill()
-	err = w.Wait()
+	engine.Kill()
+	err = engine.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
@@ -102,10 +115,25 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 		unhandled = append(unhandled, event)
 	}
 	c.Check(unhandled, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "handler")
-	c.Check(s.stub.Calls()[0].Args[0], gc.DeepEquals, events)
-	c.Check(s.stub.Calls()[0].Args[1], gc.DeepEquals, s.apiClient)
-	runner, running := workers.ExposeRunner(s.stub.Calls()[0].Args[2].(workers.Runner))
+	s.stub.CheckCallNames(c, "ListProcesses", "handler", "handler")
+	c.Check(s.stub.Calls()[1].Args[0], gc.HasLen, 0)
+	c.Check(s.stub.Calls()[2].Args[0], gc.DeepEquals, events)
+	c.Check(s.stub.Calls()[2].Args[1], gc.DeepEquals, s.apiClient)
+	runner, running := workers.ExposeRunner(s.stub.Calls()[2].Args[2].(workers.Runner))
 	c.Check(runner, jc.DeepEquals, s.runner)
 	c.Check(running.Values(), gc.HasLen, 0)
+}
+
+type stubAPIClient struct {
+	context.APIClient
+	stub *gitjujutesting.Stub
+}
+
+func (c *stubAPIClient) ListProcesses(ids ...string) ([]process.Info, error) {
+	c.stub.AddCall("ListProcesses", ids)
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return nil, nil
 }
