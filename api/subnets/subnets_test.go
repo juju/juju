@@ -13,6 +13,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/subnets"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/names"
 )
@@ -126,7 +127,7 @@ func (s *SubnetsSuite) TestAddSubnet(c *gc.C) {
 	zones := []string{"foo", "bar"}
 	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
 	s.prepareAPICall(c, &args, nil)
-	err := s.api.AddSubnet(names.NewSubnetTag(cidr), providerId, names.NewSpaceTag(space), zones)
+	err := s.api.AddSubnet(names.NewSubnetTag(cidr), network.Id(providerId), names.NewSpaceTag(space), zones)
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -138,7 +139,7 @@ func (s *SubnetsSuite) TestAddSubnetFails(c *gc.C) {
 	zones := []string{"foo", "bar"}
 	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
 	s.prepareAPICall(c, &args, errors.New("bang"))
-	err := s.api.AddSubnet(names.NewSubnetTag(cidr), providerId, names.NewSpaceTag(space), zones)
+	err := s.api.AddSubnet(names.NewSubnetTag(cidr), network.Id(providerId), names.NewSpaceTag(space), zones)
 	c.Check(s.called, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
 }

@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -119,7 +120,7 @@ func (s *AddSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.20.0.0/24"), "", names.NewSpaceTag("myspace"), []string(nil),
+		names.NewSubnetTag("10.20.0.0/24"), network.Id(""), names.NewSpaceTag("myspace"), []string(nil),
 	)
 }
 
@@ -139,7 +140,7 @@ func (s *AddSuite) TestRunWithIncorrectlyGivenCIDRSucceedsWithWarning(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.0.0.0/8"), "", names.NewSpaceTag("myspace"), []string(nil),
+		names.NewSubnetTag("10.0.0.0/8"), network.Id(""), names.NewSpaceTag("myspace"), []string(nil),
 	)
 }
 
@@ -152,7 +153,7 @@ func (s *AddSuite) TestRunWithProviderIdSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.SubnetTag{}, "foo", names.NewSpaceTag("myspace"), s.Strings("zone1", "zone2"),
+		names.SubnetTag{}, network.Id("foo"), names.NewSpaceTag("myspace"), s.Strings("zone1", "zone2"),
 	)
 }
 
@@ -165,7 +166,7 @@ func (s *AddSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("2001:db8::/32"), "", names.NewSpaceTag("hyperspace"), []string(nil),
+		names.NewSubnetTag("2001:db8::/32"), network.Id(""), names.NewSpaceTag("hyperspace"), []string(nil),
 	)
 }
 
@@ -180,7 +181,7 @@ func (s *AddSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), "", names.NewSpaceTag("space"), []string(nil),
+		names.NewSubnetTag("10.10.0.0/24"), network.Id(""), names.NewSpaceTag("space"), []string(nil),
 	)
 }
 
@@ -195,7 +196,7 @@ func (s *AddSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), "", names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
+		names.NewSubnetTag("10.10.0.0/24"), network.Id(""), names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
 	)
 }
 
@@ -211,7 +212,7 @@ func (s *AddSuite) TestRunWithAmbiguousCIDRDisplaysError(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), "", names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
+		names.NewSubnetTag("10.10.0.0/24"), network.Id(""), names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
 	)
 }
 

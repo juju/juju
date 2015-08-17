@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/network"
 )
 
 // SubnetAPI defines the necessary API methods needed by the subnet
@@ -32,7 +33,7 @@ type SubnetAPI interface {
 	CreateSubnet(subnetCIDR names.SubnetTag, spaceTag names.SpaceTag, zones []string, isPublic bool) error
 
 	// AddSubnet adds an existing subnet to Juju.
-	AddSubnet(cidr names.SubnetTag, id string, spaceTag names.SpaceTag, zones []string) error
+	AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error
 
 	// RemoveSubnet marks an existing subnet as no longer used, which
 	// will cause it to get removed at some point after all its

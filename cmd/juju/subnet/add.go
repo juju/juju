@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/names"
 )
 
@@ -101,7 +102,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Add the existing subnet.
-	err = api.AddSubnet(c.CIDR, c.ProviderId, c.Space, c.Zones)
+	err = api.AddSubnet(c.CIDR, network.Id(c.ProviderId), c.Space, c.Zones)
 	// TODO(dimitern): Change this once the API returns a concrete error.
 	if err != nil && strings.Contains(err.Error(), "multiple subnets with") {
 		// Special case: multiple subnets with the same CIDR exist

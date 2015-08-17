@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -215,7 +216,7 @@ func (sa *StubAPI) CreateSubnet(subnetCIDR names.SubnetTag, spaceTag names.Space
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AddSubnet(cidr names.SubnetTag, id string, spaceTag names.SpaceTag, zones []string) error {
+func (sa *StubAPI) AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error {
 	sa.MethodCall(sa, "AddSubnet", cidr, id, spaceTag, zones)
 	return sa.NextErr()
 }

@@ -10,13 +10,14 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 var logger = loggo.GetLogger("juju.api.subnets")
 
 const subnetsFacade = "Subnets"
 
-// API provides access to the InstancePoller API facade.
+// API provides access to the Subnets API facade.
 type API struct {
 	facade base.FacadeCaller
 }
@@ -33,12 +34,12 @@ func NewAPI(caller base.APICaller) *API {
 }
 
 // AddSubnet adds an existing subnet to the environment.
-func (api *API) AddSubnet(subnet names.SubnetTag, providerId string, space names.SpaceTag, zones []string) error {
+func (api *API) AddSubnet(subnet names.SubnetTag, providerId network.Id, space names.SpaceTag, zones []string) error {
 	var response params.ErrorResults
 	params := params.AddSubnetsParams{
 		Subnets: []params.AddSubnetParams{{
 			SubnetTag:        subnet.String(),
-			SubnetProviderId: providerId,
+			SubnetProviderId: string(providerId),
 			SpaceTag:         space.String(),
 			Zones:            zones,
 		}},
