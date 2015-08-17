@@ -354,16 +354,15 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(before, jc.DeepEquals, []process.Info{info})
 	ctx.Untrack(info.ID())
+	err = ctx.Flush()
+	c.Assert(err, jc.ErrorIsNil)
+	s.apiClient.stub.CheckCallNames(c, "RegisterProcesses", "Untrack")
 	after, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	if len(after) > 0 {
 		c.Fatalf("Expected 0 len, got %d", len(after))
 	}
-
-	err = ctx.Flush()
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiClient.stub.CheckCallNames(c, "Untrack")
 }
 
 func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {

@@ -222,10 +222,11 @@ func (c *Context) Flush() error {
 		c.updates = map[string]process.Info{}
 	}
 
-	if len(removes) > 0 {
+	if len(c.removes) > 0 {
 		removes := make([]string, 0, len(c.removes))
 		for id := range c.removes {
 			removes = append(removes, id)
+			delete(c.processes, id)
 		}
 		c.api.Untrack(removes)
 		c.removes = map[string]struct{}{}
