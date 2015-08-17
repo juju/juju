@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type RunActionSuite struct {
@@ -100,7 +101,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 }
 
 func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
-	ctx := &MockContext{actionData: &runner.ActionData{Name: "some-action-name"}}
+	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name"}}
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{
 			runner: &MockRunner{
@@ -121,7 +122,7 @@ func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
 }
 
 func (s *RunActionSuite) TestPrepareCtxError(c *gc.C) {
-	ctx := &MockContext{actionData: &runner.ActionData{Name: "some-action-name"}}
+	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name"}}
 	ctx.SetErrors(errors.New("ctx prepare error"))
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{
