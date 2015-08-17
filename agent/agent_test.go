@@ -186,6 +186,39 @@ var agentConfigTests = []struct {
 		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultLogDir)
 	},
 }, {
+	about: "missing metricsSpoolDir sets default",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               names.NewMachineTag("1"),
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.MetricsSpoolDir(), gc.Equals, agent.DefaultMetricsSpoolDir)
+	},
+}, {
+	about: "setting a custom metricsSpoolDir",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		MetricsSpoolDir:   "/tmp/nowhere",
+		Tag:               names.NewMachineTag("1"),
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.MetricsSpoolDir(), gc.Equals, "/tmp/nowhere")
+	},
+}, {
 	about: "agentConfig must not be a User tag",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
