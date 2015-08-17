@@ -100,19 +100,6 @@ Examples:
    juju deploy mysql -n 5 --constraints mem=8G
    (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
-   juju deploy mysql --networks=storage,mynet --constraints networks=^logging,db
-   (deploy mysql on machines with "storage", "mynet" and "db" networks,
-    but not on machines with "logging" network, also configure "storage" and
-    "mynet" networks)
-
-Like constraints, service-specific network requirements can be
-specified with the --networks argument, which takes a comma-delimited
-list of juju-specific network names. Networks can also be specified with
-constraints, but they only define what machine to pick, not what networks
-to configure on it. The --networks argument instructs juju to add all the
-networks specified with it to all new machines deployed to host units of
-the service. Not supported on all providers.
-
 See Also:
    juju help constraints
    juju help set-constraints
@@ -135,7 +122,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
-	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
+	f.StringVar(&c.Networks, "networks", "", "(deprecated) bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
@@ -279,6 +266,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
+	if haveNetworks {
+		// TODO: Hello reviewer, should we have more help in this message?
+		// Is printing to the terminal a good idea?
+		// Should I do some logger magic to print to the terminal, or is fmt OK?
+		msg := "the option --networks is deprecated"
+		fmt.Printf("Warning: %s\n", msg)
+		logger.Warningf(msg)
+	}
 	err = client.ServiceDeployWithNetworks(
 		curl.String(),
 		serviceName,
