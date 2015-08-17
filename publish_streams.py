@@ -12,24 +12,18 @@ import traceback
 import urllib2
 
 
-class CPCS:
-    AWS = "http://juju-dist.s3.amazonaws.com"
-    AZURE = "https://jujutools.blob.core.windows.net/juju-tools"
-    CANONISTACK = (
+CPCS = {
+    'aws': "http://juju-dist.s3.amazonaws.com",
+    'azure': "https://jujutools.blob.core.windows.net/juju-tools",
+    'canonistack': (
         "https://swift.canonistack.canonical.com"
-        "/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-dist")
-    HP = (
+        "/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-dist"),
+    'hp': (
         "https://region-a.geo-1.objects.hpcloudsvc.com"
-        "/v1/60502529753910/juju-dist")
-    JOYENT = (
-        "https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist")
-
-    @classmethod
-    def get(cls, name):
-        proper_name = name.upper()
-        if proper_name in cls.__dict__:
-            return cls.__dict__[proper_name]
-        raise ValueError('{} is not a registered CPC'.format(proper_name))
+        "/v1/60502529753910/juju-dist"),
+    'joyent': (
+        "https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"),
+    }
 
 
 def get_remote_file(url):
@@ -71,13 +65,13 @@ def verify_metadata(location, remote_stream, verbose=False):
 def publish(stream, location, cloud,
             remote_root=None, dry_run=False, verbose=False):
     if remote_root:
-        remote_stream = '{}/{}'.format(CPCS.get(cloud), remote_root)
+        remote_stream = '{}/{}'.format(CPCS[cloud], remote_root)
     else:
         remote_stream = CPCS.get(cloud)
     verify_metadata(location, remote_stream, verbose=verbose)
 
 
-def parse_args(args=None):
+def parse_args(argv=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("Publish streams to a cloud.")
     parser.add_argument(
@@ -98,7 +92,7 @@ def parse_args(args=None):
     parser.add_argument(
         'cloud', help='The destination cloud.',
         choices=['streams', 'aws', 'azure', 'hp', 'joyent', 'canonistack'])
-    return parser.parse_args(args)
+    return parser.parse_args(argv)
 
 
 def main(argv):

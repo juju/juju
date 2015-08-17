@@ -88,12 +88,12 @@ class PublishStreamsTestCase(TestCase):
                 local_file.write('bar.json')
             with open(metadasta_sig, 'w') as local_file:
                 local_file.write('bar.json.sig')
-            identical, diff = verify_metadata(base, CPCS.AWS, verbose=False)
+            identical, diff = verify_metadata(base, CPCS['aws'], verbose=False)
         self.assertTrue(identical)
         self.assertIsNone(diff)
         self.assertEqual(1, df_mock.call_count)
         df_mock.assert_called_with(
-            metadata_file, '{}/tools/streams/v1/bar.json'.format(CPCS.AWS))
+            metadata_file, '{}/tools/streams/v1/bar.json'.format(CPCS['aws']))
 
     @patch('publish_streams.diff_files', autospec=True)
     def test_verify_metadata_with_root_faile(self, df_mock):
@@ -104,11 +104,11 @@ class PublishStreamsTestCase(TestCase):
             metadata_file = os.path.join(metadata_path, 'bar.json')
             with open(metadata_file, 'w') as local_file:
                 local_file.write('bar.json')
-            identical, diff = verify_metadata(base, CPCS.AWS)
+            identical, diff = verify_metadata(base, CPCS['aws'])
         self.assertFalse(identical)
         self.assertEqual(diff, 'different')
         df_mock.assert_called_with(
-            metadata_file, '{}/tools/streams/v1/bar.json'.format(CPCS.AWS))
+            metadata_file, '{}/tools/streams/v1/bar.json'.format(CPCS['aws']))
 
     @patch('publish_streams.verify_metadata', autospec=True)
     def test_publish(self, vm_mock):
@@ -116,7 +116,7 @@ class PublishStreamsTestCase(TestCase):
         publish('testing', '/streams/juju-dist', 'aws',
                 remote_root=None, dry_run=False, verbose=False)
         vm_mock.assert_called_with(
-            '/streams/juju-dist', CPCS.AWS, verbose=False)
+            '/streams/juju-dist', CPCS['aws'], verbose=False)
 
     @patch('publish_streams.verify_metadata', autospec=True)
     def test_publish_with_remote(self, vm_mock):
@@ -124,4 +124,4 @@ class PublishStreamsTestCase(TestCase):
         publish('testing', '/streams/juju-dist', 'aws',
                 remote_root='weekly', dry_run=False, verbose=False)
         vm_mock.assert_called_with(
-            '/streams/juju-dist', '%s/weekly' % CPCS.AWS, verbose=False)
+            '/streams/juju-dist', '%s/weekly' % CPCS['aws'], verbose=False)
