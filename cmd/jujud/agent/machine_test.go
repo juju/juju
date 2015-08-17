@@ -120,6 +120,7 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
+	s.AgentSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -1432,6 +1433,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
 		_ clock.Clock,
 	) worker.Worker {
 		c.Check(scope, gc.Equals, m.Tag())
@@ -1468,6 +1470,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
 		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
@@ -1852,6 +1855,7 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
 		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners

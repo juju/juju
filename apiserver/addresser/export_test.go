@@ -7,6 +7,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var NetEnvReleaseAddress = &netEnvReleaseAddress
+
 type Patcher interface {
 	PatchValue(ptr, value interface{})
 }

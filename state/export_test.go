@@ -50,7 +50,7 @@ var (
 	CurrentUpgradeId       = currentUpgradeId
 	NowToTheSecond         = nowToTheSecond
 	PickAddress            = &pickAddress
-	AddVolumeOp            = (*State).addVolumeOp
+	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
 )
 

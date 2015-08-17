@@ -490,6 +490,11 @@ func (a *API) convertStateVolumeToParams(st state.Volume) (params.VolumeInstance
 		volume.Persistent = info.Persistent
 		volume.VolumeId = info.VolumeId
 	}
+	status, err := st.Status()
+	if err != nil {
+		return params.VolumeInstance{}, errors.Trace(err)
+	}
+	volume.Status = common.EntityStatusFromState(status)
 	return volume, nil
 }
 

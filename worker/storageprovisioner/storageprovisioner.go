@@ -130,6 +130,11 @@ type LifecycleManager interface {
 	RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
+// StatusSetter defines an interface used to set the status of entities.
+type StatusSetter interface {
+	SetStatus([]params.EntityStatusArgs) error
+}
+
 // EnvironAccessor defines an interface used to enable a storage provisioner
 // worker to watch changes to and read environment config, to use when
 // provisioning storage.
@@ -158,6 +163,7 @@ func NewStorageProvisioner(
 	l LifecycleManager,
 	e EnvironAccessor,
 	m MachineAccessor,
+	s StatusSetter,
 	clock clock.Clock,
 ) worker.Worker {
 	w := &storageprovisioner{
@@ -168,6 +174,7 @@ func NewStorageProvisioner(
 		life:        l,
 		environ:     e,
 		machines:    m,
+		status:      s,
 		clock:       clock,
 	}
 	go func() {
@@ -190,6 +197,7 @@ type storageprovisioner struct {
 	life        LifecycleManager
 	environ     EnvironAccessor
 	machines    MachineAccessor
+	status      StatusSetter
 	clock       clock.Clock
 }
 
@@ -273,6 +281,7 @@ func (w *storageprovisioner) loop() error {
 		filesystemAccessor:                w.filesystems,
 		life:                              w.life,
 		machineAccessor:                   w.machines,
+		statusSetter:                      w.status,
 		time:                              w.clock,
 		volumes:                           make(map[names.VolumeTag]storage.Volume),
 		volumeAttachments:                 make(map[params.MachineStorageId]storage.VolumeAttachment),
@@ -394,15 +403,26 @@ func processPending(ctx *context) error {
 func processSchedule(ctx *context) error {
 	ready := ctx.schedule.Ready(ctx.time.Now())
 	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
+	destroyVolumeOps := make(map[names.VolumeTag]*destroyVolumeOp)
 	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
+	detachVolumeOps := make(map[params.MachineStorageId]*detachVolumeOp)
 	for _, item := range ready {
 		op := item.(scheduleOp)
 		key := op.key()
 		switch op := op.(type) {
 		case *createVolumeOp:
 			createVolumeOps[key.(names.VolumeTag)] = op
+		case *destroyVolumeOp:
+			destroyVolumeOps[key.(names.VolumeTag)] = op
 		case *attachVolumeOp:
 			attachVolumeOps[key.(params.MachineStorageId)] = op
+		case *detachVolumeOp:
+			detachVolumeOps[key.(params.MachineStorageId)] = op
+		}
+	}
+	if len(destroyVolumeOps) > 0 {
+		if err := destroyVolumes(ctx, destroyVolumeOps); err != nil {
+			return errors.Annotate(err, "destroying volumes")
 		}
 	}
 	if len(createVolumeOps) > 0 {
@@ -410,9 +430,14 @@ func processSchedule(ctx *context) error {
 			return errors.Annotate(err, "creating volumes")
 		}
 	}
+	if len(detachVolumeOps) > 0 {
+		if err := detachVolumes(ctx, detachVolumeOps); err != nil {
+			return errors.Annotate(err, "detaching volumes")
+		}
+	}
 	if len(attachVolumeOps) > 0 {
-		if err := createVolumeAttachments(ctx, attachVolumeOps); err != nil {
-			return errors.Annotate(err, "creating volume attachments")
+		if err := attachVolumes(ctx, attachVolumeOps); err != nil {
+			return errors.Annotate(err, "attaching volumes")
 		}
 	}
 	return nil
@@ -432,6 +457,7 @@ type context struct {
 	filesystemAccessor FilesystemAccessor
 	life               LifecycleManager
 	machineAccessor    MachineAccessor
+	statusSetter       StatusSetter
 	time               clock.Clock
 
 	// volumes contains information about provisioned volumes.

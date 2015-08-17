@@ -3465,7 +3465,6 @@ func (s *upgradesSuite) TestAddAttachmentToFilesystems(c *gc.C) {
 func assertVolumeBinding(s *State, c *gc.C, expected string) *volume {
 	volumes, err := s.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumes, gc.HasLen, 1)
 	vol := volumes[0].(*volume)
 	binding := vol.doc.Binding
@@ -3473,7 +3472,7 @@ func assertVolumeBinding(s *State, c *gc.C, expected string) *volume {
 	return vol
 }
 
-func setupMachineBoundTests(c *gc.C, st *State) func() error {
+func setupMachineBoundStorageTests(c *gc.C, st *State) (*Machine, Volume, func() error) {
 	pm := poolmanager.New(NewStateSettings(st))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3489,7 +3488,12 @@ func setupMachineBoundTests(c *gc.C, st *State) func() error {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return m.Destroy
+	a, err := m.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(a, gc.HasLen, 1)
+	v, err := st.Volume(a[0].Volume())
+	c.Assert(err, jc.ErrorIsNil)
+	return m, v, m.Destroy
 }
 
 func (s *upgradesSuite) TestAddBindingToVolumesFilesystemBound(c *gc.C) {
@@ -3527,7 +3531,7 @@ func (s *upgradesSuite) TestAddBindingToVolumesStorageBound(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddBindingToVolumesMachineBound(c *gc.C) {
-	cleanup := setupMachineBoundTests(c, s.state)
+	_, _, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 	vol := assertVolumeBinding(s.state, c, "machine-0")
 
@@ -3569,6 +3573,75 @@ func (s *upgradesSuite) TestAddBindingToFilesystemsStorageBound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertFilesystemBinding(s.state, c, "storage-data-0")
+}
+
+func (s *upgradesSuite) TestAddVolumeStatus(c *gc.C) {
+	_, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	removeStatusDoc(c, s.state, volume)
+	_, err := volume.Status()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	s.assertAddVolumeStatus(c, volume, StatusPending)
+}
+
+func (s *upgradesSuite) TestAddVolumeStatusDoesNotOverwrite(c *gc.C) {
+	_, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	err := volume.SetStatus(StatusDestroying, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAddVolumeStatus(c, volume, StatusDestroying)
+}
+
+func (s *upgradesSuite) TestAddVolumeStatusProvisioned(c *gc.C) {
+	_, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	err := s.state.SetVolumeInfo(volume.VolumeTag(), VolumeInfo{
+		VolumeId: "vol",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	removeStatusDoc(c, s.state, volume)
+	s.assertAddVolumeStatus(c, volume, StatusAttaching)
+}
+
+func (s *upgradesSuite) TestAddVolumeStatusAttached(c *gc.C) {
+	machine, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	err := machine.SetProvisioned("fake", "fake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetVolumeInfo(volume.VolumeTag(), VolumeInfo{
+		VolumeId: "vol",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetVolumeAttachmentInfo(
+		machine.MachineTag(),
+		volume.VolumeTag(),
+		VolumeAttachmentInfo{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	removeStatusDoc(c, s.state, volume)
+	s.assertAddVolumeStatus(c, volume, StatusAttached)
+}
+
+func (s *upgradesSuite) assertAddVolumeStatus(c *gc.C, volume Volume, expect Status) {
+	err := AddVolumeStatus(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := volume.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Status, gc.Equals, expect)
+}
+
+func removeStatusDoc(c *gc.C, st *State, g GlobalEntity) {
+	op := removeStatusOp(st, g.globalKey())
+	err := st.runTransaction([]txn.Op{op})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) TestChangeIdsFromSeqToAuto(c *gc.C) {

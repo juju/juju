@@ -6,6 +6,7 @@ package provider
 import (
 	"path"
 	"path/filepath"
+	"unicode"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -83,7 +84,16 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 	if err != nil {
 		return storage.Filesystem{}, errors.Trace(err)
 	}
-	devicePath := s.devicePath(blockDevice)
+	devicePath := devicePath(blockDevice)
+	if isDiskDevice(devicePath) {
+		if err := destroyPartitions(s.run, devicePath); err != nil {
+			return storage.Filesystem{}, errors.Trace(err)
+		}
+		if err := createPartition(s.run, devicePath); err != nil {
+			return storage.Filesystem{}, errors.Trace(err)
+		}
+		devicePath = partitionDevicePath(devicePath)
+	}
 	if err := createFilesystem(s.run, devicePath); err != nil {
 		return storage.Filesystem{}, errors.Trace(err)
 	}
@@ -103,13 +113,6 @@ func (s *managedFilesystemSource) DestroyFilesystems(filesystemIds []string) []e
 	// since the filesystem is just data on a volume. The volume
 	// is destroyed separately.
 	return make([]error, len(filesystemIds))
-}
-
-func (s *managedFilesystemSource) devicePath(dev storage.BlockDevice) string {
-	if dev.DeviceName != "" {
-		return path.Join("/dev", dev.DeviceName)
-	}
-	return path.Join("/dev/disk/by-id", dev.HardwareId)
 }
 
 // AttachFilesystems is defined on storage.FilesystemSource.
@@ -134,7 +137,10 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 	if err != nil {
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
-	devicePath := s.devicePath(blockDevice)
+	devicePath := devicePath(blockDevice)
+	if isDiskDevice(devicePath) {
+		devicePath = partitionDevicePath(devicePath)
+	}
 	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, arg.Path, arg.ReadOnly); err != nil {
 		return storage.FilesystemAttachment{}, errors.Trace(err)
 	}
@@ -158,12 +164,30 @@ func (s *managedFilesystemSource) DetachFilesystems(args []storage.FilesystemAtt
 	return nil
 }
 
+func destroyPartitions(run runCommandFunc, devicePath string) error {
+	logger.Debugf("destroying partitions on %q", devicePath)
+	if _, err := run("sgdisk", "--zap-all", devicePath); err != nil {
+		return errors.Annotate(err, "sgdisk failed")
+	}
+	return nil
+}
+
+// createPartition creates a single partition (1) on the disk with the
+// specified device path.
+func createPartition(run runCommandFunc, devicePath string) error {
+	logger.Debugf("creating partition on %q", devicePath)
+	if _, err := run("sgdisk", "-n", "1:0:-1", devicePath); err != nil {
+		return errors.Annotate(err, "sgdisk failed")
+	}
+	return nil
+}
+
 func createFilesystem(run runCommandFunc, devicePath string) error {
 	logger.Debugf("attempting to create filesystem on %q", devicePath)
 	mkfscmd := "mkfs." + defaultFilesystemType
 	_, err := run(mkfscmd, devicePath)
 	if err != nil {
-		return errors.Annotatef(err, "%s failed (%q)", mkfscmd)
+		return errors.Annotatef(err, "%s failed", mkfscmd)
 	}
 	logger.Infof("created filesystem on %q", devicePath)
 	return nil
@@ -225,4 +249,26 @@ func isMounted(dirFuncs dirFuncs, mountPoint string) (bool, string, error) {
 		return true, source, nil
 	}
 	return false, "", nil
+}
+
+// devicePath returns the device path for the given block device.
+func devicePath(dev storage.BlockDevice) string {
+	return path.Join("/dev", dev.DeviceName)
+}
+
+// partitionDevicePath returns the device path for the first (and only)
+// partition of the disk with the specified device path.
+func partitionDevicePath(devicePath string) string {
+	return devicePath + "1"
+}
+
+// isDiskDevice reports whether or not the device is a full disk, as opposed
+// to a partition or a loop device. We create a partition on disks to contain
+// filesystems.
+func isDiskDevice(devicePath string) bool {
+	var last rune
+	for _, r := range devicePath {
+		last = r
+	}
+	return !unicode.IsDigit(last)
 }

@@ -12,7 +12,7 @@ import (
 // very clear reason.
 //
 // Status values currently apply to machine (agents), unit (agents), unit
-// (workloads) and service (workloads).
+// (workloads), service (workloads), and volumes.
 type Status string
 
 // StatusInfo holds a Status and associated information.
@@ -129,6 +129,27 @@ const (
 	// The unit believes it is correctly offering all the services it has
 	// been asked to offer.
 	StatusActive Status = "active"
+)
+
+// Status values specific to storage.
+const (
+	// StatusAttaching indicates that the storage is being attached to a
+	// machine.
+	StatusAttaching Status = "attaching"
+
+	// StatusDetaching indicates that the storage is attached to a machine.
+	StatusAttached Status = "attached"
+
+	// StatusDetaching indicates that the storage is being detached
+	// from a machine.
+	StatusDetaching Status = "detaching"
+
+	// StatusDetached indicates that the storage is not attached to any
+	// machine.
+	StatusDetached Status = "detached"
+
+	// StatusDestroying indicates that the storage is being destroyed.
+	StatusDestroying Status = "destroying"
 )
 
 const (

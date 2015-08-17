@@ -15,5 +15,7 @@ const (
 func init() {
 	environs.RegisterProvider(providerType, azureEnvironProvider{})
 
-	registry.RegisterEnvironStorageProviders(providerType)
+	// Register the Azure storage provider.
+	registry.RegisterProvider(storageProviderType, &azureStorageProvider{})
+	registry.RegisterEnvironStorageProviders(providerType, storageProviderType)
 }

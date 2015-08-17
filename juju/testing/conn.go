@@ -247,7 +247,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
 	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
 	c.Assert(err, jc.ErrorIsNil)
+	// Upload tools to both release and devel streams since config will dictate that we
+	// end up looking in both places.
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
 	s.DefaultToolsStorage = stor
 
 	err = bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
