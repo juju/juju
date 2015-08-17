@@ -210,26 +210,23 @@ func (sa *StubAPI) AllSpaces() ([]names.Tag, error) {
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) CreateSubnet(subnetCIDR string, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
+func (sa *StubAPI) CreateSubnet(subnetCIDR names.SubnetTag, spaceTag names.SpaceTag, zones []string, isPublic bool) error {
 	sa.MethodCall(sa, "CreateSubnet", subnetCIDR, spaceTag, zones, isPublic)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AddSubnet(cidr, id string, spaceTag names.SpaceTag, zones []string) error {
+func (sa *StubAPI) AddSubnet(cidr names.SubnetTag, id string, spaceTag names.SpaceTag, zones []string) error {
 	sa.MethodCall(sa, "AddSubnet", cidr, id, spaceTag, zones)
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) RemoveSubnet(subnetCIDR string) error {
+func (sa *StubAPI) RemoveSubnet(subnetCIDR names.SubnetTag) error {
 	sa.MethodCall(sa, "RemoveSubnet", subnetCIDR)
 	return sa.NextErr()
 }
 
 func (sa *StubAPI) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
 	if withSpace == nil {
-		// Due to the way CheckCall works (using jc.DeepEquals
-		// internally), we need to pass an explicit nil here, rather
-		// than a pointer to a names.SpaceTag pointing to nil.
 		sa.MethodCall(sa, "ListSubnets", nil, withZone)
 	} else {
 		sa.MethodCall(sa, "ListSubnets", withSpace, withZone)

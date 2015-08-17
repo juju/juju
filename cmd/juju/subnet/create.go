@@ -18,7 +18,7 @@ import (
 type CreateCommand struct {
 	SubnetCommandBase
 
-	CIDR      string
+	CIDR      names.SubnetTag
 	Space     names.SpaceTag
 	Zones     set.Strings
 	IsPublic  bool

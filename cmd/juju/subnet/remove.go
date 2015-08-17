@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 )
 
 // RemoveCommand calls the API to remove an existing, unused subnet
@@ -15,7 +16,7 @@ import (
 type RemoveCommand struct {
 	SubnetCommandBase
 
-	CIDR string
+	CIDR names.SubnetTag
 }
 
 const removeCommandDoc = `

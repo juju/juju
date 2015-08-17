@@ -15,7 +15,7 @@ import (
 type AddCommand struct {
 	SubnetCommandBase
 
-	CIDR       string
+	CIDR       names.SubnetTag
 	RawCIDR    string // before normalizing (e.g. 10.10.0.0/8 to 10.0.0.0/8)
 	ProviderId string
 	Space      names.SpaceTag
@@ -93,7 +93,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	if c.CIDR != "" && c.RawCIDR != c.CIDR {
+	if c.CIDR.String() != "" && c.RawCIDR != c.CIDR.String() {
 		ctx.Infof(
 			"WARNING: using CIDR %q instead of the incorrectly specified %q.",
 			c.CIDR, c.RawCIDR,
@@ -111,7 +111,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "cannot add subnet %q", c.CIDR)
 	}
 
-	if c.CIDR == "" {
+	if c.CIDR.String() == "" {
 		ctx.Infof("added subnet with ProviderId %q in space %q", c.ProviderId, c.Space.Id())
 	} else {
 		ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR, c.Space.Id())
