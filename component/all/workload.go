@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
@@ -31,6 +32,8 @@ import (
 	"github.com/juju/juju/workload/status"
 	"github.com/juju/juju/workload/workers"
 )
+
+var workloadsLogger = loggo.GetLogger("component.all.workload")
 
 type workloads struct{}
 
