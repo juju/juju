@@ -41,15 +41,19 @@ func StatusEventHandler(events []process.Event, api context.APIClient, runner Ru
 	return nil
 }
 
-func statusTracked(event process.Event, api context.APIClient, runner Runner) error {
-	f := func(stopCh <-chan struct{}) error {
+// NewStatusWorkerFunc returns a function that you can use with a PeriodicWorker.
+func NewStatusWorkerFunc(event process.Event, api context.APIClient) func(<-chan struct{}) error {
+	//TODO(wwitzel3) Should this be set based on the plugin response?
+	// Or is this Juju state of the workload, which is Running
+	var status process.Status
+	status.State = process.StateRunning
+	status.Message = fmt.Sprintf("%s is being tracked", event.ID)
+
+	call := func(stopCh <-chan struct{}) error {
 		pluginStatus, err := event.Plugin.Status(event.ID)
 		if err != nil {
 			workloadUpdateLogger.Warningf("failed to get status %v - will retry later", err)
 		}
-
-		// TODO(wwitzel3) define this based on pluginStatus values
-		var status process.Status
 
 		err = api.SetProcessesStatus(status, pluginStatus, event.ID)
 		if err != nil {
@@ -62,9 +66,21 @@ func statusTracked(event process.Event, api context.APIClient, runner Runner) er
 		}
 		return nil
 	}
+	return call
+}
+
+// NewStatusWorker returns a new PeriodicWorker.
+func NewStatusWorker(event process.Event, api context.APIClient) worker.Worker {
+	f := NewStatusWorkerFunc(event, api)
+	return worker.NewPeriodicWorker(f, workloadUpdatePeriod)
+}
+
+func statusTracked(event process.Event, api context.APIClient, runner Runner) error {
 	worker := func() (worker.Worker, error) {
-		return worker.NewPeriodicWorker(f, workloadUpdatePeriod), nil
+		return NewStatusWorker(event, api), nil
 	}
+
+	workloadUpdateLogger.Infof("%v is being tracked", event.ID)
 	return runner.StartWorker(event.ID, worker)
 }
 
@@ -74,7 +90,7 @@ func statusUntracked(event process.Event, api context.APIClient, runner Runner) 
 		workloadUpdateLogger.Warningf("failed to get status %v - will retry later", err)
 	}
 
-	//TODO(wwitzel3) I figure we can just ignore the pluginStatus values?
+	//TODO(wwitzel3) Is this the right status to set?
 	var status process.Status
 	status.State = process.StateStopping
 	status.Message = fmt.Sprintf("%s is no longer being tracked", event.ID)

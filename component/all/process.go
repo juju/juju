@@ -157,7 +157,7 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 	unitEventHandlers := make(map[string]*workers.EventHandlers)
 
 	handlerFuncs := []func([]process.Event, context.APIClient, workers.Runner) error{
-	// Add to-be-registered handlers here.
+		workers.StatusEventHandler,
 	}
 
 	newWorkerFunc := func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
