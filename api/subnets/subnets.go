@@ -4,6 +4,7 @@
 package subnets
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -31,40 +32,41 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
-func (api *API) AddSubnet(cidr, providerId, space string, zones []string) (params.ErrorResults, error) {
+func (api *API) AddSubnet(subnet names.SubnetTag, providerId string, space names.SpaceTag, zones []string) error {
 	var response params.ErrorResults
-	spaceTag := names.NewSpaceTag(space).String()
-	subnetTag := names.NewSubnetTag(cidr).String()
 	params := params.AddSubnetsParams{
-		Subnets: []params.AddSubnetParams{
-			{
-				SubnetTag:        subnetTag,
-				SubnetProviderId: providerId,
-				SpaceTag:         spaceTag,
-				Zones:            zones,
-			}},
+		Subnets: []params.AddSubnetParams{{
+			SubnetTag:        subnet.String(),
+			SubnetProviderId: providerId,
+			SpaceTag:         space.String(),
+			Zones:            zones,
+		}},
 	}
 	err := api.facade.FacadeCall("AddSubnets", params, &response)
-	return response, err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return response.OneError()
 }
 
-func (api *API) CreateSubnet(cidr, space string, zones []string, isPublic bool) (params.ErrorResults, error) {
+func (api *API) CreateSubnet(subnet names.SubnetTag, space names.SpaceTag, zones []string, isPublic bool) error {
 	var response params.ErrorResults
-	spaceTag := names.NewSpaceTag(space).String()
-	subnetTag := names.NewSubnetTag(cidr).String()
 	params := params.CreateSubnetsParams{
-		Subnets: []params.CreateSubnetParams{
-			{
-				SubnetTag: subnetTag,
-				SpaceTag:  spaceTag,
-				Zones:     zones,
-				IsPublic:  isPublic,
-			}},
+		Subnets: []params.CreateSubnetParams{{
+			SubnetTag: subnet.String(),
+			SpaceTag:  space.String(),
+			Zones:     zones,
+			IsPublic:  isPublic,
+		}},
 	}
 	err := api.facade.FacadeCall("CreateSubnets", params, &response)
-	return response, err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return response.OneError()
 }
 
+// ListSubnets fetches all the subnets known by the environment.
 func (api *API) ListSubnets(spaceTag names.SpaceTag, zone string) (params.ListSubnetsResults, error) {
 	var response params.ListSubnetsResults
 	params := params.ListSubnetsParams{
