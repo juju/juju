@@ -202,10 +202,9 @@ var agentConfigTests = []struct {
 		c.Check(cfg.MetricsSpoolDir(), gc.Equals, agent.DefaultMetricsSpoolDir)
 	},
 }, {
-	about: "setting a custom metricsSpoolDir",
+	about: "missing uniterStateDir sets default",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		MetricsSpoolDir:   "/tmp/nowhere",
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -216,7 +215,41 @@ var agentConfigTests = []struct {
 		Nonce:             "a nonce",
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.MetricsSpoolDir(), gc.Equals, "/tmp/nowhere")
+		c.Check(cfg.UniterStateDir(), gc.Equals, agent.DefaultUniterStateDir)
+	},
+}, {
+	about: "setting uniterStateDir",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		UniterStateDir:    "/tmp/nothing",
+		Tag:               names.NewMachineTag("1"),
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.UniterStateDir(), gc.Equals, "/tmp/nothing")
+	},
+}, {
+	about: "setting metricsSpoolDir",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		MetricsSpoolDir:   "/tmp/nothing",
+		Tag:               names.NewMachineTag("1"),
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.MetricsSpoolDir(), gc.Equals, "/tmp/nothing")
 	},
 }, {
 	about: "agentConfig must not be a User tag",
