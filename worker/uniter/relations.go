@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 // Relations exists to encapsulate relation state and operations behind an
@@ -46,7 +46,7 @@ type Relations interface {
 	CommitHook(hookInfo hook.Info) error
 
 	// GetInfo returns information about current relation state.
-	GetInfo() map[int]*runner.RelationInfo
+	GetInfo() map[int]*context.RelationInfo
 
 	// Update checks for and responds to changes in the life states of the
 	// relations with the supplied ids. If any id corresponds to an alive
@@ -197,8 +197,8 @@ func (r *relations) CommitHook(hookInfo hook.Info) error {
 }
 
 // GetInfo is part of the Relations interface.
-func (r *relations) GetInfo() map[int]*runner.RelationInfo {
-	relationInfos := map[int]*runner.RelationInfo{}
+func (r *relations) GetInfo() map[int]*context.RelationInfo {
+	relationInfos := map[int]*context.RelationInfo{}
 	for id, relationer := range r.relationers {
 		relationInfos[id] = relationer.ContextInfo()
 	}

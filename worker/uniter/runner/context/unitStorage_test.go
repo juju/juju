@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner_test
+package context_test
 
 import (
 	"github.com/juju/names"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type unitStorageSuite struct {
@@ -204,7 +204,7 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
-func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.StorageConstraints) *runner.HookContext {
+func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.StorageConstraints) *context.HookContext {
 	// Get the context.
 	ctx := s.getHookContext(c, s.State.EnvironUUID(), -1, "", noProxies)
 	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())

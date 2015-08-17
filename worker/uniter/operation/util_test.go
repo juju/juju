@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -265,12 +266,12 @@ func (mock *MockNewHookRunner) Call(hookInfo hook.Info) (runner.Runner, error) {
 }
 
 type MockNewCommandRunner struct {
-	gotInfo *runner.CommandInfo
+	gotInfo *context.CommandInfo
 	runner  *MockRunner
 	err     error
 }
 
-func (mock *MockNewCommandRunner) Call(info runner.CommandInfo) (runner.Runner, error) {
+func (mock *MockNewCommandRunner) Call(info context.CommandInfo) (runner.Runner, error) {
 	mock.gotInfo = &info
 	return mock.runner, mock.err
 }
@@ -289,19 +290,19 @@ func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, er
 	return f.MockNewHookRunner.Call(hookInfo)
 }
 
-func (f *MockRunnerFactory) NewCommandRunner(commandInfo runner.CommandInfo) (runner.Runner, error) {
+func (f *MockRunnerFactory) NewCommandRunner(commandInfo context.CommandInfo) (runner.Runner, error) {
 	return f.MockNewCommandRunner.Call(commandInfo)
 }
 
 type MockContext struct {
 	runner.Context
 	testing.Stub
-	actionData      *runner.ActionData
+	actionData      *context.ActionData
 	setStatusCalled bool
 	status          jujuc.StatusInfo
 }
 
-func (mock *MockContext) ActionData() (*runner.ActionData, error) {
+func (mock *MockContext) ActionData() (*context.ActionData, error) {
 	if mock.actionData == nil {
 		return nil, errors.New("not an action context")
 	}
@@ -422,7 +423,7 @@ func NewRunActionRunnerFactory(runErr error) *MockRunnerFactory {
 			runner: &MockRunner{
 				MockRunAction: &MockRunAction{err: runErr},
 				context: &MockContext{
-					actionData: &runner.ActionData{Name: "some-action-name"},
+					actionData: &context.ActionData{Name: "some-action-name"},
 				},
 			},
 		},
