@@ -222,6 +222,10 @@ def parse_args(argv=None):
     parser.add_argument('--debug', help='Run juju with --debug',
                         action='store_true', default=False)
     parser.add_argument('--agent-url', default=None)
+    parser.add_argument('--agent-stream', action='store', default=None,
+                        help='URL for retrieving agent binaries.')
+    parser.add_argument('--series', action='store', default=None,
+                        help='Name of the Ubuntu series to use.')
     add_credential_args(parser)
     return parser.parse_args(argv)
 

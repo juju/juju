@@ -54,7 +54,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args, Namespace(
             initial='a', other='b', base_environment='c',
             environment_name='d', log_dir='e', debug=False,
-            upload_tools=False, agent_url=None,
+            upload_tools=False, agent_url=None, agent_stream=None, series=None,
             user=os.environ.get('JENKINS_USER'),
             password=os.environ.get('JENKINS_PASSWORD')))
 
