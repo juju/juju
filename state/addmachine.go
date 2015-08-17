@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -279,6 +280,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	prereqOps = append(prereqOps, assertEnvAliveOp(st.EnvironUUID()))
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
@@ -300,6 +302,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			},
 		})
 	}
+
 	return mdoc, append(prereqOps, machineOp), nil
 }
 
@@ -464,21 +467,24 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		Insert: mdoc,
 	}
 
+	statusDoc := statusDoc{
+		Status:  StatusPending,
+		EnvUUID: st.EnvironUUID(),
+		Updated: time.Now().UnixNano(),
+	}
+	globalKey := machineGlobalKey(mdoc.Id)
 	prereqOps = []txn.Op{
-		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
-		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
-			Status:  StatusPending,
-			EnvUUID: st.EnvironUUID(),
-		}),
+		createConstraintsOp(st, globalKey, template.Constraints),
+		createStatusOp(st, globalKey, statusDoc),
 		// TODO(dimitern) 2014-04-04 bug #1302498
 		// Once we can add networks independently of machine
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
-		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
+		createRequestedNetworksOp(st, globalKey, template.RequestedNetworks),
 		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
-	storageOps, volumesAttached, filesystemsAttached, err := st.machineStorageOps(
+	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
 		mdoc, &machineStorageParams{
 			filesystems:           template.Filesystems,
 			filesystemAttachments: template.FilesystemAttachments,
@@ -489,14 +495,19 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	if err != nil {
 		return nil, txn.Op{}, errors.Trace(err)
 	}
-	for _, v := range volumesAttached {
-		mdoc.Volumes = append(mdoc.Volumes, v.Id())
+	for _, a := range volumeAttachments {
+		mdoc.Volumes = append(mdoc.Volumes, a.tag.Id())
 	}
-	for _, f := range filesystemsAttached {
-		mdoc.Filesystems = append(mdoc.Filesystems, f.Id())
+	for _, a := range filesystemAttachments {
+		mdoc.Filesystems = append(mdoc.Filesystems, a.tag.Id())
 	}
 	prereqOps = append(prereqOps, storageOps...)
 
+	// At the last moment we still have statusDoc in scope, set the initial
+	// history entry. This is risky, and may lead to extra entries, but that's
+	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
+	// them cleanly.
+	probablyUpdateStatusHistory(st, globalKey, statusDoc)
 	return prereqOps, machineOp, nil
 }
 
@@ -512,12 +523,10 @@ type machineStorageParams struct {
 // and the tags of volumes and filesystems newly attached to the machine.
 func (st *State) machineStorageOps(
 	mdoc *machineDoc, args *machineStorageParams,
-) ([]txn.Op, []names.VolumeTag, []names.FilesystemTag, error) {
+) ([]txn.Op, []volumeAttachmentTemplate, []filesystemAttachmentTemplate, error) {
 	var filesystemOps, volumeOps []txn.Op
 	var fsAttachments []filesystemAttachmentTemplate
 	var volumeAttachments []volumeAttachmentTemplate
-	var volumesAttached []names.VolumeTag
-	var filesystemsAttached []names.FilesystemTag
 
 	// Create filesystems and filesystem attachments.
 	for _, f := range args.filesystems {
@@ -527,7 +536,7 @@ func (st *State) machineStorageOps(
 		}
 		filesystemOps = append(filesystemOps, ops...)
 		fsAttachments = append(fsAttachments, filesystemAttachmentTemplate{
-			filesystemTag, f.Attachment,
+			filesystemTag, f.Filesystem.storage, f.Attachment,
 		})
 		if volumeTag != (names.VolumeTag{}) {
 			// The filesystem requires a volume, so create a volume attachment too.
@@ -554,34 +563,34 @@ func (st *State) machineStorageOps(
 
 	ops := make([]txn.Op, 0, len(filesystemOps)+len(volumeOps)+len(fsAttachments)+len(volumeAttachments))
 	if len(fsAttachments) > 0 {
-		for _, a := range fsAttachments {
-			filesystemsAttached = append(filesystemsAttached, a.tag)
-		}
 		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
 		ops = append(ops, filesystemOps...)
 		ops = append(ops, attachmentOps...)
 	}
 	if len(volumeAttachments) > 0 {
-		for _, a := range volumeAttachments {
-			volumesAttached = append(volumesAttached, a.tag)
-		}
 		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
 		ops = append(ops, volumeOps...)
 		ops = append(ops, attachmentOps...)
 	}
-	return ops, volumesAttached, filesystemsAttached, nil
+	return ops, volumeAttachments, fsAttachments, nil
 }
 
-// addMachineStorageAttachmentsOp returns a txn.Op for adding the IDs of
-// attached volumes and filesystems to a machine doc.
-func addMachineStorageAttachmentsOp(
-	machineId string, volumes []names.VolumeTag, filesystems []names.FilesystemTag,
-) txn.Op {
+// addMachineStorageAttachmentsOps returns txn.Ops for adding the IDs of
+// attached volumes and filesystems to an existing machine. Filesystem
+// mount points are checked against existing filesystem attachments for
+// conflicts, with a txn.Op added to prevent concurrent additions as
+// necessary.
+func addMachineStorageAttachmentsOps(
+	machine *Machine,
+	volumes []volumeAttachmentTemplate,
+	filesystems []filesystemAttachmentTemplate,
+) ([]txn.Op, error) {
 	var updates bson.D
+	assert := isAliveDoc
 	if len(volumes) > 0 {
 		volumeIds := make([]string, len(volumes))
 		for i, v := range volumes {
-			volumeIds[i] = v.Id()
+			volumeIds[i] = v.tag.Id()
 		}
 		updates = append(updates, bson.DocElem{"$addToSet", bson.D{{
 			"volumes", bson.D{{"$each", volumeIds}}}},
@@ -589,19 +598,41 @@ func addMachineStorageAttachmentsOp(
 	}
 	if len(filesystems) > 0 {
 		filesystemIds := make([]string, len(filesystems))
+		var withLocation []filesystemAttachmentTemplate
 		for i, f := range filesystems {
-			filesystemIds[i] = f.Id()
+			filesystemIds[i] = f.tag.Id()
+			if !f.params.locationAutoGenerated {
+				// If the location was not automatically
+				// generated, we must ensure it does not
+				// conflict with any existing storage.
+				// Generated paths are guaranteed to be
+				// unique.
+				withLocation = append(withLocation, f)
+			}
 		}
 		updates = append(updates, bson.DocElem{"$addToSet", bson.D{{
 			"filesystems", bson.D{{"$each", filesystemIds}}}},
 		})
+		if len(withLocation) > 0 {
+			if err := validateFilesystemMountPoints(machine, withLocation); err != nil {
+				return nil, errors.Annotate(err, "validating filesystem mount points")
+			}
+			// Make sure no filesystems are added concurrently.
+			assert = append(assert, bson.DocElem{
+				"filesystems", bson.D{{"$not", bson.D{{
+					"$elemMatch", bson.D{{
+						"$nin", machine.doc.Filesystems,
+					}},
+				}}}},
+			})
+		}
 	}
-	return txn.Op{
+	return []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
-		Assert: isAliveDoc,
+		Id:     machine.doc.Id,
+		Assert: assert,
 		Update: updates,
-	}
+	}}, nil
 }
 
 func hasJob(jobs []MachineJob, job MachineJob) bool {

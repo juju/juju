@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -560,11 +561,22 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
 	// Tag instance, for accounting and identification.
-	args.InstanceConfig.Tags[tagName] = resourceName(
+	instanceName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
+	args.InstanceConfig.Tags[tagName] = instanceName
 	if err := tagResources(e.ec2(), args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, errors.Annotate(err, "tagging instance")
+	}
+
+	// Tag the machine's root EBS volume, if it has one.
+	if inst.Instance.RootDeviceType == "ebs" {
+		uuid, _ := cfg.UUID()
+		tags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+		tags[tagName] = instanceName + "-root"
+		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
+			return nil, errors.Annotate(err, "tagging root disk")
+		}
 	}
 
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
@@ -589,7 +601,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 }
 
 // tagResources calls ec2.CreateTags, tagging each of the specified resources
-// with the given tags.
+// with the given tags. tagResources will retry for a short period of time
+// if it receives a *.NotFound error response from EC2.
 func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) error {
 	if len(tags) == 0 {
 		return nil
@@ -598,8 +611,46 @@ func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) err
 	for k, v := range tags {
 		ec2Tags = append(ec2Tags, ec2.Tag{k, v})
 	}
-	_, err := e.CreateTags(resourceIds, ec2Tags)
+	var err error
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = e.CreateTags(resourceIds, ec2Tags)
+		if err == nil || !strings.HasSuffix(ec2ErrCode(err), ".NotFound") {
+			return err
+		}
+	}
 	return err
+}
+
+func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
+	if len(tags) == 0 {
+		return nil
+	}
+	findVolumeId := func(inst *ec2.Instance) string {
+		for _, m := range inst.BlockDeviceMappings {
+			if m.DeviceName != inst.RootDeviceName {
+				continue
+			}
+			return m.VolumeId
+		}
+		return ""
+	}
+	// Wait until the instance has an associated EBS volume in the
+	// block-device-mapping.
+	volumeId := findVolumeId(inst)
+	for a := shortAttempt.Start(); volumeId == "" && a.Next(); {
+		resp, err := e.Instances([]string{inst.InstanceId}, nil)
+		if err != nil {
+			return err
+		}
+		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
+			inst = &resp.Reservations[0].Instances[0]
+			volumeId = findVolumeId(inst)
+		}
+	}
+	if volumeId == "" {
+		return errors.New("timed out waiting for EBS volume to be associated")
+	}
+	return tagResources(e, tags, volumeId)
 }
 
 var runInstances = _runInstances
@@ -1296,14 +1347,6 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		}
 	}
 	return g, nil
-}
-
-func getCustomImageSource(env environs.Environ) (simplestreams.DataSource, error) {
-	_, ok := env.(*environ)
-	if !ok {
-		return nil, errors.NotSupportedf("non-ec2 environment")
-	}
-	return common.GetCustomImageSource(env)
 }
 
 // permKey represents a permission for a group or an ip address range

@@ -36,7 +36,7 @@ type networkerSuite struct {
 	containerIfaces       []state.NetworkInterfaceInfo
 	nestedContainerIfaces []state.NetworkInterfaceInfo
 
-	st        *api.State
+	st        api.Connection
 	networker networker.State
 }
 

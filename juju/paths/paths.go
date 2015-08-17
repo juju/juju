@@ -16,7 +16,9 @@ const (
 	logDir
 	dataDir
 	storageDir
+	confDir
 	jujuRun
+	certDir
 )
 
 var nixVals = map[osVarType]string{
@@ -24,7 +26,9 @@ var nixVals = map[osVarType]string{
 	logDir:     "/var/log",
 	dataDir:    "/var/lib/juju",
 	storageDir: "/var/lib/juju/storage",
+	confDir:    "/etc/juju",
 	jujuRun:    "/usr/bin/juju-run",
+	certDir:    "/etc/juju/certs.d",
 }
 
 var winVals = map[osVarType]string{
@@ -32,7 +36,9 @@ var winVals = map[osVarType]string{
 	logDir:     "C:/Juju/log",
 	dataDir:    "C:/Juju/lib/juju",
 	storageDir: "C:/Juju/lib/juju/storage",
+	confDir:    "C:/Juju/etc",
 	jujuRun:    "C:/Juju/bin/juju-run.exe",
+	certDir:    "C:/Juju/certs",
 }
 
 // osVal will lookup the value of the key valname
@@ -70,10 +76,23 @@ func DataDir(series string) (string, error) {
 	return osVal(series, dataDir)
 }
 
+// CertDir returns a filesystem path to the folder used by juju to
+// store certificates that are added by default to the Juju client
+// api certificate pool.
+func CertDir(series string) (string, error) {
+	return osVal(series, certDir)
+}
+
 // StorageDir returns a filesystem path to the folder used by juju to
 // mount machine-level storage.
 func StorageDir(series string) (string, error) {
 	return osVal(series, storageDir)
+}
+
+// ConfDir returns the path to the directory where Juju may store
+// configuration files.
+func ConfDir(series string) (string, error) {
+	return osVal(series, confDir)
 }
 
 // JujuRun returns the absolute path to the juju-run binary for

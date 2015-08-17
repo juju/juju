@@ -3,41 +3,48 @@
 
 package user
 
-import (
-	"github.com/juju/cmd"
-)
-
 var (
-	ReadPassword = &readPassword
-	// add
-	GetAddUserAPI  = &getAddUserAPI
-	GetShareEnvAPI = &getShareEnvAPI
-	// change password
-	GetChangePasswordAPI     = &getChangePasswordAPI
-	GetEnvironInfoWriter     = &getEnvironInfoWriter
-	GetConnectionCredentials = &getConnectionCredentials
-	// disable and enable
-	GetDisableUserAPI = &getDisableUserAPI
+	RandomPasswordNotify = &randomPasswordNotify
+	ReadPassword         = &readPassword
+	ServerFileNotify     = &serverFileNotify
+	WriteServerFile      = writeServerFile
 )
 
-// DisenableCommand is used for testing both Disable and Enable user commands.
-type DisenableCommand interface {
-	cmd.Command
-	Username() string
+// NewAddCommand returns an AddCommand with the api provided as specified.
+func NewAddCommand(api AddUserAPI) *AddCommand {
+	return &AddCommand{
+		api: api,
+	}
 }
 
-func (c *DisableCommand) Username() string {
-	return c.user
+// NewChangePasswordCommand returns a ChangePasswordCommand with the api
+// and writer provided as specified.
+func NewChangePasswordCommand(api ChangePasswordAPI, writer EnvironInfoCredsWriter) *ChangePasswordCommand {
+	return &ChangePasswordCommand{
+		api:    api,
+		writer: writer,
+	}
 }
 
-func (c *EnableCommand) Username() string {
-	return c.user
+// NewDisableCommand returns a DisableCommand with the api provided as
+// specified.
+func NewDisableCommand(api DisenableUserAPI) *DisableCommand {
+	return &DisableCommand{
+		DisenableUserBase{
+			api: api,
+		},
+	}
 }
 
-var (
-	_ DisenableCommand = (*DisableCommand)(nil)
-	_ DisenableCommand = (*EnableCommand)(nil)
-)
+// NewEnableCommand returns a EnableCommand with the api provided as
+// specified.
+func NewEnableCommand(api DisenableUserAPI) *EnableCommand {
+	return &EnableCommand{
+		DisenableUserBase{
+			api: api,
+		},
+	}
+}
 
 // NewInfoCommand returns an InfoCommand with the api provided as specified.
 func NewInfoCommand(api UserInfoAPI) *InfoCommand {

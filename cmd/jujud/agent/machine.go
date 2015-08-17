@@ -20,6 +20,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -45,13 +46,13 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -60,11 +61,12 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apiaddressupdater"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
@@ -122,7 +124,6 @@ var (
 	newCleaner               = cleaner.NewCleaner
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
-	reportClosedMachineAPI   = func(io.Closer) {}
 	getMetricAPI             = metricAPI
 )
 
@@ -260,17 +261,17 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
-	apiAddressSetter apiaddressupdater.APIAddressSetter,
 	bufferedLogs logsender.LogRecordCh,
+	loopDeviceManager looputil.LoopDeviceManager,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
-			apiAddressSetter,
 			bufferedLogs,
 			NewUpgradeWorkerContext(),
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
+			loopDeviceManager,
 		)
 	}
 }
@@ -279,45 +280,40 @@ func MachineAgentFactoryFn(
 func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
-	apiAddressSetter apiaddressupdater.APIAddressSetter,
 	bufferedLogs logsender.LogRecordCh,
 	upgradeWorkerContext *upgradeWorkerContext,
 	runner worker.Runner,
+	loopDeviceManager looputil.LoopDeviceManager,
 ) *MachineAgent {
 	return &MachineAgent{
 		machineId:            machineId,
 		AgentConfigWriter:    agentConfWriter,
-		apiAddressSetter:     apiAddressSetter,
 		bufferedLogs:         bufferedLogs,
 		upgradeWorkerContext: upgradeWorkerContext,
 		workersStarted:       make(chan struct{}),
 		runner:               runner,
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
+		loopDeviceManager:                loopDeviceManager,
 	}
 }
 
-// APIStateUpgrader defines the methods on the Upgrader that
-// agents call.
-type APIStateUpgrader interface {
-	SetVersion(string, version.Binary) error
-}
-
 // MachineAgent is responsible for tying together all functionality
-// needed to orchestarte a Jujud instance which controls a machine.
+// needed to orchestrate a Jujud instance which controls a machine.
 type MachineAgent struct {
 	AgentConfigWriter
 
 	tomb                 tomb.Tomb
 	machineId            string
 	previousAgentVersion version.Number
-	apiAddressSetter     apiaddressupdater.APIAddressSetter
 	runner               worker.Runner
 	bufferedLogs         logsender.LogRecordCh
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
-	restoreMode          bool
-	restoring            bool
 	workersStarted       chan struct{}
+
+	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
+	restoreMode bool
+	restoring   bool
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -328,14 +324,7 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
-	apiStateUpgrader APIStateUpgrader
-}
-
-func (a *MachineAgent) getUpgrader(st *api.State) APIStateUpgrader {
-	if a.apiStateUpgrader != nil {
-		return a.apiStateUpgrader
-	}
-	return st.Upgrader()
+	loopDeviceManager looputil.LoopDeviceManager
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -404,7 +393,7 @@ func (a *MachineAgent) upgradeCertificateDNSNames() error {
 	if !update {
 		return nil
 	}
-	// Write a new certificate to the mongp pem and agent config files.
+	// Write a new certificate to the mongo pem and agent config files.
 	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(agentConfig.CACert(), si.CAPrivateKey, dnsNames.Values())
 	if err != nil {
 		return err
@@ -439,16 +428,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
-	// For windows clients we need to make sure we set a random password in a
-	// registry file and use that password for the jujud user and its services
-	// before starting anything else.
-	// Services on windows need to know the user's password to start up. The only
-	// way to store that password securely is if the user running the services
-	// sets the password. This cannot be done during cloud-init so it is done here.
-	if err := password.EnsureJujudPassword(); err != nil {
-		return errors.Annotate(err, "Could not ensure jujud password")
-	}
-
 	agentConfig := a.CurrentConfig()
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
@@ -456,6 +435,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 	a.configChangedVal.Set(struct{}{})
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
+
 	network.InitializeFromConfig(agentConfig)
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
@@ -466,6 +446,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
+
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
@@ -490,7 +471,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := OpenAPIState(agentCfg, a)
+	st, _, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -651,22 +632,27 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
-	agentConfig := a.CurrentConfig()
-	st, entity, err := OpenAPIState(agentConfig, a)
+	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		return nil, err
 	}
 	reportOpenedAPI(st)
 
 	defer func() {
+		// TODO(fwereade): this is not properly tested. Old tests were evil
+		// (dependent on injecting an error in a patched-out upgrader API
+		// that shouldn't even be used at this level)... so I just deleted
+		// them. Not a major worry: this whole method will become redundant
+		// when we switch to the dependency engine (and specifically use
+		// worker/apicaller to connect).
 		if err != nil {
-			st.Close()
-			reportClosedMachineAPI(st)
+			if err := st.Close(); err != nil {
+				logger.Errorf("while closing API: %v", err)
+			}
 		}
 	}()
 
-	// Refresh the configuration, since it may have been updated after opening state.
-	agentConfig = a.CurrentConfig()
+	agentConfig := a.CurrentConfig()
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
@@ -685,14 +671,6 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 		}
 	}
 
-	// Before starting any workers, ensure we record the Juju version this machine
-	// agent is running.
-	currentTools := &coretools.Tools{Version: version.Current}
-	apiStateUpgrader := a.getUpgrader(st)
-	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
-		return nil, errors.Annotate(err, "cannot set machine agent version")
-	}
-
 	runner := newConnRunner(st)
 
 	// Run the agent upgrader and the upgrade-steps worker without waiting for
@@ -708,7 +686,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 }
 
 func (a *MachineAgent) postUpgradeAPIWorker(
-	st *api.State,
+	st api.Connection,
 	agentConfig agent.Config,
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
@@ -771,7 +749,8 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return rebootworker.NewReboot(reboot, agentConfig, lock)
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a.apiAddressSetter), nil
+		addressUpdater := agent.APIHostPortsSetter{a}
+		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
@@ -805,7 +784,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		scope := agentConfig.Tag()
 		api := st.StorageProvisioner(scope)
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		return newStorageWorker(scope, storageDir, api, api, api, api, api), nil
+		return newStorageWorker(
+			scope, storageDir, api, api, api, api, api,
+			clock.WallClock,
+		), nil
 	})
 
 	// Check if the network management is disabled.
@@ -878,7 +860,7 @@ func (a *MachineAgent) Restart() error {
 }
 
 func (a *MachineAgent) upgradeStepsWorkerStarter(
-	st *api.State,
+	st api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
@@ -912,7 +894,7 @@ var shouldWriteProxyFiles = func(conf agent.Config) bool {
 
 // setupContainerSupport determines what containers can be run on this machine and
 // initialises suitable infrastructure to support such containers.
-func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
 	// LXC containers are only supported on bare metal and fully virtualized linux systems
 	// Nested LXC containers and Windows machines cannot run LXC containers
@@ -940,7 +922,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 // and a suitable provisioner is started.
 func (a *MachineAgent) updateSupportedContainers(
 	runner worker.Runner,
-	st *api.State,
+	st api.Connection,
 	machineTag string,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
@@ -1050,9 +1032,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
-			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
-				return lease.NewLeaseManager(st)
-			})
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
@@ -1107,7 +1086,7 @@ func (a *MachineAgent) startEnvWorkers(
 	agentConfig := a.CurrentConfig()
 	apiInfo := agentConfig.APIInfo()
 	apiInfo.EnvironTag = st.EnvironTag()
-	apiSt, err := OpenAPIStateUsingInfo(apiInfo, a, agentConfig.OldPassword())
+	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1164,7 +1143,10 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 		scope := st.EnvironTag()
 		api := apiSt.StorageProvisioner(scope)
-		return newStorageWorker(scope, "", api, api, api, api, api), nil
+		return newStorageWorker(
+			scope, "", api, api, api, api, api,
+			clock.WallClock,
+		), nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
@@ -1200,7 +1182,7 @@ func (a *MachineAgent) startEnvWorkers(
 
 var getFirewallMode = _getFirewallMode
 
-func _getFirewallMode(apiSt *api.State) (string, error) {
+func _getFirewallMode(apiSt api.Connection) (string, error) {
 	envConfig, err := apiSt.Environment().EnvironConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot read environment config")
@@ -1609,6 +1591,20 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 			}
 		}
 		logger.Debugf("upgrades done, starting worker %q", name)
+
+		// For windows clients we need to make sure we set a random password in a
+		// registry file and use that password for the jujud user and its services
+		// before starting anything else.
+		// Services on windows need to know the user's password to start up. The only
+		// way to store that password securely is if the user running the services
+		// sets the password. This cannot be done during cloud-init so it is done here.
+		// This needs to get ran in between finishing the upgrades and starting
+		// the rest of the workers(in particular the deployer which should use
+		// the new password)
+		if err := password.EnsureJujudPassword(); err != nil {
+			return errors.Annotate(err, "Could not ensure jujud password")
+		}
+
 		// Upgrades are done, start the worker.
 		worker, err := start()
 		if err != nil {
@@ -1631,7 +1627,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+func (a *MachineAgent) setMachineStatus(apiState api.Connection, status params.Status, info string) error {
 	tag := a.Tag().(names.MachineTag)
 	machine, err := apiState.Machiner().Machine(tag)
 	if err != nil {
@@ -1678,9 +1674,26 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
+
 	// Remove the juju-run symlink.
 	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
+	}
+
+	insideLXC, err := lxcutils.RunningInsideLXC()
+	if err != nil {
+		errors = append(errors, err)
+	} else if insideLXC {
+		// We're running inside LXC, so loop devices may leak. Detach
+		// any loop devices that are backed by files on this machine.
+		//
+		// It is necessary to do this here as well as in container/lxc,
+		// as container/lxc needs to check in the container's rootfs
+		// to see if the loop device is attached to the container; that
+		// will fail if the data-dir is removed first.
+		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	namespace := agentConfig.Value(agent.Namespace)
@@ -1728,7 +1741,7 @@ func (c singularStateConn) Ping() error {
 	return c.session.Ping()
 }
 
-func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
+func metricAPI(st api.Connection) metricsmanager.MetricsManagerClient {
 	return metricsmanager.NewClient(st)
 }
 

@@ -45,7 +45,7 @@ func init() {
 	// package; please do *not* import individual providers anywhere else,
 	// except in direct tests for that provider.
 	environs.RegisterProvider("cloudsigma", providerInstance)
-	environs.RegisterImageDataSourceFunc("Image source", getImageSource)
+	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
 	registry.RegisterEnvironStorageProviders(providerType)
 }
 

@@ -61,6 +61,11 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	if err := w.icfg.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
+	if w.icfg.Bootstrap == true {
+		// Bootstrap machine not supported on windows
+		return errors.Errorf("bootstrapping is not supported on windows")
+	}
+
 	toolsJson, err := json.Marshal(w.icfg.Tools)
 	if err != nil {
 		return errors.Annotate(err, "while serializing the tools")
@@ -83,7 +88,25 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		fmt.Sprintf(`& "%s" -c "import tarfile;archive = tarfile.open('$tmpBinDir\\tools.tar.gz');archive.extractall(path='$tmpBinDir')"`, python),
 		`rm "$binDir\tools.tar*"`,
 		fmt.Sprintf(`Set-Content $binDir\downloaded-tools.txt '%s'`, string(toolsJson)),
+	)
 
+	for _, cmd := range CreateJujuRegistryKeyCmds() {
+		w.conf.AddRunCmd(cmd)
+	}
+
+	machineTag := names.NewMachineTag(w.icfg.MachineId)
+	_, err = w.addAgentInfo(machineTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return w.addMachineAgentToBoot()
+}
+
+// CreateJujuRegistryKey is going to create a juju registry key and set
+// permissions on it such that it's only accessible to administrators
+// It is exported because it is used in an upgrade step
+func CreateJujuRegistryKeyCmds() []string {
+	return []string{
 		// Create a registry key for storing juju related information
 		fmt.Sprintf(`New-Item -Path '%s'`, osenv.JujuRegistryKey),
 		fmt.Sprintf(`$acl = Get-Acl -Path '%s'`, osenv.JujuRegistryKey),
@@ -94,7 +117,6 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		`$rule = New-Object System.Security.AccessControl.RegistryAccessRule $perm`,
 		`$acl.SetAccessRule($rule)`,
 		fmt.Sprintf(`Set-Acl -Path '%s' -AclObject $acl`, osenv.JujuRegistryKey),
-
 		// Create a JUJU_DEV_FEATURE_FLAGS entry which may or may not be empty.
 		fmt.Sprintf(`New-ItemProperty -Path '%s' -Name '%s'`,
 			osenv.JujuRegistryKey,
@@ -103,17 +125,5 @@ func (w *windowsConfigure) ConfigureJuju() error {
 			osenv.JujuRegistryKey,
 			osenv.JujuFeatureFlagEnvKey,
 			featureflag.AsEnvironmentValue()),
-	)
-
-	if w.icfg.Bootstrap == true {
-		// Bootstrap machine not supported on windows
-		return errors.Errorf("bootstrapping is not supported on windows")
 	}
-
-	machineTag := names.NewMachineTag(w.icfg.MachineId)
-	_, err = w.addAgentInfo(machineTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return w.addMachineAgentToBoot()
 }

@@ -16,6 +16,7 @@ import (
 )
 
 type mockBlock struct {
+	state.Block
 	t state.BlockType
 	m string
 }
@@ -27,6 +28,8 @@ func (m mockBlock) Tag() (names.Tag, error) { return names.NewEnvironTag("mockte
 func (m mockBlock) Type() state.BlockType { return m.t }
 
 func (m mockBlock) Message() string { return m.m }
+
+func (m mockBlock) EnvUUID() string { return "" }
 
 type blockCheckerSuite struct {
 	testing.FakeJujuHomeSuite

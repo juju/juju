@@ -32,7 +32,7 @@ func TestPackage(t *stdtesting.T) {
 type RsyslogSuite struct {
 	jujutesting.JujuConnSuite
 
-	st       *api.State
+	st       api.Connection
 	machine  *state.Machine
 	mu       sync.Mutex // protects dialTags
 	dialTags []string
@@ -93,14 +93,15 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	addrs := []string{"0.1.2.3", "0.2.4.6"}
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "foo", addrs, s.DataDir())
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "foo", addrs, s.ConfDir())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// We should get a ca-cert.pem with the contents introduced into state config.
-	waitForFile(c, filepath.Join(s.DataDir(), "ca-cert.pem"))
-	caCertPEM, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "ca-cert.pem"))
+	dirname := filepath.Join(s.ConfDir()+"-foo", "rsyslog")
+	waitForFile(c, filepath.Join(dirname, "ca-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(filepath.Join(dirname, "ca-cert.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
@@ -121,14 +122,15 @@ func (s *RsyslogSuite) TestNoNamespace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	addrs := []string{"0.1.2.3", "0.2.4.6"}
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", addrs, s.DataDir())
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", addrs, s.ConfDir())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// We should get a ca-cert.pem with the contents introduced into state config.
-	waitForFile(c, filepath.Join(s.DataDir(), "ca-cert.pem"))
-	caCertPEM, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "ca-cert.pem"))
+	dirname := filepath.Join(s.ConfDir(), "rsyslog")
+	waitForFile(c, filepath.Join(dirname, "ca-cert.pem"))
+	caCertPEM, err := ioutil.ReadFile(filepath.Join(dirname, "ca-cert.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 

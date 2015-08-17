@@ -6,7 +6,6 @@ package provider
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/storage"
 )
 
@@ -15,7 +14,7 @@ var errNoMountPoint = errors.New("filesystem mount point not specified")
 // CommonProviders returns the storage providers used by all environments.
 func CommonProviders() map[storage.ProviderType]storage.Provider {
 	return map[storage.ProviderType]storage.Provider{
-		LoopProviderType:   &loopProvider{logAndExec, lxcutils.RunningInsideLXC},
+		LoopProviderType:   &loopProvider{logAndExec},
 		RootfsProviderType: &rootfsProvider{logAndExec},
 		TmpfsProviderType:  &tmpfsProvider{logAndExec},
 	}

@@ -13,10 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -49,7 +46,7 @@ func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {
 
 func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	cfg, _ := s.createTestEnvConfig(c)
-	owner := s.factory.MakeUser(c, nil).UserTag()
+	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first environment.
 	_, st1, err := s.State.NewEnvironment(cfg, owner)
@@ -151,6 +148,41 @@ func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments
 	c.Assert(env.Life(), gc.Equals, state.Alive)
 }
 
+func (s *EnvironSuite) TestConfigForStateServerEnv(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+	defer otherState.Close()
+
+	env, err := otherState.GetEnvironment(s.envTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.Name(), gc.Equals, "testenv")
+	uuid, ok := conf.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, s.envTag.Id())
+}
+
+func (s *EnvironSuite) TestConfigForOtherEnv(c *gc.C) {
+	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "other"})
+	defer otherState.Close()
+	otherEnv, err := otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// By getting the environment through a different state connection,
+	// the underlying state pointer in the *state.Environment struct has
+	// a different environment tag.
+	env, err := s.State.GetEnvironment(otherEnv.EnvironTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.Name(), gc.Equals, "other")
+	uuid, ok := conf.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, otherEnv.UUID())
+}
+
 // createTestEnvConfig returns a new environment config and its UUID for testing.
 func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
@@ -172,7 +204,7 @@ func (s *EnvironSuite) TestEnvironmentConfigSameEnvAsState(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
-	otherState := s.factory.MakeEnvironment(c, nil)
+	otherState := s.Factory.MakeEnvironment(c, nil)
 	defer otherState.Close()
 	env, err := otherState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,7 +224,7 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +233,7 @@ func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +244,7 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
 	// Simulate an environment being added just before the remove txn is
 	// called.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		blocker := s.factory.MakeEnvironment(c, nil)
+		blocker := s.Factory.MakeEnvironment(c, nil)
 		err := blocker.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}).Check()
@@ -321,44 +353,34 @@ func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers
 	}
 }
 
-func (s *EnvironSuite) TestDestroyEnvironmentWithPersistentVolumesFails(c *gc.C) {
-	// Create a persistent volume.
-	// TODO(wallyworld) - consider moving this to factory
-	registry.RegisterEnvironStorageProviders("someprovider", ec2.EBS_ProviderType)
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("persistent-block", ec2.EBS_ProviderType, map[string]interface{}{"persistent": "true"})
+func (s *EnvironSuite) TestAllEnvironments(c *gc.C) {
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test", Owner: names.NewUserTag("bob@remote")}).Close()
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "test", Owner: names.NewUserTag("mary@remote")}).Close()
+	envs, err := s.State.AllEnvironments()
 	c.Assert(err, jc.ErrorIsNil)
-
-	ch := s.AddTestingCharm(c, "storage-block2")
-	storage := map[string]state.StorageConstraints{
-		"multi1to10": makeStorageCons("persistent-block", 1024, 1),
+	c.Assert(envs, gc.HasLen, 3)
+	var obtained []string
+	for _, env := range envs {
+		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Username(), env.Name()))
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block2", ch, storage)
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-
-	volume1, err := s.State.StorageInstanceVolume(names.NewStorageTag("multi1to10/0"))
-	c.Assert(err, jc.ErrorIsNil)
-	volumeInfoSet := state.VolumeInfo{Size: 123, Persistent: true, VolumeId: "vol-ume"}
-	err = s.State.SetVolumeInfo(volume1.VolumeTag(), volumeInfoSet)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	// TODO(wallyworld) when we can destroy/remove volume, ensure env can then be destroyed
-	c.Assert(errors.Cause(env.Destroy()), gc.Equals, state.ErrPersistentVolumesExist)
+	expected := []string{
+		"test-admin@local/testenv",
+		"bob@remote/test",
+		"mary@remote/test",
+	}
+	c.Assert(obtained, jc.SameContents, expected)
 }
 
 func (s *EnvironSuite) TestHostedEnvironCount(c *gc.C) {
 	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
 
-	st1 := s.factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeEnvironment(c, nil)
 	defer st1.Close()
 	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
 
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 2)
 

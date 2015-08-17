@@ -29,7 +29,7 @@ type machineRebootSuite struct {
 	testing.JujuConnSuite
 
 	machine *state.Machine
-	st      *api.State
+	st      api.Connection
 	reboot  *reboot.State
 }
 

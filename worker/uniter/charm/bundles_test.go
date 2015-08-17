@@ -33,7 +33,7 @@ type BundlesDirSuite struct {
 	gitjujutesting.HTTPSuite
 	testing.JujuConnSuite
 
-	st     *api.State
+	st     api.Connection
 	uniter *uniter.State
 }
 

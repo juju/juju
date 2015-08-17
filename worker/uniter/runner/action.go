@@ -9,10 +9,10 @@ import (
 
 // ActionData contains the tag, parameters, and results of an Action.
 type ActionData struct {
-	ActionName     string
-	ActionTag      names.ActionTag
-	ActionParams   map[string]interface{}
-	ActionFailed   bool
+	Name           string
+	Tag            names.ActionTag
+	Params         map[string]interface{}
+	Failed         bool
 	ResultsMessage string
 	ResultsMap     map[string]interface{}
 }
@@ -21,10 +21,10 @@ type ActionData struct {
 // this should only be called in the event that an Action hook is being requested.
 func newActionData(name string, tag *names.ActionTag, params map[string]interface{}) *ActionData {
 	return &ActionData{
-		ActionName:   name,
-		ActionTag:    *tag,
-		ActionParams: params,
-		ResultsMap:   map[string]interface{}{},
+		Name:       name,
+		Tag:        *tag,
+		Params:     params,
+		ResultsMap: map[string]interface{}{},
 	}
 }
 
