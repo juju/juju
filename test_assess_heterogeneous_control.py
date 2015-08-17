@@ -7,6 +7,7 @@ from unittest import TestCase
 from mock import patch
 
 from assess_heterogeneous_control import (
+    assess_heterogeneous,
     dumping_env,
     get_clients,
     parse_args,
@@ -113,3 +114,22 @@ class TestGetClients(TestCase):
         self.assertTrue('tools-metadata-url' not in initial.env.config)
         self.assertTrue('agent-stream' not in initial.env.config)
         self.assertTrue('default-series' not in initial.env.config)
+
+
+class TestAssessHeterogeneous(TestCase):
+
+    @patch('assess_heterogeneous_control.test_control_heterogeneous',
+           autospec=True)
+    @patch('assess_heterogeneous_control.get_clients', autospec=True)
+    def test_assess_heterogeneous(self, ah_mock, ch_mock):
+        ah_mock.return_value = (
+            'initial_client', 'other_client', 'released_client')
+        assess_heterogeneous(
+            'initial', 'other', 'base_env', 'environment_name', 'log_dir',
+            False, False, 'agent_url', 'agent_stream', 'series')
+        ah_mock.assert_called_once_with(
+            'initial', 'other', 'base_env', 'environment_name', False,
+            'agent_url', 'agent_stream', 'series')
+        ch_mock.assert_called_once_with(
+            'initial_client', 'other_client', 'released_client',
+            'log_dir', False)
