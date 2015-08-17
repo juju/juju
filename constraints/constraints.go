@@ -29,6 +29,7 @@ const (
 	Tags         = "tags"
 	InstanceType = "instance-type"
 	Networks     = "networks"
+	Spaces       = "spaces"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -73,10 +74,19 @@ type Value struct {
 	// be used. Only valid for clouds which support instance types.
 	InstanceType *string `json:"instance-type,omitempty" yaml:"instance-type,omitempty"`
 
-	// Networks, if not nil, holds a list of juju network names that
+	// Spaces, if not nil, holds a list of juju network spaces that
 	// should be available (or not) on the machine. Positive and
 	// negative values are accepted, and the difference is the latter
 	// have a "^" prefix to the name.
+	Spaces *[]string `json:"spaces,omitempty" yaml:"spaces,omitempty"`
+
+	// Networks, if not nil, holds a list of juju networks that
+	// should be available (or not) on the machine. Positive and
+	// negative values are accepted, and the difference is the latter
+	// have a "^" prefix to the name.
+	//
+	// TODO(dimitern): Drop this as soon as spaces can be used for
+	// deployments instead.
 	Networks *[]string `json:"networks,omitempty" yaml:"networks,omitempty"`
 }
 
@@ -115,13 +125,14 @@ func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""
 }
 
-// extractNetworks returns the list of networks to include or exclude
-// (without the "^" prefixes).
-func (v *Value) extractNetworks() (include, exclude []string) {
-	if v.Networks == nil {
+// extractSpacesOrNetworks returns the list of spaces/networks to
+// include or exclude (without the "^" prefixes). field can be
+// v.Networks or v.Spaces.
+func (v *Value) extractSpacesOrNetworks(field *[]string) (include, exclude []string) {
+	if field == nil {
 		return nil, nil
 	}
-	for _, name := range *v.Networks {
+	for _, name := range *field {
 		if strings.HasPrefix(name, "^") {
 			exclude = append(exclude, strings.TrimPrefix(name, "^"))
 		} else {
@@ -131,10 +142,33 @@ func (v *Value) extractNetworks() (include, exclude []string) {
 	return include, exclude
 }
 
+// IncludeSpaces returns a list of spaces to include when starting a
+// machine, if specified.
+func (v *Value) IncludeSpaces() []string {
+	include, _ := v.extractSpacesOrNetworks(v.Spaces)
+	return include
+}
+
+// ExcludeSpaces returns a list of spaces to exclude when starting a
+// machine, if specified. They are given in the spaces constraint with
+// a "^" prefix to the name, which is stripped before returning.
+func (v *Value) ExcludeSpaces() []string {
+	_, exclude := v.extractSpacesOrNetworks(v.Spaces)
+	return exclude
+}
+
+// HaveSpaces returns whether any spaces constraints were specified.
+func (v *Value) HaveSpaces() bool {
+	return v.Spaces != nil && len(*v.Spaces) > 0
+}
+
+// TODO(dimitern): Drop the following 3 methods once spaces can be
+// used as deployment constraints.
+
 // IncludeNetworks returns a list of networks to include when starting
 // a machine, if specified.
 func (v *Value) IncludeNetworks() []string {
-	include, _ := v.extractNetworks()
+	include, _ := v.extractSpacesOrNetworks(v.Networks)
 	return include
 }
 
@@ -142,7 +176,7 @@ func (v *Value) IncludeNetworks() []string {
 // a machine, if specified. They are given in the networks constraint
 // with a "^" prefix to the name, which is stripped before returning.
 func (v *Value) ExcludeNetworks() []string {
-	_, exclude := v.extractNetworks()
+	_, exclude := v.extractSpacesOrNetworks(v.Networks)
 	return exclude
 }
 
@@ -186,6 +220,10 @@ func (v Value) String() string {
 	if v.Tags != nil {
 		s := strings.Join(*v.Tags, ",")
 		strs = append(strs, "tags="+s)
+	}
+	if v.Spaces != nil {
+		s := strings.Join(*v.Spaces, ",")
+		strs = append(strs, "spaces="+s)
 	}
 	if v.Networks != nil {
 		s := strings.Join(*v.Networks, ",")
@@ -328,6 +366,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setTags(str)
 	case InstanceType:
 		err = v.setInstanceType(str)
+	case Spaces:
+		err = v.setSpaces(str)
 	case Networks:
 		err = v.setNetworks(str)
 	default:
@@ -370,6 +410,12 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			v.RootDisk, err = parseUint64(vstr)
 		case Tags:
 			v.Tags, err = parseYamlStrings("tags", val)
+		case Spaces:
+			var spaces *[]string
+			spaces, err = parseYamlStrings("spaces", val)
+			if err == nil {
+				err = v.validateSpaces(spaces)
+			}
 		case Networks:
 			var networks *[]string
 			networks, err = parseYamlStrings("networks", val)
@@ -478,16 +524,39 @@ func (v *Value) setNetworks(str string) error {
 	return nil
 }
 
+func (v *Value) setSpaces(str string) error {
+	if v.Spaces != nil {
+		return fmt.Errorf("already set")
+	}
+	spaces := parseCommaDelimited(str)
+	if err := v.validateSpaces(spaces); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *Value) validateSpaces(spaces *[]string) error {
+	if spaces == nil {
+		return nil
+	}
+	for _, name := range *spaces {
+		space := strings.TrimPrefix(name, "^")
+		if !names.IsValidSpace(space) {
+			return fmt.Errorf("%q is not a valid space name", space)
+		}
+	}
+	v.Spaces = spaces
+	return nil
+}
+
 func (v *Value) validateNetworks(networks *[]string) error {
 	if networks == nil {
 		return nil
 	}
-	for _, netName := range *networks {
-		if strings.HasPrefix(netName, "^") {
-			netName = strings.TrimPrefix(netName, "^")
-		}
-		if !names.IsValidNetwork(netName) {
-			return fmt.Errorf("%q is not a valid network name", netName)
+	for _, name := range *networks {
+		name := strings.TrimPrefix(name, "^")
+		if !names.IsValidNetwork(name) {
+			return fmt.Errorf("%q is not a valid network name", name)
 		}
 	}
 	v.Networks = networks

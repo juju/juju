@@ -1001,6 +1001,9 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 // Networks returns the networks a service is associated with. Unlike
 // networks specified with constraints, these networks are required to
 // be present on machines hosting this service's units.
+//
+// TODO(dimitern): Convert this to use spaces from constraints or drop
+// it entirely.
 func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
 }
