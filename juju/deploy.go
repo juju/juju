@@ -36,6 +36,7 @@ type DeployServiceParams struct {
 	// instead of a machine spec.
 	Placement []*instance.Placement
 	// Networks holds a list of networks to required to start on boot.
+	// TODO(dimitern): Drop this in a follow-up in favor of constraints.
 	Networks []string
 	Storage  map[string]storage.Constraints
 }
@@ -66,6 +67,8 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
+
+	// TODO(dimitern): Drop --networks in a follow-up with an error.
 	if len(args.Networks) > 0 || args.Constraints.HaveNetworks() {
 		conf, err := st.EnvironConfig()
 		if err != nil {
@@ -79,6 +82,8 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 			return nil, fmt.Errorf("cannot deploy with networks: not suppored by the environment")
 		}
 	}
+	// TODO(dimitern): In a follow-up drop Networks and use spaces
+	// constraints for this when possible.
 	service, err := st.AddService(
 		args.ServiceName,
 		args.ServiceOwner,

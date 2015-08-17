@@ -264,6 +264,9 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 // allows specifying networks to include or exclude on the machine
 // where the charm gets deployed (either with args.Network or with
 // constraints).
+//
+// TODO(dimitern): Drop the special handling of networks in favor of
+// spaces constraints, once possible.
 func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
 }

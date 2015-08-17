@@ -78,6 +78,14 @@ var setConstraintsTests = []struct {
 	consFallback: "cpu-cores=4 mem=2G networks=",
 	cons:         "mem=4G networks=net1,^net3",
 	expected:     "cpu-cores=4 mem=4G networks=net1,^net3",
+}, {
+	consFallback: "cpu-cores=4 mem=4G spaces=space1,^space3",
+	cons:         "spaces=space2,^space4 mem=4G",
+	expected:     "cpu-cores=4 mem=4G spaces=space2,^space4",
+}, {
+	consFallback: "cpu-cores=4 mem=2G spaces=",
+	cons:         "mem=4G spaces=space1,^space3",
+	expected:     "cpu-cores=4 mem=4G spaces=space1,^space3",
 }}
 
 func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {

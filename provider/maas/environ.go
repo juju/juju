@@ -900,6 +900,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	// Networking.
+	//
+	// TODO(dimitern): Once we can get from spaces constraints to MAAS
+	// networks (or even directly to spaces), include them in the
+	// instance selection.
 	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
