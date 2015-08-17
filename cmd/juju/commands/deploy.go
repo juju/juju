@@ -122,7 +122,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
-	f.StringVar(&c.Networks, "networks", "", "deprecated: use spaces to deploy to specific networks.")
+	f.StringVar(&c.Networks, "networks", "", "deprecated and ignored: use space constraints instead.")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
