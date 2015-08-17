@@ -231,7 +231,7 @@ func (c workloads) newUnitManifold(unitHandler *workers.EventHandlers) (dependen
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				events, err := c.initialEvents(hctx)
+				events, err := workers.InitialEvents(hctx)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -273,34 +273,6 @@ func (c workloads) newUnitManifold(unitHandler *workers.EventHandlers) (dependen
 		return engine, nil
 	}
 	return manifold, nil
-}
-
-func (workloads) initialEvents(hctx context.Component) ([]workload.Event, error) {
-	ids, err := hctx.List()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var events []workload.Event
-	for _, id := range ids {
-		wl, err := hctx.Get(id)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		//TODO(wwitzel3) (Upgrade/Restart broken) during a restart of the worker, the Plugin loses its absPath for the executable.
-		plugin, err := hctx.Plugin(wl)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		events = append(events, workload.Event{
-			Kind:     workload.EventKindTracked,
-			ID:       wl.ID(),
-			Plugin:   plugin,
-			PluginID: wl.Details.ID,
-		})
-	}
-	return events, nil
 }
 
 func (workloads) registerState() {

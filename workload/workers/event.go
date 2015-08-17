@@ -101,6 +101,38 @@ func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 	return nil
 }
 
+// InitialEvents returns the events that correspond to the current Juju state.
+func InitialEvents(hctx context.Component) ([]workload.Event, error) {
+	// TODO(ericsnow) Use an API call that returns all of them at once,
+	// rather than using a Get call for each?
+	ids, err := hctx.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var events []workload.Event
+	for _, id := range ids {
+		info, err := hctx.Get(id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// TODO(wwitzel3) (Upgrade/Restart broken) during a restart of the
+		// worker, the Plugin loses its absPath for the executable.
+		plugin, err := hctx.Plugin(info)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		events = append(events, workload.Event{
+			Kind:     workload.EventKindTracked,
+			ID:       info.ID(),
+			Plugin:   plugin,
+			PluginID: info.Details.ID,
+		})
+	}
+	return events, nil
+}
+
 type trackingRunner struct {
 	Runner
 	running set.Strings
