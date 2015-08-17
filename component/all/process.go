@@ -186,9 +186,39 @@ func (c workloadProcesses) registerUnitWorkers() map[string]*workers.EventHandle
 		}
 		unitEventHandlers[unitName] = unitHandler
 
-		manifold, err := c.newUnitManifold(unitHandler)
-		if err != nil {
-			return manifold, errors.Trace(err)
+		manifold := dependency.Manifold{
+			Inputs: []string{unit.APICallerName},
+		}
+		manifold.Start = func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+			var caller base.APICaller
+			err := getResource(unit.APICallerName, &caller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			apiClient := c.newHookContextAPIClient(caller)
+
+			engine, err := dependency.NewEngine(dependency.EngineConfig{
+				IsFatal:       cmdutil.IsFatal,
+				MoreImportant: func(_ error, worst error) error { return worst },
+				ErrorDelay:    3 * time.Second,
+				BounceDelay:   10 * time.Millisecond,
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var runner worker.Runner            // TODO(ericsnow) Wrap engine in a runner.
+			unitHandler.Init(apiClient, runner) // TODO(ericsnow) Eliminate this...
+
+			manifolds := unitHandler.Manifolds()
+			if err := dependency.Install(engine, manifolds); err != nil {
+				if err := worker.Stop(engine); err != nil {
+					processLogger.Errorf("while stopping engine with bad manifolds: %v", err)
+				}
+				return nil, errors.Trace(err)
+			}
+
+			return engine, nil
 		}
 		return manifold, nil
 	}
@@ -198,84 +228,6 @@ func (c workloadProcesses) registerUnitWorkers() map[string]*workers.EventHandle
 	}
 
 	return unitEventHandlers
-}
-
-func (c workloadProcesses) newUnitManifold(unitHandler *workers.EventHandlers) (dependency.Manifold, error) {
-	manifold := dependency.Manifold{
-		Inputs: []string{unit.APICallerName},
-	}
-	manifold.Start = func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-		var caller base.APICaller
-		err := getResource(unit.APICallerName, &caller)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		apiClient := c.newHookContextAPIClient(caller)
-
-		engine, err := dependency.NewEngine(dependency.EngineConfig{
-			IsFatal:       cmdutil.IsFatal,
-			MoreImportant: func(_ error, worst error) error { return worst },
-			ErrorDelay:    3 * time.Second,
-			BounceDelay:   10 * time.Millisecond,
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		var runner worker.Runner // TODO(ericsnow) Wrap engine in a runner.
-		// TODO(ericsnow) Provide the runner as a resource.
-		unitHandler.Init(apiClient, runner) // TODO(ericsnow) Eliminate this...
-
-		err = engine.Install("events", dependency.Manifold{
-			Inputs: []string{},
-			Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
-				// Pull all existing from State (via API) and add an event for each.
-				hctx, err := context.NewContextAPI(apiClient, unitHandler.AddEvents)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				events, err := workers.InitialEvents(hctx)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-
-				worker, err := unitHandler.NewWorker()
-				if err == nil {
-					return nil, errors.Trace(err)
-				}
-
-				// These must be added *after* the worker is started.
-				unitHandler.AddEvents(events...)
-
-				return worker, nil
-			},
-			Output: func(in worker.Worker, out interface{}) error {
-				// TODO(ericsnow) provide the runner
-				return nil
-			},
-		})
-		if err == nil {
-			return nil, errors.Trace(err)
-		}
-
-		err = engine.Install("apiclient", dependency.Manifold{
-			Inputs: []string{},
-			Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
-				loop := func(<-chan struct{}) error { return nil }
-				return worker.NewSimpleWorker(loop), nil
-			},
-			Output: func(in worker.Worker, out interface{}) error {
-				// TODO(ericsnow) provide the APICaller
-				return nil
-			},
-		})
-		if err == nil {
-			return nil, errors.Trace(err)
-		}
-
-		return engine, nil
-	}
-	return manifold, nil
 }
 
 func (workloadProcesses) registerState() {
