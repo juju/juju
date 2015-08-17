@@ -178,16 +178,14 @@ func (c *Context) Set(info process.Info) error {
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 	id := info.ID()
 	c.updates[id] = info
-
-	delete(c.removes, id)
 	return nil
 }
 
 // Untrack tells juju to stop tracking this process.
 func (c *Context) Untrack(id string) {
+	// We assume that flush always gets called immediately after a set/untrack,
+	// so we don't have to worry about conflicting updates/deletes.
 	c.removes[id] = struct{}{}
-	delete(c.processes, id)
-	delete(c.updates, id)
 }
 
 // ListDefinitions returns the unit's charm-defined processes.
@@ -207,7 +205,10 @@ func (c *Context) ListDefinitions() ([]charm.Process, error) {
 func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
 
+	// TODO(natefinch): make this a noop and move this code into set/untrack.
+
 	if len(c.updates) > 0 {
+
 		var updates []process.Info
 		for _, info := range c.updates {
 			updates = append(updates, info)
@@ -221,11 +222,11 @@ func (c *Context) Flush() error {
 		c.updates = map[string]process.Info{}
 	}
 
-	removes := make([]string, 0, len(c.removes))
-	for id := range c.removes {
-		removes = append(removes, id)
-	}
 	if len(removes) > 0 {
+		removes := make([]string, 0, len(c.removes))
+		for id := range c.removes {
+			removes = append(removes, id)
+		}
 		c.api.Untrack(removes)
 		c.removes = map[string]struct{}{}
 	}
