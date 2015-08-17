@@ -65,6 +65,21 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.user, 'my name')
         self.assertEqual(args.password, 'fake pass')
 
+    def test_parse_args_agent_stream(self):
+        args = parse_args(['a', 'b', 'c', 'd', 'e',
+                           '--agent-stream', 'proposed',
+                           '--user', 'my name', '--password', 'fake pass'])
+        self.assertEqual(args.agent_stream, 'proposed')
+        self.assertEqual(args.user, 'my name')
+        self.assertEqual(args.password, 'fake pass')
+
+    def test_parse_args_series(self):
+        args = parse_args(['a', 'b', 'c', 'd', 'e', '--series', 'trusty',
+                           '--user', 'my name', '--password', 'fake pass'])
+        self.assertEqual(args.series, 'trusty')
+        self.assertEqual(args.user, 'my name')
+        self.assertEqual(args.password, 'fake pass')
+
 
 class TestGetClients(TestCase):
 
@@ -78,10 +93,13 @@ class TestGetClients(TestCase):
         with _temp_env({'environments': {'baz': {}}}):
             with patch('subprocess.check_output', lambda x: boo[x]):
                 initial, other, released = get_clients('foo', 'bar', 'baz',
-                                                       'qux', True, 'quxx')
+                                                       'qux', True, 'quxx',
+                                                       'nif', 'glo')
         self.assertEqual(initial.env, other.env)
         self.assertEqual(initial.env, released.env)
         self.assertEqual(initial.env.config['tools-metadata-url'], 'quxx')
+        self.assertEqual(initial.env.config['agent-stream'], 'nif')
+        self.assertEqual(initial.env.config['default-series'], 'glo')
         self.assertEqual(initial.full_path, os.path.abspath('foo'))
         self.assertEqual(other.full_path, os.path.abspath('bar'))
         self.assertEqual(released.full_path, '/usr/bun/juju')
@@ -90,5 +108,8 @@ class TestGetClients(TestCase):
         with _temp_env({'environments': {'baz': {}}}):
             with patch('subprocess.check_output', return_value='1.18.73'):
                 initial, other, released = get_clients('foo', 'bar', 'baz',
-                                                       'qux', True, None)
+                                                       'qux', True, None,
+                                                       None, None)
         self.assertTrue('tools-metadata-url' not in initial.env.config)
+        self.assertTrue('agent-stream' not in initial.env.config)
+        self.assertTrue('default-series' not in initial.env.config)
