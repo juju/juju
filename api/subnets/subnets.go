@@ -32,6 +32,7 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
+// AddSubnet adds an existing subnet to the environment.
 func (api *API) AddSubnet(subnet names.SubnetTag, providerId string, space names.SpaceTag, zones []string) error {
 	var response params.ErrorResults
 	params := params.AddSubnetsParams{
@@ -49,6 +50,7 @@ func (api *API) AddSubnet(subnet names.SubnetTag, providerId string, space names
 	return response.OneError()
 }
 
+// CreateSubnet creates a new subnet with the provider.
 func (api *API) CreateSubnet(subnet names.SubnetTag, space names.SpaceTag, zones []string, isPublic bool) error {
 	var response params.ErrorResults
 	params := params.CreateSubnetsParams{
