@@ -91,6 +91,10 @@ type InstanceConfig struct {
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
 
+	// MetricsSpoolDir represents the spool directory path, where all
+	// metrics are stored.
+	MetricsSpoolDir string
+
 	// Jobs holds what machine jobs to run.
 	Jobs []multiwatcher.MachineJob
 
@@ -218,6 +222,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		DataDir:           cfg.DataDir,
 		LogDir:            cfg.LogDir,
 		Jobs:              cfg.Jobs,
+		MetricsSpoolDir:   cfg.MetricsSpoolDir,
 		Tag:               tag,
 		UpgradedToVersion: toolsVersion,
 		Password:          password,
@@ -405,11 +410,16 @@ func NewInstanceConfig(
 	if err != nil {
 		return nil, err
 	}
+	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
+	if err != nil {
+		return nil, err
+	}
 	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
 	icfg := &InstanceConfig{
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
+		MetricsSpoolDir:         metricsSpoolDir,
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),

@@ -52,6 +52,7 @@ func ConfigFileExists(config Config) bool {
 }
 
 var (
-	MachineJobFromParams = machineJobFromParams
-	IsLocalEnv           = &isLocalEnv
+	MachineJobFromParams   = machineJobFromParams
+	IsLocalEnv             = &isLocalEnv
+	DefaultMetricsSpoolDir = metricsSpoolDir
 )
