@@ -175,7 +175,9 @@ func (s *SubnetsSuite) TestListSubnets(c *gc.C) {
 	results, err := s.api.ListSubnets(&space, zone)
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, args.Results)
+
+	var expectedResults []params.Subnet
+	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
 func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
@@ -186,5 +188,7 @@ func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
 	results, err := s.api.ListSubnets(&space, zone)
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
-	c.Assert(results, gc.DeepEquals, args.Results)
+
+	var expectedResults []params.Subnet
+	c.Assert(results, jc.DeepEquals, expectedResults)
 }

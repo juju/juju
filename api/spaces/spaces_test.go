@@ -135,7 +135,9 @@ func (s *SpacesSuite) TestListSpaces(c *gc.C) {
 	results, err := s.api.ListSpaces()
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, expectResults)
+
+	var expectedResults []params.Space
+	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
 func (s *SpacesSuite) TestListSpacesFails(c *gc.C) {
@@ -149,5 +151,7 @@ func (s *SpacesSuite) TestListSpacesFails(c *gc.C) {
 	results, err := s.api.ListSpaces()
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
-	c.Assert(results, gc.DeepEquals, args.Results)
+
+	var expectedResults []params.Space
+	c.Assert(results, gc.DeepEquals, expectedResults)
 }

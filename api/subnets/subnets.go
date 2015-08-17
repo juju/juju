@@ -69,7 +69,7 @@ func (api *API) CreateSubnet(subnet names.SubnetTag, space names.SpaceTag, zones
 }
 
 // ListSubnets fetches all the subnets known by the environment.
-func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) (params.ListSubnetsResults, error) {
+func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Subnet, error) {
 	var response params.ListSubnetsResults
 	params := params.ListSubnetsParams{
 		Filters: []params.ListSubnetsFilterParams{
@@ -77,5 +77,5 @@ func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) (params.ListS
 		},
 	}
 	err := api.facade.FacadeCall("ListSubnets", params, &response)
-	return response, err
+	return response.Results, err
 }
