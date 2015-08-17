@@ -106,6 +106,8 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		result.Name = space.Name()
 		subnets, err := space.Subnets()
 		if err != nil {
+			// TODO(mfoord): the response type should have an error
+			// field so we can return partial results.
 			return results, err
 		}
 		for _, subnet := range subnets {
