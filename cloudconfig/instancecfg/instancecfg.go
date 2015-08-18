@@ -296,6 +296,9 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.LogDir == "" {
 		return errors.New("missing log directory")
 	}
+	if cfg.MetricsSpoolDir == "" {
+		return errors.New("missing metrics spool directory")
+	}
 	if len(cfg.Jobs) == 0 {
 		return errors.New("missing machine jobs")
 	}
