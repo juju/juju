@@ -34,9 +34,10 @@ var logger = loggo.GetLogger("juju.agent")
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir  = paths.MustSucceed(paths.LogDir(version.Current.Series))
-	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
-	confDir = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+	logDir          = paths.MustSucceed(paths.LogDir(version.Current.Series))
+	dataDir         = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	confDir         = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
 )
 
 // Agent exposes the agent's configuration to other components. This
@@ -192,6 +193,10 @@ type Config interface {
 	// Environment returns the tag for the environment that the agent belongs
 	// to.
 	Environment() names.EnvironTag
+
+	// MetricsSpoolDir returns the spool directory where workloads store
+	// collected metrics.
+	MetricsSpoolDir() string
 }
 
 type configSetterOnly interface {
@@ -308,6 +313,7 @@ type configInternal struct {
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
 	preferIPv6        bool
+	metricsSpoolDir   string
 }
 
 type AgentConfigParams struct {
@@ -324,6 +330,7 @@ type AgentConfigParams struct {
 	CACert            string
 	Values            map[string]string
 	PreferIPv6        bool
+	MetricsSpoolDir   string
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -335,6 +342,10 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	logDir := DefaultLogDir
 	if configParams.LogDir != "" {
 		logDir = configParams.LogDir
+	}
+	spoolDir := metricsSpoolDir
+	if configParams.MetricsSpoolDir != "" {
+		spoolDir = configParams.MetricsSpoolDir
 	}
 	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
@@ -373,6 +384,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
 		preferIPv6:        configParams.PreferIPv6,
+		metricsSpoolDir:   spoolDir,
 	}
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -594,6 +606,10 @@ func (c *configInternal) File(name string) string {
 
 func (c *configInternal) DataDir() string {
 	return c.dataDir
+}
+
+func (c *configInternal) MetricsSpoolDir() string {
+	return c.metricsSpoolDir
 }
 
 func (c *configInternal) LogDir() string {
