@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -231,15 +232,23 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(context.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
-	expect, expectOK := s.unit.PrivateAddress()
-	actual, actualOK := ctx.PrivateAddress()
+	expect, expectOk := s.unit.PrivateAddress()
+	actual, actualErr := ctx.PrivateAddress()
 	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	if expectOk {
+		c.Assert(actualErr, jc.ErrorIsNil)
+	} else {
+		c.Assert(actualErr, jc.Satisfies, errors.IsNotFound)
+	}
 
-	expect, expectOK = s.unit.PublicAddress()
-	actual, actualOK = ctx.PublicAddress()
+	expect, expectOk = s.unit.PublicAddress()
+	actual, actualErr = ctx.PublicAddress()
 	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	if expectOk {
+		c.Assert(actualErr, jc.ErrorIsNil)
+	} else {
+		c.Assert(actualErr, gc.NotNil)
+	}
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -247,15 +256,17 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(name, gc.Equals, env.Name())
 	c.Assert(uuid, gc.Equals, env.UUID())
 
-	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
+	ids, err := ctx.RelationIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids, gc.HasLen, 2)
 
-	r, found := ctx.Relation(0)
-	c.Assert(found, jc.IsTrue)
+	r, err := ctx.Relation(0)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:0")
 
-	r, found = ctx.Relation(1)
-	c.Assert(found, jc.IsTrue)
+	r, err = ctx.Relation(1)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
 }
@@ -273,14 +284,14 @@ func (s *HookContextSuite) AssertActionContext(c *gc.C, ctx *context.HookContext
 }
 
 func (s *HookContextSuite) AssertNotStorageContext(c *gc.C, ctx *context.HookContext) {
-	storageAttachment, ok := ctx.HookStorage()
+	storageAttachment, err := ctx.HookStorage()
 	c.Assert(storageAttachment, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
 func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *context.HookContext, id string, attachment storage.StorageAttachmentInfo) {
-	fromCache, ok := ctx.HookStorage()
-	c.Assert(ok, jc.IsTrue)
+	fromCache, err := ctx.HookStorage()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fromCache, gc.NotNil)
 	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
 	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
@@ -290,16 +301,16 @@ func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *context.HookContex
 func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int, remoteUnit string) *context.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
 	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
-	rel, found := ctx.HookRelation()
-	c.Assert(found, jc.IsTrue)
+	rel, err := ctx.HookRelation()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Id(), gc.Equals, relId)
 	return rel.(*context.ContextRelation)
 }
 
 func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx *context.HookContext) {
-	rel, found := ctx.HookRelation()
+	rel, err := ctx.HookRelation()
 	c.Assert(rel, gc.IsNil)
-	c.Assert(found, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
 type BlockHelper struct {

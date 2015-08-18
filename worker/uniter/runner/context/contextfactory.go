@@ -50,11 +50,11 @@ type StorageContextAccessor interface {
 
 	// StorageTags returns the tags of storage instances attached to
 	// the unit.
-	StorageTags() []names.StorageTag
+	StorageTags() ([]names.StorageTag, error)
 
 	// Storage returns the jujuc.ContextStorageAttachment with the
 	// supplied tag if it was found, and whether it was found.
-	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, bool)
+	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context
@@ -193,8 +193,8 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	}
 	if hookInfo.Kind.IsStorage() {
 		ctx.storageTag = names.NewStorageTag(hookInfo.StorageId)
-		if _, found := ctx.storage.Storage(ctx.storageTag); !found {
-			return nil, errors.Errorf("unknown storage id: %v", hookInfo.StorageId)
+		if _, err := ctx.storage.Storage(ctx.storageTag); err != nil {
+			return nil, errors.Annotatef(err, "could not retrieve storage for id: %v", hookInfo.StorageId)
 		}
 		storageName, err := names.StorageName(hookInfo.StorageId)
 		if err != nil {

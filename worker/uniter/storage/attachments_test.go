@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -27,7 +28,9 @@ type attachmentsSuite struct {
 var _ = gc.Suite(&attachmentsSuite{})
 
 func assertStorageTags(c *gc.C, a *storage.Attachments, tags ...names.StorageTag) {
-	c.Assert(a.StorageTags(), jc.SameContents, tags)
+	sTags, err := a.StorageTags()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sTags, jc.SameContents, tags)
 }
 
 func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
@@ -204,7 +207,7 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 
 	// There should be no context for data/0 until a hook is queued.
 	_, ok := att.Storage(storageTag)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, jc.Satisfies, errors.IsNotFound)
 	assertStorageTags(c, att)
 
 	err = att.UpdateStorage([]names.StorageTag{storageTag})
@@ -216,8 +219,8 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	})
 	assertStorageTags(c, att, storageTag)
 
-	ctx, ok := att.Storage(storageTag)
-	c.Assert(ok, jc.IsTrue)
+	ctx, err := att.Storage(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(ctx.Tag(), gc.Equals, storageTag)
 	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)

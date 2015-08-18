@@ -19,8 +19,8 @@ type StorageAddCommand struct {
 }
 
 // NewStorageAddCommand makes a jujuc storage-add command.
-func NewStorageAddCommand(ctx Context) cmd.Command {
-	return &StorageAddCommand{ctx: ctx}
+func NewStorageAddCommand(ctx Context) (cmd.Command, error) {
+	return &StorageAddCommand{ctx: ctx}, nil
 }
 
 var StorageAddDoc = `
