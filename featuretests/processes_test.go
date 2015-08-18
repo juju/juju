@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/component/all"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -48,7 +50,7 @@ func initProcessesSuites() {
 	userInfo = u
 	// TODO(ericsnow) Re-enable once we get the local provider cleaning
 	// up properly.
-	//gc.Suite(&processesSuite{})
+	// gc.Suite(&processesSuite{})
 }
 
 var (
@@ -362,8 +364,71 @@ func (s *processesSuite) TestHookContextDestroy(c *gc.C) {
 }
 
 func (s *processesSuite) TestWorkerSetStatus(c *gc.C) {
-	// TODO(ericsnow) Finish!
-	c.Skip("not finished")
+	svc := s.env.addService(c, "proc-actions", "workerStatusSvc")
+	s.svc = svc
+
+	svc.dummy.prepPlugin(c, "myproc", "xyz123", "running")
+
+	args := map[string]interface{}{
+		"name": "myproc",
+	}
+	period := time.Second * 5
+	workers.SetStatusWorkerUpdatePeriod(period)
+	svc.dummy.runAction(c, "launch", args)
+
+	args = map[string]interface{}{
+		"id":     "xyz123",
+		"status": "testing",
+	}
+	svc.dummy.runAction(c, "plugin-setstatus", args)
+	time.Sleep(period * 2)
+
+	svc.dummy.checkState(c, []process.Info{{
+		Process: charm.Process{
+			Name: "myproc",
+			Type: "myplugin",
+			TypeOptions: map[string]string{
+				"critical": "true",
+			},
+			Command: "run-server",
+			Image:   "web-server",
+			Ports: []charm.ProcessPort{{
+				External: 8080,
+				Internal: 80,
+				Endpoint: "",
+			}, {
+				External: 8081,
+				Internal: 443,
+				Endpoint: "",
+			}},
+			Volumes: []charm.ProcessVolume{{
+				ExternalMount: "/var/some-server/html",
+				InternalMount: "/usr/share/some-server/html",
+				Mode:          "ro",
+				Name:          "",
+			}, {
+				ExternalMount: "/var/some-server/conf",
+				InternalMount: "/etc/some-server",
+				Mode:          "ro",
+				Name:          "",
+			}},
+			EnvVars: map[string]string{
+				"IMPORTANT": "some value",
+			},
+		},
+		Status: process.Status{
+			State:   process.StateRunning,
+			Blocker: "",
+			Message: "",
+		},
+		Details: process.Details{
+			ID: "xyz123",
+			Status: process.PluginStatus{
+				State: "testing",
+			},
+		},
+	}})
+
 }
 
 func (s *processesSuite) TestWorkerCleanUp(c *gc.C) {

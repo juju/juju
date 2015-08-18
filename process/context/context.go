@@ -30,12 +30,14 @@ type APIClient interface {
 	// AllDefinitions returns the process definitions found in the
 	// unit's metadata.
 	AllDefinitions() ([]charm.Process, error)
+	// SetProcessesStatus sets the status for the given ID.
+	SetProcessesStatus(status process.Status, pluginStatus process.PluginStatus, ids ...string) error
 }
 
 // TODO(ericsnow) Rename Get and Set to more specifically describe what
 // they are for.
 
-// omponent provides the hook context data specific to workload processes.
+// Component provides the hook context data specific to workload processes.
 type Component interface {
 	// Plugin returns the plugin to use for the given proc.
 	Plugin(info *process.Info) (process.Plugin, error)
@@ -244,9 +246,10 @@ func (c *Context) Flush() error {
 				return errors.Trace(err)
 			}
 			events = append(events, process.Event{
-				Kind:   process.EventKindTracked,
-				ID:     info.ID(),
-				Plugin: plugin,
+				Kind:     process.EventKindTracked,
+				ID:       info.ID(),
+				Plugin:   plugin,
+				PluginID: info.Details.ID,
 			})
 		}
 		if _, err := c.api.RegisterProcesses(updates...); err != nil {
@@ -269,9 +272,10 @@ func (c *Context) Flush() error {
 				return errors.Trace(err)
 			}
 			events = append(events, process.Event{
-				Kind:   process.EventKindUntracked,
-				ID:     id,
-				Plugin: plugin,
+				Kind:     process.EventKindUntracked,
+				ID:       id,
+				Plugin:   plugin,
+				PluginID: info.Details.ID,
 			})
 		}
 		c.api.Untrack(removes)

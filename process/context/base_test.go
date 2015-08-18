@@ -190,6 +190,7 @@ func (c *stubContextComponent) Flush() error {
 }
 
 type stubAPIClient struct {
+	context.APIClient
 	stub        *testing.Stub
 	procs       map[string]process.Info
 	definitions map[string]charm.Process

@@ -34,4 +34,6 @@ type Event struct {
 	ID string
 	// Plugin is the plugin to use for this event.
 	Plugin Plugin
+	// PluginID is the ID that the plugin uses to identify a workload.
+	PluginID string
 }
