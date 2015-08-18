@@ -62,10 +62,14 @@ func (s *eventHandlerSuite) checkRegistered(c *gc.C, eh *workers.EventHandlers, 
 
 func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	eh := workers.NewEventHandlers()
-	defer eh.Close()
+	c.Assert(eh, gc.NotNil)
+	eh.Close()
 
-	// TODO(ericsnow) This test is rather weak.
-	c.Check(eh, gc.NotNil)
+	s.checkUnhandled(c, eh)
+	s.checkRegistered(c, eh)
+	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	c.Check(apiClient, gc.IsNil)
+	c.Check(runner, gc.IsNil)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
