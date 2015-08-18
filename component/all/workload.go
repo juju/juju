@@ -160,6 +160,7 @@ func (c workloads) registerUnitWorkers() *workers.EventHandlers {
 	}
 
 	handlerFuncs := []func([]workload.Event, context.APIClient, workers.Runner) error{
+		workers.WorkloadHandler,
 		workers.StatusEventHandler,
 	}
 
