@@ -19,7 +19,7 @@ type eventHandlerSuite struct {
 	testing.BaseSuite
 
 	stub      *gitjujutesting.Stub
-	apiClient context.APIClient // TODO(ericsnow) Use a stub.
+	apiClient *stubAPIClient
 }
 
 var _ = gc.Suite(&eventHandlerSuite{})
