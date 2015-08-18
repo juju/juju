@@ -1192,9 +1192,7 @@ func (a *MachineAgent) startEnvWorkers(
 	return runner, nil
 }
 
-var isNetworkingEnvironment = _isNetworkingEnvironment
-
-func _isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
+func isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
 	envConfig, err := apiConn.Environment().EnvironConfig()
 	if err != nil {
 		return false, errors.Annotate(err, "cannot read environment config")
