@@ -58,12 +58,6 @@ func newRunHookOp(hookInfo hook.Info) creator {
 	}
 }
 
-func newRetryHookOp(hookInfo hook.Info) creator {
-	return func(factory operation.Factory) (operation.Operation, error) {
-		return factory.NewRetryHook(hookInfo)
-	}
-}
-
 func newSkipHookOp(hookInfo hook.Info) creator {
 	return func(factory operation.Factory) (operation.Operation, error) {
 		return factory.NewSkipHook(hookInfo)

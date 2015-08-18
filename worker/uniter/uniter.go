@@ -200,6 +200,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// Install is a special case, as it must run before there
 	// is any remote state, and before the remote state watcher
 	// is started.
+	var charmURL *corecharm.URL
 	opState := u.operationExecutor.State()
 	if opState.Kind == operation.Install {
 		logger.Infof("resuming charm install")
@@ -213,6 +214,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if err := u.unit.SetCharmURL(opState.CharmURL); err != nil {
 			return errors.Trace(err)
 		}
+		charmURL = opState.CharmURL
+	} else {
+		curl, err := u.unit.CharmURL()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmURL = curl
 	}
 
 	// TODO(axw) below should be in a loop that restarts whenever
@@ -222,27 +230,62 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	u.addCleanup(watcher.Stop)
+	// watcher may be replaced, so use a closure.
+	u.addCleanup(func() error {
+		return watcher.Stop()
+	})
 
 	// Stop the uniter if the watcher fails.
 	go func() { u.tomb.Kill(watcher.Wait()) }()
-	defer watcher.Stop()
 
 	onIdle := func() error {
+		opState := u.operationExecutor.State()
+		if opState.Kind != operation.Continue {
+			// We should only set idle status if we're in
+			// the "Continue" state, which indicates that
+			// there is nothing to do and we're not in an
+			// erro state.
+			return nil
+		}
 		return setAgentStatus(u, params.StatusIdle, "", nil)
 	}
 
-	err = solverLoop(&uniterSolver{
-		opFactory: u.operationFactory,
+	setAgentStatus := func(s params.Status, msg string, data map[string]interface{}) error {
+		return setAgentStatus(u, s, msg, data)
+	}
+
+	clearResolved := func() error {
+		if err := u.unit.ClearResolved(); err != nil {
+			return errors.Trace(err)
+		}
+		watcher.ClearResolvedMode()
+		return nil
+	}
+
+	uniterSolver := &uniterSolver{
+		opFactory:      u.operationFactory,
+		setAgentStatus: setAgentStatus,
+		clearResolved:  clearResolved,
+		charmURL:       charmURL,
 		leadershipSolver: &leadershipSolver{
 			opFactory: u.operationFactory,
 			tracker:   u.leadershipTracker,
 		},
-	}, watcher, u.operationExecutor, u.tomb.Dying(), onIdle)
+	}
 
-	if errors.Cause(err) == solver.ErrTerminate {
-		// TODO(axw) wait for subordinates to disappear,
-		// return worker.ErrTerminate.
+	for err == nil {
+		err = solverLoop(
+			uniterSolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
+		)
+		switch errors.Cause(err) {
+		case operation.ErrHookFailed:
+			// Loop back around. The solver can tell that it is in
+			// an error state by inspecting the operation state.
+			err = nil
+		case solver.ErrTerminate:
+			// TODO(axw) wait for subordinates to disappear,
+			// return worker.ErrTerminate.
+		}
 	}
 
 	logger.Infof("unit %q shutting down: %s", u.unit, err)

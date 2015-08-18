@@ -132,7 +132,7 @@ func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 func (opc *operationCallbacks) ClearResolvedFlag() error {
 	// TODO(axw)
 	//return opc.u.f.ClearResolved()
-	return nil
+	return opc.u.unit.ClearResolved()
 }
 
 // InitializeMetricsTimers is part of the operation.Callbacks interface.

@@ -19,10 +19,10 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 
-// remoteStateWatcher collects unit, service, and service config information
+// RemoteStateWatcher collects unit, service, and service config information
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
-type remoteStateWatcher struct {
+type RemoteStateWatcher struct {
 	st      *uniter.State
 	unit    *uniter.Unit
 	service *uniter.Service
@@ -33,10 +33,10 @@ type remoteStateWatcher struct {
 	current Snapshot
 }
 
-// NewFilter returns a remoteStateWatcher that handles state changes pertaining to the
+// NewFilter returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
-func NewWatcher(st *uniter.State, unitTag names.UnitTag) (Watcher, error) {
-	w := &remoteStateWatcher{
+func NewWatcher(st *uniter.State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
+	w := &RemoteStateWatcher{
 		st:  st,
 		out: make(chan struct{}),
 		current: Snapshot{
@@ -56,28 +56,28 @@ func NewWatcher(st *uniter.State, unitTag names.UnitTag) (Watcher, error) {
 	return w, nil
 }
 
-func (w *remoteStateWatcher) Stop() error {
+func (w *RemoteStateWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
 
-func (w *remoteStateWatcher) Dead() <-chan struct{} {
+func (w *RemoteStateWatcher) Dead() <-chan struct{} {
 	return w.tomb.Dead()
 }
 
-func (w *remoteStateWatcher) Wait() error {
+func (w *RemoteStateWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *remoteStateWatcher) Kill() {
+func (w *RemoteStateWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
-func (w *remoteStateWatcher) RemoteStateChanged() <-chan struct{} {
+func (w *RemoteStateWatcher) RemoteStateChanged() <-chan struct{} {
 	return w.out
 }
 
-func (w *remoteStateWatcher) Snapshot() Snapshot {
+func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	snapshot := w.current
@@ -92,14 +92,20 @@ func (w *remoteStateWatcher) Snapshot() Snapshot {
 	return snapshot
 }
 
-func (w *remoteStateWatcher) fire() {
+func (w *RemoteStateWatcher) ClearResolvedMode() {
+	w.mu.Lock()
+	w.current.ResolvedMode = params.ResolvedNone
+	w.mu.Unlock()
+}
+
+func (w *RemoteStateWatcher) fire() {
 	select {
 	case w.out <- struct{}{}:
 	default:
 	}
 }
 
-func (w *remoteStateWatcher) init(unitTag names.UnitTag) (err error) {
+func (w *RemoteStateWatcher) init(unitTag names.UnitTag) (err error) {
 	// TODO(dfc) named return value is a time bomb
 	// TODO(axw) move this logic.
 	defer func() {
@@ -124,7 +130,7 @@ func (w *remoteStateWatcher) init(unitTag names.UnitTag) (err error) {
 	return nil
 }
 
-func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
+func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	unitw, err := w.unit.Watch()
 	if err != nil {
 		return err
@@ -235,7 +241,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 }
 
 // unitChanged responds to changes in the unit.
-func (w *remoteStateWatcher) unitChanged() error {
+func (w *RemoteStateWatcher) unitChanged() error {
 	if err := w.unit.Refresh(); err != nil {
 		return err
 	}
@@ -251,7 +257,7 @@ func (w *remoteStateWatcher) unitChanged() error {
 }
 
 // serviceChanged responds to changes in the service.
-func (w *remoteStateWatcher) serviceChanged() error {
+func (w *RemoteStateWatcher) serviceChanged() error {
 	if err := w.service.Refresh(); err != nil {
 		return err
 	}
@@ -266,21 +272,21 @@ func (w *remoteStateWatcher) serviceChanged() error {
 	return nil
 }
 
-func (w *remoteStateWatcher) configChanged() error {
+func (w *RemoteStateWatcher) configChanged() error {
 	w.mu.Lock()
 	w.current.ConfigVersion++
 	w.mu.Unlock()
 	return nil
 }
 
-func (w *remoteStateWatcher) addressesChanged() error {
+func (w *RemoteStateWatcher) addressesChanged() error {
 	w.mu.Lock()
 	w.current.ConfigVersion++
 	w.mu.Unlock()
 	return nil
 }
 
-func (w *remoteStateWatcher) leaderSettingsChanged() error {
+func (w *RemoteStateWatcher) leaderSettingsChanged() error {
 	w.mu.Lock()
 	w.current.LeaderSettingsVersion++
 	w.mu.Unlock()
@@ -288,7 +294,7 @@ func (w *remoteStateWatcher) leaderSettingsChanged() error {
 }
 
 // relationsChanged responds to service relation changes.
-func (w *remoteStateWatcher) relationsChanged(keys []string) error {
+func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for _, key := range keys {
@@ -307,7 +313,7 @@ func (w *remoteStateWatcher) relationsChanged(keys []string) error {
 }
 
 // storageChanged responds to unit storage changes.
-func (w *remoteStateWatcher) storageChanged(keys []string) error {
+func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 	ids := make([]params.StorageAttachmentId, len(keys))
 	for i, key := range keys {
 		ids[i] = params.StorageAttachmentId{
