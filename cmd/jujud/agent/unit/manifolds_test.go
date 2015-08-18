@@ -4,6 +4,7 @@
 package unit_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -68,6 +69,38 @@ func (s *ManifoldsSuite) TestAcyclic(c *gc.C) {
 	}
 	c.Logf("got: %v", sorted)
 	c.Check(sorted, gc.HasLen, count) // Final sanity check.
+}
+
+func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
+	config := unit.ManifoldsConfig{
+		Agent:               nil,
+		LogSource:           nil,
+		LeadershipGuarantee: 0,
+	}
+
+	manifolds := unit.Manifolds(config)
+	c.Assert(manifolds, gc.HasLen, 12)
+	expectedKeys := []string{
+		unit.AgentName,
+		unit.APIAdddressUpdaterName,
+		unit.APICallerName,
+		unit.LeadershipTrackerName,
+		unit.LoggingConfigUpdaterName,
+		unit.LogSenderName,
+		unit.MachineLockName,
+		unit.ProxyConfigUpdaterName,
+		unit.RsyslogConfigUpdaterName,
+		unit.UniterName,
+		unit.UpgraderName,
+		unit.MetricSpoolName,
+	}
+	keys := make([]string, len(manifolds))
+	i := 0
+	for k, _ := range manifolds {
+		keys[i] = k
+		i++
+	}
+	c.Assert(expectedKeys, jc.SameContents, keys)
 }
 
 type fakeAgent struct {
