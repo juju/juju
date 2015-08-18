@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/util"
 )
 
 var workloadEventLogger = loggo.GetLogger("juju.workload.workers.event")
@@ -145,13 +146,9 @@ func (eh *EventHandlers) runnerManifold() dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},
 		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
-			loop := func(<-chan struct{}) error { return nil }
-			return worker.NewSimpleWorker(loop), nil
+			return util.NewValueWorker(eh.runner)
 		},
-		Output: func(in worker.Worker, out interface{}) error {
-			// TODO(ericsnow) provide the runner
-			return nil
-		},
+		Output: util.ValueWorkerOutput,
 	}
 }
 
@@ -159,13 +156,9 @@ func (eh *EventHandlers) apiManifold() dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},
 		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
-			loop := func(<-chan struct{}) error { return nil }
-			return worker.NewSimpleWorker(loop), nil
+			return util.NewValueWorker(eh.apiClient)
 		},
-		Output: func(in worker.Worker, out interface{}) error {
-			// TODO(ericsnow) provide the API client
-			return nil
-		},
+		Output: util.ValueWorkerOutput,
 	}
 }
 
