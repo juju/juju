@@ -46,7 +46,7 @@ func (workloads) registerForClient() error {
 	return nil
 }
 
-func (c workloads) registerHookContext(handlers map[string]*workers.EventHandlers) {
+func (c workloads) registerHookContext(handlers *workers.EventHandlers) {
 	if !markRegistered(workload.ComponentName, "hook-context") {
 		return
 	}
@@ -54,8 +54,8 @@ func (c workloads) registerHookContext(handlers map[string]*workers.EventHandler
 	runner.RegisterComponentFunc(workload.ComponentName,
 		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
 			var addEvents func(...workload.Event)
-			if unitEventHandler, ok := handlers[unit]; ok {
-				addEvents = unitEventHandler.AddEvents
+			if handlers != nil {
+				addEvents = handlers.AddEvents
 			}
 			hctxClient := c.newHookContextAPIClient(caller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
@@ -154,43 +154,30 @@ func (workloads) registerHookContextCommands() {
 
 // TODO(ericsnow) Use a watcher instead of passing around the event handlers?
 
-func (c workloads) registerUnitWorkers() map[string]*workers.EventHandlers {
+func (c workloads) registerUnitWorkers() *workers.EventHandlers {
 	if !markRegistered(workload.ComponentName, "workers") {
 		return nil
 	}
-
-	// TODO(ericsnow) There should only be one...
-	unitEventHandlers := make(map[string]*workers.EventHandlers)
 
 	handlerFuncs := []func([]workload.Event, context.APIClient, workers.Runner) error{
 		workers.StatusEventHandler,
 	}
 
-	newManifold := func(config unit.ManifoldsConfig) (dependency.Manifold, error) {
-		// At this point no workload workers are running for the unit.
+	unitHandlers := workers.NewEventHandlers()
+	for _, handlerFunc := range handlerFuncs {
+		unitHandlers.RegisterHandler(handlerFunc)
+	}
 
-		unitName := config.Agent.CurrentConfig().Tag().String()
-		if unitHandler, ok := unitEventHandlers[unitName]; ok {
-			// The worker must have restarted.
-			// TODO(ericsnow) Could cause panics?
-			unitHandler.Close()
-		}
-
-		unitHandler := workers.NewEventHandlers()
-		for _, handlerFunc := range handlerFuncs {
-			unitHandler.RegisterHandler(handlerFunc)
-		}
-		unitEventHandlers[unitName] = unitHandler
-
+	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+		// At this point no workload process workers are running for the unit.
 		apiConfig := util.ApiManifoldConfig{
 			APICallerName: unit.APICallerName,
 		}
 		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)
-			var runner worker.Runner            // TODO(ericsnow) Wrap engine in a runner.
-			unitHandler.Init(apiClient, runner) // TODO(ericsnow) Eliminate this...
-
-			return unitHandler.StartEngine()
+			var runner worker.Runner // TODO(ericsnow) Wrap engine in a runner.
+			unitHandlers.Reset(apiClient, runner)
+			return unitHandlers.StartEngine()
 		})
 		return manifold, nil
 	}
@@ -199,7 +186,7 @@ func (c workloads) registerUnitWorkers() map[string]*workers.EventHandlers {
 		panic(err)
 	}
 
-	return unitEventHandlers
+	return unitHandlers
 }
 
 func (workloads) registerState() {

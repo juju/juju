@@ -48,7 +48,11 @@ func NewEventHandlers() *EventHandlers {
 	return eh
 }
 
-func (eh *EventHandlers) Init(apiClient context.APIClient, runner Runner) {
+// Reset resets the event handlers.
+func (eh *EventHandlers) Reset(apiClient context.APIClient, runner Runner) {
+	close(eh.events)
+	eh.events = make(chan []workload.Event)
+
 	eh.apiClient = apiClient
 	eh.runner = newTrackingRunner(runner)
 }
@@ -56,8 +60,10 @@ func (eh *EventHandlers) Init(apiClient context.APIClient, runner Runner) {
 // Close cleans up the handler's resources.
 func (eh *EventHandlers) Close() error {
 	close(eh.events)
-	if err := eh.runner.stopAll(); err != nil {
-		return errors.Trace(err)
+	if eh.runner != nil {
+		if err := eh.runner.stopAll(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
