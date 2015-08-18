@@ -51,18 +51,29 @@ def calculate_jobs(root, schedule_all=False):
             raise ValueError('Wrong path')
         candidate_version = get_candidate_version(candidate_path)
         for release in releases:
+            if is_osx_client(candidate) is not is_osx_client(release):
+                continue
+            client_os = 'ubuntu'
+            if is_osx_client(release):
+                client_os = 'osx'
             yield {
-                'old_version': release,
-                'candidate': candidate_version,
+                'old_version': release,  # Client
+                'candidate': candidate_version,  # Server
                 'new_to_old': 'true',
-                'candidate_path': candidate
+                'candidate_path': candidate,
+                'client_os': client_os,
             }
             yield {
-                'old_version': release,
-                'candidate': candidate_version,
+                'old_version': release,  # Server
+                'candidate': candidate_version,  # Client
                 'new_to_old': 'false',
-                'candidate_path': candidate
+                'candidate_path': candidate,
+                'client_os': client_os,
             }
+
+
+def is_osx_client(path):
+    return path.endswith('-osx')
 
 
 def build_jobs(credentials, root, jobs):
