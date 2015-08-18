@@ -45,9 +45,11 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		// TODO(axw) if the agent is not installed yet,
 		// set the status to "preparing storage".
 	case hi.Kind == hooks.ConfigChanged:
-		opc.u.f.DiscardConfigEvent()
+		// TODO(axw)
+		//opc.u.f.DiscardConfigEvent()
 	case hi.Kind == hook.LeaderSettingsChanged:
-		opc.u.f.DiscardLeaderSettingsEvent()
+		// TODO(axw)
+		//opc.u.f.DiscardLeaderSettingsEvent()
 	}
 	return name, nil
 }
@@ -121,12 +123,16 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 
 // SetCurrentCharm is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
-	return opc.u.f.SetCharm(charmURL)
+	// TODO(axw)
+	//return opc.u.f.SetCharm(charmURL)
+	return nil
 }
 
 // ClearResolvedFlag is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) ClearResolvedFlag() error {
-	return opc.u.f.ClearResolved()
+	// TODO(axw)
+	//return opc.u.f.ClearResolved()
+	return nil
 }
 
 // InitializeMetricsTimers is part of the operation.Callbacks interface.

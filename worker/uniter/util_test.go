@@ -780,7 +780,22 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	if overshoot && len(s) == 0 {
 		c.Fatalf("ran more hooks than expected")
 	}
+	waitExecutionLockReleased := func() {
+		lock := createHookLock(c, ctx.dataDir)
+		if err := lock.LockWithTimeout(worstCase, "waiting for lock"); err != nil {
+			c.Fatalf("failed to acquire execution lock: %v", err)
+		}
+		if err := lock.Unlock(); err != nil {
+			c.Fatalf("failed to release execution lock: %v", err)
+		}
+	}
 	if match {
+		if len(s) > 0 {
+			// only check for lock release if there were hooks
+			// run; hooks *not* running may be due to the lock
+			// being held.
+			waitExecutionLockReleased()
+		}
 		return
 	}
 	timeout := time.After(worstCase)
@@ -789,6 +804,7 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 		select {
 		case <-time.After(coretesting.ShortWait):
 			if match, _ = ctx.matchHooks(c); match {
+				waitExecutionLockReleased()
 				return
 			}
 		case <-timeout:

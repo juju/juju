@@ -24,10 +24,11 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/solver"
 	"github.com/juju/juju/worker/uniter/storage"
 )
 
@@ -50,10 +51,10 @@ type UniterExecutionObserver interface {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb      tomb.Tomb
-	st        *uniter.State
-	paths     Paths
-	f         filter.Filter
+	tomb  tomb.Tomb
+	st    *uniter.State
+	paths Paths
+	//f         filter.Filter
 	unit      *uniter.Unit
 	relations Relations
 	cleanups  []cleanup
@@ -157,41 +158,91 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	logger.Infof("unit %q started", u.unit)
 
-	// Start filtering state change events for consumption by modes.
-	u.f, err = filter.NewFilter(u.st, unitTag)
-	if err != nil {
-		return err
-	}
-	u.addCleanup(u.f.Stop)
+	/*
+		// Start filtering state change events for consumption by modes.
+		u.f, err = filter.NewFilter(u.st, unitTag)
+		if err != nil {
+			return err
+		}
+		u.addCleanup(u.f.Stop)
 
-	// Stop the uniter if the filter fails.
-	go func() { u.tomb.Kill(u.f.Wait()) }()
+		// Stop the uniter if the filter fails.
+		go func() { u.tomb.Kill(u.f.Wait()) }()
 
-	// Start handling leader settings events, or not, as appropriate.
-	u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
+		// Start handling leader settings events, or not, as appropriate.
+		u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
 
-	// Run modes until we encounter an error.
-	mode := ModeContinue
-	for err == nil {
-		select {
-		case <-u.tomb.Dying():
-			err = tomb.ErrDying
-		default:
-			mode, err = mode(u)
-			switch cause := errors.Cause(err); cause {
-			case operation.ErrNeedsReboot:
-				err = worker.ErrRebootMachine
-			case tomb.ErrDying, worker.ErrTerminateAgent:
-				err = cause
-			case operation.ErrHookFailed:
-				mode, err = ModeHookError, nil
+		// Run modes until we encounter an error.
+		mode := ModeContinue
+		for err == nil {
+			select {
+			case <-u.tomb.Dying():
+				err = tomb.ErrDying
 			default:
-				charmURL, ok := operation.DeployConflictCharmURL(cause)
-				if ok {
-					mode, err = ModeConflicted(charmURL), nil
+				mode, err = mode(u)
+				switch cause := errors.Cause(err); cause {
+				case operation.ErrNeedsReboot:
+					err = worker.ErrRebootMachine
+				case tomb.ErrDying, worker.ErrTerminateAgent:
+					err = cause
+				case operation.ErrHookFailed:
+					mode, err = ModeHookError, nil
+				default:
+					charmURL, ok := operation.DeployConflictCharmURL(cause)
+					if ok {
+						mode, err = ModeConflicted(charmURL), nil
+					}
 				}
 			}
 		}
+	*/
+
+	// Install is a special case, as it must run before there
+	// is any remote state, and before the remote state watcher
+	// is started.
+	opState := u.operationExecutor.State()
+	if opState.Kind == operation.Install {
+		logger.Infof("resuming charm install")
+		op, err := u.operationFactory.NewInstall(opState.CharmURL)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := u.operationExecutor.Run(op); err != nil {
+			return errors.Trace(err)
+		}
+		if err := u.unit.SetCharmURL(opState.CharmURL); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// TODO(axw) below should be in a loop that restarts whenever
+	// an upgrade occurs.
+
+	watcher, err := remotestate.NewWatcher(u.st, unitTag)
+	if err != nil {
+		return err
+	}
+	u.addCleanup(watcher.Stop)
+
+	// Stop the uniter if the watcher fails.
+	go func() { u.tomb.Kill(watcher.Wait()) }()
+	defer watcher.Stop()
+
+	onIdle := func() error {
+		return setAgentStatus(u, params.StatusIdle, "", nil)
+	}
+
+	err = solverLoop(&uniterSolver{
+		opFactory: u.operationFactory,
+		leadershipSolver: &leadershipSolver{
+			opFactory: u.operationFactory,
+			tracker:   u.leadershipTracker,
+		},
+	}, watcher, u.operationExecutor, u.tomb.Dying(), onIdle)
+
+	if errors.Cause(err) == solver.ErrTerminate {
+		// TODO(axw) wait for subordinates to disappear,
+		// return worker.ErrTerminate.
 	}
 
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
@@ -424,7 +475,8 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 		// or if we gain leadership we want to stop receiving those
 		// events.
 		if after := u.operationState(); before.Leader != after.Leader {
-			u.f.WantLeaderSettingsEvents(before.Leader)
+			// TODO(axw)
+			//u.f.WantLeaderSettingsEvents(before.Leader)
 		}
 	}()
 	return u.operationExecutor.Run(op)
@@ -434,6 +486,7 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 // returns a func that must be called to unlock it. It's used by operation.Executor
 // when running operations that execute external code.
 func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
+	logger.Debugf("lock: %v", message)
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's tomb into account.
 	checkTomb := func() error {
@@ -448,5 +501,8 @@ func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
 	if err := u.hookLock.LockWithFunc(message, checkTomb); err != nil {
 		return nil, err
 	}
-	return func() error { return u.hookLock.Unlock() }, nil
+	return func() error {
+		logger.Debugf("unlock: %v", message)
+		return u.hookLock.Unlock()
+	}, nil
 }
