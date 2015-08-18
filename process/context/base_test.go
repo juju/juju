@@ -190,7 +190,6 @@ func (c *stubContextComponent) Flush() error {
 }
 
 type stubAPIClient struct {
-	context.APIClient
 	stub        *testing.Stub
 	procs       map[string]process.Info
 	definitions map[string]charm.Process
@@ -293,6 +292,20 @@ func (c *stubAPIClient) Untrack(ids []string) error {
 
 	for _, id := range ids {
 		delete(c.procs, id)
+	}
+	return nil
+}
+
+func (c *stubAPIClient) SetProcessesStatus(status process.Status, pluginStatus process.PluginStatus, ids ...string) error {
+	c.stub.AddCall("SetProcessesStatus", status, pluginStatus, ids)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, id := range ids {
+		proc := c.procs[id]
+		proc.Status = status
+		proc.Details.Status = pluginStatus
 	}
 	return nil
 }
