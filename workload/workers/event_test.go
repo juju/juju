@@ -40,6 +40,16 @@ func (s *eventHandlerSuite) handler(events []workload.Event, apiClient context.A
 	return nil
 }
 
+func (s *eventHandlerSuite) checkUnhandled(c *gc.C, eh *workers.EventHandlers, expected ...[]workload.Event) {
+	eventsChan, _, _, _ := workers.ExposeEventHandlers(eh)
+
+	var unhandled [][]workload.Event
+	for events := range eventsChan {
+		unhandled = append(unhandled, events)
+	}
+	c.Check(unhandled, jc.DeepEquals, expected)
+}
+
 func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	eh := workers.NewEventHandlers()
 	defer eh.Close()
@@ -68,11 +78,7 @@ func (s *eventHandlerSuite) TestAddEventsOkay(c *gc.C) {
 		eh.Close()
 	}()
 
-	var got [][]workload.Event
-	for event := range workers.ExposeChannel(eh) {
-		got = append(got, event)
-	}
-	c.Check(got, jc.DeepEquals, [][]workload.Event{events})
+	s.checkUnhandled(c, eh, events)
 }
 
 func (s *eventHandlerSuite) TestAddEventsEmpty(c *gc.C) {
@@ -83,11 +89,7 @@ func (s *eventHandlerSuite) TestAddEventsEmpty(c *gc.C) {
 		eh.Close()
 	}()
 
-	var got [][]workload.Event
-	for event := range workers.ExposeChannel(eh) {
-		got = append(got, event)
-	}
-	c.Check(got, gc.HasLen, 0)
+	s.checkUnhandled(c, eh)
 }
 
 func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
@@ -109,11 +111,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
-	var unhandled [][]workload.Event
-	for event := range workers.ExposeChannel(eh) {
-		unhandled = append(unhandled, event)
-	}
-	c.Check(unhandled, gc.HasLen, 0)
+	s.checkUnhandled(c, eh)
 	s.stub.CheckCallNames(c, "List", "handler")
 	c.Check(s.stub.Calls()[1].Args[0], gc.DeepEquals, events)
 	c.Check(s.stub.Calls()[1].Args[1], gc.DeepEquals, s.apiClient)

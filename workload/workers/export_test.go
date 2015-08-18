@@ -4,9 +4,11 @@
 package workers
 
 import (
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
-func ExposeChannel(events *EventHandlers) chan []workload.Event {
-	return events.events
+func ExposeEventHandlers(eh *EventHandlers) (chan []workload.Event, []func([]workload.Event, context.APIClient, Runner) error, context.APIClient, worker.Runner) {
+	return eh.events, eh.handlers, eh.apiClient, eh.runner
 }
