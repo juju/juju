@@ -66,7 +66,7 @@ class TestRunCommand(TestCase):
             poll_mock.return_value = 123
             self.assertEqual(run_command(57.5, SIGTERM, ['ls', 'foo']),
                              123)
-        po_mock.assert_called_once_with(['ls', 'foo'])
+        po_mock.assert_called_once_with(['ls', 'foo'], creationflags=0)
         poll_mock.assert_called_once_with()
         self.assertEqual(sleep_mock.call_count, 0)
 
