@@ -50,6 +50,16 @@ func (s *eventHandlerSuite) checkUnhandled(c *gc.C, eh *workers.EventHandlers, e
 	c.Check(unhandled, jc.DeepEquals, expected)
 }
 
+func (s *eventHandlerSuite) checkRegistered(c *gc.C, eh *workers.EventHandlers, expected ...string) {
+	_, handlers, _, _ := workers.ExposeEventHandlers(eh)
+	for _, handler := range handlers {
+		err := handler(nil, s.apiClient, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	c.Check(s.stub.Calls(), gc.HasLen, len(expected))
+	s.stub.CheckCallNames(c, expected...)
+}
+
 func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	eh := workers.NewEventHandlers()
 	defer eh.Close()
@@ -63,7 +73,7 @@ func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
 	defer eh.Close()
 	eh.RegisterHandler(s.handler)
 
-	// TODO(ericsnow) Check something here.
+	s.checkRegistered(c, eh, "handler")
 }
 
 func (s *eventHandlerSuite) TestAddEventsOkay(c *gc.C) {
