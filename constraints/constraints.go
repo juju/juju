@@ -232,6 +232,49 @@ func (v Value) String() string {
 	return strings.Join(strs, " ")
 }
 
+// GoString allows printing a constraints.Value nicely with the fmt
+// package, especially when nested inside other types.
+func (v Value) GoString() string {
+	var values []string
+	if v.Arch != nil {
+		values = append(values, fmt.Sprintf("Arch: %q", *v.Arch))
+	}
+	if v.CpuCores != nil {
+		values = append(values, fmt.Sprintf("CpuCores: %v", *v.CpuCores))
+	}
+	if v.CpuPower != nil {
+		values = append(values, fmt.Sprintf("CpuPower: %v", *v.CpuPower))
+	}
+	if v.Mem != nil {
+		values = append(values, fmt.Sprintf("Mem: %v", *v.Mem))
+	}
+	if v.RootDisk != nil {
+		values = append(values, fmt.Sprintf("RootDisk: %v", *v.RootDisk))
+	}
+	if v.InstanceType != nil {
+		values = append(values, fmt.Sprintf("InstanceType: %q", *v.InstanceType))
+	}
+	if v.Container != nil {
+		values = append(values, fmt.Sprintf("Container: %q", *v.Container))
+	}
+	if v.Tags != nil && *v.Tags != nil {
+		values = append(values, fmt.Sprintf("Tags: %q", *v.Tags))
+	} else if v.Tags != nil {
+		values = append(values, "Tags: (*[]string)(nil)")
+	}
+	if v.Spaces != nil && *v.Spaces != nil {
+		values = append(values, fmt.Sprintf("Spaces: %q", *v.Spaces))
+	} else if v.Spaces != nil {
+		values = append(values, "Spaces: (*[]string)(nil)")
+	}
+	if v.Networks != nil && *v.Networks != nil {
+		values = append(values, fmt.Sprintf("Networks: %q", *v.Networks))
+	} else if v.Networks != nil {
+		values = append(values, "Networks: (*[]string)(nil)")
+	}
+	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
+}
+
 func uintStr(i uint64) string {
 	if i == 0 {
 		return ""
@@ -554,9 +597,9 @@ func (v *Value) validateNetworks(networks *[]string) error {
 		return nil
 	}
 	for _, name := range *networks {
-		name := strings.TrimPrefix(name, "^")
-		if !names.IsValidNetwork(name) {
-			return fmt.Errorf("%q is not a valid network name", name)
+		netName := strings.TrimPrefix(name, "^")
+		if !names.IsValidNetwork(netName) {
+			return fmt.Errorf("%q is not a valid network name", netName)
 		}
 	}
 	v.Networks = networks
@@ -594,7 +637,8 @@ func parseSize(str string) (*uint64, error) {
 }
 
 // parseCommaDelimited returns the items in the value s. We expect the
-// tags to be comma delimited strings. It is used for tags and networks.
+// tags to be comma delimited strings. It is used for tags, spaces,
+// and networks.
 func parseCommaDelimited(s string) *[]string {
 	if s == "" {
 		return &[]string{}

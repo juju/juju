@@ -1424,14 +1424,17 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		return err
 	}
 	notSetYet := bson.D{{"nonce", ""}}
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: append(isAliveDoc, notSetYet...),
-		},
-		setConstraintsOp(m.st, m.globalKey(), cons),
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: append(isAliveDoc, notSetYet...),
+	}}
+	mcons, err := m.st.resolveMachineConstraints(cons)
+	if err != nil {
+		return err
 	}
+
+	ops = append(ops, setConstraintsOps(m.st, m.globalKey(), mcons)...)
 	// make multiple attempts to push the ErrExcessiveContention case out of the
 	// realm of plausibility: it implies local state indicating unprovisioned,
 	// and remote state indicating provisioned (reasonable); but which changes

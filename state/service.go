@@ -745,7 +745,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
+		ops = append(ops, setConstraintsOps(s.st, agentGlobalKey, cons)...)
 	}
 	return name, ops, nil
 }
@@ -987,14 +987,12 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Life != Alive {
 		return errNotAlive
 	}
-	ops := []txn.Op{
-		{
-			C:      servicesC,
-			Id:     s.doc.DocID,
-			Assert: isAliveDoc,
-		},
-		setConstraintsOp(s.st, s.globalKey(), cons),
-	}
+	ops := []txn.Op{{
+		C:      servicesC,
+		Id:     s.doc.DocID,
+		Assert: isAliveDoc,
+	}}
+	ops = append(ops, setConstraintsOps(s.st, s.globalKey(), cons)...)
 	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
