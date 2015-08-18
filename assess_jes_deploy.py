@@ -55,10 +55,14 @@ def test_jes_deploy(client, charm_prefix, base_env):
 
 @contextmanager
 def jes_setup(args):
-    """jes_setup sets up the juju client and its environment.
-       It returns return client, charm_prefix and base_env"""
+    """
+    Sets up the juju client and its environment.
+
+    Returns return client, charm_prefix and base_env.
+    """
     base_env = args.env
     configure_logging(args.verbose)
+    # TODO(gz): Logic from deploy_stack, and precise is a bad default series?
     series = args.series
     if series is None:
         series = 'precise'
@@ -108,6 +112,7 @@ def hosted_environment(system_client, suffix):
                 client.env.environment))
         sys.exit(1)
     finally:
+        # TODO(gz): May want to gather logs from hosted env here.
         client.destroy_environment(force=False)
 
 
