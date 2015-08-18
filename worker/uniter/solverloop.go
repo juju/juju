@@ -1,8 +1,6 @@
 package uniter
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
@@ -28,23 +26,24 @@ func solverLoop(
 			if err := e.Run(op); err != nil {
 				return errors.Trace(err)
 			}
+			// Refresh snapshot, in case remote state
+			// changed between operations.
+			remoteState = w.Snapshot()
 			op, err = s.NextOp(e.State(), remoteState)
+		}
+
+		if err := onIdle(); err != nil {
+			return errors.Trace(err)
 		}
 
 		select {
 		case <-dying:
 			return tomb.ErrDying
-		case <-time.After(idleWaitTime):
-			// TODO(axw) pass in Clock for time.After
-			if err := onIdle(); err != nil {
-				return errors.Trace(err)
-			}
 		case _, ok := <-w.RemoteStateChanged():
 			// TODO(axw) !ok => dying
 			if !ok {
 				panic("!ok")
 			}
-			remoteState = w.Snapshot()
 		}
 	}
 }

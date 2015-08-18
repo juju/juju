@@ -8,6 +8,7 @@ type Watcher interface {
 	// Snapshot returns the current snapshot of the remote state.
 	Snapshot() Snapshot
 
+	// TODO(axw) Kill instead of Stop
 	Stop() error
 	Wait() error
 }

@@ -28,8 +28,6 @@ func (s *uniterSolver) NextOp(
 		return s.opFactory.NewUpgrade(opState.CharmURL)
 	}
 
-	// TODO(axw) check leadershipSolver
-
 	for _, s := range [...]solver.Solver{
 		s.leadershipSolver,
 		//s.storageSolver,
