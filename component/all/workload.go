@@ -5,11 +5,9 @@ package all
 
 import (
 	"reflect"
-	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
@@ -18,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -33,8 +30,6 @@ import (
 	"github.com/juju/juju/workload/status"
 	"github.com/juju/juju/workload/workers"
 )
-
-var workloadsLogger = loggo.GetLogger("component.all.workload")
 
 type workloads struct{}
 
@@ -192,29 +187,10 @@ func (c workloads) registerUnitWorkers() map[string]*workers.EventHandlers {
 		}
 		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)
-
-			engine, err := dependency.NewEngine(dependency.EngineConfig{
-				IsFatal:       cmdutil.IsFatal,
-				MoreImportant: func(_ error, worst error) error { return worst },
-				ErrorDelay:    3 * time.Second,
-				BounceDelay:   10 * time.Millisecond,
-			})
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			var runner worker.Runner            // TODO(ericsnow) Wrap engine in a runner.
 			unitHandler.Init(apiClient, runner) // TODO(ericsnow) Eliminate this...
 
-			manifolds := unitHandler.Manifolds()
-			if err := dependency.Install(engine, manifolds); err != nil {
-				if err := worker.Stop(engine); err != nil {
-					workloadsLogger.Errorf("while stopping engine with bad manifolds: %v", err)
-				}
-				return nil, errors.Trace(err)
-			}
-
-			return engine, nil
+			return unitHandler.StartEngine()
 		})
 		return manifold, nil
 	}

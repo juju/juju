@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/workload/context"
 )
 
-var workloadEventLogger = loggo.GetLogger("juju.workload.workers.event")
+var logger = loggo.GetLogger("juju.workload.workers")
 
 const (
 	resEvents    = "events"
@@ -41,7 +41,7 @@ type EventHandlers struct {
 
 // NewEventHandlers wraps a new EventHandler around the provided channel.
 func NewEventHandlers() *EventHandlers {
-	workloadEventLogger.Debugf("new event handler created")
+	logger.Debugf("new event handler created")
 	eh := &EventHandlers{
 		events: make(chan []workload.Event),
 	}
@@ -65,7 +65,7 @@ func (eh *EventHandlers) Close() error {
 // RegisterHandler adds a handler to the list of handlers used when new
 // events are processed.
 func (eh *EventHandlers) RegisterHandler(handler func([]workload.Event, context.APIClient, Runner) error) {
-	workloadEventLogger.Debugf("registering handler: %#v", handler)
+	logger.Debugf("registering handler: %#v", handler)
 	eh.handlers = append(eh.handlers, handler)
 }
 
@@ -74,8 +74,25 @@ func (eh *EventHandlers) AddEvents(events ...workload.Event) {
 	eh.events <- events
 }
 
-// Manifolds returns the set of manifolds that should be added for the unit.
-func (eh *EventHandlers) Manifolds() dependency.Manifolds {
+// StartEngine creates a new dependency engine and starts it.
+func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
+	engine, err := newEngine()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	manifolds := eh.manifolds()
+	// TODO(ericsnow) Move the following to a helper in worker/dependency or worker/util?
+	if err := dependency.Install(engine, manifolds); err != nil {
+		if err := worker.Stop(engine); err != nil {
+			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+		}
+		return nil, errors.Trace(err)
+	}
+	return engine, nil
+}
+
+// manifolds returns the set of manifolds that should be added for the unit.
+func (eh *EventHandlers) manifolds() dependency.Manifolds {
 	return dependency.Manifolds{
 		resEvents:    eh.eventsManifold(),
 		resRunner:    eh.runnerManifold(),
@@ -93,7 +110,7 @@ func (eh *EventHandlers) eventsManifold() dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			workloadEventLogger.Debugf("starting new worker")
+			logger.Debugf("starting new worker")
 			w := worker.NewSimpleWorker(eh.loop)
 			// These must be added *after* the worker is started.
 			eh.AddEvents(events...)
@@ -133,7 +150,7 @@ func (eh *EventHandlers) apiManifold() dependency.Manifold {
 }
 
 func (eh *EventHandlers) handle(events []workload.Event) error {
-	workloadEventLogger.Debugf("handling %d events", len(events))
+	logger.Debugf("handling %d events", len(events))
 	for _, handleEvents := range eh.handlers {
 		if err := handleEvents(events, eh.apiClient, eh.runner); err != nil {
 			return errors.Trace(err)
