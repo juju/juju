@@ -79,6 +79,10 @@ func (api *AddresserAPI) CanDeallocateAddresses() params.BoolResult {
 		result.Error = common.ServerError(err)
 		return result
 	}
+	if !api.canDeallocate {
+		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
+		return result
+	}
 	result.Result = api.canDeallocate
 	return result
 }
