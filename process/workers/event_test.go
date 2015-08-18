@@ -56,7 +56,7 @@ func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
 	// TODO(ericsnow) Check something here.
 }
 
-func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
+func (s *eventHandlerSuite) TestAddEventsOkay(c *gc.C) {
 	events := []process.Event{{
 		Kind: process.EventKindTracked,
 		ID:   "spam/eggs",
@@ -73,6 +73,21 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 		got = append(got, event)
 	}
 	c.Check(got, jc.DeepEquals, [][]process.Event{events})
+}
+
+func (s *eventHandlerSuite) TestAddEventsEmpty(c *gc.C) {
+	eh := workers.NewEventHandlers()
+	eh.Reset(s.apiClient)
+	go func() {
+		eh.AddEvents()
+		eh.Close()
+	}()
+
+	var got [][]process.Event
+	for event := range workers.ExposeChannel(eh) {
+		got = append(got, event)
+	}
+	c.Check(got, gc.HasLen, 0)
 }
 
 func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
@@ -99,10 +114,9 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 		unhandled = append(unhandled, event)
 	}
 	c.Check(unhandled, gc.HasLen, 0)
-	s.stub.CheckCallNames(c, "ListProcesses", "handler", "handler")
-	c.Check(s.stub.Calls()[1].Args[0], gc.HasLen, 0)
-	c.Check(s.stub.Calls()[2].Args[0], gc.DeepEquals, events)
-	c.Check(s.stub.Calls()[2].Args[1], gc.DeepEquals, s.apiClient)
+	s.stub.CheckCallNames(c, "ListProcesses", "handler")
+	c.Check(s.stub.Calls()[1].Args[0], gc.DeepEquals, events)
+	c.Check(s.stub.Calls()[1].Args[1], gc.DeepEquals, s.apiClient)
 	// TODO(ericsnow) Check the runner.
 }
 

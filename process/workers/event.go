@@ -81,6 +81,9 @@ func (eh *EventHandlers) RegisterHandler(handler func([]process.Event, context.A
 
 // AddEvents adds events to the list of events to be handled.
 func (eh *EventHandlers) AddEvents(events ...process.Event) {
+	if len(events) == 0 {
+		return
+	}
 	eh.events <- events
 }
 
