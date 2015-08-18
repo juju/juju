@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner_test
+package context_test
 
 import (
 	"github.com/juju/names"
@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type PortsSuite struct {
@@ -78,7 +78,7 @@ func (s *PortsSuite) TestValidatePortRange(c *gc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
-		portRange, err := runner.ValidatePortRange(
+		portRange, err := context.ValidatePortRange(
 			test.proto,
 			test.ports[0],
 			test.ports[1],
@@ -116,18 +116,18 @@ func makeMachinePorts(
 
 func makePendingPorts(
 	proto string, fromPort, toPort int, shouldOpen bool,
-) map[runner.PortRange]runner.PortRangeInfo {
-	result := make(map[runner.PortRange]runner.PortRangeInfo)
+) map[context.PortRange]context.PortRangeInfo {
+	result := make(map[context.PortRange]context.PortRangeInfo)
 	portRange := network.PortRange{
 		FromPort: fromPort,
 		ToPort:   toPort,
 		Protocol: proto,
 	}
-	key := runner.PortRange{
+	key := context.PortRange{
 		Ports:      portRange,
 		RelationId: -1,
 	}
-	result[key] = runner.PortRangeInfo{
+	result[key] = context.PortRangeInfo{
 		ShouldOpen: shouldOpen,
 	}
 	return result
@@ -138,9 +138,9 @@ type portsTest struct {
 	proto         string
 	ports         []int
 	machinePorts  map[network.PortRange]params.RelationUnit
-	pendingPorts  map[runner.PortRange]runner.PortRangeInfo
+	pendingPorts  map[context.PortRange]context.PortRangeInfo
 	expectErr     string
-	expectPending map[runner.PortRange]runner.PortRangeInfo
+	expectPending map[context.PortRange]context.PortRangeInfo
 }
 
 func (p portsTest) withDefaults(proto string, fromPort, toPort int) portsTest {
@@ -151,7 +151,7 @@ func (p portsTest) withDefaults(proto string, fromPort, toPort int) portsTest {
 		p.ports = []int{fromPort, toPort}
 	}
 	if p.pendingPorts == nil {
-		p.pendingPorts = make(map[runner.PortRange]runner.PortRangeInfo)
+		p.pendingPorts = make(map[context.PortRange]context.PortRangeInfo)
 	}
 	return p
 }
@@ -171,7 +171,7 @@ func (s *PortsSuite) TestTryOpenPorts(c *gc.C) {
 	}, {
 		about:         "open an existing range (ignored)",
 		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
-		expectPending: map[runner.PortRange]runner.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:         "open a range pending to be closed already",
 		pendingPorts:  makePendingPorts("tcp", 10, 20, false),
@@ -191,7 +191,7 @@ func (s *PortsSuite) TestTryOpenPorts(c *gc.C) {
 	}, {
 		about:         "open a range conflicting with the same unit (ignored)",
 		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
-		expectPending: map[runner.PortRange]runner.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:        "try opening a range conflicting with another pending range",
 		pendingPorts: makePendingPorts("tcp", 5, 25, true),
@@ -201,7 +201,7 @@ func (s *PortsSuite) TestTryOpenPorts(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 
 		test = test.withDefaults("tcp", 10, 20)
-		err := runner.TryOpenPorts(
+		err := context.TryOpenPorts(
 			test.proto,
 			test.ports[0],
 			test.ports[1],
@@ -229,7 +229,7 @@ func (s *PortsSuite) TestTryClosePorts(c *gc.C) {
 		expectErr: `invalid protocol "foo", expected "tcp" or "udp"`,
 	}, {
 		about:         "close a new range (no machine ports yet; ignored)",
-		expectPending: map[runner.PortRange]runner.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:         "close an existing range",
 		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
@@ -237,7 +237,7 @@ func (s *PortsSuite) TestTryClosePorts(c *gc.C) {
 	}, {
 		about:         "close a range pending to be opened already (removed from pending)",
 		pendingPorts:  makePendingPorts("tcp", 10, 20, true),
-		expectPending: map[runner.PortRange]runner.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:         "close a range pending to be closed already (ignored)",
 		pendingPorts:  makePendingPorts("tcp", 10, 20, false),
@@ -255,7 +255,7 @@ func (s *PortsSuite) TestTryClosePorts(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 
 		test = test.withDefaults("tcp", 10, 20)
-		err := runner.TryClosePorts(
+		err := context.TryClosePorts(
 			test.proto,
 			test.ports[0],
 			test.ports[1],
