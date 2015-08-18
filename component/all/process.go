@@ -175,8 +175,7 @@ func (c workloadProcesses) registerUnitWorkers() *workers.EventHandlers {
 		}
 		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)
-			var runner worker.Runner // TODO(ericsnow) Wrap engine in a runner.
-			unitHandlers.Reset(apiClient, runner)
+			unitHandlers.Reset(apiClient)
 			return unitHandlers.StartEngine()
 		})
 		return manifold, nil
