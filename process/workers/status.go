@@ -89,7 +89,7 @@ func statusTracked(event process.Event, api context.APIClient, runner Runner) er
 }
 
 func statusUntracked(event process.Event, api context.APIClient, runner Runner) error {
-	pluginStatus, err := event.Plugin.Status(event.ID)
+	pluginStatus, err := event.Plugin.Status(event.PluginID)
 	if err != nil {
 		workloadUpdateLogger.Warningf("failed to get status %v - will retry later", err)
 	}

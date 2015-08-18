@@ -48,7 +48,7 @@ func (s *statusWorkerSuite) TestNewStatusWorker(c *gc.C) {
 
 func (s *statusWorkerSuite) TestNewStatusWorkerFunc(c *gc.C) {
 	s.plugin.pluginStatus = "running"
-	event := process.Event{Kind: process.EventKindTracked, ID: "foo", Plugin: s.plugin}
+	event := process.Event{Kind: process.EventKindTracked, ID: "foo", Plugin: s.plugin, PluginID: "bar"}
 
 	call := workers.NewStatusWorkerFunc(event, s.apiClient)
 	err := call(nil)
@@ -61,14 +61,14 @@ func (s *statusWorkerSuite) TestNewStatusWorkerFunc(c *gc.C) {
 	}
 
 	s.stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{FuncName: "Status", Args: []interface{}{"foo"}},
+		{FuncName: "Status", Args: []interface{}{"bar"}},
 		{FuncName: "SetProcessesStatus", Args: expectedSetProcStatusArgs},
 	})
 }
 
 func (s *statusWorkerSuite) TestStatusWorkerTracked(c *gc.C) {
 	s.plugin.pluginStatus = "running"
-	event := process.Event{Kind: process.EventKindTracked, ID: "foo", Plugin: s.plugin}
+	event := process.Event{Kind: process.EventKindTracked, ID: "foo", Plugin: s.plugin, PluginID: "bar"}
 
 	err := workers.StatusEventHandler([]process.Event{event}, s.apiClient, s.runner)
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,7 +79,7 @@ func (s *statusWorkerSuite) TestStatusWorkerTracked(c *gc.C) {
 
 func (s *statusWorkerSuite) TestStatusWorkerUntracked(c *gc.C) {
 	s.plugin.pluginStatus = "shutting down"
-	event := process.Event{Kind: process.EventKindUntracked, ID: "bar", Plugin: s.plugin}
+	event := process.Event{Kind: process.EventKindUntracked, ID: "bar", Plugin: s.plugin, PluginID: "foo"}
 
 	err := workers.StatusEventHandler([]process.Event{event}, s.apiClient, s.runner)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *statusWorkerSuite) TestStatusWorkerUntracked(c *gc.C) {
 	}
 
 	s.stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{FuncName: "Status", Args: []interface{}{"bar"}},
+		{FuncName: "Status", Args: []interface{}{"foo"}},
 		{FuncName: "SetProcessesStatus", Args: expectedSetProcStatusArgs},
 		{FuncName: "StopWorker", Args: []interface{}{"bar"}},
 	})
