@@ -31,11 +31,6 @@ class TestParseArgs(TestCase):
         self.assertEqual(args, Namespace(duration=500.0, signal='TERM'))
         self.assertEqual(command, ['foo', '--bar'])
 
-    def test_parse_args_command_options(self):
-        args, command = parse_args(['500', 'foo', '--bar'])
-        self.assertEqual(args, Namespace(duration=500.0, signal='TERM'))
-        self.assertEqual(command, ['foo', '--bar'])
-
     def test_parse_args_signal(self):
         args, command = parse_args(['500', '--', 'foo', '--signal'])
         self.assertEqual(args, Namespace(duration=500.0, signal='TERM'))
@@ -87,17 +82,17 @@ class TestRunCommand(TestCase):
 
     def test_duration_elapsed(self):
         start = datetime.datetime(2015, 01, 01)
-        middle = start + datetime.timedelta(seconds=57.5)
+        middle = start + datetime.timedelta(seconds=57.4)
         end = start + datetime.timedelta(seconds=57.6)
         with self.patch_po() as (po_mock, poll_mock, sleep_mock):
             poll_mock.side_effect = [None, None, None, None]
-            with patch('timeout.datetime') as dt_mock:
-                dt_mock.now.side_effect = [start, middle, end, end]
+            with patch('utility.until_timeout.now') as utn_mock:
+                utn_mock.side_effect = [start, middle, end, end]
                 self.assertEqual(run_command(57.5, SIGTERM, ['ls', 'foo']),
                                  124)
         self.assertEqual(
             poll_mock.mock_calls, [call(), call()])
         self.assertEqual(
             sleep_mock.mock_calls, [call(0.1), call(0.1)])
-        self.assertEqual(dt_mock.now.mock_calls, [call(), call(), call()])
+        self.assertEqual(utn_mock.mock_calls, [call(), call(), call()])
         po_mock.return_value.send_signal.assert_called_once_with(SIGTERM)

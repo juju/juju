@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
-from datetime import (
-    datetime,
-    timedelta,
-    )
-from operator import getitem
+from itertools import chain
 import signal
 import subprocess
 import sys
 import time
 
-signals = dict((x[3:], getattr(signal, x)) for x in dir(signal) if
-        x.startswith('SIG') and x not in ('SIG_DFL', 'SIG_IGN'))
+from utility import until_timeout
+
+
+# Generate a list of all valid signals for this platform
+signals = dict(
+    (x[3:], getattr(signal, x)) for x in dir(signal) if
+    x.startswith('SIG') and x not in ('SIG_DFL', 'SIG_IGN'))
+
 
 def parse_args(argv=None):
     parser = ArgumentParser()
@@ -24,16 +26,14 @@ def parse_args(argv=None):
 
 def run_command(duration, signal, command):
     proc = subprocess.Popen(command)
-    start = datetime.now()
-    end = start + timedelta(seconds=duration)
-    while True:
+    for remaining in chain([None], until_timeout(duration)):
         result = proc.poll()
         if result is not None:
             return result
         time.sleep(0.1)
-        if datetime.now() > end:
-            proc.send_signal(signal)
-            return 124
+    else:
+        proc.send_signal(signal)
+        return 124
 
 
 def main(args=None):
