@@ -117,7 +117,6 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	} else {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 	}
-
 }
 
 func (s *SpacesSuite) TestAddSpacesOneSubnet(c *gc.C) {
@@ -246,6 +245,9 @@ func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
 	apiservertesting.BackingInstance.SetSpaceSubnetsFail()
-	_, err := s.facade.ListSpaces()
-	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
+	results, err := s.facade.ListSpaces()
+	for _, space := range results.Results {
+		c.Assert(space.Error, gc.ErrorMatches, "could not fetch subnets: boom")
+	}
+	c.Assert(err, gc.IsNil)
 }

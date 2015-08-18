@@ -80,11 +80,11 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	}
 
 	for _, tag := range args.SubnetTags {
-		if subnetTag, err := names.ParseSubnetTag(tag); err != nil {
+		subnetTag, err := names.ParseSubnetTag(tag)
+		if err != nil {
 			return errors.Annotate(err, "given SubnetTag is invalid")
-		} else {
-			subnets = append(subnets, subnetTag.Id())
 		}
+		subnets = append(subnets, subnetTag.Id())
 	}
 
 	// Add the validated space
@@ -105,11 +105,13 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		result := params.Space{}
 		result.Name = space.Name()
 		subnets, err := space.Subnets()
+
 		if err != nil {
-			// TODO(mfoord): the response type should have an error
-			// field so we can return partial results.
-			return results, err
+			result.Error = common.ServerError(errors.Annotatef(err, "could not fetch subnets"))
+			results.Results = append(results.Results, result)
+			continue
 		}
+
 		for _, subnet := range subnets {
 			cidr := subnet.CIDR()
 			vlantag := subnet.VLANTag()
