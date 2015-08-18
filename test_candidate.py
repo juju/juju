@@ -1,11 +1,16 @@
 import json
 from mock import patch
 import os
-from subprocess import CalledProcessError
+from subprocess import (
+    CalledProcessError,
+    check_output,
+)
 from unittest import TestCase
+import tarfile
 
 from candidate import (
     download_candidate_files,
+    download_osx_client,
     extract_candidates,
     find_publish_revision_number,
     get_artifact_dirs,
@@ -14,6 +19,7 @@ from candidate import (
     get_scripts,
     parse_args,
     prepare_dir,
+    OSX_DIR_SUFFIX,
     publish,
     publish_candidates,
 )
@@ -141,8 +147,9 @@ class CandidateTestCase(TestCase):
                        return_value=5678, autospec=True) as fprn_mock:
                 with patch(
                         'candidate.get_artifacts', autospec=True) as ga_mock:
-                    download_candidate_files(
-                        credentials, '1.24.4', '~/candidate', '1234')
+                    with patch('candidate.download_osx_client') as doc_mock:
+                        download_candidate_files(
+                            credentials, '1.24.4', '~/candidate', '1234')
         args, kwargs = pd_mock.call_args
         self.assertEqual(('~/candidate/1.24.4-artifacts', False, False), args)
         args, kwargs = fprn_mock.call_args
@@ -160,6 +167,8 @@ class CandidateTestCase(TestCase):
              '~/candidate/1.24.4-artifacts'),
             args)
         self.assertEqual(options, kwargs)
+        doc_mock.assert_called_once_with(
+            '~/candidate/1.24.4-artifacts', '1234')
 
     def test_download_candidate_files_with_dry_run(self):
         credentials = Credentials('jrandom', 'password1')
@@ -168,14 +177,17 @@ class CandidateTestCase(TestCase):
                        return_value=5678, autospec=True):
                 with patch(
                         'candidate.get_artifacts', autospec=True) as ga_mock:
-                    download_candidate_files(
-                        credentials, '1.24.4', '~/candidate', '1234',
-                        dry_run=True, verbose=True)
+                    with patch('candidate.download_osx_client') as doc_mock:
+                        download_candidate_files(
+                            credentials, '1.24.4', '~/candidate', '1234',
+                            dry_run=True, verbose=True)
         args, kwargs = pd_mock.call_args
         self.assertEqual(('~/candidate/1.24.4-artifacts', True, True), args)
         args, kwargs = ga_mock.call_args
         options = {'verbose': True, 'dry_run': True}
         self.assertEqual(options, kwargs)
+        doc_mock.assert_called_once_with(
+            '~/candidate/1.24.4-artifacts', '1234')
 
     def test_get_artifact_dirs(self):
         with temp_dir() as base_dir:
@@ -206,10 +218,15 @@ class CandidateTestCase(TestCase):
         output, args, kwargs = co_mock.mock_calls[1]
         self.assertEqual((['dpkg', '--print-architecture'], ), args)
 
-    def setup_extract_candidates(self, dry_run=False, verbose=False):
+    def setup_extract_candidates(self, dry_run=False, verbose=False,
+                                 osx=False):
         version = '1.2.3'
+        artifact_filename = 'master-artifacts'
+        if osx:
+            artifact_filename = artifact_filename.replace(
+                '-artifacts', OSX_DIR_SUFFIX)
         with temp_dir() as base_dir:
-            artifacts_dir_path = os.path.join(base_dir, 'master-artifacts')
+            artifacts_dir_path = os.path.join(base_dir, artifact_filename)
             os.makedirs(artifacts_dir_path)
             buildvars_path = os.path.join(artifacts_dir_path, 'buildvars.json')
             with open(buildvars_path, 'w') as bv:
@@ -217,7 +234,12 @@ class CandidateTestCase(TestCase):
             os.utime(buildvars_path, (1426186437, 1426186437))
             master_dir_path = os.path.join(base_dir, version)
             os.makedirs(master_dir_path)
-            package_path = os.path.join(master_dir_path, 'foo.deb')
+            package_name = 'foo.deb' if not osx else 'juju-foo-osx.tar.gz'
+            package_path = os.path.join(master_dir_path, package_name)
+            if osx:
+                master_dir_path = "{}-osx".format(master_dir_path)
+                tar_file_path = os.path.join(artifacts_dir_path, package_name)
+                self.make_tar_file(artifacts_dir_path, tar_file_path)
             with patch('candidate.prepare_dir') as pd_mock:
                 with patch('candidate.get_package',
                            return_value=package_path) as gp_mock:
@@ -230,9 +252,20 @@ class CandidateTestCase(TestCase):
                 self.assertEqual(os.stat(copied_path).st_mtime, 1426186437)
             else:
                 self.assertFalse(os.path.isfile(copied_path))
+            if osx:
+                extracted_juju = check_output(
+                    ['find', master_dir_path, '-name', 'juju']).strip()
+                self.assertEqual(os.path.basename(extracted_juju), 'juju')
             return (pd_mock, gp_mock, cc_mock,
                     artifacts_dir_path, buildvars_path, master_dir_path,
                     package_path)
+
+    def make_tar_file(self, path, output):
+        with tarfile.open(output, "w:gz") as tar:
+            fake_file = os.path.join(path, 'juju')
+            with open(fake_file, 'w') as f:
+                f.write('foo')
+            tar.add(fake_file)
 
     def test_extract_candidates(self):
         results = self.setup_extract_candidates(dry_run=False, verbose=False)
@@ -256,6 +289,16 @@ class CandidateTestCase(TestCase):
         args, kwargs = gp_mock.call_args
         self.assertEqual((artifacts_dir, '1.2.3'), args)
         self.assertEqual(0, cc_mock.call_count)
+
+    def test_extract_candidates_osx_client(self):
+        results = self.setup_extract_candidates(
+            osx=True, dry_run=False, verbose=False)
+        pd_mock, gp_mock, cc_mock = results[0:3]
+        artifacts_dir, buildvars_path, master_dir, package_path = results[3:7]
+        args, kwargs = pd_mock.call_args
+        self.assertEqual((master_dir, False, False), args)
+        self.assertFalse(gp_mock.called)
+        self.assertFalse(cc_mock.called)
 
     def test_get_scripts(self):
         assemble_script, publish_script = get_scripts()
@@ -391,3 +434,18 @@ class CandidateTestCase(TestCase):
         rc_mock.assert_called_with(
             ['publish_script', 'weekly', 'streams_path/juju-dist', 'cpc'],
             verbose=True, dry_run=True)
+
+    def test_download_osx_client(self):
+        with temp_dir() as path:
+            candidate_dir = os.path.join(path, "1.24.6-artifacts")
+            with patch('subprocess.check_output') as s3_mock:
+                download_osx_client(candidate_dir, "2982")
+            expected_dir = os.path.join(path, "1.24.6-osx-artifacts")
+            self.assertTrue(os.path.isdir(expected_dir))
+        s3_mock.assert_called_once_with(
+            ['s3cmd', '-c',
+             "{}/cloud-city/juju-qa.s3cfg".format(os.environ['HOME']),
+             '--no-progress', 'sync', '--exclude', '*', '--include',
+             '*.tar.gz',
+             's3://juju-qa-data/juju-ci/products/version-2982/build-osx-'
+             'client', expected_dir])
