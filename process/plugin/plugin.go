@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/juju/deputy"
 	"github.com/juju/errors"
@@ -47,7 +48,13 @@ func Find(name string) (*Plugin, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Plugin{Name: name, Executable: path}, nil
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &Plugin{Name: name, Executable: absPath}, nil
 }
 
 // Launch runs the given plugin, passing it the "launch" command, with the
