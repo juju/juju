@@ -94,43 +94,48 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	return nil
 }
 
+func backingSubnetToParamsSubnet(subnet common.BackingSubnet) params.Subnet {
+	cidr := subnet.CIDR()
+	vlantag := subnet.VLANTag()
+	providerid := subnet.ProviderId()
+	zones := subnet.AvailabilityZones()
+	status := subnet.Status()
+
+	return params.Subnet{
+		CIDR:       cidr,
+		VLANTag:    vlantag,
+		ProviderId: providerid,
+		Zones:      zones,
+		Status:     status,
+		SpaceTag:   names.NewSpaceTag(subnet.SpaceName()).String(),
+		Life:       subnet.Life(),
+	}
+}
+
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot list spaces")
+
 	spaces, err := api.backing.AllSpaces()
 	if err != nil {
 		return results, err
 	}
-	for _, space := range spaces {
+
+	results.Results = make([]params.Space, len(spaces))
+
+	for i, space := range spaces {
 		result := params.Space{}
 		result.Name = space.Name()
-		subnets, err := space.Subnets()
 
-		if err != nil {
+		if subnets, err := space.Subnets(); err != nil {
 			result.Error = common.ServerError(errors.Annotatef(err, "could not fetch subnets"))
-			results.Results = append(results.Results, result)
-			continue
+		} else {
+			for _, subnet := range subnets {
+				result.Subnets = append(result.Subnets,
+					backingSubnetToParamsSubnet(subnet))
+			}
 		}
-
-		for _, subnet := range subnets {
-			cidr := subnet.CIDR()
-			vlantag := subnet.VLANTag()
-			providerid := subnet.ProviderId()
-			zones := subnet.AvailabilityZones()
-			status := subnet.Status()
-
-			result.Subnets = append(result.Subnets,
-				// TODO(mfoord): a subnet.GetParams() method would be
-				// nice.
-				params.Subnet{
-					CIDR:       cidr,
-					VLANTag:    vlantag,
-					ProviderId: providerid,
-					Zones:      zones,
-					Status:     status,
-				})
-		}
-		results.Results = append(results.Results, result)
+		results.Results[i] = result
 	}
 	return results, nil
 }

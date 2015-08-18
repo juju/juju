@@ -567,5 +567,5 @@ type ListSpacesResults struct {
 type Space struct {
 	Name    string   `json:"Name"`
 	Subnets []Subnet `json:"Subnets"`
-	Error   *Error   `json:"Error"`
+	Error   *Error   `json:"Error,omitempty"`
 }

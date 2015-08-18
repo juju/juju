@@ -22,6 +22,7 @@ type BackingSubnet interface {
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
+	Life() params.Life
 }
 
 // BackingSubnetInfo describes a single subnet to be added in the
@@ -70,6 +71,8 @@ type BackingSubnetInfo struct {
 	// Status holds the status of the subnet. Normally this will be
 	// calculated from the reference count and Life of a subnet.
 	Status string
+
+	Life params.Life
 }
 
 // BackingSpace defines the methods supported by a Space entity stored
