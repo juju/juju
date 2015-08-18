@@ -5,8 +5,10 @@ package workers
 
 import (
 	"github.com/juju/juju/process"
+	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/worker"
 )
 
-func ExposeChannel(events *EventHandlers) chan []process.Event {
-	return events.events
+func ExposeEventHandlers(eh *EventHandlers) (chan []process.Event, []func([]process.Event, context.APIClient, Runner) error, context.APIClient, worker.Runner) {
+	return eh.events, eh.handlers, eh.apiClient, eh.runner
 }
