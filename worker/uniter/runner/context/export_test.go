@@ -22,18 +22,6 @@ var (
 	TryClosePorts     = tryClosePorts
 )
 
-// PatchMeterStatus changes the meter status of the context.
-func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
-	oldMeterStatus := ctx.meterStatus
-	ctx.meterStatus = &meterStatus{
-		code: code,
-		info: info,
-	}
-	return func() {
-		ctx.meterStatus = oldMeterStatus
-	}
-}
-
 func NewHookContext(
 	unit *uniter.Unit,
 	state *uniter.State,
@@ -168,7 +156,7 @@ func PatchNewLeadershipContext(f LeadershipContextFunc) func() {
 	return func() { newLeadershipContext = old }
 }
 
-func (ctx *HookContext) StorageAddConstraints() map[string][]params.StorageConstraints {
+func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstraints {
 	return ctx.storageAddConstraints
 }
 

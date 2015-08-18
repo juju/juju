@@ -400,7 +400,7 @@ func addStorageToContext(ctx *context.HookContext,
 func assertStorageAddInContext(c *gc.C,
 	ctx context.HookContext, expected map[string][]params.StorageConstraints,
 ) {
-	obtained := ctx.StorageAddConstraints()
+	obtained := context.StorageAddConstraints(&ctx)
 	c.Assert(len(obtained), gc.Equals, len(expected))
 	for k, v := range obtained {
 		c.Assert(v, jc.SameContents, expected[k])
