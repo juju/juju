@@ -30,6 +30,8 @@ type Runner interface {
 	StopWorker(id string) error
 }
 
+// TODO(ericsnow) Switch handlers to...manifests? workers?
+
 // EventHandlers orchestrates handling of events on workloads.
 type EventHandlers struct {
 	events   chan []workload.Event
@@ -49,12 +51,12 @@ func NewEventHandlers() *EventHandlers {
 }
 
 // Reset resets the event handlers.
-func (eh *EventHandlers) Reset(apiClient context.APIClient, runner Runner) {
+func (eh *EventHandlers) Reset(apiClient context.APIClient) {
 	close(eh.events)
 	eh.events = make(chan []workload.Event)
 
 	eh.apiClient = apiClient
-	eh.runner = newTrackingRunner(runner)
+	eh.runner = nil
 }
 
 // Close cleans up the handler's resources.
@@ -82,16 +84,23 @@ func (eh *EventHandlers) AddEvents(events ...workload.Event) {
 
 // StartEngine creates a new dependency engine and starts it.
 func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
+	if eh.runner != nil {
+		return nil, errors.Errorf("engine already started")
+	}
 	engine, err := newEngine()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var runner worker.Runner // TODO(ericsnow) Wrap engine in a runner.
+	eh.runner = newTrackingRunner(runner)
+
 	manifolds := eh.manifolds()
 	// TODO(ericsnow) Move the following to a helper in worker/dependency or worker/util?
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
 		}
+		eh.runner = nil
 		return nil, errors.Trace(err)
 	}
 	return engine, nil

@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	workertesting "github.com/juju/juju/worker/testing"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/context"
 	"github.com/juju/juju/workload/workers"
@@ -20,8 +19,7 @@ type eventHandlerSuite struct {
 	testing.BaseSuite
 
 	stub      *gitjujutesting.Stub
-	runner    *workertesting.StubRunner
-	apiClient *stubAPIClient
+	apiClient context.APIClient // TODO(ericsnow) Use a stub.
 }
 
 var _ = gc.Suite(&eventHandlerSuite{})
@@ -30,7 +28,6 @@ func (s *eventHandlerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stub = &gitjujutesting.Stub{}
-	s.runner = workertesting.NewStubRunner(s.stub)
 	s.apiClient = &stubAPIClient{stub: s.stub}
 }
 
@@ -65,7 +62,7 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 		ID:   "spam/eggs",
 	}}
 	eh := workers.NewEventHandlers()
-	eh.Reset(s.apiClient, s.runner)
+	eh.Reset(s.apiClient)
 	go func() {
 		eh.AddEvents(events...)
 		eh.Close()
@@ -85,7 +82,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	}}
 
 	eh := workers.NewEventHandlers()
-	eh.Reset(s.apiClient, s.runner)
+	eh.Reset(s.apiClient)
 	eh.RegisterHandler(s.handler)
 	engine, err := eh.StartEngine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,9 +103,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	c.Check(s.stub.Calls()[1].Args[0], gc.HasLen, 0)
 	c.Check(s.stub.Calls()[2].Args[0], gc.DeepEquals, events)
 	c.Check(s.stub.Calls()[2].Args[1], gc.DeepEquals, s.apiClient)
-	runner, running := workers.ExposeRunner(s.stub.Calls()[2].Args[2].(workers.Runner))
-	c.Check(runner, jc.DeepEquals, s.runner)
-	c.Check(running.Values(), gc.HasLen, 0)
+	// TODO(ericsnow) Check the runner.
 }
 
 type stubAPIClient struct {
