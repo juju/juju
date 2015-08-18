@@ -1,6 +1,9 @@
 from unittest import TestCase
 
-from jujuconfig import describe_substrate
+from jujuconfig import (
+    describe_substrate,
+    get_jenv_path,
+)
 
 
 class TestDescribeSubstrate(TestCase):
@@ -43,3 +46,10 @@ class TestDescribeSubstrate(TestCase):
 
     def test_describe_substrate_maas(self):
         self.assertEqual('MAAS', describe_substrate({'type': 'maas'}))
+
+
+class TestGetJenvPath(TestCase):
+
+    def test_get_jenv_path(self):
+        self.assertEqual('home/environments/envname.jenv',
+                         get_jenv_path('home', 'envname'))

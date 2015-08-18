@@ -789,17 +789,7 @@ def make_jes_home(juju_home, dir_name, config):
     yield home_path
 
 
-@contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
-    """Create a temporary environment for bootstrapping.
-
-    This involves creating a temporary juju home directory and returning its
-    location.
-
-    :param set_home: Set JUJU_HOME to match the temporary home in this
-        context.  If False, juju_home should be supplied to bootstrap.
-    """
-    # Always bootstrap a matching environment.
+def make_safe_config(client):
     config = dict(client.env.config)
     config['agent-version'] = client.get_matching_agent_version()
     # AFAICT, we *always* want to set test-mode to True.  If we ever find a
@@ -809,7 +799,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     # ensure MAASAccount knows what the name will be.
     config['name'] = client.env.environment
     if config['type'] == 'local':
-        config.setdefault('root-dir', get_local_root(juju_home, client.env))
+        config.setdefault('root-dir', get_local_root(client.juju_home,
+                          client.env))
         # MongoDB requires a lot of free disk space, and the only
         # visible error message is from "juju bootstrap":
         # "cannot initiate replication set" if disk space is low.
@@ -824,7 +815,22 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         else:
             check_free_disk_space(
                 "/var/lib/lxc", 2000000, "LXC containers")
-    new_config = {'environments': {client.env.environment: config}}
+    return config
+
+
+@contextmanager
+def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
+    """Create a temporary environment for bootstrapping.
+
+    This involves creating a temporary juju home directory and returning its
+    location.
+
+    :param set_home: Set JUJU_HOME to match the temporary home in this
+        context.  If False, juju_home should be supplied to bootstrap.
+    """
+    new_config = {
+        'environments': {client.env.environment: make_safe_config(client)}}
+    # Always bootstrap a matching environment.
     jenv_path = get_jenv_path(juju_home, client.env.environment)
     if permanent:
         context = make_jes_home(juju_home, client.env.environment, new_config)
