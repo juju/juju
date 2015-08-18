@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/util"
 )
 
 var processLogger = loggo.GetLogger("component.all.process")
@@ -186,15 +187,10 @@ func (c workloadProcesses) registerUnitWorkers() map[string]*workers.EventHandle
 		}
 		unitEventHandlers[unitName] = unitHandler
 
-		manifold := dependency.Manifold{
-			Inputs: []string{unit.APICallerName},
+		apiConfig := util.ApiManifoldConfig{
+			APICallerName: unit.APICallerName,
 		}
-		manifold.Start = func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			var caller base.APICaller
-			err := getResource(unit.APICallerName, &caller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)
 
 			engine, err := dependency.NewEngine(dependency.EngineConfig{
@@ -219,7 +215,7 @@ func (c workloadProcesses) registerUnitWorkers() map[string]*workers.EventHandle
 			}
 
 			return engine, nil
-		}
+		})
 		return manifold, nil
 	}
 	err := unit.RegisterManifold(process.ComponentName, newManifold)
