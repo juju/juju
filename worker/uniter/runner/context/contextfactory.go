@@ -10,13 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
-	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -144,8 +142,6 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		assignedMachineTag: f.machineTag,
 		relations:          f.getContextRelations(),
 		relationId:         -1,
-		metricsRecorder:    nil,
-		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
 	}
@@ -201,34 +197,6 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			return nil, errors.Trace(err)
 		}
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
-	}
-	// Metrics are only sent from the collect-metrics hook.
-	if hookInfo.Kind == hooks.CollectMetrics {
-		ch, err := getCharm(f.paths.GetCharmDir())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ctx.definedMetrics = ch.Metrics()
-
-		chURL, err := f.unit.CharmURL()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		charmMetrics := map[string]charm.Metric{}
-		if ch.Metrics() != nil {
-			charmMetrics = ch.Metrics().Metrics
-		}
-		ctx.metricsRecorder, err = spool.NewJSONMetricRecorder(
-			spool.MetricRecorderConfig{
-				UnitTag:  f.unit.Tag().String(),
-				SpoolDir: f.paths.GetMetricsSpoolDir(),
-				Metrics:  charmMetrics,
-				CharmURL: chURL.String(),
-			})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 	ctx.id = f.newId(hookName)
 	return ctx, nil
@@ -368,12 +336,4 @@ func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, str
 		}
 	}
 	return -1, "", errors.Errorf("unknown remote unit %s; possibilities are %+v", remoteUnit, possibles)
-}
-
-func getCharm(charmPath string) (charm.Charm, error) {
-	ch, err := charm.ReadCharm(charmPath)
-	if err != nil {
-		return nil, err
-	}
-	return ch, nil
 }
