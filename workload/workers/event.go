@@ -79,6 +79,9 @@ func (eh *EventHandlers) RegisterHandler(handler func([]workload.Event, context.
 
 // AddEvents adds events to the list of events to be handled.
 func (eh *EventHandlers) AddEvents(events ...workload.Event) {
+	if len(events) == 0 {
+		return
+	}
 	eh.events <- events
 }
 
