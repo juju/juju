@@ -160,6 +160,7 @@ func (c workloadProcesses) registerUnitWorkers() *workers.EventHandlers {
 	}
 
 	handlerFuncs := []func([]process.Event, context.APIClient, workers.Runner) error{
+		workers.ProcessHandler,
 		workers.StatusEventHandler,
 	}
 

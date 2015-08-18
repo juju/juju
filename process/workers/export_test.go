@@ -5,7 +5,6 @@ package workers
 
 import (
 	"github.com/juju/juju/process"
-	"github.com/juju/utils/set"
 )
 
 func ExposeChannel(events *EventHandlers) chan []process.Event {
