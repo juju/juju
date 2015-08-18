@@ -5,12 +5,15 @@ package workers
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/process"
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/worker"
 )
+
+var workloadEventLogger = loggo.GetLogger("juju.workload.workers.event")
 
 // Runner is the portion of worker.Worker needed for Event handlers.
 type Runner interface {
@@ -31,6 +34,7 @@ type EventHandlers struct {
 
 // NewEventHandlers wraps a new EventHandler around the provided channel.
 func NewEventHandlers(apiClient context.APIClient, runner Runner) *EventHandlers {
+	workloadEventLogger.Debugf("new event handler created")
 	eh := &EventHandlers{
 		events:    make(chan []process.Event),
 		apiClient: apiClient,
@@ -51,6 +55,7 @@ func (eh *EventHandlers) Close() error {
 // RegisterHandler adds a handler to the list of handlers used when new
 // events are processed.
 func (eh *EventHandlers) RegisterHandler(handler func([]process.Event, context.APIClient, Runner) error) {
+	workloadEventLogger.Debugf("registering handler: %#v", handler)
 	eh.handlers = append(eh.handlers, handler)
 }
 
@@ -61,10 +66,12 @@ func (eh *EventHandlers) AddEvents(events ...process.Event) {
 
 // NewWorker wraps the EventHandler in a worker.
 func (eh *EventHandlers) NewWorker() (worker.Worker, error) {
+	workloadEventLogger.Debugf("starting new worker")
 	return worker.NewSimpleWorker(eh.loop), nil
 }
 
 func (eh *EventHandlers) handle(events []process.Event) error {
+	workloadEventLogger.Debugf("handling %d events", len(events))
 	for _, handleEvents := range eh.handlers {
 		if err := handleEvents(events, eh.apiClient, eh.runner); err != nil {
 			return errors.Trace(err)

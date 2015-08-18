@@ -23,7 +23,9 @@ var (
 
 // StatusEventHandler handles and dispatches process.Events based on their kind.
 func StatusEventHandler(events []process.Event, api context.APIClient, runner Runner) error {
+	workloadUpdateLogger.Debugf("handling events")
 	for _, e := range events {
+		workloadUpdateLogger.Debugf("handling %#v event", e)
 		switch e.Kind {
 		case process.EventKindTracked:
 			if err := statusTracked(e, api, runner); err != nil {
@@ -72,6 +74,7 @@ func SetStatusWorkerUpdatePeriod(t time.Duration) {
 
 // NewStatusWorker returns a new PeriodicWorker.
 func NewStatusWorker(event process.Event, api context.APIClient) worker.Worker {
+	workloadUpdateLogger.Debugf("starting status worker")
 	f := NewStatusWorkerFunc(event, api)
 	return worker.NewPeriodicWorker(f, workloadUpdatePeriod)
 }
@@ -81,7 +84,7 @@ func statusTracked(event process.Event, api context.APIClient, runner Runner) er
 		return NewStatusWorker(event, api), nil
 	}
 
-	workloadUpdateLogger.Infof("%v is being tracked", event.ID)
+	workloadUpdateLogger.Infof("%s is being tracked", event.ID)
 	return runner.StartWorker(event.ID, worker)
 }
 
@@ -99,6 +102,7 @@ func statusUntracked(event process.Event, api context.APIClient, runner Runner) 
 	if err := api.SetProcessesStatus(status, pluginStatus, event.ID); err != nil {
 		workloadUpdateLogger.Warningf("failed to update - %v while stopping", err)
 	}
+	workloadUpdateLogger.Infof("%s is no longer being tracked", event.ID)
 
 	return runner.StopWorker(event.ID)
 }
