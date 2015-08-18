@@ -7,4 +7,7 @@ type Watcher interface {
 
 	// Snapshot returns the current snapshot of the remote state.
 	Snapshot() Snapshot
+
+	Stop() error
+	Wait() error
 }

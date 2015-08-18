@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var filterLogger = loggo.GetLogger("juju.worker.uniter.remoteStateWatcher")
+var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 
 // remoteStateWatcher collects unit, service, and service config information
 // from separate state watchers, and updates a Snapshot which is sent on a
@@ -50,7 +50,7 @@ func NewWatcher(st *uniter.State, unitTag names.UnitTag) (Watcher, error) {
 	go func() {
 		defer w.tomb.Done()
 		err := w.loop(unitTag)
-		filterLogger.Errorf("%v", err)
+		logger.Errorf("remote state watcher exited: %v", err)
 		w.tomb.Kill(err)
 	}()
 	return w, nil
@@ -173,7 +173,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			return tomb.ErrDying
 
 		case _, ok := <-unitw.Changes():
-			filterLogger.Debugf("got unit change")
+			logger.Debugf("got unit change")
 			if !ok {
 				return watcher.EnsureErr(unitw)
 			}
@@ -181,7 +181,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return err
 			}
 		case _, ok := <-servicew.Changes():
-			filterLogger.Debugf("got service change")
+			logger.Debugf("got service change")
 			if !ok {
 				return watcher.EnsureErr(servicew)
 			}
@@ -189,7 +189,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return err
 			}
 		case _, ok := <-configw.Changes():
-			filterLogger.Debugf("got config change")
+			logger.Debugf("got config change")
 			if !ok {
 				return watcher.EnsureErr(configw)
 			}
@@ -197,7 +197,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return err
 			}
 		case _, ok := <-addressesw.Changes():
-			filterLogger.Debugf("got address change")
+			logger.Debugf("got address change")
 			if !ok {
 				return watcher.EnsureErr(addressesw)
 			}
@@ -205,7 +205,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return err
 			}
 		case _, ok := <-leaderSettingsw.Changes():
-			filterLogger.Debugf("got leader settings change: ok=%t", ok)
+			logger.Debugf("got leader settings change: ok=%t", ok)
 			if !ok {
 				return watcher.EnsureErr(leaderSettingsw)
 			}
@@ -213,7 +213,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return err
 			}
 		case keys, ok := <-relationsw.Changes():
-			filterLogger.Debugf("got relations change")
+			logger.Debugf("got relations change")
 			if !ok {
 				return watcher.EnsureErr(relationsw)
 			}
@@ -221,7 +221,7 @@ func (w *remoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return err
 			}
 		case keys, ok := <-storagew.Changes():
-			filterLogger.Debugf("got storage change")
+			logger.Debugf("got storage change")
 			if !ok {
 				return watcher.EnsureErr(storagew)
 			}

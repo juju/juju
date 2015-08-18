@@ -4,20 +4,14 @@
 package uniter
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
-	"launchpad.net/tomb"
-
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
 )
+
+// idleWaitTime is the time after which, if there are no uniter events,
+// the agent state becomes idle.
+var idleWaitTime = 2 * time.Second
 
 // setAgentStatus sets the unit's status if it has changed since last time this method was called.
 func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) error {
@@ -49,6 +43,7 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 // states of a running Uniter.
 type Mode func(u *Uniter) (Mode, error)
 
+/*
 // ModeContinue determines what action to take based on persistent uniter state.
 func ModeContinue(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeContinue", &err)()
@@ -272,10 +267,6 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	}
 	return modeAbideAliveLoop(u)
 }
-
-// idleWaitTime is the time after which, if there are no uniter events,
-// the agent state becomes idle.
-var idleWaitTime = 2 * time.Second
 
 // modeAbideAliveLoop handles all state changes for ModeAbide when the unit
 // is in an Alive state.
@@ -569,3 +560,4 @@ func continueAfter(u *Uniter, creator creator) (Mode, error) {
 	}
 	return ModeContinue, nil
 }
+*/
