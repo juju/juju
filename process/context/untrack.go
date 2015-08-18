@@ -8,50 +8,57 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/process"
 	"launchpad.net/gnuflag"
 )
 
 const UntrackCmdName = "process-untrack"
 
-func NewUntrackCmd(ctx HookContext) (*UntrackProcCommand, error) {
+func NewUntrackCmd(ctx HookContext) (*UntrackCmd, error) {
 	comp, err := ContextComponent(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &UntrackProcCommand{comp: comp}, nil
+	return &UntrackCmd{comp: comp}, nil
 }
 
-var _ cmd.Command = (*UntrackProcCommand)(nil)
+var _ cmd.Command = (*UntrackCmd)(nil)
 
-// UntrackProcCommand implements the untrack command.
-type UntrackProcCommand struct {
+// UntrackCmd implements the untrack command.
+type UntrackCmd struct {
 	comp Component
 	id   string
 }
 
-func (c *UntrackProcCommand) Init(args []string) error {
+func (c *UntrackCmd) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("missing arg %s", idArg)
 	}
 
 	if len(args) > 1 {
-		return errors.Errorf("unexpected args %q", args[1:])
+		return errors.Errorf("unexpected args: %q", args[1:])
 	}
-	c.id = args[0]
+
+	c.id, _ = process.ParseID(args[0])
+
+	if c.id == "" {
+		return errors.New(idArg + " cannot be empty")
+	}
+
 	return nil
 }
 
-func (*UntrackProcCommand) SetFlags(*gnuflag.FlagSet) {
+func (*UntrackCmd) SetFlags(*gnuflag.FlagSet) {
 	// noop
 }
 
-func (c *UntrackProcCommand) Run(*cmd.Context) error {
+func (c *UntrackCmd) Run(*cmd.Context) error {
 	c.comp.Untrack(c.id)
 	return nil
 }
 
 // Info implements cmd.Command.
-func (*UntrackProcCommand) Info() *cmd.Info {
+func (*UntrackCmd) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    UntrackCmdName,
 		Args:    fmt.Sprintf("<%s>", idArg),
@@ -64,10 +71,10 @@ used to start tracking the process must be provided.
 	}
 }
 
-func (*UntrackProcCommand) AllowInterspersedFlags() bool {
+func (*UntrackCmd) AllowInterspersedFlags() bool {
 	return false
 }
 
-func (*UntrackProcCommand) IsSuperCommand() bool {
+func (*UntrackCmd) IsSuperCommand() bool {
 	return false
 }

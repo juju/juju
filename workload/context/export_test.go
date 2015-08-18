@@ -43,3 +43,9 @@ func GetCmdInfo(cmd cmd.Command) *workload.Info {
 		return nil
 	}
 }
+
+func ID(c *UntrackCmd) string {
+	return c.id
+}
+
+var ArgNameOrId = idArg

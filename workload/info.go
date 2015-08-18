@@ -31,20 +31,21 @@ type Info struct {
 
 // ID composes a unique ID for the workload (relative to the unit/charm).
 func (info Info) ID() string {
-	id := info.Workload.Name
 	if info.Details.ID != "" {
-		id = fmt.Sprintf("%s/%s", id, info.Details.ID)
+		return fmt.Sprintf("%s/%s", info.Process.Name, info.Details.ID)
 	}
-	return id
+	return info.Process.Name
 }
 
 // ParseID extracts the workload name and details ID from the provided string.
-func ParseID(id string) (string, string) {
-	parts := strings.SplitN(id, "/", 2)
+// The format is expected to be name/id. If no separator is found, the whole
+// string is assumed to be the name.
+func ParseID(s string) (name, ID string) {
+	parts := strings.SplitN(s, "/", 2)
 	if len(parts) == 2 {
 		return parts[0], parts[1]
 	}
-	return id, ""
+	return s, ""
 }
 
 // Validate checks the workload info to ensure it is correct.
