@@ -24,9 +24,11 @@ var logger = loggo.GetLogger("juju.apiserver.addresser")
 
 // AddresserAPI provides access to the Addresser API facade.
 type AddresserAPI struct {
-	st         StateInterface
-	resources  *common.Resources
-	authorizer common.Authorizer
+	st            StateInterface
+	resources     *common.Resources
+	authorizer    common.Authorizer
+	netEnv        environs.NetworkingEnviron
+	canDeallocate bool
 }
 
 // NewAddresserAPI creates a new server-side Addresser API facade.
@@ -48,9 +50,10 @@ func NewAddresserAPI(
 	}, nil
 }
 
-// CleanupIPAddresses releases and removes the dead IP addresses.
-func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
-	result := params.ErrorResult{}
+// CanDeallocateAddresses checks if the current environment can
+// deallocate IP addresses.
+func (api *AddresserAPI) CanDeallocateAddresses() params.BoolResult {
+	result := params.BoolResult{}
 	// Create an environment to verify networking support.
 	config, err := api.st.EnvironConfig()
 	if err != nil {
@@ -69,6 +72,34 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
 		return result
 	}
+	api.netEnv = netEnv
+	api.canDeallocate, err = api.netEnv.SupportsAddressAllocation(network.AnySubnet)
+	if err != nil {
+		err = errors.Annotate(err, "checking allocation support")
+		result.Error = common.ServerError(err)
+		return result
+	}
+	result.Result = api.canDeallocate
+	return result
+}
+
+// CleanupIPAddresses releases and removes the dead IP addresses.
+func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
+	result := params.ErrorResult{}
+	// Lazy setting of the networking environment, so only
+	// has to be done once.
+	if api.netEnv == nil {
+		checkResult := api.CanDeallocateAddresses()
+		if checkResult.Error != nil {
+			result.Error = checkResult.Error
+			return result
+		}
+	}
+	// Check flag set inside of CanDeallocateAddresses.
+	if !api.canDeallocate {
+		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
+		return result
+	}
 	// Retrieve dead addresses, release and remove them.
 	logger.Debugf("retrieving dead IP addresses")
 	ipAddresses, err := api.st.DeadIPAddresses()
@@ -81,7 +112,7 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	for _, ipAddress := range ipAddresses {
 		ipAddressValue := ipAddress.Value()
 		logger.Debugf("releasing dead IP address %q", ipAddressValue)
-		err := api.releaseIPAddress(netEnv, ipAddress)
+		err := api.releaseIPAddress(api.netEnv, ipAddress)
 		if err != nil {
 			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddressValue, err)
 			canRetry = true
