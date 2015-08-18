@@ -24,17 +24,12 @@ func ProcessHandler(events []process.Event, apiClient context.APIClient, runner 
 type processHandler struct {
 	apiClient context.APIClient
 	runner    Runner
-
-	newWorker func() (worker.Worker, error)
 }
 
 func newProcessHandler(apiClient context.APIClient, runner Runner) *processHandler {
 	ph := &processHandler{
 		apiClient: apiClient,
 		runner:    runner,
-		newWorker: func() (worker.Worker, error) {
-			return worker.NewNoOpWorker(), nil
-		},
 	}
 	return ph
 }
@@ -49,15 +44,22 @@ func (ph *processHandler) handleEvents(events []process.Event) error {
 }
 
 func (ph *processHandler) handleEvent(event process.Event) error {
+	name := "proc <" + event.ID + ">"
 	switch event.Kind {
 	case process.EventKindTracked:
-		if err := ph.runner.StartWorker(event.ID, ph.newWorker); err != nil {
+		if err := ph.runner.StartWorker(name, ph.newWorker); err != nil {
 			return errors.Trace(err)
 		}
 	case process.EventKindUntracked:
-		if err := ph.runner.StopWorker(event.ID); err != nil {
+		if err := ph.runner.StopWorker(name); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
+}
+
+func (ph *processHandler) newWorker() (worker.Worker, error) {
+	// TODO(ericsnow) Start up a runner or an engine, and run
+	// proc-specific workers under it?
+	return worker.NewNoOpWorker(), nil
 }
