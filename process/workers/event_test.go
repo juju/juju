@@ -4,8 +4,6 @@
 package workers_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
 	workertesting "github.com/juju/juju/worker/testing"
 )
 
@@ -83,24 +80,16 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 	c.Check(got, jc.DeepEquals, [][]process.Event{events})
 }
 
-func (s *eventHandlerSuite) TestManifolds(c *gc.C) {
+func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	events := []process.Event{{
 		Kind: process.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
-	engine, err := dependency.NewEngine(dependency.EngineConfig{
-		IsFatal:       func(error) bool { return false },
-		MoreImportant: func(_ error, worst error) error { return worst },
-		ErrorDelay:    3 * time.Second,
-		BounceDelay:   10 * time.Second,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	eh := workers.NewEventHandlers()
 	eh.Init(s.apiClient, s.runner)
 	eh.RegisterHandler(s.handler)
-	manifolds := eh.Manifolds()
-	err = dependency.Install(engine, manifolds)
+	engine, err := eh.StartEngine()
 	c.Assert(err, jc.ErrorIsNil)
 
 	eh.AddEvents(events...)

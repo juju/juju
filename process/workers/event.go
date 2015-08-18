@@ -22,6 +22,8 @@ const (
 	resAPIClient = "apiclient"
 )
 
+var logger = loggo.GetLogger("process.workers")
+
 // Runner is the portion of worker.Worker needed for Event handlers.
 type Runner interface {
 	// Start a worker using the provided func.
@@ -74,8 +76,25 @@ func (eh *EventHandlers) AddEvents(events ...process.Event) {
 	eh.events <- events
 }
 
-// Manifolds returns the set of manifolds that should be added for the unit.
-func (eh *EventHandlers) Manifolds() dependency.Manifolds {
+// StartEngine creates a new dependency engine and starts it.
+func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
+	engine, err := newEngine()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	manifolds := eh.manifolds()
+	// TODO(ericsnow) Move the following to a helper in worker/dependency or worker/util?
+	if err := dependency.Install(engine, manifolds); err != nil {
+		if err := worker.Stop(engine); err != nil {
+			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+		}
+		return nil, errors.Trace(err)
+	}
+	return engine, nil
+}
+
+// manifolds returns the set of manifolds that should be added for the unit.
+func (eh *EventHandlers) manifolds() dependency.Manifolds {
 	return dependency.Manifolds{
 		resEvents:    eh.eventsManifold(),
 		resRunner:    eh.runnerManifold(),
