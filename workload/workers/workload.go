@@ -14,8 +14,8 @@ import (
 // WorkloadHandler returns an event handler that starts a worker for each
 // tracked workload workload. The worker waits until it is stopped.
 func WorkloadHandler(events []workload.Event, apiClient context.APIClient, runner Runner) error {
-	ph := newWorkloadHandler(apiClient, runner)
-	if err := ph.handleEvents(events); err != nil {
+	wh := newWorkloadHandler(apiClient, runner)
+	if err := wh.handleEvents(events); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -24,40 +24,42 @@ func WorkloadHandler(events []workload.Event, apiClient context.APIClient, runne
 type workloadHandler struct {
 	apiClient context.APIClient
 	runner    Runner
-
-	newWorker func() (worker.Worker, error)
 }
 
 func newWorkloadHandler(apiClient context.APIClient, runner Runner) *workloadHandler {
-	ph := &workloadHandler{
+	wh := &workloadHandler{
 		apiClient: apiClient,
 		runner:    runner,
-		newWorker: func() (worker.Worker, error) {
-			return worker.NewNoOpWorker(), nil
-		},
 	}
-	return ph
+	return wh
 }
 
-func (ph *workloadHandler) handleEvents(events []workload.Event) error {
+func (wh *workloadHandler) handleEvents(events []workload.Event) error {
 	for _, event := range events {
-		if err := ph.handleEvent(event); err != nil {
+		if err := wh.handleEvent(event); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (ph *workloadHandler) handleEvent(event workload.Event) error {
+func (wh *workloadHandler) handleEvent(event workload.Event) error {
+	name := "workload <" + event.ID + ">"
 	switch event.Kind {
 	case workload.EventKindTracked:
-		if err := ph.runner.StartWorker(event.ID, ph.newWorker); err != nil {
+		if err := wh.runner.StartWorker(name, wh.newWorker); err != nil {
 			return errors.Trace(err)
 		}
 	case workload.EventKindUntracked:
-		if err := ph.runner.StopWorker(event.ID); err != nil {
+		if err := wh.runner.StopWorker(name); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
+}
+
+func (wh *workloadHandler) newWorker() (worker.Worker, error) {
+	// TODO(ericsnow) Start up a runner or an engine, and run
+	// workload-specific workers under it?
+	return worker.NewNoOpWorker(), nil
 }
