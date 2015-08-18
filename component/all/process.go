@@ -219,15 +219,17 @@ func (workloadProcesses) initialEvents(hctx context.Component) ([]process.Event,
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		//TODO(wwitzel3) (Upgrade/Restart broken) during a restart of the worker, the Plugin loses its absPath for the executable.
 		plugin, err := hctx.Plugin(proc)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		events = append(events, process.Event{
-			Kind:   process.EventKindTracked,
-			ID:     proc.ID(),
-			Plugin: plugin,
+			Kind:     process.EventKindTracked,
+			ID:       proc.ID(),
+			Plugin:   plugin,
+			PluginID: proc.Details.ID,
 		})
 	}
 	return events, nil

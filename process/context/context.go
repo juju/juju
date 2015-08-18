@@ -246,9 +246,10 @@ func (c *Context) Flush() error {
 				return errors.Trace(err)
 			}
 			events = append(events, process.Event{
-				Kind:   process.EventKindTracked,
-				ID:     info.ID(),
-				Plugin: plugin,
+				Kind:     process.EventKindTracked,
+				ID:       info.ID(),
+				Plugin:   plugin,
+				PluginID: info.Details.ID,
 			})
 		}
 		if _, err := c.api.RegisterProcesses(updates...); err != nil {
@@ -271,9 +272,10 @@ func (c *Context) Flush() error {
 				return errors.Trace(err)
 			}
 			events = append(events, process.Event{
-				Kind:   process.EventKindUntracked,
-				ID:     id,
-				Plugin: plugin,
+				Kind:     process.EventKindUntracked,
+				ID:       id,
+				Plugin:   plugin,
+				PluginID: info.Details.ID,
 			})
 		}
 		c.api.Untrack(removes)
