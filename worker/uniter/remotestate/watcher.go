@@ -23,10 +23,12 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st      *uniter.State
-	unit    *uniter.Unit
-	service *uniter.Service
-	tomb    tomb.Tomb
+	st                   *uniter.State
+	unit                 *uniter.Unit
+	service              *uniter.Service
+	relations            map[names.RelationTag]*relationUnitsWatcher
+	relationUnitsChanges chan relationUnitsChange
+	tomb                 tomb.Tomb
 
 	out     chan struct{}
 	mu      sync.Mutex
@@ -37,10 +39,11 @@ type RemoteStateWatcher struct {
 // supplied unit.
 func NewWatcher(st *uniter.State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{
-		st:  st,
-		out: make(chan struct{}),
+		st:                   st,
+		relationUnitsChanges: make(chan relationUnitsChange),
+		out:                  make(chan struct{}),
 		current: Snapshot{
-			Relations: make(map[int]params.Life),
+			Relations: make(map[int]RelationSnapshot),
 			Storage:   make(map[names.StorageTag]params.Life),
 		},
 	}
@@ -81,13 +84,13 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	snapshot := w.current
-	snapshot.Relations = make(map[int]params.Life)
-	for id, life := range w.current.Relations {
-		snapshot.Relations[id] = life
+	snapshot.Relations = make(map[int]RelationSnapshot)
+	for id, relationSnapshot := range w.current.Relations {
+		snapshot.Relations[id] = relationSnapshot
 	}
 	snapshot.Storage = make(map[names.StorageTag]params.Life)
-	for tag, life := range w.current.Storage {
-		snapshot.Storage[tag] = life
+	for tag, storageSnapshot := range w.current.Storage {
+		snapshot.Storage[tag] = storageSnapshot
 	}
 	return snapshot
 }
@@ -131,47 +134,83 @@ func (w *RemoteStateWatcher) init(unitTag names.UnitTag) (err error) {
 }
 
 func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
+	var requiredEvents int
+
+	var seenUnitChange bool
 	unitw, err := w.unit.Watch()
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(unitw, &w.tomb)
+	requiredEvents++
 
+	var seenServiceChange bool
 	servicew, err := w.service.Watch()
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(servicew, &w.tomb)
+	requiredEvents++
 
+	var seenConfigChange bool
 	configw, err := w.unit.WatchConfigSettings()
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(configw, &w.tomb)
+	requiredEvents++
 
+	var seenRelationsChange bool
 	relationsw, err := w.service.WatchRelations()
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(relationsw, &w.tomb)
+	requiredEvents++
 
+	var seenAddressesChange bool
 	addressesw, err := w.unit.WatchAddresses()
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(addressesw, &w.tomb)
+	requiredEvents++
 
+	var seenStorageChange bool
 	storagew, err := w.unit.WatchStorage()
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(storagew, &w.tomb)
+	requiredEvents++
 
+	var seenLeaderSettingsChange bool
 	leaderSettingsw, err := w.st.LeadershipSettings.WatchLeadershipSettings(w.service.Tag().Id())
 	if err != nil {
 		return err
 	}
 	defer watcher.Stop(leaderSettingsw, &w.tomb)
+	requiredEvents++
+
+	var eventsObserved int
+	observedEvent := func(flag *bool) {
+		if !*flag {
+			*flag = true
+			eventsObserved++
+		}
+	}
+
+	fire := func() {
+		if eventsObserved == requiredEvents {
+			w.fire()
+		}
+	}
+
+	defer func() {
+		for _, ruw := range w.relations {
+			watcher.Stop(ruw, &w.tomb)
+		}
+	}()
 
 	for {
 		select {
@@ -186,6 +225,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.unitChanged(); err != nil {
 				return err
 			}
+			observedEvent(&seenUnitChange)
+
 		case _, ok := <-servicew.Changes():
 			logger.Debugf("got service change")
 			if !ok {
@@ -194,6 +235,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.serviceChanged(); err != nil {
 				return err
 			}
+			observedEvent(&seenServiceChange)
+
 		case _, ok := <-configw.Changes():
 			logger.Debugf("got config change")
 			if !ok {
@@ -202,6 +245,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.configChanged(); err != nil {
 				return err
 			}
+			observedEvent(&seenConfigChange)
+
 		case _, ok := <-addressesw.Changes():
 			logger.Debugf("got address change")
 			if !ok {
@@ -210,6 +255,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.addressesChanged(); err != nil {
 				return err
 			}
+			observedEvent(&seenAddressesChange)
+
 		case _, ok := <-leaderSettingsw.Changes():
 			logger.Debugf("got leader settings change: ok=%t", ok)
 			if !ok {
@@ -218,6 +265,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.leaderSettingsChanged(); err != nil {
 				return err
 			}
+			observedEvent(&seenLeaderSettingsChange)
+
 		case keys, ok := <-relationsw.Changes():
 			logger.Debugf("got relations change")
 			if !ok {
@@ -226,6 +275,8 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.relationsChanged(keys); err != nil {
 				return err
 			}
+			observedEvent(&seenRelationsChange)
+
 		case keys, ok := <-storagew.Changes():
 			logger.Debugf("got storage change")
 			if !ok {
@@ -234,9 +285,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.storageChanged(keys); err != nil {
 				return err
 			}
+			observedEvent(&seenStorageChange)
+
+		case change := <-w.relationUnitsChanges:
+			logger.Debugf("got a relation units change")
+			if err := w.relationUnitsChanged(change); err != nil {
+				return err
+			}
 		}
+
 		// Something changed.
-		w.fire()
+		fire()
 	}
 }
 
@@ -303,11 +362,67 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			// If it's actually gone, this unit cannot have entered
 			// scope, and therefore never needs to know about it.
+			if ruw, ok := w.relations[relationTag]; ok {
+				if err := ruw.Stop(); err != nil {
+					return errors.Trace(err)
+				}
+				delete(w.relations, relationTag)
+				delete(w.current.Relations, ruw.relationId)
+			}
 		} else if err != nil {
 			return err
 		} else {
-			w.current.Relations[rel.Id()] = rel.Life()
+			if _, ok := w.relations[relationTag]; ok {
+				relationSnapshot := w.current.Relations[rel.Id()]
+				relationSnapshot.Life = rel.Life()
+				w.current.Relations[rel.Id()] = relationSnapshot
+				continue
+			}
+			ru, err := rel.Unit(w.unit)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			in, err := ru.Watch()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			relationSnapshot := RelationSnapshot{
+				Life:    rel.Life(),
+				Members: make(map[string]int64),
+			}
+			select {
+			case <-w.tomb.Dying():
+				return tomb.ErrDying
+			case change, ok := <-in.Changes():
+				if !ok {
+					return watcher.EnsureErr(in)
+				}
+				for unit, settings := range change.Changed {
+					relationSnapshot.Members[unit] = settings.Version
+				}
+			}
+			w.current.Relations[rel.Id()] = relationSnapshot
+			w.relations[relationTag] = newRelationUnitsWatcher(
+				rel.Id(), in, w.relationUnitsChanges,
+			)
 		}
+	}
+	return nil
+}
+
+// relationUnitsChanged responds to relation units changes.
+func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	snapshot, ok := w.current.Relations[change.relationId]
+	if !ok {
+		return nil
+	}
+	for unit, settings := range change.Changed {
+		snapshot.Members[unit] = settings.Version
+	}
+	for _, unit := range change.Departed {
+		delete(snapshot.Members, unit)
 	}
 	return nil
 }

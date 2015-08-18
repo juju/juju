@@ -18,7 +18,7 @@ type Snapshot struct {
 	// Relations contains the lifecycle states of
 	// each of the service's relations, keyed by
 	// relation IDs.
-	Relations map[int]params.Life
+	Relations map[int]RelationSnapshot
 
 	// Storage contains the lifecycle states of
 	// each of the unit's storage attachments.
@@ -43,4 +43,9 @@ type Snapshot struct {
 	// LeaderSettingsVersion is the last published
 	// version of the leader settings for the service.
 	LeaderSettingsVersion int
+}
+
+type RelationSnapshot struct {
+	Life    params.Life
+	Members map[string]int64
 }
