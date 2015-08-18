@@ -40,7 +40,6 @@ echo -n "date:" {0} |
 
 OLD_MACHINE_AGE = 12
 
-JOYENT_PROCS = "ps ax -eo pid,etime,command | grep joyent | grep juju"
 STUCK_MACHINES_PATH = os.path.join(
     os.environ['HOME'], '.config/juju-release-tools/joyent-stuck-machines')
 SUPPORT_HOST = 'https://help.joyent.com/'
@@ -386,16 +385,6 @@ class Client:
         self.delete_machine(machine_id)
 
     def delete_old_machines(self, old_age, contact_mail_address):
-        procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
-        for proc in procs.splitlines():
-            command = proc.split()
-            pid = command.pop(0)
-            alive = command.pop(0)
-            if len(alive) > 5 and int(alive.split(':')[0]) > 0:
-                # the pid has an hours column and the value is greater than 1.
-                print(
-                    "Pid {} is {} old. Ending {}".format(pid, alive, command))
-                subprocess.check_output(['kill', '-9', pid])
         machines = self._list_machines()
         now = datetime.utcnow()
         current_stuck = []
