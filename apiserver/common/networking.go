@@ -72,6 +72,7 @@ type BackingSubnetInfo struct {
 	// calculated from the reference count and Life of a subnet.
 	Status string
 
+	// Live holds the life of the subnet
 	Life params.Life
 }
 

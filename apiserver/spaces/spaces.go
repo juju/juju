@@ -127,15 +127,19 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		result := params.Space{}
 		result.Name = space.Name()
 
-		if subnets, err := space.Subnets(); err != nil {
-			result.Error = common.ServerError(errors.Annotatef(err, "could not fetch subnets"))
-		} else {
-			for _, subnet := range subnets {
-				result.Subnets = append(result.Subnets,
-					backingSubnetToParamsSubnet(subnet))
-			}
+		subnets, err := space.Subnets()
+		if err != nil {
+			err = errors.Annotatef(err, "could not fetch subnets")
+			result.Error = common.ServerError(err)
+			results.Results[i] = result
+			continue
 		}
-		results.Results[i] = result
+
+		for _, subnet := range subnets {
+			result.Subnets = append(result.Subnets,
+				backingSubnetToParamsSubnet(subnet))
+		}
+
 	}
 	return results, nil
 }
