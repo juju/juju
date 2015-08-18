@@ -37,6 +37,7 @@ func must(s string, err error) string {
 
 var logDir = must(paths.LogDir("precise"))
 var dataDir = must(paths.DataDir("precise"))
+var uniterStateDir = must(paths.UniterStateDir("precise"))
 var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // makeInstanceConfig produces a valid cloudinit machine config.
@@ -44,10 +45,11 @@ func makeInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 	machineId := "0"
 	machineTag := names.NewMachineTag(machineId)
 	return &instancecfg.InstanceConfig{
-		MachineId:    machineId,
-		MachineNonce: "gxshasqlnng",
-		DataDir:      dataDir,
-		LogDir:       logDir,
+		MachineId:      machineId,
+		MachineNonce:   "gxshasqlnng",
+		DataDir:        dataDir,
+		LogDir:         logDir,
+		UniterStateDir: uniterStateDir,
 		Jobs: []multiwatcher.MachineJob{
 			multiwatcher.JobManageEnviron,
 			multiwatcher.JobHostUnits,

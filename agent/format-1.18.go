@@ -31,6 +31,8 @@ type format_1_18Serialization struct {
 	Tag               string
 	DataDir           string
 	LogDir            string
+	MetricsSpoolDir   string
+	UniterStateDir    string
 	Nonce             string
 	Jobs              []multiwatcher.MachineJob `yaml:",omitempty"`
 	UpgradedToVersion *version.Number           `yaml:"upgradedToVersion"`
@@ -93,6 +95,8 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		tag:               tag,
 		dataDir:           format.DataDir,
 		logDir:            format.LogDir,
+		metricsSpoolDir:   format.MetricsSpoolDir,
+		uniterStateDir:    format.UniterStateDir,
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
@@ -107,6 +111,12 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	}
 	if config.dataDir == "" {
 		config.dataDir = DefaultDataDir
+	}
+	if config.metricsSpoolDir == "" {
+		config.metricsSpoolDir = metricsSpoolDir
+	}
+	if config.uniterStateDir == "" {
+		config.uniterStateDir = defaultUniterStateDir
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -162,6 +172,8 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		Tag:               config.tag.String(),
 		DataDir:           config.dataDir,
 		LogDir:            config.logDir,
+		MetricsSpoolDir:   config.metricsSpoolDir,
+		UniterStateDir:    config.uniterStateDir,
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,

@@ -34,9 +34,11 @@ var logger = loggo.GetLogger("juju.agent")
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir  = paths.MustSucceed(paths.LogDir(version.Current.Series))
-	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
-	confDir = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+	logDir                = paths.MustSucceed(paths.LogDir(version.Current.Series))
+	dataDir               = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	confDir               = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+	metricsSpoolDir       = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
+	defaultUniterStateDir = paths.MustSucceed(paths.UniterStateDir(version.Current.Series))
 )
 
 // Agent exposes the agent's configuration to other components. This
@@ -145,6 +147,9 @@ type Config interface {
 	// Dir returns the agent's directory.
 	Dir() string
 
+	// UniterStateDir returns the directory for persisting uniter execution status.
+	UniterStateDir() string
+
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
 	Nonce() string
@@ -192,6 +197,10 @@ type Config interface {
 	// Environment returns the tag for the environment that the agent belongs
 	// to.
 	Environment() names.EnvironTag
+
+	// MetricsSpoolDir returns the spool directory where workloads store
+	// collected metrics.
+	MetricsSpoolDir() string
 }
 
 type configSetterOnly interface {
@@ -296,6 +305,7 @@ type configInternal struct {
 	configFilePath    string
 	dataDir           string
 	logDir            string
+	uniterStateDir    string
 	tag               names.Tag
 	nonce             string
 	environment       names.EnvironTag
@@ -308,11 +318,13 @@ type configInternal struct {
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
 	preferIPv6        bool
+	metricsSpoolDir   string
 }
 
 type AgentConfigParams struct {
 	DataDir           string
 	LogDir            string
+	UniterStateDir    string
 	Jobs              []multiwatcher.MachineJob
 	UpgradedToVersion version.Number
 	Tag               names.Tag
@@ -324,6 +336,7 @@ type AgentConfigParams struct {
 	CACert            string
 	Values            map[string]string
 	PreferIPv6        bool
+	MetricsSpoolDir   string
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -336,6 +349,15 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.LogDir != "" {
 		logDir = configParams.LogDir
 	}
+	spoolDir := metricsSpoolDir
+	if configParams.MetricsSpoolDir != "" {
+		spoolDir = configParams.MetricsSpoolDir
+	}
+	uniterStateDir := defaultUniterStateDir
+	if configParams.UniterStateDir != "" {
+		uniterStateDir = configParams.UniterStateDir
+	}
+
 	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
@@ -364,6 +386,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	config := &configInternal{
 		logDir:            logDir,
 		dataDir:           configParams.DataDir,
+		uniterStateDir:    uniterStateDir,
 		jobs:              configParams.Jobs,
 		upgradedToVersion: configParams.UpgradedToVersion,
 		tag:               configParams.Tag,
@@ -373,6 +396,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
 		preferIPv6:        configParams.PreferIPv6,
+		metricsSpoolDir:   spoolDir,
 	}
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -596,6 +620,10 @@ func (c *configInternal) DataDir() string {
 	return c.dataDir
 }
 
+func (c *configInternal) MetricsSpoolDir() string {
+	return c.metricsSpoolDir
+}
+
 func (c *configInternal) LogDir() string {
 	return c.logDir
 }
@@ -660,6 +688,10 @@ func (c *configInternal) Environment() names.EnvironTag {
 
 func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
+}
+
+func (c *configInternal) UniterStateDir() string {
+	return c.uniterStateDir
 }
 
 func (c *configInternal) check() error {

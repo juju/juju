@@ -839,6 +839,8 @@ Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"
 tag: machine-10
 datadir: C:/Juju/lib/juju
 logdir: C:/Juju/log/juju
+metricsspooldir: C:/Juju/lib/juju/metricspool
+uniterstatedir: C:/Juju/lib/juju/uniter/state
 nonce: FAKE_NONCE
 jobs:
 - JobHostUnits
