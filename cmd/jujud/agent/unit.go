@@ -138,7 +138,16 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		LeadershipGuarantee: 30 * time.Second,
 	})
 
-	engine := dependency.NewEngine(cmdutil.IsFatal, 3*time.Second, 10*time.Millisecond)
+	config := dependency.EngineConfig{
+		IsFatal:       cmdutil.IsFatal,
+		MoreImportant: cmdutil.MoreImportantError,
+		ErrorDelay:    3 * time.Second,
+		BounceDelay:   10 * time.Millisecond,
+	}
+	engine, err := dependency.NewEngine(config)
+	if err != nil {
+		return nil, err
+	}
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
