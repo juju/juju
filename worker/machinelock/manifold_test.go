@@ -104,16 +104,16 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	var lock *fslock.Lock
 	err := s.manifold.Output(&dummyWorker{}, &lock)
-	c.Check(err.Error(), gc.Equals, "expected *machinelock.machineLockWorker->**fslock.Lock; got *machinelock_test.dummyWorker->**fslock.Lock")
+	c.Check(err, gc.ErrorMatches, "in should be a \\*valueWorker; is .*")
 	c.Check(lock, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	worker := s.setupWorkerTest(c)
-	var lock interface{}
+	var lock int
 	err := s.manifold.Output(worker, &lock)
-	c.Check(err.Error(), gc.Equals, "expected *machinelock.machineLockWorker->**fslock.Lock; got *machinelock.machineLockWorker->*interface {}")
-	c.Check(lock, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot output into \\*int")
+	c.Check(lock, gc.Equals, 0)
 }
 
 type dummyAgent struct {
