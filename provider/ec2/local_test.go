@@ -896,8 +896,8 @@ func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
 	env := t.prepareEnviron(c)
+	t.SetFeatureFlags() // clear the flags.
 	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
@@ -905,16 +905,16 @@ func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.
 }
 
 func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
 	env := t.prepareEnviron(c)
+	t.SetFeatureFlags() // clear the flags.
 	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0], "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
 	env := t.prepareEnviron(c)
+	t.SetFeatureFlags() // clear the flags.
 	err := env.ReleaseAddress("i-foo", "net1", network.NewAddress("1.2.3.4"), "")
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)

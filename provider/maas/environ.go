@@ -1440,6 +1440,11 @@ func (environ *maasEnviron) createOrFetchDevice(macAddress string, instId instan
 	return device, nil
 }
 
+// SupportsNetworking implements the NetworkingEnviron interface.
+func (environ *maasEnviron) SupportsNetworking() bool {
+	return environs.AddressAllocationEnabled()
+}
+
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) (err error) {

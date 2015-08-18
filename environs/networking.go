@@ -14,6 +14,9 @@ import (
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
+	// SupportsNetworking checks if an environment supports networking.
+	SupportsNetworking() bool
+
 	// AllocateAddress requests a specific address to be allocated for the
 	// given instance on the given subnet.
 	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
@@ -53,7 +56,10 @@ type NetworkingEnviron interface {
 // Networking in this case.
 func SupportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
-	return ne, ok
+	if !ok {
+		return nil, false
+	}
+	return ne, ne.SupportsNetworking()
 }
 
 // AddressAllocationEnabled is a shortcut for checking if the

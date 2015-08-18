@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
+	apiaddresser "github.com/juju/juju/api/addresser"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
@@ -631,6 +632,36 @@ func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 }
 
 const startWorkerWait = 250 * time.Millisecond
+
+func (s *MachineSuite) TestManageEnvironDoesNotRunAddresserWhenEnvironmentDoesNotSupport(c *gc.C) {
+	// Clear feature flags.
+	s.SetFeatureFlags()
+
+	started := make(chan struct{})
+	s.AgentSuite.PatchValue(&newAddresser, func(st *apiaddresser.API) (worker.Worker, error) {
+		close(started)
+		return newDummyWorker(), nil
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the addresser to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "cleaner")
+
+	// Now make sure the addresser doesn't start.
+	select {
+	case <-started:
+		c.Fatalf("addresser worker unexpectedly started")
+	case <-time.After(startWorkerWait):
+	}
+}
 
 func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
 	s.PatchValue(&getFirewallMode, func(api.Connection) (string, error) {

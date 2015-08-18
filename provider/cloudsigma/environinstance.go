@@ -196,6 +196,11 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	return err
 }
 
+// SupportsNetworking implements the NetworkingEnviron interface.
+func (env *environ) SupportsNetworking() bool {
+	return false
+}
+
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network.
 func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address, macAddress, hostname string) error {

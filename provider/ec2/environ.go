@@ -829,6 +829,11 @@ func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) 
 	return networkInterfaceId, nil
 }
 
+// SupportsNetworking implements the NetworkingEnviron interface.
+func (e *environ) SupportsNetworking() bool {
+	return environs.AddressAllocationEnabled()
+}
+
 // AllocateAddress requests an address to be allocated for the given
 // instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
 func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
