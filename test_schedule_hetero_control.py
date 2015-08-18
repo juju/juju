@@ -64,11 +64,15 @@ class CalculateJobs(TestCase):
         expected = [{'new_to_old': 'true',
                      'old_version': '1.20.11',
                      'candidate': '1.24.3',
-                     'candidate_path': '1.24'},
+                     'candidate_path': '1.24',
+                     'client_os': 'ubuntu',
+                     },
                     {'new_to_old': 'false',
                      'old_version': '1.20.11',
                      'candidate': '1.24.3',
-                     'candidate_path': '1.24'}]
+                     'candidate_path': '1.24',
+                     'client_os': 'ubuntu'}]
+
         self.assertItemsEqual(jobs, expected)
 
     def test_calculate_jobs_schedule_all(self):
@@ -86,23 +90,64 @@ class CalculateJobs(TestCase):
             jobs = list(calculate_jobs(root, schedule_all=False))
             jobs_schedule_all = list(calculate_jobs(root, schedule_all=True))
         expected = [{'new_to_old': 'true',
+                     'client_os': 'ubuntu',
                      'old_version': '1.20.11',
                      'candidate': '1.23.3',
                      'candidate_path': '1.23'},
                     {'new_to_old': 'false',
+                     'client_os': 'ubuntu',
                      'old_version': '1.20.11',
                      'candidate': '1.23.3',
                      'candidate_path': '1.23'},
                     {'new_to_old': 'true',
+                     'client_os': 'ubuntu',
                      'old_version': '1.20.11',
                      'candidate': '1.24.3',
                      'candidate_path': '1.24'},
                     {'new_to_old': 'false',
+                     'client_os': 'ubuntu',
                      'old_version': '1.20.11',
                      'candidate': '1.24.3',
                      'candidate_path': '1.24'}]
         self.assertItemsEqual(jobs, expected[2:])
         self.assertItemsEqual(jobs_schedule_all, expected)
+
+    def test_calculate_jobs_osx(self):
+        with temp_dir() as root:
+            release_path = os.path.join(root, 'old-juju', '1.20.11')
+            os.makedirs(release_path)
+            release_path = os.path.join(root, 'old-juju', '1.20.11-osx')
+            os.makedirs(release_path)
+
+            candidate_path_1 = os.path.join(root, 'candidate', '1.24.4')
+            os.makedirs(candidate_path_1)
+            make_build_var_file(candidate_path_1, '1.24.4')
+
+            candidate_path_2 = os.path.join(root, 'candidate', '1.24.4-osx')
+            os.makedirs(candidate_path_2)
+            make_build_var_file(candidate_path_2, '1.24.4')
+            jobs = list(calculate_jobs(root, schedule_all=False))
+        expected = [{'candidate': '1.24.4',
+                     'candidate_path': '1.24.4',
+                     'client_os': 'ubuntu',
+                     'new_to_old': 'true',
+                     'old_version': '1.20.11'},
+                    {'candidate': '1.24.4',
+                     'candidate_path': '1.24.4',
+                     'client_os': 'ubuntu',
+                     'new_to_old': 'false',
+                     'old_version': '1.20.11'},
+                    {'candidate': '1.24.4',
+                     'candidate_path': '1.24.4-osx',
+                     'client_os': 'osx',
+                     'new_to_old': 'true',
+                     'old_version': '1.20.11-osx'},
+                    {'candidate': '1.24.4',
+                     'candidate_path': '1.24.4-osx',
+                     'client_os': 'osx',
+                     'new_to_old': 'false',
+                     'old_version': '1.20.11-osx'}]
+        self.assertItemsEqual(jobs, expected)
 
 
 def make_build_var_file(dir_path, version):
