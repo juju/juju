@@ -143,16 +143,15 @@ class S3:
         self.bucket = bucket
 
     @classmethod
-    def factory(cls):
-        directory = '/comp-test'
+    def factory(cls, bucket, directory):
         access_key, secret_key = get_s3_access()
         conn = S3Connection(access_key, secret_key)
-        bucket = conn.get_bucket('juju-qa-data')
+        bucket = conn.get_bucket(bucket)
         return cls(directory, access_key, secret_key, conn, bucket)
 
     def store(self, filename, data, headers=None):
         """
-        Stores an object in S3
+        Stores an object in S3.
         :param filename: filename of the object
         :param data: The content to be stored in S3
         :rtype: bool
@@ -161,14 +160,14 @@ class S3:
             return False
         path = os.path.join(self.dir, filename)
         key = self.bucket.new_key(path)
-        # This will store the data in s3://juju-qa-data/comp-test/
+        # This will store the data.
         key.set_contents_from_string(data, headers=headers)
         return True
 
 
-class HUploader:
+class S3Uploader:
     """
-    Uploads the result of Heterogeneous Control test to S3
+    Uploads the result of a Jenkins job to S3.
     """
 
     def __init__(self, s3, jenkins_build):
@@ -176,24 +175,27 @@ class HUploader:
         self.jenkins_build = jenkins_build
 
     @classmethod
-    def factory(cls, credentials, build_number=None):
+    def factory(cls, credentials, jenkins_job, build_number, bucket,
+                directory):
         """
-        Creates HUploader.
+        Creates S3Uploader.
         :param credentials: Jenkins credential
+        :param jenkins_job: Jenkins job name
         :param build_number: Jenkins build number
-        :rtype: HUploader
+        :param bucket: S3 bucket name
+        :param directory: S3 directory name
+        :rtype: S3Uploader
         """
-        s3 = S3.factory()
+        s3 = S3.factory(bucket, directory)
         build_number = int(build_number) if build_number else build_number
         jenkins_build = JenkinsBuild.factory(
-            credentials=credentials, job_name='compatibility-control',
+            credentials=credentials, job_name=jenkins_job,
             build_number=build_number)
         return cls(s3, jenkins_build)
 
     def upload(self):
-        """
-        Uploads the Heterogeneous Control test results to S3. Uploads the
-        test results, console logs and artifacts.
+        """Uploads Jenkins job results, console logs and artifacts to S3.
+
         :return: None
         """
         self.upload_test_results()
@@ -279,29 +281,48 @@ def get_s3_access():
     return access_key, secret_key
 
 
-if __name__ == '__main__':
+def get_args(argv=None):
     parser = ArgumentParser()
+    parser.add_argument('jenkins_job', help="Jenkins job name.")
+    parser.add_argument(
+        'build_number', default=None,
+        help="Build to upload, can be a number, 'all' or 'latest'.")
+    parser.add_argument('s3_bucket', help="S3 bucket name to store files.")
+    parser.add_argument(
+        's3_directory',
+        help="Directory under the bucket name to store files.")
     add_credential_args(parser)
-    parser.add_argument(
-        '-b', '--build-number', type=int, default=None,
-        help="Specify build number to upload")
-    parser.add_argument(
-        '-a', '--all', action='store_true', default=False,
-        help="Upload all test results")
-    parser.add_argument(
-        '-l', '--latest', action='store_true', default=False,
-        help="Upload the latest test result.")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    args.all = False
+    args.latest = False
+    if args.build_number == 'all':
+        args.all = True
+        args.build_number = None
+    if args.build_number == 'latest':
+        args.latest = True
+        args.build_number = None
+    if args.build_number:
+        args.build_number = int(args.build_number)
+    return args
+
+
+def main(argv=None):
+    args = get_args(argv)
     cred = get_credentials(args)
 
-    uploader = HUploader.factory(
-        credentials=cred, build_number=args.build_number)
+    uploader = S3Uploader.factory(
+        cred, args.jenkins_job, args.build_number, args.s3_bucket,
+        args.s3_directory)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
-        sys.exit(uploader.upload())
+        uploader.upload()
     elif args.all:
         print('Uploading all test results.')
-        sys.exit(uploader.upload_all_test_results())
+        uploader.upload_all_test_results()
     elif args.latest:
         print('Uploading the latest test result.')
-        sys.exit(uploader.upload_last_completed_test_result())
+        print('WARNING: latest can be a moving target.')
+        uploader.upload_last_completed_test_result()
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

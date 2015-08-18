@@ -189,7 +189,8 @@ class DumpEnvLogsTestCase(TestCase):
                                autospec=True) as crl_mock:
                         with patch('deploy_stack.archive_logs',
                                    autospec=True) as al_mock:
-                            env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+                            env = SimpleEnvironment('foo',
+                                                    {'type': 'nonlocal'})
                             client = EnvJujuClient(env, '1.234-76', None)
                             dump_env_logs(client, '10.10.0.1', artifacts_dir)
             al_mock.assert_called_once_with(artifacts_dir)
@@ -198,7 +199,7 @@ class DumpEnvLogsTestCase(TestCase):
                 sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
             (client, '10.10.0.1'), gm_mock.call_args[0])
-        self.assertEqual(
+        self.assertItemsEqual(
             [(self.r0, '%s/machine-0' % artifacts_dir),
              (self.r1, '%s/machine-1' % artifacts_dir),
              (self.r2, '%s/machine-2' % artifacts_dir)],
@@ -218,7 +219,8 @@ class DumpEnvLogsTestCase(TestCase):
                                autospec=True) as crl_mock:
                         with patch('deploy_stack.archive_logs',
                                    autospec=True) as al_mock:
-                            env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+                            env = SimpleEnvironment('foo',
+                                                    {'type': 'nonlocal'})
                             client = EnvJujuClient(env, '1.234-76', None)
                             dump_env_logs(client, '10.10.0.1', artifacts_dir)
             al_mock.assert_called_once_with(artifacts_dir)
@@ -305,7 +307,7 @@ class DumpEnvLogsTestCase(TestCase):
                 with patch('deploy_stack.lxc_template_glob',
                            os.path.join(juju_home_dir, "*.log")):
                     with patch('subprocess.check_call', autospec=True,
-                               side_effect=err) as cc_mock:
+                               side_effect=err):
                         copy_local_logs(env, '/destination/dir')
         self.assertEqual(
             ["WARNING Could not retrieve local logs: Command 'cp' returned"
@@ -789,13 +791,12 @@ class TestBootContext(TestCase):
         self.addContext(patch('subprocess.call'))
         self.addContext(patch('deploy_stack.wait_for_port'))
         self.addContext(patch.object(client, 'bootstrap',
-                                     side_effect=Exception))
+                                     side_effect=FakeException))
         crl_mock = self.addContext(patch('deploy_stack.copy_remote_logs'))
         al_mock = self.addContext(patch('deploy_stack.archive_logs'))
-        with self.assertRaises(Exception):
+        with self.assertRaises(FakeException):
             with boot_context('bar', client, 'baz', [], None, None, None,
-                              'log_dir', keep_env=False,
-                              upload_tools=True):
+                              'log_dir', keep_env=False, upload_tools=True):
                 pass
         self.assertEqual(crl_mock.call_count, 1)
         call_args = crl_mock.call_args[0]

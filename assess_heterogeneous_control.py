@@ -70,11 +70,12 @@ def prepare_dummy_env(client):
     return token
 
 
-def get_clients(initial, other, base_env, environment_name, debug, agent_url):
+def get_clients(initial, other, base_env, environment_name, debug,
+                agent_url, agent_stream, series):
     """Return the clients to use for testing."""
     environment = SimpleEnvironment.from_config(base_env)
-    update_env(environment, environment_name, series='precise',
-               agent_url=agent_url)
+    update_env(environment, environment_name, series=series,
+               agent_url=agent_url, agent_stream=agent_stream)
     if agent_url is None:
         environment.config.pop('tools-metadata-url', None)
     initial_client = EnvJujuClient.by_version(environment, initial,
@@ -88,7 +89,7 @@ def get_clients(initial, other, base_env, environment_name, debug, agent_url):
 
 
 def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
-                         upload_tools, debug, agent_url):
+                         upload_tools, debug, agent_url, agent_stream, series):
     """Top level function that prepares the clients and environment.
 
     initial and other are paths to the binary used initially, and a binary
@@ -96,7 +97,8 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
     environment on and environment_name is the new name for the environment.
     """
     initial_client, other_client, released_client = get_clients(
-        initial, other, base_env, environment_name, debug, agent_url)
+        initial, other, base_env, environment_name, debug, agent_url,
+        agent_stream, series)
     test_control_heterogeneous(initial_client, other_client, released_client,
                                log_dir, upload_tools)
 
@@ -222,6 +224,10 @@ def parse_args(argv=None):
     parser.add_argument('--debug', help='Run juju with --debug',
                         action='store_true', default=False)
     parser.add_argument('--agent-url', default=None)
+    parser.add_argument('--agent-stream', action='store',
+                        help='URL for retrieving agent binaries.')
+    parser.add_argument('--series', action='store',
+                        help='Name of the Ubuntu series to use.')
     add_credential_args(parser)
     return parser.parse_args(argv)
 
@@ -231,7 +237,8 @@ def main():
     configure_logging(logging.INFO)
     assess_heterogeneous(args.initial, args.other, args.base_environment,
                          args.environment_name, args.log_dir,
-                         args.upload_tools, args.debug, args.agent_url)
+                         args.upload_tools, args.debug, args.agent_url,
+                         args.agent_stream, args.series)
 
 
 if __name__ == '__main__':
