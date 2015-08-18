@@ -63,9 +63,12 @@ func NewHookContext(
 			return nil, err
 		}
 		ctx.metricsRecorder, err = metrics.NewJSONMetricRecorder(
-			paths.GetMetricsSpoolDir(),
-			charmMetrics.Metrics,
-			charmURL.String())
+			metrics.MetricRecorderConfig{
+				SpoolDir: paths.GetMetricsSpoolDir(),
+				Metrics:  charmMetrics.Metrics,
+				CharmURL: charmURL.String(),
+				UnitTag:  unit.Tag().String(),
+			})
 		if err != nil {
 			return nil, err
 		}

@@ -105,9 +105,3 @@ func newResignLeadershipOp() creator {
 		return factory.NewResignLeadership()
 	}
 }
-
-func newSendMetricsOp() creator {
-	return func(factory operation.Factory) (operation.Operation, error) {
-		return factory.NewSendMetrics()
-	}
-}

@@ -75,20 +75,24 @@ type MetricBatch struct {
 	UUID     string         `json:"uuid"`
 	Created  time.Time      `json:"created"`
 	Metrics  []jujuc.Metric `json:"metrics"`
+	UnitTag  string         `json:"unit-tag"`
 }
 
 // APIMetricBatch converts the specified MetricBatch to a params.MetricBatch,
 // which can then be sent to the state server.
-func APIMetricBatch(batch MetricBatch) params.MetricBatch {
+func APIMetricBatch(batch MetricBatch) params.MetricBatchParam {
 	metrics := make([]params.Metric, len(batch.Metrics))
 	for i, metric := range batch.Metrics {
 		metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
 	}
-	return params.MetricBatch{
-		UUID:     batch.UUID,
-		CharmURL: batch.CharmURL,
-		Created:  batch.Created,
-		Metrics:  metrics,
+	return params.MetricBatchParam{
+		Tag: batch.UnitTag,
+		Batch: params.MetricBatch{
+			UUID:     batch.UUID,
+			CharmURL: batch.CharmURL,
+			Created:  batch.Created,
+			Metrics:  metrics,
+		},
 	}
 }
 
@@ -97,6 +101,7 @@ type MetricsMetadata struct {
 	CharmURL string    `json:"charmurl"`
 	UUID     string    `json:"uuid"`
 	Created  time.Time `json:"created"`
+	UnitTag  string    `json:"unit-tag"`
 }
 
 // JSONMetricRecorder implements the MetricsRecorder interface
@@ -107,6 +112,7 @@ type JSONMetricRecorder struct {
 	charmURL     string
 	uuid         utils.UUID
 	created      time.Time
+	unitTag      string
 
 	lock sync.Mutex
 
@@ -114,11 +120,19 @@ type JSONMetricRecorder struct {
 	enc  *json.Encoder
 }
 
+// MetricRecorderConfig stores configuration data for a metrics recorder.
+type MetricRecorderConfig struct {
+	SpoolDir string
+	Metrics  map[string]corecharm.Metric
+	CharmURL string
+	UnitTag  string
+}
+
 // NewJSONMetricRecorder creates a new JSON metrics recorder.
 // It checks if the metrics spool directory exists, if it does not - it is created. Then
 // it tries to find an unused metric batch UUID 3 times.
-func NewJSONMetricRecorder(spoolDir string, metrics map[string]corecharm.Metric, charmURL string) (rec *JSONMetricRecorder, rErr error) {
-	if err := checkSpoolDir(spoolDir); err != nil {
+func NewJSONMetricRecorder(config MetricRecorderConfig) (rec *JSONMetricRecorder, rErr error) {
+	if err := checkSpoolDir(config.SpoolDir); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -128,11 +142,12 @@ func NewJSONMetricRecorder(spoolDir string, metrics map[string]corecharm.Metric,
 	}
 
 	recorder := &JSONMetricRecorder{
-		spoolDir:     spoolDir,
+		spoolDir:     config.SpoolDir,
 		uuid:         mbUUID,
-		charmURL:     charmURL,
+		charmURL:     config.CharmURL,
 		created:      time.Now().UTC(),
-		validMetrics: metrics,
+		validMetrics: config.Metrics,
+		unitTag:      config.UnitTag,
 	}
 	if err := recorder.open(); err != nil {
 		return nil, errors.Trace(err)
@@ -223,6 +238,7 @@ func (m *JSONMetricRecorder) recordMetaData() error {
 		CharmURL: m.charmURL,
 		UUID:     m.uuid.String(),
 		Created:  m.created,
+		UnitTag:  m.unitTag,
 	}
 	// The use of a metricFile here ensures that the JSONMetricReader will only
 	// find a fully-written metafile.
