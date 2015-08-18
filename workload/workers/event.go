@@ -6,7 +6,6 @@ package workers
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -23,14 +22,6 @@ const (
 	resAPIClient = "apiclient"
 )
 
-// Runner is the portion of worker.Worker needed for Event handlers.
-type Runner interface {
-	// Start a worker using the provided func.
-	StartWorker(id string, newWorker func() (worker.Worker, error)) error
-	// Stop the identified worker.
-	StopWorker(id string) error
-}
-
 // TODO(ericsnow) Switch handlers to...manifests? workers?
 
 // EventHandlers orchestrates handling of events on workloads.
@@ -39,34 +30,41 @@ type EventHandlers struct {
 	handlers []func([]workload.Event, context.APIClient, Runner) error
 
 	apiClient context.APIClient
-	runner    *trackingRunner
+	// runner is used in lieu of the engine due to support for stopping.
+	runner worker.Runner
 }
 
 // NewEventHandlers wraps a new EventHandler around the provided channel.
 func NewEventHandlers() *EventHandlers {
 	logger.Debugf("new event handler created")
-	eh := &EventHandlers{
-		events: make(chan []workload.Event),
-	}
-	return eh
+	var eh EventHandlers
+	eh.init(nil)
+	return &eh
+}
+
+func (eh *EventHandlers) init(apiClient context.APIClient) {
+	eh.events = make(chan []workload.Event)
+	eh.apiClient = apiClient
 }
 
 // Reset resets the event handlers.
-func (eh *EventHandlers) Reset(apiClient context.APIClient) {
-	close(eh.events)
-	eh.events = make(chan []workload.Event)
-
-	eh.apiClient = apiClient
-	eh.runner = nil
+func (eh *EventHandlers) Reset(apiClient context.APIClient) error {
+	if err := eh.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	eh.init(apiClient)
+	return nil
 }
 
 // Close cleans up the handler's resources.
 func (eh *EventHandlers) Close() error {
 	close(eh.events)
 	if eh.runner != nil {
-		if err := eh.runner.stopAll(); err != nil {
+		eh.runner.Kill()
+		if err := eh.runner.Wait(); err != nil {
 			return errors.Trace(err)
 		}
+		eh.runner = nil
 	}
 	return nil
 }
@@ -95,8 +93,7 @@ func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var runner worker.Runner // TODO(ericsnow) Wrap engine in a runner.
-	eh.runner = newTrackingRunner(runner)
+	eh.runner = newRunner()
 
 	manifolds := eh.manifolds()
 	// TODO(ericsnow) Move the following to a helper in worker/dependency or worker/util?
@@ -112,11 +109,14 @@ func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
 
 // manifolds returns the set of manifolds that should be added for the unit.
 func (eh *EventHandlers) manifolds() dependency.Manifolds {
-	return dependency.Manifolds{
+	manifolds := dependency.Manifolds{
 		resEvents:    eh.eventsManifold(),
-		resRunner:    eh.runnerManifold(),
 		resAPIClient: eh.apiManifold(),
 	}
+	if eh.runner != nil {
+		manifolds[resRunner] = eh.runnerManifold()
+	}
+	return manifolds
 }
 
 func (eh *EventHandlers) eventsManifold() dependency.Manifold {
@@ -137,8 +137,6 @@ func (eh *EventHandlers) eventsManifold() dependency.Manifold {
 		},
 	}
 }
-
-// TODO(ericsnow) Use worker.util.ValueWorker in runnerManifold and apiManifold.
 
 func (eh *EventHandlers) runnerManifold() dependency.Manifold {
 	return dependency.Manifold{
@@ -224,44 +222,4 @@ func InitialEvents(apiClient context.APIClient) ([]workload.Event, error) {
 		})
 	}
 	return events, nil
-}
-
-type trackingRunner struct {
-	Runner
-	running set.Strings
-}
-
-func newTrackingRunner(runner Runner) *trackingRunner {
-	return &trackingRunner{
-		Runner:  runner,
-		running: set.NewStrings(),
-	}
-}
-
-// StartWorker implements Runner.
-func (r *trackingRunner) Startworker(id string, newWorker func() (worker.Worker, error)) error {
-	if err := r.Runner.StartWorker(id, newWorker); err != nil {
-		return errors.Trace(err)
-	}
-	r.running.Add(id)
-	return nil
-}
-
-// StopWorker implements Runner.
-func (r *trackingRunner) StopWorker(id string) error {
-	if err := r.Runner.StopWorker(id); err != nil {
-		return errors.Trace(err)
-	}
-	r.running.Remove(id) // TODO(ericsnow) Move above StopWorker?
-	return nil
-
-}
-
-func (r *trackingRunner) stopAll() error {
-	for _, id := range r.running.Values() {
-		if err := r.StopWorker(id); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }

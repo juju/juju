@@ -27,16 +27,18 @@ func newEngine() (dependency.Engine, error) {
 }
 
 func newEngineConfig() dependency.EngineConfig {
-	isFatal := func(err error) bool {
-		return false
-	}
-	moreImportant := func(err, worst error) error {
-		return worst
-	}
 	return dependency.EngineConfig{
 		IsFatal:       isFatal,
 		MoreImportant: moreImportant,
 		ErrorDelay:    engineErrorDelay,
 		BounceDelay:   engineBounceDelay,
 	}
+}
+
+func isFatal(err error) bool {
+	return false
+}
+
+func moreImportant(err, worst error) error {
+	return worst
 }
