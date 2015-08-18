@@ -17,11 +17,8 @@ import (
 
 var (
 	workloadUpdateLogger = loggo.GetLogger("juju.process.worker.status.update")
-	notify               chan string
-)
-
-const (
 	workloadUpdatePeriod = time.Minute * 5
+	notify               chan string
 )
 
 // StatusEventHandler handles and dispatches process.Events based on their kind.
@@ -67,6 +64,10 @@ func NewStatusWorkerFunc(event process.Event, api context.APIClient) func(<-chan
 		return nil
 	}
 	return call
+}
+
+func SetStatusWorkerUpdatePeriod(t time.Duration) {
+	workloadUpdatePeriod = t
 }
 
 // NewStatusWorker returns a new PeriodicWorker.
