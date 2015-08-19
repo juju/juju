@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
@@ -23,9 +22,9 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st                   *uniter.State
-	unit                 *uniter.Unit
-	service              *uniter.Service
+	st                   State
+	unit                 Unit
+	service              Service
 	relations            map[names.RelationTag]*relationUnitsWatcher
 	relationUnitsChanges chan relationUnitsChange
 	tomb                 tomb.Tomb
@@ -37,7 +36,7 @@ type RemoteStateWatcher struct {
 
 // NewFilter returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
-func NewWatcher(st *uniter.State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
+func NewWatcher(st State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{
 		st:                   st,
 		relationUnitsChanges: make(chan relationUnitsChange),
@@ -101,13 +100,6 @@ func (w *RemoteStateWatcher) ClearResolvedMode() {
 	w.mu.Unlock()
 }
 
-func (w *RemoteStateWatcher) fire() {
-	select {
-	case w.out <- struct{}{}:
-	default:
-	}
-}
-
 func (w *RemoteStateWatcher) init(unitTag names.UnitTag) (err error) {
 	// TODO(dfc) named return value is a time bomb
 	// TODO(axw) move this logic.
@@ -123,13 +115,6 @@ func (w *RemoteStateWatcher) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = w.unitChanged(); err != nil {
-		return err
-	}
-	if err = w.serviceChanged(); err != nil {
-		return err
-	}
-	w.fire()
 	return nil
 }
 
@@ -185,7 +170,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenLeaderSettingsChange bool
-	leaderSettingsw, err := w.st.LeadershipSettings.WatchLeadershipSettings(w.service.Tag().Id())
+	leaderSettingsw, err := w.service.WatchLeadershipSettings()
 	if err != nil {
 		return err
 	}
@@ -200,9 +185,15 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
+	// fire will, once the first event for each watcher has
+	// been observed, send a signal on the out channel.
 	fire := func() {
-		if eventsObserved == requiredEvents {
-			w.fire()
+		if eventsObserved != requiredEvents {
+			return
+		}
+		select {
+		case w.out <- struct{}{}:
+		default:
 		}
 	}
 
@@ -378,11 +369,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 				w.current.Relations[rel.Id()] = relationSnapshot
 				continue
 			}
-			ru, err := rel.Unit(w.unit)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			in, err := ru.Watch()
+			in, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
 			if err != nil {
 				return errors.Trace(err)
 			}

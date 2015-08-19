@@ -213,3 +213,9 @@ func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 	}
 	return result, nil
 }
+
+// WatchLeadershipSettings returns a watcher which can be used to wait
+// for leadership settings changes to be made for the service.
+func (s *Service) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
+	return s.st.LeadershipSettings.WatchLeadershipSettings(s.tag.Id())
+}
