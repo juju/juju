@@ -146,20 +146,30 @@ func testJournalDirs(dir string, c *gc.C) {
 	c.Assert(info.Size(), gc.Equals, size)
 }
 
-func (s *MongoSuite) TestEnsureServer(c *gc.C) {
-	dataDir := s.testEnsureServerNumaCtl(c, false)
+func (s *MongoSuite) assertSSLKeyFile(c *gc.C, dataDir string) {
+	contents, err := ioutil.ReadFile(mongo.SSLKeyPath(dataDir))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
+}
 
+func (s *MongoSuite) assertSharedSecretFile(c *gc.C, dataDir string) {
+	contents, err := ioutil.ReadFile(mongo.SharedSecretPath(dataDir))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
+}
+
+func (s *MongoSuite) assertMongoConfigFile(c *gc.C) {
 	contents, err := ioutil.ReadFile(s.mongodConfigPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(contents, jc.DeepEquals, []byte("ENABLE_MONGODB=no"))
+}
 
-	contents, err = ioutil.ReadFile(mongo.SSLKeyPath(dataDir))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
+func (s *MongoSuite) TestEnsureServer(c *gc.C) {
+	dataDir := s.testEnsureServerNumaCtl(c, false)
 
-	contents, err = ioutil.ReadFile(mongo.SharedSecretPath(dataDir))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
+	s.assertSSLKeyFile(c, dataDir)
+	s.assertSharedSecretFile(c, dataDir)
+	s.assertMongoConfigFile(c)
 
 	// make sure that we log the version of mongodb as we get ready to
 	// start it
@@ -182,6 +192,11 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
+	// These should still be written out even if the service was installed.
+	s.assertSSLKeyFile(c, dataDir)
+	s.assertSharedSecretFile(c, dataDir)
+	s.assertMongoConfigFile(c)
+
 	c.Check(s.data.Installed, gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
 }
@@ -196,6 +211,11 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
+
+	// These should still be written out even if the service was installed.
+	s.assertSSLKeyFile(c, dataDir)
+	s.assertSharedSecretFile(c, dataDir)
+	s.assertMongoConfigFile(c)
 
 	c.Check(s.data.Installed, gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
