@@ -36,8 +36,3 @@ func NewMultiNotifyWatcher(w ...state.NotifyWatcher) state.NotifyWatcher {
 	mw := newMultiNotifyWatcher(w...)
 	return mw
 }
-
-var (
-	ServiceStatus    = serviceStatus
-	ServiceSetStatus = serviceSetStatus
-)

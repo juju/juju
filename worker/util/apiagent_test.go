@@ -9,9 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/util"
@@ -32,12 +32,12 @@ func (s *AgentApiManifoldSuite) SetUpTest(c *gc.C) {
 	s.worker = &dummyWorker{}
 	s.manifold = util.AgentApiManifold(util.AgentApiManifoldConfig{
 		AgentName:     "agent-name",
-		ApiCallerName: "api-caller-name",
+		APICallerName: "api-caller-name",
 	}, s.newWorker)
 }
 
-func (s *AgentApiManifoldSuite) newWorker(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	s.AddCall("newWorker", agent, apiCaller)
+func (s *AgentApiManifoldSuite) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+	s.AddCall("newWorker", a, apiCaller)
 	if err := s.NextErr(); err != nil {
 		return nil, err
 	}

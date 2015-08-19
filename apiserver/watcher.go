@@ -15,8 +15,16 @@ import (
 
 func init() {
 	common.RegisterFacade(
-		"AllWatcher", 0, newClientAllWatcher,
-		reflect.TypeOf((*srvClientAllWatcher)(nil)),
+		"AllWatcher", 0, NewAllWatcher,
+		reflect.TypeOf((*SrvAllWatcher)(nil)),
+	)
+	// Note: AllEnvWatcher uses the same infrastructure as AllWatcher
+	// but they are get under separate names as it possible the may
+	// diverge in the future (especially in terms of authorisation
+	// checks).
+	common.RegisterFacade(
+		"AllEnvWatcher", 1, NewAllWatcher,
+		reflect.TypeOf((*SrvAllWatcher)(nil)),
 	)
 	common.RegisterFacade(
 		"NotifyWatcher", 0, newNotifyWatcher,
@@ -44,38 +52,42 @@ func init() {
 	)
 }
 
-func newClientAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+// NewAllEnvWatcher returns a new API server endpoint for interacting
+// with a watcher created by the WatchAll and WatchAllEnvs API calls.
+func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
+
 	watcher, ok := resources.Get(id).(*state.Multiwatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvClientAllWatcher{
+	return &SrvAllWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: resources,
 	}, nil
 }
 
-// srvClientAllWatcher defines the API methods on a state.Multiwatcher.
-// which watches any changes to the state. Each client has its own current set
-// of watchers, stored in resources.
-type srvClientAllWatcher struct {
+// SrvAllWatcher defines the API methods on a state.Multiwatcher.
+// which watches any changes to the state. Each client has its own
+// current set of watchers, stored in resources. It is used by both
+// the AllWatcher and AllEnvWatcher facades.
+type SrvAllWatcher struct {
 	watcher   *state.Multiwatcher
 	id        string
 	resources *common.Resources
 }
 
-func (aw *srvClientAllWatcher) Next() (params.AllWatcherNextResults, error) {
+func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
 	deltas, err := aw.watcher.Next()
 	return params.AllWatcherNextResults{
 		Deltas: deltas,
 	}, err
 }
 
-func (w *srvClientAllWatcher) Stop() error {
+func (w *SrvAllWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
@@ -303,7 +315,7 @@ type EntityWatcher interface {
 	// MapChanges maps the received strings to their according tag strings.
 	// The EntityFinder interface representing state or a mock has to be
 	// upcasted into the needed sub-interface of state for the real mapping.
-	MapChanges(st *state.State, in []string) ([]string, error)
+	MapChanges(in []string) ([]string, error)
 }
 
 // srvEntityWatcher defines the API for methods on a state.StringsWatcher.
@@ -339,7 +351,7 @@ func newEntityWatcher(st *state.State, resources *common.Resources, auth common.
 // or the Watch call that created the srvEntityWatcher.
 func (w *srvEntityWatcher) Next() (params.EntityWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
-		mapped, err := w.watcher.MapChanges(w.st, changes)
+		mapped, err := w.watcher.MapChanges(changes)
 		if err != nil {
 			return params.EntityWatchResult{}, errors.Annotate(err, "cannot map changes")
 		}

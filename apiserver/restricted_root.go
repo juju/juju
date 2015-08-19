@@ -26,6 +26,7 @@ func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
 // of the API server. Any facade added here needs to work across environment
 // boundaries.
 var restrictedRootNames = set.NewStrings(
+	"AllEnvWatcher",
 	"EnvironmentManager",
 	"SystemManager",
 	"UserManager",

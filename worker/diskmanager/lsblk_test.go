@@ -8,6 +8,7 @@ package diskmanager_test
 import (
 	"errors"
 	"os"
+	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -29,6 +30,7 @@ func (s *ListBlockDevicesSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(storage.BlockDevice) (bool, error) {
 		return false, nil
 	})
+	testing.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc`)
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevices(c *gc.C) {
@@ -69,6 +71,71 @@ EOF`)
 		UUID:           "2c1c701d-f2ce-43a4-b345-33e2e39f9503",
 		FilesystemType: "ext4",
 	}})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
+	// If ID_BUS is scsi, then we should get a
+	// BusAddress value.
+	s.testListBlockDevicesExtended(c, `
+DEVPATH=/a/b/c/d/1:2:3:4/block/sda
+ID_BUS=scsi
+`, storage.BlockDevice{BusAddress: "scsi@1:2.3.4"})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *gc.C) {
+	// If ID_BUS and ID_SERIAL are both present, we
+	// should get a HardwareId value.
+	s.testListBlockDevicesExtended(c, `
+ID_BUS=ata
+ID_SERIAL=0980978987987
+`, storage.BlockDevice{HardwareId: "ata-0980978987987"})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesAll(c *gc.C) {
+	s.testListBlockDevicesExtended(c, `
+DEVPATH=/a/b/c/d/1:2:3:4/block/sda
+ID_BUS=scsi
+ID_SERIAL=0980978987987
+`, storage.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987"})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedDevpathFormat(c *gc.C) {
+	// If DEVPATH's format doesn't match what we expect, then we should
+	// just not get the BusAddress value.
+	s.testListBlockDevicesExtended(c, `
+DEVPATH=/a/b/c/d/x:y:z:zy/block/sda
+ID_BUS=ata
+ID_SERIAL=0980978987987
+`, storage.BlockDevice{HardwareId: "ata-0980978987987"})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedPropertyFormat(c *gc.C) {
+	// If udevadm outputs in an unexpected format, we won't error;
+	// we only error if some catastrophic error occurs while reading
+	// from the udevadm command's stdout.
+	s.testListBlockDevicesExtended(c, "nonsense", storage.BlockDevice{})
+}
+
+func (s *ListBlockDevicesSuite) testListBlockDevicesExtended(
+	c *gc.C,
+	udevadmInfo string,
+	expect storage.BlockDevice,
+) {
+	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+cat <<EOF
+KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
+EOF`)
+	testing.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc
+cat <<EOF
+`+strings.TrimSpace(udevadmInfo)+`
+EOF`)
+
+	expect.DeviceName = "sda"
+	expect.Size = 228936
+
+	devices, err := diskmanager.ListBlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{expect})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *gc.C) {

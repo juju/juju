@@ -14,6 +14,14 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -32,6 +40,7 @@ var _ = gc.Suite(&AddresserSuite{})
 
 func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		EnvironManager: true,
@@ -47,88 +56,126 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
-	config := coretesting.EnvironConfig(c)
+func (s *AddresserSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
+	config := testingEnvConfig(c)
 	s.st.setConfig(c, config)
 
-	result, err := s.api.EnvironConfig()
+	dead, err := s.st.DeadIPAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
-		Config: config.AllAttrs(),
+	c.Assert(dead, gc.HasLen, 2)
+
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
+}
+
+func (s *AddresserSuite) TestReleaseAddress(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	// Cleanup initial dead IP addresses.
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
+
+	// Prepare tests.
+	called := 0
+	s.PatchValue(addresser.NetEnvReleaseAddress, func(env environs.NetworkingEnviron,
+		instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
+		called++
+		c.Assert(instId, gc.Equals, instance.Id("a3"))
+		c.Assert(subnetId, gc.Equals, network.Id("a"))
+		c.Assert(addr, gc.Equals, network.NewAddress("0.1.2.3"))
+		c.Assert(macAddress, gc.Equals, "fff3")
+		return nil
 	})
 
-	s.st.stub.CheckCallNames(c, "EnvironConfig")
+	// Set address 0.1.2.3 to dead.
+	s.st.setDead(c, "0.1.2.3")
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 1)
+
+	apiErr = s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+	c.Assert(called, gc.Equals, 1)
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
 }
 
-func (s *AddresserSuite) TestEnvironConfigFailure(c *gc.C) {
+func (s *AddresserSuite) TestCleanupIPAddressesConfigGetFailure(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
 	s.st.stub.SetErrors(errors.New("ouch"))
 
-	result, err := s.api.EnvironConfig()
-	c.Assert(err, gc.ErrorMatches, "ouch")
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
+	// First action is getting the environment configuration,
+	// so the injected error is returned here.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, "getting environment config: ouch")
 
-	s.st.stub.CheckCallNames(c, "EnvironConfig")
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
 }
 
-func (s *AddresserSuite) TestLifeSuccess(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"}},
-	}
-	result, err := s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Life, gc.Equals, params.Alive)
+func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
+	config := tidelandTestingEnvConfig(c)
+	s.st.setConfig(c, config)
 
-	args = params.Entities{
-		Entities: []params.Entity{
-			{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"},
-			{Tag: "ipaddress-00000000-1111-2222-7777-0123456789ab"},
-		},
-	}
-	result, err = s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 2)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Life, gc.Equals, params.Alive)
-	c.Assert(result.Results[1].Error, gc.IsNil)
-	c.Assert(result.Results[1].Life, gc.Equals, params.Dead)
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
 
-	args = params.Entities{}
-	result, err = s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 0)
+	// Validation of configuration fails due to illegal provider.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "tideland"`)
+
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
 }
 
-func (s *AddresserSuite) TestLifeFail(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-9999-ffffffffffff"}},
-	}
-	result, err := s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `IP address ipaddress-00000000-1111-2222-9999-ffffffffffff not found`)
-}
+func (s *AddresserSuite) TestCleanupIPAddressesNotSupportedFailure(c *gc.C) {
+	config := mockTestingEnvConfig(c)
+	s.st.setConfig(c, config)
 
-func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-6666-0123456789ab"}},
-	}
-	result, err := s.api.Remove(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
 
-}
+	// The tideland environment does not support networking.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, "IP address deallocation not supported")
 
-func (s *AddresserSuite) TestRemoveFail(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"}},
-	}
-	result, err := s.api.Remove(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `cannot remove entity "ipaddress-00000000-1111-2222-3333-0123456789ab": still alive`)
-
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
 }
 
 func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
@@ -157,4 +204,36 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.st, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
+}
+
+// testingEnvConfig prepares an environment configuration using
+// the dummy provider.
+func testingEnvConfig(c *gc.C) *config.Config {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env.Config()
+}
+
+// tidelandTestingEnvConfig prepares an environment configuration using
+// the illegal tideland provider.
+func tidelandTestingEnvConfig(c *gc.C) *config.Config {
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "tideland",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+// mockTestingEnvConfig prepares an environment configuration using
+// the mock provider which does not support networking.
+func mockTestingEnvConfig(c *gc.C) *config.Config {
+	environs.RegisterProvider("mock", mockEnvironProvider{})
+	cfg, err := config.New(config.NoDefaults, mockConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env.Config()
 }

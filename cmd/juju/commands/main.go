@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/system"
@@ -130,11 +131,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(&DestroyEnvironmentCommand{})
 
 	// Reporting commands.
-	r.Register(wrapEnvCommand(&StatusCommand{}))
+	r.Register(wrapEnvCommand(&status.StatusCommand{}))
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
 	r.Register(wrapEnvCommand(&APIInfoCommand{}))
-	r.Register(wrapEnvCommand(&StatusHistoryCommand{}))
+	r.Register(wrapEnvCommand(&status.StatusHistoryCommand{}))
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))
@@ -221,7 +222,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	if featureflag.Enabled(feature.JES) {
 		r.Register(system.NewSuperCommand())
 		r.RegisterSuperAlias("systems", "system", "list", nil)
+
+		// Add top level aliases of the same name as the subcommands.
 		r.RegisterSuperAlias("environments", "system", "environments", nil)
+		r.RegisterSuperAlias("login", "system", "login", nil)
+		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
+		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
 	}
 }
 

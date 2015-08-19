@@ -72,6 +72,9 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 
 // removeEntities removes each specified Dead entity from state.
 func removeEntities(ctx *context, tags []names.Tag) error {
+	if len(tags) == 0 {
+		return nil
+	}
 	logger.Debugf("removing entities: %v", tags)
 	errorResults, err := ctx.life.Remove(tags)
 	if err != nil {
@@ -87,6 +90,9 @@ func removeEntities(ctx *context, tags []names.Tag) error {
 
 // removeAttachments removes each specified attachment from state.
 func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	errorResults, err := ctx.life.RemoveAttachments(ids)
 	if err != nil {
 		return errors.Annotate(err, "removing attachments")
@@ -100,6 +106,16 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 		}
 	}
 	return nil
+}
+
+// setStatus sets the given entity statuses, if any. If setting
+// the status fails the error is logged but otherwise ignored.
+func setStatus(ctx *context, statuses []params.EntityStatusArgs) {
+	if len(statuses) > 0 {
+		if err := ctx.statusSetter.SetStatus(statuses); err != nil {
+			logger.Errorf("failed to set status: %v", err)
+		}
+	}
 }
 
 var errNonDynamic = errors.New("non-dynamic storage provider")

@@ -822,7 +822,7 @@ func (s *unitSuite) patchNewState(
 type unitMetricBatchesSuite struct {
 	testing.JujuConnSuite
 
-	st      *api.State
+	st      api.Connection
 	uniter  *uniter.State
 	apiUnit *uniter.Unit
 	charm   *state.Charm

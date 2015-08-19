@@ -16,12 +16,8 @@ var (
 	ServerAddress          = &serverAddress
 )
 
-type APIState apiState
-
-type APIOpenFunc func(*api.Info, api.DialOpts) (APIState, error)
-
-func NewAPIFromStore(envName string, store configstore.Storage, f APIOpenFunc) (APIState, error) {
-	apiOpen := func(info *api.Info, opts api.DialOpts) (apiState, error) {
+func NewAPIFromStore(envName string, store configstore.Storage, f api.OpenFunc) (api.Connection, error) {
+	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return f(info, opts)
 	}
 	return newAPIFromStore(envName, store, apiOpen)

@@ -16,7 +16,7 @@ import (
 // Client provides access to the metrics manager api
 type Client struct {
 	base.ClientFacade
-	st     *api.State
+	st     api.Connection
 	facade base.FacadeCaller
 }
 
@@ -29,7 +29,7 @@ type MetricsManagerClient interface {
 var _ MetricsManagerClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsmanager api
-func NewClient(st *api.State) *Client {
+func NewClient(st api.Connection) *Client {
 	frontend, backend := base.NewClientFacade(st, "MetricsManager")
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }

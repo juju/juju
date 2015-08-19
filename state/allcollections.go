@@ -299,10 +299,13 @@ func allCollections() collectionSchema {
 		statusesC:           {},
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "entityid"},
+				Key: []string{"env-uuid", "globalkey"},
 			}},
 		},
 		spacesC: {},
+
+		// This collection holds information about cloud image metadata.
+		cloudimagemetadataC: {},
 
 		// ----------------------
 
@@ -326,6 +329,7 @@ const (
 	blocksC                = "blocks"
 	charmsC                = "charms"
 	cleanupsC              = "cleanups"
+	cloudimagemetadataC    = "cloudimagemetadata"
 	constraintsC           = "constraints"
 	containerRefsC         = "containerRefs"
 	envUsersC              = "envusers"

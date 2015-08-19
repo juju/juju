@@ -101,10 +101,6 @@ type ContextUnit interface {
 	// UnitName returns the executing unit's name.
 	UnitName() string
 
-	// OwnerTag returns the user tag of the service the executing
-	// units belongs to.
-	OwnerTag() string
-
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 }

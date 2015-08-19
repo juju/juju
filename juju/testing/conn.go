@@ -73,8 +73,8 @@ type JujuConnSuite struct {
 
 	State        *state.State
 	Environ      environs.Environ
-	APIState     *api.State
-	apiStates    []*api.State // additional api.States to close on teardown
+	APIState     api.Connection
+	apiStates    []api.Connection // additional api.Connections to close on teardown
 	ConfigStore  configstore.Storage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.
@@ -141,9 +141,9 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	return apiInfo
 }
 
-// openAPIAs opens the API and ensures that the *api.State returned will be
+// openAPIAs opens the API and ensures that the api.Connection returned will be
 // closed during the test teardown by using a cleanup function.
-func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) *api.State {
+func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) api.Connection {
 	apiInfo := s.APIInfo(c)
 	apiInfo.Tag = tag
 	apiInfo.Password = password
@@ -156,24 +156,24 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string
 }
 
 // OpenAPIAs opens the API using the given identity tag and password for
-// authentication.  The returned *api.State should not be closed by the caller
+// authentication.  The returned api.Connection should not be closed by the caller
 // as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag names.Tag, password string) *api.State {
+func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag names.Tag, password string) api.Connection {
 	return s.openAPIAs(c, tag, password, "")
 }
 
 // OpenAPIAsMachine opens the API using the given machine tag, password and
-// nonce for authentication. The returned *api.State should not be closed by
+// nonce for authentication. The returned api.Connection should not be closed by
 // the caller as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag names.Tag, password, nonce string) *api.State {
+func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag names.Tag, password, nonce string) api.Connection {
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
 // OpenAPIAsNewMachine creates a new machine entry that lives in system state,
-// and then uses that to open the API. The returned *api.State should not be
+// and then uses that to open the API. The returned api.Connection should not be
 // closed by the caller as a cleanup function has been registered to do that.
 // The machine will run the supplied jobs; if none are given, JobHostUnits is assumed.
-func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (*api.State, *state.Machine) {
+func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (api.Connection, *state.Machine) {
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
@@ -247,7 +247,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
 	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
 	c.Assert(err, jc.ErrorIsNil)
+	// Upload tools to both release and devel streams since config will dictate that we
+	// end up looking in both places.
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
 	s.DefaultToolsStorage = stor
 
 	err = bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})

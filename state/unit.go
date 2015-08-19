@@ -384,17 +384,16 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return setDyingOps, nil
 	}
 
+	// See if the unit agent has started running.
+	// If so then we can't set directly to dead.
 	agentStatusDocId := u.globalAgentKey()
-	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
+	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-
-	// See if the unit's machine has been allocated.
-	// If already allocated, then we can't set directly to dead.
-	if agentStatusDoc.Status != StatusAllocating {
+	if agentStatusInfo.Status != StatusAllocating {
 		return setDyingOps, nil
 	}
 
@@ -790,7 +789,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Agent Returns an agent by its unit's name.
-func (u *Unit) Agent() Entity {
+func (u *Unit) Agent() *UnitAgent {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
 }
 
@@ -813,7 +812,7 @@ func (u *Unit) AgentStatus() (StatusInfo, error) {
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this unit.
 func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
-	return statusHistory(size, u.globalKey(), u.st)
+	return statusHistory(u.st, u.globalKey(), size)
 }
 
 // Status returns the status of the unit.
@@ -824,22 +823,19 @@ func (u *Unit) Status() (StatusInfo, error) {
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
-	doc, err := getStatus(u.st, u.globalAgentKey())
+	// TODO(fwereade) as on unitagent, this transformation does not belong here.
+	// For now, pretend we're always reading the unit status.
+	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
 	if err != nil {
 		return StatusInfo{}, err
 	}
-	if doc.Status != StatusError {
-		doc, err = getStatus(u.st, u.globalKey())
+	if info.Status != StatusError {
+		info, err = getStatus(u.st, u.globalKey(), "unit")
 		if err != nil {
 			return StatusInfo{}, err
 		}
 	}
-	return StatusInfo{
-		Status:  doc.Status,
-		Message: doc.StatusInfo,
-		Data:    doc.StatusData,
-		Since:   doc.Updated,
-	}, nil
+	return info, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
@@ -848,36 +844,16 @@ func (u *Unit) Status() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	oldDoc, err := getStatus(u.st, u.globalKey())
-	if IsStatusNotFound(err) {
-		logger.Debugf("there is no state for %q yet", u.globalKey())
-	} else if err != nil {
-		logger.Debugf("cannot get state for %q yet", u.globalKey())
+	if !ValidWorkloadStatus(status) {
+		return errors.Errorf("cannot set invalid status %q", status)
 	}
-
-	doc, err := newUnitStatusDoc(status, info, data)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-	},
-		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
-	}
-	err = u.st.runTransaction(ops)
-	if err != nil {
-		return errors.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
-	}
-
-	if oldDoc.Status != "" {
-		if err := updateStatusHistory(oldDoc, u.globalKey(), u.st); err != nil {
-			logger.Errorf("could not record status history before change to %q: %v", status, err)
-		}
-	}
-	return nil
+	return setStatus(u.st, setStatusParams{
+		badge:     "unit",
+		globalKey: u.globalKey(),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }
 
 // OpenPorts opens the given port range and protocol for the unit, if

@@ -59,7 +59,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 	}
 
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
-	attachments, err := volSource.AttachVolumes([]storage.VolumeAttachmentParams{{
+	results, err := volSource.AttachVolumes([]storage.VolumeAttachmentParams{{
 		Volume:   mockVolumeTag,
 		VolumeId: mockVolId,
 		AttachmentParams: storage.AttachmentParams{
@@ -69,11 +69,13 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(attachments, jc.DeepEquals, []storage.VolumeAttachment{{
-		mockVolumeTag,
-		mockMachineTag,
-		storage.VolumeAttachmentInfo{
-			DeviceName: "sda",
+	c.Check(results, jc.DeepEquals, []storage.AttachVolumesResult{{
+		VolumeAttachment: &storage.VolumeAttachment{
+			mockVolumeTag,
+			mockMachineTag,
+			storage.VolumeAttachmentInfo{
+				DeviceName: "sda",
+			},
 		},
 	}})
 }
@@ -122,7 +124,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 	}
 
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
-	volumes, attachments, err := volSource.CreateVolumes([]storage.VolumeParams{{
+	results, err := volSource.CreateVolumes([]storage.VolumeParams{{
 		Provider: openstack.CinderProviderType,
 		Tag:      mockVolumeTag,
 		Size:     requestedSize,
@@ -135,35 +137,21 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(volumes, jc.DeepEquals, []storage.Volume{{
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Error, jc.ErrorIsNil)
+
+	c.Check(results[0].Volume, jc.DeepEquals, &storage.Volume{
 		mockVolumeTag,
 		storage.VolumeInfo{
 			VolumeId:   mockVolId,
 			Size:       providedSize,
 			Persistent: true,
 		},
-	}})
-	c.Check(attachments, jc.DeepEquals, []storage.VolumeAttachment{{
-		mockVolumeTag,
-		mockMachineTag,
-		storage.VolumeAttachmentInfo{
-			DeviceName: "sda",
-		},
-	}})
+	})
 
-	// should have been 3 calls to GetVolume: twice initially
-	// to wait until the volume became available, and then
-	// again to check if it was available before attaching.
-	c.Check(getVolumeCalls, gc.Equals, 3)
-}
-
-func (s *cinderVolumeSourceSuite) TestCreateVolumeFails(c *gc.C) {
-	volSource := openstack.NewCinderVolumeSource(&mockAdapter{})
-	_, _, err := volSource.CreateVolumes([]storage.VolumeParams{{
-		Provider:   openstack.CinderProviderType,
-		Attributes: map[string]interface{}{storage.Persistent: false},
-	}})
-	c.Assert(err, gc.ErrorMatches, "cannot create a non-persistent Cinder volume")
+	// should have been 2 calls to GetVolume: twice initially
+	// to wait until the volume became available.
+	c.Check(getVolumeCalls, gc.Equals, 2)
 }
 
 func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
@@ -199,7 +187,7 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 	}
 
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
-	_, _, err := volSource.CreateVolumes([]storage.VolumeParams{{
+	_, err := volSource.CreateVolumes([]storage.VolumeParams{{
 		Provider: openstack.CinderProviderType,
 		Tag:      mockVolumeTag,
 		Size:     1024,
@@ -255,17 +243,20 @@ func (s *cinderVolumeSourceSuite) TestDescribeVolumes(c *gc.C) {
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
 	volumes, err := volSource.DescribeVolumes([]string{mockVolId})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(volumes, jc.DeepEquals, []storage.VolumeInfo{{
-		VolumeId:   mockVolId,
-		Size:       mockVolSize,
-		Persistent: true,
+	c.Check(volumes, jc.DeepEquals, []storage.DescribeVolumesResult{{
+		VolumeInfo: &storage.VolumeInfo{
+			VolumeId:   mockVolId,
+			Size:       mockVolSize,
+			Persistent: true,
+		},
 	}})
 }
 
 func (s *cinderVolumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 	mockAdapter := &mockAdapter{}
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
-	errs := volSource.DestroyVolumes([]string{mockVolId})
+	errs, err := volSource.DestroyVolumes([]string{mockVolId})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
 		{"GetVolume", []interface{}{mockVolId}},
@@ -289,7 +280,8 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesAttached(c *gc.C) {
 	}
 
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
-	errs := volSource.DestroyVolumes([]string{mockVolId})
+	errs, err := volSource.DestroyVolumes([]string{mockVolId})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIsNil)
 	c.Assert(statuses, gc.HasLen, 0)
@@ -332,7 +324,7 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 	}
 
 	volSource := openstack.NewCinderVolumeSource(mockAdapter)
-	err := volSource.DetachVolumes([]storage.VolumeAttachmentParams{{
+	errs, err := volSource.DetachVolumes([]storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("123"),
 		VolumeId: mockVolId,
 		AttachmentParams: storage.AttachmentParams{
@@ -348,6 +340,7 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil, nil})
 	// DetachVolume should only be called for existing attachments.
 	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{{
 		"ListVolumeAttachments", []interface{}{mockServerId},
@@ -359,7 +352,7 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
-	var numCreateCalls, numAttachCalls, numDetachCalls, numDestroyCalls int
+	var numCreateCalls, numDestroyCalls, numGetCalls int
 	mockAdapter := &mockAdapter{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			numCreateCalls++
@@ -367,37 +360,25 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 				return nil, errors.New("no volume for you")
 			}
 			return &cinder.Volume{
-				ID:   fmt.Sprint(numCreateCalls),
-				Size: mockVolSize / 1024,
+				ID:     fmt.Sprint(numCreateCalls),
+				Status: "",
 			}, nil
-		},
-		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
-			numAttachCalls++
-			if numAttachCalls == 2 {
-				return nil, errors.New("no attach for you")
-			}
-			return &nova.VolumeAttachment{
-				Id:       volId,
-				VolumeId: volId,
-				ServerId: serverId,
-				Device:   "/dev/sda" + volId,
-			}, nil
-		},
-		detachVolume: func(serverId, volId string) error {
-			numDetachCalls++
-			return errors.New("detach fails")
 		},
 		deleteVolume: func(volId string) error {
 			numDestroyCalls++
+			c.Assert(volId, gc.Equals, "2")
 			return errors.New("destroy fails")
 		},
-		listVolumeAttachments: func(serverId string) ([]nova.VolumeAttachment, error) {
-			return []nova.VolumeAttachment{{
-				Id:       "4",
-				VolumeId: "4",
-				ServerId: serverId,
-				Device:   "/dev/sda",
-			}}, nil
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			numGetCalls++
+			if numGetCalls == 2 {
+				return nil, errors.New("no volume details for you")
+			}
+			return &cinder.Volume{
+				ID:     "4",
+				Size:   mockVolSize / 1024,
+				Status: "available",
+			}, nil
 		},
 	}
 
@@ -436,23 +417,15 @@ func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {
 			},
 		},
 	}}
-	volumes, attachments, err := volSource.CreateVolumes(volumeParams)
-	c.Assert(err, gc.ErrorMatches, "no volume for you")
-	c.Assert(volumes, gc.IsNil)
-	c.Assert(attachments, gc.IsNil)
+	results, err := volSource.CreateVolumes(volumeParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(results[1].Error, gc.ErrorMatches, "waiting for volume to be provisioned: getting volume: no volume details for you")
+	c.Assert(results[2].Error, gc.ErrorMatches, "no volume for you")
 	c.Assert(numCreateCalls, gc.Equals, 3)
-	c.Assert(numDestroyCalls, gc.Equals, 2)
-
-	// Second time around, the create calls should all succeed
-	// but the second attach should fail. This will cause the
-	// volumes to be detached and destroyed. One of the detachments
-	// fails, so we should only see two destroy calls.
-	_, _, err = volSource.CreateVolumes(volumeParams)
-	c.Assert(err, gc.ErrorMatches, "no attach for you")
-	c.Assert(numCreateCalls, gc.Equals, 6)
-	c.Assert(numAttachCalls, gc.Equals, 2)
-	c.Assert(numDetachCalls, gc.Equals, 1)
-	c.Assert(numDestroyCalls, gc.Equals, 4)
+	c.Assert(numGetCalls, gc.Equals, 2)
+	c.Assert(numDestroyCalls, gc.Equals, 1)
 }
 
 type mockAdapter struct {

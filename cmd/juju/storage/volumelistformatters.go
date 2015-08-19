@@ -35,7 +35,7 @@ func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeI
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("MACHINE", "UNIT", "STORAGE", "DEVICE", "VOLUME", "ID", "SIZE")
+	print("MACHINE", "UNIT", "STORAGE", "DEVICE", "VOLUME", "ID", "SIZE", "STATE", "MESSAGE")
 
 	// 1. sort by machines
 	machines := set.NewStrings()
@@ -57,7 +57,7 @@ func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeI
 		for _, unit := range units.SortedValues() {
 			unitStorages := machineUnits[unit]
 
-			// 3.sort by storage
+			// 3. sort by storage
 			storages := set.NewStrings()
 			for storage := range unitStorages {
 				if !storages.Contains(storage) {
@@ -66,8 +66,15 @@ func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeI
 			}
 			for _, storage := range storages.SortedValues() {
 				info := unitStorages[storage]
-				size := humanize.IBytes(info.Size * humanize.MiByte)
-				print(machine, unit, storage, info.DeviceName, info.Volume, info.VolumeId, size)
+				var size string
+				if info.Size > 0 {
+					size = humanize.IBytes(info.Size * humanize.MiByte)
+				}
+				print(
+					machine, unit, storage, info.DeviceName,
+					info.Volume, info.VolumeId, size,
+					string(info.Status.Current), info.Status.Message,
+				)
 			}
 		}
 	}

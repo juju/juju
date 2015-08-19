@@ -135,7 +135,7 @@ func (s *uniterBaseSuite) testSetStatus(
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusRebooting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
@@ -174,7 +174,7 @@ func (s *uniterBaseSuite) testSetAgentStatus(
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusExecuting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusRebooting, Info: "blah"},
@@ -213,7 +213,7 @@ func (s *uniterBaseSuite) testSetUnitStatus(
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusTerminated, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},

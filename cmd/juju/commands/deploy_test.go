@@ -584,7 +584,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -611,7 +611,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -641,7 +641,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -660,7 +660,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 
 func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
-	s.PatchValue(&registerMeteredCharm, func(r string, s *api.State, j *cookiejar.Jar, c string, sv, e string) error {
+	s.PatchValue(&registerMeteredCharm, func(r string, s api.Connection, j *cookiejar.Jar, c string, sv, e string) error {
 		return &params.Error{"IsMetered", params.CodeNotImplemented}
 	})
 

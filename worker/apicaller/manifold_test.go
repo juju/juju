@@ -10,11 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -54,8 +54,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		stub:   &testing.Stub{},
 		broken: make(chan struct{}),
 	}
-	s.PatchValue(apicaller.OpenConnection, func(agent agent.Agent) (apicaller.Connection, error) {
-		s.AddCall("openConnection", agent)
+	s.PatchValue(apicaller.OpenConnection, func(a agent.Agent) (api.Connection, error) {
+		s.AddCall("openConnection", a)
 		if err := s.NextErr(); err != nil {
 			return nil, err
 		}
@@ -100,7 +100,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdSet(c *gc.C) {
 	}})
 }
 
-func (s *ManifoldSuite) setupMutatorTest(c *gc.C) coreagent.ConfigMutator {
+func (s *ManifoldSuite) setupMutatorTest(c *gc.C) agent.ConfigMutator {
 	s.agent.env = names.EnvironTag{}
 	s.conn.stub = &s.Stub // will be unsafe if worker stopped before test finished
 	s.SetErrors(
@@ -116,7 +116,7 @@ func (s *ManifoldSuite) setupMutatorTest(c *gc.C) coreagent.ConfigMutator {
 	changeArgs := s.Calls()[1].Args
 	c.Assert(changeArgs, gc.HasLen, 1)
 	s.ResetCalls()
-	return changeArgs[0].(coreagent.ConfigMutator)
+	return changeArgs[0].(agent.ConfigMutator)
 }
 
 func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSet(c *gc.C) {
@@ -129,7 +129,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSet(c *gc.C) {
 		FuncName: "EnvironTag",
 	}, {
 		FuncName: "Migrate",
-		Args: []interface{}{coreagent.MigrateParams{
+		Args: []interface{}{agent.MigrateParams{
 			Environment: coretesting.EnvironmentTag,
 		}},
 	}})
@@ -157,7 +157,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetMigrateFailure(c
 		FuncName: "EnvironTag",
 	}, {
 		FuncName: "Migrate",
-		Args: []interface{}{coreagent.MigrateParams{
+		Args: []interface{}{agent.MigrateParams{
 			Environment: coretesting.EnvironmentTag,
 		}},
 	}})

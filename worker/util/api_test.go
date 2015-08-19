@@ -30,7 +30,7 @@ func (s *ApiManifoldSuite) SetUpTest(c *gc.C) {
 	s.Stub = testing.Stub{}
 	s.worker = &dummyWorker{}
 	s.manifold = util.ApiManifold(util.ApiManifoldConfig{
-		ApiCallerName: "api-caller-name",
+		APICallerName: "api-caller-name",
 	}, s.newWorker)
 }
 

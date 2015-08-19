@@ -1015,9 +1015,9 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	entityStatus := make([]params.EntityStatus, len(p.Entities))
+	entityStatus := make([]params.EntityStatusArgs, len(p.Entities))
 	for i, entity := range p.Entities {
-		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
+		entityStatus[i] = params.EntityStatusArgs{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
 	}
 	return c.api.statusSetter.UpdateStatus(params.SetStatus{
 		Entities: entityStatus,
