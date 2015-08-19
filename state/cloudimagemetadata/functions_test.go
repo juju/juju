@@ -101,3 +101,69 @@ func (s *funcMetadataSuite) assertSearchCriteriaBuilt(c *gc.C,
 	clause := cloudimagemetadata.BuildSearchClauses(criteria)
 	c.Assert(clause, jc.SameContents, expected)
 }
+
+func (s *funcMetadataSuite) TestAddOneToGroupEmpty(c *gc.C) {
+	sourceType := cloudimagemetadata.SourceType("source")
+	one := cloudimagemetadata.Metadata{cloudimagemetadata.MetadataAttributes{
+		Source: sourceType,
+	}, ""}
+
+	s.assertAddedToGroup(c, one,
+		map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{},
+		map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+			sourceType: {one},
+		})
+}
+
+func (s *funcMetadataSuite) TestAddOneToGroup(c *gc.C) {
+	sourceType := cloudimagemetadata.SourceType("source")
+	one := cloudimagemetadata.Metadata{cloudimagemetadata.MetadataAttributes{
+		Source: sourceType,
+	}, ""}
+
+	existingGroup := map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+		sourceType: {one},
+	}
+
+	two := cloudimagemetadata.Metadata{cloudimagemetadata.MetadataAttributes{
+		Source: sourceType,
+	}, "22"}
+
+	s.assertAddedToGroup(c, two,
+		existingGroup,
+		map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+			sourceType: {one, two},
+		})
+}
+
+func (s *funcMetadataSuite) TestAddOneToGroupDiff(c *gc.C) {
+	sourceType := cloudimagemetadata.SourceType("source")
+	one := cloudimagemetadata.Metadata{cloudimagemetadata.MetadataAttributes{
+		Source: sourceType,
+	}, ""}
+
+	existingGroup := map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+		sourceType: {one},
+	}
+
+	anotherType := cloudimagemetadata.SourceType("type")
+	two := cloudimagemetadata.Metadata{cloudimagemetadata.MetadataAttributes{
+		Source: anotherType,
+	}, "22"}
+
+	s.assertAddedToGroup(c, two,
+		existingGroup,
+		map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+			sourceType:  {one},
+			anotherType: {two},
+		})
+}
+
+func (s *funcMetadataSuite) assertAddedToGroup(c *gc.C,
+	one cloudimagemetadata.Metadata,
+	groups map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata,
+	expected map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata,
+) {
+	cloudimagemetadata.AddOneToGroup(one, groups)
+	c.Assert(groups, jc.DeepEquals, expected)
+}

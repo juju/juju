@@ -110,36 +110,6 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{Region: "region"}, expected...)
 }
 
-func (s *cloudImageMetadataSuite) TestFindMetadataSourceOrder(c *gc.C) {
-	attrs := cloudimagemetadata.MetadataAttributes{
-		Stream:          "stream",
-		Region:          "region",
-		Series:          "series",
-		Arch:            "arch",
-		VirtualType:     "virtualType",
-		RootStorageType: "rootStorageType",
-		Source:          cloudimagemetadata.Public,
-	}
-
-	_, err := s.storage.FindMetadata(attrs)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// save public
-	m := cloudimagemetadata.Metadata{attrs, "1"}
-	s.assertRecordMetadata(c, m)
-
-	// save custom
-	attrs.Source = cloudimagemetadata.Custom
-	m = cloudimagemetadata.Metadata{attrs, "2"}
-	s.assertRecordMetadata(c, m)
-
-	all, err := s.storage.FindMetadata(attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.HasLen, 2)
-	// First one must always be custom one
-	c.Assert(all[0].Source, gc.DeepEquals, cloudimagemetadata.Custom)
-}
-
 func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsAndImages(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
@@ -167,16 +137,10 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 	s.assertMetadataRecorded(c, attrs, metadata0)
 	s.assertRecordMetadata(c, metadata1)
 	s.assertMetadataRecorded(c, attrs, metadata1)
-
-	all, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.HasLen, 1)
-	c.Assert(all, jc.SameContents, []cloudimagemetadata.Metadata{
-		metadata1,
-	})
+	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, metadata1)
 }
 
-func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrently(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDateCreated(c *gc.C) {
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream: "stream",
 		Series: "series",
@@ -189,8 +153,9 @@ func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrently(c *gc.C) {
 	s.assertConcurrentSave(c,
 		metadata0, // add this one
 		metadata1, // add this one
-		metadata0, // verify it's in the list
+		// last added should be first as order is by date created
 		metadata1, // verify it's in the list
+		metadata0, // verify it's in the list
 	)
 }
 
@@ -262,7 +227,12 @@ func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemeta
 func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloudimagemetadata.MetadataAttributes, expected ...cloudimagemetadata.Metadata) {
 	metadata, err := s.storage.FindMetadata(criteria)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, jc.SameContents, expected)
+
+	groups := make(map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata)
+	for _, one := range expected {
+		cloudimagemetadata.AddOneToGroup(one, groups)
+	}
+	c.Assert(metadata, jc.DeepEquals, groups)
 }
 
 type TestMongo struct {

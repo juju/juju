@@ -54,7 +54,8 @@ type Storage interface {
 	// FindMetadata returns all Metadata that match specified
 	// criteria or a "not found" error if none match.
 	// Empty criteria will return all cloud image metadata.
-	FindMetadata(criteria MetadataAttributes) ([]Metadata, error)
+	// Returned result is grouped by source type and ordered by date created.
+	FindMetadata(criteria MetadataAttributes) (map[SourceType][]Metadata, error)
 }
 
 // DataStore exposes data store operations for use by the cloud image metadata package.

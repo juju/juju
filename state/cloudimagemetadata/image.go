@@ -88,24 +88,34 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 }
 
 // FindMetadata implements Storage.FindMetadata.
-// Results are sorted by date created.
-func (s *storage) FindMetadata(criteria MetadataAttributes) ([]Metadata, error) {
+// Results are sorted by date created and grouped by source.
+func (s *storage) FindMetadata(criteria MetadataAttributes) (map[SourceType][]Metadata, error) {
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
 	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
-	if err := coll.Find(searchCriteria).Sort("source", "date_created").All(&docs); err != nil {
+	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(docs) == 0 {
 		return nil, errors.NotFoundf("matching cloud image metadata")
 	}
-	metadata := make([]Metadata, len(docs))
-	for i, doc := range docs {
-		metadata[i] = doc.metadata()
+
+	metadata := make(map[SourceType][]Metadata)
+	for _, doc := range docs {
+		addOneToGroup(doc.metadata(), metadata)
 	}
 	return metadata, nil
+}
+
+func addOneToGroup(one Metadata, groups map[SourceType][]Metadata) {
+	_, ok := groups[one.Source]
+	if !ok {
+		groups[one.Source] = []Metadata{one}
+		return
+	}
+	groups[one.Source] = append(groups[one.Source], one)
 }
 
 func buildSearchClauses(criteria MetadataAttributes) bson.D {
