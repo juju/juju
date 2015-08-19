@@ -4,25 +4,131 @@
 package state
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
-
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
 )
 
-// allWatcherStateBacking implements allWatcherBacking by
-// fetching entities from the State.
+// allWatcherStateBacking implements Backing by fetching entities for
+// a single environment from the State.
 type allWatcherStateBacking struct {
-	st *State
-	// collections
+	st               *State
 	collectionByName map[string]allWatcherStateCollection
+}
+
+// allEnvWatcherStateBacking implements Backing by fetching entities
+// for all environments from the State.
+type allEnvWatcherStateBacking struct {
+	st               *State
+	stPool           *statePool
+	collectionByName map[string]allWatcherStateCollection
+}
+
+// allWatcherStateCollection holds information about a
+// collection watched by an allWatcher and the
+// type of value we use to store entity information
+// for that collection.
+type allWatcherStateCollection struct {
+	// name stores the name of the collection.
+	name string
+
+	// docType stores the type of document
+	// that we use for this collection.
+	docType reflect.Type
+
+	// subsidiary is true if the collection is used only
+	// to modify a primary entity.
+	subsidiary bool
+}
+
+// makeAllWatcherCollectionInfo returns a name indexed map of
+// allWatcherStateCollection instances for the collections specified.
+func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStateCollection {
+	seenTypes := make(map[reflect.Type]struct{})
+	collectionByName := make(map[string]allWatcherStateCollection)
+
+	for _, collName := range collNames {
+		collection := allWatcherStateCollection{name: collName}
+		switch collName {
+		case environmentsC:
+			collection.docType = reflect.TypeOf(backingEnvironment{})
+		case machinesC:
+			collection.docType = reflect.TypeOf(backingMachine{})
+		case unitsC:
+			collection.docType = reflect.TypeOf(backingUnit{})
+		case servicesC:
+			collection.docType = reflect.TypeOf(backingService{})
+		case actionsC:
+			collection.docType = reflect.TypeOf(backingAction{})
+		case relationsC:
+			collection.docType = reflect.TypeOf(backingRelation{})
+		case annotationsC:
+			collection.docType = reflect.TypeOf(backingAnnotation{})
+		case blocksC:
+			collection.docType = reflect.TypeOf(backingBlock{})
+		case statusesC:
+			collection.docType = reflect.TypeOf(backingStatus{})
+			collection.subsidiary = true
+		case constraintsC:
+			collection.docType = reflect.TypeOf(backingConstraints{})
+			collection.subsidiary = true
+		case settingsC:
+			collection.docType = reflect.TypeOf(backingSettings{})
+			collection.subsidiary = true
+		case openedPortsC:
+			collection.docType = reflect.TypeOf(backingOpenedPorts{})
+			collection.subsidiary = true
+		default:
+			panic(errors.Errorf("unknown collection %q", collName))
+		}
+
+		docType := collection.docType
+		if _, ok := seenTypes[docType]; ok {
+			panic(errors.Errorf("duplicate collection type %s", docType))
+		}
+		seenTypes[docType] = struct{}{}
+
+		if _, ok := collectionByName[collName]; ok {
+			panic(errors.Errorf("duplicate collection name %q", collName))
+		}
+		collectionByName[collName] = collection
+	}
+
+	return collectionByName
+}
+
+type backingEnvironment environmentDoc
+
+func (e *backingEnvironment) updated(st *State, store *multiwatcherStore, id string) error {
+	store.Update(&multiwatcher.EnvironmentInfo{
+		EnvUUID:    e.UUID,
+		Name:       e.Name,
+		Life:       multiwatcher.Life(e.Life.String()),
+		Owner:      e.Owner,
+		ServerUUID: e.ServerUUID,
+	})
+	return nil
+}
+
+func (e *backingEnvironment) removed(store *multiwatcherStore, envUUID, _ string, _ *State) error {
+	store.Remove(multiwatcher.EntityId{
+		Kind:    "environment",
+		EnvUUID: envUUID,
+		Id:      envUUID,
+	})
+	return nil
+}
+
+func (e *backingEnvironment) mongoId() string {
+	return e.UUID
 }
 
 type backingMachine machineDoc
@@ -75,11 +181,13 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	return nil
 }
 
-func (m *backingMachine) removed(st *State, store *multiwatcherStore, id string) {
+func (m *backingMachine) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind: "machine",
-		Id:   id,
+		Kind:    "machine",
+		EnvUUID: envUUID,
+		Id:      id,
 	})
+	return nil
 }
 
 func (m *backingMachine) mongoId() string {
@@ -245,11 +353,13 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 	return publicAddress, privateAddress, nil
 }
 
-func (u *backingUnit) removed(st *State, store *multiwatcherStore, id string) {
+func (u *backingUnit) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind: "unit",
-		Id:   id,
+		Kind:    "unit",
+		EnvUUID: envUUID,
+		Id:      id,
 	})
+	return nil
 }
 
 func (u *backingUnit) mongoId() string {
@@ -345,11 +455,13 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 	return nil
 }
 
-func (svc *backingService) removed(st *State, store *multiwatcherStore, id string) {
+func (svc *backingService) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind: "service",
-		Id:   id,
+		Kind:    "service",
+		EnvUUID: envUUID,
+		Id:      id,
 	})
+	return nil
 }
 
 // SCHEMACHANGE
@@ -371,11 +483,13 @@ func (a *backingAction) mongoId() string {
 	return a.DocId
 }
 
-func (a *backingAction) removed(st *State, store *multiwatcherStore, id string) {
+func (a *backingAction) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind: "action",
-		Id:   id,
+		Kind:    "action",
+		EnvUUID: envUUID,
+		Id:      id,
 	})
+	return nil
 }
 
 func (a *backingAction) updated(st *State, store *multiwatcherStore, id string) error {
@@ -416,11 +530,13 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 	return nil
 }
 
-func (r *backingRelation) removed(st *State, store *multiwatcherStore, id string) {
+func (r *backingRelation) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind: "relation",
-		Id:   id,
+		Kind:    "relation",
+		EnvUUID: envUUID,
+		Id:      id,
 	})
+	return nil
 }
 
 func (r *backingRelation) mongoId() string {
@@ -439,15 +555,17 @@ func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id stri
 	return nil
 }
 
-func (a *backingAnnotation) removed(st *State, store *multiwatcherStore, id string) {
+func (a *backingAnnotation) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	tag, ok := tagForGlobalKey(id)
 	if !ok {
-		panic(fmt.Errorf("unknown global key %q in state", id))
+		return errors.Errorf("could not parse global key: %q", id)
 	}
 	store.Remove(multiwatcher.EntityId{
-		Kind: "annotation",
-		Id:   tag,
+		Kind:    "annotation",
+		EnvUUID: envUUID,
+		Id:      tag,
 	})
+	return nil
 }
 
 func (a *backingAnnotation) mongoId() string {
@@ -468,11 +586,13 @@ func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) e
 	return nil
 }
 
-func (a *backingBlock) removed(st *State, store *multiwatcherStore, id string) {
+func (a *backingBlock) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind: "block",
-		Id:   id,
+		Kind:    "block",
+		EnvUUID: envUUID,
+		Id:      id,
 	})
+	return nil
 }
 
 func (a *backingBlock) mongoId() string {
@@ -482,7 +602,7 @@ func (a *backingBlock) mongoId() string {
 type backingStatus statusDoc
 
 func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, ok := backingEntityIdForGlobalKey(id)
+	parentID, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -517,7 +637,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	default:
-		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
+		return errors.Errorf("status for unexpected entity with id %q; type %T", id, info)
 	}
 	store.Update(info0)
 	return nil
@@ -570,7 +690,7 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceId, ok := backingEntityIdForGlobalKey(service.globalKey())
+	serviceId, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), service.globalKey())
 	if !ok {
 		return nil
 	}
@@ -591,9 +711,10 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	return nil
 }
 
-func (s *backingStatus) removed(st *State, store *multiwatcherStore, id string) {
+func (s *backingStatus) removed(*multiwatcherStore, string, string, *State) error {
 	// If the status is removed, the parent will follow not long after,
 	// so do nothing.
+	return nil
 }
 
 func (s *backingStatus) mongoId() string {
@@ -603,7 +724,7 @@ func (s *backingStatus) mongoId() string {
 type backingConstraints constraintsDoc
 
 func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, ok := backingEntityIdForGlobalKey(id)
+	parentID, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -620,13 +741,15 @@ func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id str
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
 	default:
-		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
+		return errors.Errorf("status for unexpected entity with id %q; type %T", id, info)
 	}
 	store.Update(info0)
 	return nil
 }
 
-func (c *backingConstraints) removed(st *State, store *multiwatcherStore, id string) {}
+func (c *backingConstraints) removed(*multiwatcherStore, string, string, *State) error {
+	return nil
+}
 
 func (c *backingConstraints) mongoId() string {
 	panic("cannot find mongo id from constraints document")
@@ -635,7 +758,7 @@ func (c *backingConstraints) mongoId() string {
 type backingSettings map[string]interface{}
 
 func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, url, ok := backingEntityIdForSettingsKey(id)
+	parentID, url, ok := backingEntityIdForSettingsKey(st.EnvironUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -664,16 +787,16 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 	return nil
 }
 
-func (s *backingSettings) removed(st *State, store *multiwatcherStore, id string) {
-	parentID, url, ok := backingEntityIdForSettingsKey(id)
+func (s *backingSettings) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
+	parentID, url, ok := backingEntityIdForSettingsKey(envUUID, id)
 	if !ok {
 		// Service is already gone along with its settings.
-		return
+		return nil
 	}
 	parent := store.Get(parentID)
 	if info, ok := parent.(*multiwatcher.ServiceInfo); ok {
 		if info.CharmURL != url {
-			return
+			return nil
 		}
 		newInfo := *info
 		cleanSettingsMap(*s)
@@ -681,6 +804,7 @@ func (s *backingSettings) removed(st *State, store *multiwatcherStore, id string
 		parent = &newInfo
 		store.Update(parent)
 	}
+	return nil
 }
 
 func (s *backingSettings) mongoId() string {
@@ -690,9 +814,9 @@ func (s *backingSettings) mongoId() string {
 // backingEntityIdForSettingsKey returns the entity id for the given
 // settings key. Any extra information in the key is returned in
 // extra.
-func backingEntityIdForSettingsKey(key string) (eid multiwatcher.EntityId, extra string, ok bool) {
+func backingEntityIdForSettingsKey(envUUID, key string) (eid multiwatcher.EntityId, extra string, ok bool) {
 	if !strings.HasPrefix(key, "s#") {
-		eid, ok = backingEntityIdForGlobalKey(key)
+		eid, ok = backingEntityIdForGlobalKey(envUUID, key)
 		return
 	}
 	key = key[2:]
@@ -700,7 +824,10 @@ func backingEntityIdForSettingsKey(key string) (eid multiwatcher.EntityId, extra
 	if i == -1 {
 		return multiwatcher.EntityId{}, "", false
 	}
-	eid = (&multiwatcher.ServiceInfo{Name: key[0:i]}).EntityId()
+	eid = (&multiwatcher.ServiceInfo{
+		EnvUUID: envUUID,
+		Name:    key[0:i],
+	}).EntityId()
 	extra = key[i+1:]
 	ok = true
 	return
@@ -709,7 +836,7 @@ func backingEntityIdForSettingsKey(key string) (eid multiwatcher.EntityId, extra
 type backingOpenedPorts map[string]interface{}
 
 func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id string) error {
-	parentID, ok := backingEntityIdForOpenedPortsKey(id)
+	parentID, ok := backingEntityIdForOpenedPortsKey(st.EnvironUUID(), id)
 	if !ok {
 		return nil
 	}
@@ -734,30 +861,38 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id str
 	return nil
 }
 
-func (p *backingOpenedPorts) removed(st *State, store *multiwatcherStore, id string) {
-	parentID, ok := backingEntityIdForOpenedPortsKey(id)
+func (p *backingOpenedPorts) removed(store *multiwatcherStore, envUUID, id string, st *State) error {
+	if st == nil {
+		return nil
+	}
+	parentID, ok := backingEntityIdForOpenedPortsKey(st.EnvironUUID(), id)
 	if !ok {
-		return
+		return nil
 	}
 	switch info := store.Get(parentID).(type) {
 	case nil:
 		// The parent info doesn't exist. This is unexpected because the port
 		// always refers to a machine. Anyway, ignore the ports for now.
-		return
+		return nil
 	case *multiwatcher.MachineInfo:
 		// Retrieve the units placed in the machine.
 		units, err := st.UnitsFor(info.Id)
 		if err != nil {
-			logger.Errorf("cannot retrieve units for %q: %v", info.Id, err)
-			return
+			// An error isn't returned here because the watcher is
+			// always acting a little behind reality. It is reasonable
+			// that entities have been deleted from State but we're
+			// still seeing events related to them from the watcher.
+			logger.Warningf("cannot retrieve units for %q: %v", info.Id, err)
+			return nil
 		}
 		// Update the ports on all units assigned to the machine.
 		for _, u := range units {
 			if err := updateUnitPorts(st, store, u); err != nil {
-				logger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
+				logger.Warningf("cannot update unit ports for %q: %v", u.Name(), err)
 			}
 		}
 	}
+	return nil
 }
 
 func (p *backingOpenedPorts) mongoId() string {
@@ -766,7 +901,7 @@ func (p *backingOpenedPorts) mongoId() string {
 
 // updateUnitPorts updates the Ports and PortRanges info of the given unit.
 func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
-	eid, ok := backingEntityIdForGlobalKey(u.globalKey())
+	eid, ok := backingEntityIdForGlobalKey(st.EnvironUUID(), u.globalKey())
 	if !ok {
 		// This should never happen.
 		return errors.New("cannot retrieve entity id for unit")
@@ -793,30 +928,39 @@ func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 
 // backingEntityIdForOpenedPortsKey returns the entity id for the given
 // openedPorts key. Any extra information in the key is discarded.
-func backingEntityIdForOpenedPortsKey(key string) (multiwatcher.EntityId, bool) {
+func backingEntityIdForOpenedPortsKey(envUUID, key string) (multiwatcher.EntityId, bool) {
 	parts, err := extractPortsIdParts(key)
 	if err != nil {
 		logger.Debugf("cannot parse ports key %q: %v", key, err)
 		return multiwatcher.EntityId{}, false
 	}
-	return backingEntityIdForGlobalKey(machineGlobalKey(parts[1]))
+	return backingEntityIdForGlobalKey(envUUID, machineGlobalKey(parts[1]))
 }
 
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
-func backingEntityIdForGlobalKey(key string) (multiwatcher.EntityId, bool) {
+func backingEntityIdForGlobalKey(envUUID, key string) (multiwatcher.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
 		return multiwatcher.EntityId{}, false
 	}
 	id := key[2:]
 	switch key[0] {
 	case 'm':
-		return (&multiwatcher.MachineInfo{Id: id}).EntityId(), true
+		return (&multiwatcher.MachineInfo{
+			EnvUUID: envUUID,
+			Id:      id,
+		}).EntityId(), true
 	case 'u':
 		id = strings.TrimSuffix(id, "#charm")
-		return (&multiwatcher.UnitInfo{Name: id}).EntityId(), true
+		return (&multiwatcher.UnitInfo{
+			EnvUUID: envUUID,
+			Name:    id,
+		}).EntityId(), true
 	case 's':
-		return (&multiwatcher.ServiceInfo{Name: id}).EntityId(), true
+		return (&multiwatcher.ServiceInfo{
+			EnvUUID: envUUID,
+			Name:    id,
+		}).EntityId(), true
 	default:
 		return multiwatcher.EntityId{}, false
 	}
@@ -831,87 +975,36 @@ type backingEntityDoc interface {
 
 	// removed is called when the document has changed.
 	// The receiving instance will not contain any data.
+	//
 	// The mongo _id value of the document is provided in id.
-	removed(st *State, store *multiwatcherStore, id string)
+	//
+	// In some cases st may be nil. If the implementation requires st
+	// then it should do nothing.
+	removed(store *multiwatcherStore, envUUID, id string, st *State) error
 
 	// mongoId returns the mongo _id field of the document.
 	// It is currently never called for subsidiary documents.
 	mongoId() string
 }
 
-// allWatcherStateCollection holds information about a
-// collection watched by an allWatcher and the
-// type of value we use to store entity information
-// for that collection.
-type allWatcherStateCollection struct {
-	// name stores the name of the collection.
-	name string
-	// infoType stores the type of the info type
-	// that we use for this collection.
-	infoType reflect.Type
-	// subsidiary is true if the collection is used only
-	// to modify a primary entity.
-	subsidiary bool
-}
-
 func newAllWatcherStateBacking(st *State) Backing {
-	collectionByType := make(map[reflect.Type]allWatcherStateCollection)
-	b := &allWatcherStateBacking{
+	collections := makeAllWatcherCollectionInfo(
+		machinesC,
+		unitsC,
+		servicesC,
+		relationsC,
+		annotationsC,
+		statusesC,
+		constraintsC,
+		settingsC,
+		openedPortsC,
+		actionsC,
+		blocksC,
+	)
+	return &allWatcherStateBacking{
 		st:               st,
-		collectionByName: make(map[string]allWatcherStateCollection),
+		collectionByName: collections,
 	}
-
-	collections := []allWatcherStateCollection{{
-		name:     machinesC,
-		infoType: reflect.TypeOf(backingMachine{}),
-	}, {
-		name:     unitsC,
-		infoType: reflect.TypeOf(backingUnit{}),
-	}, {
-		name:     servicesC,
-		infoType: reflect.TypeOf(backingService{}),
-	}, {
-		name:     actionsC,
-		infoType: reflect.TypeOf(backingAction{}),
-	}, {
-		name:     relationsC,
-		infoType: reflect.TypeOf(backingRelation{}),
-	}, {
-		name:     annotationsC,
-		infoType: reflect.TypeOf(backingAnnotation{}),
-	}, {
-		name:     blocksC,
-		infoType: reflect.TypeOf(backingBlock{}),
-	}, {
-		name:       statusesC,
-		infoType:   reflect.TypeOf(backingStatus{}),
-		subsidiary: true,
-	}, {
-		name:       constraintsC,
-		infoType:   reflect.TypeOf(backingConstraints{}),
-		subsidiary: true,
-	}, {
-		name:       settingsC,
-		infoType:   reflect.TypeOf(backingSettings{}),
-		subsidiary: true,
-	}, {
-		name:       openedPortsC,
-		infoType:   reflect.TypeOf(backingOpenedPorts{}),
-		subsidiary: true,
-	}}
-	// Populate the collection maps from the above set of collections.
-	for _, c := range collections {
-		docType := c.infoType
-		if _, ok := collectionByType[docType]; ok {
-			panic(fmt.Errorf("duplicate collection type %s", docType))
-		}
-		collectionByType[docType] = c
-		if _, ok := b.collectionByName[c.name]; ok {
-			panic(fmt.Errorf("duplicate collection name %q", c.name))
-		}
-		b.collectionByName[c.name] = c
-	}
-	return b
 }
 
 func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
@@ -935,31 +1028,8 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	db, closer := b.st.newDB()
-	defer closer()
-
-	// TODO(rog) fetch collections concurrently?
-	for _, c := range b.collectionByName {
-		if c.subsidiary {
-			continue
-		}
-		col, closer := db.GetCollection(c.name)
-		defer closer()
-		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
-		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
-			return fmt.Errorf("cannot get all %s: %v", c.name, err)
-		}
-		infos := infoSlicePtr.Elem()
-		for i := 0; i < infos.Len(); i++ {
-			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
-			id := info.mongoId()
-			err := info.updated(b.st, all, id)
-			if err != nil {
-				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, id)
-			}
-		}
-	}
-	return nil
+	err := loadAllWatcherEntities(b.st, b.collectionByName, all)
+	return errors.Trace(err)
 }
 
 // Changed updates the allWatcher's idea of the current state
@@ -967,11 +1037,11 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
 	c, ok := b.collectionByName[change.C]
 	if !ok {
-		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
+		return errors.Errorf("unknown collection %q in fetch request", change.C)
 	}
 	col, closer := b.st.getCollection(c.name)
 	defer closer()
-	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
+	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
 	id := b.st.localID(change.Id.(string))
 
@@ -981,11 +1051,226 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	// in, such as settings changes to entities we don't care about.
 	err := col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		doc.removed(b.st, all, id)
-		return nil
+		err := doc.removed(all, b.st.EnvironUUID(), id, b.st)
+		return errors.Trace(err)
 	}
 	if err != nil {
 		return err
 	}
 	return doc.updated(b.st, all, id)
+}
+
+// Release implements the Backing interface.
+func (b *allWatcherStateBacking) Release() error {
+	// allWatcherStateBacking doesn't need to release anything.
+	return nil
+}
+
+func newAllEnvWatcherStateBacking(st *State) Backing {
+	collections := makeAllWatcherCollectionInfo(
+		environmentsC,
+		machinesC,
+		unitsC,
+		servicesC,
+		relationsC,
+		annotationsC,
+		statusesC,
+		constraintsC,
+		settingsC,
+		openedPortsC,
+	)
+	return &allEnvWatcherStateBacking{
+		st:               st,
+		stPool:           newStatePool(st),
+		collectionByName: collections,
+	}
+}
+
+// Watch watches all the collections.
+func (b *allEnvWatcherStateBacking) Watch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.WatchCollection(c.name, in)
+	}
+}
+
+// Unwatch unwatches all the collections.
+func (b *allEnvWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
+	for _, c := range b.collectionByName {
+		b.st.watcher.UnwatchCollection(c.name, in)
+	}
+}
+
+// GetAll fetches all items that we want to watch from the state.
+func (b *allEnvWatcherStateBacking) GetAll(all *multiwatcherStore) error {
+	envs, err := b.st.AllEnvironments()
+	if err != nil {
+		return errors.Annotate(err, "error loading environments")
+	}
+	for _, env := range envs {
+		st, err := b.st.ForEnviron(env.EnvironTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer st.Close()
+
+		err = loadAllWatcherEntities(st, b.collectionByName, all)
+		if err != nil {
+			return errors.Annotatef(err, "error loading entities for environment %v", env.UUID())
+		}
+	}
+	return nil
+}
+
+// Changed updates the allWatcher's idea of the current state
+// in response to the given change.
+func (b *allEnvWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
+	c, ok := b.collectionByName[change.C]
+	if !ok {
+		return errors.Errorf("unknown collection %q in fetch request", change.C)
+	}
+
+	envUUID, id, err := b.idForChange(change)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
+
+	st, err := b.getState(change.C, envUUID)
+	if err != nil {
+		_, envErr := b.st.GetEnvironment(names.NewEnvironTag(envUUID))
+		if errors.IsNotFound(envErr) {
+			// The entity's environment is gone so remove the entity
+			// from the store.
+			doc.removed(all, envUUID, id, nil)
+			return nil
+		}
+		return errors.Trace(err)
+	}
+
+	col, closer := st.getCollection(c.name)
+	defer closer()
+
+	// TODO - see TODOs in allWatcherStateBacking.Changed()
+	err = col.FindId(id).One(doc)
+	if err == mgo.ErrNotFound {
+		err := doc.removed(all, envUUID, id, st)
+		return errors.Trace(err)
+	}
+	if err != nil {
+		return err
+	}
+	return doc.updated(st, all, id)
+}
+
+func (b *allEnvWatcherStateBacking) idForChange(change watcher.Change) (string, string, error) {
+	if change.C == environmentsC {
+		envUUID := change.Id.(string)
+		return envUUID, envUUID, nil
+	}
+
+	envUUID, id, ok := splitDocID(change.Id.(string))
+	if !ok {
+		return "", "", errors.Errorf("unknown id format: %v", change.Id.(string))
+	}
+	return envUUID, id, nil
+}
+
+func (b *allEnvWatcherStateBacking) getState(collName, envUUID string) (*State, error) {
+	if collName == environmentsC {
+		return b.st, nil
+	}
+
+	st, err := b.stPool.get(envUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st, nil
+}
+
+// Release implements the Backing interface.
+func (b *allEnvWatcherStateBacking) Release() error {
+	err := b.stPool.closeAll()
+	return errors.Trace(err)
+}
+
+func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {
+	// Use a single new MongoDB connection for all the work here.
+	db, closer := st.newDB()
+	defer closer()
+
+	// TODO(rog) fetch collections concurrently?
+	for _, c := range collectionByName {
+		if c.subsidiary {
+			continue
+		}
+		col, closer := db.GetCollection(c.name)
+		defer closer()
+		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
+		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
+			return errors.Errorf("cannot get all %s: %v", c.name, err)
+		}
+		infos := infoSlicePtr.Elem()
+		for i := 0; i < infos.Len(); i++ {
+			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
+			id := info.mongoId()
+			err := info.updated(st, all, id)
+			if err != nil {
+				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.name, id)
+			}
+		}
+	}
+
+	return nil
+}
+
+// newStatePool returns a new statePool instance.
+func newStatePool(ssSt *State) *statePool {
+	return &statePool{
+		ssSt: ssSt,
+		pool: make(map[string]*State),
+	}
+}
+
+// statePool is a simple cache of State instances for multiple environments.
+type statePool struct {
+	ssSt *State
+	// mu protects pool
+	mu   sync.Mutex
+	pool map[string]*State
+}
+
+// get returns a State for a given environment from the pool, creating
+// one if required.
+func (p *statePool) get(envUUID string) (*State, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	st, ok := p.pool[envUUID]
+	if ok {
+		return st, nil
+	}
+
+	st, err := p.ssSt.ForEnviron(names.NewEnvironTag(envUUID))
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to create state for environment %v", envUUID)
+	}
+	p.pool[envUUID] = st
+	return st, nil
+}
+
+// closeAll closes all State instances in the pool.
+func (p *statePool) closeAll() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	var lastErr error
+	for _, st := range p.pool {
+		err := st.Close()
+		if err != nil {
+			lastErr = err
+		}
+	}
+	p.pool = make(map[string]*State)
+	return errors.Annotate(lastErr, "at least one error closing a state")
 }
