@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter/metrics"
 )
 
 var _ = gc.Suite(&senderSuite{})
@@ -63,7 +62,7 @@ func (s *senderSuite) TestMetricSendingSuccess(c *gc.C) {
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
 
-	reader, err := metrics.NewJSONMetricReader(s.spoolDir)
+	reader, err := spool.NewJSONMetricReader(s.spoolDir)
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +86,7 @@ func (s *senderSuite) TestSendingGetDuplicate(c *gc.C) {
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
 
-	reader, err := metrics.NewJSONMetricReader(s.spoolDir)
+	reader, err := spool.NewJSONMetricReader(s.spoolDir)
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +109,7 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
 
-	reader, err := metrics.NewJSONMetricReader(s.spoolDir)
+	reader, err := spool.NewJSONMetricReader(s.spoolDir)
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,18 +192,18 @@ type stubMetricFactory struct {
 
 func (s *stubMetricFactory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL, unitTag string) (spool.MetricRecorder, error) {
 	s.MethodCall(s, "Recorder", declaredMetrics, charmURL, unitTag)
-	config := metrics.MetricRecorderConfig{
+	config := spool.MetricRecorderConfig{
 		SpoolDir: s.spoolDir,
 		Metrics:  declaredMetrics,
 		CharmURL: charmURL,
 		UnitTag:  unitTag,
 	}
 
-	return metrics.NewJSONMetricRecorder(config)
+	return spool.NewJSONMetricRecorder(config)
 }
 
 func (s *stubMetricFactory) Reader() (spool.MetricReader, error) {
 	s.MethodCall(s, "Reader")
-	return metrics.NewJSONMetricReader(s.spoolDir)
+	return spool.NewJSONMetricReader(s.spoolDir)
 
 }

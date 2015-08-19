@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/uniter/metrics"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -66,7 +66,7 @@ type MetricsRecorder interface {
 // metricsReader is used to read metrics batches stored by the metrics recorder
 // and remove metrics batches that have been marked as succesfully sent.
 type metricsReader interface {
-	Open() ([]metrics.MetricBatch, error)
+	Open() ([]spool.MetricBatch, error)
 	Remove(uuid string) error
 	Close() error
 }

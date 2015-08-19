@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package metrics_test
+package spool_test
 
 import (
 	"path/filepath"
@@ -14,17 +14,17 @@ import (
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/worker/uniter/metrics"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type MetricsBatchSuite struct {
+type metricsBatchSuite struct {
 }
 
-var _ = gc.Suite(&MetricsBatchSuite{})
+var _ = gc.Suite(&metricsBatchSuite{})
 
-func (s *MetricsBatchSuite) TestAPIMetricBatch(c *gc.C) {
-	batches := []metrics.MetricBatch{{
+func (s *metricsBatchSuite) TestAPIMetricBatch(c *gc.C) {
+	batches := []spool.MetricBatch{{
 		CharmURL: "local:trusty/test-charm",
 		UUID:     "test-uuid",
 		Created:  time.Now(),
@@ -47,7 +47,7 @@ func (s *MetricsBatchSuite) TestAPIMetricBatch(c *gc.C) {
 	},
 	}
 	for _, batch := range batches {
-		apiBatch := metrics.APIMetricBatch(batch)
+		apiBatch := spool.APIMetricBatch(batch)
 		c.Assert(apiBatch.Batch.UUID, gc.DeepEquals, batch.UUID)
 		c.Assert(apiBatch.Batch.CharmURL, gc.DeepEquals, batch.CharmURL)
 		c.Assert(apiBatch.Batch.Created, gc.DeepEquals, batch.Created)
@@ -101,24 +101,24 @@ func (p testPaths) GetJujucSocket() string {
 	return p.socket
 }
 
-type MetricsRecorderSuite struct {
+type metricsRecorderSuite struct {
 	testing.IsolationSuite
 
 	paths   testPaths
 	unitTag string
 }
 
-var _ = gc.Suite(&MetricsRecorderSuite{})
+var _ = gc.Suite(&metricsRecorderSuite{})
 
-func (s *MetricsRecorderSuite) SetUpTest(c *gc.C) {
+func (s *metricsRecorderSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.paths = newTestPaths(c)
 	s.unitTag = names.NewUnitTag("test-unit/0").String()
 }
 
-func (s *MetricsRecorderSuite) TestInit(c *gc.C) {
-	w, err := metrics.NewJSONMetricRecorder(
-		metrics.MetricRecorderConfig{
+func (s *metricsRecorderSuite) TestInit(c *gc.C) {
+	w, err := spool.NewJSONMetricRecorder(
+		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
 			Metrics:  map[string]corecharm.Metric{"pings": corecharm.Metric{}},
 			CharmURL: "local:precise/wordpress",
@@ -131,7 +131,7 @@ func (s *MetricsRecorderSuite) TestInit(c *gc.C) {
 	err = w.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	r, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
+	r, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := r.Read()
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,9 +148,9 @@ func (s *MetricsRecorderSuite) TestInit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MetricsRecorderSuite) TestUnknownMetricKey(c *gc.C) {
-	w, err := metrics.NewJSONMetricRecorder(
-		metrics.MetricRecorderConfig{
+func (s *metricsRecorderSuite) TestUnknownMetricKey(c *gc.C) {
+	w, err := spool.NewJSONMetricRecorder(
+		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
 			Metrics:  map[string]corecharm.Metric{},
 			CharmURL: "local:precise/wordpress",
@@ -163,29 +163,29 @@ func (s *MetricsRecorderSuite) TestUnknownMetricKey(c *gc.C) {
 	err = w.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	r, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
+	r, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := r.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 0)
 }
 
-type MetricsReaderSuite struct {
+type metricsReaderSuite struct {
 	paths   testPaths
 	unitTag string
 
-	w *metrics.JSONMetricRecorder
+	w *spool.JSONMetricRecorder
 }
 
-var _ = gc.Suite(&MetricsReaderSuite{})
+var _ = gc.Suite(&metricsReaderSuite{})
 
-func (s *MetricsReaderSuite) SetUpTest(c *gc.C) {
+func (s *metricsReaderSuite) SetUpTest(c *gc.C) {
 	s.paths = newTestPaths(c)
 	s.unitTag = names.NewUnitTag("test-unit/0").String()
 
 	var err error
-	s.w, err = metrics.NewJSONMetricRecorder(
-		metrics.MetricRecorderConfig{
+	s.w, err = spool.NewJSONMetricRecorder(
+		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
 			Metrics:  map[string]corecharm.Metric{"pings": corecharm.Metric{}},
 			CharmURL: "local:precise/wordpress",
@@ -199,11 +199,11 @@ func (s *MetricsReaderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MetricsReaderSuite) TestTwoSimultaneousReaders(c *gc.C) {
-	r, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
+func (s *metricsReaderSuite) TestTwoSimultaneousReaders(c *gc.C) {
+	r, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
 	c.Assert(err, jc.ErrorIsNil)
 
-	r2, err := metrics.NewJSONMetricReader(c.MkDir())
+	r2, err := spool.NewJSONMetricReader(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r2, gc.NotNil)
 	err = r2.Close()
@@ -213,21 +213,21 @@ func (s *MetricsReaderSuite) TestTwoSimultaneousReaders(c *gc.C) {
 
 }
 
-func (s *MetricsReaderSuite) TestUnblockedReaders(c *gc.C) {
-	r, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
+func (s *metricsReaderSuite) TestUnblockedReaders(c *gc.C) {
+	r, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
 	c.Assert(err, jc.ErrorIsNil)
 	err = r.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	r2, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
+	r2, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r2, gc.NotNil)
 	err = r2.Close()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MetricsReaderSuite) TestRemoval(c *gc.C) {
-	r, err := metrics.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
+func (s *metricsReaderSuite) TestRemoval(c *gc.C) {
+	r, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	batches, err := r.Read()
