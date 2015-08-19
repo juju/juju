@@ -177,6 +177,28 @@ func (*runnerSuite) TestOneWorkerRestartDelay(c *gc.C) {
 	c.Assert(worker.Stop(runner), gc.IsNil)
 }
 
+func (*runnerSuite) TestFinishedWorkerFinishes(c *gc.C) {
+	finishedWorker := worker.NewFinishedWorker()
+	c.Assert(finishedWorker.Wait(), gc.IsNil)
+
+	runner := worker.NewRunner(noneFatal, noImportance)
+	startedc := make(chan struct{}, 1)
+	starter := func() (worker.Worker, error) {
+		startedc <- struct{}{}
+		return finishedWorker, nil
+	}
+	err := runner.StartWorker("id", starter)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-startedc:
+	case <-time.After(1 * time.Second):
+		c.Fatalf("timed out waiting for start notification")
+	}
+
+	c.Assert(worker.Stop(runner), gc.IsNil)
+}
+
 type errorLevel int
 
 func (e errorLevel) Error() string {
