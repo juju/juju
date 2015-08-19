@@ -117,7 +117,6 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	} else {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
 	}
-
 }
 
 func (s *SpacesSuite) TestAddSpacesOneSubnet(c *gc.C) {
@@ -202,12 +201,14 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 					ProviderId: "provider-192.168.0.0/24",
 					Zones:      []string{"foo"},
 					Status:     "in-use",
+					SpaceTag:   "space-default",
 				},
 				params.Subnet{
 					CIDR:       "192.168.3.0/24",
 					ProviderId: "provider-192.168.3.0/24",
 					VLANTag:    23,
 					Zones:      []string{"bar", "bam"},
+					SpaceTag:   "space-default",
 				},
 			},
 		},
@@ -219,6 +220,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 					ProviderId: "provider-192.168.1.0/24",
 					VLANTag:    23,
 					Zones:      []string{"bar", "bam"},
+					SpaceTag:   "space-dmz",
 				},
 			},
 		},
@@ -230,6 +232,7 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 					ProviderId: "provider-192.168.2.0/24",
 					Zones:      []string{"foo"},
 					Status:     "in-use",
+					SpaceTag:   "space-private",
 				},
 			},
 		},
@@ -245,7 +248,26 @@ func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
-	apiservertesting.BackingInstance.SetSpaceSubnetsFail()
-	_, err := s.facade.ListSpaces()
-	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
+	boom := errors.New("boom")
+	apiservertesting.SharedStub.SetErrors(nil, boom, boom, boom)
+	results, err := s.facade.ListSpaces()
+	for _, space := range results.Results {
+		c.Assert(space.Error, gc.ErrorMatches, "could not fetch subnets: boom")
+	}
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SpacesSuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
+	boom := errors.New("boom")
+	apiservertesting.SharedStub.SetErrors(nil, nil, boom)
+
+	results, err := s.facade.ListSpaces()
+	for i, space := range results.Results {
+		if i == 1 {
+			c.Assert(space.Error, gc.ErrorMatches, "could not fetch subnets: boom")
+		} else {
+			c.Assert(space.Error, gc.IsNil)
+		}
+	}
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -107,12 +106,14 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 	environs.RegisterProvider(StubProviderType, ProviderInstance)
 }
 
+type errReturner func() error
+
 // FakeSpace implements common.BackingSpace for testing.
 type FakeSpace struct {
-	SpaceName   string
-	SubnetIds   []string
-	Public      bool
-	SubnetsFail bool
+	SpaceName string
+	SubnetIds []string
+	Public    bool
+	NextErr   errReturner
 }
 
 var _ common.BackingSpace = (*FakeSpace)(nil)
@@ -123,9 +124,11 @@ func (f *FakeSpace) Name() string {
 
 func (f *FakeSpace) Subnets() (bs []common.BackingSubnet, err error) {
 	outputSubnets := []common.BackingSubnet{}
-	if f.SubnetsFail {
-		return outputSubnets, errors.New("boom")
+
+	if err = f.NextErr(); err != nil {
+		return outputSubnets, err
 	}
+
 	for _, subnetId := range f.SubnetIds {
 		providerId := "provider-" + subnetId
 
@@ -312,6 +315,10 @@ func (f *FakeSubnet) SpaceName() string {
 	return f.info.SpaceName
 }
 
+func (f *FakeSubnet) Life() params.Life {
+	return f.info.Life
+}
+
 // ResetStub resets all recorded calls and errors of the given stub.
 func ResetStub(stub *testing.Stub) {
 	*stub = testing.Stub{}
@@ -367,16 +374,20 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		sb.Spaces = []common.BackingSpace{
 			&FakeSpace{
 				SpaceName: "default",
-				SubnetIds: []string{"192.168.0.0/24", "192.168.3.0/24"}},
+				SubnetIds: []string{"192.168.0.0/24", "192.168.3.0/24"},
+				NextErr:   sb.NextErr},
 			&FakeSpace{
 				SpaceName: "dmz",
-				SubnetIds: []string{"192.168.1.0/24"}},
+				SubnetIds: []string{"192.168.1.0/24"},
+				NextErr:   sb.NextErr},
 			&FakeSpace{
 				SpaceName: "private",
-				SubnetIds: []string{"192.168.2.0/24"}},
+				SubnetIds: []string{"192.168.2.0/24"},
+				NextErr:   sb.NextErr},
 			&FakeSpace{
 				SpaceName: "private",
-				SubnetIds: []string{"192.168.2.0/24"}}, // duplicates are ignored when caching spaces.
+				SubnetIds: []string{"192.168.2.0/24"},
+				NextErr:   sb.NextErr}, // duplicates are ignored when caching spaces.
 		}
 	}
 	sb.Subnets = []common.BackingSubnet{}
@@ -422,18 +433,6 @@ func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, e
 func (sb *StubBacking) SetAvailabilityZones(zones []providercommon.AvailabilityZone) error {
 	sb.MethodCall(sb, "SetAvailabilityZones", zones)
 	return sb.NextErr()
-}
-
-func (sb *StubBacking) SetSpaceSubnetsFail() {
-	for i := range sb.Spaces {
-		backingSpace := sb.Spaces[i]
-		fakeSpace, ok := backingSpace.(*FakeSpace)
-		if !ok {
-			panic("can't cast to a FakeSpace")
-		}
-		fakeSpace.SubnetsFail = true
-		sb.Spaces[i] = fakeSpace
-	}
 }
 
 func (sb *StubBacking) AllSpaces() ([]common.BackingSpace, error) {

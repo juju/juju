@@ -80,11 +80,11 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	}
 
 	for _, tag := range args.SubnetTags {
-		if subnetTag, err := names.ParseSubnetTag(tag); err != nil {
+		subnetTag, err := names.ParseSubnetTag(tag)
+		if err != nil {
 			return errors.Annotate(err, "given SubnetTag is invalid")
-		} else {
-			subnets = append(subnets, subnetTag.Id())
 		}
+		subnets = append(subnets, subnetTag.Id())
 	}
 
 	// Add the validated space
@@ -94,41 +94,52 @@ func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
 	return nil
 }
 
+func backingSubnetToParamsSubnet(subnet common.BackingSubnet) params.Subnet {
+	cidr := subnet.CIDR()
+	vlantag := subnet.VLANTag()
+	providerid := subnet.ProviderId()
+	zones := subnet.AvailabilityZones()
+	status := subnet.Status()
+
+	return params.Subnet{
+		CIDR:       cidr,
+		VLANTag:    vlantag,
+		ProviderId: providerid,
+		Zones:      zones,
+		Status:     status,
+		SpaceTag:   names.NewSpaceTag(subnet.SpaceName()).String(),
+		Life:       subnet.Life(),
+	}
+}
+
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot list spaces")
+
 	spaces, err := api.backing.AllSpaces()
 	if err != nil {
 		return results, err
 	}
-	for _, space := range spaces {
+
+	results.Results = make([]params.Space, len(spaces))
+
+	for i, space := range spaces {
 		result := params.Space{}
 		result.Name = space.Name()
+
 		subnets, err := space.Subnets()
 		if err != nil {
-			// TODO(mfoord): the response type should have an error
-			// field so we can return partial results.
-			return results, err
+			err = errors.Annotatef(err, "could not fetch subnets")
+			result.Error = common.ServerError(err)
+			results.Results[i] = result
+			continue
 		}
-		for _, subnet := range subnets {
-			cidr := subnet.CIDR()
-			vlantag := subnet.VLANTag()
-			providerid := subnet.ProviderId()
-			zones := subnet.AvailabilityZones()
-			status := subnet.Status()
 
+		for _, subnet := range subnets {
 			result.Subnets = append(result.Subnets,
-				// TODO(mfoord): a subnet.GetParams() method would be
-				// nice.
-				params.Subnet{
-					CIDR:       cidr,
-					VLANTag:    vlantag,
-					ProviderId: providerid,
-					Zones:      zones,
-					Status:     status,
-				})
+				backingSubnetToParamsSubnet(subnet))
 		}
-		results.Results = append(results.Results, result)
+		results.Results[i] = result
 	}
 	return results, nil
 }
