@@ -220,9 +220,12 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			charmMetrics = ch.Metrics().Metrics
 		}
 		ctx.metricsRecorder, err = metrics.NewJSONMetricRecorder(
-			f.paths.GetMetricsSpoolDir(),
-			charmMetrics,
-			chURL.String())
+			metrics.MetricRecorderConfig{
+				UnitTag:  f.unit.Tag().String(),
+				SpoolDir: f.paths.GetMetricsSpoolDir(),
+				Metrics:  charmMetrics,
+				CharmURL: chURL.String(),
+			})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

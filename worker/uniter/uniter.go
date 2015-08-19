@@ -91,10 +91,6 @@ type Uniter struct {
 	// for the collect-metrics hook.
 	collectMetricsAt TimedSignal
 
-	// sendMetricsAt defines a function that will be used to generate signals
-	// to send metrics to the state server.
-	sendMetricsAt TimedSignal
-
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt TimedSignal
@@ -125,7 +121,6 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
 		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
-		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 	}
@@ -276,7 +271,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Callbacks:      &operationCallbacks{u},
 		StorageUpdater: u.storage,
 		Abort:          u.tomb.Dying(),
-		MetricSender:   u.unit,
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
@@ -342,7 +336,6 @@ func (u *Uniter) initializeMetricsTimers() error {
 		return err
 	}
 	u.collectMetricsAt = u.metricsTimerChooser.getCollectMetricsTimer(charm)
-	u.sendMetricsAt = u.metricsTimerChooser.getSendMetricsTimer(charm)
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -47,14 +48,14 @@ func (s *MetricsBatchSuite) TestAPIMetricBatch(c *gc.C) {
 	}
 	for _, batch := range batches {
 		apiBatch := metrics.APIMetricBatch(batch)
-		c.Assert(apiBatch.UUID, gc.DeepEquals, batch.UUID)
-		c.Assert(apiBatch.CharmURL, gc.DeepEquals, batch.CharmURL)
-		c.Assert(apiBatch.Created, gc.DeepEquals, batch.Created)
-		c.Assert(len(apiBatch.Metrics), gc.Equals, len(batch.Metrics))
+		c.Assert(apiBatch.Batch.UUID, gc.DeepEquals, batch.UUID)
+		c.Assert(apiBatch.Batch.CharmURL, gc.DeepEquals, batch.CharmURL)
+		c.Assert(apiBatch.Batch.Created, gc.DeepEquals, batch.Created)
+		c.Assert(len(apiBatch.Batch.Metrics), gc.Equals, len(batch.Metrics))
 		for i, metric := range batch.Metrics {
-			c.Assert(metric.Key, gc.DeepEquals, apiBatch.Metrics[i].Key)
-			c.Assert(metric.Value, gc.DeepEquals, apiBatch.Metrics[i].Value)
-			c.Assert(metric.Time, gc.DeepEquals, apiBatch.Metrics[i].Time)
+			c.Assert(metric.Key, gc.DeepEquals, apiBatch.Batch.Metrics[i].Key)
+			c.Assert(metric.Value, gc.DeepEquals, apiBatch.Batch.Metrics[i].Value)
+			c.Assert(metric.Time, gc.DeepEquals, apiBatch.Batch.Metrics[i].Time)
 		}
 	}
 }
@@ -103,7 +104,8 @@ func (p testPaths) GetJujucSocket() string {
 type MetricsRecorderSuite struct {
 	testing.IsolationSuite
 
-	paths testPaths
+	paths   testPaths
+	unitTag string
 }
 
 var _ = gc.Suite(&MetricsRecorderSuite{})
@@ -111,10 +113,17 @@ var _ = gc.Suite(&MetricsRecorderSuite{})
 func (s *MetricsRecorderSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.paths = newTestPaths(c)
+	s.unitTag = names.NewUnitTag("test-unit/0").String()
 }
 
 func (s *MetricsRecorderSuite) TestInit(c *gc.C) {
-	w, err := metrics.NewJSONMetricRecorder(s.paths.GetMetricsSpoolDir(), map[string]corecharm.Metric{"pings": corecharm.Metric{}}, "local:precise/wordpress")
+	w, err := metrics.NewJSONMetricRecorder(
+		metrics.MetricRecorderConfig{
+			SpoolDir: s.paths.GetMetricsSpoolDir(),
+			Metrics:  map[string]corecharm.Metric{"pings": corecharm.Metric{}},
+			CharmURL: "local:precise/wordpress",
+			UnitTag:  s.unitTag,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	err = w.AddMetric("pings", "5", time.Now())
@@ -133,13 +142,20 @@ func (s *MetricsRecorderSuite) TestInit(c *gc.C) {
 	c.Assert(batch.Metrics, gc.HasLen, 1)
 	c.Assert(batch.Metrics[0].Key, gc.Equals, "pings")
 	c.Assert(batch.Metrics[0].Value, gc.Equals, "5")
+	c.Assert(batch.UnitTag, gc.Equals, s.unitTag)
 
 	err = r.Close()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MetricsRecorderSuite) TestUnknownMetricKey(c *gc.C) {
-	w, err := metrics.NewJSONMetricRecorder(s.paths.GetMetricsSpoolDir(), map[string]corecharm.Metric{}, "local:precise/wordpress")
+	w, err := metrics.NewJSONMetricRecorder(
+		metrics.MetricRecorderConfig{
+			SpoolDir: s.paths.GetMetricsSpoolDir(),
+			Metrics:  map[string]corecharm.Metric{},
+			CharmURL: "local:precise/wordpress",
+			UnitTag:  s.unitTag,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	err = w.AddMetric("pings", "5", time.Now())
@@ -155,7 +171,8 @@ func (s *MetricsRecorderSuite) TestUnknownMetricKey(c *gc.C) {
 }
 
 type MetricsReaderSuite struct {
-	paths testPaths
+	paths   testPaths
+	unitTag string
 
 	w *metrics.JSONMetricRecorder
 }
@@ -164,12 +181,16 @@ var _ = gc.Suite(&MetricsReaderSuite{})
 
 func (s *MetricsReaderSuite) SetUpTest(c *gc.C) {
 	s.paths = newTestPaths(c)
+	s.unitTag = names.NewUnitTag("test-unit/0").String()
 
 	var err error
 	s.w, err = metrics.NewJSONMetricRecorder(
-		s.paths.GetMetricsSpoolDir(),
-		map[string]corecharm.Metric{"pings": corecharm.Metric{}},
-		"local:precise/wordpress")
+		metrics.MetricRecorderConfig{
+			SpoolDir: s.paths.GetMetricsSpoolDir(),
+			Metrics:  map[string]corecharm.Metric{"pings": corecharm.Metric{}},
+			CharmURL: "local:precise/wordpress",
+			UnitTag:  s.unitTag,
+		})
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.w.AddMetric("pings", "5", time.Now())

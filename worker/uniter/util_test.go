@@ -96,7 +96,6 @@ type context struct {
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
 	collectMetricsTicker   *uniter.ManualTicker
-	sendMetricsTicker      *uniter.ManualTicker
 	updateStatusHookTicker *uniter.ManualTicker
 	err                    string
 
@@ -483,7 +482,6 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		MachineLock:       lock,
 		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
 			ctx.collectMetricsTicker.ReturnTimer,
-			ctx.sendMetricsTicker.ReturnTimer,
 		),
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
@@ -916,20 +914,6 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type sendMetricsTick struct {
-	expectFail bool
-}
-
-func (s sendMetricsTick) step(c *gc.C, ctx *context) {
-	err := ctx.sendMetricsTicker.Tick()
-	if s.expectFail {
-		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
-
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
 type addMetrics struct {
 	values []string
 }
@@ -941,7 +925,13 @@ func (s addMetrics) step(c *gc.C, ctx *context) {
 	}
 	spoolDir := filepath.Join(ctx.path, "state", "spool", "metrics")
 
-	recorder, err := metrics.NewJSONMetricRecorder(spoolDir, declaredMetrics, ctx.sch.URL().String())
+	recorder, err := metrics.NewJSONMetricRecorder(
+		metrics.MetricRecorderConfig{
+			SpoolDir: spoolDir,
+			Metrics:  declaredMetrics,
+			CharmURL: ctx.sch.URL().String(),
+			UnitTag:  ctx.unit.Tag().String(),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, value := range s.values {

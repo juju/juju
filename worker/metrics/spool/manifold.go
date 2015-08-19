@@ -48,7 +48,7 @@ type MetricReader interface {
 // MetricFactory contains the metrics reader and recorder factories.
 type MetricFactory interface {
 	// Recorder returns a new MetricRecorder.
-	Recorder(metrics map[string]corecharm.Metric, charmURL string) (MetricRecorder, error)
+	Recorder(metrics map[string]corecharm.Metric, charmURL, unitTag string) (MetricRecorder, error)
 
 	// Reader returns a new MetricReader.
 	Reader() (MetricReader, error)
@@ -64,8 +64,13 @@ func (f *factory) Reader() (MetricReader, error) {
 }
 
 // Recorder implements the MetricFactory interface.
-func (f *factory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL string) (MetricRecorder, error) {
-	return metrics.NewJSONMetricRecorder(f.spoolDir, declaredMetrics, charmURL)
+func (f *factory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL, unitTag string) (MetricRecorder, error) {
+	return metrics.NewJSONMetricRecorder(metrics.MetricRecorderConfig{
+		SpoolDir: f.spoolDir,
+		Metrics:  declaredMetrics,
+		CharmURL: charmURL,
+		UnitTag:  unitTag,
+	})
 }
 
 var newFactory = func(spoolDir string) MetricFactory {
