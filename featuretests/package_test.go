@@ -31,6 +31,7 @@ func init() {
 	gc.Suite(&cmdStorageSuite{})
 	gc.Suite(&cmdSystemSuite{})
 	gc.Suite(&dblogSuite{})
+	gc.Suite(&cloudImageMetadataSuite{})
 }
 
 func Test(t *testing.T) {
