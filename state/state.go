@@ -71,9 +71,11 @@ type State struct {
 	pwatcher          *presence.Watcher
 	leadershipManager leadership.ManagerWorker
 
-	// mu guards allManager.
-	mu         sync.Mutex
-	allManager *storeManager
+	// mu guards allManager, allEnvManager & allEnvWatcherBacking
+	mu                   sync.Mutex
+	allManager           *storeManager
+	allEnvManager        *storeManager
+	allEnvWatcherBacking Backing
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -296,6 +298,16 @@ func (st *State) Watch() *Multiwatcher {
 	}
 	st.mu.Unlock()
 	return NewMultiwatcher(st.allManager)
+}
+
+func (st *State) WatchAllEnvs() *Multiwatcher {
+	st.mu.Lock()
+	if st.allEnvManager == nil {
+		st.allEnvWatcherBacking = newAllEnvWatcherStateBacking(st)
+		st.allEnvManager = newStoreManager(st.allEnvWatcherBacking)
+	}
+	st.mu.Unlock()
+	return NewMultiwatcher(st.allEnvManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -1414,21 +1426,17 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	prefix := st.EnvironUUID() + ":"
-	if strings.HasPrefix(localID, prefix) {
-		return localID
-	}
-	return prefix + localID
+	return ensureEnvUUID(st.EnvironUUID(), localID)
 }
 
 // localID returns the local id value by stripping
 // off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
-	prefix := st.EnvironUUID() + ":"
-	if strings.HasPrefix(ID, prefix) {
-		return ID[len(prefix):]
+	envUUID, localID, ok := splitDocID(ID)
+	if !ok || envUUID != st.EnvironUUID() {
+		return ID
 	}
-	return ID
+	return localID
 }
 
 // strictLocalID returns the local id value by removing the
@@ -1437,11 +1445,32 @@ func (st *State) localID(ID string) string {
 // If there is no prefix matching the State's environment, an error is
 // returned.
 func (st *State) strictLocalID(ID string) (string, error) {
-	prefix := st.EnvironUUID() + ":"
-	if !strings.HasPrefix(ID, prefix) {
+	envUUID, localID, ok := splitDocID(ID)
+	if !ok || envUUID != st.EnvironUUID() {
 		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
-	return ID[len(prefix):], nil
+	return localID, nil
+}
+
+// ensureEnvUUID returns an environment UUID prefixed document ID. The
+// prefix is only added if it isn't already there.
+func ensureEnvUUID(envUUID, id string) string {
+	prefix := envUUID + ":"
+	if strings.HasPrefix(id, prefix) {
+		return id
+	}
+	return prefix + id
+}
+
+// splitDocID returns the 2 parts of environment UUID prefixed
+// document ID. If the id is not in the expected format the final
+// return value will be false.
+func splitDocID(id string) (string, string, bool) {
+	parts := strings.SplitN(id, ":", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.

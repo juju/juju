@@ -34,7 +34,7 @@ func (s *statusSetterSuite) SetUpTest(c *gc.C) {
 func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: params.StatusExecuting,
 	}}})
@@ -44,7 +44,7 @@ func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *statusSetterSuite) TestNotATag(c *gc.C) {
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: params.StatusExecuting,
 	}}})
@@ -54,7 +54,7 @@ func (s *statusSetterSuite) TestNotATag(c *gc.C) {
 }
 
 func (s *statusSetterSuite) TestNotFound(c *gc.C) {
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    names.NewMachineTag("42").String(),
 		Status: params.StatusDown,
 	}}})
@@ -65,7 +65,7 @@ func (s *statusSetterSuite) TestNotFound(c *gc.C) {
 
 func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    machine.Tag().String(),
 		Status: params.StatusStarted,
 	}}})
@@ -87,7 +87,7 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &state.StatusInfo{
 		Status: state.StatusMaintenance,
 	}})
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
 		Status: params.StatusActive,
 	}}})
@@ -109,7 +109,7 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &state.StatusInfo{
 		Status: state.StatusMaintenance,
 	}})
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    service.Tag().String(),
 		Status: params.StatusActive,
 	}}})
@@ -126,7 +126,7 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 
 func (s *statusSetterSuite) TestBulk(c *gc.C) {
 	s.badTag = names.NewMachineTag("42")
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
 		Status: params.StatusActive,
 	}, {
@@ -158,7 +158,7 @@ func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
 	// Machines are unauthorized since they are not units
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    tag.String(),
 		Status: params.StatusActive,
 	}}})
@@ -168,7 +168,7 @@ func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *serviceStatusSetterSuite) TestNotATag(c *gc.C) {
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    "not a tag",
 		Status: params.StatusActive,
 	}}})
@@ -178,7 +178,7 @@ func (s *serviceStatusSetterSuite) TestNotATag(c *gc.C) {
 }
 
 func (s *serviceStatusSetterSuite) TestNotFound(c *gc.C) {
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    names.NewUnitTag("foo/0").String(),
 		Status: params.StatusActive,
 	}}})
@@ -189,7 +189,7 @@ func (s *serviceStatusSetterSuite) TestNotFound(c *gc.C) {
 
 func (s *serviceStatusSetterSuite) TestSetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    machine.Tag().String(),
 		Status: params.StatusActive,
 	}}})
@@ -206,7 +206,7 @@ func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &state.StatusInfo{
 		Status: state.StatusMaintenance,
 	}})
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    service.Tag().String(),
 		Status: params.StatusActive,
 	}}})
@@ -222,7 +222,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &state.StatusInfo{
 		Status: state.StatusMaintenance,
 	}})
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
 		Status: params.StatusActive,
 	}}})
@@ -245,7 +245,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 		service.Name(),
 		unit.Name(),
 		time.Minute)
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
 		Status: params.StatusActive,
 	}}})
@@ -264,7 +264,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
 	s.badTag = names.NewMachineTag("42")
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatus{{
+	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
 		Status: params.StatusActive,
 	}, {

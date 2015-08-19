@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -97,6 +98,7 @@ func (s *suite) TearDownSuite(c *gc.C) {
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 }

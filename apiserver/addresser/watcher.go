@@ -13,17 +13,18 @@ import (
 // of the received document ids of IP addresses into their according tags.
 type ipAddressesWatcher struct {
 	state.StringsWatcher
+
+	st StateInterface
 }
 
 // MapChanges converts IP address values to tags.
-func (w *ipAddressesWatcher) MapChanges(st StateInterface, in []string) ([]string, error) {
+func (w *ipAddressesWatcher) MapChanges(in []string) ([]string, error) {
 	if len(in) == 0 {
 		return in, nil
 	}
-
 	mapped := make([]string, len(in))
 	for i, v := range in {
-		ipAddr, err := st.IPAddress(v)
+		ipAddr, err := w.st.IPAddress(v)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot fetch address")
 		}

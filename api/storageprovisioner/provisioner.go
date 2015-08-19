@@ -457,7 +457,7 @@ func (st *State) InstanceIds(tags []names.MachineTag) ([]params.StringResult, er
 }
 
 // SetStatus sets the status of storage entities.
-func (st *State) SetStatus(args []params.EntityStatus) error {
+func (st *State) SetStatus(args []params.EntityStatusArgs) error {
 	var result params.ErrorResults
 	err := st.facade.FacadeCall("SetStatus", params.SetStatus{args}, &result)
 	if err != nil {

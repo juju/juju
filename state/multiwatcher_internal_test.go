@@ -5,11 +5,11 @@ package state
 
 import (
 	"container/list"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -93,40 +93,41 @@ var StoreChangeMethodTests = []struct {
 }, {
 	about: "mark removed on existing entry",
 	change: func(all *multiwatcherStore) {
-		all.Update(&multiwatcher.MachineInfo{Id: "0"})
-		all.Update(&multiwatcher.MachineInfo{Id: "1"})
-		StoreIncRef(all, multiwatcher.EntityId{"machine", "0"})
-		all.Remove(multiwatcher.EntityId{"machine", "0"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "1"})
+		StoreIncRef(all, multiwatcher.EntityId{"machine", "uuid", "0"})
+		all.Remove(multiwatcher.EntityId{"machine", "uuid", "0"})
 	},
 	expectRevno: 3,
 	expectContents: []entityEntry{{
 		creationRevno: 2,
 		revno:         2,
-		info:          &multiwatcher.MachineInfo{Id: "1"},
+		info:          &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "1"},
 	}, {
 		creationRevno: 1,
 		revno:         3,
 		refCount:      1,
 		removed:       true,
-		info:          &multiwatcher.MachineInfo{Id: "0"},
+		info:          &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"},
 	}},
 }, {
 	about: "mark removed on nonexistent entry",
 	change: func(all *multiwatcherStore) {
-		all.Remove(multiwatcher.EntityId{"machine", "0"})
+		all.Remove(multiwatcher.EntityId{"machine", "uuid", "0"})
 	},
 }, {
 	about: "mark removed on already marked entry",
 	change: func(all *multiwatcherStore) {
-		all.Update(&multiwatcher.MachineInfo{Id: "0"})
-		all.Update(&multiwatcher.MachineInfo{Id: "1"})
-		StoreIncRef(all, multiwatcher.EntityId{"machine", "0"})
-		all.Remove(multiwatcher.EntityId{"machine", "0"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "1"})
+		StoreIncRef(all, multiwatcher.EntityId{"machine", "uuid", "0"})
+		all.Remove(multiwatcher.EntityId{"machine", "uuid", "0"})
 		all.Update(&multiwatcher.MachineInfo{
+			EnvUUID:    "uuid",
 			Id:         "1",
 			InstanceId: "i-1",
 		})
-		all.Remove(multiwatcher.EntityId{"machine", "0"})
+		all.Remove(multiwatcher.EntityId{"machine", "uuid", "0"})
 	},
 	expectRevno: 4,
 	expectContents: []entityEntry{{
@@ -134,11 +135,12 @@ var StoreChangeMethodTests = []struct {
 		revno:         3,
 		refCount:      1,
 		removed:       true,
-		info:          &multiwatcher.MachineInfo{Id: "0"},
+		info:          &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"},
 	}, {
 		creationRevno: 2,
 		revno:         4,
 		info: &multiwatcher.MachineInfo{
+			EnvUUID:    "uuid",
 			Id:         "1",
 			InstanceId: "i-1",
 		},
@@ -146,15 +148,15 @@ var StoreChangeMethodTests = []struct {
 }, {
 	about: "mark removed on entry with zero ref count",
 	change: func(all *multiwatcherStore) {
-		all.Update(&multiwatcher.MachineInfo{Id: "0"})
-		all.Remove(multiwatcher.EntityId{"machine", "0"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"})
+		all.Remove(multiwatcher.EntityId{"machine", "uuid", "0"})
 	},
 	expectRevno: 2,
 }, {
 	about: "delete entry",
 	change: func(all *multiwatcherStore) {
-		all.Update(&multiwatcher.MachineInfo{Id: "0"})
-		all.delete(multiwatcher.EntityId{"machine", "0"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"})
+		all.delete(multiwatcher.EntityId{"machine", "uuid", "0"})
 	},
 	expectRevno: 1,
 }, {
@@ -203,7 +205,10 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	// Add three entries.
 	var deltas []multiwatcher.Delta
 	for i := 0; i < 3; i++ {
-		m := &multiwatcher.MachineInfo{Id: fmt.Sprint(i)}
+		m := &multiwatcher.MachineInfo{
+			EnvUUID: "uuid",
+			Id:      fmt.Sprint(i),
+		}
 		a.Update(m)
 		deltas = append(deltas, multiwatcher.Delta{Entity: m})
 	}
@@ -220,6 +225,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	// Update one machine and check we see the changes.
 	rev := a.latestRevno
 	m1 := &multiwatcher.MachineInfo{
+		EnvUUID:    "uuid",
 		Id:         "1",
 		InstanceId: "foo",
 	}
@@ -228,17 +234,17 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 
 	// Make sure the machine isn't simply removed from
 	// the list when it's marked as removed.
-	StoreIncRef(a, multiwatcher.EntityId{"machine", "0"})
+	StoreIncRef(a, multiwatcher.EntityId{"machine", "uuid", "0"})
 
 	// Remove another machine and check we see it's removed.
-	m0 := &multiwatcher.MachineInfo{Id: "0"}
+	m0 := &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}
 	a.Remove(m0.EntityId())
 
 	// Check that something that never saw m0 does not get
 	// informed of its removal (even those the removed entity
 	// is still in the list.
 	c.Assert(a.ChangesSince(0), gc.DeepEquals, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{Id: "2"},
+		Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "2"},
 	}, {
 		Entity: m1,
 	}})
@@ -258,11 +264,11 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 
 func (s *storeSuite) TestGet(c *gc.C) {
 	a := newStore()
-	m := &multiwatcher.MachineInfo{Id: "0"}
+	m := &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}
 	a.Update(m)
 
 	c.Assert(a.Get(m.EntityId()), gc.Equals, m)
-	c.Assert(a.Get(multiwatcher.EntityId{"machine", "1"}), gc.IsNil)
+	c.Assert(a.Get(multiwatcher.EntityId{"machine", "uuid", "1"}), gc.IsNil)
 }
 
 type storeManagerSuite struct {
@@ -329,8 +335,9 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *gc.C)
 	// If the Multiwatcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
 	sm := newStoreManager(newTestBacking(nil))
-	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
+	mi := &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}
+	sm.all.Update(mi)
+	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "uuid", "0"})
 	w := &Multiwatcher{all: sm}
 
 	// Stop the watcher.
@@ -339,19 +346,22 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *gc.C)
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
-		info: &multiwatcher.MachineInfo{
-			Id: "0",
-		},
+		info:          mi,
 	}})
 }
 
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *gc.C) {
 	// If the Multiwatcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
+
 	sm := newStoreManager(newTestBacking(nil))
-	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
-	sm.all.Remove(multiwatcher.EntityId{"machine", "0"})
+	mi := &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}
+	sm.all.Update(mi)
+
+	id := multiwatcher.EntityId{"machine", "uuid", "0"}
+	StoreIncRef(sm.all, id)
+	sm.all.Remove(id)
+
 	w := &Multiwatcher{all: sm}
 	// Stop the watcher.
 	sm.handle(&request{w: w})
@@ -360,9 +370,7 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *gc.C) 
 		revno:         2,
 		refCount:      1,
 		removed:       true,
-		info: &multiwatcher.MachineInfo{
-			Id: "0",
-		},
+		info:          mi,
 	}})
 }
 
@@ -370,8 +378,9 @@ func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc
 	// If the Multiwatcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
 	sm := newStoreManager(newTestBacking(nil))
-	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
+	mi := &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}
+	sm.all.Update(mi)
+	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "uuid", "0"})
 	w := &Multiwatcher{all: sm}
 	w.revno = sm.all.latestRevno
 	// Stop the watcher.
@@ -379,9 +388,7 @@ func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc
 	assertStoreContents(c, sm.all, 1, []entityEntry{{
 		creationRevno: 1,
 		revno:         1,
-		info: &multiwatcher.MachineInfo{
-			Id: "0",
-		},
+		info:          mi,
 	}})
 }
 
@@ -389,8 +396,9 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *gc.C) {
 	// If the Multiwatcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
 	sm := newStoreManager(newTestBacking(nil))
-	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
+	mi := &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}
+	sm.all.Update(mi)
+	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "uuid", "0"})
 	w := &Multiwatcher{all: sm}
 	// Stop the watcher.
 	sm.handle(&request{w: w})
@@ -398,33 +406,32 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *gc.C) {
 		creationRevno: 1,
 		revno:         1,
 		refCount:      1,
-		info: &multiwatcher.MachineInfo{
-			Id: "0",
-		},
+		info:          mi,
 	}})
 }
 
 var respondTestChanges = [...]func(all *multiwatcherStore){
 	func(all *multiwatcherStore) {
-		all.Update(&multiwatcher.MachineInfo{Id: "0"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"})
 	},
 	func(all *multiwatcherStore) {
-		all.Update(&multiwatcher.MachineInfo{Id: "1"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "1"})
 	},
 	func(all *multiwatcherStore) {
-		all.Update(&multiwatcher.MachineInfo{Id: "2"})
+		all.Update(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "2"})
 	},
 	func(all *multiwatcherStore) {
-		all.Remove(multiwatcher.EntityId{"machine", "0"})
+		all.Remove(multiwatcher.EntityId{"machine", "uuid", "0"})
 	},
 	func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{
+			EnvUUID:    "uuid",
 			Id:         "1",
 			InstanceId: "i-1",
 		})
 	},
 	func(all *multiwatcherStore) {
-		all.Remove(multiwatcher.EntityId{"machine", "1"})
+		all.Remove(multiwatcher.EntityId{"machine", "uuid", "1"})
 	},
 }
 
@@ -433,7 +440,8 @@ var (
 		creationRevno: 3,
 		revno:         3,
 		info: &multiwatcher.MachineInfo{
-			Id: "2",
+			EnvUUID: "uuid",
+			Id:      "2",
 		},
 	}}
 	respondTestFinalRevno = int64(len(respondTestChanges))
@@ -615,9 +623,9 @@ func (*storeManagerSuite) TestRunStop(c *gc.C) {
 
 func (*storeManagerSuite) TestRun(c *gc.C) {
 	b := newTestBacking([]multiwatcher.EntityInfo{
-		&multiwatcher.MachineInfo{Id: "0"},
-		&multiwatcher.ServiceInfo{Name: "logging"},
-		&multiwatcher.ServiceInfo{Name: "wordpress"},
+		&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid", Name: "logging"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid", Name: "wordpress"},
 	})
 	sm := newStoreManager(b)
 	defer func() {
@@ -625,17 +633,55 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 	}()
 	w := &Multiwatcher{all: sm}
 	checkNext(c, w, []multiwatcher.Delta{
-		{Entity: &multiwatcher.MachineInfo{Id: "0"}},
-		{Entity: &multiwatcher.ServiceInfo{Name: "logging"}},
-		{Entity: &multiwatcher.ServiceInfo{Name: "wordpress"}},
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid", Name: "wordpress"}},
 	}, "")
-	b.updateEntity(&multiwatcher.MachineInfo{Id: "0", InstanceId: "i-0"})
+	b.updateEntity(&multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0", InstanceId: "i-0"})
 	checkNext(c, w, []multiwatcher.Delta{
-		{Entity: &multiwatcher.MachineInfo{Id: "0", InstanceId: "i-0"}},
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0", InstanceId: "i-0"}},
 	}, "")
-	b.deleteEntity(multiwatcher.EntityId{"machine", "0"})
+	b.deleteEntity(multiwatcher.EntityId{"machine", "uuid", "0"})
 	checkNext(c, w, []multiwatcher.Delta{
-		{Removed: true, Entity: &multiwatcher.MachineInfo{Id: "0"}},
+		{Removed: true, Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid", Id: "0"}},
+	}, "")
+}
+
+func (*storeManagerSuite) TestMultipleEnvironments(c *gc.C) {
+	b := newTestBacking([]multiwatcher.EntityInfo{
+		&multiwatcher.MachineInfo{EnvUUID: "uuid0", Id: "0"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "wordpress"},
+		&multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "logging"},
+		&multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "wordpress"},
+		&multiwatcher.MachineInfo{EnvUUID: "uuid2", Id: "0"},
+	})
+	sm := newStoreManager(b)
+	defer func() {
+		c.Check(sm.Stop(), gc.IsNil)
+	}()
+	w := &Multiwatcher{all: sm}
+	checkNext(c, w, []multiwatcher.Delta{
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid0", Id: "0"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "wordpress"}},
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid1", Name: "wordpress"}},
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid2", Id: "0"}},
+	}, "")
+	b.updateEntity(&multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0", InstanceId: "i-0"})
+	checkNext(c, w, []multiwatcher.Delta{
+		{Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid1", Id: "0", InstanceId: "i-0"}},
+	}, "")
+	b.deleteEntity(multiwatcher.EntityId{"machine", "uuid2", "0"})
+	checkNext(c, w, []multiwatcher.Delta{
+		{Removed: true, Entity: &multiwatcher.MachineInfo{EnvUUID: "uuid2", Id: "0"}},
+	}, "")
+	b.updateEntity(&multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging", Exposed: true})
+	checkNext(c, w, []multiwatcher.Delta{
+		{Entity: &multiwatcher.ServiceInfo{EnvUUID: "uuid0", Name: "logging", Exposed: true}},
 	}, "")
 }
 
@@ -761,14 +807,14 @@ func assertWaitingRequests(c *gc.C, sm *storeManager, waiting map[*Multiwatcher]
 type storeManagerTestBacking struct {
 	mu       sync.Mutex
 	fetchErr error
-	entities map[interface{}]multiwatcher.EntityInfo
+	entities map[multiwatcher.EntityId]multiwatcher.EntityInfo
 	watchc   chan<- watcher.Change
 	txnRevno int64
 }
 
 func newTestBacking(initial []multiwatcher.EntityInfo) *storeManagerTestBacking {
 	b := &storeManagerTestBacking{
-		entities: make(map[interface{}]multiwatcher.EntityInfo),
+		entities: make(map[multiwatcher.EntityId]multiwatcher.EntityInfo),
 	}
 	for _, info := range initial {
 		b.entities[info.EntityId()] = info
@@ -777,9 +823,14 @@ func newTestBacking(initial []multiwatcher.EntityInfo) *storeManagerTestBacking 
 }
 
 func (b *storeManagerTestBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
+	envUUID, changeId, ok := splitDocID(change.Id.(string))
+	if !ok {
+		return errors.Errorf("unexpected id format: %v", change.Id)
+	}
 	id := multiwatcher.EntityId{
-		Kind: change.C,
-		Id:   change.Id.(string),
+		Kind:    change.C,
+		EnvUUID: envUUID,
+		Id:      changeId,
 	}
 	info, err := b.fetch(id)
 	if err == mgo.ErrNotFound {
@@ -793,7 +844,7 @@ func (b *storeManagerTestBacking) Changed(all *multiwatcherStore, change watcher
 	return nil
 }
 
-func (b *storeManagerTestBacking) fetch(id interface{}) (multiwatcher.EntityInfo, error) {
+func (b *storeManagerTestBacking) fetch(id multiwatcher.EntityId) (multiwatcher.EntityInfo, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.fetchErr != nil {
@@ -832,6 +883,10 @@ func (b *storeManagerTestBacking) GetAll(all *multiwatcherStore) error {
 	return nil
 }
 
+func (b *storeManagerTestBacking) Release() error {
+	return nil
+}
+
 func (b *storeManagerTestBacking) updateEntity(info multiwatcher.EntityInfo) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -841,7 +896,7 @@ func (b *storeManagerTestBacking) updateEntity(info multiwatcher.EntityInfo) {
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
 			C:     id.Kind,
-			Id:    id.Id,
+			Id:    ensureEnvUUID(id.EnvUUID, id.Id),
 			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
 		}
 	}
@@ -853,8 +908,7 @@ func (b *storeManagerTestBacking) setFetchError(err error) {
 	b.fetchErr = err
 }
 
-func (b *storeManagerTestBacking) deleteEntity(id0 interface{}) {
-	id := id0.(multiwatcher.EntityId)
+func (b *storeManagerTestBacking) deleteEntity(id multiwatcher.EntityId) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	delete(b.entities, id)
@@ -862,7 +916,7 @@ func (b *storeManagerTestBacking) deleteEntity(id0 interface{}) {
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
 			C:     id.Kind,
-			Id:    id.Id,
+			Id:    ensureEnvUUID(id.EnvUUID, id.Id),
 			Revno: -1,
 		}
 	}
@@ -892,5 +946,6 @@ func checkNext(c *gc.C, w *Multiwatcher, deltas []multiwatcher.Delta, expectErr 
 		c.Check(err, gc.ErrorMatches, expectErr)
 		return
 	}
+	c.Assert(err, jc.ErrorIsNil)
 	checkDeltasEqual(c, d, deltas)
 }

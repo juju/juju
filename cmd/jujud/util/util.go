@@ -90,6 +90,14 @@ func MoreImportant(err0, err1 error) bool {
 	return importance(err0) > importance(err1)
 }
 
+// MoreImportantError returns the most important error
+func MoreImportantError(err0, err1 error) error {
+	if importance(err0) > importance(err1) {
+		return err0
+	}
+	return err1
+}
+
 // AgentDone processes the error returned by
 // an exiting agent.
 func AgentDone(logger loggo.Logger, err error) error {

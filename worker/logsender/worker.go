@@ -99,7 +99,7 @@ func dialLogsinkAPI(apiInfo *api.Info) (*websocket.Conn, error) {
 		return nil, errors.Annotate(err, "unable to unmarshal initial response")
 	}
 	if errResult.Error != nil {
-		return nil, errors.Annotatef(err, "initial server error")
+		return nil, errors.Annotatef(errResult.Error, "initial server error")
 	}
 
 	return conn, nil
