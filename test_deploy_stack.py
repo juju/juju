@@ -40,6 +40,7 @@ from deploy_stack import (
 )
 from jujupy import (
     EnvJujuClient,
+    get_timeout_prefix,
     SimpleEnvironment,
     Status,
 )
@@ -713,13 +714,14 @@ class TestBootContext(TestCase):
             self.assertEqual(c_mock.call_count, 0)
         else:
             if jes:
-                assert_juju_call(self, c_mock, client, (
-                    'timeout', '600.00s', 'juju', '--show-log', 'system',
-                    'kill', 'bar', '-y'))
+                assert_juju_call(
+                    self, c_mock, client, get_timeout_prefix(600) + (
+                        'juju', '--show-log', 'system', 'kill', 'bar', '-y'))
             else:
-                assert_juju_call(self, c_mock, client, (
-                    'timeout', '600.00s', 'juju', '--show-log',
-                    'destroy-environment', 'bar', '--force', '-y'))
+                assert_juju_call(
+                    self, c_mock, client, get_timeout_prefix(600) + (
+                        'juju', '--show-log', 'destroy-environment', 'bar',
+                        '--force', '-y'))
 
     def test_bootstrap_context(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))

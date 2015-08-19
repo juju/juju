@@ -44,6 +44,7 @@ from industrial_test import (
 from jujuconfig import get_euca_env
 from jujupy import (
     EnvJujuClient,
+    get_timeout_prefix,
     SimpleEnvironment,
     _temp_env,
     )
@@ -683,12 +684,12 @@ class TestIndustrialTest(TestCase):
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', False, True)])
-        assert_juju_call(self, cc_mock, old_client,
-                         ('timeout', '600.00s', 'juju', '--show-log',
-                          'destroy-environment', 'old', '--force', '-y'), 0)
-        assert_juju_call(self, cc_mock, new_client,
-                         ('timeout', '600.00s', 'juju', '--show-log',
-                          'destroy-environment', 'new', '--force', '-y'), 1)
+        assert_juju_call(self, cc_mock, old_client, get_timeout_prefix(600) + (
+                         'juju', '--show-log', 'destroy-environment', 'old',
+                         '--force', '-y'), 0)
+        assert_juju_call(self, cc_mock, new_client, get_timeout_prefix(600) + (
+                         'juju', '--show-log', 'destroy-environment', 'new',
+                         '--force', '-y'), 1)
 
     def test_run_stages_new_fail(self):
         old_client = FakeEnvJujuClient('old')
@@ -698,12 +699,12 @@ class TestIndustrialTest(TestCase):
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', True, False)])
-        assert_juju_call(self, cc_mock, old_client,
-                         ('timeout', '600.00s', 'juju', '--show-log',
-                          'destroy-environment', 'old', '--force', '-y'), 0)
-        assert_juju_call(self, cc_mock, new_client,
-                         ('timeout', '600.00s', 'juju', '--show-log',
-                          'destroy-environment', 'new', '--force', '-y'), 1)
+        assert_juju_call(self, cc_mock, old_client, get_timeout_prefix(600) + (
+                         'juju', '--show-log', 'destroy-environment', 'old',
+                         '--force', '-y'), 0)
+        assert_juju_call(self, cc_mock, new_client, get_timeout_prefix(600) + (
+                         'juju', '--show-log', 'destroy-environment', 'new',
+                         '--force', '-y'), 1)
 
     def test_run_stages_both_fail(self):
         old_client = FakeEnvJujuClient('old')
@@ -713,12 +714,12 @@ class TestIndustrialTest(TestCase):
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', False, False)])
-        assert_juju_call(self, cc_mock, old_client,
-                         ('timeout', '600.00s', 'juju', '--show-log',
-                          'destroy-environment', 'old', '--force', '-y'), 0)
-        assert_juju_call(self, cc_mock, new_client,
-                         ('timeout', '600.00s', 'juju', '--show-log',
-                          'destroy-environment', 'new', '--force', '-y'), 1)
+        assert_juju_call(self, cc_mock, old_client, get_timeout_prefix(600) + (
+                         'juju', '--show-log', 'destroy-environment', 'old',
+                         '--force', '-y'), 0)
+        assert_juju_call(self, cc_mock, new_client, get_timeout_prefix(600) + (
+                         'juju', '--show-log', 'destroy-environment', 'new',
+                         '--force', '-y'), 1)
 
     def test_run_stages_recover_failure(self):
         old_client = FakeEnvJujuClient('old')
@@ -1018,9 +1019,8 @@ class TestDestroyEnvironmentAttempt(TestCase):
                 self.assertEqual(iterator.next(), {
                     'test_id': 'destroy-env', 'result': True})
         gsg_mock.assert_called_once_with(client)
-        assert_juju_call(self, mock_cc, client, (
-            'timeout', '600.00s', 'juju', '--show-log', 'destroy-environment',
-            'steve', '-y'))
+        assert_juju_call(self, mock_cc, client, get_timeout_prefix(600) + (
+            'juju', '--show-log', 'destroy-environment', 'steve', '-y'))
         self.assertEqual(iterator.next(), {'test_id': 'substrate-clean'})
         with patch.object(destroy_env, 'check_security_groups') as csg_mock:
             self.assertEqual(iterator.next(),

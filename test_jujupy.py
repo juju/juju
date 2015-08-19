@@ -10,6 +10,7 @@ import os
 import shutil
 import StringIO
 import subprocess
+import sys
 import tempfile
 from textwrap import dedent
 from unittest import TestCase
@@ -38,6 +39,7 @@ from jujupy import (
     GroupReporter,
     get_cache_path,
     get_local_root,
+    get_timeout_path,
     jes_home_path,
     JESByDefault,
     JESNotSupported,
@@ -495,7 +497,8 @@ class TestEnvJujuClient(ClientTest):
             client.get_juju_output('bar', timeout=5)
         self.assertEqual(
             sco_mock.call_args[0][0],
-            ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
+            (sys.executable, get_timeout_path(), '5.00', '--', 'juju',
+             '--show-log', 'bar', '-e', 'foo'))
 
     def test__shell_environ_cloudsigma(self):
         client = EnvJujuClient(
@@ -1025,8 +1028,8 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_call') as cc_mock:
             client.juju('foo', ('bar', 'baz'), timeout=58)
         self.assertEqual(cc_mock.call_args[0][0], (
-            'timeout', '58.00s', 'juju', '--show-log', 'foo', '-e', 'qux',
-            'bar', 'baz'))
+            sys.executable, get_timeout_path(), '58.00', '--', 'juju',
+            '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
 
     def test_juju_juju_home(self):
         env = SimpleEnvironment('qux')
@@ -1519,7 +1522,8 @@ class TestJujuClientDevel(TestCase):
             client.get_juju_output(env, 'bar', timeout=5)
         self.assertEqual(
             sco_mock.call_args[0][0],
-            ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
+            (sys.executable, get_timeout_path(), '5.00', '--', 'juju',
+             '--show-log', 'bar', '-e', 'foo'))
 
     def test_juju_output_supplies_path(self):
         env = Environment('foo', '')
