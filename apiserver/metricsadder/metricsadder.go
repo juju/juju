@@ -67,12 +67,15 @@ func (api *MetricsAdderAPI) AddMetricBatches(args params.MetricBatchParams) (par
 				Time:  metric.Time,
 			}
 		}
-		unit, err := api.state.Unit(tag.Id())
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		_, err = unit.AddMetrics(batch.Batch.UUID, batch.Batch.Created, batch.Batch.CharmURL, metrics)
+		_, err = api.state.AddMetrics(
+			state.BatchParam{
+				UUID:     batch.Batch.UUID,
+				Created:  batch.Batch.Created,
+				CharmURL: batch.Batch.CharmURL,
+				Metrics:  metrics,
+				Unit:     tag,
+			},
+		)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
