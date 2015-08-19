@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v5"
@@ -741,4 +742,19 @@ type RebootActionResults struct {
 type RebootActionResult struct {
 	Result RebootAction `json:"result,omitempty"`
 	Error  *Error       `json:"error,omitempty"`
+}
+
+// GetBundleChanges holds parameters for making the GetBundleChanges call.
+type GetBundleChanges struct {
+	// YAML holds the bundle YAML encoded content.
+	YAML string
+}
+
+// GetBundleChangesResults holds results of the GetBundleChanges call.
+type GetBundleChangesResults struct {
+	// Changes holds the list of changes required to deploy the bundle.
+	// It is omitted if the provided bundle YAML has verification errors.
+	Changes []*bundlechanges.Change `json:"changes,omitempty"`
+	// Errors holds possible bundle verification errors.
+	Errors []string `json:"errors,omitempty"`
 }

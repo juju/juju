@@ -611,6 +611,16 @@ func (c *Client) DestroyEnvironment() error {
 	return c.facade.FacadeCall("DestroyEnvironment", nil, nil)
 }
 
+// GetBundleChanges returns the list of changes required to deploy the given
+// bundle data. The changes are sorted by requirements, so that they can be
+// applied in order.
+func (c *Client) GetBundleChanges(yaml string) (*params.GetBundleChangesResults, error) {
+	var results params.GetBundleChangesResults
+	args := params.GetBundleChanges{YAML: yaml}
+	err := c.facade.FacadeCall("GetBundleChanges", args, &results)
+	return &results, err
+}
+
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL. If the API server does not support charm uploads, an
