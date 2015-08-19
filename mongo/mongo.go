@@ -185,7 +185,8 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := installMongod(args.SetNumaControlPolicy); err != nil {
+	operatingsystem := version.Current.Series
+	if err := installMongod(operatingsystem, args.SetNumaControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever
@@ -295,33 +296,21 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
-// getPackageManager is a helper function which returns the
-// package manager implementation for the current system.
-func getPackageManager() (manager.PackageManager, error) {
-	return manager.NewPackageManager(version.Current.Series)
-}
-
-// getPackagingConfigurer is a helper function which returns the
-// packaging configuration manager for the current system.
-func getPackagingConfigurer() (config.PackagingConfigurer, error) {
-	return config.NewPackagingConfigurer(version.Current.Series)
-}
-
-func installMongod(numaCtl bool) error {
-	series := version.Current.Series
-
-	pacconfer, err := getPackagingConfigurer()
+func installMongod(operatingsystem string, numaCtl bool) error {
+	// fetch the packaging configuration manager for the current operating system.
+	pacconfer, err := config.NewPackagingConfigurer(operatingsystem)
 	if err != nil {
 		return err
 	}
 
-	pacman, err := getPackageManager()
+	// fetch the package manager implementation for the current operating system.
+	pacman, err := manager.NewPackageManager(operatingsystem)
 	if err != nil {
 		return err
 	}
 
 	// Only Quantal requires the PPA.
-	if series == "quantal" {
+	if operatingsystem == "quantal" {
 		// install python-software-properties:
 		if err := pacman.InstallPrerequisite(); err != nil {
 			return err
@@ -331,14 +320,14 @@ func installMongod(numaCtl bool) error {
 		}
 	}
 	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
-	if series == "centos7" {
+	if operatingsystem == "centos7" {
 		// install epel-release
 		if err := pacman.Install("epel-release"); err != nil {
 			return err
 		}
 	}
 
-	mongoPkg := packageForSeries(series)
+	mongoPkg := packageForSeries(operatingsystem)
 
 	pkgs := []string{mongoPkg}
 	if numaCtl {
@@ -360,7 +349,7 @@ func installMongod(numaCtl bool) error {
 	}
 
 	// Work around SELinux on centos7
-	if series == "centos7" {
+	if operatingsystem == "centos7" {
 		cmd := []string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/"}
 		logger.Infof("running %s %v", cmd[0], cmd[1:])
 		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
