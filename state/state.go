@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
@@ -76,6 +77,9 @@ type State struct {
 	allManager           *storeManager
 	allEnvManager        *storeManager
 	allEnvWatcherBacking Backing
+
+	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
+	CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -158,8 +162,8 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 	return newState, nil
 }
 
-// start starts the presence watcher and leadership manager, and fills in the
-// serverTag field with the supplied value.
+// start starts the presence watcher, leadership manager and images metadata storage,
+// and fills in the serverTag field with the supplied value.
 func (st *State) start(serverTag names.EnvironTag) error {
 	st.serverTag = serverTag
 
@@ -184,11 +188,12 @@ func (st *State) start(serverTag names.EnvironTag) error {
 
 	logger.Infof("creating lease client as %s", clientId)
 	clock := GetClock()
+	datastore := &environMongo{st}
 	leaseClient, err := lease.NewClient(lease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
 		Collection: leasesC,
-		Mongo:      &environMongo{st},
+		Mongo:      datastore,
 		Clock:      clock,
 	})
 	if err != nil {
@@ -203,6 +208,9 @@ func (st *State) start(serverTag names.EnvironTag) error {
 		return errors.Annotatef(err, "cannot create leadership manager")
 	}
 	st.leadershipManager = leadershipManager
+
+	logger.Infof("creating cloud image metadata storage")
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)
 
 	logger.Infof("starting presence watcher")
 	st.pwatcher = presence.NewWatcher(st.getPresence(), st.environTag)
