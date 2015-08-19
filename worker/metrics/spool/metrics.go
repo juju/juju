@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package metrics
+package spool
 
 import (
 	"encoding/json"
@@ -96,8 +96,8 @@ func APIMetricBatch(batch MetricBatch) params.MetricBatchParam {
 	}
 }
 
-// MetricsMetadata is used to store metadata for the current metric batch.
-type MetricsMetadata struct {
+// MetricMetadata is used to store metadata for the current metric batch.
+type MetricMetadata struct {
 	CharmURL string    `json:"charmurl"`
 	UUID     string    `json:"uuid"`
 	Created  time.Time `json:"created"`
@@ -234,7 +234,7 @@ func (m *JSONMetricRecorder) recordMetaData() error {
 		return errors.Errorf("file %s already exists", metaFile)
 	}
 
-	metadata := MetricsMetadata{
+	metadata := MetricMetadata{
 		CharmURL: m.charmURL,
 		UUID:     m.uuid.String(),
 		Created:  m.created,

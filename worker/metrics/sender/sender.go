@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/api/metricsadder"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter/metrics"
 )
 
 type sender struct {
@@ -34,7 +33,7 @@ func (s *sender) Do(stop <-chan struct{}) error {
 	defer reader.Close()
 	var sendBatches []params.MetricBatchParam
 	for _, batch := range batches {
-		sendBatches = append(sendBatches, metrics.APIMetricBatch(batch))
+		sendBatches = append(sendBatches, spool.APIMetricBatch(batch))
 	}
 	results, err := s.client.AddMetricBatches(sendBatches)
 	if err != nil {

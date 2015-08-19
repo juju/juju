@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
-	"github.com/juju/juju/worker/uniter/metrics"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -62,8 +62,8 @@ func NewHookContext(
 		if err != nil {
 			return nil, err
 		}
-		ctx.metricsRecorder, err = metrics.NewJSONMetricRecorder(
-			metrics.MetricRecorderConfig{
+		ctx.metricsRecorder, err = spool.NewJSONMetricRecorder(
+			spool.MetricRecorderConfig{
 				SpoolDir: paths.GetMetricsSpoolDir(),
 				Metrics:  charmMetrics.Metrics,
 				CharmURL: charmURL.String(),

@@ -42,9 +42,9 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -925,8 +925,8 @@ func (s addMetrics) step(c *gc.C, ctx *context) {
 	}
 	spoolDir := filepath.Join(ctx.path, "state", "spool", "metrics")
 
-	recorder, err := metrics.NewJSONMetricRecorder(
-		metrics.MetricRecorderConfig{
+	recorder, err := spool.NewJSONMetricRecorder(
+		spool.MetricRecorderConfig{
 			SpoolDir: spoolDir,
 			Metrics:  declaredMetrics,
 			CharmURL: ctx.sch.URL().String(),

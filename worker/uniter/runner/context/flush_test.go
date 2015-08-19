@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/uniter/metrics"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
@@ -234,7 +234,7 @@ func (s *FlushContextSuite) TestBuiltinMetric(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	paths := runnertesting.NewRealPaths(c)
 	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("juju-units"), paths)
-	reader, err := metrics.NewJSONMetricReader(
+	reader, err := spool.NewJSONMetricReader(
 		paths.GetMetricsSpoolDir(),
 	)
 
@@ -252,7 +252,7 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	paths := runnertesting.NewRealPaths(c)
 	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"), paths)
-	reader, err := metrics.NewJSONMetricReader(
+	reader, err := spool.NewJSONMetricReader(
 		paths.GetMetricsSpoolDir(),
 	)
 
