@@ -2946,11 +2946,11 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	var errorOutput string
 	errorOutput = "\ngot: \n"
 	for _, e := range got {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
+		errorOutput += fmt.Sprintf("  %T %#v\n", e, e)
 	}
 	errorOutput += "expected: \n"
 	for _, e := range want {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
+		errorOutput += fmt.Sprintf("  %T %#v\n", e, e)
 	}
 
 	c.Errorf(errorOutput)
@@ -2962,11 +2962,11 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 			w := want[i]
 			if !deepEqual(c, g, w) {
 				firstDiffError += "\n"
-				firstDiffError += fmt.Sprintf("first difference at position %d", i)
-				firstDiffError += "got: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
-				firstDiffError += "expected: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
+				firstDiffError += fmt.Sprintf("first difference at position %d\n", i)
+				firstDiffError += "got:\n"
+				firstDiffError += fmt.Sprintf("  %T %#v\n", g, g)
+				firstDiffError += "expected:\n"
+				firstDiffError += fmt.Sprintf("  %T %#v\n", w, w)
 				break
 			}
 		}
@@ -2977,8 +2977,5 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 
 func deepEqual(c *gc.C, got, want interface{}) bool {
 	same, err := jc.DeepEqual(got, want)
-	if err != nil {
-		c.Fatal(err.Error())
-	}
-	return same
+	return err == nil && same
 }
