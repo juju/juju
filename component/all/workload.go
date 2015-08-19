@@ -16,22 +16,22 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/jujud/agent"
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api/client"
-	"github.com/juju/juju/process/api/server"
-	"github.com/juju/juju/process/context"
-	procstate "github.com/juju/juju/process/state"
-	"github.com/juju/juju/process/status"
-	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api/client"
+	"github.com/juju/juju/workload/api/server"
+	"github.com/juju/juju/workload/context"
+	workloadstate "github.com/juju/juju/workload/state"
+	"github.com/juju/juju/workload/status"
+	"github.com/juju/juju/workload/workers"
 )
 
-type workloadProcesses struct{}
+type workloads struct{}
 
-func (c workloadProcesses) registerForServer() error {
+func (c workloads) registerForServer() error {
 	c.registerState()
 	handlers := c.registerWorkers()
 	c.registerHookContext(handlers)
@@ -39,19 +39,19 @@ func (c workloadProcesses) registerForServer() error {
 	return nil
 }
 
-func (workloadProcesses) registerForClient() error {
-	cmdstatus.RegisterUnitStatusFormatter(process.ComponentName, status.Format)
+func (workloads) registerForClient() error {
+	cmdstatus.RegisterUnitStatusFormatter(workload.ComponentName, status.Format)
 	return nil
 }
 
-func (c workloadProcesses) registerHookContext(handlers map[string]*workers.EventHandlers) {
-	if !markRegistered(process.ComponentName, "hook-context") {
+func (c workloads) registerHookContext(handlers map[string]*workers.EventHandlers) {
+	if !markRegistered(workload.ComponentName, "hook-context") {
 		return
 	}
 
-	runner.RegisterComponentFunc(process.ComponentName,
+	runner.RegisterComponentFunc(workload.ComponentName,
 		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
-			var addEvents func(...process.Event)
+			var addEvents func(...workload.Event)
 			if unitEventHandler, ok := handlers[unit]; ok {
 				addEvents = unitEventHandler.AddEvents
 			}
@@ -69,19 +69,19 @@ func (c workloadProcesses) registerHookContext(handlers map[string]*workers.Even
 	c.registerHookContextFacade()
 }
 
-func (c workloadProcesses) newHookContextAPIClient(caller base.APICaller) context.APIClient {
-	facadeCaller := base.NewFacadeCallerForVersion(caller, process.ComponentName, 0)
+func (c workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
+	facadeCaller := base.NewFacadeCallerForVersion(caller, workload.ComponentName, 0)
 	return client.NewHookContextClient(facadeCaller)
 }
 
-func (workloadProcesses) registerHookContextFacade() {
+func (workloads) registerHookContextFacade() {
 
 	newHookContextApi := func(st *state.State, unit *state.Unit) (interface{}, error) {
 		if st == nil {
 			return nil, errors.NewNotValid(nil, "st is nil")
 		}
 
-		up, err := st.UnitProcesses(unit)
+		up, err := st.UnitWorkloads(unit)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -89,19 +89,19 @@ func (workloadProcesses) registerHookContextFacade() {
 	}
 
 	common.RegisterHookContextFacade(
-		process.ComponentName,
+		workload.ComponentName,
 		0,
 		newHookContextApi,
 		reflect.TypeOf(&server.HookContextAPI{}),
 	)
 }
 
-type workloadProcessesHookContext struct {
+type workloadsHookContext struct {
 	jujuc.Context
 }
 
 // Component implements context.HookContext.
-func (c workloadProcessesHookContext) Component(name string) (context.Component, error) {
+func (c workloadsHookContext) Component(name string) (context.Component, error) {
 	found, err := c.Context.Component(name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -113,14 +113,14 @@ func (c workloadProcessesHookContext) Component(name string) (context.Component,
 	return compCtx, nil
 }
 
-func (workloadProcesses) registerHookContextCommands() {
-	if !markRegistered(process.ComponentName, "hook-context-commands") {
+func (workloads) registerHookContextCommands() {
+	if !markRegistered(workload.ComponentName, "hook-context-commands") {
 		return
 	}
 
 	name := context.RegisterCommandInfo.Name
 	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
-		compCtx := workloadProcessesHookContext{ctx}
+		compCtx := workloadsHookContext{ctx}
 		cmd, err := context.NewProcRegistrationCommand(compCtx)
 		if err != nil {
 			// TODO(ericsnow) Return an error instead.
@@ -131,7 +131,7 @@ func (workloadProcesses) registerHookContextCommands() {
 
 	name = context.LaunchCommandInfo.Name
 	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
-		compCtx := workloadProcessesHookContext{ctx}
+		compCtx := workloadsHookContext{ctx}
 		cmd, err := context.NewProcLaunchCommand(compCtx)
 		if err != nil {
 			panic(err)
@@ -141,7 +141,7 @@ func (workloadProcesses) registerHookContextCommands() {
 
 	name = context.InfoCommandInfo.Name
 	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
-		compCtx := workloadProcessesHookContext{ctx}
+		compCtx := workloadsHookContext{ctx}
 		cmd, err := context.NewProcInfoCommand(compCtx)
 		if err != nil {
 			panic(err)
@@ -150,18 +150,18 @@ func (workloadProcesses) registerHookContextCommands() {
 	})
 }
 
-func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
-	if !markRegistered(process.ComponentName, "workers") {
+func (c workloads) registerWorkers() map[string]*workers.EventHandlers {
+	if !markRegistered(workload.ComponentName, "workers") {
 		return nil
 	}
 	unitEventHandlers := make(map[string]*workers.EventHandlers)
 
-	handlerFuncs := []func([]process.Event, context.APIClient, workers.Runner) error{
+	handlerFuncs := []func([]workload.Event, context.APIClient, workers.Runner) error{
 		workers.StatusEventHandler,
 	}
 
 	newWorkerFunc := func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
-		// At this point no workload process workers are running for the unit.
+		// At this point no workload workload workers are running for the unit.
 		if unitHandler, ok := unitEventHandlers[unit]; ok {
 			// The worker must have restarted.
 			// TODO(ericsnow) Could cause panics?
@@ -199,7 +199,7 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 
 		return newWorker, nil
 	}
-	err := agent.RegisterUnitAgentWorker(process.ComponentName, newWorkerFunc)
+	err := agent.RegisterUnitAgentWorker(workload.ComponentName, newWorkerFunc)
 	if err != nil {
 		panic(err)
 	}
@@ -207,13 +207,13 @@ func (c workloadProcesses) registerWorkers() map[string]*workers.EventHandlers {
 	return unitEventHandlers
 }
 
-func (workloadProcesses) initialEvents(hctx context.Component) ([]process.Event, error) {
+func (workloads) initialEvents(hctx context.Component) ([]workload.Event, error) {
 	ids, err := hctx.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var events []process.Event
+	var events []workload.Event
 	for _, id := range ids {
 		proc, err := hctx.Get(id)
 		if err != nil {
@@ -225,8 +225,8 @@ func (workloadProcesses) initialEvents(hctx context.Component) ([]process.Event,
 			return nil, errors.Trace(err)
 		}
 
-		events = append(events, process.Event{
-			Kind:     process.EventKindTracked,
+		events = append(events, workload.Event{
+			Kind:     workload.EventKindTracked,
 			ID:       proc.ID(),
 			Plugin:   plugin,
 			PluginID: proc.Details.ID,
@@ -235,27 +235,27 @@ func (workloadProcesses) initialEvents(hctx context.Component) ([]process.Event,
 	return events, nil
 }
 
-func (workloadProcesses) registerState() {
+func (workloads) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
-	newUnitProcesses := func(persist state.Persistence, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) (state.UnitProcesses, error) {
-		return procstate.NewUnitProcesses(persist, unit, getMetadata), nil
+	newUnitWorkloads := func(persist state.Persistence, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) (state.UnitWorkloads, error) {
+		return workloadstate.NewUnitWorkloads(persist, unit, getMetadata), nil
 	}
-	state.SetProcessesComponent(newUnitProcesses)
+	state.SetWorkloadsComponent(newUnitWorkloads)
 }
 
-func (workloadProcesses) registerUnitStatus() {
-	apiserverclient.RegisterStatusProviderForUnits(process.ComponentName,
+func (workloads) registerUnitStatus() {
+	apiserverclient.RegisterStatusProviderForUnits(workload.ComponentName,
 		func(unit *state.Unit) (interface{}, error) {
-			up, err := unit.Processes()
+			up, err := unit.Workloads()
 			if err != nil {
 				return nil, err
 			}
-			procs, err := up.List()
+			workloads, err := up.List()
 			if err != nil {
 				return nil, err
 			}
-			return status.UnitStatus(procs)
+			return status.UnitStatus(workloads)
 		})
 }
