@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
@@ -76,6 +77,9 @@ type State struct {
 	allManager           *storeManager
 	allEnvManager        *storeManager
 	allEnvWatcherBacking Backing
+
+    // TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
+    CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
 // StateServingInfo holds information needed by a state server.
