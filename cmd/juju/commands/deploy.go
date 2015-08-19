@@ -32,7 +32,7 @@ type DeployCommand struct {
 	ServiceName  string
 	Config       cmd.FileVar
 	Constraints  constraints.Value
-	Networks     string
+	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
 	RegisterURL  string

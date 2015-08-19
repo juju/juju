@@ -957,6 +957,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 	// Simulate networks added when requested.
+	//
+	// TODO(dimitern): Fix this in a follow-up to use constraints
+	// instead.
 	networks := append(args.Constraints.IncludeNetworks(), args.InstanceConfig.Networks...)
 	networkInfo := make([]network.InterfaceInfo, len(networks))
 	for i, netName := range networks {

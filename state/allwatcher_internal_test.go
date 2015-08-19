@@ -74,24 +74,22 @@ func (s *storeManagerStateSuite) Reset(c *gc.C) {
 }
 
 func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
-	ok, message := jc.DeepEquals.Check([]interface{}{got, want}, []string{"got", "want"})
-	if !ok {
-		c.Logf(message)
+	ok, err := jc.DeepEqual(got, want)
+	if ok {
+		c.Check(err, jc.ErrorIsNil)
 	}
 	return ok
 }
 
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
-	if len(got) == 0 {
-		got = nil
-	}
-	if len(want) == 0 {
-		want = nil
-	}
 	if jcDeepEqualsCheck(c, got, want) {
 		return
 	}
-	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	if len(got) != len(want) {
+		c.Errorf("entity length mismatch; got %d; want %d", len(got), len(want))
+	} else {
+		c.Errorf("entity contents mismatch; same length %d", len(got))
+	}
 	// Lets construct a decent output.
 	var errorOutput string
 	errorOutput = "\ngot: \n"
@@ -1114,7 +1112,7 @@ func (s *storeManagerStateSuite) TestChangeServicesConstraints(c *gc.C) {
 					&multiwatcher.ServiceInfo{
 						EnvUUID:     st.EnvironUUID(),
 						Name:        "wordpress",
-						Constraints: constraints.MustParse("mem=4G cpu-cores= arch=amd64"),
+						Constraints: constraints.MustParse("mem=4G arch=amd64"),
 					}}}
 		},
 	}
