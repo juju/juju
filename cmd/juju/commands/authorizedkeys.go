@@ -41,7 +41,7 @@ func NewAuthorizedKeysCommand() cmd.Command {
 			Name:        "authorized-keys",
 			Doc:         authKeysDoc,
 			UsagePrefix: "juju",
-			Purpose:     "manage authorized ssh keys",
+			Purpose:     "manage authorised ssh keys",
 			Aliases:     []string{"authorised-keys"},
 		}),
 	}

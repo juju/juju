@@ -29,7 +29,7 @@ execution of operations that could alter environment.
 This is done by blocking certain commands from successful execution. Blocked commands
 must be manually unblocked to proceed.
 
-Some comands offer a --force option that can be used to bypass a block.
+Some commands offer a --force option that can be used to bypass a block.
 
 Commands that can be unblocked are grouped based on logical operations as follows:
 
