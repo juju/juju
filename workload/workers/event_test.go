@@ -84,6 +84,7 @@ func (s *eventHandlerSuite) TestReset(c *gc.C) {
 	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
 	c.Check(apiClient, gc.Equals, s.apiClient)
 	c.Check(runner, gc.IsNil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *eventHandlerSuite) TestClose(c *gc.C) {
@@ -97,6 +98,7 @@ func (s *eventHandlerSuite) TestClose(c *gc.C) {
 	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
 	c.Check(apiClient, gc.IsNil)
 	c.Check(runner, gc.IsNil)
+	s.stub.CheckCalls(c, nil)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
