@@ -326,6 +326,9 @@ var parseConstraintsTests = []struct {
 }
 
 func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
+	// TODO(dimitern): This test is inadequate and needs to check for
+	// more than just the reparsed output of String() matches the
+	// expected.
 	for i, t := range parseConstraintsTests {
 		c.Logf("test %d: %s", i, t.summary)
 		cons0, err := constraints.Parse(t.args...)

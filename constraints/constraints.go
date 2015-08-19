@@ -125,36 +125,41 @@ func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""
 }
 
-// extractSpacesOrNetworks returns the list of spaces/networks to
-// include or exclude (without the "^" prefixes). field can be
-// v.Networks or v.Spaces.
-func (v *Value) extractSpacesOrNetworks(field *[]string) (include, exclude []string) {
-	if field == nil {
-		return nil, nil
-	}
-	for _, name := range *field {
-		if strings.HasPrefix(name, "^") {
-			exclude = append(exclude, strings.TrimPrefix(name, "^"))
-		} else {
-			include = append(include, name)
+// extractItems returns the list of entries in the given field which
+// are either positive (included) or negative (!included; with prefix
+// "^").
+func (v *Value) extractItems(field []string, included bool) []string {
+	var items []string
+	for _, name := range field {
+		prefixed := strings.HasPrefix(name, "^")
+		if prefixed && !included {
+			// has prefix and we want negatives.
+			items = append(items, strings.TrimPrefix(name, "^"))
+		} else if !prefixed && included {
+			// no prefix and we want positives.
+			items = append(items, name)
 		}
 	}
-	return include, exclude
+	return items
 }
 
 // IncludeSpaces returns a list of spaces to include when starting a
 // machine, if specified.
 func (v *Value) IncludeSpaces() []string {
-	include, _ := v.extractSpacesOrNetworks(v.Spaces)
-	return include
+	if v.Spaces == nil {
+		return nil
+	}
+	return v.extractItems(*v.Spaces, true)
 }
 
 // ExcludeSpaces returns a list of spaces to exclude when starting a
 // machine, if specified. They are given in the spaces constraint with
 // a "^" prefix to the name, which is stripped before returning.
 func (v *Value) ExcludeSpaces() []string {
-	_, exclude := v.extractSpacesOrNetworks(v.Spaces)
-	return exclude
+	if v.Spaces == nil {
+		return nil
+	}
+	return v.extractItems(*v.Spaces, false)
 }
 
 // HaveSpaces returns whether any spaces constraints were specified.
@@ -168,16 +173,20 @@ func (v *Value) HaveSpaces() bool {
 // IncludeNetworks returns a list of networks to include when starting
 // a machine, if specified.
 func (v *Value) IncludeNetworks() []string {
-	include, _ := v.extractSpacesOrNetworks(v.Networks)
-	return include
+	if v.Networks == nil {
+		return nil
+	}
+	return v.extractItems(*v.Networks, true)
 }
 
 // ExcludeNetworks returns a list of networks to exclude when starting
 // a machine, if specified. They are given in the networks constraint
 // with a "^" prefix to the name, which is stripped before returning.
 func (v *Value) ExcludeNetworks() []string {
-	_, exclude := v.extractSpacesOrNetworks(v.Networks)
-	return exclude
+	if v.Networks == nil {
+		return nil
+	}
+	return v.extractItems(*v.Networks, false)
 }
 
 // HaveNetworks returns whether any network constraints were specified.
@@ -377,7 +386,7 @@ func (v *Value) without(attrTags ...string) (Value, error) {
 	for _, tag := range attrTags {
 		val, ok := result.fieldFromTag(tag)
 		if !ok {
-			return Value{}, fmt.Errorf("unknown constraint %q", tag)
+			return Value{}, errors.Errorf("unknown constraint %q", tag)
 		}
 		val.Set(reflect.Zero(val.Type()))
 	}
@@ -388,7 +397,7 @@ func (v *Value) without(attrTags ...string) (Value, error) {
 func (v *Value) setRaw(raw string) error {
 	eq := strings.Index(raw, "=")
 	if eq <= 0 {
-		return fmt.Errorf("malformed constraint %q", raw)
+		return errors.Errorf("malformed constraint %q", raw)
 	}
 	name, str := raw[:eq], raw[eq+1:]
 	var err error
@@ -414,7 +423,7 @@ func (v *Value) setRaw(raw string) error {
 	case Networks:
 		err = v.setNetworks(str)
 	default:
-		return fmt.Errorf("unknown constraint %q", name)
+		return errors.Errorf("unknown constraint %q", name)
 	}
 	if err != nil {
 		return errors.Annotatef(err, "bad %q constraint", name)
@@ -456,14 +465,22 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 		case Spaces:
 			var spaces *[]string
 			spaces, err = parseYamlStrings("spaces", val)
+			if err != nil {
+				return false
+			}
+			err = v.validateSpaces(spaces)
 			if err == nil {
-				err = v.validateSpaces(spaces)
+				v.Spaces = spaces
 			}
 		case Networks:
 			var networks *[]string
 			networks, err = parseYamlStrings("networks", val)
+			if err != nil {
+				return false
+			}
+			err = v.validateNetworks(networks)
 			if err == nil {
-				err = v.validateNetworks(networks)
+				v.Networks = networks
 			}
 		default:
 			return false
@@ -477,7 +494,7 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 
 func (v *Value) setContainer(str string) error {
 	if v.Container != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	if str == "" {
 		ctype := instance.ContainerType("")
@@ -499,10 +516,10 @@ func (v *Value) HasContainer() bool {
 
 func (v *Value) setArch(str string) error {
 	if v.Arch != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	if str != "" && !arch.IsSupportedArch(str) {
-		return fmt.Errorf("%q not recognized", str)
+		return errors.Errorf("%q not recognized", str)
 	}
 	v.Arch = &str
 	return nil
@@ -510,7 +527,7 @@ func (v *Value) setArch(str string) error {
 
 func (v *Value) setCpuCores(str string) (err error) {
 	if v.CpuCores != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	v.CpuCores, err = parseUint64(str)
 	return
@@ -518,7 +535,7 @@ func (v *Value) setCpuCores(str string) (err error) {
 
 func (v *Value) setCpuPower(str string) (err error) {
 	if v.CpuPower != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	v.CpuPower, err = parseUint64(str)
 	return
@@ -526,7 +543,7 @@ func (v *Value) setCpuPower(str string) (err error) {
 
 func (v *Value) setInstanceType(str string) error {
 	if v.InstanceType != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	v.InstanceType = &str
 	return nil
@@ -534,7 +551,7 @@ func (v *Value) setInstanceType(str string) error {
 
 func (v *Value) setMem(str string) (err error) {
 	if v.Mem != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	v.Mem, err = parseSize(str)
 	return
@@ -542,7 +559,7 @@ func (v *Value) setMem(str string) (err error) {
 
 func (v *Value) setRootDisk(str string) (err error) {
 	if v.RootDisk != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	v.RootDisk, err = parseSize(str)
 	return
@@ -550,31 +567,21 @@ func (v *Value) setRootDisk(str string) (err error) {
 
 func (v *Value) setTags(str string) error {
 	if v.Tags != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	v.Tags = parseCommaDelimited(str)
 	return nil
 }
 
-func (v *Value) setNetworks(str string) error {
-	if v.Networks != nil {
-		return fmt.Errorf("already set")
-	}
-	networks := parseCommaDelimited(str)
-	if err := v.validateNetworks(networks); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (v *Value) setSpaces(str string) error {
 	if v.Spaces != nil {
-		return fmt.Errorf("already set")
+		return errors.Errorf("already set")
 	}
 	spaces := parseCommaDelimited(str)
 	if err := v.validateSpaces(spaces); err != nil {
 		return err
 	}
+	v.Spaces = spaces
 	return nil
 }
 
@@ -585,10 +592,21 @@ func (v *Value) validateSpaces(spaces *[]string) error {
 	for _, name := range *spaces {
 		space := strings.TrimPrefix(name, "^")
 		if !names.IsValidSpace(space) {
-			return fmt.Errorf("%q is not a valid space name", space)
+			return errors.Errorf("%q is not a valid space name", space)
 		}
 	}
-	v.Spaces = spaces
+	return nil
+}
+
+func (v *Value) setNetworks(str string) error {
+	if v.Networks != nil {
+		return errors.Errorf("already set")
+	}
+	networks := parseCommaDelimited(str)
+	if err := v.validateNetworks(networks); err != nil {
+		return err
+	}
+	v.Networks = networks
 	return nil
 }
 
@@ -599,10 +617,9 @@ func (v *Value) validateNetworks(networks *[]string) error {
 	for _, name := range *networks {
 		netName := strings.TrimPrefix(name, "^")
 		if !names.IsValidNetwork(netName) {
-			return fmt.Errorf("%q is not a valid network name", netName)
+			return errors.Errorf("%q is not a valid network name", netName)
 		}
 	}
-	v.Networks = networks
 	return nil
 }
 
@@ -610,7 +627,7 @@ func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
 		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
-			return nil, fmt.Errorf("must be a non-negative integer")
+			return nil, errors.Errorf("must be a non-negative integer")
 		} else {
 			value = uint64(val)
 		}
@@ -628,7 +645,7 @@ func parseSize(str string) (*uint64, error) {
 		}
 		val, err := strconv.ParseFloat(str, 64)
 		if err != nil || val < 0 {
-			return nil, fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
+			return nil, errors.Errorf("must be a non-negative float with optional M/G/T/P suffix")
 		}
 		val *= mult
 		value = uint64(math.Ceil(val))
@@ -637,8 +654,7 @@ func parseSize(str string) (*uint64, error) {
 }
 
 // parseCommaDelimited returns the items in the value s. We expect the
-// tags to be comma delimited strings. It is used for tags, spaces,
-// and networks.
+// items to be comma delimited strings.
 func parseCommaDelimited(s string) *[]string {
 	if s == "" {
 		return &[]string{}
@@ -650,13 +666,13 @@ func parseCommaDelimited(s string) *[]string {
 func parseYamlStrings(entityName string, val interface{}) (*[]string, error) {
 	ifcs, ok := val.([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected type passed to %s: %T", entityName, val)
+		return nil, errors.Errorf("unexpected type passed to %s: %T", entityName, val)
 	}
 	items := make([]string, len(ifcs))
 	for n, ifc := range ifcs {
 		s, ok := ifc.(string)
 		if !ok {
-			return nil, fmt.Errorf("unexpected type passed as in %s: %T", entityName, ifc)
+			return nil, errors.Errorf("unexpected type passed as in %s: %T", entityName, ifc)
 		}
 		items[n] = s
 	}
