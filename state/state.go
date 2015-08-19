@@ -78,8 +78,8 @@ type State struct {
 	allEnvManager        *storeManager
 	allEnvWatcherBacking Backing
 
-    // TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
-    CloudImageMetadataStorage cloudimagemetadata.Storage
+	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
+	CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
 // StateServingInfo holds information needed by a state server.
