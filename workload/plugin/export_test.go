@@ -4,6 +4,8 @@
 package plugin
 
 var (
+	RunArgs = runArgs
+
 	TestFindExecutablePlugin = findExecutablePlugin
 	RunCmd                   = runCmd
 )
