@@ -44,6 +44,18 @@ WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 
 
+def get_timeout_path():
+    import timeout
+    return os.path.abspath(timeout.__file__)
+
+
+def get_timeout_prefix(duration, timeout_path=None):
+    """Return extra arguments to run a command with a timeout."""
+    if timeout_path is None:
+        timeout_path = get_timeout_path()
+    return (sys.executable, timeout_path, '%.2f' % duration, '--')
+
+
 def parse_new_state_server_from_error(error):
     err_str = str(error)
     output = getattr(error, 'output', None)
@@ -216,12 +228,10 @@ class EnvJujuClient:
             e_arg = ()
         else:
             e_arg = ('-e', self.env.environment)
-        # Windows doesn't have an equivalent to *nix timeout.
-        # XXX implement timeouts in a win-compatible way
-        if timeout is None or sys.platform == 'win32':
+        if timeout is None:
             prefix = ()
         else:
-            prefix = ('timeout', '%.2fs' % timeout)
+            prefix = get_timeout_prefix(timeout, self._timeout_path)
         logging = '--debug' if self.debug else '--show-log'
 
         # we split the command here so that the caller can control where the -e
@@ -242,6 +252,7 @@ class EnvJujuClient:
             juju_home = get_juju_home()
         self.juju_home = juju_home
         self.juju_timings = {}
+        self._timeout_path = get_timeout_path()
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
