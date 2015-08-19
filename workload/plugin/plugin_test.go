@@ -19,9 +19,8 @@ type pluginSuite struct {
 var _ = gc.Suite(&pluginSuite{})
 
 func (s *pluginSuite) TestFindOkay(c *gc.C) {
-	c.Skip("currently this is barely a wrapper around FindExecutablePlugin")
 	known := map[string]workload.Plugin{
-	// TODO(ericsnow) Fill this in...
+		"docker": &plugin.DockerPlugin{},
 	}
 	for name, expected := range known {
 		c.Logf("trying %q", name)
