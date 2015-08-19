@@ -24,6 +24,9 @@ import (
 	"github.com/juju/juju/juju/sockets"
 )
 
+// CmdSuffix is the filename suffix to use for executables.
+const CmdSuffix = cmdSuffix
+
 var logger = loggo.GetLogger("worker.uniter.jujuc")
 
 // ErrNoStdin is returned by Jujuc.Main if the hook tool requests
@@ -31,6 +34,12 @@ var logger = loggo.GetLogger("worker.uniter.jujuc")
 var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
 type creator func(Context) cmd.Command
+
+var registeredCommands = map[string]creator{}
+
+func RegisterCommand(name string, f creator) {
+	registeredCommands[name+cmdSuffix] = f
+}
 
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
@@ -75,6 +84,7 @@ func allEnabledCommands() map[string]creator {
 	add(baseCommands)
 	add(storageCommands)
 	add(leaderCommands)
+	add(registeredCommands)
 	return all
 }
 
@@ -101,6 +111,7 @@ func NewCommand(ctx Context, name string) (cmd.Command, error) {
 type Request struct {
 	ContextId   string
 	Dir         string
+	EnvPath     string
 	CommandName string
 	Args        []string
 
@@ -148,7 +159,10 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	}
 	var stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{
-		Dir:    req.Dir,
+		Dir: req.Dir,
+		Env: map[string]string{
+			"PATH": req.EnvPath,
+		},
 		Stdin:  stdin,
 		Stdout: &stdout,
 		Stderr: &stderr,

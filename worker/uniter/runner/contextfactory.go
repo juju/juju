@@ -138,6 +138,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		storage:            f.storage,
+		componentFuncs:     registeredComponentFuncs,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err

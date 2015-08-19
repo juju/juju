@@ -1,0 +1,14 @@
+#!/bin/bash
+set -x
+
+export PATH=$PWD/plugin:$PATH
+
+name=$(action-get name)
+status-set maintenance "unregister: removing $name from Juju's state"
+
+result=$(process-unregister "$name" 2>&1)
+#result=$(juju-process-myplugin destroy "$name" 2>&1)
+rc=$?
+if [ "$rc" != "0" ]; then
+    status-set maintenance "unregister: [$name] failed ($rc - $result)"
+fi

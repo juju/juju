@@ -6,6 +6,8 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/errors"
+
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -20,6 +22,21 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 )
+
+type manifoldFactory func(config ManifoldsConfig) (dependency.Manifold, error)
+
+var (
+	registeredManifolds = make(map[string]manifoldFactory)
+)
+
+// RegisterManifold adds the worker to the list of workers to start.
+func RegisterManifold(name string, newManifold manifoldFactory) error {
+	if _, ok := registeredManifolds[name]; ok {
+		return errors.Errorf("%q manifold already registered", name)
+	}
+	registeredManifolds[name] = newManifold
+	return nil
+}
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
@@ -41,8 +58,8 @@ type ManifoldsConfig struct {
 // through a dependency engine yet.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(config ManifoldsConfig) dependency.Manifolds {
-	return dependency.Manifolds{
+func Manifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
+	manifolds := dependency.Manifolds{
 
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -141,6 +158,20 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLockName:       MachineLockName,
 		}),
 	}
+
+	for name, newManifold := range registeredManifolds {
+		if _, ok := manifolds[name]; ok {
+			return manifolds, errors.Errorf("%q manifold already added", name)
+		}
+
+		manifold, err := newManifold(config)
+		if err != nil {
+			return manifolds, errors.Trace(err)
+		}
+		manifolds[name] = manifold
+	}
+
+	return manifolds, nil
 }
 
 const (

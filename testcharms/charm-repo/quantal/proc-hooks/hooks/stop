@@ -1,0 +1,25 @@
+#!/bin/bash
+set -x
+
+export PATH=$PWD/plugin:$PATH
+ACTIVE_FILE=$PWD/.active
+
+if [ -e $ACTIVE_FILE ]; then
+    status-set maintenance "reading active file ($ACTIVE_FILE)"
+    name=$(cat $ACTIVE_FILE)
+    rm $ACTIVE_FILE
+
+    status-set waiting "destroy ${name} not supported yet"
+    #status-set active "cleaning up workload process ${name}..."
+    #result=$(process-destroy "$name" --unregister 2>&1)
+    #rc=$?
+    #if [ "$rc" = "0" ]; then
+    #    status-set waiting "workload process ${name} cleaned up ($result)"
+    #else
+    #    status-set waiting "workload process ${name} failed to clean up ($rc - $result)"
+    #    exit $rc
+    #fi
+else
+    status-set blocked 'not active; skipping...'
+fi
+exit 0

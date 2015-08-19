@@ -6,6 +6,7 @@ package params
 // TODO(ericsnow) Eliminate the juju-related imports.
 
 import (
+	"encoding/json"
 	"time"
 
 	"gopkg.in/juju/charm.v5"
@@ -99,6 +100,42 @@ type UnitStatus struct {
 	PublicAddress string
 	Charm         string
 	Subordinates  map[string]UnitStatus
+
+	// Components is a map from component name to the component's status.
+	Components map[string]ComponentStatus
+}
+
+// NewComponentStatus returns a ComponentStatus object wrapping the given value.
+func NewComponentStatus(val interface{}) ComponentStatus {
+	return ComponentStatus{val: val}
+}
+
+// ComponentStatus makes it easy to serialize and deserialize multiple types in
+// the same map in a type safe way. ComponentStatus serializes identically the
+// the interface{} that it wraps.  When it deserializes, it simply copies the
+// json bytes, which can then be accessed by the Bytes() method, and manually
+// deserialized into the correct type.
+type ComponentStatus struct {
+	val interface{}
+	b   []byte
+}
+
+// UnmarshalJSON copies the json bytes into this object internally for later
+// retrieval via the Bytes() method.
+func (c *ComponentStatus) UnmarshalJSON(b []byte) error {
+	c.b = make([]byte, len(b))
+	copy(c.b, b)
+	return nil
+}
+
+// MarshalJSON returns the JSON bytes for the wrapped interface{} value.
+func (c ComponentStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.val)
+}
+
+// Bytes returns the json bytes for unmarshaling to the original type.
+func (c ComponentStatus) Bytes() []byte {
+	return c.b
 }
 
 // TODO(ericsnow) Rename to ServiceNetworksSepcification.

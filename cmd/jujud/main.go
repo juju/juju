@@ -20,14 +20,20 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/storage/looputil"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+func init() {
+	utils.Must(components.RegisterForServer())
+}
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
@@ -84,6 +90,7 @@ func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, e
 	req := jujuc.Request{
 		ContextId:   contextId,
 		Dir:         dir,
+		EnvPath:     os.Getenv("PATH"),
 		CommandName: commandName,
 		Args:        args[1:],
 	}

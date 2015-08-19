@@ -1,0 +1,34 @@
+name: proc-actions
+summary: Testing workload processes
+maintainer: juju@canonical.com <Juju>
+description: |
+  Testing workload processes
+tags:
+  - misc
+subordinate: false
+provides:
+  website:
+    interface: http
+#storage:
+#  store0:
+#    type: filesystem
+#    location: /var/some-server/data
+processes:
+  myproc:
+    type: myplugin
+    type-options:
+      critical: true
+    command: run-server
+    image: web-server
+    ports:
+      # TODO(ericsnow) Use <website> instead of 8080 once we have
+      # a way to associate relation endpoints with port numbers.
+      - 8080:80
+      - 8081:443
+    volumes:
+      # TODO(ericsnow) Use <store0> instead of "/var/some-server/html"
+      #  once we have storage sorted out.
+      - /var/some-server/html:/usr/share/some-server/html:ro
+      - /var/some-server/conf:/etc/some-server:ro
+    env:
+      IMPORTANT: some value
