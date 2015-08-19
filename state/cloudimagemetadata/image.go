@@ -180,8 +180,8 @@ type imagesMetadataDoc struct {
 	// RootStorageSize contains size of root storage in gigabytes (GB).
 	RootStorageSize uint64 `bson:"root_storage_size"`
 
-	// DateCreated is the date/time when this doc was created
-	DateCreated time.Time `bson:"date_created"`
+	// DateCreated is the date/time when this doc was created.
+	DateCreated int64 `bson:"date_created"`
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source SourceType `bson:"source"`
@@ -225,7 +225,7 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		RootStorageType: m.RootStorageType,
 		RootStorageSize: m.RootStorageSize,
 		ImageId:         m.ImageId,
-		DateCreated:     time.Now(),
+		DateCreated:     time.Now().UnixNano(),
 		Source:          m.Source,
 	}
 }
