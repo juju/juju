@@ -145,6 +145,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		SupportedContainersKnown: m.SupportedContainersKnown,
 		HasVote:                  m.HasVote,
 		WantsVote:                wantsVote(m.Jobs, m.NoVote),
+		StatusData:               make(map[string]interface{}),
 	}
 
 	oldInfo := store.Get(info.EntityId())
@@ -259,6 +260,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		Series:      u.Series,
 		MachineId:   u.MachineId,
 		Subordinate: u.Principal != "",
+		StatusData:  make(map[string]interface{}),
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
@@ -276,7 +278,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		info.WorkloadStatus = multiwatcher.StatusInfo{
 			Current: multiwatcher.Status(unitStatus.Status),
 			Message: unitStatus.Message,
-			Data:    unitStatus.Data,
+			Data:    normaliseStatusData(unitStatus.Data),
 			Since:   unitStatus.Since,
 		}
 		if u.Tools != nil {
@@ -285,14 +287,14 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		info.AgentStatus = multiwatcher.StatusInfo{
 			Current: multiwatcher.Status(agentStatus.Status),
 			Message: agentStatus.Message,
-			Data:    agentStatus.Data,
+			Data:    normaliseStatusData(agentStatus.Data),
 			Since:   agentStatus.Since,
 		}
 		// Legacy status info.
 		if unitStatus.Status == StatusError {
 			info.Status = multiwatcher.Status(unitStatus.Status)
 			info.StatusInfo = unitStatus.Message
-			info.StatusData = unitStatus.Data
+			info.StatusData = normaliseStatusData(unitStatus.Data)
 		} else {
 			legacyStatus, ok := TranslateToLegacyAgentState(agentStatus.Status, unitStatus.Status, unitStatus.Message)
 			if !ok {
@@ -302,10 +304,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 			}
 			info.Status = multiwatcher.Status(legacyStatus)
 			info.StatusInfo = agentStatus.Message
-			info.StatusData = agentStatus.Data
-		}
-		if len(info.StatusData) == 0 {
-			info.StatusData = nil
+			info.StatusData = normaliseStatusData(agentStatus.Data)
 		}
 
 		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
@@ -415,7 +414,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 			info.Status = multiwatcher.StatusInfo{
 				Current: multiwatcher.Status(serviceStatus.Status),
 				Message: serviceStatus.Message,
-				Data:    serviceStatus.Data,
+				Data:    normaliseStatusData(serviceStatus.Data),
 				Since:   serviceStatus.Since,
 			}
 		} else {
@@ -428,6 +427,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 			info.Status = multiwatcher.StatusInfo{
 				Current: multiwatcher.Status(StatusUnknown),
 				Since:   &now,
+				Data:    normaliseStatusData(nil),
 			}
 		}
 	} else {
@@ -627,14 +627,14 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo := *info
 		newInfo.Status.Current = multiwatcher.Status(s.Status)
 		newInfo.Status.Message = s.StatusInfo
-		newInfo.Status.Data = s.StatusData
+		newInfo.Status.Data = normaliseStatusData(s.StatusData)
 		newInfo.Status.Since = unixNanoToTime(s.Updated)
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
 		newInfo.Status = multiwatcher.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
-		newInfo.StatusData = s.StatusData
+		newInfo.StatusData = normaliseStatusData(s.StatusData)
 		info0 = &newInfo
 	default:
 		return errors.Errorf("status for unexpected entity with id %q; type %T", id, info)
@@ -648,19 +648,19 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	if strings.HasSuffix(id, "#charm") || s.Status == StatusError {
 		newInfo.WorkloadStatus.Current = multiwatcher.Status(s.Status)
 		newInfo.WorkloadStatus.Message = s.StatusInfo
-		newInfo.WorkloadStatus.Data = s.StatusData
+		newInfo.WorkloadStatus.Data = normaliseStatusData(s.StatusData)
 		newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 	} else {
 		newInfo.AgentStatus.Current = multiwatcher.Status(s.Status)
 		newInfo.AgentStatus.Message = s.StatusInfo
-		newInfo.AgentStatus.Data = s.StatusData
+		newInfo.AgentStatus.Data = normaliseStatusData(s.StatusData)
 		newInfo.AgentStatus.Since = unixNanoToTime(s.Updated)
 		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
 		if newInfo.WorkloadStatus.Current == multiwatcher.Status(StatusError) {
 			newInfo.WorkloadStatus.Current = multiwatcher.Status(unitStatus.Status)
 			newInfo.WorkloadStatus.Message = unitStatus.Message
-			newInfo.WorkloadStatus.Data = unitStatus.Data
+			newInfo.WorkloadStatus.Data = normaliseStatusData(unitStatus.Data)
 			newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 		}
 	}
@@ -679,10 +679,10 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	newInfo.Status = multiwatcher.Status(legacyStatus)
 	if newInfo.Status == multiwatcher.Status(StatusError) {
 		newInfo.StatusInfo = newInfo.WorkloadStatus.Message
-		newInfo.StatusData = newInfo.WorkloadStatus.Data
+		newInfo.StatusData = normaliseStatusData(newInfo.WorkloadStatus.Data)
 	} else {
 		newInfo.StatusInfo = newInfo.AgentStatus.Message
-		newInfo.StatusData = newInfo.AgentStatus.Data
+		newInfo.StatusData = normaliseStatusData(newInfo.AgentStatus.Data)
 	}
 
 	// A change in a unit's status might also affect it's service.
@@ -705,7 +705,7 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	newServiceInfo := *serviceInfo.(*multiwatcher.ServiceInfo)
 	newServiceInfo.Status.Current = multiwatcher.Status(status.Status)
 	newServiceInfo.Status.Message = status.Message
-	newServiceInfo.Status.Data = status.Data
+	newServiceInfo.Status.Data = normaliseStatusData(status.Data)
 	newServiceInfo.Status.Since = status.Since
 	store.Update(&newServiceInfo)
 	return nil
@@ -1222,6 +1222,13 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 	}
 
 	return nil
+}
+
+func normaliseStatusData(data map[string]interface{}) map[string]interface{} {
+	if data == nil {
+		return make(map[string]interface{})
+	}
+	return data
 }
 
 // newStatePool returns a new statePool instance.
