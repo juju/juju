@@ -57,6 +57,7 @@ var (
 	jujuLogDir         = path.Join(logDir, "juju")
 	logDir             = must(paths.LogDir("precise"))
 	metricsSpoolDir    = must(paths.MetricsSpoolDir("precise"))
+	uniterStateDir     = must(paths.UniterStateDir("precise"))
 	dataDir            = must(paths.DataDir("precise"))
 	cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 )
@@ -108,6 +109,7 @@ func minimalInstanceConfig(tweakers ...func(instancecfg.InstanceConfig)) instanc
 		DataDir:                 dataDir,
 		LogDir:                  logDir,
 		MetricsSpoolDir:         metricsSpoolDir,
+		UniterStateDir:          uniterStateDir,
 		Jobs:                    allMachineJobs,
 		CloudInitOutputLog:      cloudInitOutputLog,
 		InstanceId:              "i-bootstrap",
@@ -204,6 +206,7 @@ var cloudinitTests = []cloudinitTest{
 			DataDir:                 dataDir,
 			LogDir:                  jujuLogDir,
 			MetricsSpoolDir:         metricsSpoolDir,
+			UniterStateDir:          uniterStateDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
@@ -271,6 +274,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 			DataDir:                 dataDir,
 			LogDir:                  jujuLogDir,
 			MetricsSpoolDir:         metricsSpoolDir,
+			UniterStateDir:          uniterStateDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
@@ -298,6 +302,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 			DataDir:            dataDir,
 			LogDir:             jujuLogDir,
 			MetricsSpoolDir:    metricsSpoolDir,
+			UniterStateDir:     uniterStateDir,
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: cloudInitOutputLog,
 			Bootstrap:          false,
@@ -359,6 +364,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
 			DataDir:            dataDir,
+			UniterStateDir:     uniterStateDir,
 			LogDir:             jujuLogDir,
 			MetricsSpoolDir:    metricsSpoolDir,
 			Jobs:               normalMachineJobs,
@@ -406,6 +412,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 			DataDir:              dataDir,
 			LogDir:               jujuLogDir,
 			MetricsSpoolDir:      metricsSpoolDir,
+			UniterStateDir:       uniterStateDir,
 			Jobs:                 normalMachineJobs,
 			CloudInitOutputLog:   cloudInitOutputLog,
 			Bootstrap:            false,
@@ -448,6 +455,7 @@ start jujud-machine-2-lxc-1
 			DataDir:            dataDir,
 			LogDir:             jujuLogDir,
 			MetricsSpoolDir:    metricsSpoolDir,
+			UniterStateDir:     uniterStateDir,
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: cloudInitOutputLog,
 			Bootstrap:          false,
@@ -503,6 +511,7 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 			DataDir:                 dataDir,
 			LogDir:                  jujuLogDir,
 			MetricsSpoolDir:         metricsSpoolDir,
+			UniterStateDir:          uniterStateDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
@@ -540,6 +549,7 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 			DataDir:                 dataDir,
 			LogDir:                  jujuLogDir,
 			MetricsSpoolDir:         metricsSpoolDir,
+			UniterStateDir:          uniterStateDir,
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
@@ -1056,6 +1066,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		DataDir:                 dataDir,
 		LogDir:                  logDir,
 		MetricsSpoolDir:         metricsSpoolDir,
+		UniterStateDir:          uniterStateDir,
 		Jobs:                    normalMachineJobs,
 		CloudInitOutputLog:      cloudInitOutputLog,
 		InstanceId:              "i-bootstrap",
@@ -1268,10 +1279,13 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		metricsSpoolDir, err := paths.MetricsSpoolDir(test.cfg.Series)
 		c.Assert(err, jc.ErrorIsNil)
+		uniterStateDir, err := paths.UniterStateDir(test.cfg.Series)
+		c.Assert(err, jc.ErrorIsNil)
 
 		test.cfg.DataDir = dataDir
 		test.cfg.LogDir = path.Join(logDir, "juju")
 		test.cfg.MetricsSpoolDir = metricsSpoolDir
+		test.cfg.UniterStateDir = uniterStateDir
 
 		ci, err := cloudinit.New("win8")
 		c.Assert(err, jc.ErrorIsNil)

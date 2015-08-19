@@ -219,6 +219,39 @@ var agentConfigTests = []struct {
 		c.Check(cfg.MetricsSpoolDir(), gc.Equals, "/tmp/nowhere")
 	},
 }, {
+	about: "missing uniterStateDir sets default",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               names.NewMachineTag("1"),
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.UniterStateDir(), gc.Equals, agent.DefaultUniterStateDir)
+	},
+}, {
+	about: "setting a custom uniterStateDir",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		UniterStateDir:    "/tmp/nothing",
+		Tag:               names.NewMachineTag("1"),
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.UniterStateDir(), gc.Equals, "/tmp/nothing")
+	},
+}, {
 	about: "agentConfig must not be a User tag",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
