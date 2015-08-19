@@ -67,17 +67,6 @@ func (c *WorkloadTrackCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	info, err := c.findValidInfo(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Ensure that the plugin is correct.
-	_, err = c.compCtx.Plugin(info, ctx.Getenv("PATH"))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// TODO(wwitzel3) should charmer have direct access to pInfo.Status?
 	if err := c.track(ctx); err != nil {
 		return errors.Trace(err)

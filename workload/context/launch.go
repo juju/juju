@@ -53,7 +53,7 @@ func (c *WorkloadLaunchCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	plugin, err := c.compCtx.Plugin(info, ctx.Getenv("PATH"))
+	plugin, err := c.compCtx.Plugin(info)
 	if err != nil {
 		return errors.Trace(err)
 	}

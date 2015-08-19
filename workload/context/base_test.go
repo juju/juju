@@ -114,8 +114,8 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	}
 }
 
-func (c *stubContextComponent) Plugin(info *workload.Info, path string) (workload.Plugin, error) {
-	c.stub.AddCall("Plugin", info, path)
+func (c *stubContextComponent) Plugin(info *workload.Info) (workload.Plugin, error) {
+	c.stub.AddCall("Plugin", info)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}

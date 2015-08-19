@@ -102,6 +102,6 @@ func (s *registeringCommandSuite) checkRunInfo(c *gc.C, orig, sent workload.Info
 	info := context.GetCmdInfo(s.cmd)
 	c.Check(info, jc.DeepEquals, &orig)
 
-	s.Stub.CheckCallNames(c, "List", "Plugin", "Track", "Flush")
-	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{sent})
+	s.Stub.CheckCallNames(c, "List", "Track", "Flush")
+	c.Check(s.Stub.Calls()[1].Args, jc.DeepEquals, []interface{}{sent})
 }

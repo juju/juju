@@ -298,7 +298,7 @@ func (s *trackSuite) TestRunOkay(c *gc.C) {
 	s.init(c, s.workload.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
-	s.Stub.CheckCallNames(c, "List", "Plugin", "Track", "Flush")
+	s.Stub.CheckCallNames(c, "List", "Track", "Flush")
 }
 
 func (s *trackSuite) TestRunAlreadyRegistered(c *gc.C) {
@@ -325,9 +325,6 @@ func (s *trackSuite) TestRunUpdatedWorkload(c *gc.C) {
 	expected.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "List",
-	}, {
-		FuncName: "Plugin",
-		Args:     []interface{}{&s.workload, ""},
 	}, {
 		FuncName: "Track",
 		Args:     []interface{}{expected},
