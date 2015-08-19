@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
+	jujustorage "github.com/juju/juju/storage"
 )
 
 var (
@@ -73,4 +74,10 @@ func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst
 
 func GetInstances(env *environ) ([]instance.Instance, error) {
 	return env.instances()
+}
+
+// Storage
+
+func GCEStorageProvider() jujustorage.Provider {
+	return &gceStorageProvider{}
 }
