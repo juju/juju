@@ -265,15 +265,11 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloud
 	c.Assert(metadata, jc.SameContents, expected)
 }
 
-// TestMongo exposes database operations. It uses a real database -- we can't mock
-// mongo out, we need to check it really actually works -- but it's good to
-// have the runner accessible for adversarial transaction tests.
 type TestMongo struct {
 	database *mgo.Database
 	runner   txn.Runner
 }
 
-// NewMongo returns a *TestMongo backed by the supplied database.
 func NewTestMongo(database *mgo.Database) *TestMongo {
 	return &TestMongo{
 		database: database,
@@ -283,12 +279,10 @@ func NewTestMongo(database *mgo.Database) *TestMongo {
 	}
 }
 
-// GetCollection is part of the lease.Mongo interface.
 func (m *TestMongo) GetCollection(name string) (mongo.Collection, func()) {
 	return mongo.CollectionFromName(m.database, name)
 }
 
-// RunTransaction is part of the lease.Mongo interface.
 func (m *TestMongo) RunTransaction(getTxn txn.TransactionSource) error {
 	return m.runner.Run(getTxn)
 }
