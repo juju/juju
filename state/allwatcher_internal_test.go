@@ -60,90 +60,6 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 	return st
 }
 
-func (s *storeManagerStateSuite) Reset(c *gc.C) {
-	s.TearDownTest(c)
-	s.SetUpTest(c)
-}
-
-func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
-	ok, err := jc.DeepEqual(got, want)
-	if ok {
-		c.Check(err, jc.ErrorIsNil)
-	}
-	return ok
-}
-
-func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
-	if jcDeepEqualsCheck(c, got, want) {
-		return
-	}
-	if len(got) != len(want) {
-		c.Errorf("entity length mismatch; got %d; want %d", len(got), len(want))
-	} else {
-		c.Errorf("entity contents mismatch; same length %d", len(got))
-	}
-	// Lets construct a decent output.
-	var errorOutput string
-	errorOutput = "\ngot: \n"
-	for _, e := range got {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
-	}
-	errorOutput += "expected: \n"
-	for _, e := range want {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
-	}
-
-	c.Errorf(errorOutput)
-
-	var firstDiffError string
-	if len(got) == len(want) {
-		for i := 0; i < len(got); i++ {
-			g := got[i]
-			w := want[i]
-			if !jcDeepEqualsCheck(c, g, w) {
-				firstDiffError += "\n"
-				firstDiffError += fmt.Sprintf("first difference at position %d", i)
-				firstDiffError += "got: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
-				firstDiffError += "expected: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
-				break
-			}
-		}
-		c.Errorf(firstDiffError)
-	}
-	c.FailNow()
-}
-
-func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
-	expectEntities := s.setUpScenario(c, s.state, 2)
-	s.checkGetAll(c, expectEntities)
-}
-
-func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
-	// Set up 2 environments and ensure that GetAll returns the
-	// entities for the first environment with no errors.
-	expectEntities := s.setUpScenario(c, s.state, 2)
-
-	// Use more units in the second env to ensure the number of
-	// entities will mismatch if environment filtering isn't in place.
-	s.setUpScenario(c, s.OtherState, 4)
-
-	s.checkGetAll(c, expectEntities)
-}
-
-func (s *storeManagerStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
-	b := newAllWatcherStateBacking(s.state)
-	all := newStore()
-	err := b.GetAll(all)
-	c.Assert(err, jc.ErrorIsNil)
-	var gotEntities entityInfoSlice = all.All()
-	sort.Sort(gotEntities)
-	sort.Sort(expectEntities)
-	substNilSinceTimeForEntities(c, gotEntities)
-	assertEntitiesEqual(c, gotEntities, expectEntities)
-}
-
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
 // all(Env)WatcherStateBacking.GetAll.
@@ -2120,7 +2036,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 					&multiwatcher.ServiceInfo{
 						EnvUUID:     st.EnvironUUID(),
 						Name:        "wordpress",
-						Constraints: constraints.MustParse("mem=4G cpu-cores= arch=amd64"),
+						Constraints: constraints.MustParse("mem=4G arch=amd64"),
 					}}}
 		},
 	}
@@ -3034,21 +2950,26 @@ func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
 	}
 }
 
+func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
+	ok, err := jc.DeepEqual(got, want)
+	if ok {
+		c.Check(err, jc.ErrorIsNil)
+	}
+	return ok
+}
+
 // assertEntitiesEqual is a specialised version of the typical
 // jc.DeepEquals check that provides more informative output when
 // comparing EntityInfo slices.
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
-	if len(got) == 0 {
-		got = nil
-	}
-	if len(want) == 0 {
-		want = nil
-	}
-
-	if deepEqual(c, got, want) {
+	if jcDeepEqualsCheck(c, got, want) {
 		return
 	}
-	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	if len(got) != len(want) {
+		c.Errorf("entity length mismatch; got %d; want %d", len(got), len(want))
+	} else {
+		c.Errorf("entity contents mismatch; same length %d", len(got))
+	}
 	// Lets construct a decent output.
 	var errorOutput string
 	errorOutput = "\ngot: \n"
@@ -3067,7 +2988,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
-			if !deepEqual(c, g, w) {
+			if !jcDeepEqualsCheck(c, g, w) {
 				firstDiffError += "\n"
 				firstDiffError += fmt.Sprintf("first difference at position %d", i)
 				firstDiffError += "got: \n"
