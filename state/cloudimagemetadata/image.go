@@ -201,6 +201,7 @@ const (
 func (m imagesMetadataDoc) metadata() Metadata {
 	return Metadata{
 		MetadataAttributes{
+			Source:          m.Source,
 			Stream:          m.Stream,
 			Region:          m.Region,
 			Series:          m.Series,
@@ -208,7 +209,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			RootStorageType: m.RootStorageType,
 			RootStorageSize: m.RootStorageSize,
 			VirtualType:     m.VirtualType,
-			Source:          m.Source},
+		},
 		m.ImageId,
 	}
 }
