@@ -64,13 +64,11 @@ type Context struct {
 // NewContext returns a new jujuc.ContextComponent for workloads.
 func NewContext(api APIClient, addEvents func(...workload.Event) error) *Context {
 	return &Context{
-		api:       api,
-		workloads: make(map[string]workload.Info),
-		updates:   make(map[string]workload.Info),
-		addEvents: addEvents,
-		FindPlugin: func(ptype string) (workload.Plugin, error) {
-			return plugin.Find(ptype)
-		},
+		api:        api,
+		workloads:  make(map[string]workload.Info),
+		updates:    make(map[string]workload.Info),
+		addEvents:  addEvents,
+		FindPlugin: plugin.Find,
 	}
 }
 
