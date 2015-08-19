@@ -70,6 +70,10 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 
 	// TODO(dimitern): Drop --networks in a follow-up with an error.
 	if len(args.Networks) > 0 || args.Constraints.HaveNetworks() {
+		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces.")
+	}
+
+	if args.Constraints.HaveSpaces() {
 		conf, err := st.EnvironConfig()
 		if err != nil {
 			return nil, err

@@ -6,7 +6,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -280,33 +279,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return block.ProcessBlockedError(err, block.BlockChange)
-}
-
-// parseNetworks returns a list of network names by parsing the
-// comma-delimited string value of --networks argument.
-func parseNetworks(networksValue string) []string {
-	parts := strings.Split(networksValue, ",")
-	var networks []string
-	for _, part := range parts {
-		network := strings.TrimSpace(part)
-		if network != "" {
-			networks = append(networks, network)
-		}
-	}
-	return networks
-}
-
-// networkNamesToTags returns the given network names converted to
-// tags, or an error.
-func networkNamesToTags(networks []string) ([]string, error) {
-	var tags []string
-	for _, network := range networks {
-		if !names.IsValidNetwork(network) {
-			return nil, fmt.Errorf("%q is not a valid network name", network)
-		}
-		tags = append(tags, names.NewNetworkTag(network).String())
-	}
-	return tags, nil
 }
 
 type metricCredentialsAPI interface {
