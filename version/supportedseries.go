@@ -89,6 +89,7 @@ var seriesVersions = map[string]string{
 	"win7":        "win7",
 	"win8":        "win8",
 	"win81":       "win81",
+	"win10":       "win10",
 	"centos7":     "centos7",
 	"arch":        "rolling",
 }
@@ -126,6 +127,7 @@ var windowsVersionMatchOrder = []string{
 	"Windows 7",
 	"Windows 8.1",
 	"Windows 8",
+	"Windows 10",
 }
 
 // windowsVersions is a mapping consisting of the output from
@@ -140,6 +142,7 @@ var windowsVersions = map[string]string{
 	"Windows 7":                      "win7",
 	"Windows 8.1":                    "win81",
 	"Windows 8":                      "win8",
+	"Windows 10":                     "win10",
 }
 
 var distroInfo = "/usr/share/distro-info/ubuntu.csv"
