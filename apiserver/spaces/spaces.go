@@ -139,7 +139,7 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 			result.Subnets = append(result.Subnets,
 				backingSubnetToParamsSubnet(subnet))
 		}
-
+		results.Results[i] = result
 	}
 	return results, nil
 }
