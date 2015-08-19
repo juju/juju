@@ -72,6 +72,20 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	c.Check(runner, gc.IsNil)
 }
 
+func (s *eventHandlerSuite) TestReset(c *gc.C) {
+	eh := workers.NewEventHandlers()
+	c.Assert(eh, gc.NotNil)
+	err := eh.Reset(s.apiClient)
+	c.Assert(err, jc.ErrorIsNil)
+	eh.Close()
+
+	s.checkUnhandled(c, eh)
+	s.checkRegistered(c, eh)
+	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	c.Check(apiClient, gc.Equals, s.apiClient)
+	c.Check(runner, gc.IsNil)
+}
+
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
 	eh := workers.NewEventHandlers()
 	defer eh.Close()
