@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/util"
+	"github.com/juju/juju/worker/gate"
 )
 
 const loggerName = "juju.worker.logsender"
@@ -27,14 +27,12 @@ var logger = loggo.GetLogger(loggerName)
 
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the JES via the logsink API.
-func New(logs LogRecordCh, waiter util.UnblockWaiter, agent agent.Agent) worker.Worker {
+func New(logs LogRecordCh, apiInfoGate gate.Waiter, agent agent.Agent) worker.Worker {
 	loop := func(stop <-chan struct{}) error {
-		logger.Debugf("starting log-sender worker")
+		logger.Debugf("started log-sender worker; waiting for api info")
 		select {
-		case <-waiter.Unblocked():
-			logger.Debugf("log-sender worker unblocked")
+		case <-apiInfoGate.Unlocked():
 		case <-stop:
-			logger.Debugf("log-sender worker stopped before unblocked")
 			return nil
 		}
 

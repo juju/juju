@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/juju/worker/util"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -64,7 +64,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
 			AgentName:       AgentName,
-			APIPasswordName: APIPasswordName,
+			APIInfoGateName: APIInfoGateName,
 		}),
 
 		// This manifold is used to coordinate between the api caller and the
@@ -72,14 +72,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// update. To avoid surprising races, the log sender waits for the api
 		// caller to unblock this, indicating that any password dance has been
 		// completed and the log-sender can now connect without confusion.
-		APIPasswordName: util.BlockerManifold(),
+		APIInfoGateName: gate.Manifold(),
 
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
 			AgentName:       AgentName,
-			APIPasswordName: APIPasswordName,
+			APIInfoGateName: APIInfoGateName,
 			LogSource:       config.LogSource,
 		}),
 
@@ -113,7 +113,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// TODO(fwereade): timing of this is suspicious. There was superstitious
 		// code trying to run this early; if that ever helped, it was only by
 		// coincidence. Probably we ought to be making components that might
-		// need proxy config into explicit dependenncies of the proxy updater...
+		// need proxy config into explicit dependencies of the proxy updater...
 		ProxyConfigUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			APICallerName: APICallerName,
 		}),
@@ -157,7 +157,7 @@ const (
 	AgentName                = "agent"
 	APIAdddressUpdaterName   = "api-address-updater"
 	APICallerName            = "api-caller"
-	APIPasswordName          = "api-password"
+	APIInfoGateName          = "api-info-gate"
 	LeadershipTrackerName    = "leadership-tracker"
 	LoggingConfigUpdaterName = "logging-config-updater"
 	LogSenderName            = "log-sender"

@@ -8,14 +8,14 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
+	"github.com/juju/juju/worker/gate"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
 	AgentName       string
-	APIPasswordName string
+	APIInfoGateName string
 	LogSource       LogRecordCh
 }
 
@@ -25,7 +25,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.APIPasswordName,
+			config.APIInfoGateName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			if !feature.IsDbLogEnabled() {
@@ -33,15 +33,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrMissing
 			}
 
-			var waiter util.UnblockWaiter
-			if err := getResource(config.APIPasswordName, &waiter); err != nil {
+			var gate gate.Waiter
+			if err := getResource(config.APIInfoGateName, &gate); err != nil {
 				return nil, err
 			}
 			var agent agent.Agent
 			if err := getResource(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
-			return New(config.LogSource, waiter, agent), nil
+			return New(config.LogSource, gate, agent), nil
 		},
 	}
 }

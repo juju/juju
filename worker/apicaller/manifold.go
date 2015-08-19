@@ -10,13 +10,13 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
+	"github.com/juju/juju/worker/gate"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName       string
-	APIPasswordName string
+	APIInfoGateName string
 }
 
 // Manifold returns a manifold whose worker wraps an API connection made on behalf of
@@ -25,7 +25,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.APIPasswordName,
+			config.APIInfoGateName,
 		},
 		Output: outputFunc,
 		Start:  startFunc(config),
@@ -38,8 +38,8 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 
 		// Get dependencies and open a connection.
-		var unblocker util.Unblocker
-		if err := getResource(config.APIPasswordName, &unblocker); err != nil {
+		var gate gate.Unlocker
+		if err := getResource(config.APIInfoGateName, &gate); err != nil {
 			return nil, err
 		}
 		var a agent.Agent
@@ -71,7 +71,7 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 
 		// Now we know the agent config has been fixed up, notify everyone
 		// else who might depend upon its stability/correctness.
-		unblocker.Unblock()
+		gate.Unlock()
 
 		// Return the worker.
 		return newApiConnWorker(conn)
