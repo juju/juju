@@ -207,5 +207,5 @@ func (a *mockAgent) APIInfo() *api.Info {
 type lockedGate struct{}
 
 func (lockedGate) Unlocked() <-chan struct{} {
-	return make(chan struct{})
+	return nil
 }
