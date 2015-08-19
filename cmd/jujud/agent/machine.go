@@ -97,6 +97,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/util"
 )
 
 const bootstrapMachineId = "0"
@@ -722,7 +723,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+			return logsender.New(a.bufferedLogs, util.UnblockedWaiter{}, a), nil
 		})
 	}
 

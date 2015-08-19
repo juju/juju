@@ -14,7 +14,10 @@ import (
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig util.AgentManifoldConfig
+type ManifoldConfig struct {
+	AgentName       string
+	APIPasswordName string
+}
 
 // Manifold returns a manifold whose worker wraps an API connection made on behalf of
 // the dependency identified by AgentName.
@@ -22,6 +25,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.APIPasswordName,
 		},
 		Output: outputFunc,
 		Start:  startFunc(config),
@@ -34,6 +38,10 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 
 		// Get dependencies and open a connection.
+		var unblocker util.Unblocker
+		if err := getResource(config.APIPasswordName, &unblocker); err != nil {
+			return nil, err
+		}
 		var a agent.Agent
 		if err := getResource(config.AgentName, &a); err != nil {
 			return nil, err
@@ -60,6 +68,10 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 				// Not really fatal, just annoying.
 			}
 		}
+
+		// Now we know the agent config has been fixed up, notify everyone
+		// else who might depend upon its stability/correctness.
+		unblocker.Unblock()
 
 		// Return the worker.
 		return newApiConnWorker(conn)
