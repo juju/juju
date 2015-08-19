@@ -60,9 +60,9 @@ type Storage interface {
 // DataStore exposes data store operations for use by the cloud image metadata package.
 type DataStore interface {
 
-	// RunTransaction should probably delegate to a jujutxn.Runner's Run method.
+	// RunTransaction runs desired transactions against this data source..
 	RunTransaction(jujutxn.TransactionSource) error
 
-	// GetCollection should probably call the mongo.CollectionFromName func.
+	// GetCollection retrieves desired collection from this data source.
 	GetCollection(name string) (collection mongo.Collection, closer func())
 }
