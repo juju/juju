@@ -96,3 +96,4 @@ class TestRunCommand(TestCase):
             sleep_mock.mock_calls, [call(0.1), call(0.1)])
         self.assertEqual(utn_mock.mock_calls, [call(), call(), call()])
         po_mock.return_value.send_signal.assert_called_once_with(SIGTERM)
+        po_mock.return_value.wait.assert_called_once_with()

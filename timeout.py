@@ -57,6 +57,7 @@ def run_command(duration, timeout_signal, command):
         time.sleep(0.1)
     else:
         proc.send_signal(timeout_signal)
+        proc.wait()
         return 124
 
 
