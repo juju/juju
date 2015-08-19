@@ -146,6 +146,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	eh.RegisterHandler(s.handler)
 	engine, err := eh.StartEngine()
 	c.Assert(err, jc.ErrorIsNil)
+	_, _, _, runner := workers.ExposeEventHandlers(eh)
 
 	eh.AddEvents(events...)
 
@@ -158,7 +159,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	s.stub.CheckCallNames(c, "List", "handler")
 	c.Check(s.stub.Calls()[1].Args[0], gc.DeepEquals, events)
 	c.Check(s.stub.Calls()[1].Args[1], gc.DeepEquals, s.apiClient)
-	// TODO(ericsnow) Check the runner.
+	c.Check(runner, gc.NotNil)
 }
 
 type stubAPIClient struct {
