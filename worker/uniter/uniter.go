@@ -226,7 +226,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// TODO(axw) below should be in a loop that restarts whenever
 	// an upgrade occurs.
 
-	watcher, err := remotestate.NewWatcher(u.st, unitTag)
+	watcher, err := remotestate.NewWatcher(remotestate.NewAPIState(u.st), unitTag)
 	if err != nil {
 		return err
 	}
@@ -271,6 +271,21 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			opFactory: u.operationFactory,
 			tracker:   u.leadershipTracker,
 		},
+	}
+
+	// TODO(axw) this is shitty duplication, clean up
+	//
+	// We should not do anything until there has been a change
+	// to the remote state. The watcher will trigger at least
+	// once initially.
+	select {
+	case <-u.tomb.Dying():
+		return tomb.ErrDying
+	case _, ok := <-watcher.RemoteStateChanged():
+		// TODO(axw) !ok => dying
+		if !ok {
+			panic("!ok")
+		}
 	}
 
 	for err == nil {

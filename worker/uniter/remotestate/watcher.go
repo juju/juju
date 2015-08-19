@@ -39,6 +39,7 @@ type RemoteStateWatcher struct {
 func NewWatcher(st State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{
 		st:                   st,
+		relations:            make(map[names.RelationTag]*relationUnitsWatcher),
 		relationUnitsChanges: make(chan relationUnitsChange),
 		out:                  make(chan struct{}),
 		current: Snapshot{
@@ -416,10 +417,14 @@ func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) er
 
 // storageChanged responds to unit storage changes.
 func (w *RemoteStateWatcher) storageChanged(keys []string) error {
-	ids := make([]params.StorageAttachmentId, len(keys))
+	tags := make([]names.StorageTag, len(keys))
 	for i, key := range keys {
+		tags[i] = names.NewStorageTag(key)
+	}
+	ids := make([]params.StorageAttachmentId, len(keys))
+	for i, tag := range tags {
 		ids[i] = params.StorageAttachmentId{
-			StorageTag: key,
+			StorageTag: tag.String(),
 			UnitTag:    w.unit.Tag().String(),
 		}
 	}
@@ -430,16 +435,17 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for i, result := range results {
-		tag := names.NewStorageTag(ids[i].StorageTag)
+		tag := tags[i]
 		if result.Error == nil {
 			w.current.Storage[tag] = result.Life
 		} else if params.IsCodeNotFound(result.Error) {
 			delete(w.current.Storage, tag)
+		} else {
+			return errors.Annotatef(
+				result.Error, "getting life of %s attachment",
+				names.ReadableString(tag),
+			)
 		}
-		return errors.Annotatef(
-			result.Error, "getting life of %s attachment",
-			names.ReadableString(tag),
-		)
 	}
 	return nil
 }

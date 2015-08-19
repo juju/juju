@@ -28,6 +28,11 @@ func newRelationUnitsWatcher(
 	ruw := &relationUnitsWatcher{relationId: relationId, in: in, out: out}
 	go func() {
 		defer ruw.tomb.Done()
+		// TODO(axw) add Kill() and Wait() to watchers?
+		//
+		// At the moment we have to rely on the watcher's
+		// channel being closed inside loop() to react
+		// to it being killed/stopped.
 		ruw.tomb.Kill(ruw.loop())
 		ruw.tomb.Kill(in.Stop())
 	}()
