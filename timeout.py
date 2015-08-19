@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""A Python implementation of the *nix utility for use on all platforms."""
 from argparse import ArgumentParser
 from itertools import chain
 import signal
@@ -9,7 +10,8 @@ import time
 from utility import until_timeout
 
 
-# Generate a list of all valid signals for this platform
+# Generate a list of all signals that can be used with Popen.send_signal on
+# this platform.
 if sys.platform == 'win32':
     signals = {
         'TERM': signal.SIGTERM,
@@ -18,6 +20,7 @@ if sys.platform == 'win32':
         'CTRL_BREAK': signal.CTRL_BREAK_EVENT,
         }
 else:
+    # Blech.  No equivalent of errno.errorcode for signals.
     signals = dict(
         (x[3:], getattr(signal, x)) for x in dir(signal) if
         x.startswith('SIG') and x not in ('SIG_DFL', 'SIG_IGN'))
@@ -33,6 +36,14 @@ def parse_args(argv=None):
 
 
 def run_command(duration, timeout_signal, command):
+    """Run a subprocess.  If a timeout elapses, send specified signal.
+
+    :param duration: Timeout in seconds.
+    :param timeout_signal: Signal to send to the subprocess on timeout.
+    :param command: Subprocess to run (Popen args).
+    :return: exit status of the subprocess, 124 if the subprocess was
+        signalled.
+    """
     if sys.platform == 'win32':
         # support CTRL_BREAK
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
