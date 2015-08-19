@@ -69,19 +69,25 @@ func (api *AddresserAPI) CanDeallocateAddresses() params.BoolResult {
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
-		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
+		// No error, but log the result.
+		logger.Warningf("IP address deallocation not supported")
 		return result
 	}
 	api.netEnv = netEnv
 	api.canDeallocate, err = api.netEnv.SupportsAddressAllocation(network.AnySubnet)
 	if err != nil {
-		err = errors.Annotate(err, "checking allocation support")
-		result.Error = common.ServerError(err)
+		if errors.IsNotSupported(err) {
+			// No error, but log the result.
+			logger.Warningf("IP address deallocation not supported")
+		} else {
+			err = errors.Annotate(err, "checking allocation support")
+			result.Error = common.ServerError(err)
+		}
 		return result
 	}
 	if !api.canDeallocate {
-		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
-		return result
+		// No error, but log the result.
+		logger.Warningf("IP address deallocation not supported")
 	}
 	result.Result = api.canDeallocate
 	return result

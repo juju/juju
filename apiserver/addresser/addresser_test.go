@@ -4,11 +4,9 @@
 package addresser_test
 
 import (
-	"errors"
-
-	gc "gopkg.in/check.v1"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/addresser"
 	"github.com/juju/juju/apiserver/common"
@@ -83,8 +81,10 @@ func (s *AddresserSuite) TestCanDeallocateAddressesDisabled(c *gc.C) {
 	s.SetFeatureFlags()
 
 	result := s.api.CanDeallocateAddresses()
-	c.Assert(result.Error, gc.ErrorMatches, "checking allocation support: address allocation not supported")
-	c.Assert(result.Result, jc.IsFalse)
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: false,
+	})
 }
 
 func (s *AddresserSuite) TestCanDeallocateAddressesConfigGetFailure(c *gc.C) {
@@ -112,8 +112,10 @@ func (s *AddresserSuite) TestCanDeallocateAddressesNotSupportedFailure(c *gc.C) 
 	s.st.setConfig(c, config)
 
 	result := s.api.CanDeallocateAddresses()
-	c.Assert(result.Error, gc.ErrorMatches, "IP address deallocation not supported")
-	c.Assert(result.Result, jc.IsFalse)
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: false,
+	})
 }
 
 func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
