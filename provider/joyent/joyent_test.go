@@ -14,7 +14,6 @@ import (
 
 	envtesting "github.com/juju/juju/environs/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 const (
@@ -92,7 +91,7 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 		"private-key-path": fmt.Sprintf("~/.ssh/%s", testKeyFileName),
 		"algorithm":        "rsa-sha256",
 		"control-dir":      "juju-test",
-		"agent-version":    version.Current.Number.String(),
+		"agent-version":    coretesting.FakeVersionNumber.String(),
 	})
 }
 

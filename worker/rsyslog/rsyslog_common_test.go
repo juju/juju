@@ -32,7 +32,7 @@ func TestPackage(t *stdtesting.T) {
 type RsyslogSuite struct {
 	jujutesting.JujuConnSuite
 
-	st       *api.State
+	st       api.Connection
 	machine  *state.Machine
 	mu       sync.Mutex // protects dialTags
 	dialTags []string

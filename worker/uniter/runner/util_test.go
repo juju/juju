@@ -109,7 +109,7 @@ type HookContextSuite struct {
 	relunits map[int]*state.RelationUnit
 	storage  *storageContextAccessor
 
-	st             *api.State
+	st             api.Connection
 	uniter         *uniter.State
 	apiUnit        *uniter.Unit
 	meteredApiUnit *uniter.Unit
@@ -258,8 +258,9 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := runner.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
-		env.Name(), relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag), NewRealPaths(c))
+		env.Name(), relid, remote, relctxs, apiAddrs,
+		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
+		NewRealPaths(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -280,14 +281,90 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	}
 
 	context, err := runner.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag), paths)
+		"test-env-name", relid, remote, relctxs, apiAddrs,
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
+		paths)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
 func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
 	return &charm.Metrics{Metrics: map[string]charm.Metric{name: {Type: charm.MetricTypeGauge, Description: "generated metric"}}}
+}
+
+func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
+	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
+	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
+
+	expect, expectOK := s.unit.PrivateAddress()
+	actual, actualOK := ctx.PrivateAddress()
+	c.Assert(actual, gc.Equals, expect)
+	c.Assert(actualOK, gc.Equals, expectOK)
+
+	expect, expectOK = s.unit.PublicAddress()
+	actual, actualOK = ctx.PublicAddress()
+	c.Assert(actual, gc.Equals, expect)
+	c.Assert(actualOK, gc.Equals, expectOK)
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	name, uuid := runner.ContextEnvInfo(ctx)
+	c.Assert(name, gc.Equals, env.Name())
+	c.Assert(uuid, gc.Equals, env.UUID())
+
+	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
+
+	r, found := ctx.Relation(0)
+	c.Assert(found, jc.IsTrue)
+	c.Assert(r.Name(), gc.Equals, "db")
+	c.Assert(r.FakeId(), gc.Equals, "db:0")
+
+	r, found = ctx.Relation(1)
+	c.Assert(found, jc.IsTrue)
+	c.Assert(r.Name(), gc.Equals, "db")
+	c.Assert(r.FakeId(), gc.Equals, "db:1")
+}
+
+func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
+	actionData, err := ctx.ActionData()
+	c.Assert(actionData, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "not running an action")
+}
+
+func (s *HookContextSuite) AssertActionContext(c *gc.C, ctx runner.Context) {
+	actionData, err := ctx.ActionData()
+	c.Assert(actionData, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *HookContextSuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
+	storageAttachment, ok := ctx.HookStorage()
+	c.Assert(storageAttachment, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx runner.Context, id string, attachment storage.StorageAttachmentInfo) {
+	fromCache, ok := ctx.HookStorage()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(fromCache, gc.NotNil)
+	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
+	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
+	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
+}
+
+func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
+	actualRemoteUnit, _ := ctx.RemoteUnitName()
+	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
+	rel, found := ctx.HookRelation()
+	c.Assert(found, jc.IsTrue)
+	c.Assert(rel.Id(), gc.Equals, relId)
+	return rel.(*runner.ContextRelation)
+}
+
+func (s *HookContextSuite) AssertNotRelationContext(c *gc.C, ctx runner.Context) {
+	rel, found := ctx.HookRelation()
+	c.Assert(rel, gc.IsNil)
+	c.Assert(found, jc.IsFalse)
 }
 
 // hookSpec supports makeCharm.
@@ -398,7 +475,7 @@ type BlockHelper struct {
 
 // NewBlockHelper creates a block switch used in testing
 // to manage desired juju blocks.
-func NewBlockHelper(st *api.State) BlockHelper {
+func NewBlockHelper(st api.Connection) BlockHelper {
 	return BlockHelper{
 		blockClient: block.NewClient(st),
 	}

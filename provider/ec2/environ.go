@@ -963,8 +963,9 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	// At some point in the future an empty netIds may mean "fetch all subnets"
-	// but until that functionality is needed it's an error.
+	// At some point in the future an empty subnetIds may mean "fetch
+	// all subnets" but until that functionality is needed it's an
+	// error.
 	if len(subnetIds) == 0 {
 		return nil, errors.Errorf("subnetIds must not be empty")
 	}

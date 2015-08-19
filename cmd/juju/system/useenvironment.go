@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
@@ -21,7 +22,7 @@ import (
 type UseEnvironmentCommand struct {
 	envcmd.SysCommandBase
 
-	apiOpen   APIOpenFunc
+	apiOpen   api.OpenFunc
 	api       UseEnvironmentAPI
 	userCreds *configstore.APICredentials
 	endpoint  *configstore.APIEndpoint

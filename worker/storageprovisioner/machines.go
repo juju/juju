@@ -61,18 +61,19 @@ func refreshMachine(ctx *context, tag names.MachineTag) error {
 
 // machineProvisioned is called when a watched machine is provisioned.
 func machineProvisioned(ctx *context, tag names.MachineTag, instanceId instance.Id) {
-	for _, params := range ctx.pendingVolumes {
+	for _, params := range ctx.incompleteVolumeParams {
 		if params.Attachment.Machine != tag || params.Attachment.InstanceId != "" {
 			continue
 		}
 		params.Attachment.InstanceId = instanceId
+		updatePendingVolume(ctx, params)
 	}
-	for id, params := range ctx.pendingVolumeAttachments {
+	for id, params := range ctx.incompleteVolumeAttachmentParams {
 		if params.Machine != tag || params.InstanceId != "" {
 			continue
 		}
 		params.InstanceId = instanceId
-		ctx.pendingVolumeAttachments[id] = params
+		updatePendingVolumeAttachment(ctx, id, params)
 	}
 	for id, params := range ctx.pendingFilesystemAttachments {
 		if params.Machine != tag || params.InstanceId != "" {

@@ -41,7 +41,7 @@ func NewEnvironmentsCommand(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI
 
 // NewLoginCommand returns a LoginCommand with the function used to open
 // the API connection mocked out.
-func NewLoginCommand(apiOpen APIOpenFunc, getUserManager GetUserManagerFunc) *LoginCommand {
+func NewLoginCommand(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) *LoginCommand {
 	return &LoginCommand{
 		apiOpen:        apiOpen,
 		getUserManager: getUserManager,
@@ -100,7 +100,7 @@ func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr 
 
 // NewKillCommand returns a KillCommand with the systemmanager and client
 // endpoints mocked out.
-func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error, dialFunc func(string) (*api.State, error)) *KillCommand {
+func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error, dialFunc func(string) (api.Connection, error)) *KillCommand {
 	return &KillCommand{
 		DestroyCommandBase{
 			api:       api,

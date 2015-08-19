@@ -99,6 +99,12 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	envCfg.Config = cfg
 	envCfg.attrs = validated
 
+	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
+		// Default volume source not specified; set
+		// it to the azure storage provider.
+		envCfg.attrs[config.StorageDefaultBlockSourceKey] = storageProviderType
+	}
+
 	cert := envCfg.managementCertificate()
 	if cert == "" {
 		certPath := envCfg.attrs["management-certificate-path"].(string)

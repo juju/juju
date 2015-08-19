@@ -404,8 +404,8 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
 	context := runVolumeList(c, "0")
 	expected := `
-MACHINE  UNIT             STORAGE  DEVICE  VOLUME  ID  SIZE
-0        storage-block/0  data/0           0           0B
+MACHINE  UNIT             STORAGE  DEVICE  VOLUME  ID  SIZE  STATE    MESSAGE
+0        storage-block/0  data/0           0                 pending  
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)

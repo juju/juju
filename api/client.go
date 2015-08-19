@@ -176,8 +176,8 @@ type Status struct {
 }
 
 // Status returns the status of the juju environment.
-func (c *Client) Status(patterns []string) (*Status, error) {
-	var result Status
+func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
+	var result params.FullStatus
 	p := params.StatusParams{Patterns: patterns}
 	if err := c.facade.FacadeCall("FullStatus", p, &result); err != nil {
 		return nil, err
@@ -187,8 +187,8 @@ func (c *Client) Status(patterns []string) (*Status, error) {
 
 // UnitStatusHistory retrieves the last <size> results of <kind:combined|agent|workload> status
 // for <unitName> unit
-func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*UnitStatusHistory, error) {
-	var results UnitStatusHistory
+func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, size int) (*params.UnitStatusHistory, error) {
+	var results params.UnitStatusHistory
 	args := params.StatusHistory{
 		Kind: kind,
 		Size: size,
@@ -197,27 +197,17 @@ func (c *Client) UnitStatusHistory(kind params.HistoryKind, unitName string, siz
 	err := c.facade.FacadeCall("UnitStatusHistory", args, &results)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
-			return &UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
+			return &params.UnitStatusHistory{}, errors.NotImplementedf("UnitStatusHistory")
 		}
-		return &UnitStatusHistory{}, errors.Trace(err)
+		return &params.UnitStatusHistory{}, errors.Trace(err)
 	}
 	return &results, nil
 }
 
-// LegacyMachineStatus holds just the instance-id of a machine.
-type LegacyMachineStatus struct {
-	InstanceId string // Not type instance.Id just to match original api.
-}
-
-// LegacyStatus holds minimal information on the status of a juju environment.
-type LegacyStatus struct {
-	Machines map[string]LegacyMachineStatus
-}
-
 // LegacyStatus is a stub version of Status that 1.16 introduced. Should be
 // removed along with structs when api versioning makes it safe to do so.
-func (c *Client) LegacyStatus() (*LegacyStatus, error) {
-	var result LegacyStatus
+func (c *Client) LegacyStatus() (*params.LegacyStatus, error) {
+	var result params.LegacyStatus
 	if err := c.facade.FacadeCall("Status", nil, &result); err != nil {
 		return nil, err
 	}

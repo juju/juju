@@ -156,7 +156,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
-	testDialer := func(sysName string) (*api.State, error) {
+	testDialer := func(sysName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
 
@@ -170,7 +170,7 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 	stop := make(chan struct{})
 	defer close(stop)
-	testDialer := func(sysName string) (*api.State, error) {
+	testDialer := func(sysName string) (api.Connection, error) {
 		<-stop
 		return nil, errors.New("kill command waited too long")
 	}

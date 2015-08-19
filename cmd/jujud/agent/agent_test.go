@@ -11,12 +11,10 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api"
 	apienvironment "github.com/juju/juju/api/environment"
 	"github.com/juju/juju/apiserver/params"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
@@ -26,84 +24,12 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/proxyupdater"
 )
-
-var (
-	_ = gc.Suite(&apiOpenSuite{})
-)
-
-type apiOpenSuite struct{ coretesting.BaseSuite }
-
-func (s *apiOpenSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&checkProvisionedStrategy, utils.AttemptStrategy{})
-}
-
-func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
-	type replaceErrors struct {
-		openErr    error
-		replaceErr error
-	}
-	var apiError error
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
-		return nil, apiError
-	})
-	errReplacePairs := []replaceErrors{{
-		fmt.Errorf("blah"), nil,
-	}, {
-		openErr:    &params.Error{Code: params.CodeNotProvisioned},
-		replaceErr: worker.ErrTerminateAgent,
-	}, {
-		openErr:    &params.Error{Code: params.CodeUnauthorized},
-		replaceErr: worker.ErrTerminateAgent,
-	}}
-	for i, test := range errReplacePairs {
-		c.Logf("test %d", i)
-		apiError = test.openErr
-		_, _, err := OpenAPIState(fakeAPIOpenConfig{}, nil)
-		if test.replaceErr == nil {
-			c.Check(err, gc.Equals, test.openErr)
-		} else {
-			c.Check(err, gc.Equals, test.replaceErr)
-		}
-	}
-}
-
-func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisioned(c *gc.C) {
-	s.PatchValue(&checkProvisionedStrategy.Min, 5)
-	var called int
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
-		called++
-		if called == checkProvisionedStrategy.Min-1 {
-			return nil, &params.Error{Code: params.CodeUnauthorized}
-		}
-		return nil, &params.Error{Code: params.CodeNotProvisioned}
-	})
-	_, _, err := OpenAPIState(fakeAPIOpenConfig{}, nil)
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min-1)
-}
-
-func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisionedGivesUp(c *gc.C) {
-	s.PatchValue(&checkProvisionedStrategy.Min, 5)
-	var called int
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
-		called++
-		return nil, &params.Error{Code: params.CodeNotProvisioned}
-	})
-	_, _, err := OpenAPIState(fakeAPIOpenConfig{}, nil)
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-	// +1 because we always attempt at least once outside the attempt strategy
-	// (twice if the API server initially returns CodeUnauthorized.)
-	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min+1)
-}
 
 type acCreator func() (cmd.Command, AgentConf)
 
@@ -206,36 +132,6 @@ func (s *AgentSuite) PrimeStateAgent(
 	return conf, agentTools
 }
 
-func (s *AgentSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
-	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	conf.SetPassword("")
-	err = conf.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that it starts initially and changes the password
-	assertOpen := func(conf agent.Config) {
-		st, gotEnt, err := OpenAPIState(conf, agentCmd)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st, gc.NotNil)
-		st.Close()
-		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag().String())
-	}
-	assertOpen(conf)
-
-	// Check that the initial password is no longer valid.
-	err = ent.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ent.PasswordValid(initialPassword), jc.IsFalse)
-
-	// Read the configuration and check that we can connect with it.
-	conf, err = agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	c.Assert(err, gc.IsNil)
-	// Check we can open the API with the new configuration.
-	assertOpen(conf)
-}
-
 // writeStateAgentConfig creates and writes a state agent config.
 func writeStateAgentConfig(
 	c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, tag names.Tag,
@@ -266,9 +162,3 @@ func writeStateAgentConfig(
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
 }
-
-type fakeAPIOpenConfig struct{ agent.Config }
-
-func (fakeAPIOpenConfig) APIInfo() *api.Info              { return &api.Info{} }
-func (fakeAPIOpenConfig) OldPassword() string             { return "old" }
-func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob { return []multiwatcher.MachineJob{} }

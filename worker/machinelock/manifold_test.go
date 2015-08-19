@@ -10,9 +10,8 @@ import (
 	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/machinelock"
@@ -105,28 +104,28 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	var lock *fslock.Lock
 	err := s.manifold.Output(&dummyWorker{}, &lock)
-	c.Check(err.Error(), gc.Equals, "expected *machinelock.machineLockWorker->**fslock.Lock; got *machinelock_test.dummyWorker->**fslock.Lock")
+	c.Check(err, gc.ErrorMatches, "in should be a \\*valueWorker; is .*")
 	c.Check(lock, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	worker := s.setupWorkerTest(c)
-	var lock interface{}
+	var lock int
 	err := s.manifold.Output(worker, &lock)
-	c.Check(err.Error(), gc.Equals, "expected *machinelock.machineLockWorker->**fslock.Lock; got *machinelock.machineLockWorker->*interface {}")
-	c.Check(lock, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot output into \\*int")
+	c.Check(lock, gc.Equals, 0)
 }
 
 type dummyAgent struct {
 	agent.Agent
 }
 
-func (_ dummyAgent) CurrentConfig() coreagent.Config {
+func (_ dummyAgent) CurrentConfig() agent.Config {
 	return &dummyAgentConfig{}
 }
 
 type dummyAgentConfig struct {
-	coreagent.Config
+	agent.Config
 }
 
 func (_ dummyAgentConfig) DataDir() string {

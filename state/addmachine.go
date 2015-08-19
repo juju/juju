@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -476,17 +477,20 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		Insert: mdoc,
 	}
 
+	statusDoc := statusDoc{
+		Status:  StatusPending,
+		EnvUUID: st.EnvironUUID(),
+		Updated: time.Now().UnixNano(),
+	}
+	globalKey := machineGlobalKey(mdoc.Id)
 	prereqOps = []txn.Op{
-		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
-		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
-			Status:  StatusPending,
-			EnvUUID: st.EnvironUUID(),
-		}),
+		createConstraintsOp(st, globalKey, template.Constraints),
+		createStatusOp(st, globalKey, statusDoc),
 		// TODO(dimitern) 2014-04-04 bug #1302498
 		// Once we can add networks independently of machine
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
-		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
+		createRequestedNetworksOp(st, globalKey, template.RequestedNetworks),
 		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
@@ -509,6 +513,11 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	}
 	prereqOps = append(prereqOps, storageOps...)
 
+	// At the last moment we still have statusDoc in scope, set the initial
+	// history entry. This is risky, and may lead to extra entries, but that's
+	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
+	// them cleanly.
+	probablyUpdateStatusHistory(st, globalKey, statusDoc)
 	return prereqOps, machineOp, nil
 }
 
@@ -549,11 +558,11 @@ func (st *State) machineStorageOps(
 
 	// Create volumes and volume attachments.
 	for _, v := range args.volumes {
-		op, tag, err := st.addVolumeOp(v.Volume, mdoc.Id)
+		ops, tag, err := st.addVolumeOps(v.Volume, mdoc.Id)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}
-		volumeOps = append(volumeOps, op)
+		volumeOps = append(volumeOps, ops...)
 		volumeAttachments = append(volumeAttachments, volumeAttachmentTemplate{
 			tag, v.Attachment,
 		})

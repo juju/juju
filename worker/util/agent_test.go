@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/util"
@@ -34,8 +34,8 @@ func (s *AgentManifoldSuite) SetUpTest(c *gc.C) {
 	}, s.newWorker)
 }
 
-func (s *AgentManifoldSuite) newWorker(agent agent.Agent) (worker.Worker, error) {
-	s.AddCall("newWorker", agent)
+func (s *AgentManifoldSuite) newWorker(a agent.Agent) (worker.Worker, error) {
+	s.AddCall("newWorker", a)
 	if err := s.NextErr(); err != nil {
 		return nil, err
 	}

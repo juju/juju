@@ -18,6 +18,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type OpenSuite struct {
@@ -38,6 +39,7 @@ func (s *OpenSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)

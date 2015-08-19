@@ -10,17 +10,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName           string
-	ApiCallerName       string
+	APICallerName       string
 	LeadershipGuarantee time.Duration
 }
 
@@ -30,7 +30,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.ApiCallerName,
+			config.APICallerName,
 		},
 		Start:  startFunc(config),
 		Output: outputFunc,
@@ -46,7 +46,7 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 			return nil, err
 		}
 		var apiCaller base.APICaller
-		if err := getResource(config.ApiCallerName, &apiCaller); err != nil {
+		if err := getResource(config.APICallerName, &apiCaller); err != nil {
 			return nil, err
 		}
 		return newManifoldWorker(agent, apiCaller, config.LeadershipGuarantee)
@@ -58,9 +58,10 @@ func startFunc(config ManifoldConfig) dependency.StartFunc {
 // and is not itself directly tested; once all NewTrackerWorker clients have been
 // replaced with manifolds, the tests can be tidied up a bit.
 var newManifoldWorker = func(agent agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
-	unitTag, ok := agent.Tag().(names.UnitTag)
+	tag := agent.CurrentConfig().Tag()
+	unitTag, ok := tag.(names.UnitTag)
 	if !ok {
-		return nil, fmt.Errorf("expected a unit tag; got %q", agent.Tag())
+		return nil, fmt.Errorf("expected a unit tag; got %q", tag)
 	}
 	claimer := leadership.NewClient(apiCaller)
 	return NewTrackerWorker(unitTag, claimer, guarantee), nil

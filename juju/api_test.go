@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type NewAPIStateSuite struct {
@@ -65,6 +66,7 @@ func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 }
 
 func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
+	cs.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
@@ -183,6 +185,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	// and checking that the connection happens within that
 	// time.
 	s.PatchValue(juju.ProviderConnectDelay, coretesting.LongWait)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
@@ -198,6 +201,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 func (s *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	envName := coretesting.SampleCertName + "-2"
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig, envName)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, envName, defaultConfigStore(c))
 	apiclient, err := juju.NewAPIClientFromName(envName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,7 +214,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID))
 		called++
@@ -244,6 +248,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Skip("not really possible now that there is no defined admin user")
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
@@ -268,7 +273,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(0)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		c.Check(apiInfo.Tag, gc.Equals, dummy.AdminUserTag())
 		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
 		c.Check(apiInfo.Password, gc.Equals, "adminpass")
@@ -378,7 +383,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		called++
@@ -428,7 +433,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 
 	called := 0
 	expectState := mockedAPIState(mockedEnvironTag | mockedPreferIPv6)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		called++
@@ -457,7 +462,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	// State returns a new set of APIHostPorts but not a new EnvironTag. We
 	// shouldn't override the cached value with environ tag of "".
 	expectState := mockedAPIState(mockedHostPort)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID))
 		called++
@@ -504,7 +509,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 		},
 	})
 
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return nil, errors.Errorf("an error")
 	}
 	st, err := juju.NewAPIFromStore("noconfig", store, apiOpen)
@@ -515,6 +520,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -527,7 +533,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	// we make the delay slightly more than that, so that if the
 	// logic doesn't delay at all, the test will fail reasonably consistently.
 	s.PatchValue(juju.ProviderConnectDelay, 50*time.Millisecond)
-	apiOpen := func(info *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		if info.Addrs[0] == "0.1.2.3" {
 			infoEndpointOpened <- struct{}{}
 			return infoOpenedState, nil
@@ -535,8 +541,8 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 		return cfgOpenedState, nil
 	}
 
-	stateClosed := make(chan juju.APIState)
-	infoOpenedState.close = func(st juju.APIState) error {
+	stateClosed := make(chan api.Connection)
+	infoOpenedState.close = func(st api.Connection) error {
 		stateClosed <- st
 		return nil
 	}
@@ -600,6 +606,7 @@ func setEndpointAddressAndHostname(c *gc.C, store configstore.Storage, envName s
 }
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 
 	store := configstore.NewMem()
@@ -612,7 +619,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	cfgEndpointOpened := make(chan struct{})
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
-	apiOpen := func(info *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		if info.Addrs[0] == "0.1.2.3" {
 			infoEndpointOpened <- struct{}{}
 			<-infoEndpointOpened
@@ -623,8 +630,8 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 		return cfgOpenedState, nil
 	}
 
-	stateClosed := make(chan juju.APIState)
-	infoOpenedState.close = func(st juju.APIState) error {
+	stateClosed := make(chan api.Connection)
+	infoOpenedState.close = func(st api.Connection) error {
 		stateClosed <- st
 		return nil
 	}
@@ -670,13 +677,14 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddressAndHostname(c, store, coretesting.SampleEnvName, "0.1.2.3", "infoapi.invalid")
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
-	apiOpen := func(info *api.Info, opts api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		if info.Addrs[0] == "infoapi.invalid" {
 			return nil, fmt.Errorf("info connect failed")
 		}
@@ -694,6 +702,7 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	s.bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -705,7 +714,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	err = os.Remove(osenv.JujuHomePath("environments.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiOpen := func(*api.Info, api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return mockedAPIState(noFlags), nil
 	}
 	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
@@ -714,6 +723,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 }
 
 func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	// We want to make sure that the code is using the bootstrap
 	// config rather than information from environments.yaml,
 	// even when there is an entry in environments.yaml
@@ -735,7 +745,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	// Now we have info for envName2 which will actually
 	// cause a connection to the originally bootstrapped
 	// state.
-	apiOpen := func(*api.Info, api.DialOpts) (juju.APIState, error) {
+	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return mockedAPIState(noFlags), nil
 	}
 	st, err := juju.NewAPIFromStore(envName2, store, apiOpen)
