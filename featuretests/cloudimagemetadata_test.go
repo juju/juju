@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/testing"
 )
@@ -21,6 +22,15 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
 	c.Assert(metadata, gc.HasLen, 0)
+
+	// check db too
+	conn := s.State.MongoSession()
+	coll, closer := mongo.CollectionFromName(conn.DB("juju"), "cloudimagemetadata")
+	defer closer()
+
+	before, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(before == 0, jc.IsTrue)
 
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
@@ -36,5 +46,12 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 
 	added, err := s.State.CloudImageMetadataStorage.FindMetadata(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(added, jc.SameContents, []cloudimagemetadata.Metadata{m})
+	c.Assert(added, jc.DeepEquals,
+		map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+			m.Source: {m}})
+
+	// make sure it's in db too
+	after, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(after == 1, jc.IsTrue)
 }
