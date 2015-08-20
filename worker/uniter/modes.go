@@ -4,14 +4,8 @@
 package uniter
 
 import (
-	"time"
-
 	"github.com/juju/juju/apiserver/params"
 )
-
-// idleWaitTime is the time after which, if there are no uniter events,
-// the agent state becomes idle.
-var idleWaitTime = 2 * time.Second
 
 // setAgentStatus sets the unit's status if it has changed since last time this method was called.
 func setAgentStatus(u *Uniter, status params.Status, info string, data map[string]interface{}) error {
