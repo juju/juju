@@ -107,49 +107,43 @@ class TestGetAuthToken(TestCase):
 
 class TestFindCandidates(TestCase):
 
+    def make_candidate_dir(self, root, candidate_id):
+        candidates_path = get_candidates_path(root)
+        if not os.path.isdir(candidates_path):
+            os.mkdir(candidates_path)
+        master_path = os.path.join(candidates_path, candidate_id)
+        os.mkdir(master_path)
+        buildvars_path = os.path.join(master_path, 'buildvars.json')
+        open(buildvars_path, 'w')
+        return master_path, buildvars_path
+
     def test_find_candidates(self):
         with temp_dir() as root:
-            candidates_path = get_candidates_path(root)
-            os.mkdir(candidates_path)
-            self.assertEqual(list(find_candidates(root)), [])
-            master_path = os.path.join(candidates_path, 'master')
-            os.mkdir(master_path)
-            self.assertEqual(list(find_candidates(root)), [])
-            open(os.path.join(master_path, 'buildvars.json'), 'w')
+            master_path = self.make_candidate_dir(root, 'master')[0]
             self.assertEqual(list(find_candidates(root)), [master_path])
 
     def test_find_candidates_old_buildvars(self):
         with temp_dir() as root:
-            _, buildvars_path = self.make_candidates_dir(root, 'master')
+            _, buildvars_path = self.make_candidate_dir(root, 'master')
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
             os.utime(buildvars_path, (time(), a_week_ago))
             self.assertEqual(list(find_candidates(root)), [])
 
     def test_find_candidates_artifacts(self):
         with temp_dir() as root:
-            self.make_candidates_dir(root, 'master-artifacts')
+            self.make_candidate_dir(root, 'master-artifacts')
             self.assertEqual(list(find_candidates(root)), [])
 
     def test_find_candidates_find_all(self):
         with temp_dir() as root:
-            master_path, buildvars_path = self.make_candidates_dir(
+            master_path, buildvars_path = self.make_candidate_dir(
                 root, '1.23')
-            master_path_2, _ = self.make_candidates_dir(root, '1.24')
+            master_path_2, _ = self.make_candidate_dir(root, '1.24')
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
             os.utime(buildvars_path, (time(), a_week_ago))
             self.assertItemsEqual(list(find_candidates(root)), [master_path_2])
             self.assertItemsEqual(list(find_candidates(root, find_all=True)),
                                   [master_path, master_path_2])
-
-    def make_candidates_dir(self, root, master_name):
-        candidates_path = get_candidates_path(root)
-        if not os.path.isdir(candidates_path):
-            os.mkdir(candidates_path)
-        master_path = os.path.join(candidates_path, master_name)
-        os.mkdir(master_path)
-        buildvars_path = os.path.join(master_path, 'buildvars.json')
-        open(buildvars_path, 'w')
-        return master_path, buildvars_path
 
 
 class TestWaitForPort(TestCase):
