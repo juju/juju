@@ -18,6 +18,7 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -724,7 +725,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	logger.Infof("picked tools %q", args.InstanceConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(args.InstanceConfig)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AzureRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot compose user data")
 	}
@@ -762,7 +763,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
 	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
-	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
+	role := env.newRole(instanceType.Id, vhd, string(userData), stateServer)
 	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {
 		return nil, err
