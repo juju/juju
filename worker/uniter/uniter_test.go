@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -39,7 +38,7 @@ type UniterSuite struct {
 	oldLcAll string
 	unitDir  string
 
-	updateStatusHookTicker *uniter.ManualTicker
+	updateStatusHookTicker *manualTicker
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -86,10 +85,9 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
-	s.updateStatusHookTicker = uniter.NewManualTicker()
+	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
@@ -1313,168 +1311,6 @@ func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSendMetricsBeforeDying(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"metrics must be sent before the unit is destroyed",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			addMetrics{[]string{"5", "42"}},
-			unitDying,
-			waitUniterDead{},
-			checkStateMetrics{number: 1, values: []string{"5", "42"}},
-		),
-	})
-}
-
-func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"collect-metrics event triggered by manual timer",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{status: params.StatusIdle},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
-			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			collectMetricsTick{},
-			waitHooks{"collect-metrics"},
-		), ut(
-			"collect-metrics resumed after hook error",
-			startupErrorWithCustomCharm{
-				badHook: "config-changed",
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			collectMetricsTick{expectFail: true},
-			fixHook{"config-changed"},
-			resolveError{state.ResolvedRetryHooks},
-			waitUnitAgent{
-				status: params.StatusIdle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
-			},
-			waitHooks{"config-changed", "start"},
-			collectMetricsTick{},
-			waitHooks{"collect-metrics"},
-			verifyRunning{},
-		),
-		ut(
-			"collect-metrics state maintained during uniter restart",
-			startupErrorWithCustomCharm{
-				badHook: "config-changed",
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			collectMetricsTick{expectFail: true},
-			fixHook{"config-changed"},
-			stopUniter{},
-			startUniter{},
-			resolveError{state.ResolvedRetryHooks},
-			waitUnitAgent{
-				status: params.StatusIdle,
-			},
-			waitUnitAgent{
-				statusGetter: unitStatusGetter,
-				status:       params.StatusUnknown,
-			},
-			waitHooks{"config-changed", "start"},
-			collectMetricsTick{},
-			waitHooks{"collect-metrics"},
-			verifyRunning{},
-		), ut(
-			"collect-metrics event not triggered for non-metered charm",
-			quickStart{},
-			collectMetricsTick{expectFail: true},
-			waitHooks{},
-		),
-	})
-}
-
-func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"send metrics event triggered by manual timer",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			addMetrics{[]string{"15", "17"}},
-			sendMetricsTick{},
-			checkStateMetrics{number: 1, values: []string{"17", "15"}},
-		), ut(
-			"send-metrics resumed after hook error",
-			startupErrorWithCustomCharm{
-				badHook: "config-changed",
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			addMetrics{[]string{"15"}},
-			sendMetricsTick{expectFail: true},
-			fixHook{"config-changed"},
-			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"config-changed", "start"},
-			addMetrics{[]string{"17"}},
-			sendMetricsTick{},
-			checkStateMetrics{number: 2, values: []string{"15", "17"}},
-			verifyRunning{},
-		), ut(
-			"send-metrics state maintained during uniter restart",
-			startupErrorWithCustomCharm{
-				badHook: "config-changed",
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			collectMetricsTick{expectFail: true},
-			addMetrics{[]string{"13"}},
-			sendMetricsTick{expectFail: true},
-			fixHook{"config-changed"},
-			stopUniter{},
-			startUniter{},
-			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"config-changed", "start"},
-			collectMetricsTick{},
-			waitHooks{"collect-metrics"},
-			addMetrics{[]string{"21"}},
-			sendMetricsTick{},
-			checkStateMetrics{number: 2, values: []string{"13", "21"}},
-			verifyRunning{},
-		), ut(
-			"collect-metrics event not triggered for non-metered charm",
-			quickStart{},
-			collectMetricsTick{expectFail: true},
-			addMetrics{[]string{"21"}},
-			sendMetricsTick{expectFail: true},
-			waitHooks{},
-			checkStateMetrics{number: 0},
-		),
-	})
-}
-
 func (s *UniterSuite) TestActionEvents(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -2054,7 +1890,6 @@ func (s *UniterSuite) TestLeadership(c *gc.C) {
 }
 
 func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *gc.C) {
-	s.PatchValue(uniter.LeadershipGuarantee, 2*coretesting.ShortWait)
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			// NOTE: this is a strange and ugly test, intended to detect what
