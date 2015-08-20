@@ -35,7 +35,7 @@ The statuses for the unit workload and/or agent are available.
     agent: will show statuses for the unit's agent
     workload: will show statuses for the unit's workload
     combined: will show agent and workload statuses combined
- and sorted by time of occurence.
+ and sorted by time of occurrence.
 `
 
 func (c *StatusHistoryCommand) Info() *cmd.Info {
