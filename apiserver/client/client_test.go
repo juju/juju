@@ -1643,7 +1643,7 @@ func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
 	)
-	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces.")
+	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces")
 }
 
 func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {

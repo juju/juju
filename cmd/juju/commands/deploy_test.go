@@ -207,7 +207,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
-	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces.")
+	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces")
 }
 
 // TODO(wallyworld) - add another test that deploy with storage fails for older environments
