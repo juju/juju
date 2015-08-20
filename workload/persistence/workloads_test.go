@@ -12,38 +12,38 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/persistence"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/persistence"
 )
 
-var _ = gc.Suite(&procsPersistenceSuite{})
+var _ = gc.Suite(&workloadsPersistenceSuite{})
 
-type procsPersistenceSuite struct {
+type workloadsPersistenceSuite struct {
 	persistence.BaseSuite
 }
 
-func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
-	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
+func (s *workloadsPersistenceSuite) TestInsertOkay(c *gc.C) {
+	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
 
-	pp := s.NewPersistence()
-	okay, err := pp.Insert(proc)
+	wp := s.NewPersistence()
+	okay, err := wp.Insert(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
+			C:      "workloads",
+			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
 			Assert: txn.DocMissing,
-			Insert: &persistence.ProcessDoc{
-				DocID:  "proc#a-unit/0#procA/procA-xyz",
+			Insert: &persistence.WorkloadDoc{
+				DocID:  "workload#a-unit/0#workloadA/workloadA-xyz",
 				UnitID: "a-unit/0",
 
-				Name: "procA",
+				Name: "workloadA",
 				Type: "docker",
 
-				PluginID:       "procA-xyz",
+				PluginID:       "workloadA-xyz",
 				OriginalStatus: "running",
 
 				PluginStatus: "running",
@@ -52,30 +52,30 @@ func (s *procsPersistenceSuite) TestInsertOkay(c *gc.C) {
 	}})
 }
 
-func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
-	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
-	s.SetDocs(proc)
+func (s *workloadsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
+	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
+	s.SetDocs(wl)
 	s.Stub.SetErrors(txn.ErrAborted)
 
-	pp := s.NewPersistence()
-	okay, err := pp.Insert(proc)
+	wp := s.NewPersistence()
+	okay, err := wp.Insert(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
+			C:      "workloads",
+			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
 			Assert: txn.DocMissing,
-			Insert: &persistence.ProcessDoc{
-				DocID:  "proc#a-unit/0#procA/procA-xyz",
+			Insert: &persistence.WorkloadDoc{
+				DocID:  "workload#a-unit/0#workloadA/workloadA-xyz",
 				UnitID: "a-unit/0",
 
-				Name: "procA",
+				Name: "workloadA",
 				Type: "docker",
 
-				PluginID:       "procA-xyz",
+				PluginID:       "workloadA-xyz",
 				OriginalStatus: "running",
 
 				PluginStatus: "running",
@@ -84,48 +84,48 @@ func (s *procsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 	}})
 }
 
-func (s *procsPersistenceSuite) TestInsertFailed(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestInsertFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
-	proc := s.NewProcesses("docker", "procA")[0]
+	wl := s.NewWorkloads("docker", "workloadA")[0]
 
 	pp := s.NewPersistence()
-	_, err := pp.Insert(proc)
+	_, err := pp.Insert(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func newStatusInfo(state, message, pluginStatus string) process.CombinedStatus {
-	return process.CombinedStatus{
-		Status: process.Status{
+func newStatusInfo(state, message, pluginStatus string) workload.CombinedStatus {
+	return workload.CombinedStatus{
+		Status: workload.Status{
 			State:   state,
 			Message: message,
 		},
-		PluginStatus: process.PluginStatus{
+		PluginStatus: workload.PluginStatus{
 			State: pluginStatus,
 		},
 	}
 }
 
-func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
-	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
-	s.SetDocs(proc)
-	status := newStatusInfo(process.StateRunning, "good to go", "still running")
+func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
+	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
+	s.SetDocs(wl)
+	status := newStatusInfo(workload.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(proc.ID(), status)
+	okay, err := pp.SetStatus(wl.ID(), status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
+			C:      "workloads",
+			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{
-					{"state", process.StateRunning},
+					{"state", workload.StateRunning},
 					{"blocker", ""},
 					{"status", "good to go"},
 					{"pluginstatus", "still running"},
@@ -135,24 +135,24 @@ func (s *procsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	}})
 }
 
-func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
-	status := newStatusInfo(process.StateRunning, "good to go", "still running")
+	status := newStatusInfo(workload.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus("procA/procA-xyz", status)
+	okay, err := pp.SetStatus("workloadA/workloadA-xyz", status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/procA-xyz",
+			C:      "workloads",
+			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{
-					{"state", process.StateRunning},
+					{"state", workload.StateRunning},
 					{"blocker", ""},
 					{"status", "good to go"},
 					{"pluginstatus", "still running"},
@@ -162,59 +162,59 @@ func (s *procsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	}})
 }
 
-func (s *procsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
-	proc := s.NewProcesses("docker", "procA/procA-xyz")[0]
-	s.SetDocs(proc)
+func (s *workloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
+	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
+	s.SetDocs(wl)
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
-	status := newStatusInfo(process.StateRunning, "good to go", "still running")
+	status := newStatusInfo(workload.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus(proc.ID(), status)
+	_, err := pp.SetStatus(wl.ID(), status)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *procsPersistenceSuite) TestListOkay(c *gc.C) {
-	existing := s.NewProcesses("docker", "procA/xyz", "procB/abc")
+func (s *workloadsPersistenceSuite) TestListOkay(c *gc.C) {
+	existing := s.NewWorkloads("docker", "workloadA/xyz", "workloadB/abc")
 	s.SetDocs(existing...)
 
 	pp := s.NewPersistence()
-	procs, missing, err := pp.List("procA/xyz")
+	workloads, missing, err := pp.List("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(procs, jc.DeepEquals, []process.Info{existing[0]})
+	c.Check(workloads, jc.DeepEquals, []workload.Info{existing[0]})
 	c.Check(missing, gc.HasLen, 0)
 }
 
-func (s *procsPersistenceSuite) TestListSomeMissing(c *gc.C) {
-	existing := s.NewProcesses("docker", "procA/xyz", "procB/abc")
+func (s *workloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
+	existing := s.NewWorkloads("docker", "workloadA/xyz", "workloadB/abc")
 	s.SetDocs(existing...)
 
 	pp := s.NewPersistence()
-	procs, missing, err := pp.List("procB/abc", "procC/123")
+	workloads, missing, err := pp.List("workloadB/abc", "workloadC/123")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(procs, jc.DeepEquals, []process.Info{existing[1]})
-	c.Check(missing, jc.DeepEquals, []string{"procC/123"})
+	c.Check(workloads, jc.DeepEquals, []workload.Info{existing[1]})
+	c.Check(missing, jc.DeepEquals, []string{"workloadC/123"})
 }
 
-func (s *procsPersistenceSuite) TestListEmpty(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestListEmpty(c *gc.C) {
 	pp := s.NewPersistence()
-	procs, missing, err := pp.List("procA/xyz")
+	workloads, missing, err := pp.List("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(procs, gc.HasLen, 0)
-	c.Check(missing, jc.DeepEquals, []string{"procA/xyz"})
+	c.Check(workloads, gc.HasLen, 0)
+	c.Check(missing, jc.DeepEquals, []string{"workloadA/xyz"})
 }
 
-func (s *procsPersistenceSuite) TestListFailure(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestListFailure(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
@@ -224,38 +224,38 @@ func (s *procsPersistenceSuite) TestListFailure(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *procsPersistenceSuite) TestListAllOkay(c *gc.C) {
-	existing := s.NewProcesses("docker", "procA/xyz", "procB/abc")
+func (s *workloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
+	existing := s.NewWorkloads("docker", "workloadA/xyz", "workloadB/abc")
 	s.SetDocs(existing...)
 
 	pp := s.NewPersistence()
-	procs, err := pp.ListAll()
+	workloads, err := pp.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	sort.Sort(byName(procs))
+	sort.Sort(byName(workloads))
 	sort.Sort(byName(existing))
-	c.Check(procs, jc.DeepEquals, existing)
+	c.Check(workloads, jc.DeepEquals, existing)
 }
 
-func (s *procsPersistenceSuite) TestListAllEmpty(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	pp := s.NewPersistence()
-	procs, err := pp.ListAll()
+	workloads, err := pp.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(procs, gc.HasLen, 0)
+	c.Check(workloads, gc.HasLen, 0)
 }
 
-type byName []process.Info
+type byName []workload.Info
 
 func (b byName) Len() int           { return len(b) }
 func (b byName) Less(i, j int) bool { return b[i].Name < b[j].Name }
 func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 
-func (s *procsPersistenceSuite) TestListAllFailed(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
@@ -265,51 +265,51 @@ func (s *procsPersistenceSuite) TestListAllFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *procsPersistenceSuite) TestRemoveOkay(c *gc.C) {
-	proc := s.NewProcesses("docker", "procA/xyz")[0]
-	s.SetDocs(proc)
+func (s *workloadsPersistenceSuite) TestRemoveOkay(c *gc.C) {
+	wl := s.NewWorkloads("docker", "workloadA/xyz")[0]
+	s.SetDocs(wl)
 
 	pp := s.NewPersistence()
-	found, err := pp.Remove("procA/xyz")
+	found, err := pp.Remove("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.IsTrue)
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/xyz",
+			C:      "workloads",
+			Id:     "workload#a-unit/0#workloadA/xyz",
 			Assert: txn.DocExists,
 			Remove: true,
 		},
 	}})
 }
 
-func (s *procsPersistenceSuite) TestRemoveMissing(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestRemoveMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	found, err := pp.Remove("procA/xyz")
+	found, err := pp.Remove("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.IsFalse)
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloadprocesses",
-			Id:     "proc#a-unit/0#procA/xyz",
+			C:      "workloads",
+			Id:     "workload#a-unit/0#workloadA/xyz",
 			Assert: txn.DocExists,
 			Remove: true,
 		},
 	}})
 }
 
-func (s *procsPersistenceSuite) TestRemoveFailed(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestRemoveFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.Remove("procA/xyz")
+	_, err := pp.Remove("workloadA/xyz")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

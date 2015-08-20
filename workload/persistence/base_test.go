@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/workload"
 )
 
 type BaseSuite struct {
@@ -32,39 +32,39 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Unit = names.NewUnitTag("a-unit/0")
 }
 
-type ProcessDoc processDoc
+type WorkloadDoc workloadDoc
 
-func (doc ProcessDoc) convert() *processDoc {
-	return (*processDoc)(&doc)
+func (doc WorkloadDoc) convert() *workloadDoc {
+	return (*workloadDoc)(&doc)
 }
 
-func (s *BaseSuite) NewDoc(proc process.Info) *processDoc {
-	return &processDoc{
-		DocID:  "proc#" + s.Unit.Id() + "#" + proc.ID(),
+func (s *BaseSuite) NewDoc(wl workload.Info) *workloadDoc {
+	return &workloadDoc{
+		DocID:  "workload#" + s.Unit.Id() + "#" + wl.ID(),
 		UnitID: s.Unit.Id(),
 
-		Name: proc.Name,
-		Type: proc.Type,
+		Name: wl.Name,
+		Type: wl.Type,
 
-		PluginID:       proc.Details.ID,
-		OriginalStatus: proc.Details.Status.State,
+		PluginID:       wl.Details.ID,
+		OriginalStatus: wl.Details.Status.State,
 
-		PluginStatus: proc.Details.Status.State,
+		PluginStatus: wl.Details.Status.State,
 	}
 }
 
-func (s *BaseSuite) SetDocs(procs ...process.Info) []*processDoc {
-	var results []*processDoc
-	for _, proc := range procs {
-		procDoc := s.NewDoc(proc)
-		results = append(results, procDoc)
-		s.State.SetDocs(procDoc)
+func (s *BaseSuite) SetDocs(workloads ...workload.Info) []*workloadDoc {
+	var results []*workloadDoc
+	for _, wl := range workloads {
+		workloadDoc := s.NewDoc(wl)
+		results = append(results, workloadDoc)
+		s.State.SetDocs(workloadDoc)
 	}
 	return results
 }
 
-func (s *BaseSuite) RemoveDoc(proc process.Info) {
-	docID := "proc#" + s.Unit.Id() + "#" + proc.ID()
+func (s *BaseSuite) RemoveDoc(wl workload.Info) {
+	docID := "workload#" + s.Unit.Id() + "#" + wl.ID()
 	delete(s.State.docs, docID)
 }
 
@@ -80,26 +80,26 @@ func (s *BaseSuite) SetUnit(id string) {
 	}
 }
 
-func (s *BaseSuite) NewProcesses(pType string, ids ...string) []process.Info {
-	var processes []process.Info
+func (s *BaseSuite) NewWorkloads(pType string, ids ...string) []workload.Info {
+	var workloads []workload.Info
 	for _, id := range ids {
-		name, pluginID := process.ParseID(id)
+		name, pluginID := workload.ParseID(id)
 		if pluginID == "" {
 			pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
 		}
 
-		processes = append(processes, process.Info{
-			Process: charm.Process{
+		workloads = append(workloads, workload.Info{
+			Workload: charm.Workload{
 				Name: name,
 				Type: pType,
 			},
-			Details: process.Details{
+			Details: workload.Details{
 				ID: pluginID,
-				Status: process.PluginStatus{
+				Status: workload.PluginStatus{
 					State: "running",
 				},
 			},
 		})
 	}
-	return processes
+	return workloads
 }

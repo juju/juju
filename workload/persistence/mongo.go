@@ -13,37 +13,37 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 )
 
 const (
-	workloadProcessesC = "workloadprocesses"
+	workloadsC = "workloads"
 )
 
 // Collections is the list of names of the mongo collections where state
-// is stored for workload processes.
+// is stored for workloads.
 // TODO(ericsnow) Not needed anymore...modify for a new registration scheme?
 var Collections = []string{
-	workloadProcessesC,
+	workloadsC,
 }
 
-// TODO(ericsnow) Move the methods under their own type (processcollection?).
+// TODO(ericsnow) Move the methods under their own type (workloadcollection?).
 
-func (pp Persistence) extractProc(id string, procDocs map[string]processDoc) (*process.Info, bool) {
-	procDoc, ok := procDocs[id]
+func (pp Persistence) extractWorkload(id string, workloadDocs map[string]workloadDoc) (*workload.Info, bool) {
+	workloadDoc, ok := workloadDocs[id]
 	if !ok {
 		return nil, false
 	}
-	info := procDoc.info()
+	info := workloadDoc.info()
 	return &info, true
 }
 
 func (pp Persistence) one(id string, doc interface{}) error {
-	return errors.Trace(pp.st.One(workloadProcessesC, id, doc))
+	return errors.Trace(pp.st.One(workloadsC, id, doc))
 }
 
 func (pp Persistence) all(query bson.D, docs interface{}) error {
-	return errors.Trace(pp.st.All(workloadProcessesC, query, docs))
+	return errors.Trace(pp.st.All(workloadsC, query, docs))
 }
 
 func (pp Persistence) allID(query bson.D, docs interface{}) error {
@@ -53,16 +53,16 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.all(query, docs))
 }
 
-func (pp Persistence) processID(id string) string {
-	return fmt.Sprintf("proc#%s#%s", pp.unit.Id(), id)
+func (pp Persistence) workloadID(id string) string {
+	return fmt.Sprintf("workload#%s#%s", pp.unit.Id(), id)
 }
 
-func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
+func (pp Persistence) newInsertWorkloadOps(info workload.Info) []txn.Op {
 	var ops []txn.Op
 
-	doc := pp.newProcessDoc(info)
+	doc := pp.newWorkloadDoc(info)
 	ops = append(ops, txn.Op{
-		C:      workloadProcessesC,
+		C:      workloadsC,
 		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -71,8 +71,8 @@ func (pp Persistence) newInsertProcessOps(info process.Info) []txn.Op {
 	return ops
 }
 
-func (pp Persistence) newSetRawStatusOps(id string, status process.CombinedStatus) []txn.Op {
-	id = pp.processID(id)
+func (pp Persistence) newSetRawStatusOps(id string, status workload.CombinedStatus) []txn.Op {
+	id = pp.workloadID(id)
 	updates := bson.D{
 		{"state", status.Status.State},
 		{"blocker", status.Status.Blocker},
@@ -80,25 +80,25 @@ func (pp Persistence) newSetRawStatusOps(id string, status process.CombinedStatu
 		{"pluginstatus", status.PluginStatus.State},
 	}
 	return []txn.Op{{
-		C:      workloadProcessesC,
+		C:      workloadsC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", updates}},
 	}}
 }
 
-func (pp Persistence) newRemoveProcessOps(id string) []txn.Op {
-	id = pp.processID(id)
+func (pp Persistence) newRemoveWorkloadOps(id string) []txn.Op {
+	id = pp.workloadID(id)
 	return []txn.Op{{
-		C:      workloadProcessesC,
+		C:      workloadsC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
 }
 
-// processDoc is the top-level document for processes.
-type processDoc struct {
+// workloadDoc is the top-level document for workloads.
+type workloadDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
@@ -124,18 +124,18 @@ type processDoc struct {
 	PluginStatus string `bson:"pluginstatus"`
 }
 
-func (d processDoc) info() process.Info {
-	info := process.Info{
-		Process: d.definition(),
-		Status:  d.status(),
-		Details: d.details(),
+func (d workloadDoc) info() workload.Info {
+	info := workload.Info{
+		Workload: d.definition(),
+		Status:   d.status(),
+		Details:  d.details(),
 	}
 	info.Details.Status.State = d.PluginStatus
 	return info
 }
 
-func (d processDoc) definition() charm.Process {
-	definition := charm.Process{
+func (d workloadDoc) definition() charm.Workload {
+	definition := charm.Workload{
 		Name:        d.Name,
 		Description: d.Description,
 		Type:        d.Type,
@@ -152,7 +152,7 @@ func (d processDoc) definition() charm.Process {
 	}
 
 	if len(d.Ports) > 0 {
-		ports := make([]charm.ProcessPort, len(d.Ports))
+		ports := make([]charm.WorkloadPort, len(d.Ports))
 		for i, raw := range d.Ports {
 			p := &ports[i]
 			fmt.Sscanf(raw, "%d:%d:%s", &p.External, &p.Internal, &p.Endpoint)
@@ -161,11 +161,11 @@ func (d processDoc) definition() charm.Process {
 	}
 
 	if len(d.Volumes) > 0 {
-		volumes := make([]charm.ProcessVolume, len(d.Volumes))
+		volumes := make([]charm.WorkloadVolume, len(d.Volumes))
 		for i, raw := range d.Volumes {
 			parts := strings.Split(raw, ":")
 			// len(parts) will always be 4.
-			volumes[i] = charm.ProcessVolume{
+			volumes[i] = charm.WorkloadVolume{
 				ExternalMount: parts[0],
 				InternalMount: parts[1],
 				Mode:          parts[2],
@@ -178,25 +178,25 @@ func (d processDoc) definition() charm.Process {
 	return definition
 }
 
-func (d processDoc) status() process.Status {
-	return process.Status{
+func (d workloadDoc) status() workload.Status {
+	return workload.Status{
 		State:   d.State,
 		Blocker: d.Blocker,
 		Message: d.Status,
 	}
 }
 
-func (d processDoc) details() process.Details {
-	return process.Details{
+func (d workloadDoc) details() workload.Details {
+	return workload.Details{
 		ID: d.PluginID,
-		Status: process.PluginStatus{
+		Status: workload.PluginStatus{
 			State: d.OriginalStatus,
 		},
 	}
 }
 
-func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
-	definition := info.Process
+func (pp Persistence) newWorkloadDoc(info workload.Info) *workloadDoc {
+	definition := info.Workload
 
 	var ports []string
 	for _, p := range definition.Ports {
@@ -208,8 +208,8 @@ func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
 		volumes = append(volumes, fmt.Sprintf("%s:%s:%s:%s", v.ExternalMount, v.InternalMount, v.Mode, v.Name))
 	}
 
-	id := pp.processID(info.ID())
-	return &processDoc{
+	id := pp.workloadID(info.ID())
+	return &workloadDoc{
 		DocID:  id,
 		UnitID: pp.unit.Id(),
 
@@ -234,14 +234,14 @@ func (pp Persistence) newProcessDoc(info process.Info) *processDoc {
 	}
 }
 
-func (pp Persistence) allProcs() (map[string]processDoc, error) {
-	var docs []processDoc
+func (pp Persistence) allWorkloads() (map[string]workloadDoc, error) {
+	var docs []workloadDoc
 	query := bson.D{{"unitid", pp.unit.Id()}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]processDoc)
+	results := make(map[string]workloadDoc)
 	for _, doc := range docs {
 		id := doc.info().ID()
 		results[id] = doc
@@ -249,22 +249,22 @@ func (pp Persistence) allProcs() (map[string]processDoc, error) {
 	return results, nil
 }
 
-func (pp Persistence) procs(ids []string) (map[string]processDoc, error) {
+func (pp Persistence) workloads(ids []string) (map[string]workloadDoc, error) {
 	fullIDs := make([]string, len(ids))
 	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
-		fullID := pp.processID(id)
+		fullID := pp.workloadID(id)
 		fullIDs[i] = fullID
 		idMap[fullID] = id
 	}
 
-	var docs []processDoc
+	var docs []workloadDoc
 	query := bson.D{{"$in", fullIDs}}
 	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]processDoc)
+	results := make(map[string]workloadDoc)
 	for _, doc := range docs {
 		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]
