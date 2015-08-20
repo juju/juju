@@ -281,8 +281,8 @@ func allCollections() collectionSchema {
 
 		// TODO(ericsnow) Use a component-oriented registration mechanism...
 
-		// This collection holds information associated with workload processes.
-		"workloadprocesses": {},
+		// This collection holds information associated with workloads.
+		"workloads": {},
 
 		// -----
 

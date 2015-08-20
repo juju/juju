@@ -31,7 +31,7 @@ func init() {
 	gc.Suite(&cmdStorageSuite{})
 	gc.Suite(&cmdSystemSuite{})
 	gc.Suite(&dblogSuite{})
-	initProcessesSuites()
+	initWorkloadsSuites()
 }
 
 func Test(t *testing.T) {

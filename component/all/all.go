@@ -21,7 +21,7 @@ type component interface {
 }
 
 var components = []component{
-	&workloadProcesses{},
+	&workloads{},
 }
 
 // RegisterForServer registers all the parts of the components with the
