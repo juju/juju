@@ -184,8 +184,8 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertStorageTags(c, att, storageTag)
 
-	solver := storage.NewSolver(&mockOperations{}, att)
-	storage.SetStorageLife(solver, map[names.StorageTag]params.Life{
+	resolver := storage.NewResolver(&mockOperations{}, att)
+	storage.SetStorageLife(resolver, map[names.StorageTag]params.Life{
 		storageTag: params.Alive,
 	})
 	localState := operation.State{}
@@ -200,7 +200,7 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 			},
 		},
 	}
-	op, err := solver.NextOp(localState, remoteState)
+	op, err := resolver.NextOp(localState, remoteState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook storage-attached")
 

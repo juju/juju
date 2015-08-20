@@ -30,10 +30,10 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/worker/uniter/solver"
 	"github.com/juju/juju/worker/uniter/storage"
 )
 
@@ -215,18 +215,18 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return nil
 	}
 
-	uniterSolver := &uniterSolver{
+	uniterResolver := &uniterResolver{
 		opFactory:       u.operationFactory,
 		clearResolved:   clearResolved,
 		reportHookError: u.reportHookError,
 		charmURL:        charmURL,
-		leadershipSolver: uniterleadership.NewSolver(
+		leadershipResolver: uniterleadership.NewResolver(
 			u.operationFactory,
 		),
-		relationsSolver: relation.NewRelationsSolver(
+		relationsResolver: relation.NewRelationsResolver(
 			u.relations, u.operationFactory,
 		),
-		storageSolver: storage.NewSolver(
+		storageResolver: storage.NewResolver(
 			u.operationFactory, u.storage,
 		),
 	}
@@ -247,17 +247,17 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	for err == nil {
-		err = solverLoop(
-			uniterSolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
+		err = resolverLoop(
+			uniterResolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
 		)
 		switch errors.Cause(err) {
 		case tomb.ErrDying:
 			err = tomb.ErrDying
 		case operation.ErrHookFailed:
-			// Loop back around. The solver can tell that it is in
+			// Loop back around. The resolver can tell that it is in
 			// an error state by inspecting the operation state.
 			err = nil
-		case solver.ErrTerminate:
+		case resolver.ErrTerminate:
 			// TODO(axw) wait for subordinates to disappear,
 			// return worker.ErrTerminate.
 			err = u.terminate()

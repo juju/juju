@@ -179,10 +179,6 @@ func (s *FactorySuite) TestNewHookError_Run(c *gc.C) {
 	s.testNewHookError(c, (operation.Factory).NewRunHook)
 }
 
-func (s *FactorySuite) TestNewHookError_Retry(c *gc.C) {
-	s.testNewHookError(c, (operation.Factory).NewRetryHook)
-}
-
 func (s *FactorySuite) TestNewHookError_Skip(c *gc.C) {
 	s.testNewHookError(c, (operation.Factory).NewSkipHook)
 }
@@ -193,15 +189,6 @@ func (s *FactorySuite) TestNewHookString_Run(c *gc.C) {
 	c.Check(op.String(), gc.Equals, "run install hook")
 }
 
-func (s *FactorySuite) TestNewHookString_Retry(c *gc.C) {
-	op, err := s.factory.NewRetryHook(hook.Info{
-		Kind:       hooks.RelationBroken,
-		RelationId: 123,
-	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "clear resolved flag and run relation-broken (123) hook")
-}
-
 func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
 	op, err := s.factory.NewSkipHook(hook.Info{
 		Kind:       hooks.RelationJoined,
@@ -210,12 +197,6 @@ func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "clear resolved flag and skip run relation-joined (123; foo/22) hook")
-}
-
-func (s *FactorySuite) TestNewUpdateRelationsString(c *gc.C) {
-	op, err := s.factory.NewUpdateRelations([]int{1, 2, 3})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "update relations [1 2 3]")
 }
 
 func (s *FactorySuite) TestNewAcceptLeadershipString(c *gc.C) {

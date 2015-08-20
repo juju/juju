@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/solver"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
 type State interface {
@@ -42,6 +42,6 @@ func ReadAllStateFiles(dirPath string) (map[names.StorageTag]State, error) {
 	return states, nil
 }
 
-func SetStorageLife(solver solver.Solver, life map[names.StorageTag]params.Life) {
-	solver.(*storageSolver).life = life
+func SetStorageLife(resolver resolver.Resolver, life map[names.StorageTag]params.Life) {
+	resolver.(*storageResolver).life = life
 }
