@@ -38,7 +38,7 @@ type RemoteStateWatcher struct {
 	current Snapshot
 }
 
-// NewFilter returns a RemoteStateWatcher that handles state changes pertaining to the
+// NewWatcher returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
 func NewWatcher(st State, leadershipTracker leadership.Tracker, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{

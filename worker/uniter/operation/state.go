@@ -223,7 +223,7 @@ func (f *StateFile) Read() (*State, error) {
 // Write stores the supplied state to the file.
 func (f *StateFile) Write(st *State) error {
 	if err := st.validate(); err != nil {
-		panic(err)
+		return errors.Trace(err)
 	}
 	return utils.WriteYaml(f.path, st)
 }

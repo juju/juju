@@ -4,8 +4,6 @@
 package state
 
 import (
-	"strings"
-
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -159,12 +157,4 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 		panic("query must be bson.D, bson.M, or nil")
 	}
 	return outq
-}
-
-func ensureEnvUUID(envUUID, id string) string {
-	prefix := envUUID + ":"
-	if strings.HasPrefix(id, prefix) {
-		return id
-	}
-	return prefix + id
 }

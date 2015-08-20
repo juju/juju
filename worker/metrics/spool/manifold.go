@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/util"
 )
 
@@ -37,7 +36,7 @@ type MetricRecorder interface {
 // MetricReader reads metrics from a spool directory.
 type MetricReader interface {
 	// Read returns all metric batches stored in the spool directory.
-	Read() ([]metrics.MetricBatch, error)
+	Read() ([]MetricBatch, error)
 	// Remove removes the metric batch with the specified uuid
 	// from the spool directory.
 	Remove(uuid string) error
@@ -48,7 +47,7 @@ type MetricReader interface {
 // MetricFactory contains the metrics reader and recorder factories.
 type MetricFactory interface {
 	// Recorder returns a new MetricRecorder.
-	Recorder(metrics map[string]corecharm.Metric, charmURL string) (MetricRecorder, error)
+	Recorder(metrics map[string]corecharm.Metric, charmURL, unitTag string) (MetricRecorder, error)
 
 	// Reader returns a new MetricReader.
 	Reader() (MetricReader, error)
@@ -60,12 +59,17 @@ type factory struct {
 
 // Reader implements the MetricFactory interface.
 func (f *factory) Reader() (MetricReader, error) {
-	return metrics.NewJSONMetricReader(f.spoolDir)
+	return NewJSONMetricReader(f.spoolDir)
 }
 
 // Recorder implements the MetricFactory interface.
-func (f *factory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL string) (MetricRecorder, error) {
-	return metrics.NewJSONMetricRecorder(f.spoolDir, declaredMetrics, charmURL)
+func (f *factory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL, unitTag string) (MetricRecorder, error) {
+	return NewJSONMetricRecorder(MetricRecorderConfig{
+		SpoolDir: f.spoolDir,
+		Metrics:  declaredMetrics,
+		CharmURL: charmURL,
+		UnitTag:  unitTag,
+	})
 }
 
 var newFactory = func(spoolDir string) MetricFactory {

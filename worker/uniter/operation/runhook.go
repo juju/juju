@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -94,13 +95,13 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
-	case runner.IsMissingHookError(cause):
+	case context.IsMissingHookError(cause):
 		ranHook = false
 		err = nil
-	case cause == runner.ErrRequeueAndReboot:
+	case cause == context.ErrRequeueAndReboot:
 		step = Queued
 		fallthrough
-	case cause == runner.ErrReboot:
+	case cause == context.ErrReboot:
 		err = ErrNeedsReboot
 	case err == nil:
 	default:

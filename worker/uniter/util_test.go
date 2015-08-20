@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -95,9 +94,7 @@ type context struct {
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
-	collectMetricsTicker   *uniter.ManualTicker
-	sendMetricsTicker      *uniter.ManualTicker
-	updateStatusHookTicker *uniter.ManualTicker
+	updateStatusHookTicker *manualTicker
 	err                    string
 
 	wg             sync.WaitGroup
@@ -484,9 +481,9 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		MachineLock:          lock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
+		Observer:             ctx,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
-	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
 type waitUniterDead struct {
@@ -909,93 +906,11 @@ func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type collectMetricsTick struct {
-	expectFail bool
-}
-
-func (s collectMetricsTick) step(c *gc.C, ctx *context) {
-	err := ctx.collectMetricsTicker.Tick()
-	if s.expectFail {
-		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
 type updateStatusHookTick struct{}
 
 func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 	err := ctx.updateStatusHookTicker.Tick()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type sendMetricsTick struct {
-	expectFail bool
-}
-
-func (s sendMetricsTick) step(c *gc.C, ctx *context) {
-	err := ctx.sendMetricsTicker.Tick()
-	if s.expectFail {
-		c.Assert(err, gc.ErrorMatches, "ticker channel blocked")
-
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-type addMetrics struct {
-	values []string
-}
-
-func (s addMetrics) step(c *gc.C, ctx *context) {
-	var declaredMetrics map[string]corecharm.Metric
-	if ctx.sch.Metrics() != nil {
-		declaredMetrics = ctx.sch.Metrics().Metrics
-	}
-	spoolDir := filepath.Join(ctx.path, "state", "spool", "metrics")
-
-	recorder, err := metrics.NewJSONMetricRecorder(spoolDir, declaredMetrics, ctx.sch.URL().String())
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, value := range s.values {
-		recorder.AddMetric("pings", value, time.Now())
-	}
-
-	err = recorder.Close()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-type checkStateMetrics struct {
-	number int
-	values []string
-}
-
-func (s checkStateMetrics) step(c *gc.C, ctx *context) {
-	timeout := time.After(worstCase)
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("specified number of metric batches not received by the state server")
-		case <-time.After(coretesting.ShortWait):
-			batches, err := ctx.st.MetricBatches()
-			c.Assert(err, jc.ErrorIsNil)
-			if len(batches) != s.number {
-				continue
-			}
-			for _, value := range s.values {
-				found := false
-				for _, batch := range batches {
-					for _, metric := range batch.Metrics() {
-						if metric.Key == "pings" && metric.Value == value {
-							found = true
-						}
-					}
-				}
-				c.Assert(found, gc.Equals, true)
-			}
-			return
-		}
-	}
 }
 
 type changeConfig map[string]interface{}
@@ -1887,4 +1802,31 @@ type expectError struct {
 
 func (s expectError) step(c *gc.C, ctx *context) {
 	ctx.setExpectedError(s.err)
+}
+
+// manualTicker will be used to generate collect-metrics events
+// in a time-independent manner for testing.
+type manualTicker struct {
+	c chan time.Time
+}
+
+// Tick sends a signal on the ticker channel.
+func (t *manualTicker) Tick() error {
+	select {
+	case t.c <- time.Now():
+	case <-time.After(worstCase):
+		return fmt.Errorf("ticker channel blocked")
+	}
+	return nil
+}
+
+// ReturnTimer can be used to replace the metrics signal generator.
+func (t *manualTicker) ReturnTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
+	return t.c
+}
+
+func newManualTicker() *manualTicker {
+	return &manualTicker{
+		c: make(chan time.Time),
+	}
 }

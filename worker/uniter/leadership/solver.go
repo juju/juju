@@ -69,16 +69,18 @@ func (l *leadershipSolver) NextOp(
 				return l.opFactory.NewRunHook(*opState.Hook)
 			}
 		}
-	case operation.Continue:
-		if !opState.Leader && l.settingsVersion != remoteState.LeaderSettingsVersion {
-			op, err := l.opFactory.NewRunHook(hook.Info{Kind: hook.LeaderSettingsChanged})
-			if err != nil {
-				return nil, err
-			}
-			return leadersettingsChangedWrapper{
-				op, &l.settingsVersion, remoteState.LeaderSettingsVersion,
-			}, nil
+	}
+
+	// We want to run the leader settings hook if we're not the leader
+	// and the settings have changed.
+	if !opState.Leader && l.settingsVersion != remoteState.LeaderSettingsVersion {
+		op, err := l.opFactory.NewRunHook(hook.Info{Kind: hook.LeaderSettingsChanged})
+		if err != nil {
+			return nil, err
 		}
+		return leadersettingsChangedWrapper{
+			op, &l.settingsVersion, remoteState.LeaderSettingsVersion,
+		}, nil
 	}
 
 	logger.Infof("leadership status is up-to-date")

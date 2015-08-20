@@ -95,6 +95,9 @@ type InstanceConfig struct {
 	// metrics are stored.
 	MetricsSpoolDir string
 
+	// UniterStateDir holds the directory that the juju uniter will persist its state in.
+	UniterStateDir string
+
 	// Jobs holds what machine jobs to run.
 	Jobs []multiwatcher.MachineJob
 
@@ -221,6 +224,7 @@ func (cfg *InstanceConfig) AgentConfig(
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
 		LogDir:            cfg.LogDir,
+		UniterStateDir:    cfg.UniterStateDir,
 		Jobs:              cfg.Jobs,
 		MetricsSpoolDir:   cfg.MetricsSpoolDir,
 		Tag:               tag,
@@ -295,6 +299,12 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	if cfg.LogDir == "" {
 		return errors.New("missing log directory")
+	}
+	if cfg.MetricsSpoolDir == "" {
+		return errors.New("missing metrics spool directory")
+	}
+	if cfg.UniterStateDir == "" {
+		return errors.New("missing uniter state directory")
 	}
 	if len(cfg.Jobs) == 0 {
 		return errors.New("missing machine jobs")
@@ -411,6 +421,7 @@ func NewInstanceConfig(
 		return nil, err
 	}
 	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
+	uniterStateDir, err := paths.UniterStateDir(series)
 	if err != nil {
 		return nil, err
 	}
@@ -420,6 +431,7 @@ func NewInstanceConfig(
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
 		MetricsSpoolDir:         metricsSpoolDir,
+		UniterStateDir:          uniterStateDir,
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),

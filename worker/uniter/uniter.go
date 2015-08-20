@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/solver"
 	"github.com/juju/juju/worker/uniter/storage"
@@ -55,10 +56,9 @@ type UniterExecutionObserver interface {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb  tomb.Tomb
-	st    *uniter.State
-	paths Paths
-	//f         filter.Filter
+	tomb      tomb.Tomb
+	st        *uniter.State
+	paths     Paths
 	unit      *uniter.Unit
 	relations relation.Relations
 	cleanups  []cleanup
@@ -100,6 +100,10 @@ type UniterParams struct {
 	MachineLock          *fslock.Lock
 	UpdateStatusSignal   TimedSignal
 	NewOperationExecutor NewExecutorFunc
+	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
+	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
+	// that write to files, and have the tests watch the output to know that hooks have finished.
+	Observer UniterExecutionObserver
 }
 
 type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
@@ -144,45 +148,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
 	}
 	logger.Infof("unit %q started", u.unit)
-
-	/*
-		// Start filtering state change events for consumption by modes.
-		u.f, err = filter.NewFilter(u.st, unitTag)
-		if err != nil {
-			return err
-		}
-		u.addCleanup(u.f.Stop)
-
-		// Stop the uniter if the filter fails.
-		go func() { u.tomb.Kill(u.f.Wait()) }()
-
-		// Start handling leader settings events, or not, as appropriate.
-		u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
-
-		// Run modes until we encounter an error.
-		mode := ModeContinue
-		for err == nil {
-			select {
-			case <-u.tomb.Dying():
-				err = tomb.ErrDying
-			default:
-				mode, err = mode(u)
-				switch cause := errors.Cause(err); cause {
-				case operation.ErrNeedsReboot:
-					err = worker.ErrRebootMachine
-				case tomb.ErrDying, worker.ErrTerminateAgent:
-					err = cause
-				case operation.ErrHookFailed:
-					mode, err = ModeHookError, nil
-				default:
-					charmURL, ok := operation.DeployConflictCharmURL(cause)
-					if ok {
-						mode, err = ModeConflicted(charmURL), nil
-					}
-				}
-			}
-		}
-	*/
 
 	// Install is a special case, as it must run before there
 	// is any remote state, and before the remote state watcher
@@ -395,7 +360,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
-	contextFactory, err := runner.NewContextFactory(
+	contextFactory, err := context.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
 	)
 	if err != nil {
@@ -413,7 +378,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Callbacks:      &operationCallbacks{u},
 		StorageUpdater: u.storage,
 		Abort:          u.tomb.Dying(),
-		MetricSender:   u.unit,
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 

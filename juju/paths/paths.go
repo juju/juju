@@ -20,6 +20,7 @@ const (
 	jujuRun
 	certDir
 	metricsSpoolDir
+	uniterStateDir
 )
 
 var nixVals = map[osVarType]string{
@@ -31,6 +32,7 @@ var nixVals = map[osVarType]string{
 	jujuRun:         "/usr/bin/juju-run",
 	certDir:         "/etc/juju/certs.d",
 	metricsSpoolDir: "/var/lib/juju/metricspool",
+	uniterStateDir:  "/var/lib/juju/uniter/state",
 }
 
 var winVals = map[osVarType]string{
@@ -42,6 +44,7 @@ var winVals = map[osVarType]string{
 	jujuRun:         "C:/Juju/bin/juju-run.exe",
 	certDir:         "C:/Juju/certs",
 	metricsSpoolDir: "C:/Juju/lib/juju/metricspool",
+	uniterStateDir:  "C:/Juju/lib/juju/uniter/state",
 }
 
 // osVal will lookup the value of the key valname
@@ -83,6 +86,12 @@ func DataDir(series string) (string, error) {
 // to store metrics.
 func MetricsSpoolDir(series string) (string, error) {
 	return osVal(series, metricsSpoolDir)
+}
+
+// UniterStateDir returns a filesystem path to the folder used by juju to
+// persist whether the uniter has started or not.
+func UniterStateDir(series string) (string, error) {
+	return osVal(series, uniterStateDir)
 }
 
 // CertDir returns a filesystem path to the folder used by juju to

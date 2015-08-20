@@ -34,10 +34,11 @@ var logger = loggo.GetLogger("juju.agent")
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir          = paths.MustSucceed(paths.LogDir(version.Current.Series))
-	dataDir         = paths.MustSucceed(paths.DataDir(version.Current.Series))
-	confDir         = paths.MustSucceed(paths.ConfDir(version.Current.Series))
-	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
+	logDir                = paths.MustSucceed(paths.LogDir(version.Current.Series))
+	dataDir               = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	confDir               = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+	metricsSpoolDir       = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
+	defaultUniterStateDir = paths.MustSucceed(paths.UniterStateDir(version.Current.Series))
 )
 
 // Agent exposes the agent's configuration to other components. This
@@ -145,6 +146,9 @@ type Config interface {
 
 	// Dir returns the agent's directory.
 	Dir() string
+
+	// UniterStateDir returns the directory for persisting uniter execution status.
+	UniterStateDir() string
 
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
@@ -301,6 +305,7 @@ type configInternal struct {
 	configFilePath    string
 	dataDir           string
 	logDir            string
+	uniterStateDir    string
 	tag               names.Tag
 	nonce             string
 	environment       names.EnvironTag
@@ -319,6 +324,7 @@ type configInternal struct {
 type AgentConfigParams struct {
 	DataDir           string
 	LogDir            string
+	UniterStateDir    string
 	Jobs              []multiwatcher.MachineJob
 	UpgradedToVersion version.Number
 	Tag               names.Tag
@@ -347,6 +353,11 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.MetricsSpoolDir != "" {
 		spoolDir = configParams.MetricsSpoolDir
 	}
+	uniterStateDir := defaultUniterStateDir
+	if configParams.UniterStateDir != "" {
+		uniterStateDir = configParams.UniterStateDir
+	}
+
 	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
@@ -375,6 +386,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	config := &configInternal{
 		logDir:            logDir,
 		dataDir:           configParams.DataDir,
+		uniterStateDir:    uniterStateDir,
 		jobs:              configParams.Jobs,
 		upgradedToVersion: configParams.UpgradedToVersion,
 		tag:               configParams.Tag,
@@ -676,6 +688,10 @@ func (c *configInternal) Environment() names.EnvironTag {
 
 func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
+}
+
+func (c *configInternal) UniterStateDir() string {
+	return c.uniterStateDir
 }
 
 func (c *configInternal) check() error {
