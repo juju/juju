@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/hook"
 	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -188,7 +189,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// is started.
 	var charmURL *corecharm.URL
 	opState := u.operationExecutor.State()
-	if !opState.Installed {
+	if opState.Kind == operation.Install {
 		logger.Infof("resuming charm install")
 		op, err := u.operationFactory.NewInstall(opState.CharmURL)
 		if err != nil {
@@ -236,10 +237,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return setAgentStatus(u, params.StatusIdle, "", nil)
 	}
 
-	setAgentStatus := func(s params.Status, msg string, data map[string]interface{}) error {
-		return setAgentStatus(u, s, msg, data)
-	}
-
 	clearResolved := func() error {
 		if err := u.unit.ClearResolved(); err != nil {
 			return errors.Trace(err)
@@ -249,10 +246,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	uniterSolver := &uniterSolver{
-		opFactory:      u.operationFactory,
-		setAgentStatus: setAgentStatus,
-		clearResolved:  clearResolved,
-		charmURL:       charmURL,
+		opFactory:       u.operationFactory,
+		clearResolved:   clearResolved,
+		reportHookError: u.reportHookError,
+		charmURL:        charmURL,
 		leadershipSolver: uniterleadership.NewSolver(
 			u.operationFactory, u.leadershipTracker,
 		),
@@ -579,4 +576,26 @@ func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
 		logger.Debugf("unlock: %v", message)
 		return u.hookLock.Unlock()
 	}, nil
+}
+
+func (u *Uniter) reportHookError(hookInfo hook.Info) error {
+	// Set the agent status to "error". We must do this here in case the
+	// hook is interrupted (e.g. unit agent crashes), rather than immediately
+	// after attempting a runHookOp.
+	hookName := string(hookInfo.Kind)
+	statusData := map[string]interface{}{}
+	if hookInfo.Kind.IsRelation() {
+		statusData["relation-id"] = hookInfo.RelationId
+		if hookInfo.RemoteUnit != "" {
+			statusData["remote-unit"] = hookInfo.RemoteUnit
+		}
+		relationName, err := u.relations.Name(hookInfo.RelationId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
+	}
+	statusData["hook"] = hookName
+	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
+	return setAgentStatus(u, params.StatusError, statusMessage, statusData)
 }

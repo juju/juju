@@ -63,7 +63,10 @@ func (l *leadershipSolver) NextOp(
 	switch {
 	case isLeader && canAcceptLeader:
 		return l.opFactory.NewAcceptLeadership()
-	case opState.Leader && !isLeader:
+
+	// If we're the leader but should not be any longer, or
+	// if the unit is dying, we should resign leadership.
+	case opState.Leader && (!isLeader || remoteState.Life == params.Dying):
 		return l.opFactory.NewResignLeadership()
 	}
 

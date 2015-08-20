@@ -1,8 +1,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/hooks"
@@ -15,9 +13,9 @@ import (
 )
 
 type uniterSolver struct {
-	opFactory      operation.Factory
-	setAgentStatus func(params.Status, string, map[string]interface{}) error
-	clearResolved  func() error
+	opFactory       operation.Factory
+	clearResolved   func() error
+	reportHookError func(hook.Info) error
 
 	charmURL      *charm.URL
 	configVersion int
@@ -38,25 +36,13 @@ func (s *uniterSolver) NextOp(
 	}
 
 	op, err := s.leadershipSolver.NextOp(opState, remoteState)
-	if err != solver.ErrNoOperation {
+	if errors.Cause(err) != solver.ErrNoOperation {
 		return op, err
 	}
 
 	op, err = s.storageSolver.NextOp(opState, remoteState)
-	if err != solver.ErrNoOperation {
+	if errors.Cause(err) != solver.ErrNoOperation {
 		return op, err
-	}
-
-	// Now that storage hooks have run at least once, before anything else,
-	// we need to run the install hook.
-	if !opState.Installed {
-		if opState.Kind == operation.RunHook || opState.Kind == operation.Continue {
-			opState.Hook = &hook.Info{Kind: hooks.Install}
-			logger.Infof("found queued %q hook", opState.Hook.Kind)
-			return s.opFactory.NewRunHook(*opState.Hook)
-		} else {
-			return nil, solver.ErrNoOperation
-		}
 	}
 
 	switch opState.Kind {
@@ -67,9 +53,6 @@ func (s *uniterSolver) NextOp(
 			return s.nextOpHookError(opState, remoteState)
 
 		case operation.Queued:
-			if !opState.Installed {
-				opState.Hook = &hook.Info{Kind: hooks.Install}
-			}
 			logger.Infof("found queued %q hook", opState.Hook.Kind)
 			return s.opFactory.NewRunHook(*opState.Hook)
 
@@ -95,30 +78,8 @@ func (s *uniterSolver) nextOpHookError(
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
 
-	// Set the agent status to "error". We must do this here in case the
-	// hook is interrupted (e.g. unit agent crashes), rather than immediately
-	// after attempting a runHookOp.
-	hookInfo := *opState.Hook
-	hookName := string(hookInfo.Kind)
-	statusData := map[string]interface{}{}
-	/*
-		if hookInfo.Kind.IsRelation() {
-			statusData["relation-id"] = hookInfo.RelationId
-			if hookInfo.RemoteUnit != "" {
-				statusData["remote-unit"] = hookInfo.RemoteUnit
-			}
-			relationName, err := u.relations.Name(hookInfo.RelationId)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
-		}
-	*/
-	statusData["hook"] = hookName
-	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-	if err := s.setAgentStatus(
-		params.StatusError, statusMessage, statusData,
-	); err != nil {
+	// Report the hook error.
+	if err := s.reportHookError(*opState.Hook); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -169,7 +130,7 @@ func (s *uniterSolver) nextOp(
 		// TODO(axw) move logic for cascading destruction of
 		//           subordinates, relation units and storage
 		//           attachments into state, via cleanups.
-		if !opState.Stopped {
+		if opState.Started && !opState.Stopped {
 			return s.opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
 		}
 		fallthrough
@@ -178,6 +139,12 @@ func (s *uniterSolver) nextOp(
 		// The unit is dying/dead and stopped, so tell the uniter
 		// to terminate.
 		return nil, solver.ErrTerminate
+	}
+
+	// Now that storage hooks have run at least once, before anything else,
+	// we need to run the install hook.
+	if !opState.Installed {
+		return s.opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
 	if *s.charmURL != *remoteState.CharmURL {

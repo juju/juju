@@ -2127,7 +2127,7 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			waitHooks(startupHooks(false)),
 			unitDying,
 			// storage-detaching is not called because it was never attached
-			waitHooks{"stop"},
+			waitHooks{"leader-settings-changed", "stop"},
 			verifyStorageDetached{},
 			waitUniterDead{},
 		), ut(
@@ -2148,14 +2148,10 @@ func (s *UniterSuite) TestStorage(c *gc.C) {
 			serveCharm{},
 			ensureStateWorker{},
 			createServiceAndUnit{},
-			startUniter{},
-			// no hooks should be run, as storage isn't provisioned
-			waitHooks{},
 			unitDying,
-			// TODO(axw) should we really be running startup hooks
-			// when the unit is dying?
-			waitHooks(startupHooks(true)),
-			waitHooks{"stop"},
+			startUniter{},
+			// no hooks should be run, and unit agent should terminate
+			waitHooks{},
 			waitUniterDead{},
 		),
 		// TODO(axw) test that storage-attached is run for new
