@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package plugin contains the code that interfaces with plugins for workload
-// process technologies such as Docker, Rocket, or systemd.
+// workload technologies such as Docker, Rocket, or systemd.
 //
 // Plugins of this type are expected to handle three commands: launch, status,
 // and stop.  See the functions of the same name for more information about each
@@ -26,15 +26,15 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 )
 
-const pluginPrefix = "juju-process-"
+const pluginPrefix = "juju-workload-"
 
-var logger = loggo.GetLogger("juju.process.plugin")
+var logger = loggo.GetLogger("juju.workload.plugin")
 
 // Plugin represents a provider for launching, destroying, and introspecting
-// workload processes via a specific technology such as Docker or systemd.
+// workload via a specific technology such as Docker or systemd.
 type Plugin struct {
 	// Name is the name of the plugin.
 	Name string
@@ -58,17 +58,17 @@ func Find(name string) (*Plugin, error) {
 }
 
 // Launch runs the given plugin, passing it the "launch" command, with the
-// process definition passed as json to launch as an argument:
+// workload definition passed as json to launch as an argument:
 //
-//		<plugin> launch <process-definition>
+//		<plugin> launch <workload-definition>
 //
-// Process definition is the serialization of the Process struct from
+// Workload definition is the serialization of the Workload struct from
 // github.com/juju/charm, for example:
 //
 //		{
-//			"name" : "procname",
+//			"name" : "workloadname",
 //			"description" : "desc",
-//			"type" : "proctype",
+//			"type" : "workloadtype",
 //			"typeOptions" : {
 //				"key1" : "val1"
 //			},
@@ -81,34 +81,34 @@ func Find(name string) (*Plugin, error) {
 //			}
 //		}
 //
-// The plugin is expected to start the image as a new process, and write json
+// The plugin is expected to start the image as a new Workload, and write json
 // output to stdout.  The form of the output is expected to conform to the
-// process.Details struct.
+// workload.Details struct.
 //
 //		{
-//			"id" : "some-id", # unique id of the process
-//			"status" : "details" # plugin-specific metadata about the started process
+//			"id" : "some-id", # unique id of the Workload
+//			"status" : "details" # plugin-specific metadata about the started workload
 //		}
 //
-// The id should be a unique identifier of the process that the plugin can use
-// later to introspect the process and/or stop it. The contents of status can
+// The id should be a unique identifier of the workload that the plugin can use
+// later to introspect the workload and/or stop it. The contents of status can
 // be whatever information the plugin thinks might be relevant to see in the
 // service's status output.
-func (p Plugin) Launch(proc charm.Process) (process.Details, error) {
-	var details process.Details
-	b, err := json.Marshal(proc)
+func (p Plugin) Launch(wl charm.Workload) (workload.Details, error) {
+	var details workload.Details
+	b, err := json.Marshal(wl)
 	if err != nil {
-		return details, errors.Annotate(err, "can't convert charm.Process to json")
+		return details, errors.Annotate(err, "can't convert charm.Workload to json")
 	}
 	out, err := p.run("launch", string(b))
 	if err != nil {
 		return details, errors.Trace(err)
 	}
-	return process.UnmarshalDetails(out)
+	return workload.UnmarshalDetails(out)
 }
 
 // Destroy runs the given plugin, passing it the "destroy" command, with the id of the
-// process to destroy as an argument.
+// workload to destroy as an argument.
 //
 //		<plugin> destroy <id>
 func (p Plugin) Destroy(id string) error {
@@ -117,15 +117,15 @@ func (p Plugin) Destroy(id string) error {
 }
 
 // Status runs the given plugin, passing it the "status" command, with the id of
-// the process to get status about.
+// the workload to get status about.
 //
 //		<plugin> status <id>
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
-func (p Plugin) Status(id string) (process.PluginStatus, error) {
+func (p Plugin) Status(id string) (workload.PluginStatus, error) {
 	out, err := p.run("status", id)
-	var status process.PluginStatus
+	var status workload.PluginStatus
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -149,7 +149,7 @@ func (p Plugin) run(subcommand string, args ...string) ([]byte, error) {
 // and any args in args as further arguments.  It logs to loggo using the name
 // as a namespace.
 var runCmd = func(name string, cmd *exec.Cmd) ([]byte, error) {
-	log := getLogger("juju.process.plugin." + name)
+	log := getLogger("juju.workload.plugin." + name)
 	stdout := &bytes.Buffer{}
 	cmd.Stdout = stdout
 	err := deputy.Deputy{

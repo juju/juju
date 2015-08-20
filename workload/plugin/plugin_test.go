@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/workload"
 )
 
 type suite struct {
@@ -32,13 +32,13 @@ func (s *suite) TestLaunch(c *gc.C) {
 	s.PatchValue(&runCmd, f.runCmd)
 
 	p := Plugin{"Name", "Path"}
-	proc := charm.Process{Image: "img"}
+	wl := charm.Workload{Image: "img"}
 
-	pd, err := p.Launch(proc)
+	pd, err := p.Launch(wl)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pd, gc.Equals, process.Details{
+	c.Assert(pd, gc.Equals, workload.Details{
 		ID: "foo",
-		Status: process.PluginStatus{
+		Status: workload.PluginStatus{
 			State: "bar",
 		},
 	})
@@ -47,7 +47,7 @@ func (s *suite) TestLaunch(c *gc.C) {
 	c.Assert(f.cmd.Path, gc.Equals, p.Executable)
 	c.Assert(f.cmd.Args[1], gc.Equals, "launch")
 	c.Assert(f.cmd.Args[2:], gc.HasLen, 1)
-	// fix this to be more stringent when we fix json serialization for charm.Process
+	// fix this to be more stringent when we fix json serialization for charm.Workload
 	c.Assert(f.cmd.Args[2], gc.Matches, `.*"Image":"img".*`)
 }
 
@@ -58,10 +58,10 @@ func (s *suite) TestLaunchBadOutput(c *gc.C) {
 	s.PatchValue(&runCmd, f.runCmd)
 
 	p := Plugin{"Name", "Path"}
-	proc := charm.Process{Image: "img"}
+	wl := charm.Workload{Image: "img"}
 
-	_, err := p.Launch(proc)
-	c.Assert(err, gc.ErrorMatches, `error parsing data for workload process details.*`)
+	_, err := p.Launch(wl)
+	c.Assert(err, gc.ErrorMatches, `error parsing data for workload details.*`)
 }
 
 func (s *suite) TestLaunchNoId(c *gc.C) {
@@ -71,9 +71,9 @@ func (s *suite) TestLaunchNoId(c *gc.C) {
 	s.PatchValue(&runCmd, f.runCmd)
 
 	p := Plugin{"Name", "Path"}
-	proc := charm.Process{Image: "img"}
+	wl := charm.Workload{Image: "img"}
 
-	_, err := p.Launch(proc)
+	_, err := p.Launch(wl)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -84,9 +84,9 @@ func (s *suite) TestLaunchNoStatus(c *gc.C) {
 	s.PatchValue(&runCmd, f.runCmd)
 
 	p := Plugin{"Name", "Path"}
-	proc := charm.Process{Image: "img"}
+	wl := charm.Workload{Image: "img"}
 
-	_, err := p.Launch(proc)
+	_, err := p.Launch(wl)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -97,9 +97,9 @@ func (s *suite) TestLaunchErr(c *gc.C) {
 	s.PatchValue(&runCmd, f.runCmd)
 
 	p := Plugin{"Name", "Path"}
-	proc := charm.Process{Image: "img"}
+	wl := charm.Workload{Image: "img"}
 
-	_, err := p.Launch(proc)
+	_, err := p.Launch(wl)
 	c.Assert(errors.Cause(err), gc.Equals, f.err)
 }
 
@@ -113,7 +113,7 @@ func (s *suite) TestStatus(c *gc.C) {
 
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, process.PluginStatus{
+	c.Assert(status, gc.Equals, workload.PluginStatus{
 		State: "status!",
 	})
 	c.Assert(f.name, gc.DeepEquals, p.Name)
@@ -171,7 +171,7 @@ func (s *suite) TestRunCmd(c *gc.C) {
 	out, err := runCmd("name", cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.TrimSpace(string(out)), gc.DeepEquals, m.stdout)
-	c.Assert(f.name, gc.Equals, "juju.process.plugin.name")
+	c.Assert(f.name, gc.Equals, "juju.workload.plugin.name")
 	c.Assert(f.logs, gc.DeepEquals, []string{"bar!", "baz!"})
 }
 
@@ -230,7 +230,7 @@ type maker struct {
 }
 
 func (m maker) make() *exec.Cmd {
-	cmd := exec.Command(os.Args[0], "-test.run=TestHelperProcess")
+	cmd := exec.Command(os.Args[0], "-test.run=TestHelperWorkload")
 	cmd.Env = []string{
 		fmt.Sprintf("%s=%s", isHelperProc, "1"),
 		fmt.Sprintf("%s=%s", helperStdout, m.stdout),
@@ -240,7 +240,7 @@ func (m maker) make() *exec.Cmd {
 	return cmd
 }
 
-func TestHelperProcess(*stdtesting.T) {
+func TestHelperWorkload(*stdtesting.T) {
 	if os.Getenv(isHelperProc) != "1" {
 		return
 	}
