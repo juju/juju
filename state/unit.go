@@ -195,9 +195,9 @@ func (u *Unit) Life() Life {
 	return u.doc.Life
 }
 
-// Processes returns the UnitProcesses for this unit.
-func (u *Unit) Processes() (UnitProcesses, error) {
-	return u.st.UnitProcesses(u)
+// Workloads returns the UnitWorkloads for this unit.
+func (u *Unit) Workloads() (UnitWorkloads, error) {
+	return u.st.UnitWorkloads(u)
 }
 
 // AgentTools returns the tools that the agent is currently running.
