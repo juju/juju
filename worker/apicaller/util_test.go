@@ -72,6 +72,14 @@ func (mock *mockConn) Close() error {
 	return mock.stub.NextErr()
 }
 
+type mockGate struct {
+	stub *testing.Stub
+}
+
+func (mock *mockGate) Unlock() {
+	mock.stub.AddCall("Unlock")
+}
+
 type dummyWorker struct {
 	worker.Worker
 }

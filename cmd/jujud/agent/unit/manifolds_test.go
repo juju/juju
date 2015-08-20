@@ -79,11 +79,12 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	}
 
 	manifolds := unit.Manifolds(config)
-	c.Assert(manifolds, gc.HasLen, 12)
+	c.Assert(manifolds, gc.HasLen, 13)
 	expectedKeys := []string{
 		unit.AgentName,
 		unit.APIAdddressUpdaterName,
 		unit.APICallerName,
+		unit.APIInfoGateName,
 		unit.LeadershipTrackerName,
 		unit.LoggingConfigUpdaterName,
 		unit.LogSenderName,
