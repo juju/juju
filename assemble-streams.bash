@@ -465,6 +465,10 @@ generate_streams() {
         other_file="$JUJU_DIST/tools/$other_file"
         cp $product_file $other_file
     done
+    if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
+        cp $STREAM_DIR/com.ubuntu.juju-released-tools.json \
+           $STREAM_DIR/com.ubuntu.juju-devel-tools.json
+    fi
     echo "Copied current product files to other product files for transition."
 
     # Ensure the new json metadata matches the expected removed and added.
@@ -477,6 +481,8 @@ generate_streams() {
     fi
     if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
         $SCRIPT_DIR/copy_stream.py $STREAM_DIR/index2.json released devel
+        cp $STREAM_DIR/com.ubuntu.juju-released-tools.json \
+           $STREAM_DIR/com.ubuntu.juju-devel-tools.json
     fi
     set +x
     echo "The tools are in ${DEST_DIST}."
