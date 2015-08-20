@@ -734,7 +734,6 @@ func (s *MachineSuite) TestAddresserWorkerRunsIfFeatureFlagEnabled(c *gc.C) {
 
 	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
 		w, err := addresser.NewWorker(api)
-		// TODO(mue) Get "connection is shut down" here?!?
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
 		return w, err
@@ -745,9 +744,10 @@ func (s *MachineSuite) TestAddresserWorkerRunsIfFeatureFlagEnabled(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
+	// Wait for firewaller as last worker.
 	s.singularRecord.nextRunner(c)
 	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "addresserworker")
+	runner.waitForWorker(c, "firewaller")
 }
 
 func (s *MachineSuite) TestAddresserWorkerIsFineshedIfFeatureFlagDisabled(c *gc.C) {
@@ -755,7 +755,6 @@ func (s *MachineSuite) TestAddresserWorkerIsFineshedIfFeatureFlagDisabled(c *gc.
 
 	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
 		w, err := addresser.NewWorker(api)
-		// TODO(mue) Get "connection is shut down" here?!?
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
 		return w, err
@@ -766,9 +765,10 @@ func (s *MachineSuite) TestAddresserWorkerIsFineshedIfFeatureFlagDisabled(c *gc.
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
+	// Wait for firewaller as last worker.
 	s.singularRecord.nextRunner(c)
 	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "addresserworker")
+	runner.waitForWorker(c, "firewaller")
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
