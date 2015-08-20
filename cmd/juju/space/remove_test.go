@@ -5,11 +5,12 @@ package space_test
 
 import (
 	"github.com/juju/errors"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/feature"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type RemoveSuite struct {
@@ -19,6 +20,7 @@ type RemoveSuite struct {
 var _ = gc.Suite(&RemoveSuite{})
 
 func (s *RemoveSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.command = space.NewRemoveCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
@@ -54,7 +56,8 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		command := space.NewRemoveCommand(s.api)
 		err := coretesting.InitCommand(command, test.args)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			prefixedErr := "invalid arguments specified: " + test.expectErr
+			c.Check(err, gc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
@@ -64,27 +67,35 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *RemoveSuite) TestRunValidSpaceSucceeds(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(c, "myspace")
-	s.CheckOutputsStderr(c, stdout, stderr, err, `removed space "myspace"\n`)
+func (s *RemoveSuite) TestRunWithValidSpaceSucceeds(c *gc.C) {
+	s.AssertRunSucceeds(c,
+		`removed space "myspace"\n`,
+		"", // no stdout, just stderr
+		"myspace",
+	)
+
 	s.api.CheckCallNames(c, "RemoveSpace", "Close")
 	s.api.CheckCall(c, 0, "RemoveSpace", "myspace")
 }
 
-func (s *RemoveSuite) TestRunWithNonExistentSpaceFails(c *gc.C) {
-	s.api.SetErrors(errors.NotFoundf("space %q", "foo"))
+func (s *RemoveSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
+	s.api.SetErrors(errors.New("boom"))
 
-	stdout, stderr, err := s.RunSubCommand(c, "foo")
-	s.CheckOutputsErr(c, stdout, stderr, err, `cannot remove space "foo": space "foo" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	s.AssertRunFails(c,
+		`cannot remove space "myspace": boom`,
+		"myspace",
+	)
+
 	s.api.CheckCallNames(c, "RemoveSpace", "Close")
+	s.api.CheckCall(c, 0, "RemoveSpace", "myspace")
 }
 
 func (s *RemoveSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
 	s.command = space.NewRemoveCommand(nil)
-	stdout, stderr, err := s.RunSubCommand(c, "myspace")
-	s.CheckOutputsErr(c, stdout, stderr, err, "cannot connect to API server: API not implemented yet!")
+	s.AssertRunFails(c,
+		"cannot connect to the API server: no environment specified",
+		"myname", // Drop the args once RunWitnAPI is called internally.
+	)
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

@@ -71,7 +71,7 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpace *Space, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add space %q", name)
+	defer errors.DeferredAnnotatef(&err, "adding space %q", name)
 	if !names.IsValidSpace(name) {
 		return nil, errors.NewNotValid(nil, "invalid space name")
 	}
@@ -105,18 +105,19 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 		})
 	}
 
-	if err = st.runTransaction(ops); err == txn.ErrAborted {
-		if _, err = st.Space(name); err == nil {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		if _, err := st.Space(name); err == nil {
 			return nil, errors.AlreadyExistsf("space %q", name)
 		}
 		for _, subnetId := range subnets {
-			_, err := st.Subnet(subnetId)
-			if errors.IsNotFound(err) {
+			if _, err := st.Subnet(subnetId); errors.IsNotFound(err) {
 				return nil, err
 			}
 		}
+	} else if err != nil {
+		return nil, err
 	}
-	return newSpace, err
+	return newSpace, nil
 }
 
 // Space returns a space from state that matches the provided name. An error

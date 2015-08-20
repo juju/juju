@@ -47,7 +47,9 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.facade, err = spaces.NewAPI(apiservertesting.BackingInstance, s.resources, s.authorizer)
+	s.facade, err = spaces.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, s.authorizer,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
 }
@@ -59,9 +61,11 @@ func (s *SpacesSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *SpacesSuite) TestNewAPI(c *gc.C) {
+func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
-	facade, err := spaces.NewAPI(apiservertesting.BackingInstance, s.resources, s.authorizer)
+	facade, err := spaces.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, s.authorizer,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
 	// No calls so far.
@@ -70,7 +74,9 @@ func (s *SpacesSuite) TestNewAPI(c *gc.C) {
 	// Agents are not allowed
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
-	facade, err = spaces.NewAPI(apiservertesting.BackingInstance, s.resources, agentAuthorizer)
+	facade, err = spaces.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, agentAuthorizer,
+	)
 	c.Assert(err, jc.DeepEquals, common.ErrPerm)
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
@@ -122,14 +128,16 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 func (s *SpacesSuite) TestAddSpacesOneSubnet(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "foo",
-		Subnets: []string{"10.0.0.0/24"}}
+		Subnets: []string{"10.0.0.0/24"},
+	}
 	s.checkAddSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestAddSpacesTwoSubnets(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "foo",
-		Subnets: []string{"10.0.0.0/24", "10.0.1.0/24"}}
+		Subnets: []string{"10.0.0.0/24", "10.0.1.0/24"},
+	}
 	s.checkAddSpaces(c, p)
 }
 
@@ -137,7 +145,8 @@ func (s *SpacesSuite) TestAddSpacesManySubnets(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name: "foo",
 		Subnets: []string{"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24",
-			"10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"}}
+			"10.0.3.0/24", "10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"},
+	}
 	s.checkAddSpaces(c, p)
 }
 
@@ -147,7 +156,8 @@ func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
 		Name:      "foo",
 		Subnets:   []string{"10.0.0.0/24"},
 		MakesCall: true,
-		Error:     "cannot create space: space-foo already exists"}
+		Error:     "space-foo already exists",
+	}
 	s.checkAddSpaces(c, p)
 }
 
@@ -155,7 +165,8 @@ func (s *SpacesSuite) TestCreateInvalidSpace(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "-",
 		Subnets: []string{"10.0.0.0/24"},
-		Error:   "given SpaceTag is invalid: \"space--\" is not a valid space tag"}
+		Error:   `"space--" is not a valid space tag`,
+	}
 	s.checkAddSpaces(c, p)
 }
 
@@ -163,7 +174,8 @@ func (s *SpacesSuite) TestCreateInvalidSubnet(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "foo",
 		Subnets: []string{"bar"},
-		Error:   "given SubnetTag is invalid: \"subnet-bar\" is not a valid subnet tag"}
+		Error:   `"subnet-bar" is not a valid subnet tag`,
+	}
 	s.checkAddSpaces(c, p)
 }
 
@@ -171,21 +183,24 @@ func (s *SpacesSuite) TestPublic(c *gc.C) {
 	p := checkAddSpacesParams{
 		Name:    "foo",
 		Subnets: []string{"10.0.0.0/24"},
-		Public:  true}
+		Public:  true,
+	}
 	s.checkAddSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestEmptySpaceName(c *gc.C) {
 	p := checkAddSpacesParams{
 		Subnets: []string{"10.0.0.0/24"},
-		Error:   "given SpaceTag is invalid: \"\" is not a valid tag"}
+		Error:   `"" is not a valid tag`,
+	}
 	s.checkAddSpaces(c, p)
 }
 
 func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 	p := checkAddSpacesParams{
-		Name:  "foo",
-		Error: "calling CreateSpaces with zero subnets is not valid"}
+		Name:    "foo",
+		Subnets: nil,
+	}
 	s.checkAddSpaces(c, p)
 }
 
@@ -241,10 +256,10 @@ func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
-	boom := errors.New("boom")
+	boom := errors.New("backing boom")
 	apiservertesting.BackingInstance.SetErrors(boom)
 	_, err := s.facade.ListSpaces()
-	c.Assert(err, gc.ErrorMatches, "cannot list spaces: boom")
+	c.Assert(err, gc.ErrorMatches, "backing boom")
 }
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
@@ -252,7 +267,7 @@ func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(nil, boom, boom, boom)
 	results, err := s.facade.ListSpaces()
 	for _, space := range results.Results {
-		c.Assert(space.Error, gc.ErrorMatches, "could not fetch subnets: boom")
+		c.Assert(space.Error, gc.ErrorMatches, "fetching subnets: boom")
 	}
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -264,7 +279,7 @@ func (s *SpacesSuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 	results, err := s.facade.ListSpaces()
 	for i, space := range results.Results {
 		if i == 1 {
-			c.Assert(space.Error, gc.ErrorMatches, "could not fetch subnets: boom")
+			c.Assert(space.Error, gc.ErrorMatches, "fetching subnets: boom")
 		} else {
 			c.Assert(space.Error, gc.IsNil)
 		}

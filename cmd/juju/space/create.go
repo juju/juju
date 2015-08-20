@@ -4,6 +4,7 @@
 package space
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -19,10 +20,8 @@ type CreateCommand struct {
 }
 
 const createCommandDoc = `
-Creates a new space with the given name and associates the given list
-of existing subnet CIDRs with it. At least one CIDR must be specified,
-as except for the "default" space all other spaces must contain subnets.
-`
+Creates a new space with the given name and associates the given
+(optional) list of existing subnet CIDRs with it.`
 
 // Info is defined on the cmd.Command interface.
 func (c *CreateCommand) Info() *cmd.Info {
@@ -37,25 +36,31 @@ func (c *CreateCommand) Info() *cmd.Info {
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
 func (c *CreateCommand) Init(args []string) error {
-	name, CIDRs, err := ParseNameAndCIDRs(args)
-	if err == nil {
-		c.Name, c.CIDRs = name, CIDRs
-	}
-	return err
+	var err error
+	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, true)
+	return errors.Trace(err)
 }
 
 // Run implements Command.Run.
 func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+		// Prepare a nicer message and proper arguments to use in case
+		// there are not CIDRs given.
+		var subnetIds []string
+		msgSuffix := "no subnets"
+		if !c.CIDRs.IsEmpty() {
+			subnetIds = c.CIDRs.SortedValues()
+			msgSuffix = fmt.Sprintf("subnets %s", strings.Join(subnetIds, ", "))
+		}
+
 		// Create the new space.
-		err := api.CreateSpace(c.Name, c.CIDRs.SortedValues())
+		// TODO(dimitern): Accept --public|--private and pass it here.
+		err := api.CreateSpace(c.Name, subnetIds, true)
 		if err != nil {
 			return errors.Annotatef(err, "cannot create space %q", c.Name)
 		}
 
-		subnets_string := strings.Join(c.CIDRs.SortedValues(), ", ")
-		ctx.Infof("created space %q with subnets %s", c.Name, subnets_string)
-
+		ctx.Infof("created space %q with %s", c.Name, msgSuffix)
 		return nil
 	})
 }

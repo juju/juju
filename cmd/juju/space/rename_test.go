@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -19,6 +20,7 @@ type RenameSuite struct {
 var _ = gc.Suite(&RenameSuite{})
 
 func (s *RenameSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.command = space.NewRenameCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
@@ -35,7 +37,7 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 		about:     "no arguments",
 		expectErr: "old-name is required",
 	}, {
-		about:     "No new name",
+		about:     "no new name",
 		args:      s.Strings("a-space"),
 		expectErr: "new-name is required",
 	}, {
@@ -79,7 +81,8 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 		command := space.NewRenameCommand(s.api) // surely can use s.command??
 		err := coretesting.InitCommand(command, test.args)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			prefixedErr := "invalid arguments specified: " + test.expectErr
+			c.Check(err, gc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}
@@ -90,25 +93,35 @@ func (s *RenameSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *RenameSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(c, "a-space", "another-space")
-	s.CheckOutputsStderr(c, stdout, stderr, err, `renamed space "a-space" to "another-space"\n`)
+func (s *RenameSuite) TestRunWithValidNamesSucceeds(c *gc.C) {
+	s.AssertRunSucceeds(c,
+		`renamed space "a-space" to "another-space"\n`,
+		"", // no stdout, just stderr
+		"a-space", "another-space",
+	)
+
 	s.api.CheckCallNames(c, "RenameSpace", "Close")
 	s.api.CheckCall(c, 0, "RenameSpace", "a-space", "another-space")
 }
 
-func (s *RenameSuite) TestRunWhenRenameFails(c *gc.C) {
+func (s *RenameSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
-	stdout, stderr, err := s.RunSubCommand(c, "foo", "bar")
-	s.CheckOutputsErr(c, stdout, stderr, err, `cannot rename space "foo": boom`)
+
+	s.AssertRunFails(c,
+		`cannot rename space "foo": boom`,
+		"foo", "bar",
+	)
+
 	s.api.CheckCallNames(c, "RenameSpace", "Close")
+	s.api.CheckCall(c, 0, "RenameSpace", "foo", "bar")
 }
 
 func (s *RenameSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
 	s.command = space.NewRenameCommand(nil)
-	stdout, stderr, err := s.RunSubCommand(c, "myspace", "mynewspace")
-	s.CheckOutputsErr(c, stdout, stderr, err, "cannot connect to API server: API not implemented yet!")
+	s.AssertRunFails(c,
+		"cannot connect to the API server: no environment specified",
+		"myname", "newname", // Drop the args once RunWitnAPI is called internally.
+	)
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

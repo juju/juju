@@ -33,7 +33,7 @@ func (c *UpdateCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *UpdateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "update",
-		Args:    "<name> [--rename <new-name>] <CIDR1> [ <CIDR2> ...]",
+		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
 		Purpose: "update a network space's CIDRs",
 		Doc:     strings.TrimSpace(updateCommandDoc),
 	}
@@ -43,10 +43,8 @@ func (c *UpdateCommand) Info() *cmd.Info {
 // arguments for sanity and sets up the command to run.
 func (c *UpdateCommand) Init(args []string) error {
 	var err error
-	if name, CIDRs, err := ParseNameAndCIDRs(args); err == nil {
-		c.Name, c.CIDRs = name, CIDRs
-	}
-	return err
+	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, false)
+	return errors.Trace(err)
 }
 
 // Run implements Command.Run.
