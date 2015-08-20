@@ -55,9 +55,9 @@ type UniterExecutionObserver interface {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb  tomb.Tomb
-	st    *uniter.State
-	paths Paths
+	tomb      tomb.Tomb
+	st        *uniter.State
+	paths     Paths
 	unit      *uniter.Unit
 	relations relation.Relations
 	cleanups  []cleanup
