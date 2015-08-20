@@ -223,7 +223,7 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 // Version 1: a dump made with --oplog with a running state server.
 // TODO (perrito666) change versions to use metadata version
 func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {
-	dbDir := filepath.Join(agent.DefaultDataDir, "db")
+	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")
 	switch {
 	case ver.Major == 1 && ver.Minor < 22:
 		return []string{"--drop", "--journal", "--dbpath", dbDir, dumpPath}, nil

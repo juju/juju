@@ -40,20 +40,20 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing tag",
 	params: agent.AgentConfigParams{
-		DataDir: "/data/dir",
+		Paths: agent.Paths{DataDir: "/data/dir"},
 	},
 	checkErr: "entity tag not found in configuration",
 }, {
 	about: "missing upgraded to version",
 	params: agent.AgentConfigParams{
-		DataDir: "/data/dir",
-		Tag:     names.NewMachineTag("1"),
+		Paths: agent.Paths{DataDir: "/data/dir"},
+		Tag:   names.NewMachineTag("1"),
 	},
 	checkErr: "upgradedToVersion not found in configuration",
 }, {
 	about: "missing password",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 	},
@@ -61,7 +61,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing environment tag",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -70,7 +70,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "invalid environment tag",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -80,7 +80,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing CA cert",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -90,7 +90,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "need either state or api addresses",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -101,7 +101,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "invalid state address",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -113,7 +113,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "invalid api address",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -125,7 +125,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "good state addresses",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -136,7 +136,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "good api addresses",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -147,7 +147,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "both state and api addresses",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -159,7 +159,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "everything...",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -172,7 +172,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing logDir sets default",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -183,12 +183,12 @@ var agentConfigTests = []struct {
 		Nonce:             "a nonce",
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultLogDir)
+		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultPaths.LogDir)
 	},
 }, {
 	about: "missing metricsSpoolDir sets default",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -199,13 +199,15 @@ var agentConfigTests = []struct {
 		Nonce:             "a nonce",
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.MetricsSpoolDir(), gc.Equals, agent.DefaultMetricsSpoolDir)
+		c.Check(cfg.MetricsSpoolDir(), gc.Equals, agent.DefaultPaths.MetricsSpoolDir)
 	},
 }, {
 	about: "setting a custom metricsSpoolDir",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
-		MetricsSpoolDir:   "/tmp/nowhere",
+		Paths: agent.Paths{
+			DataDir:         "/data/dir",
+			MetricsSpoolDir: "/tmp/nowhere",
+		},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -221,7 +223,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing uniterStateDir sets default",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -232,13 +234,15 @@ var agentConfigTests = []struct {
 		Nonce:             "a nonce",
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.UniterStateDir(), gc.Equals, agent.DefaultUniterStateDir)
+		c.Check(cfg.UniterStateDir(), gc.Equals, agent.DefaultPaths.UniterStateDir)
 	},
 }, {
 	about: "setting a custom uniterStateDir",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
-		UniterStateDir:    "/tmp/nothing",
+		Paths: agent.Paths{
+			DataDir:        "/data/dir",
+			UniterStateDir: "/tmp/nothing",
+		},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -254,7 +258,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "agentConfig must not be a User tag",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewUserTag("admin"), // this is a joke, the admin user is nil.
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
@@ -263,7 +267,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "agentConfig accepts a Unit tag",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewUnitTag("ubuntu/1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -278,7 +282,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "prefer-ipv6 parsed when set",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -295,7 +299,7 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing prefer-ipv6 defaults to false",
 	params: agent.AgentConfigParams{
-		DataDir:           "/data/dir",
+		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
@@ -327,8 +331,10 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 
 func (*suite) TestMigrate(c *gc.C) {
 	initialParams := agent.AgentConfigParams{
-		DataDir:           c.MkDir(),
-		LogDir:            c.MkDir(),
+		Paths: agent.Paths{
+			DataDir: c.MkDir(),
+			LogDir:  c.MkDir(),
+		},
 		Tag:               names.NewMachineTag("1"),
 		Nonce:             "nonce",
 		Password:          "secret",
@@ -359,15 +365,17 @@ func (*suite) TestMigrate(c *gc.C) {
 		fields:    nil,
 		newParams: agent.MigrateParams{},
 	}, {
-		fields: []string{"DataDir"},
+		fields: []string{"Paths"},
 		newParams: agent.MigrateParams{
-			DataDir: c.MkDir(),
+			Paths: agent.Paths{DataDir: c.MkDir()},
 		},
 	}, {
-		fields: []string{"DataDir", "LogDir"},
+		fields: []string{"Paths"},
 		newParams: agent.MigrateParams{
-			DataDir: c.MkDir(),
-			LogDir:  c.MkDir(),
+			Paths: agent.Paths{
+				DataDir: c.MkDir(),
+				LogDir:  c.MkDir(),
+			},
 		},
 	}, {
 		fields: []string{"Jobs"},
@@ -421,6 +429,7 @@ func (*suite) TestMigrate(c *gc.C) {
 		// Make sure we can read it back successfully and it
 		// matches what we wrote.
 		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
+		c.Logf("new config path: %v", configPath)
 		readConfig, err := agent.ReadConfig(configPath)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(newConfig, jc.DeepEquals, readConfig)
@@ -528,7 +537,9 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 }
 
 var attributeParams = agent.AgentConfigParams{
-	DataDir:           "/data/dir",
+	Paths: agent.Paths{
+		DataDir: "/data/dir",
+	},
 	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: version.Current.Number,
 	Password:          "sekrit",
@@ -597,8 +608,8 @@ func (s *suite) TestAPIAddressesCannotWriteBack(c *gc.C) {
 
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
-	testParams.DataDir = c.MkDir()
-	testParams.LogDir = c.MkDir()
+	testParams.Paths.DataDir = c.MkDir()
+	testParams.Paths.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
 	c.Assert(err, jc.ErrorIsNil)
 

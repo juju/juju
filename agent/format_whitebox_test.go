@@ -43,8 +43,8 @@ var agentParams = AgentConfigParams{
 
 func newTestConfig(c *gc.C) *configInternal {
 	params := agentParams
-	params.DataDir = c.MkDir()
-	params.LogDir = c.MkDir()
+	params.Paths.DataDir = c.MkDir()
+	params.Paths.LogDir = c.MkDir()
 	config, err := NewAgentConfig(params)
 	c.Assert(err, jc.ErrorIsNil)
 	return config.(*configInternal)
@@ -100,7 +100,7 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 		APIPort:      23456,
 	}
 	params := agentParams
-	params.DataDir = c.MkDir()
+	params.Paths.DataDir = c.MkDir()
 	params.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
 	configInterface, err := NewStateMachineConfig(params, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)

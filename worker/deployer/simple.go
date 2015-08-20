@@ -124,8 +124,12 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	namespace := ctx.agentConfig.Value(agent.Namespace)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           dataDir,
-			LogDir:            logDir,
+			Paths: agent.Paths{
+				DataDir:         dataDir,
+				LogDir:          logDir,
+				UniterStateDir:  agent.DefaultPaths.UniterStateDir,
+				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
+			},
 			UpgradedToVersion: version.Current.Number,
 			Tag:               tag,
 			Password:          initialPassword,

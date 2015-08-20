@@ -86,7 +86,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
-		DataDir:           dataDir,
+		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{s.mgoInst.Addr()},
@@ -219,7 +219,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
 	configParams := agent.AgentConfigParams{
-		DataDir:           c.MkDir(),
+		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{s.mgoInst.Addr()},
@@ -244,7 +244,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
-		DataDir:           dataDir,
+		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{s.mgoInst.Addr()},
