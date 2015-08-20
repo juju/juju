@@ -34,7 +34,9 @@ func (c *RemoveCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *RemoveCommand) Init(args []string) error {
+func (c *RemoveCommand) Init(args []string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
+
 	// Validate given name.
 	if len(args) == 0 {
 		return errors.New("space name is required")

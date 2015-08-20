@@ -56,7 +56,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *ListCommand) Init(args []string) error {
 	// No arguments are accepted, just flags.
 	if err := cmd.CheckEmpty(args); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -64,43 +64,23 @@ func (c *ListCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *ListCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPI()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API server")
-	}
-	defer api.Close()
-
-	spaces, err := api.AllSpaces()
-	if err != nil {
-		return errors.Annotate(err, "cannot list spaces")
-	}
-	if len(spaces) == 0 {
-		ctx.Infof("no spaces to display")
-		return c.out.Write(ctx, nil)
-	}
-
-	// Get the list of subnets
-	subnets, err := api.AllSubnets()
-	if err != nil {
-		return errors.Annotate(err, "cannot list subnets")
-	}
-	if len(subnets) == 0 {
-		return errors.NotValidf("no subnets found, but found spaces:")
-	}
-
-	// Create a map of CIDR -> subnet
-	subnetMap := make(map[string]params.Subnet)
-	for _, subnet := range subnets {
-		subnetMap[subnet.CIDR] = subnet
-	}
-
-	if c.Short {
-		result := formattedShortList{}
-		for _, space := range spaces {
-			result.Spaces = append(result.Spaces, space.Name)
+	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
+		spaces, err := api.ListSpaces()
+		if err != nil {
+			return errors.Annotate(err, "cannot list spaces")
 		}
-		return c.out.Write(ctx, result)
-	} else {
+		if len(spaces) == 0 {
+			ctx.Infof("no spaces to display")
+			return c.out.Write(ctx, nil)
+		}
+
+		if c.Short {
+			result := formattedShortList{}
+			for _, space := range spaces {
+				result.Spaces = append(result.Spaces, space.Name)
+			}
+			return c.out.Write(ctx, result)
+		}
 		// Construct the output list for displaying with the chosen
 		// format.
 		result := formattedList{
@@ -109,15 +89,18 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 
 		for _, space := range spaces {
 			result.Spaces[space.Name] = make(map[string]formattedSubnet)
-			for _, CIDR := range space.CIDRs {
-				sub := subnetMap[CIDR]
+			for _, subnet := range space.Subnets {
 				subResult := formattedSubnet{
 					Type:       typeUnknown,
-					ProviderId: sub.ProviderId,
-					Zones:      sub.Zones,
+					ProviderId: subnet.ProviderId,
+					Zones:      subnet.Zones,
 				}
 				// Display correct status according to the life cycle value.
-				switch sub.Life {
+				//
+				// TODO(dimitern): Do this on the apiserver side, also
+				// do the same for params.Space, so in case of an
+				// error it can be displayed.
+				switch subnet.Life {
 				case params.Alive:
 					subResult.Status = statusInUse
 				case params.Dying, params.Dead:
@@ -125,21 +108,22 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 				}
 
 				// Use the CIDR to determine the subnet type.
-				if ip, _, err := net.ParseCIDR(sub.CIDR); err != nil {
+				// TODO(dimitern): Do this on the apiserver side.
+				if ip, _, err := net.ParseCIDR(subnet.CIDR); err != nil {
 					// This should never happen as subnets will be
 					// validated before saving in state.
-					msg := fmt.Sprintf("error: invalid subnet CIDR: %s", sub.CIDR)
+					msg := fmt.Sprintf("error: invalid subnet CIDR: %s", subnet.CIDR)
 					subResult.Status = msg
 				} else if ip.To4() != nil {
 					subResult.Type = typeIPv4
 				} else if ip.To16() != nil {
 					subResult.Type = typeIPv6
 				}
-				result.Spaces[space.Name][CIDR] = subResult
+				result.Spaces[space.Name][subnet.CIDR] = subResult
 			}
 		}
 		return c.out.Write(ctx, result)
-	}
+	})
 }
 
 const (
@@ -150,6 +134,9 @@ const (
 	statusInUse       = "in-use"
 	statusTerminating = "terminating"
 )
+
+// TODO(dimitern): Display space attributes along with subnets (state
+// or error,public,?)
 
 type formattedList struct {
 	Spaces map[string]map[string]formattedSubnet `json:"spaces" yaml:"spaces"`

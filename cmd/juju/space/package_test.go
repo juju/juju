@@ -6,19 +6,17 @@ package space_test
 import (
 	"net"
 	"regexp"
-	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -39,8 +37,15 @@ type BaseSpaceSuite struct {
 var _ = gc.Suite(&BaseSpaceSuite{})
 
 func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
+	// If any post-MVP command suite enabled the flag, keep it.
+	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
+
 	s.BaseSuite.SetUpTest(c)
 	s.FakeJujuHomeSuite.SetUpTest(c)
+
+	if hasFeatureFlag {
+		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+	}
 
 	s.superCmd = space.NewSuperCommand()
 	c.Assert(s.superCmd, gc.NotNil)
@@ -79,30 +84,6 @@ func (s *BaseSpaceSuite) RunSubCommand(c *gc.C, args ...string) (string, string,
 		return coretesting.Stdout(ctx), coretesting.Stderr(ctx), err
 	}
 	return "", "", err
-}
-
-func (s *BaseSpaceSuite) CheckOutputs(
-	c *gc.C, stdout, stderr string, err error,
-	expectedStdout, expectedStderr, expectedErr string) {
-	if expectedErr == "" {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, gc.ErrorMatches, expectedErr)
-	}
-	c.Assert(stdout, gc.Equals, expectedStdout)
-	c.Assert(stderr, gc.Matches, expectedStderr)
-}
-
-func (s *BaseSpaceSuite) CheckOutputsStderr(c *gc.C, stdout, stderr string, err error, expectedStderr string) {
-	s.CheckOutputs(c, stdout, stderr, err, "", expectedStderr, "")
-}
-
-func (s *BaseSpaceSuite) CheckOutputsErr(c *gc.C, stdout, stderr string, err error, expectedErr string) {
-	s.CheckOutputs(c, stdout, stderr, err, "", "", expectedErr)
-}
-
-func (s *BaseSpaceSuite) CheckOutputsStdout(c *gc.C, stdout, stderr string, err error, expectedStdout string) {
-	s.CheckOutputs(c, stdout, stderr, err, expectedStdout, "", "")
 }
 
 // AssertRunFails is a shortcut for calling RunSubCommand with the
@@ -168,7 +149,7 @@ func (s *BaseSpaceSuite) Strings(values ...string) []string {
 type StubAPI struct {
 	*testing.Stub
 
-	Spaces  []network.SpaceInfo
+	Spaces  []params.Space
 	Subnets []params.Subnet
 }
 
@@ -177,48 +158,50 @@ var _ space.SpaceAPI = (*StubAPI)(nil)
 // NewStubAPI creates a StubAPI suitable for passing to
 // space.New*Command().
 func NewStubAPI() *StubAPI {
+	subnets := []params.Subnet{{
+		// IPv6 subnet.
+		CIDR:       "2001:db8::/32",
+		ProviderId: "subnet-public",
+		Life:       params.Dying,
+		SpaceTag:   "space-space1",
+		Zones:      []string{"zone2"},
+	}, {
+		// Invalid subnet (just for 100% coverage, otherwise it can't happen).
+		CIDR:       "invalid",
+		ProviderId: "no-such",
+		SpaceTag:   "space-space1",
+		Zones:      []string{"zone1"},
+	}, {
+		// IPv4 subnet.
+		CIDR:              "10.1.2.0/24",
+		ProviderId:        "subnet-private",
+		Life:              params.Alive,
+		SpaceTag:          "space-space2",
+		Zones:             []string{"zone1", "zone2"},
+		StaticRangeLowIP:  net.ParseIP("10.1.2.10"),
+		StaticRangeHighIP: net.ParseIP("10.1.2.200"),
+	}, {
+		// IPv4 VLAN subnet.
+		CIDR:              "4.3.2.0/28",
+		Life:              params.Dead,
+		ProviderId:        "vlan-42",
+		SpaceTag:          "space-space2",
+		Zones:             []string{"zone1"},
+		VLANTag:           42,
+		StaticRangeLowIP:  net.ParseIP("4.3.2.2"),
+		StaticRangeHighIP: net.ParseIP("4.3.2.4"),
+	}}
+	spaces := []params.Space{{
+		Name:    "space1",
+		Subnets: append([]params.Subnet{}, subnets[:2]...),
+	}, {
+		Name:    "space2",
+		Subnets: append([]params.Subnet{}, subnets[2:]...),
+	}}
 	return &StubAPI{
-		Stub: &testing.Stub{},
-		Spaces: []network.SpaceInfo{{
-			Name:  "space1",
-			CIDRs: []string{"2001:db8::/32", "invalid" /* for completeness sake */},
-		}, {
-			Name:  "space2",
-			CIDRs: []string{"10.1.2.0/24", "4.3.2.0/28"},
-		}},
-		Subnets: []params.Subnet{{
-			// IPv6 subnet.
-			CIDR:       "2001:db8::/32",
-			ProviderId: "subnet-public",
-			Life:       params.Dying,
-			SpaceTag:   "space-space1",
-			Zones:      []string{"zone2"},
-		}, {
-			// Invalid subnet (just for 100% coverage, otherwise it can't happen).
-			CIDR:       "invalid",
-			ProviderId: "no-such",
-			SpaceTag:   "space-space2",
-			Zones:      []string{"zone1"},
-		}, {
-			// IPv4 subnet.
-			CIDR:              "10.1.2.0/24",
-			ProviderId:        "subnet-private",
-			Life:              params.Alive,
-			SpaceTag:          "space-space2",
-			Zones:             []string{"zone1", "zone2"},
-			StaticRangeLowIP:  net.ParseIP("10.1.2.10"),
-			StaticRangeHighIP: net.ParseIP("10.1.2.200"),
-		}, {
-			// IPv4 VLAN subnet.
-			CIDR:              "4.3.2.0/28",
-			Life:              params.Dead,
-			ProviderId:        "vlan-42",
-			SpaceTag:          "space-space2",
-			Zones:             []string{"zone1"},
-			VLANTag:           42,
-			StaticRangeLowIP:  net.ParseIP("4.3.2.2"),
-			StaticRangeHighIP: net.ParseIP("4.3.2.4"),
-		}},
+		Stub:    &testing.Stub{},
+		Spaces:  spaces,
+		Subnets: subnets,
 	}
 }
 
@@ -227,28 +210,16 @@ func (sa *StubAPI) Close() error {
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) AllSpaces() ([]network.SpaceInfo, error) {
-	sa.MethodCall(sa, "AllSpaces")
+func (sa *StubAPI) ListSpaces() ([]params.Space, error) {
+	sa.MethodCall(sa, "ListSpaces")
 	if err := sa.NextErr(); err != nil {
 		return nil, err
 	}
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) AllSubnets() ([]params.Subnet, error) {
-	sa.MethodCall(sa, "AllSubnets")
-	if err := sa.NextErr(); err != nil {
-		return nil, err
-	}
-	return sa.Subnets, nil
-}
-
-func (sa *StubAPI) CreateSpace(name string, subnetIds []string) error {
-	if err := sa.SubnetsExist(subnetIds); err != nil {
-		return err
-	}
-
-	sa.MethodCall(sa, "CreateSpace", name, subnetIds)
+func (sa *StubAPI) CreateSpace(name string, subnetIds []string, public bool) error {
+	sa.MethodCall(sa, "CreateSpace", name, subnetIds, public)
 	return sa.NextErr()
 }
 
@@ -258,10 +229,6 @@ func (sa *StubAPI) RemoveSpace(name string) error {
 }
 
 func (sa *StubAPI) UpdateSpace(name string, subnetIds []string) error {
-	if err := sa.SubnetsExist(subnetIds); err != nil {
-		return err
-	}
-
 	sa.MethodCall(sa, "UpdateSpace", name, subnetIds)
 	return sa.NextErr()
 }
@@ -269,28 +236,4 @@ func (sa *StubAPI) UpdateSpace(name string, subnetIds []string) error {
 func (sa *StubAPI) RenameSpace(name, newName string) error {
 	sa.MethodCall(sa, "RenameSpace", name, newName)
 	return sa.NextErr()
-}
-
-func (sa *StubAPI) SubnetsExist(subnetIds []string) error {
-	// Fetch all subnets to validate the given CIDRs.
-	CIDRs := set.NewStrings(subnetIds...)
-	subnets, err := sa.AllSubnets()
-	if err != nil {
-		return errors.Annotate(err, "cannot fetch available subnets")
-	}
-
-	// Find which of the given CIDRs match existing ones.
-	validCIDRs := set.NewStrings()
-	for _, subnet := range subnets {
-		validCIDRs.Add(subnet.CIDR)
-	}
-	diff := CIDRs.Difference(validCIDRs)
-
-	if !diff.IsEmpty() {
-		// Some given CIDRs are missing.
-		subnets := strings.Join(diff.SortedValues(), ", ")
-		return errors.Errorf("unknown subnets specified: %s", subnets)
-	}
-
-	return nil
 }

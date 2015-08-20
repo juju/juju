@@ -9,6 +9,7 @@ import (
 	"math/rand"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -22,27 +23,11 @@ type SpacesSuite struct {
 	coretesting.BaseSuite
 
 	called    int
-	apiCaller base.APICaller
+	apiCaller base.APICallCloser
 	api       *spaces.API
 }
 
 var _ = gc.Suite(&SpacesSuite{})
-
-func (s *SpacesSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *SpacesSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *SpacesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *SpacesSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
 
 func (s *SpacesSuite) init(c *gc.C, args *apitesting.CheckArgs, err error) {
 	s.called = 0
@@ -78,9 +63,12 @@ func makeArgs(name string, subnets []string) (string, []string, apitesting.Check
 			params.CreateSpaceParams{
 				SpaceTag:   spaceTag,
 				SubnetTags: subnetTags,
+				Public:     true,
 			}}}
 
-	expectResults := params.ErrorResults{}
+	expectResults := params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	}
 
 	args := apitesting.CheckArgs{
 		Facade:  "Spaces",
@@ -95,10 +83,9 @@ func makeArgs(name string, subnets []string) (string, []string, apitesting.Check
 func (s *SpacesSuite) testCreateSpace(c *gc.C, name string, subnets []string) {
 	_, _, args := makeArgs(name, subnets)
 	s.init(c, &args, nil)
-	results, err := s.api.CreateSpace(name, subnets, false)
+	err := s.api.CreateSpace(name, subnets, true)
 	c.Assert(s.called, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, args.Results)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
@@ -115,43 +102,72 @@ func (s *SpacesSuite) TestCreateSpace(c *gc.C) {
 	}
 }
 
+func (s *SpacesSuite) TestCreateSpaceEmptyResults(c *gc.C) {
+	_, _, args := makeArgs("foo", nil)
+	args.Results = params.ErrorResults{}
+	s.init(c, &args, nil)
+	err := s.api.CreateSpace("foo", nil, true)
+	c.Check(s.called, gc.Equals, 1)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
+}
+
 func (s *SpacesSuite) TestCreateSpaceFails(c *gc.C) {
 	name, subnets, args := makeArgs("foo", []string{"1.1.1.0/24"})
 	s.init(c, &args, errors.New("bang"))
-	results, err := s.api.CreateSpace(name, subnets, false)
+	err := s.api.CreateSpace(name, subnets, true)
 	c.Check(s.called, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
-	c.Assert(results, gc.DeepEquals, args.Results)
 }
 
-func (s *SpacesSuite) TestListSpaces(c *gc.C) {
-	expectResults := params.ListSpacesResults{}
+func (s *SpacesSuite) testListSpaces(c *gc.C, results []params.Space, err error, expectErr string) {
+	var expectResults params.ListSpacesResults
+	if results != nil {
+		expectResults = params.ListSpacesResults{
+			Results: results,
+		}
+	}
+
 	args := apitesting.CheckArgs{
 		Facade:  "Spaces",
 		Method:  "ListSpaces",
 		Results: expectResults,
 	}
-	s.init(c, &args, nil)
-	results, err := s.api.ListSpaces()
+	s.init(c, &args, err)
+	gotResults, gotErr := s.api.ListSpaces()
 	c.Assert(s.called, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
-
-	var expectedResults []params.Space
-	c.Assert(results, gc.DeepEquals, expectedResults)
+	c.Assert(gotResults, jc.DeepEquals, results)
+	if expectErr != "" {
+		c.Assert(gotErr, gc.ErrorMatches, expectErr)
+		return
+	}
+	if err != nil {
+		c.Assert(gotErr, jc.DeepEquals, err)
+	} else {
+		c.Assert(gotErr, jc.ErrorIsNil)
+	}
 }
 
-func (s *SpacesSuite) TestListSpacesFails(c *gc.C) {
-	expectResults := params.ListSpacesResults{}
-	args := apitesting.CheckArgs{
-		Facade:  "Spaces",
-		Method:  "ListSpaces",
-		Results: expectResults,
-	}
-	s.init(c, &args, errors.New("bang"))
-	results, err := s.api.ListSpaces()
-	c.Assert(s.called, gc.Equals, 1)
-	c.Assert(err, gc.ErrorMatches, "bang")
+func (s *SpacesSuite) TestListSpacesEmptyResults(c *gc.C) {
+	s.testListSpaces(c, []params.Space{}, nil, "")
+}
 
-	var expectedResults []params.Space
-	c.Assert(results, gc.DeepEquals, expectedResults)
+func (s *SpacesSuite) TestListSpacesManyResults(c *gc.C) {
+	spaces := []params.Space{{
+		Name: "space1",
+		Subnets: []params.Subnet{{
+			CIDR: "foo",
+		}, {
+			CIDR: "bar",
+		}},
+	}, {
+		Name: "space2",
+	}, {
+		Name:    "space3",
+		Subnets: []params.Subnet{},
+	}}
+	s.testListSpaces(c, spaces, nil, "")
+}
+
+func (s *SpacesSuite) TestListSpacesServerError(c *gc.C) {
+	s.testListSpaces(c, nil, errors.New("boom"), "boom")
 }

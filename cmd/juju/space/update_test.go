@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/feature"
 )
 
 type UpdateSuite struct {
@@ -17,37 +18,44 @@ type UpdateSuite struct {
 var _ = gc.Suite(&UpdateSuite{})
 
 func (s *UpdateSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.command = space.NewUpdateCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
 func (s *UpdateSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(c, "myspace", "10.1.2.0/24", "4.3.2.0/28")
-	s.CheckOutputsStderr(c, stdout, stderr, err, `updated space "myspace": changed subnets to 10.1.2.0/24, 4.3.2.0/28\n`)
-	s.api.CheckCall(c, 1, "UpdateSpace", "myspace", s.Strings("10.1.2.0/24", "4.3.2.0/28"))
-	s.api.CheckCallNames(c, "AllSubnets", "UpdateSpace", "Close")
+	s.AssertRunSucceeds(c,
+		`updated space "myspace": changed subnets to 10.1.2.0/24, 4.3.2.0/28\n`,
+		"", // no stdout, just stderr
+		"myspace", "10.1.2.0/24", "4.3.2.0/28",
+	)
+
+	s.api.CheckCallNames(c, "UpdateSpace", "Close")
+	s.api.CheckCall(c,
+		0, "UpdateSpace",
+		"myspace", s.Strings("10.1.2.0/24", "4.3.2.0/28"),
+	)
 }
 
-func (s *UpdateSuite) TestRunWhenSubnetsFails(c *gc.C) {
+func (s *UpdateSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
-	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.1.2.0/24")
-	s.CheckOutputsErr(c, stdout, stderr, err, `cannot update space "foo": cannot fetch available subnets: boom`)
-	s.api.CheckCallNames(c, "AllSubnets", "Close")
-}
+	s.AssertRunFails(c,
+		`cannot update space "foo": boom`,
+		"foo", "10.1.2.0/24",
+	)
 
-func (s *UpdateSuite) TestRunWithUnknownSubnetsFails(c *gc.C) {
-	stdout, stderr, err := s.RunSubCommand(c, "foo", "10.20.30.0/24", "2001:db8::/64")
-	s.CheckOutputsErr(c, stdout, stderr, err, `cannot update space \"foo\": unknown subnets specified: 10.20.30.0/24, 2001:db8::/64`)
-	s.api.CheckCallNames(c, "AllSubnets", "Close")
+	s.api.CheckCallNames(c, "UpdateSpace", "Close")
+	s.api.CheckCall(c, 0, "UpdateSpace", "foo", s.Strings("10.1.2.0/24"))
 }
 
 func (s *UpdateSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
 	s.command = space.NewUpdateCommand(nil)
-	stdout, stderr, err := s.RunSubCommand(c, "myspace", "10.20.30.0/24")
-	s.CheckOutputsErr(c, stdout, stderr, err, "cannot connect to API server: API not implemented yet!")
+	s.AssertRunFails(c,
+		"cannot connect to the API server: no environment specified",
+		"myname", "10.0.0.0/8", // Drop the args once RunWitnAPI is called internally.
+	)
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

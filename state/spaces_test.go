@@ -122,7 +122,7 @@ func (s *SpacesSuite) TestAddSpaceSubnetsDoNotExist(c *gc.C) {
 	isPublic := false
 
 	_, err := s.State.AddSpace(name, subnets, isPublic)
-	c.Assert(err, gc.ErrorMatches, "cannot add space \"my-space\": subnet \"1.1.1.0/24\" not found")
+	c.Assert(err, gc.ErrorMatches, "adding space \"my-space\": subnet \"1.1.1.0/24\" not found")
 	s.assertNoSpace(c, name)
 }
 
@@ -145,7 +145,7 @@ func (s *SpacesSuite) TestAddSpaceDuplicateSpace(c *gc.C) {
 
 	// Trying to add the same space again should fail
 	space, err = s.State.AddSpace(name, subnets, isPublic)
-	c.Assert(err, gc.ErrorMatches, "cannot add space \"my-space\": space \"my-space\" already exists")
+	c.Assert(err, gc.ErrorMatches, "adding space \"my-space\": space \"my-space\" already exists")
 
 	// The space should still be there
 	space, err = s.State.Space(name)
@@ -161,7 +161,7 @@ func (s *SpacesSuite) TestAddSpaceInvalidName(c *gc.C) {
 	s.addSubnets(c, subnets)
 
 	_, err := s.State.AddSpace(name, subnets, isPublic)
-	c.Assert(err, gc.ErrorMatches, "cannot add space \"-\": invalid space name")
+	c.Assert(err, gc.ErrorMatches, "adding space \"-\": invalid space name")
 	s.assertNoSpace(c, name)
 }
 
@@ -172,7 +172,7 @@ func (s *SpacesSuite) TestAddSpaceEmptyName(c *gc.C) {
 	s.addSubnets(c, subnets)
 
 	_, err := s.State.AddSpace(name, subnets, isPublic)
-	c.Assert(err, gc.ErrorMatches, "cannot add space \"\": invalid space name")
+	c.Assert(err, gc.ErrorMatches, "adding space \"\": invalid space name")
 	s.assertNoSpace(c, name)
 }
 

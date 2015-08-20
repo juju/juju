@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 func init() {
-	// TODO(dimitern): Uncomment once *state.State implements Backing.
-	// common.RegisterStandardFacade("Spaces", 1, NewAPI)
+	common.RegisterStandardFacade("Spaces", 1, NewAPI)
 }
 
 // API defines the methods the Spaces API facade implements.
@@ -25,17 +25,32 @@ type API interface {
 	ListSpaces() (params.ListSpacesResults, error)
 }
 
+// Backing defines the state methods this facede needs, so they can be
+// mocked for testing.
+type Backing interface {
+	// AddSpace creates a space
+	AddSpace(name string, subnetIds []string, public bool) error
+
+	// AllSpaces returns all known Juju network spaces.
+	AllSpaces() ([]common.BackingSpace, error)
+}
+
 // spacesAPI implements the API interface.
 type spacesAPI struct {
-	backing    common.NetworkBacking
+	backing    Backing
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
-var _ API = (*spacesAPI)(nil)
+// NewAPI creates a new Space API server-side facade with a
+// state.State backing.
+func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
+	return newAPIWithBacking(&stateShim{st: st}, res, auth)
+}
 
-// NewAPI creates a new server-side Spaces API facade.
-func NewAPI(backing common.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+// newAPIWithBacking creates a new server-side Spaces API facade with
+// a common.NetworkBacking
+func newAPIWithBacking(backing Backing, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -50,46 +65,42 @@ func NewAPI(backing common.NetworkBacking, resources *common.Resources, authoriz
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (params.ErrorResults, error) {
-	results := params.ErrorResults{}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Spaces)),
+	}
 
-	for _, space := range args.Spaces {
+	for i, space := range args.Spaces {
 		err := api.createOneSpace(space)
-		errorResult := params.ErrorResult{}
-		if err != nil {
-			errors.Trace(err)
-			errorResult.Error = common.ServerError(err)
+		if err == nil {
+			continue
 		}
-
-		results.Results = append(results.Results, errorResult)
+		results.Results[i].Error = common.ServerError(errors.Trace(err))
 	}
 
 	return results, nil
 }
 
 func (api *spacesAPI) createOneSpace(args params.CreateSpaceParams) error {
-	if len(args.SubnetTags) == 0 {
-		return errors.NotValidf("calling CreateSpaces with zero subnets is") // ... not valid.
-	}
-
 	// Validate the args, assemble information for api.backing.AddSpaces
 	var subnets []string
 
 	spaceTag, err := names.ParseSpaceTag(args.SpaceTag)
 	if err != nil {
-		return errors.Annotate(err, "given SpaceTag is invalid")
+		return errors.Trace(err)
 	}
 
 	for _, tag := range args.SubnetTags {
 		subnetTag, err := names.ParseSubnetTag(tag)
 		if err != nil {
-			return errors.Annotate(err, "given SubnetTag is invalid")
+			return errors.Trace(err)
 		}
 		subnets = append(subnets, subnetTag.Id())
 	}
 
 	// Add the validated space
-	if err := api.backing.AddSpace(spaceTag.Id(), subnets, args.Public); err != nil {
-		return errors.Annotate(err, "cannot create space")
+	err = api.backing.AddSpace(spaceTag.Id(), subnets, args.Public)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -100,6 +111,10 @@ func backingSubnetToParamsSubnet(subnet common.BackingSubnet) params.Subnet {
 	providerid := subnet.ProviderId()
 	zones := subnet.AvailabilityZones()
 	status := subnet.Status()
+	var spaceTag names.SpaceTag
+	if subnet.SpaceName() != "" {
+		spaceTag = names.NewSpaceTag(subnet.SpaceName())
+	}
 
 	return params.Subnet{
 		CIDR:       cidr,
@@ -107,37 +122,34 @@ func backingSubnetToParamsSubnet(subnet common.BackingSubnet) params.Subnet {
 		ProviderId: providerid,
 		Zones:      zones,
 		Status:     status,
-		SpaceTag:   names.NewSpaceTag(subnet.SpaceName()).String(),
+		SpaceTag:   spaceTag.String(),
 		Life:       subnet.Life(),
 	}
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot list spaces")
-
 	spaces, err := api.backing.AllSpaces()
 	if err != nil {
-		return results, err
+		return results, errors.Trace(err)
 	}
 
 	results.Results = make([]params.Space, len(spaces))
-
 	for i, space := range spaces {
 		result := params.Space{}
 		result.Name = space.Name()
 
 		subnets, err := space.Subnets()
 		if err != nil {
-			err = errors.Annotatef(err, "could not fetch subnets")
+			err = errors.Annotatef(err, "fetching subnets")
 			result.Error = common.ServerError(err)
 			results.Results[i] = result
 			continue
 		}
 
-		for _, subnet := range subnets {
-			result.Subnets = append(result.Subnets,
-				backingSubnetToParamsSubnet(subnet))
+		result.Subnets = make([]params.Subnet, len(subnets))
+		for i, subnet := range subnets {
+			result.Subnets[i] = backingSubnetToParamsSubnet(subnet)
 		}
 		results.Results[i] = result
 	}

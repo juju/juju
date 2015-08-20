@@ -177,7 +177,7 @@ spaces:
 
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
-		s.api.CheckCallNames(c, "AllSpaces", "AllSubnets", "Close")
+		s.api.CheckCallNames(c, "ListSpaces", "Close")
 		s.api.ResetCalls()
 	}
 	makeArgs := func(format string, short bool, extraArgs ...string) []string {
@@ -259,44 +259,25 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
 		"", // empty stdout.
 	)
 
-	s.api.CheckCallNames(c, "AllSpaces", "Close")
-	s.api.CheckCall(c, 0, "AllSpaces")
-}
-
-func (s *ListSuite) TestRunWhenNoSubnetsFails(c *gc.C) {
-	s.api.Subnets = s.api.Subnets[0:0]
-
-	s.AssertRunFails(c, "no subnets found, but found spaces: not valid")
-
-	s.api.CheckCallNames(c, "AllSpaces", "AllSubnets", "Close")
-	s.api.CheckCall(c, 0, "AllSpaces")
+	s.api.CheckCallNames(c, "ListSpaces", "Close")
+	s.api.CheckCall(c, 0, "ListSpaces")
 }
 
 func (s *ListSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
-	s.api.SetErrors(errors.NotValidf("response"))
+	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported by the provider"))
 
-	s.AssertRunFails(c, "cannot list spaces: response not valid")
+	err := s.AssertRunFails(c, "cannot list spaces: spaces not supported by the provider")
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 
-	s.api.CheckCallNames(c, "AllSpaces", "Close")
-	s.api.CheckCall(c, 0, "AllSpaces")
-}
-
-func (s *ListSuite) TestRunWhenSubnetsAPIFails(c *gc.C) {
-	s.api.SetErrors(nil, errors.NotValidf("response"))
-
-	s.AssertRunFails(c, "cannot list subnets: response not valid")
-
-	s.api.CheckCallNames(c, "AllSpaces", "AllSubnets", "Close")
-	s.api.CheckCall(c, 0, "AllSpaces")
+	s.api.CheckCallNames(c, "ListSpaces", "Close")
+	s.api.CheckCall(c, 0, "ListSpaces")
 }
 
 func (s *ListSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
 	s.command = space.NewListCommand(nil)
 	s.AssertRunFails(c,
-		"cannot connect to API server: API not implemented yet!",
+		"cannot connect to the API server: no environment specified",
 	)
-
 	// No API calls recoreded.
 	s.api.CheckCallNames(c)
 }

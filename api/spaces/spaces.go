@@ -4,6 +4,7 @@
 package spaces
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -17,17 +18,19 @@ const spacesFacade = "Spaces"
 
 // API provides access to the InstancePoller API facade.
 type API struct {
+	base.ClientFacade
 	facade base.FacadeCaller
 }
 
 // NewAPI creates a new client-side Spaces facade.
-func NewAPI(caller base.APICaller) *API {
+func NewAPI(caller base.APICallCloser) *API {
 	if caller == nil {
 		panic("caller is nil")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, spacesFacade)
+	clientFacade, facadeCaller := base.NewClientFacade(caller, spacesFacade)
 	return &API{
-		facade: facadeCaller,
+		ClientFacade: clientFacade,
+		facade:       facadeCaller,
 	}
 }
 
@@ -48,13 +51,16 @@ func makeCreateSpaceParams(name string, subnetIds []string, public bool) params.
 
 // CreateSpace creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func (api *API) CreateSpace(name string, subnetIds []string, public bool) (params.ErrorResults, error) {
+func (api *API) CreateSpace(name string, subnetIds []string, public bool) error {
 	var response params.ErrorResults
 	params := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{makeCreateSpaceParams(name, subnetIds, public)},
 	}
 	err := api.facade.FacadeCall("CreateSpaces", params, &response)
-	return response, err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return response.OneError()
 }
 
 // ListSpaces lists all available spaces and their associated subnets.

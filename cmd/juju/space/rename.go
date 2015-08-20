@@ -41,7 +41,9 @@ func (c *RenameCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *RenameCommand) Init(args []string) error {
+func (c *RenameCommand) Init(args []string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
+
 	switch len(args) {
 	case 0:
 		return errors.New("old-name is required")
