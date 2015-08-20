@@ -22,6 +22,18 @@ import (
 	"github.com/juju/juju/worker/util"
 )
 
+// UniterAvailabilitySetter interface defines the function for setting
+// the state of the uniter (a boolean signifying whether it is available or not).
+type UniterAvailabilitySetter interface {
+	SetAvailable(bool) error
+}
+
+// UniterAvailabilityGetter interface defines the function getting
+// the state of the uniter (a boolean signifying whether it is available or not).
+type UniterAvailabilityGetter interface {
+	Available() bool
+}
+
 type readFunc func(file string) (bool, error)
 type writeFunc func(file string, value bool) error
 
@@ -41,13 +53,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		newWorker(readStateFile, writeStateFile))
 	manifold.Output = outputFunc
 	return manifold
-}
-
-// UniterAvailabilityState interface defines the functions for setting and getting
-// the state of the uniter (a boolean signifying whether it is available or not).
-type UniterAvailabilityState interface {
-	SetAvailable(bool) error
-	Available() bool
 }
 
 // newWorker returns a function that  creates a degenerate worker that provides access to the state of the uniter
@@ -74,11 +79,17 @@ func newWorker(read readFunc, write writeFunc) func(a agent.Agent) (worker.Worke
 // outputFunc extracts a *fslock.Lock from a *machineLockWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*uniterStateWorker)
-	outPointer, _ := out.(*UniterAvailabilityState)
-	if inWorker == nil || outPointer == nil {
-		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
+	if inWorker == nil {
+		return errors.Errorf("expected %T; got %T", inWorker, in)
 	}
-	*outPointer = inWorker
+	switch outPointer := out.(type) {
+	case *UniterAvailabilitySetter:
+		*outPointer = inWorker
+	case *UniterAvailabilityGetter:
+		*outPointer = inWorker
+	default:
+		return errors.Errorf("out should be a pointer to a UniterAvailabilityGetter or a UniterAvailabilitySetter; is %T", out)
+	}
 	return nil
 }
 

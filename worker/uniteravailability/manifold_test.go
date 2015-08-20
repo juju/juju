@@ -101,7 +101,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	}})
 	defer kill(worker)
 
-	var state uniteravailability.UniterAvailabilityState
+	var state uniteravailability.UniterAvailabilityGetter
 	err = s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(state.Available(), gc.Equals, true)
@@ -121,12 +121,16 @@ func (s *ManifoldSuite) setupWorker(c *gc.C, path string) worker.Worker {
 func (s *ManifoldSuite) TestOutputIsSaved(c *gc.C) {
 	dataDir := c.MkDir()
 	worker := s.setupWorker(c, dataDir)
-	var state uniteravailability.UniterAvailabilityState
+	var state uniteravailability.UniterAvailabilityGetter
 	err := s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
 	// initial value should be false
 	c.Check(state.Available(), gc.Equals, false)
-	err = state.SetAvailable(true)
+
+	var setState uniteravailability.UniterAvailabilitySetter
+	err = s.manifold.Output(worker, &setState)
+	c.Check(err, jc.ErrorIsNil)
+	err = setState.SetAvailable(true)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(state.Available(), gc.Equals, true)
 	err = kill(worker)
@@ -145,7 +149,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	defer kill(worker)
 	var state interface{}
 	err := s.manifold.Output(worker, &state)
-	c.Check(err.Error(), gc.Equals, "expected *uniteravailability.uniterStateWorker->*uniteravailability.UniterAvailabilityState; got *uniteravailability.uniterStateWorker->*interface {}")
+	c.Check(err.Error(), gc.Equals, "out should be a pointer to a UniterAvailabilityGetter or a UniterAvailabilitySetter; is *interface {}")
 	c.Check(state, gc.IsNil)
 }
 
@@ -160,13 +164,17 @@ func (s *ManifoldSuite) TestWriteFailKills(c *gc.C) {
 	worker := s.setupWorker(c, dir)
 	c.Check(worker, gc.NotNil)
 
-	var state uniteravailability.UniterAvailabilityState
+	var state uniteravailability.UniterAvailabilityGetter
 	err := s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(state.Available(), gc.Equals, false)
 
+	var setState uniteravailability.UniterAvailabilitySetter
+	err = s.manifold.Output(worker, &setState)
+	c.Check(err, jc.ErrorIsNil)
+
 	// Try to set the available state, which triggers a write.
-	err = state.SetAvailable(true)
+	err = setState.SetAvailable(true)
 	c.Check(err, gc.ErrorMatches, "no save for you")
 
 	s.CheckCalls(c, []testing.StubCall{{
