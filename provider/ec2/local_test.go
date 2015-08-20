@@ -840,18 +840,32 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	interfaces, err := env.NetworkInterfaces(instId)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// The CIDR isn't predictable, but it is in the 10.10.x.0/24 format
+	// The subnet ID is in the form "subnet-x", where x matches the same
+	// number from the CIDR. The interfaces address is part of the CIDR.
+	// For these reasons we check that the CIDR is in the expected format
+	// and derive the expected values for ProviderSubnetId and Address.
+	c.Assert(interfaces, gc.HasLen, 1)
+	cidr := interfaces[0].CIDR
+	re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
+	c.Assert(re.Match([]byte(cidr)), jc.IsTrue)
+	index := re.FindStringSubmatch(cidr)[1]
+	addr := fmt.Sprintf("10.10.%s.5", index)
+	subnetId := network.Id("subnet-" + index)
+
 	expectedInterfaces := []network.InterfaceInfo{{
 		DeviceIndex:      0,
 		MACAddress:       "20:01:60:cb:27:37",
-		CIDR:             "10.10.0.0/24",
+		CIDR:             cidr,
 		ProviderId:       "eni-0",
-		ProviderSubnetId: "subnet-0",
+		ProviderSubnetId: subnetId,
 		VLANTag:          0,
 		InterfaceName:    "unsupported0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewScopedAddress("10.10.0.5", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress(addr, network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
