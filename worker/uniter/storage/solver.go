@@ -16,15 +16,22 @@ import (
 	"github.com/juju/juju/worker/uniter/solver"
 )
 
+// StorageSolverOperations instances know how to make operations
+// required by the solver.
+type StorageSolverOperations interface {
+	NewUpdateStorage(tags []names.StorageTag) (operation.Operation, error)
+	NewRunHook(hookInfo hook.Info) (operation.Operation, error)
+}
+
 type storageSolver struct {
-	opFactory operation.Factory
+	opFactory StorageSolverOperations
 	storage   *Attachments
 	dying     bool
 	life      map[names.StorageTag]params.Life
 }
 
 // NewSolver returns a new storage solver.
-func NewSolver(opFactory operation.Factory, storage *Attachments) solver.Solver {
+func NewSolver(opFactory StorageSolverOperations, storage *Attachments) solver.Solver {
 	return &storageSolver{
 		opFactory: opFactory,
 		storage:   storage,

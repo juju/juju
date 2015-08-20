@@ -4,10 +4,14 @@
 package storage_test
 
 import (
+	"fmt"
+
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 type mockStorageAccessor struct {
@@ -58,4 +62,39 @@ func (m *mockStorageAccessor) DestroyUnitStorageAttachments(u names.UnitTag) err
 
 func (m *mockStorageAccessor) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag) error {
 	return m.remove(s, u)
+}
+
+type mockOperations struct {
+}
+
+func (m *mockOperations) NewUpdateStorage(tags []names.StorageTag) (operation.Operation, error) {
+	return &mockOperation{"update storage"}, nil
+}
+
+func (m *mockOperations) NewRunHook(hookInfo hook.Info) (operation.Operation, error) {
+	return &mockOperation{fmt.Sprintf("run hook %v", hookInfo.Kind)}, nil
+}
+
+type mockOperation struct {
+	name string
+}
+
+func (m *mockOperation) String() string {
+	return m.name
+}
+
+func (m *mockOperation) NeedsGlobalMachineLock() bool {
+	return false
+}
+
+func (m *mockOperation) Prepare(state operation.State) (*operation.State, error) {
+	return &state, nil
+}
+
+func (m *mockOperation) Execute(state operation.State) (*operation.State, error) {
+	return &state, nil
+}
+
+func (m *mockOperation) Commit(state operation.State) (*operation.State, error) {
+	return &state, nil
 }
