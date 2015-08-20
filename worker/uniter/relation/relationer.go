@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package relation
 
 import (
 	"fmt"
@@ -10,20 +10,19 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
 	ru    *apiuniter.RelationUnit
-	dir   *relation.StateDir
+	dir   *StateDir
 	dying bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru *apiuniter.RelationUnit, dir *relation.StateDir) *Relationer {
+func NewRelationer(ru *apiuniter.RelationUnit, dir *StateDir) *Relationer {
 	return &Relationer{
 		ru:  ru,
 		dir: dir,
