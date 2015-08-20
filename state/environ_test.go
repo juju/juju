@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -34,6 +35,26 @@ func (s *EnvironSuite) TestEnvironment(c *gc.C) {
 	c.Assert(env.Name(), gc.Equals, "testenv")
 	c.Assert(env.Owner(), gc.Equals, s.Owner)
 	c.Assert(env.Life(), gc.Equals, state.Alive)
+	c.Assert(env.TimeOfDying().IsZero(), jc.IsTrue)
+	c.Assert(env.TimeOfDeath().IsZero(), jc.IsTrue)
+}
+
+func (s *EnvironSuite) TestEnvironmentDestroy(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	now := state.NowToTheSecond()
+	s.PatchValue(&state.NowToTheSecond, func() time.Time {
+		return now
+	})
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(env.TimeOfDying().UTC(), gc.Equals, now.UTC())
+	c.Assert(env.TimeOfDeath().IsZero(), jc.IsTrue)
 }
 
 func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {

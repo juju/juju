@@ -5,6 +5,7 @@ package state
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -28,11 +29,13 @@ type Environment struct {
 
 // environmentDoc represents the internal state of the environment in MongoDB.
 type environmentDoc struct {
-	UUID       string `bson:"_id"`
-	Name       string
-	Life       Life
-	Owner      string `bson:"owner"`
-	ServerUUID string `bson:"server-uuid"`
+	UUID        string `bson:"_id"`
+	Name        string
+	Life        Life
+	Owner       string    `bson:"owner"`
+	ServerUUID  string    `bson:"server-uuid"`
+	TimeOfDying time.Time `bson:"time-of-dying"`
+	TimeOfDeath time.Time `bson:"time-of-death"`
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.
@@ -212,6 +215,16 @@ func (e *Environment) Life() Life {
 	return e.doc.Life
 }
 
+// TimeOfDying returns when the environment Life was set to Dying.
+func (e *Environment) TimeOfDying() time.Time {
+	return e.doc.TimeOfDying
+}
+
+// TimeOfDeath returns when the environment Life was set to Dead.
+func (e *Environment) TimeOfDeath() time.Time {
+	return e.doc.TimeOfDeath
+}
+
 // Owner returns tag representing the owner of the environment.
 // The owner is the user that created the environment.
 func (e *Environment) Owner() names.UserTag {
@@ -332,7 +345,10 @@ func (e *Environment) destroyOps() ([]txn.Op, error) {
 		C:      environmentsC,
 		Id:     uuid,
 		Assert: isEnvAliveDoc,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Update: bson.D{{"$set", bson.D{
+			{"life", Dying},
+			{"time-of-dying", nowToTheSecond()},
+		}}},
 	}}
 
 	if uuid == e.doc.ServerUUID {
