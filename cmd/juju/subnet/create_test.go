@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -20,6 +21,7 @@ type CreateSuite struct {
 var _ = gc.Suite(&CreateSuite{})
 
 func (s *CreateSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
 	s.command = subnet.NewCreateCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
@@ -235,7 +237,7 @@ func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
 	s.command = subnet.NewCreateCommand(nil)
 	s.AssertRunFails(c,
-		"cannot connect to API server: API not implemented yet!",
+		"cannot connect to the API server: no environment specified",
 		"10.10.0.0/24", "space", "zone1",
 	)
 

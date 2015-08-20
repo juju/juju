@@ -58,15 +58,15 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo := state.SubnetInfo{}
 	_, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, `cannot add subnet "": missing CIDR`)
+	c.Assert(err, gc.ErrorMatches, `adding subnet "": missing CIDR`)
 
 	subnetInfo.CIDR = "foobar"
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add subnet "foobar": invalid CIDR address: foobar`,
+		`adding subnet "foobar": invalid CIDR address: foobar`,
 	)
 
-	errPrefix := `cannot add subnet "192.168.0.1/24": `
+	errPrefix := `adding subnet "192.168.0.1/24": `
 	subnetInfo.CIDR = "192.168.0.1/24"
 	subnetInfo.VLANTag = 4095
 	_, err = s.State.AddSubnet(subnetInfo)
@@ -120,7 +120,7 @@ func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo.CIDR = "192.0.0.0/0"
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add subnet "192.0.0.0/0": ProviderId "testing uniqueness" not unique`,
+		`adding subnet "192.0.0.0/0": ProviderId "testing uniqueness" not unique`,
 	)
 
 	// empty provider id should be allowed to be not unique

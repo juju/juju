@@ -10,15 +10,19 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
-var subcommandNames = []string{
+var mvpSubcommandNames = []string{
 	"add",
-	"create",
-	"remove",
 	"list",
 	"help",
+}
+
+var postMVPSubcommandNames = []string{
+	"create",
+	"remove",
 }
 
 type SubnetCommandSuite struct {
@@ -27,12 +31,27 @@ type SubnetCommandSuite struct {
 
 var _ = gc.Suite(&SubnetCommandSuite{})
 
-func (s *SubnetCommandSuite) TestHelpSubcommands(c *gc.C) {
+func (s *SubnetCommandSuite) TestHelpSubcommandsMVP(c *gc.C) {
+	s.BaseSuite.SetFeatureFlags()
+	s.BaseSubnetSuite.SetUpTest(c) // looks evil, but works fine
+
 	ctx, err := coretesting.RunCommand(c, s.superCmd, "--help")
 	c.Assert(err, jc.ErrorIsNil)
 
 	namesFound := coretesting.ExtractCommandsFromHelpOutput(ctx)
-	c.Assert(namesFound, jc.SameContents, subcommandNames)
+	c.Assert(namesFound, jc.SameContents, mvpSubcommandNames)
+}
+
+func (s *SubnetCommandSuite) TestHelpSubcommandsPostMVP(c *gc.C) {
+	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+	s.BaseSubnetSuite.SetUpTest(c) // looks evil, but works fine
+
+	ctx, err := coretesting.RunCommand(c, s.superCmd, "--help")
+	c.Assert(err, jc.ErrorIsNil)
+
+	namesFound := coretesting.ExtractCommandsFromHelpOutput(ctx)
+	allSubcommandNames := append(mvpSubcommandNames, postMVPSubcommandNames...)
+	c.Assert(namesFound, jc.SameContents, allSubcommandNames)
 }
 
 type SubnetCommandBaseSuite struct {

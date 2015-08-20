@@ -86,102 +86,98 @@ func (c *ListCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *ListCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPI()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API server")
-	}
-	defer api.Close()
-
-	// Validate space and/or zone, if given to display a nicer error
-	// message.
-	if c.spaceTag != nil {
-		spaces, err := api.AllSpaces()
-		if err != nil {
-			return errors.Annotate(err, "cannot list spaces")
-		}
-
-		spacesSet := set.NewTags(spaces...)
-		if !spacesSet.Contains(*c.spaceTag) {
-			sorted := spacesSet.SortedValues()
-			expected := make([]string, len(sorted))
-			for i, space := range sorted {
-				expected[i] = space.Id()
+	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
+		// Validate space and/or zone, if given to display a nicer error
+		// message.
+		if c.spaceTag != nil {
+			spaces, err := api.AllSpaces()
+			if err != nil {
+				return errors.Annotate(err, "cannot list spaces")
 			}
-			return errors.Errorf(
-				"%q is not a known space; expected one of: %s",
-				c.SpaceName, strings.Join(expected, ", "),
-			)
+
+			spacesSet := set.NewTags(spaces...)
+			if !spacesSet.Contains(*c.spaceTag) {
+				sorted := spacesSet.SortedValues()
+				expected := make([]string, len(sorted))
+				for i, space := range sorted {
+					expected[i] = space.Id()
+				}
+				return errors.Errorf(
+					"%q is not a known space; expected one of: %s",
+					c.SpaceName, strings.Join(expected, ", "),
+				)
+			}
 		}
-	}
-	if c.ZoneName != "" {
-		zones, err := api.AllZones()
+		if c.ZoneName != "" {
+			zones, err := api.AllZones()
+			if err != nil {
+				return errors.Annotate(err, "cannot list zones")
+			}
+			zonesSet := set.NewStrings(zones...)
+			if !zonesSet.Contains(c.ZoneName) {
+				expected := strings.Join(zonesSet.SortedValues(), ", ")
+				return errors.Errorf(
+					"%q is not a known zone; expected one of: %s",
+					c.ZoneName, expected,
+				)
+			}
+		}
+
+		// Get the list of subnets, filtering them as requested.
+		subnets, err := api.ListSubnets(c.spaceTag, c.ZoneName)
 		if err != nil {
-			return errors.Annotate(err, "cannot list zones")
-		}
-		zonesSet := set.NewStrings(zones...)
-		if !zonesSet.Contains(c.ZoneName) {
-			expected := strings.Join(zonesSet.SortedValues(), ", ")
-			return errors.Errorf(
-				"%q is not a known zone; expected one of: %s",
-				c.ZoneName, expected,
-			)
-		}
-	}
-
-	// Get the list of subnets, filtering them as requested.
-	subnets, err := api.ListSubnets(c.spaceTag, c.ZoneName)
-	if err != nil {
-		return errors.Annotate(err, "cannot list subnets")
-	}
-
-	// Display a nicer message in case no subnets were found.
-	if len(subnets) == 0 {
-		if c.SpaceName != "" || c.ZoneName != "" {
-			ctx.Infof("no subnets found matching requested criteria")
-		} else {
-			ctx.Infof("no subnets to display")
-		}
-		return nil
-	}
-
-	// Construct the output list for displaying with the chosen
-	// format.
-	result := formattedList{
-		Subnets: make(map[string]formattedSubnet),
-	}
-	for _, sub := range subnets {
-		subResult := formattedSubnet{
-			ProviderId: sub.ProviderId,
-			Zones:      sub.Zones,
+			return errors.Annotate(err, "cannot list subnets")
 		}
 
-		// Use the CIDR to determine the subnet type.
-		if ip, _, err := net.ParseCIDR(sub.CIDR); err != nil {
-			return errors.Errorf("subnet %q has invalid CIDR", sub.CIDR)
-		} else if ip.To4() != nil {
-			subResult.Type = typeIPv4
-		} else if ip.To16() != nil {
-			subResult.Type = typeIPv6
-		}
-		// Space must be valid, but verify anyway.
-		spaceTag, err := names.ParseSpaceTag(sub.SpaceTag)
-		if err != nil {
-			return errors.Annotatef(err, "subnet %q has invalid space", sub.CIDR)
-		}
-		subResult.Space = spaceTag.Id()
-
-		// Display correct status according to the life cycle value.
-		switch sub.Life {
-		case params.Alive:
-			subResult.Status = statusInUse
-		case params.Dying, params.Dead:
-			subResult.Status = statusTerminating
+		// Display a nicer message in case no subnets were found.
+		if len(subnets) == 0 {
+			if c.SpaceName != "" || c.ZoneName != "" {
+				ctx.Infof("no subnets found matching requested criteria")
+			} else {
+				ctx.Infof("no subnets to display")
+			}
+			return nil
 		}
 
-		result.Subnets[sub.CIDR] = subResult
-	}
+		// Construct the output list for displaying with the chosen
+		// format.
+		result := formattedList{
+			Subnets: make(map[string]formattedSubnet),
+		}
+		for _, sub := range subnets {
+			subResult := formattedSubnet{
+				ProviderId: sub.ProviderId,
+				Zones:      sub.Zones,
+			}
 
-	return c.out.Write(ctx, result)
+			// Use the CIDR to determine the subnet type.
+			if ip, _, err := net.ParseCIDR(sub.CIDR); err != nil {
+				return errors.Errorf("subnet %q has invalid CIDR", sub.CIDR)
+			} else if ip.To4() != nil {
+				subResult.Type = typeIPv4
+			} else if ip.To16() != nil {
+				subResult.Type = typeIPv6
+			}
+			// Space must be valid, but verify anyway.
+			spaceTag, err := names.ParseSpaceTag(sub.SpaceTag)
+			if err != nil {
+				return errors.Annotatef(err, "subnet %q has invalid space", sub.CIDR)
+			}
+			subResult.Space = spaceTag.Id()
+
+			// Display correct status according to the life cycle value.
+			switch sub.Life {
+			case params.Alive:
+				subResult.Status = statusInUse
+			case params.Dying, params.Dead:
+				subResult.Status = statusTerminating
+			}
+
+			result.Subnets[sub.CIDR] = subResult
+		}
+
+		return c.out.Write(ctx, result)
+	})
 }
 
 const (

@@ -19,26 +19,34 @@ const subnetsFacade = "Subnets"
 
 // API provides access to the Subnets API facade.
 type API struct {
+	base.ClientFacade
 	facade base.FacadeCaller
 }
 
 // NewAPI creates a new client-side Subnets facade.
-func NewAPI(caller base.APICaller) *API {
+func NewAPI(caller base.APICallCloser) *API {
 	if caller == nil {
 		panic("caller is nil")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, subnetsFacade)
+	clientFacade, facadeCaller := base.NewClientFacade(caller, subnetsFacade)
 	return &API{
-		facade: facadeCaller,
+		ClientFacade: clientFacade,
+		facade:       facadeCaller,
 	}
 }
 
 // AddSubnet adds an existing subnet to the environment.
 func (api *API) AddSubnet(subnet names.SubnetTag, providerId network.Id, space names.SpaceTag, zones []string) error {
 	var response params.ErrorResults
+	// Prefer ProviderId when set over CIDR.
+	subnetTag := subnet.String()
+	if providerId != "" {
+		subnetTag = ""
+	}
+
 	params := params.AddSubnetsParams{
 		Subnets: []params.AddSubnetParams{{
-			SubnetTag:        subnet.String(),
+			SubnetTag:        subnetTag,
 			SubnetProviderId: string(providerId),
 			SpaceTag:         space.String(),
 			Zones:            zones,

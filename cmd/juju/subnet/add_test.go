@@ -97,7 +97,8 @@ func (s *AddSuite) TestInit(c *gc.C) {
 		command := subnet.NewAddCommand(s.api)
 		err := coretesting.InitCommand(command, test.args)
 		if test.expectErr != "" {
-			c.Check(err, gc.ErrorMatches, test.expectErr)
+			prefixedErr := "invalid arguments specified: " + test.expectErr
+			c.Check(err, gc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.CIDR.Id(), gc.Equals, test.expectCIDR)
@@ -120,7 +121,10 @@ func (s *AddSuite) TestRunWithIPv4CIDRSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.20.0.0/24"), network.Id(""), names.NewSpaceTag("myspace"), []string(nil),
+		names.NewSubnetTag("10.20.0.0/24"),
+		network.Id(""),
+		names.NewSpaceTag("myspace"),
+		[]string(nil),
 	)
 }
 
@@ -140,7 +144,10 @@ func (s *AddSuite) TestRunWithIncorrectlyGivenCIDRSucceedsWithWarning(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.0.0.0/8"), network.Id(""), names.NewSpaceTag("myspace"), []string(nil),
+		names.NewSubnetTag("10.0.0.0/8"),
+		network.Id(""),
+		names.NewSpaceTag("myspace"),
+		[]string(nil),
 	)
 }
 
@@ -153,7 +160,10 @@ func (s *AddSuite) TestRunWithProviderIdSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.SubnetTag{}, network.Id("foo"), names.NewSpaceTag("myspace"), s.Strings("zone1", "zone2"),
+		names.SubnetTag{},
+		network.Id("foo"),
+		names.NewSpaceTag("myspace"),
+		s.Strings("zone1", "zone2"),
 	)
 }
 
@@ -166,7 +176,10 @@ func (s *AddSuite) TestRunWithIPv6CIDRSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("2001:db8::/32"), network.Id(""), names.NewSpaceTag("hyperspace"), []string(nil),
+		names.NewSubnetTag("2001:db8::/32"),
+		network.Id(""),
+		names.NewSpaceTag("hyperspace"),
+		[]string(nil),
 	)
 }
 
@@ -174,14 +187,17 @@ func (s *AddSuite) TestRunWithExistingSubnetFails(c *gc.C) {
 	s.api.SetErrors(errors.AlreadyExistsf("subnet %q", "10.10.0.0/24"))
 
 	err := s.AssertRunFails(c,
-		`cannot add subnet "10.10.0.0/24": subnet "10.10.0.0/24" already exists`,
+		`cannot add subnet: subnet "10.10.0.0/24" already exists`,
 		"10.10.0.0/24", "space",
 	)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), network.Id(""), names.NewSpaceTag("space"), []string(nil),
+		names.NewSubnetTag("10.10.0.0/24"),
+		network.Id(""),
+		names.NewSpaceTag("space"),
+		[]string(nil),
 	)
 }
 
@@ -189,14 +205,17 @@ func (s *AddSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 	s.api.SetErrors(errors.NotFoundf("space %q", "space"))
 
 	err := s.AssertRunFails(c,
-		`cannot add subnet "10.10.0.0/24": space "space" not found`,
+		`cannot add subnet: space "space" not found`,
 		"10.10.0.0/24", "space", "zone1", "zone2",
 	)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), network.Id(""), names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
+		names.NewSubnetTag("10.10.0.0/24"),
+		network.Id(""),
+		names.NewSpaceTag("space"),
+		s.Strings("zone1", "zone2"),
 	)
 }
 
@@ -212,7 +231,10 @@ func (s *AddSuite) TestRunWithAmbiguousCIDRDisplaysError(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSubnet", "Close")
 	s.api.CheckCall(c, 0, "AddSubnet",
-		names.NewSubnetTag("10.10.0.0/24"), network.Id(""), names.NewSpaceTag("space"), s.Strings("zone1", "zone2"),
+		names.NewSubnetTag("10.10.0.0/24"),
+		network.Id(""),
+		names.NewSpaceTag("space"),
+		s.Strings("zone1", "zone2"),
 	)
 }
 
@@ -220,7 +242,7 @@ func (s *AddSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
 	s.command = subnet.NewAddCommand(nil)
 	s.AssertRunFails(c,
-		"cannot connect to API server: API not implemented yet!",
+		"cannot connect to the API server: no environment specified",
 		"10.10.0.0/24", "space",
 	)
 

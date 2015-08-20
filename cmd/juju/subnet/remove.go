@@ -63,18 +63,13 @@ func (c *RemoveCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *RemoveCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPI()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API server")
-	}
-	defer api.Close()
+	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
+		// Try removing the subnet.
+		if err := api.RemoveSubnet(c.CIDR); err != nil {
+			return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR.Id())
+		}
 
-	// Try removing the subnet.
-	err = api.RemoveSubnet(c.CIDR)
-	if err != nil {
-		return errors.Annotatef(err, "cannot remove subnet %q", c.CIDR.Id())
-	}
-
-	ctx.Infof("marked subnet %q for removal", c.CIDR.Id())
-	return nil
+		ctx.Infof("marked subnet %q for removal", c.CIDR.Id())
+		return nil
+	})
 }

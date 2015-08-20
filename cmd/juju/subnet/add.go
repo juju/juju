@@ -53,7 +53,9 @@ func (c *AddCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *AddCommand) Init(args []string) error {
+func (c *AddCommand) Init(args []string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
+
 	// Ensure we have 2 or more arguments.
 	switch len(args) {
 	case 0:
@@ -63,7 +65,6 @@ func (c *AddCommand) Init(args []string) error {
 	}
 
 	// Try to validate first argument as a CIDR first.
-	var err error
 	c.RawCIDR = args[0]
 	c.CIDR, err = c.ValidateCIDR(args[0], false)
 	if err != nil {
@@ -88,34 +89,30 @@ func (c *AddCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *AddCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPI()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API server")
-	}
-	defer api.Close()
+	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
+		if c.CIDR.Id() != "" && c.RawCIDR != c.CIDR.Id() {
+			ctx.Infof(
+				"WARNING: using CIDR %q instead of the incorrectly specified %q.",
+				c.CIDR.Id(), c.RawCIDR,
+			)
+		}
 
-	if c.CIDR.Id() != "" && c.RawCIDR != c.CIDR.Id() {
-		ctx.Infof(
-			"WARNING: using CIDR %q instead of the incorrectly specified %q.",
-			c.CIDR.Id(), c.RawCIDR,
-		)
-	}
+		// Add the existing subnet.
+		err := api.AddSubnet(c.CIDR, network.Id(c.ProviderId), c.Space, c.Zones)
+		// TODO(dimitern): Change this once the API returns a concrete error.
+		if err != nil && strings.Contains(err.Error(), "multiple subnets with") {
+			// Special case: multiple subnets with the same CIDR exist
+			ctx.Infof("ERROR: %v.", err)
+			return nil
+		} else if err != nil {
+			return errors.Annotatef(err, "cannot add subnet")
+		}
 
-	// Add the existing subnet.
-	err = api.AddSubnet(c.CIDR, network.Id(c.ProviderId), c.Space, c.Zones)
-	// TODO(dimitern): Change this once the API returns a concrete error.
-	if err != nil && strings.Contains(err.Error(), "multiple subnets with") {
-		// Special case: multiple subnets with the same CIDR exist
-		ctx.Infof("ERROR: %v.", err)
+		if c.ProviderId != "" {
+			ctx.Infof("added subnet with ProviderId %q in space %q", c.ProviderId, c.Space.Id())
+		} else {
+			ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR.Id(), c.Space.Id())
+		}
 		return nil
-	} else if err != nil {
-		return errors.Annotatef(err, "cannot add subnet %q", c.CIDR.Id())
-	}
-
-	if c.CIDR.Id() == "" {
-		ctx.Infof("added subnet with ProviderId %q in space %q", c.ProviderId, c.Space.Id())
-	} else {
-		ctx.Infof("added subnet with CIDR %q in space %q", c.CIDR.Id(), c.Space.Id())
-	}
-	return nil
+	})
 }

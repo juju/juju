@@ -381,7 +381,7 @@ func (s *ListSuite) TestRunAPIConnectFails(c *gc.C) {
 	// TODO(dimitern): Change this once API is implemented.
 	s.command = subnet.NewListCommand(nil)
 	s.AssertRunFails(c,
-		"cannot connect to API server: API not implemented yet!",
+		"cannot connect to the API server: no environment specified",
 	)
 
 	// No API calls recoreded.

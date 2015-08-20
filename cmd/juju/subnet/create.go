@@ -136,47 +136,43 @@ func (c *CreateCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *CreateCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPI()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API server")
-	}
-	defer api.Close()
+	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
+		if !c.Zones.IsEmpty() {
+			// Fetch all zones to validate the given zones.
+			zones, err := api.AllZones()
+			if err != nil {
+				return errors.Annotate(err, "cannot fetch availability zones")
+			}
 
-	if !c.Zones.IsEmpty() {
-		// Fetch all zones to validate the given zones.
-		zones, err := api.AllZones()
+			// Find which of the given CIDRs match existing ones.
+			validZones := set.NewStrings()
+			for _, zone := range zones {
+				validZones.Add(zone)
+			}
+			diff := c.Zones.Difference(validZones)
+
+			if !diff.IsEmpty() {
+				// Some given zones are missing.
+				zones := strings.Join(diff.SortedValues(), ", ")
+				return errors.Errorf("unknown zones specified: %s", zones)
+			}
+		}
+
+		// Create the new subnet.
+		err := api.CreateSubnet(c.CIDR, c.Space, c.Zones.SortedValues(), c.IsPublic)
 		if err != nil {
-			return errors.Annotate(err, "cannot fetch availability zones")
+			return errors.Annotatef(err, "cannot create subnet %q", c.CIDR.Id())
 		}
 
-		// Find which of the given CIDRs match existing ones.
-		validZones := set.NewStrings()
-		for _, zone := range zones {
-			validZones.Add(zone)
+		zones := strings.Join(c.Zones.SortedValues(), ", ")
+		accessType := "private"
+		if c.IsPublic {
+			accessType = "public"
 		}
-		diff := c.Zones.Difference(validZones)
-
-		if !diff.IsEmpty() {
-			// Some given zones are missing.
-			zones := strings.Join(diff.SortedValues(), ", ")
-			return errors.Errorf("unknown zones specified: %s", zones)
-		}
-	}
-
-	// Create the new subnet.
-	err = api.CreateSubnet(c.CIDR, c.Space, c.Zones.SortedValues(), c.IsPublic)
-	if err != nil {
-		return errors.Annotatef(err, "cannot create subnet %q", c.CIDR.Id())
-	}
-
-	zones := strings.Join(c.Zones.SortedValues(), ", ")
-	accessType := "private"
-	if c.IsPublic {
-		accessType = "public"
-	}
-	ctx.Infof(
-		"created a %s subnet %q in space %q with zones %s",
-		accessType, c.CIDR.Id(), c.Space.Id(), zones,
-	)
-	return nil
+		ctx.Infof(
+			"created a %s subnet %q in space %q with zones %s",
+			accessType, c.CIDR.Id(), c.Space.Id(), zones,
+		)
+		return nil
+	})
 }

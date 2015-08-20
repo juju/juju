@@ -51,7 +51,9 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.facade, err = subnets.NewAPI(apiservertesting.BackingInstance, s.resources, s.authorizer)
+	s.facade, err = subnets.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, s.authorizer,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
 }
@@ -89,9 +91,11 @@ func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, e
 	c.Assert(got, jc.DeepEquals, params.SpaceResults{Results: results})
 }
 
-func (s *SubnetsSuite) TestNewAPI(c *gc.C) {
+func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
-	facade, err := subnets.NewAPI(apiservertesting.BackingInstance, s.resources, s.authorizer)
+	facade, err := subnets.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, s.authorizer,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
 	// No calls so far.
@@ -100,7 +104,9 @@ func (s *SubnetsSuite) TestNewAPI(c *gc.C) {
 	// Agents are not allowed
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
-	facade, err = subnets.NewAPI(apiservertesting.BackingInstance, s.resources, agentAuthorizer)
+	facade, err = subnets.NewAPIWithBacking(
+		apiservertesting.BackingInstance, s.resources, agentAuthorizer,
+	)
 	c.Assert(err, jc.DeepEquals, common.ErrPerm)
 	c.Assert(facade, gc.IsNil)
 	// No calls so far.
@@ -501,7 +507,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 				`incorrect CIDR format "0.1.2.3/4", expected "0.0.0.0/4"`, nil,
 		},
 		{"cannot validate given SpaceTag: spaces not found", params.IsCodeNotFound},
-		{`given SpaceTag "space-missing" not found`, params.IsCodeNotFound},
+		{`space "missing" not found`, params.IsCodeNotFound},
 		{"Zones cannot be discovered from the provider and must be set", nil},
 		{`Zones contain zones not allowed by the provider: "missing", "zone1", "zone2"`, nil},
 		{"given Zones cannot be validated: zones not found", params.IsCodeNotFound},
@@ -509,7 +515,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{`Zones contain unknown zones: "missing"`, nil},
 		{`Zones contain unavailable zones: "zone2", "zone4"`, nil},
 		{`Zones contain unavailable zones: "zone4"`, nil},
-		{"cannot add subnet: state not found", params.IsCodeNotFound},
+		{"state not found", params.IsCodeNotFound},
 		{`Zones contain unavailable zones: "zone2"`, nil},
 		{"", nil},
 		{"", nil},
