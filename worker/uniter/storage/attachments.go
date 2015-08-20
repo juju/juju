@@ -141,22 +141,6 @@ func (a *Attachments) init() error {
 	return nil
 }
 
-//// Hooks returns the channel on which storage hook execution requests
-//// are sent.
-//func (a *Attachments) Hooks() <-chan hook.Info {
-//	return a.hooks
-//}
-//
-//// Stop stops all of the storagers.
-//func (a *Attachments) Stop() error {
-//	for _, s := range a.storagers {
-//		if err := s.Stop(); err != nil {
-//			return errors.Trace(err)
-//		}
-//	}
-//	return nil
-//}
-
 // SetDying ensures that any unprovisioned storage attachments are removed
 // from state, and Pending is updated. After SetDying returns successfully,
 // and once Pending returns zero and Empty returns true, there will be no
