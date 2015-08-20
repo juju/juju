@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -68,20 +67,10 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
-	// TODO(dimitern): Drop --networks in a follow-up with an error.
 	if len(args.Networks) > 0 || args.Constraints.HaveNetworks() {
-		conf, err := st.EnvironConfig()
-		if err != nil {
-			return nil, err
-		}
-		env, err := environs.New(conf)
-		if err != nil {
-			return nil, err
-		}
-		if _, ok := environs.SupportsNetworking(env); !ok {
-			return nil, fmt.Errorf("cannot deploy with networks: not suppored by the environment")
-		}
+		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
 	}
+
 	// TODO(dimitern): In a follow-up drop Networks and use spaces
 	// constraints for this when possible.
 	service, err := st.AddService(
