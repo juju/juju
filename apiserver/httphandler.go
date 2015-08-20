@@ -23,9 +23,8 @@ type errorSender interface {
 
 // httpHandler handles http requests through HTTPS in the API server.
 type httpHandler struct {
-	// rename the state variable to catch all uses of it
-	// state server state connection, used for validation
-	ssState *state.State
+	// A cache of State instances for different environments.
+	statePool *state.StatePool
 	// strictValidation means that empty envUUID values are not valid.
 	strictValidation bool
 	// stateServerEnvOnly only validates the state server environment
@@ -51,7 +50,7 @@ func (h *httpHandler) authError(w http.ResponseWriter, sender errorSender) {
 func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
 	envUUID := h.getEnvironUUID(r)
 	envState, needsClosing, err := validateEnvironUUID(validateArgs{
-		st:                 h.ssState,
+		statePool:          h.statePool,
 		envUUID:            envUUID,
 		strict:             h.strictValidation,
 		stateServerEnvOnly: h.stateServerEnvOnly,

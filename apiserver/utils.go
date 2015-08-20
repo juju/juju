@@ -36,8 +36,8 @@ func setPassword(e state.Authenticator, password string) error {
 }
 
 type validateArgs struct {
-	st      *state.State
-	envUUID string
+	statePool *state.StatePool
+	envUUID   string
 	// strict validation does not allow empty UUID values
 	strict bool
 	// stateServerEnvOnly only validates the state server environment
@@ -54,6 +54,8 @@ type validateArgs struct {
 // database.  If the bool return value is true, the state connection must
 // be closed by the caller at the end of serving the client connection.
 func validateEnvironUUID(args validateArgs) (*state.State, bool, error) {
+	ssState := args.statePool.SystemState()
+
 	if args.envUUID == "" {
 		// We allow the environUUID to be empty for 2 cases
 		// 1) Compatibility with older clients
@@ -65,11 +67,11 @@ func validateEnvironUUID(args validateArgs) (*state.State, bool, error) {
 			return nil, false, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 		}
 		logger.Debugf("validate env uuid: empty envUUID")
-		return args.st, false, nil
+		return ssState, false, nil
 	}
-	if args.envUUID == args.st.EnvironUUID() {
+	if args.envUUID == ssState.EnvironUUID() {
 		logger.Debugf("validate env uuid: state server environment - %s", args.envUUID)
-		return args.st, false, nil
+		return ssState, false, nil
 	}
 	if args.stateServerEnvOnly {
 		return nil, false, errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
@@ -78,15 +80,15 @@ func validateEnvironUUID(args validateArgs) (*state.State, bool, error) {
 		return nil, false, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 	}
 	envTag := names.NewEnvironTag(args.envUUID)
-	if env, err := args.st.GetEnvironment(envTag); err != nil {
+	if env, err := ssState.GetEnvironment(envTag); err != nil {
 		return nil, false, errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
 	} else if env.Life() != state.Alive {
 		return nil, false, errors.Errorf("environment %q is no longer live", args.envUUID)
 	}
 	logger.Debugf("validate env uuid: %s", args.envUUID)
-	result, err := args.st.ForEnviron(envTag)
+	st, err := args.statePool.Get(args.envUUID)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-	return result, true, nil
+	return st, false, nil
 }

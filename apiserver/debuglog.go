@@ -40,12 +40,12 @@ type debugLogHandlerFunc func(
 ) error
 
 func newDebugLogHandler(
-	ssState *state.State,
+	statePool *state.StatePool,
 	stop <-chan struct{},
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
-		httpHandler: httpHandler{ssState: ssState},
+		httpHandler: httpHandler{statePool: statePool},
 		stop:        stop,
 		handle:      handle,
 	}
