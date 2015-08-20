@@ -463,13 +463,17 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 		tag := tags[i]
 		// If the storage is alive and present, we start a watcher for it.
 		if result.Error == nil {
-			// TODO(wallyworld) - this should be there after consuming initial watcher event
-			if _, ok := w.current.Storage[tag]; !ok {
-				w.current.Storage[tag] = StorageSnapshot{
+			storageSnapshot, ok := w.current.Storage[tag]
+			if !ok {
+				// TODO(wallyworld) - this should be there after consuming initial watcher event
+				storageSnapshot = StorageSnapshot{
 					Tag:  tag,
 					Life: result.Life,
 				}
 			}
+			storageSnapshot.Life = result.Life
+			w.current.Storage[tag] = storageSnapshot
+
 			if err := w.startStorageAttachmentWatcher(tag); err != nil {
 				return errors.Annotatef(
 					err, "starting watcher of %s attachment",
