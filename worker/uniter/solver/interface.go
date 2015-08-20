@@ -10,10 +10,20 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
+// ErrNoOperation is used to indicate that there are no
+// currently pending operations to run.
 var ErrNoOperation = errors.New("no operations")
 
+var ErrWaiting = errors.New("waiting")
+
+// ErrTerminate is used when the unit has been marked
+// as dead and so there will never be any more
+// operations to run for that unit.
 var ErrTerminate = errors.New("terminate solver")
 
+// Solver instances use local (as is) and remote (to be) state
+// to provide operations to run in order to progress towards
+// the desired state.
 type Solver interface {
 	// NextOp returns the next operation to run to reconcile
 	// the local state with the remote, desired state. This

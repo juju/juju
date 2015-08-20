@@ -242,6 +242,7 @@ func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
+	c.Logf("ctx.hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}
@@ -476,15 +477,11 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	}
 
 	uniterParams := uniter.UniterParams{
-		UniterFacade:      ctx.api,
-		UnitTag:           tag,
-		LeadershipTracker: ctx.leaderTracker,
-		DataDir:           ctx.dataDir,
-		MachineLock:       lock,
-		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
-			ctx.collectMetricsTicker.ReturnTimer,
-			ctx.sendMetricsTicker.ReturnTimer,
-		),
+		UniterFacade:         ctx.api,
+		UnitTag:              tag,
+		LeadershipTracker:    ctx.leaderTracker,
+		DataDir:              ctx.dataDir,
+		MachineLock:          lock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 	}

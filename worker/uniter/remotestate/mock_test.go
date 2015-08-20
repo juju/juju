@@ -66,11 +66,30 @@ func (w *mockRelationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsCh
 	return w.changes
 }
 
+type mockStorageAttachmentWatcher struct {
+	changes chan struct{}
+	stopped bool
+}
+
+func (w *mockStorageAttachmentWatcher) Stop() error {
+	w.stopped = true
+	return nil
+}
+
+func (*mockStorageAttachmentWatcher) Err() error {
+	return nil
+}
+
+func (w *mockStorageAttachmentWatcher) Changes() <-chan struct{} {
+	return w.changes
+}
+
 type mockState struct {
-	unit                  mockUnit
-	relations             map[names.RelationTag]*mockRelation
-	storageAttachmentLife map[params.StorageAttachmentId]params.Life
-	relationUnitsWatchers map[names.RelationTag]*mockRelationUnitsWatcher
+	unit                      mockUnit
+	relations                 map[names.RelationTag]*mockRelation
+	storageAttachment         map[params.StorageAttachmentId]params.StorageAttachment
+	relationUnitsWatchers     map[names.RelationTag]*mockRelationUnitsWatcher
+	storageAttachmentWatchers map[names.StorageTag]*mockStorageAttachmentWatcher
 }
 
 func (st *mockState) Relation(tag names.RelationTag) (remotestate.Relation, error) {
@@ -81,19 +100,34 @@ func (st *mockState) Relation(tag names.RelationTag) (remotestate.Relation, erro
 	return r, nil
 }
 
+func (st *mockState) StorageAttachment(
+	storageTag names.StorageTag, unitTag names.UnitTag,
+) (params.StorageAttachment, error) {
+	if unitTag != st.unit.tag {
+		return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
+	}
+	for _, attachment := range st.storageAttachment {
+		if attachment.StorageTag != storageTag.String() {
+			continue
+		}
+		return attachment, nil
+	}
+	return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
+}
+
 func (st *mockState) StorageAttachmentLife(
 	ids []params.StorageAttachmentId,
 ) ([]params.LifeResult, error) {
 	results := make([]params.LifeResult, len(ids))
 	for i, id := range ids {
-		life, ok := st.storageAttachmentLife[id]
+		attachment, ok := st.storageAttachment[id]
 		if !ok {
 			results[i] = params.LifeResult{
 				Error: &params.Error{Code: params.CodeNotFound},
 			}
 			continue
 		}
-		results[i] = params.LifeResult{Life: life}
+		results[i] = params.LifeResult{Life: attachment.Life}
 	}
 	return results, nil
 }
@@ -112,6 +146,19 @@ func (st *mockState) WatchRelationUnits(
 		return nil, &params.Error{Code: params.CodeNotFound}
 	}
 	watcher, ok := st.relationUnitsWatchers[relationTag]
+	if !ok {
+		return nil, &params.Error{Code: params.CodeNotFound}
+	}
+	return watcher, nil
+}
+
+func (st *mockState) WatchStorageAttachment(
+	storageTag names.StorageTag, unitTag names.UnitTag,
+) (watcher.NotifyWatcher, error) {
+	if unitTag != st.unit.tag {
+		return nil, &params.Error{Code: params.CodeNotFound}
+	}
+	watcher, ok := st.storageAttachmentWatchers[storageTag]
 	if !ok {
 		return nil, &params.Error{Code: params.CodeNotFound}
 	}

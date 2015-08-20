@@ -39,8 +39,6 @@ type UniterSuite struct {
 	oldLcAll string
 	unitDir  string
 
-	collectMetricsTicker   *uniter.ManualTicker
-	sendMetricsTicker      *uniter.ManualTicker
 	updateStatusHookTicker *uniter.ManualTicker
 }
 
@@ -88,8 +86,6 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
-	s.collectMetricsTicker = uniter.NewManualTicker()
-	s.sendMetricsTicker = uniter.NewManualTicker()
 	s.updateStatusHookTicker = uniter.NewManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
@@ -126,8 +122,6 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				path:                   s.unitDir,
 				dataDir:                s.dataDir,
 				charms:                 make(map[string][]byte),
-				collectMetricsTicker:   s.collectMetricsTicker,
-				sendMetricsTicker:      s.sendMetricsTicker,
 				updateStatusHookTicker: s.updateStatusHookTicker,
 			}
 			ctx.run(c, t.steps)
@@ -1841,8 +1835,6 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		path:                   filepath.Join(s.dataDir, "agents", "unit-u-0"),
 		dataDir:                s.dataDir,
 		charms:                 make(map[string][]byte),
-		collectMetricsTicker:   s.collectMetricsTicker,
-		sendMetricsTicker:      s.sendMetricsTicker,
 		updateStatusHookTicker: s.updateStatusHookTicker,
 	}
 

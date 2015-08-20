@@ -49,25 +49,3 @@ func ReadAllStateFiles(dirPath string) (map[names.StorageTag]State, error) {
 	}
 	return states, nil
 }
-
-func NewStorageHookQueue(
-	unitTag names.UnitTag,
-	storageTag names.StorageTag,
-	attached bool,
-) StorageHookQueue {
-	return &storageHookQueue{
-		unitTag:    unitTag,
-		storageTag: storageTag,
-		attached:   attached,
-	}
-}
-
-func NewStorageSource(
-	st StorageAccessor,
-	unitTag names.UnitTag,
-	storageTag names.StorageTag,
-	attached bool,
-) (hook.Source, error) {
-	source, err := newStorageSource(st, unitTag, storageTag, attached)
-	return source, err
-}

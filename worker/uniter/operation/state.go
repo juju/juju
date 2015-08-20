@@ -66,6 +66,9 @@ type State struct {
 	// Stopped indicates whether the stop hook has run.
 	Stopped bool `yaml:"stopped"`
 
+	// Installed indicates whether the install hook has run.
+	Installed bool `yaml:"installed"`
+
 	// StatusSet indicates whether the charm being deployed has ever invoked
 	// the status-set hook tool.
 	StatusSet bool `yaml:"status-set"`
@@ -114,7 +117,7 @@ func (st State) validate() (err error) {
 	hasCharm := st.CharmURL != nil
 	switch st.Kind {
 	case Install:
-		if hasHook {
+		if st.Installed {
 			return errors.New("unexpected hook info with Kind Install")
 		}
 		fallthrough

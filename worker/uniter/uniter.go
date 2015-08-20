@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
+	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -77,24 +78,11 @@ type Uniter struct {
 	hookLock    *fslock.Lock
 	runListener *RunListener
 
-	ranLeaderSettingsChanged bool
-	ranConfigChanged         bool
+	ranConfigChanged bool
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
-
-	// metricsTimerChooser is a struct that allows metrics to switch between
-	// active and inactive timers.
-	metricsTimerChooser *timerChooser
-
-	// collectMetricsAt defines a function that will be used to generate signals
-	// for the collect-metrics hook.
-	collectMetricsAt TimedSignal
-
-	// sendMetricsAt defines a function that will be used to generate signals
-	// to send metrics to the state server.
-	sendMetricsAt TimedSignal
 
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
@@ -108,7 +96,6 @@ type UniterParams struct {
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	MachineLock          *fslock.Lock
-	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
 	NewOperationExecutor NewExecutorFunc
 }
@@ -124,9 +111,6 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
-		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
-		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
-		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 	}
@@ -203,7 +187,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// is started.
 	var charmURL *corecharm.URL
 	opState := u.operationExecutor.State()
-	if opState.Kind == operation.Install {
+	if !opState.Installed {
 		logger.Infof("resuming charm install")
 		op, err := u.operationFactory.NewInstall(opState.CharmURL)
 		if err != nil {
@@ -245,7 +229,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// We should only set idle status if we're in
 			// the "Continue" state, which indicates that
 			// there is nothing to do and we're not in an
-			// erro state.
+			// error state.
 			return nil
 		}
 		return setAgentStatus(u, params.StatusIdle, "", nil)
@@ -268,14 +252,16 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		setAgentStatus: setAgentStatus,
 		clearResolved:  clearResolved,
 		charmURL:       charmURL,
-		leadershipSolver: &leadershipSolver{
-			opFactory: u.operationFactory,
-			tracker:   u.leadershipTracker,
-		},
+		leadershipSolver: uniterleadership.NewSolver(
+			u.operationFactory, u.leadershipTracker,
+		),
 		relationsSolver: &relationsSolver{
 			opFactory: u.operationFactory,
 			relations: u.relations,
 		},
+		storageSolver: storage.NewSolver(
+			u.operationFactory, u.storage,
+		),
 	}
 
 	// TODO(axw) this is shitty duplication, clean up
@@ -395,7 +381,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}
 	u.storage = storageAttachments
-	u.addCleanup(storageAttachments.Stop)
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -480,18 +465,6 @@ func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 
 func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
-}
-
-// initializeMetricsTimers enables the periodic collect-metrics hook
-// and periodic sending of collected metrics for charms that declare metrics.
-func (u *Uniter) initializeMetricsTimers() error {
-	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
-	if err != nil {
-		return err
-	}
-	u.collectMetricsAt = u.metricsTimerChooser.getCollectMetricsTimer(charm)
-	u.sendMetricsAt = u.metricsTimerChooser.getSendMetricsTimer(charm)
-	return nil
 }
 
 // RunCommands executes the supplied commands in a hook context.

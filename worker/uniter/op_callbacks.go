@@ -63,8 +63,6 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
-	case hi.Kind == hook.LeaderSettingsChanged:
-		opc.u.ranLeaderSettingsChanged = true
 	}
 	return nil
 }
@@ -128,11 +126,6 @@ func (opc *operationCallbacks) ClearResolvedFlag() error {
 	// TODO(axw)
 	//return opc.u.f.ClearResolved()
 	return opc.u.unit.ClearResolved()
-}
-
-// InitializeMetricsTimers is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) InitializeMetricsTimers() error {
-	return opc.u.initializeMetricsTimers()
 }
 
 // SetExecutingStatus is part of the operation.Callbacks interface.
