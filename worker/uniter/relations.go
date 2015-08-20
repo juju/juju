@@ -6,6 +6,7 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	corecharm "gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
@@ -14,27 +15,19 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/solver"
 )
 
 // Relations exists to encapsulate relation state and operations behind an
 // interface for the benefit of future refactoring.
 type Relations interface {
-
 	// Name returns the name of the relation with the supplied id, or an error
 	// if the relation is unknown.
 	Name(id int) (string, error)
-
-	// Hooks returns the channel on which relation hook execution requests
-	// are sent.
-	Hooks() <-chan hook.Info
-
-	// StartHooks starts sending hook execution requests on the Hooks channel.
-	StartHooks()
-
-	// StopHooks stops sending hook execution requests on the Hooks channel.
-	StopHooks() error
 
 	// PrepareHook returns the name of the supplied relation hook, or an error
 	// if the hook is unknown or invalid given current state.
@@ -48,26 +41,33 @@ type Relations interface {
 	// GetInfo returns information about current relation state.
 	GetInfo() map[int]*runner.RelationInfo
 
-	// Update checks for and responds to changes in the life states of the
-	// relations with the supplied ids. If any id corresponds to an alive
-	// relation that is not already recorded, the unit will enter scope for
-	// that relation and start its hook queue.
-	Update(ids []int) error
+	NextHook(operation.State, remotestate.Snapshot) (hook.Info, error)
+}
 
-	// SetDying notifies all known relations that the only hooks to be requested
-	// should be those necessary to cleanly exit the relation.
-	SetDying() error
+type relationsSolver struct {
+	relations Relations
+	opFactory operation.Factory
+}
+
+func (s *relationsSolver) NextOp(
+	opState operation.State,
+	remoteState remotestate.Snapshot,
+) (operation.Operation, error) {
+	hook, err := s.relations.NextHook(opState, remoteState)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.opFactory.NewRunHook(hook)
 }
 
 // relations implements Relations.
 type relations struct {
-	st            *uniter.State
-	unit          *uniter.Unit
-	charmDir      string
-	relationsDir  string
-	relationers   map[int]*Relationer
-	relationHooks chan hook.Info
-	abort         <-chan struct{}
+	st           *uniter.State
+	unit         *uniter.Unit
+	charmDir     string
+	relationsDir string
+	relationers  map[int]*Relationer
+	abort        <-chan struct{}
 }
 
 func newRelations(st *uniter.State, tag names.UnitTag, paths Paths, abort <-chan struct{}) (*relations, error) {
@@ -76,13 +76,12 @@ func newRelations(st *uniter.State, tag names.UnitTag, paths Paths, abort <-chan
 		return nil, errors.Trace(err)
 	}
 	r := &relations{
-		st:            st,
-		unit:          unit,
-		charmDir:      paths.State.CharmDir,
-		relationsDir:  paths.State.RelationsDir,
-		relationers:   make(map[int]*Relationer),
-		relationHooks: make(chan hook.Info),
-		abort:         abort,
+		st:           st,
+		unit:         unit,
+		charmDir:     paths.State.CharmDir,
+		relationsDir: paths.State.RelationsDir,
+		relationers:  make(map[int]*Relationer),
+		abort:        abort,
 	}
 	if err := r.init(); err != nil {
 		return nil, errors.Trace(err)
@@ -134,6 +133,138 @@ func (r *relations) init() error {
 	return nil
 }
 
+func (r *relations) NextHook(
+	opState operation.State,
+	remoteState remotestate.Snapshot,
+) (hook.Info, error) {
+
+	// Add/remove local relation state; enter and leave scope as necessary.
+	if err := r.update(remoteState.Relations); err != nil {
+		return hook.Info{}, errors.Trace(err)
+	}
+
+	// See if any of the relations have operations to perform.
+	for relationId, relationSnapshot := range remoteState.Relations {
+		relationer, ok := r.relationers[relationId]
+		if !ok {
+			continue
+		}
+		var remoteBroken bool
+		if remoteState.Life == params.Dying || relationSnapshot.Life == params.Dying {
+			relationSnapshot = remotestate.RelationSnapshot{}
+			remoteBroken = true
+			// TODO(axw) if relation is implicit, leave scope & remove.
+		}
+		// If either the unit or the relation are Dying,
+		// then the relation should be broken.
+		hook, err := nextRelationHook(relationer.dir.State(), relationSnapshot, remoteBroken)
+		if err == solver.ErrNoOperation {
+			continue
+		}
+		return hook, err
+	}
+	return hook.Info{}, solver.ErrNoOperation
+}
+
+// nextRelationHook returns the next hook op that should be executed in the
+// relation characterised by the supplied local and remote state; or an error
+// if the states do not refer to the same relation; or ErrRelationUpToDate if
+// no hooks need to be executed.
+func nextRelationHook(
+	local *relation.State,
+	remote remotestate.RelationSnapshot,
+	remoteBroken bool,
+) (hook.Info, error) {
+
+	// If there's a guaranteed next hook, return that.
+	relationId := local.RelationId
+	if local.ChangedPending != "" {
+		unitName := local.ChangedPending
+		return hook.Info{
+			Kind:          hooks.RelationChanged,
+			RelationId:    relationId,
+			RemoteUnit:    unitName,
+			ChangeVersion: remote.Members[unitName],
+		}, nil
+	}
+
+	// Get the union of all relevant units, and sort them, so we produce events
+	// in a consistent order (largely for the convenience of the tests).
+	allUnitNames := set.NewStrings()
+	for unitName := range local.Members {
+		allUnitNames.Add(unitName)
+	}
+	for unitName := range remote.Members {
+		allUnitNames.Add(unitName)
+	}
+	sortedUnitNames := allUnitNames.SortedValues()
+
+	// If there are any locally known units that are no longer reflected in
+	// remote state, depart them.
+	for _, unitName := range sortedUnitNames {
+		changeVersion, found := local.Members[unitName]
+		if !found {
+			continue
+		}
+		if _, found := remote.Members[unitName]; !found {
+			return hook.Info{
+				Kind:          hooks.RelationDeparted,
+				RelationId:    relationId,
+				RemoteUnit:    unitName,
+				ChangeVersion: changeVersion,
+			}, nil
+		}
+	}
+
+	// If the relation's meant to be broken, break it.
+	if remoteBroken {
+		return hook.Info{
+			Kind:       hooks.RelationBroken,
+			RelationId: relationId,
+		}, nil
+	}
+
+	// If there are any remote units not locally known, join them.
+	for _, unitName := range sortedUnitNames {
+		changeVersion, found := remote.Members[unitName]
+		if !found {
+			continue
+		}
+		if _, found := local.Members[unitName]; !found {
+			return hook.Info{
+				Kind:          hooks.RelationJoined,
+				RelationId:    relationId,
+				RemoteUnit:    unitName,
+				ChangeVersion: changeVersion,
+			}, nil
+		}
+	}
+
+	// Finally scan for remote units whose latest version is not reflected
+	// in local state.
+	for _, unitName := range sortedUnitNames {
+		remoteChangeVersion, found := remote.Members[unitName]
+		if !found {
+			continue
+		}
+		localChangeVersion, found := local.Members[unitName]
+		if !found {
+			continue
+		}
+		if remoteChangeVersion > localChangeVersion {
+			return hook.Info{
+				Kind:          hooks.RelationChanged,
+				RelationId:    relationId,
+				RemoteUnit:    unitName,
+				ChangeVersion: remoteChangeVersion,
+			}, nil
+		}
+	}
+
+	// Nothing left to do for this relation.
+	return hook.Info{}, solver.ErrNoOperation
+}
+
 // Name is part of the Relations interface.
 func (r *relations) Name(id int) (string, error) {
 	relationer, found := r.relationers[id]
@@ -141,32 +272,6 @@ func (r *relations) Name(id int) (string, error) {
 		return "", errors.Errorf("unknown relation: %d", id)
 	}
 	return relationer.ru.Endpoint().Name, nil
-}
-
-// Hooks is part of the Relations interface.
-func (r *relations) Hooks() <-chan hook.Info {
-	return r.relationHooks
-}
-
-// StartHooks is part of the Relations interface.
-func (r *relations) StartHooks() {
-	for _, relationer := range r.relationers {
-		relationer.StartHooks()
-	}
-}
-
-// StopHooks is part of the Relations interface.
-func (r *relations) StopHooks() (err error) {
-	for _, relationer := range r.relationers {
-		if e := relationer.StopHooks(); e != nil {
-			if err == nil {
-				err = e
-			} else {
-				logger.Errorf("additional error while stopping hooks: %v", e)
-			}
-		}
-	}
-	return err
 }
 
 // PrepareHook is part of the Relations interface.
@@ -205,15 +310,14 @@ func (r *relations) GetInfo() map[int]*runner.RelationInfo {
 	return relationInfos
 }
 
-// Update is part of the Relations interface.
-func (r *relations) Update(ids []int) error {
-	for _, id := range ids {
-		if relationer, found := r.relationers[id]; found {
-			rel := relationer.ru.Relation()
-			if err := rel.Refresh(); err != nil {
-				return errors.Annotatef(err, "cannot update relation %q", rel)
-			}
-			if rel.Life() == params.Dying {
+func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
+	for id, relationSnapshot := range remote {
+		if _, found := r.relationers[id]; found {
+			// We've seen this relation before. The only changes
+			// we care about are to the lifecycle state, and to
+			// the member settings versions. We handle differences
+			// in settings in nextRelationHook.
+			if relationSnapshot.Life == params.Dying {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
 				}
@@ -222,15 +326,15 @@ func (r *relations) Update(ids []int) error {
 		}
 		// Relations that are not alive are simply skipped, because they
 		// were not previously known anyway.
+		if relationSnapshot.Life != params.Alive {
+			continue
+		}
 		rel, err := r.st.RelationById(id)
 		if err != nil {
 			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				continue
 			}
 			return errors.Trace(err)
-		}
-		if rel.Life() != params.Alive {
-			continue
 		}
 		// Make sure we ignore relations not implemented by the unit's charm.
 		ch, err := corecharm.ReadCharmDir(r.charmDir)
@@ -247,17 +351,16 @@ func (r *relations) Update(ids []int) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = r.add(rel, dir)
-		if err == nil {
-			r.relationers[id].StartHooks()
+		addErr := r.add(rel, dir)
+		if addErr == nil {
 			continue
 		}
-		e := dir.Remove()
-		if !params.IsCodeCannotEnterScope(err) {
-			return errors.Trace(err)
+		removeErr := dir.Remove()
+		if !params.IsCodeCannotEnterScope(addErr) {
+			return errors.Trace(addErr)
 		}
-		if e != nil {
-			return errors.Trace(e)
+		if removeErr != nil {
+			return errors.Trace(removeErr)
 		}
 	}
 	if ok, err := r.unit.IsPrincipal(); err != nil {
@@ -276,17 +379,6 @@ func (r *relations) Update(ids []int) error {
 	return r.unit.Destroy()
 }
 
-// SetDying is part of the Relations interface.
-// should be those necessary to cleanly exit the relation.
-func (r *relations) SetDying() error {
-	for id := range r.relationers {
-		if err := r.setDying(id); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // add causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
 func (r *relations) add(rel *uniter.Relation, dir *relation.StateDir) (err error) {
@@ -295,7 +387,7 @@ func (r *relations) add(rel *uniter.Relation, dir *relation.StateDir) (err error
 	if err != nil {
 		return errors.Trace(err)
 	}
-	relationer := NewRelationer(ru, dir, r.relationHooks)
+	relationer := NewRelationer(ru, dir)
 	w, err := r.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)

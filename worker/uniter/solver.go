@@ -23,14 +23,15 @@ type uniterSolver struct {
 	configVersion int
 
 	leadershipSolver solver.Solver
+	relationsSolver  solver.Solver
 	storageSolver    solver.Solver
-	//relationsSolver solver.Solver
 }
 
 func (s *uniterSolver) NextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
+
 	if opState.Kind == operation.Upgrade {
 		logger.Infof("resuming charm upgrade")
 		return s.opFactory.NewUpgrade(opState.CharmURL)
@@ -63,33 +64,87 @@ func (s *uniterSolver) NextOp(
 		switch opState.Step {
 		case operation.Pending:
 			logger.Infof("awaiting error resolution for %q hook", opState.Hook.Kind)
-			break
+			return s.nextOpHookError(opState, remoteState)
+
 		case operation.Queued:
 			if !opState.Installed {
 				opState.Hook = &hook.Info{Kind: hooks.Install}
 			}
 			logger.Infof("found queued %q hook", opState.Hook.Kind)
 			return s.opFactory.NewRunHook(*opState.Hook)
+
 		case operation.Done:
 			logger.Infof("committing %q hook", opState.Hook.Kind)
 			return s.opFactory.NewSkipHook(*opState.Hook)
+
+		default:
+			return nil, errors.Errorf("unknown operation step %v", opState.Step)
 		}
 
 	case operation.Continue:
-		if opState.Stopped {
-			// The unit is stopping, so tell the caller to stop
-			// calling us. The caller is then responsible for
-			// terminating the agent.
-			return nil, solver.ErrTerminate
-		}
 		logger.Infof("no operations in progress; waiting for changes")
-		break
+		return s.nextOp(opState, remoteState)
 
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)
 	}
+}
 
-	return s.nextOp(opState, remoteState)
+func (s *uniterSolver) nextOpHookError(
+	opState operation.State,
+	remoteState remotestate.Snapshot,
+) (operation.Operation, error) {
+
+	// Set the agent status to "error". We must do this here in case the
+	// hook is interrupted (e.g. unit agent crashes), rather than immediately
+	// after attempting a runHookOp.
+	hookInfo := *opState.Hook
+	hookName := string(hookInfo.Kind)
+	statusData := map[string]interface{}{}
+	/*
+		if hookInfo.Kind.IsRelation() {
+			statusData["relation-id"] = hookInfo.RelationId
+			if hookInfo.RemoteUnit != "" {
+				statusData["remote-unit"] = hookInfo.RemoteUnit
+			}
+			relationName, err := u.relations.Name(hookInfo.RelationId)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
+		}
+	*/
+	statusData["hook"] = hookName
+	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
+	if err := s.setAgentStatus(
+		params.StatusError, statusMessage, statusData,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if remoteState.ForceCharmUpgrade && *s.charmURL != *remoteState.CharmURL {
+		logger.Debugf("upgrade from %v to %v", s.charmURL, remoteState.CharmURL)
+		return s.opFactory.NewUpgrade(remoteState.CharmURL)
+	}
+
+	switch remoteState.ResolvedMode {
+	case params.ResolvedNone:
+		return nil, solver.ErrNoOperation
+	case params.ResolvedRetryHooks:
+		if err := s.clearResolved(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return s.opFactory.NewRunHook(*opState.Hook)
+	case params.ResolvedNoHooks:
+		if err := s.clearResolved(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return s.opFactory.NewSkipHook(*opState.Hook)
+	default:
+		return nil, errors.Errorf(
+			"unknown resolved mode %q", remoteState.ResolvedMode,
+		)
+	}
 }
 
 func (s *uniterSolver) nextOp(
@@ -97,67 +152,37 @@ func (s *uniterSolver) nextOp(
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
 
-	// TODO(axw) agent status
-
-	// If we were running a hook, but failed to commit,
-	// then we must wait for the error to be resolved.
-	hookError := opState.Kind == operation.RunHook && opState.Step == operation.Pending
-
-	if hookError {
-		// TODO(axw) this feels out of place? do this in runHookOp?
-		hookInfo := *opState.Hook
-		hookName := string(hookInfo.Kind)
-		statusData := map[string]interface{}{}
-		/*
-			if hookInfo.Kind.IsRelation() {
-				statusData["relation-id"] = hookInfo.RelationId
-				if hookInfo.RemoteUnit != "" {
-					statusData["remote-unit"] = hookInfo.RemoteUnit
-				}
-				relationName, err := u.relations.Name(hookInfo.RelationId)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
-			}
-		*/
-		statusData["hook"] = hookName
-		statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-		if err := s.setAgentStatus(
-			params.StatusError, statusMessage, statusData,
-		); err != nil {
-			return nil, errors.Trace(err)
+	switch remoteState.Life {
+	case params.Alive:
+	case params.Dying:
+		// Normally we handle relations last, but if we're dying we
+		// must ensure that all relations are broken first.
+		op, err := s.relationsSolver.NextOp(opState, remoteState)
+		if errors.Cause(err) != solver.ErrNoOperation {
+			return op, err
 		}
+
+		// We're not in a hook error and the unit is Dying,
+		// so we should proceed to tear down.
+		//
+		// TODO(axw) u.unit.DestroyAllSubordinates()
+		// TODO(axw) move logic for cascading destruction of
+		//           subordinates, relation units and storage
+		//           attachments into state, via cleanups.
+		if !opState.Stopped {
+			return s.opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
+		}
+		fallthrough
+
+	case params.Dead:
+		// The unit is dying/dead and stopped, so tell the uniter
+		// to terminate.
+		return nil, solver.ErrTerminate
 	}
 
 	if *s.charmURL != *remoteState.CharmURL {
-		if !hookError || remoteState.ForceCharmUpgrade {
-			logger.Debugf("upgrade from %v to %v", s.charmURL, remoteState.CharmURL)
-			return s.opFactory.NewUpgrade(remoteState.CharmURL)
-		}
-	}
-
-	if hookError {
-		if remoteState.ResolvedMode != params.ResolvedNone {
-			hookInfo := *opState.Hook
-			switch remoteState.ResolvedMode {
-			case params.ResolvedRetryHooks:
-				if err := s.clearResolved(); err != nil {
-					return nil, errors.Trace(err)
-				}
-				return s.opFactory.NewRunHook(hookInfo)
-			case params.ResolvedNoHooks:
-				if err := s.clearResolved(); err != nil {
-					return nil, errors.Trace(err)
-				}
-				return s.opFactory.NewSkipHook(hookInfo)
-			default:
-				return nil, errors.Errorf(
-					"unknown resolved mode %q", remoteState.ResolvedMode,
-				)
-			}
-		}
-		return nil, solver.ErrNoOperation
+		logger.Debugf("upgrade from %v to %v", s.charmURL, remoteState.CharmURL)
+		return s.opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
 	if s.configVersion != remoteState.ConfigVersion {
@@ -170,7 +195,7 @@ func (s *uniterSolver) nextOp(
 		}, nil
 	}
 
-	return nil, solver.ErrNoOperation
+	return s.relationsSolver.NextOp(opState, remoteState)
 }
 
 type updateVersionHookWrapper struct {

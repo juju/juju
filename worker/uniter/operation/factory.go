@@ -143,14 +143,6 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 	}, nil
 }
 
-// NewUpdateRelations is part of the Factory interface.
-func (f *factory) NewUpdateRelations(ids []int) (Operation, error) {
-	return &updateRelations{
-		ids:       ids,
-		callbacks: f.config.Callbacks,
-	}, nil
-}
-
 // NewUpdateStorage is part of the Factory interface.
 func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
 	return &updateStorage{

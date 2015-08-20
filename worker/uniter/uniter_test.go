@@ -438,12 +438,6 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Reaction to entity deaths.
 		ut(
-			"steady state service dying",
-			quickStart{},
-			serviceDying,
-			waitHooks{"stop"},
-			waitUniterDead{},
-		), ut(
 			"steady state unit dying",
 			quickStart{},
 			unitDying,
@@ -455,15 +449,6 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 			unitDead,
 			waitUniterDead{},
 			waitHooks{},
-		), ut(
-			"hook error service dying",
-			startupError{"start"},
-			serviceDying,
-			verifyWaiting{},
-			fixHook{"start"},
-			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"start", "config-changed", "stop"},
-			waitUniterDead{},
 		), ut(
 			"hook error unit dying",
 			startupError{"start"},
@@ -949,15 +934,6 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			},
 			verifyCharm{revision: 2},
 		), ut(
-			"upgrade conflict service dying",
-			startUpgradeError{},
-			serviceDying,
-			verifyWaitingUpgradeError{revision: 1},
-			fixUpgradeError{},
-			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed", "stop"},
-			waitUniterDead{},
-		), ut(
 			"upgrade conflict unit dying",
 			startUpgradeError{},
 			unitDying,
@@ -1096,14 +1072,6 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 				c.Assert(string(data), gc.Equals, "STARTDATA\n")
 			}},
 		), ugt(
-			"upgrade conflict service dying",
-			startGitUpgradeError{},
-			serviceDying,
-			verifyWaiting{},
-			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed", "stop"},
-			waitUniterDead{},
-		), ugt(
 			"upgrade conflict unit dying",
 			startGitUpgradeError{},
 			unitDying,
@@ -1195,15 +1163,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			verifyRunning{},
 			relationState{removed: true},
 			verifyRunning{},
-		), ut(
-			"service becomes dying while in a relation",
-			quickStartRelation{},
-			serviceDying,
-			waitUniterDead{},
-			waitDyingHooks,
-			relationState{life: state.Dying},
-			removeRelationUnit{"mysql/0"},
-			relationState{removed: true},
 		), ut(
 			"unit becomes dying while in a relation",
 			quickStartRelation{},

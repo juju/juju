@@ -19,10 +19,8 @@ func solverLoop(
 	for {
 		remoteState := w.Snapshot()
 		op, err := s.NextOp(e.State(), remoteState)
-		for err != solver.ErrNoOperation && err != solver.ErrWaiting {
-			if err != nil {
-				return errors.Trace(err)
-			}
+		for err == nil {
+			logger.Tracef("running op: %v", op)
 			if err := e.Run(op); err != nil {
 				return errors.Trace(err)
 			}
@@ -32,12 +30,17 @@ func solverLoop(
 			op, err = s.NextOp(e.State(), remoteState)
 		}
 
-		// If a solver is waiting for events to complete, the
-		// agent is not idle.
-		if err != solver.ErrWaiting {
+		switch errors.Cause(err) {
+		case nil:
+		case solver.ErrWaiting:
+			// If a solver is waiting for events to
+			// complete, the agent is not idle.
+		case solver.ErrNoOperation:
 			if err := onIdle(); err != nil {
 				return errors.Trace(err)
 			}
+		default:
+			return err
 		}
 
 		select {
