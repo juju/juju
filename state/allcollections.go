@@ -303,6 +303,9 @@ func allCollections() collectionSchema {
 			}},
 		},
 
+		// This collection holds information about cloud image metadata.
+		cloudimagemetadataC: {},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -325,6 +328,7 @@ const (
 	blocksC                = "blocks"
 	charmsC                = "charms"
 	cleanupsC              = "cleanups"
+	cloudimagemetadataC    = "cloudimagemetadata"
 	constraintsC           = "constraints"
 	containerRefsC         = "containerRefs"
 	envUsersC              = "envusers"

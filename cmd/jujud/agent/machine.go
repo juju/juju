@@ -77,6 +77,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
@@ -722,7 +723,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+			return logsender.New(a.bufferedLogs, gate.AlreadyUnlocked{}, a), nil
 		})
 	}
 

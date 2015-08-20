@@ -42,6 +42,7 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"trusty",
 		"utopic",
 		"vivid",
+		"win10",
 		"win2012",
 		"win2012hv",
 		"win2012hvr2",
