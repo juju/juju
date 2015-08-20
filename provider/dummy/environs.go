@@ -1245,7 +1245,10 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
 func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
 	// TODO(dimitern): Fix this properly.
-	return []string{"zone1", "zone2"}, nil
+	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
+		return nil, errors.NotSupportedf("instance availability zones")
+	}
+	return []string{"zone1"}, nil
 }
 
 // Subnets implements environs.Environ.Subnets.

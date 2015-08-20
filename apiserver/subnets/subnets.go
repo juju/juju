@@ -527,7 +527,7 @@ func (api *subnetsAPI) addOneSubnet(args params.AddSubnetParams, cache *addSubne
 		backingInfo.AllocatableIPHigh = subnetInfo.AllocatableIPHigh.String()
 	}
 	if _, err := api.backing.AddSubnet(backingInfo); err != nil {
-		return errors.Annotate(err, "cannot add subnet")
+		return errors.Trace(err)
 	}
 	return nil
 }

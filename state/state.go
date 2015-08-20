@@ -1237,7 +1237,7 @@ func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
 
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add subnet %q", args.CIDR)
+	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{

@@ -515,7 +515,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{`Zones contain unknown zones: "missing"`, nil},
 		{`Zones contain unavailable zones: "zone2", "zone4"`, nil},
 		{`Zones contain unavailable zones: "zone4"`, nil},
-		{"cannot add subnet: state not found", params.IsCodeNotFound},
+		{"state not found", params.IsCodeNotFound},
 		{`Zones contain unavailable zones: "zone2"`, nil},
 		{"", nil},
 		{"", nil},
