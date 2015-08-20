@@ -119,6 +119,7 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
+		observer:             uniterParams.Observer,
 	}
 	go func() {
 		defer u.tomb.Done()
