@@ -476,15 +476,11 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	}
 
 	uniterParams := uniter.UniterParams{
-		UniterFacade:      ctx.api,
-		UnitTag:           tag,
-		LeadershipTracker: ctx.leaderTracker,
-		DataDir:           ctx.dataDir,
-		MachineLock:       lock,
-		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
-			ctx.collectMetricsTicker.ReturnTimer,
-			ctx.sendMetricsTicker.ReturnTimer,
-		),
+		UniterFacade:         ctx.api,
+		UnitTag:              tag,
+		LeadershipTracker:    ctx.leaderTracker,
+		DataDir:              ctx.dataDir,
+		MachineLock:          lock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 	}

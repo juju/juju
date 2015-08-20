@@ -135,11 +135,6 @@ func (opc *operationCallbacks) ClearResolvedFlag() error {
 	return opc.u.unit.ClearResolved()
 }
 
-// InitializeMetricsTimers is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) InitializeMetricsTimers() error {
-	return opc.u.initializeMetricsTimers()
-}
-
 // SetExecutingStatus is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 	return setAgentStatus(opc.u, params.StatusExecuting, message, nil)
