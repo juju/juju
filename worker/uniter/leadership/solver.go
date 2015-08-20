@@ -20,7 +20,6 @@ type leadershipSolver struct {
 	opFactory operation.Factory
 	tracker   workerleadership.Tracker
 
-	ranLeaderSettingsChanged bool
 	settingsVersion          int
 }
 
@@ -71,9 +70,6 @@ func (l *leadershipSolver) NextOp(
 		return l.opFactory.NewResignLeadership()
 	}
 
-	// Assume initially we don't need to run the leadership settings hook.
-	runLeaderSettingsHook := false
-
 	switch opState.Kind {
 	case operation.RunHook:
 		switch opState.Step {
@@ -83,25 +79,17 @@ func (l *leadershipSolver) NextOp(
 				return l.opFactory.NewRunHook(*opState.Hook)
 			}
 		}
-	case operation.Continue:
-		// We want to run the leader settings hook immediately after start hook.
-		runLeaderSettingsHook = opState.Started && !opState.Leader && !l.ranLeaderSettingsChanged
 	}
 
-	// We also want to run the leader settings hook if we're not the leader
+	// We want to run the leader settings hook if we're not the leader
 	// and the settings have changed.
-	if !runLeaderSettingsHook && !opState.Leader {
-		runLeaderSettingsHook = l.settingsVersion != remoteState.LeaderSettingsVersion
-	}
-
-	if runLeaderSettingsHook {
+	if opState.Started && !opState.Leader && l.settingsVersion != remoteState.LeaderSettingsVersion {
 		op, err := l.opFactory.NewRunHook(hook.Info{Kind: hook.LeaderSettingsChanged})
 		if err != nil {
 			return nil, err
 		}
 		return leadersettingsChangedWrapper{
-			op, &l.ranLeaderSettingsChanged,
-			&l.settingsVersion, remoteState.LeaderSettingsVersion,
+			op, &l.settingsVersion, remoteState.LeaderSettingsVersion,
 		}, nil
 	}
 
@@ -111,7 +99,6 @@ func (l *leadershipSolver) NextOp(
 
 type leadersettingsChangedWrapper struct {
 	operation.Operation
-	ranHook    *bool
 	oldVersion *int
 	newVersion int
 }
@@ -121,7 +108,6 @@ func (op leadersettingsChangedWrapper) Commit(state operation.State) (*operation
 	if err != nil {
 		return nil, err
 	}
-	*op.ranHook = true
 	*op.oldVersion = op.newVersion
 	return st, nil
 }
