@@ -119,6 +119,7 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
+		observer:             uniterParams.Observer,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -178,7 +179,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// TODO(axw) below should be in a loop that restarts whenever
 	// an upgrade occurs.
 
-	watcher, err := remotestate.NewWatcher(remotestate.NewAPIState(u.st), unitTag)
+	watcher, err := remotestate.NewWatcher(
+		remotestate.NewAPIState(u.st),
+		u.leadershipTracker,
+		unitTag,
+	)
 	if err != nil {
 		return err
 	}
@@ -216,7 +221,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		reportHookError: u.reportHookError,
 		charmURL:        charmURL,
 		leadershipSolver: uniterleadership.NewSolver(
-			u.operationFactory, u.leadershipTracker,
+			u.operationFactory,
 		),
 		relationsSolver: relation.NewRelationsSolver(
 			u.relations, u.operationFactory,

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/leadership"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
@@ -22,35 +23,36 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st                   State
-	unit                 Unit
-	service              Service
-	relations            map[names.RelationTag]*relationUnitsWatcher
-	relationUnitsChanges chan relationUnitsChange
-	tomb                 tomb.Tomb
+	st                         State
+	unit                       Unit
+	service                    Service
+	relations                  map[names.RelationTag]*relationUnitsWatcher
+	relationUnitsChanges       chan relationUnitsChange
+	storageAttachementWatchers map[names.StorageTag]*storageAttachmentWatcher
+	storageAttachment          chan StorageSnapshotEvent
+	leadershipTracker          leadership.Tracker
+	tomb                       tomb.Tomb
 
 	out     chan struct{}
 	mu      sync.Mutex
 	current Snapshot
-
-	storageAttachementWatchers map[names.StorageTag]*storageAttachmentWatcher
-	storageAttachment          chan StorageSnapshotEvent
 }
 
 // NewWatcher returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
-func NewWatcher(st State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
+func NewWatcher(st State, leadershipTracker leadership.Tracker, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{
-		st:                   st,
-		relations:            make(map[names.RelationTag]*relationUnitsWatcher),
-		relationUnitsChanges: make(chan relationUnitsChange),
-		out:                  make(chan struct{}),
+		st:                         st,
+		relations:                  make(map[names.RelationTag]*relationUnitsWatcher),
+		relationUnitsChanges:       make(chan relationUnitsChange),
+		storageAttachementWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
+		storageAttachment:          make(chan StorageSnapshotEvent),
+		leadershipTracker:          leadershipTracker,
+		out:                        make(chan struct{}),
 		current: Snapshot{
 			Relations: make(map[int]RelationSnapshot),
 			Storage:   make(map[names.StorageTag]StorageSnapshot),
 		},
-		storageAttachementWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
-		storageAttachment:          make(chan StorageSnapshotEvent),
 	}
 	if err := w.init(unitTag); err != nil {
 		return nil, errors.Trace(err)
@@ -183,6 +185,11 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	defer watcher.Stop(leaderSettingsw, &w.tomb)
 	requiredEvents++
 
+	var seenLeadershipChange bool
+	// There's no watcher for this per se; we wait on a channel
+	// returned by the leadership tracker.
+	requiredEvents++
+
 	var eventsObserved int
 	observedEvent := func(flag *bool) {
 		if !*flag {
@@ -208,6 +215,24 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			watcher.Stop(ruw, &w.tomb)
 		}
 	}()
+
+	// Check the initial leadership status, and then we can flip-flop
+	// waiting on leader or minion to trigger the changed event.
+	var waitLeader, waitMinion <-chan struct{}
+	claimLeader := w.leadershipTracker.ClaimLeader()
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case <-claimLeader.Ready():
+		isLeader := claimLeader.Wait()
+		w.leadershipChanged(isLeader)
+		if isLeader {
+			waitMinion = w.leadershipTracker.WaitMinion().Ready()
+		} else {
+			waitLeader = w.leadershipTracker.WaitLeader().Ready()
+		}
+		observedEvent(&seenLeadershipChange)
+	}
 
 	for {
 		select {
@@ -284,6 +309,22 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenStorageChange)
 
+		case <-waitMinion:
+			logger.Debugf("got leadership change: minion")
+			if err := w.leadershipChanged(false); err != nil {
+				return err
+			}
+			waitMinion = nil
+			waitLeader = w.leadershipTracker.WaitLeader().Ready()
+
+		case <-waitLeader:
+			logger.Debugf("got leadership change: leader")
+			if err := w.leadershipChanged(true); err != nil {
+				return err
+			}
+			waitLeader = nil
+			waitMinion = w.leadershipTracker.WaitMinion().Ready()
+
 		case event, ok := <-w.storageAttachment:
 			logger.Debugf("storage %v snapshot event %v", event.Tag, event)
 			if ok {
@@ -291,6 +332,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 					return err
 				}
 			}
+
 		case change := <-w.relationUnitsChanges:
 			logger.Debugf("got a relation units change")
 			if err := w.relationUnitsChanged(change); err != nil {
@@ -352,6 +394,13 @@ func (w *RemoteStateWatcher) addressesChanged() error {
 func (w *RemoteStateWatcher) leaderSettingsChanged() error {
 	w.mu.Lock()
 	w.current.LeaderSettingsVersion++
+	w.mu.Unlock()
+	return nil
+}
+
+func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
+	w.mu.Lock()
+	w.current.Leader = isLeader
 	w.mu.Unlock()
 	return nil
 }

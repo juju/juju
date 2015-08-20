@@ -7,7 +7,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/params"
-	workerleadership "github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -17,18 +16,13 @@ import (
 var logger = loggo.GetLogger("juju.worker.uniter.leadership")
 
 type leadershipSolver struct {
-	opFactory operation.Factory
-	tracker   workerleadership.Tracker
-
+	opFactory       operation.Factory
 	settingsVersion int
 }
 
 // NewSolver returns a new leadership solver.
-func NewSolver(opFactory operation.Factory, tracker workerleadership.Tracker) solver.Solver {
-	return &leadershipSolver{
-		opFactory: opFactory,
-		tracker:   tracker,
-	}
+func NewSolver(opFactory operation.Factory) solver.Solver {
+	return &leadershipSolver{opFactory: opFactory}
 }
 
 // NextOp is defined on the Solver interface.
@@ -56,17 +50,13 @@ func (l *leadershipSolver) NextOp(
 		}
 	}
 
-	// NOTE: the Wait() looks scary, but a ClaimLeadership ticket should always
-	// complete quickly; worst-case is API latency time, but it's designed that
-	// it should be vanishingly rare to hit that code path.
-	isLeader := l.tracker.ClaimLeader().Wait()
 	switch {
-	case isLeader && canAcceptLeader:
+	case remoteState.Leader && canAcceptLeader:
 		return l.opFactory.NewAcceptLeadership()
 
 	// If we're the leader but should not be any longer, or
 	// if the unit is dying, we should resign leadership.
-	case opState.Leader && (!isLeader || remoteState.Life == params.Dying):
+	case opState.Leader && (!remoteState.Leader || remoteState.Life == params.Dying):
 		return l.opFactory.NewResignLeadership()
 	}
 

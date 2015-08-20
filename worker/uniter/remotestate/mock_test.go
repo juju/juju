@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -262,4 +263,36 @@ func (r *mockRelation) Id() int {
 
 func (r *mockRelation) Life() params.Life {
 	return r.life
+}
+
+type mockLeadershipTracker struct {
+	leadership.Tracker
+	claimTicket  mockTicket
+	leaderTicket mockTicket
+	minionTicket mockTicket
+}
+
+func (mock *mockLeadershipTracker) ClaimLeader() leadership.Ticket {
+	return &mock.claimTicket
+}
+
+func (mock *mockLeadershipTracker) WaitLeader() leadership.Ticket {
+	return &mock.leaderTicket
+}
+
+func (mock *mockLeadershipTracker) WaitMinion() leadership.Ticket {
+	return &mock.minionTicket
+}
+
+type mockTicket struct {
+	ch     chan struct{}
+	result bool
+}
+
+func (t *mockTicket) Ready() <-chan struct{} {
+	return t.ch
+}
+
+func (t *mockTicket) Wait() bool {
+	return t.result
 }

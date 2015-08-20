@@ -42,7 +42,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
-	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
