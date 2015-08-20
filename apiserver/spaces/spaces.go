@@ -49,7 +49,7 @@ func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
-// a common.NetworkBacking
+// the given Backing.
 func newAPIWithBacking(backing Backing, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {

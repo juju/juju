@@ -1,13 +1,15 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package spaces
+package subnets
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs/config"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
 
@@ -78,13 +80,12 @@ func (s *spaceShim) Subnets() ([]common.BackingSubnet, error) {
 // stateShim forwards and adapts state.State methods to Backing
 // method.
 type stateShim struct {
-	Backing
+	common.NetworkBacking
 	st *state.State
 }
 
-func (s *stateShim) AddSpace(name string, subnetIds []string, public bool) error {
-	_, err := s.st.AddSpace(name, subnetIds, public)
-	return err
+func (s *stateShim) EnvironConfig() (*config.Config, error) {
+	return s.st.EnvironConfig()
 }
 
 func (s *stateShim) AllSpaces() ([]common.BackingSpace, error) {
@@ -98,4 +99,36 @@ func (s *stateShim) AllSpaces() ([]common.BackingSpace, error) {
 		spaces[i] = &spaceShim{space: result}
 	}
 	return spaces, nil
+}
+
+func (s *stateShim) AddSubnet(info common.BackingSubnetInfo) (common.BackingSubnet, error) {
+	// TODO(dimitern): Add multiple AZs per subnet in state.
+	var firstZone string
+	if len(info.AvailabilityZones) > 0 {
+		firstZone = info.AvailabilityZones[0]
+	}
+	_, err := s.st.AddSubnet(state.SubnetInfo{
+		CIDR:             info.CIDR,
+		VLANTag:          info.VLANTag,
+		ProviderId:       info.ProviderId,
+		AvailabilityZone: firstZone,
+		SpaceName:        info.SpaceName,
+	})
+	return nil, err // Drop the first result, as it's unused.
+}
+
+type availZoneShim struct{}
+
+func (availZoneShim) Name() string    { return "not-set" }
+func (availZoneShim) Available() bool { return true }
+
+func (s *stateShim) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
+	// TODO(dimitern): Fix this to get them from state when available!
+	logger.Debugf("not getting availability zones from state yet")
+	return nil, nil
+}
+
+func (s *stateShim) SetAvailabilityZones(zones []providercommon.AvailabilityZone) error {
+	logger.Debugf("not setting availability zones in state yet: %+v", zones)
+	return nil
 }

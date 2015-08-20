@@ -19,13 +19,13 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.subnets")
 
 func init() {
-	// TODO(dimitern): Uncomment once *state.State implements Backing.
-	//common.RegisterStandardFacade("Subnets", 1, NewAPI)
+	common.RegisterStandardFacade("Subnets", 1, NewAPI)
 }
 
 // API defines the methods the Subnets API facade implements.
@@ -49,10 +49,15 @@ type subnetsAPI struct {
 	authorizer common.Authorizer
 }
 
-var _ API = (*subnetsAPI)(nil)
+// NewAPI creates a new Subnets API server-side facade with a
+// state.State backing.
+func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
+	return newAPIWithBacking(&stateShim{st: st}, res, auth)
+}
 
-// NewAPI creates a new server-side Subnets API facade.
-func NewAPI(backing common.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+// newAPIWithBacking creates a new server-side Subnets API facade with
+// a common.NetworkBacking
+func newAPIWithBacking(backing common.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -245,7 +250,7 @@ func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, e
 	logger.Tracef("using cached spaces: %v", cache.allSpaces.SortedValues())
 
 	if !cache.allSpaces.Contains(tag.Id()) {
-		return nil, errors.NotFoundf("given SpaceTag %q", tag.String()) // " not found"
+		return nil, errors.NotFoundf("space %q", tag.Id()) // " not found"
 	}
 	return &tag, nil
 }
@@ -371,7 +376,10 @@ func (cache *addSubnetsCache) cacheSubnets() error {
 		subnet := subnetInfo[i]
 		cidr := subnet.CIDR
 		providerId := string(subnet.ProviderId)
-		logger.Debugf("caching subnet with CIDR %q and ProviderId %q", cidr, providerId)
+		logger.Debugf(
+			"caching subnet with CIDR %q, ProviderId %q, Zones: %q",
+			cidr, providerId, subnet.AvailabilityZones,
+		)
 
 		if providerId == "" && cidr == "" {
 			logger.Warningf("found subnet with empty CIDR and ProviderId")

@@ -12,10 +12,12 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -37,8 +39,15 @@ type BaseSubnetSuite struct {
 var _ = gc.Suite(&BaseSubnetSuite{})
 
 func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
+	// If any post-MVP command suite enabled the flag, keep it.
+	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
+
 	s.BaseSuite.SetUpTest(c)
 	s.FakeJujuHomeSuite.SetUpTest(c)
+
+	if hasFeatureFlag {
+		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+	}
 
 	s.superCmd = subnet.NewSuperCommand()
 	c.Assert(s.superCmd, gc.NotNil)

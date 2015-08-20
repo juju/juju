@@ -12,9 +12,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/subnets"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 )
 
@@ -22,6 +26,13 @@ import (
 // subcommands.
 type SubnetAPI interface {
 	io.Closer
+
+	// AddSubnet adds an existing subnet to Juju.
+	AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error
+
+	// ListSubnets returns information about subnets known to Juju,
+	// optionally filtered by space and/or zone (both can be empty).
+	ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error)
 
 	// AllZones returns all availability zones known to Juju.
 	AllZones() ([]string, error)
@@ -32,18 +43,32 @@ type SubnetAPI interface {
 	// CreateSubnet creates a new Juju subnet.
 	CreateSubnet(subnetCIDR names.SubnetTag, spaceTag names.SpaceTag, zones []string, isPublic bool) error
 
-	// AddSubnet adds an existing subnet to Juju.
-	AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error
-
 	// RemoveSubnet marks an existing subnet as no longer used, which
 	// will cause it to get removed at some point after all its
 	// related entites are cleaned up. It will fail if the subnet is
 	// still in use by any machines.
 	RemoveSubnet(subnetCIDR names.SubnetTag) error
+}
 
-	// ListSubnets returns information about subnets known to Juju,
-	// optionally filtered by space and/or zone (both can be empty).
-	ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error)
+// mvpAPIShim forwards SubnetAPI methods to the real API facade for
+// implemented methods only. Tested with a feature test only.
+type mvpAPIShim struct {
+	SubnetAPI
+
+	apiState api.Connection
+	facade   *subnets.API
+}
+
+func (m *mvpAPIShim) Close() error {
+	return m.apiState.Close()
+}
+
+func (m *mvpAPIShim) AddSubnet(cidr names.SubnetTag, id network.Id, spaceTag names.SpaceTag, zones []string) error {
+	return m.facade.AddSubnet(cidr, id, spaceTag, zones)
+}
+
+func (m *mvpAPIShim) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]params.Subnet, error) {
+	return m.facade.ListSubnets(withSpace, withZone)
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.subnet")
@@ -69,10 +94,13 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     "manage subnets",
 	})
-	subnetCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	subnetCmd.Register(envcmd.Wrap(&AddCommand{}))
-	subnetCmd.Register(envcmd.Wrap(&RemoveCommand{}))
 	subnetCmd.Register(envcmd.Wrap(&ListCommand{}))
+	if featureflag.Enabled(feature.PostNetCLIMVP) {
+		// The following commands are not part of the MVP.
+		subnetCmd.Register(envcmd.Wrap(&CreateCommand{}))
+		subnetCmd.Register(envcmd.Wrap(&RemoveCommand{}))
+	}
 
 	return subnetCmd
 }
@@ -86,15 +114,33 @@ type SubnetCommandBase struct {
 
 // NewAPI returns a SubnetAPI for the root api endpoint that the
 // environment command returns.
-func (s *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
-	// TODO(dimitern): Change this once the API is implemented.
-
-	if s.api != nil {
+func (c *SubnetCommandBase) NewAPI() (SubnetAPI, error) {
+	if c.api != nil {
 		// Already created.
-		return s.api, nil
+		return c.api, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return nil, errors.New("API not implemented yet!")
+	// This is tested with a feature test.
+	shim := &mvpAPIShim{
+		apiState: root,
+		facade:   subnets.NewAPI(root),
+	}
+	return shim, nil
+}
+
+type RunOnAPI func(api SubnetAPI, ctx *cmd.Context) error
+
+func (c *SubnetCommandBase) RunWithAPI(ctx *cmd.Context, toRun RunOnAPI) error {
+	api, err := c.NewAPI()
+	if err != nil {
+		return errors.Annotate(err, "cannot connect to the API server")
+	}
+	defer api.Close()
+	return toRun(api, ctx)
 }
 
 // Common errors shared between subcommands.

@@ -23,7 +23,7 @@ type SubnetsSuite struct {
 	coretesting.BaseSuite
 
 	called    int
-	apiCaller base.APICaller
+	apiCaller base.APICallCloser
 	api       *subnets.API
 }
 
@@ -55,6 +55,9 @@ func (s *SubnetsSuite) TestNewAPIWithNilCaller(c *gc.C) {
 func makeAddSubnetsArgs(cidr, providerId, space string, zones []string) apitesting.CheckArgs {
 	spaceTag := names.NewSpaceTag(space).String()
 	subnetTag := names.NewSubnetTag(cidr).String()
+	if providerId != "" {
+		subnetTag = ""
+	}
 
 	expectArgs := params.AddSubnetsParams{
 		Subnets: []params.AddSubnetParams{{
@@ -127,7 +130,12 @@ func (s *SubnetsSuite) TestAddSubnet(c *gc.C) {
 	zones := []string{"foo", "bar"}
 	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
 	s.prepareAPICall(c, &args, nil)
-	err := s.api.AddSubnet(names.NewSubnetTag(cidr), network.Id(providerId), names.NewSpaceTag(space), zones)
+	err := s.api.AddSubnet(
+		names.NewSubnetTag(cidr),
+		network.Id(providerId),
+		names.NewSpaceTag(space),
+		zones,
+	)
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -139,7 +147,12 @@ func (s *SubnetsSuite) TestAddSubnetFails(c *gc.C) {
 	zones := []string{"foo", "bar"}
 	args := makeAddSubnetsArgs(cidr, providerId, space, zones)
 	s.prepareAPICall(c, &args, errors.New("bang"))
-	err := s.api.AddSubnet(names.NewSubnetTag(cidr), network.Id(providerId), names.NewSpaceTag(space), zones)
+	err := s.api.AddSubnet(
+		names.NewSubnetTag(cidr),
+		network.Id(providerId),
+		names.NewSpaceTag(space),
+		zones,
+	)
 	c.Check(s.called, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
 }
@@ -151,7 +164,12 @@ func (s *SubnetsSuite) TestCreateSubnet(c *gc.C) {
 	isPublic := true
 	args := makeCreateSubnetsArgs(cidr, space, zones, isPublic)
 	s.prepareAPICall(c, &args, nil)
-	err := s.api.CreateSubnet(names.NewSubnetTag(cidr), names.NewSpaceTag(space), zones, isPublic)
+	err := s.api.CreateSubnet(
+		names.NewSubnetTag(cidr),
+		names.NewSpaceTag(space),
+		zones,
+		isPublic,
+	)
 	c.Assert(s.called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -163,7 +181,12 @@ func (s *SubnetsSuite) TestCreateSubnetFails(c *gc.C) {
 	zones := []string{"foo", "bar"}
 	args := makeCreateSubnetsArgs(cidr, space, zones, isPublic)
 	s.prepareAPICall(c, &args, errors.New("bang"))
-	err := s.api.CreateSubnet(names.NewSubnetTag(cidr), names.NewSpaceTag(space), zones, isPublic)
+	err := s.api.CreateSubnet(
+		names.NewSubnetTag(cidr),
+		names.NewSpaceTag(space),
+		zones,
+		isPublic,
+	)
 	c.Check(s.called, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "bang")
 }

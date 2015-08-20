@@ -1220,6 +1220,34 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	return info, nil
 }
 
+type azShim struct {
+	name      string
+	available bool
+}
+
+func (az azShim) Name() string {
+	return az.name
+}
+
+func (az azShim) Available() bool {
+	return az.available
+}
+
+// AvailabilityZones implements environs.ZonedEnviron.
+func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	// TODO(dimitern): Fix this properly.
+	return []common.AvailabilityZone{
+		azShim{"zone1", true},
+		azShim{"zone2", false},
+	}, nil
+}
+
+// InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
+func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	// TODO(dimitern): Fix this properly.
+	return []string{"zone1", "zone2"}, nil
+}
+
 // Subnets implements environs.Environ.Subnets.
 func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
@@ -1238,6 +1266,7 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 		ProviderId:        "dummy-private",
 		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
 		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
 		CIDR:              "0.20.0.0/24",
 		ProviderId:        "dummy-public",
