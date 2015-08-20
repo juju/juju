@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
-	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/testing"
 	workertesting "github.com/juju/juju/worker/testing"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
+	"github.com/juju/juju/workload/workers"
 )
 
 type eventHandlerSuite struct {
@@ -33,7 +33,7 @@ func (s *eventHandlerSuite) SetUpTest(c *gc.C) {
 	s.runner = workertesting.NewStubRunner(s.stub)
 }
 
-func (s *eventHandlerSuite) handler(events []process.Event, apiClient context.APIClient, runner workers.Runner) error {
+func (s *eventHandlerSuite) handler(events []workload.Event, apiClient context.APIClient, runner workers.Runner) error {
 	s.stub.AddCall("handler", events, apiClient, runner)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -59,8 +59,8 @@ func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
 }
 
 func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
-	events := []process.Event{{
-		Kind: process.EventKindTracked,
+	events := []workload.Event{{
+		Kind: workload.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
 	eh := workers.NewEventHandlers(s.apiClient, s.runner)
@@ -69,16 +69,16 @@ func (s *eventHandlerSuite) TestAddEvents(c *gc.C) {
 		eh.Close()
 	}()
 
-	var got [][]process.Event
+	var got [][]workload.Event
 	for event := range workers.ExposeChannel(eh) {
 		got = append(got, event)
 	}
-	c.Check(got, jc.DeepEquals, [][]process.Event{events})
+	c.Check(got, jc.DeepEquals, [][]workload.Event{events})
 }
 
 func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
-	events := []process.Event{{
-		Kind: process.EventKindTracked,
+	events := []workload.Event{{
+		Kind: workload.EventKindTracked,
 		ID:   "spam/eggs",
 	}}
 	eh := workers.NewEventHandlers(s.apiClient, s.runner)
@@ -93,7 +93,7 @@ func (s *eventHandlerSuite) TestNewWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
-	var unhandled [][]process.Event
+	var unhandled [][]workload.Event
 	for event := range workers.ExposeChannel(eh) {
 		unhandled = append(unhandled, event)
 	}

@@ -8,9 +8,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 var workloadEventLogger = loggo.GetLogger("juju.workload.workers.event")
@@ -23,10 +23,10 @@ type Runner interface {
 	StopWorker(id string) error
 }
 
-// EventHandlers orchestrates handling of events on workload processes.
+// EventHandlers orchestrates handling of events on workloads.
 type EventHandlers struct {
-	events   chan []process.Event
-	handlers []func([]process.Event, context.APIClient, Runner) error
+	events   chan []workload.Event
+	handlers []func([]workload.Event, context.APIClient, Runner) error
 
 	apiClient context.APIClient
 	runner    *trackingRunner
@@ -36,7 +36,7 @@ type EventHandlers struct {
 func NewEventHandlers(apiClient context.APIClient, runner Runner) *EventHandlers {
 	workloadEventLogger.Debugf("new event handler created")
 	eh := &EventHandlers{
-		events:    make(chan []process.Event),
+		events:    make(chan []workload.Event),
 		apiClient: apiClient,
 		runner:    newTrackingRunner(runner),
 	}
@@ -54,13 +54,13 @@ func (eh *EventHandlers) Close() error {
 
 // RegisterHandler adds a handler to the list of handlers used when new
 // events are processed.
-func (eh *EventHandlers) RegisterHandler(handler func([]process.Event, context.APIClient, Runner) error) {
+func (eh *EventHandlers) RegisterHandler(handler func([]workload.Event, context.APIClient, Runner) error) {
 	workloadEventLogger.Debugf("registering handler: %#v", handler)
 	eh.handlers = append(eh.handlers, handler)
 }
 
 // AddEvents adds events to the list of events to be handled.
-func (eh *EventHandlers) AddEvents(events ...process.Event) {
+func (eh *EventHandlers) AddEvents(events ...workload.Event) {
 	eh.events <- events
 }
 
@@ -70,7 +70,7 @@ func (eh *EventHandlers) NewWorker() (worker.Worker, error) {
 	return worker.NewSimpleWorker(eh.loop), nil
 }
 
-func (eh *EventHandlers) handle(events []process.Event) error {
+func (eh *EventHandlers) handle(events []workload.Event) error {
 	workloadEventLogger.Debugf("handling %d events", len(events))
 	for _, handleEvents := range eh.handlers {
 		if err := handleEvents(events, eh.apiClient, eh.runner); err != nil {

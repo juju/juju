@@ -4,11 +4,11 @@
 package workers
 
 import (
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 	"github.com/juju/utils/set"
 )
 
-func ExposeChannel(events *EventHandlers) chan []process.Event {
+func ExposeChannel(events *EventHandlers) chan []workload.Event {
 	return events.events
 }
 

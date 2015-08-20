@@ -10,28 +10,28 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 var (
-	workloadUpdateLogger = loggo.GetLogger("juju.process.worker.status.update")
+	workloadUpdateLogger = loggo.GetLogger("juju.workload.worker.status.update")
 	workloadUpdatePeriod = time.Minute * 5
 	notify               chan string
 )
 
-// StatusEventHandler handles and dispatches process.Events based on their kind.
-func StatusEventHandler(events []process.Event, api context.APIClient, runner Runner) error {
+// StatusEventHandler handles and dispatches workload.Events based on their kind.
+func StatusEventHandler(events []workload.Event, api context.APIClient, runner Runner) error {
 	workloadUpdateLogger.Debugf("handling events")
 	for _, e := range events {
 		workloadUpdateLogger.Debugf("handling %#v event", e)
 		switch e.Kind {
-		case process.EventKindTracked:
+		case workload.EventKindTracked:
 			if err := statusTracked(e, api, runner); err != nil {
 				return errors.Trace(err)
 			}
-		case process.EventKindUntracked:
+		case workload.EventKindUntracked:
 			if err := statusUntracked(e, api, runner); err != nil {
 				return errors.Trace(err)
 			}
@@ -41,11 +41,11 @@ func StatusEventHandler(events []process.Event, api context.APIClient, runner Ru
 }
 
 // NewStatusWorkerFunc returns a function that you can use with a PeriodicWorker.
-func NewStatusWorkerFunc(event process.Event, api context.APIClient) func(<-chan struct{}) error {
+func NewStatusWorkerFunc(event workload.Event, api context.APIClient) func(<-chan struct{}) error {
 	//TODO(wwitzel3) Should this be set based on the plugin response?
 	// Or is this Juju state of the workload, which is Running
-	var status process.Status
-	status.State = process.StateRunning
+	var status workload.Status
+	status.State = workload.StateRunning
 	status.Message = fmt.Sprintf("%s is being tracked", event.ID)
 
 	call := func(stopCh <-chan struct{}) error {
@@ -54,7 +54,7 @@ func NewStatusWorkerFunc(event process.Event, api context.APIClient) func(<-chan
 			workloadUpdateLogger.Warningf("failed to get status %v - will retry later", err)
 		}
 
-		err = api.SetProcessesStatus(status, pluginStatus, event.ID)
+		err = api.SetStatus(status, pluginStatus, event.ID)
 		if err != nil {
 			workloadUpdateLogger.Warningf("failed to update %v - will retry later", err)
 		}
@@ -73,13 +73,13 @@ func SetStatusWorkerUpdatePeriod(t time.Duration) {
 }
 
 // NewStatusWorker returns a new PeriodicWorker.
-func NewStatusWorker(event process.Event, api context.APIClient) worker.Worker {
+func NewStatusWorker(event workload.Event, api context.APIClient) worker.Worker {
 	workloadUpdateLogger.Debugf("starting status worker")
 	f := NewStatusWorkerFunc(event, api)
 	return worker.NewPeriodicWorker(f, workloadUpdatePeriod)
 }
 
-func statusTracked(event process.Event, api context.APIClient, runner Runner) error {
+func statusTracked(event workload.Event, api context.APIClient, runner Runner) error {
 	worker := func() (worker.Worker, error) {
 		return NewStatusWorker(event, api), nil
 	}
@@ -88,18 +88,18 @@ func statusTracked(event process.Event, api context.APIClient, runner Runner) er
 	return runner.StartWorker(event.ID, worker)
 }
 
-func statusUntracked(event process.Event, api context.APIClient, runner Runner) error {
+func statusUntracked(event workload.Event, api context.APIClient, runner Runner) error {
 	pluginStatus, err := event.Plugin.Status(event.PluginID)
 	if err != nil {
 		workloadUpdateLogger.Warningf("failed to get status %v - will retry later", err)
 	}
 
 	//TODO(wwitzel3) Is this the right status to set?
-	var status process.Status
-	status.State = process.StateStopping
+	var status workload.Status
+	status.State = workload.StateStopping
 	status.Message = fmt.Sprintf("%s is no longer being tracked", event.ID)
 
-	if err := api.SetProcessesStatus(status, pluginStatus, event.ID); err != nil {
+	if err := api.SetStatus(status, pluginStatus, event.ID); err != nil {
 		workloadUpdateLogger.Warningf("failed to update - %v while stopping", err)
 	}
 	workloadUpdateLogger.Infof("%s is no longer being tracked", event.ID)
