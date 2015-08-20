@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniteractivity_test
+package uniteravailability_test
 
 import (
 	"testing"

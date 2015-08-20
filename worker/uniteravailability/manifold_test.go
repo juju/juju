@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniteractivity_test
+package uniteravailability_test
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/uniteractivity"
+	"github.com/juju/juju/worker/uniteravailability"
 )
 
 type ManifoldSuite struct {
@@ -38,7 +38,7 @@ func kill(w worker.Worker) error {
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testing.Stub{}
-	s.manifold = uniteractivity.Manifold(uniteractivity.ManifoldConfig{
+	s.manifold = uniteravailability.Manifold(uniteravailability.ManifoldConfig{
 		AgentName: "agent-name",
 	})
 	s.getResource = dt.StubGetResource(dt.StubResources{
@@ -63,7 +63,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	s.SetErrors(errors.New("no file for you"))
 
-	s.manifold = uniteractivity.PatchedManifold(uniteractivity.ManifoldConfig{
+	s.manifold = uniteravailability.PatchedManifold(uniteravailability.ManifoldConfig{
 		AgentName: "agent-name",
 	}, s.readStateFile(true), s.writeStateFile)
 	worker, err := s.manifold.Start(s.getResource)
@@ -89,7 +89,7 @@ func (s *ManifoldSuite) writeStateFile(filename string, value bool) error {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	s.manifold = uniteractivity.PatchedManifold(uniteractivity.ManifoldConfig{
+	s.manifold = uniteravailability.PatchedManifold(uniteravailability.ManifoldConfig{
 		AgentName: "agent-name",
 	}, s.readStateFile(true), s.writeStateFile)
 	worker, err := s.manifold.Start(s.getResource)
@@ -101,10 +101,10 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	}})
 	defer kill(worker)
 
-	var started uniteractivity.UniterActivityState
-	err = s.manifold.Output(worker, &started)
+	var state uniteravailability.UniterAvailabilityGetter
+	err = s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(started.Started(), gc.Equals, true)
+	c.Check(state.Available(), gc.Equals, true)
 }
 
 func (s *ManifoldSuite) setupWorker(c *gc.C, path string) worker.Worker {
@@ -121,38 +121,42 @@ func (s *ManifoldSuite) setupWorker(c *gc.C, path string) worker.Worker {
 func (s *ManifoldSuite) TestOutputIsSaved(c *gc.C) {
 	dataDir := c.MkDir()
 	worker := s.setupWorker(c, dataDir)
-	var started uniteractivity.UniterActivityState
-	err := s.manifold.Output(worker, &started)
+	var state uniteravailability.UniterAvailabilityGetter
+	err := s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
 	// initial value should be false
-	c.Check(started.Started(), gc.Equals, false)
-	err = started.SetStarted(true)
+	c.Check(state.Available(), gc.Equals, false)
+
+	var setState uniteravailability.UniterAvailabilitySetter
+	err = s.manifold.Output(worker, &setState)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(started.Started(), gc.Equals, true)
+	err = setState.SetAvailable(true)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(state.Available(), gc.Equals, true)
 	err = kill(worker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	worker = s.setupWorker(c, dataDir)
 	defer kill(worker)
-	err = s.manifold.Output(worker, &started)
+	err = s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(started.Started(), gc.Equals, true)
+	c.Check(state.Available(), gc.Equals, true)
 }
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	dir := c.MkDir()
 	worker := s.setupWorker(c, dir)
 	defer kill(worker)
-	var started interface{}
-	err := s.manifold.Output(worker, &started)
-	c.Check(err.Error(), gc.Equals, "expected *uniteractivity.uniterStateWorker->*uniteractivity.UniterActivityState; got *uniteractivity.uniterStateWorker->*interface {}")
-	c.Check(started, gc.IsNil)
+	var state interface{}
+	err := s.manifold.Output(worker, &state)
+	c.Check(err.Error(), gc.Equals, "out should be a pointer to a UniterAvailabilityGetter or a UniterAvailabilitySetter; is *interface {}")
+	c.Check(state, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestWriteFailKills(c *gc.C) {
 	s.SetErrors(nil, errors.New("no save for you"))
 	// Manifold with a write function that fails.
-	s.manifold = uniteractivity.PatchedManifold(uniteractivity.ManifoldConfig{
+	s.manifold = uniteravailability.PatchedManifold(uniteravailability.ManifoldConfig{
 		AgentName: "agent-name",
 	}, s.readStateFile(false), s.writeStateFile)
 
@@ -160,13 +164,17 @@ func (s *ManifoldSuite) TestWriteFailKills(c *gc.C) {
 	worker := s.setupWorker(c, dir)
 	c.Check(worker, gc.NotNil)
 
-	var started uniteractivity.UniterActivityState
-	err := s.manifold.Output(worker, &started)
+	var state uniteravailability.UniterAvailabilityGetter
+	err := s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(started.Started(), gc.Equals, false)
+	c.Check(state.Available(), gc.Equals, false)
 
-	// Try to set the started state, which triggers a write.
-	err = started.SetStarted(true)
+	var setState uniteravailability.UniterAvailabilitySetter
+	err = s.manifold.Output(worker, &setState)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Try to set the available state, which triggers a write.
+	err = setState.SetAvailable(true)
 	c.Check(err, gc.ErrorMatches, "no save for you")
 
 	s.CheckCalls(c, []testing.StubCall{{
@@ -198,9 +206,9 @@ func (s *ManifoldSuite) TestWriteFailKills(c *gc.C) {
 	defer kill(worker)
 
 	// Make sure the value was not changed.
-	err = s.manifold.Output(worker, &started)
+	err = s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(started.Started(), gc.Equals, false)
+	c.Check(state.Available(), gc.Equals, false)
 
 }
 

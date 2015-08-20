@@ -1,9 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package uniteractivity provides the manifold that maintains information
-// about whether the uniter has started or not.
-package uniteractivity
+// Package uniteravailability provides the manifold that maintains information
+// about whether the uniter is available or not.
+package uniteravailability
 
 import (
 	"io/ioutil"
@@ -22,32 +22,37 @@ import (
 	"github.com/juju/juju/worker/util"
 )
 
+// UniterAvailabilitySetter interface defines the function for setting
+// the state of the uniter (a boolean signifying whether it is available or not).
+type UniterAvailabilitySetter interface {
+	SetAvailable(bool) error
+}
+
+// UniterAvailabilityGetter interface defines the function getting
+// the state of the uniter (a boolean signifying whether it is available or not).
+type UniterAvailabilityGetter interface {
+	Available() bool
+}
+
 type readFunc func(file string) (bool, error)
 type writeFunc func(file string, value bool) error
 
 type uniterState struct {
-	Started bool `yaml:started`
+	Available bool `yaml:available`
 }
 
-// ManifoldConfig specifies the names a uniteractivity manifold should use to
+// ManifoldConfig specifies the names a uniteravailability manifold should use to
 // address its dependencies.
 type ManifoldConfig util.AgentManifoldConfig
 
 // Manifold returns a dependency.Manifold that keeps track of whether the uniter
-// is started.
+// is available.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	manifold := util.AgentManifold(
 		util.AgentManifoldConfig(config),
 		newWorker(readStateFile, writeStateFile))
 	manifold.Output = outputFunc
 	return manifold
-}
-
-// UniterActivityState interface defines the functions for setting and getting
-// the state of the uniter (a boolean signifying whether it is started or not).
-type UniterActivityState interface {
-	SetStarted(bool) error
-	Started() bool
 }
 
 // newWorker returns a function that  creates a degenerate worker that provides access to the state of the uniter
@@ -58,11 +63,11 @@ func newWorker(read readFunc, write writeFunc) func(a agent.Agent) (worker.Worke
 		persistenceFile := filepath.Join(
 			a.CurrentConfig().UniterStateDir(),
 			id)
-		started, err := read(persistenceFile)
+		avail, err := read(persistenceFile)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		w := &uniterStateWorker{file: persistenceFile, started: started, writeStateFile: write}
+		w := &uniterStateWorker{file: persistenceFile, available: avail, writeStateFile: write}
 		go func() {
 			defer w.tomb.Done()
 			<-w.tomb.Dying()
@@ -74,11 +79,17 @@ func newWorker(read readFunc, write writeFunc) func(a agent.Agent) (worker.Worke
 // outputFunc extracts a *fslock.Lock from a *machineLockWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*uniterStateWorker)
-	outPointer, _ := out.(*UniterActivityState)
-	if inWorker == nil || outPointer == nil {
-		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
+	if inWorker == nil {
+		return errors.Errorf("expected %T; got %T", inWorker, in)
 	}
-	*outPointer = inWorker
+	switch outPointer := out.(type) {
+	case *UniterAvailabilitySetter:
+		*outPointer = inWorker
+	case *UniterAvailabilityGetter:
+		*outPointer = inWorker
+	default:
+		return errors.Errorf("out should be a pointer to a UniterAvailabilityGetter or a UniterAvailabilitySetter; is %T", out)
+	}
 	return nil
 }
 
@@ -97,7 +108,7 @@ func readStateFile(file string) (bool, error) {
 	if err != nil {
 		return false, errors.Annotatef(err, "could not decode uniter state file %q", file)
 	}
-	return s.Started, nil
+	return s.Available, nil
 }
 
 // writeStateFile is used to save the file the uniter's state is persisted in.
@@ -116,7 +127,7 @@ type uniterStateWorker struct {
 	sync.RWMutex
 
 	file           string
-	started        bool
+	available      bool
 	writeStateFile writeFunc
 }
 
@@ -130,28 +141,28 @@ func (w *uniterStateWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-// Started is part of the UniterState interface.
-func (u *uniterStateWorker) Started() bool {
+// Available is part of the UniterState interface.
+func (u *uniterStateWorker) Available() bool {
 	u.RLock()
 	defer u.RUnlock()
-	return u.started
+	return u.available
 }
 
-// SetStarted is part of the UniterState interface. If writing
+// SetAvailable is part of the UniterState interface. If writing
 // to the persistence file fails, the worker will shut down.
-func (u *uniterStateWorker) SetStarted(started bool) (retErr error) {
+func (u *uniterStateWorker) SetAvailable(available bool) (retErr error) {
 	u.Lock()
 	defer u.Unlock()
 	// Set the in-memory variable if persisting succeeds,
 	// shut down worker otherwise.
 	defer func() {
 		if retErr == nil {
-			u.started = started
+			u.available = available
 		} else {
 			u.tomb.Kill(retErr)
 		}
 	}()
-	err := u.writeStateFile(u.file, started)
+	err := u.writeStateFile(u.file, available)
 	if err != nil {
 		return errors.Trace(err)
 	}
