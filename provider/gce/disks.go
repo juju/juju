@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	GCE_ProviderType = storage.ProviderType("gce")
+	GCEProviderType = storage.ProviderType("gce")
 )
 
 func init() {
-	//TODO(perrito666) ask axw about this pool thing.
+	//TODO(perrito666) Add explicit pools.
 }
 
 type gceStorageProvider struct{}
@@ -64,7 +64,7 @@ func (g *gceStorageProvider) VolumeSource(environConfig *config.Config, cfg *sto
 	// Connect and authenticate.
 	env, err := newEnviron(environConfig)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "cannot create an environ with this config")
 	}
 
 	source := &gceVolumeSource{
@@ -146,7 +146,7 @@ func (v *gceVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 }
 
 // mibToGib converts mebibytes to gibibytes.
-// AWS expects GiB, we work in MiB; round up
+// GCE expects GiB, we work in MiB; round up
 // to nearest GiB.
 func mibToGib(m uint64) uint64 {
 	return (m + 1023) / 1024
@@ -160,14 +160,14 @@ func gibToMib(g uint64) uint64 {
 func nameVolume(zone string) (string, error) {
 	volumeUUID, err := utils.NewUUID()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(err, "cannot generate uuid to name the volume")
 	}
 	// type-zone-uuid
 	volumeName := fmt.Sprintf("%s--%s", zone, volumeUUID.String())
 	return volumeName, nil
 }
 
-func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances instanceCache) (_ *storage.Volume, _ *storage.VolumeAttachment, err error) {
+func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances instanceCache) (volume *storage.Volume, volumeAttachment *storage.VolumeAttachment, err error) {
 	var volumeName, zone string
 	defer func() {
 		if err == nil || volumeName == "" {
@@ -180,13 +180,13 @@ func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances inst
 
 	instId := string(p.Attachment.InstanceId)
 	if err := instances.update(v.gce, instId); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotatef(err, "cannot add %q to instance cache", instId)
 	}
 	inst, err := instances.get(instId)
 	if err != nil {
 		// Can't create the volume without the instance,
 		// because we need to know what its AZ is.
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Annotatef(err, "cannot obtain %q from instance cache", instId)
 	}
 	persistentType, ok := p.Attributes["type"].(string)
 	if !ok {
@@ -198,9 +198,11 @@ func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances inst
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot create a new volume name")
 	}
+	// TODO(perrito666) the volumeName is arbitrary and it was crafted this
+	// way to help solve the need to have zone all over the place.
 	disk := google.DiskSpec{
 		SizeHintGB:         mibToGib(p.Size),
-		Name:               volumeName, // TODO(perrito666) this is wrong
+		Name:               volumeName,
 		PersistentDiskType: persistentType,
 	}
 
@@ -209,31 +211,13 @@ func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances inst
 		return nil, nil, errors.Annotate(err, "cannot create disk")
 	}
 	if len(gceDisks) != 1 {
-		return nil, nil, errors.New("unexpected number of disks created")
+		return nil, nil, errors.New(fmt.Sprintf("unexpected number of disks created: %d", len(gceDisks)))
 	}
 	gceDisk := gceDisks[0]
 	// TODO(perrito666) Tag, there are no tags in gce, how do we fix it?
 
-	// Attachment
-	var volumeAttachment *storage.VolumeAttachment
-
-	attachedDisk, err := v.attachOneVolume(gceDisk.Name, "READ_WRITE", inst.ID)
-	if err != nil {
-		// This will be re-tried if attachment is nil here
-		// by invoking AttachVolumes.
-		logger.Errorf("attaching %v to %v: %v", gceDisk.Id, instId, err)
-		volumeAttachment = nil
-	} else {
-		volumeAttachment = &storage.VolumeAttachment{
-			p.Tag,
-			p.Attachment.Machine,
-			storage.VolumeAttachmentInfo{
-				DeviceName: attachedDisk.DeviceName,
-			},
-		}
-	}
-
-	volume := storage.Volume{
+	// volume is a named return
+	volume = &storage.Volume{
 		p.Tag,
 		storage.VolumeInfo{
 			VolumeId:   gceDisk.Name,
@@ -242,8 +226,30 @@ func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances inst
 		},
 	}
 
-	return &volume, volumeAttachment, nil
+	// there is no attachment information
+	if p.Attachment == nil {
+		return
+	}
 
+	attachedDisk, err := v.attachOneVolume(gceDisk.Name, "READ_WRITE", inst.ID)
+	if err != nil {
+		logger.Errorf("attaching %v to %v: %v", gceDisk.Id, instId, err)
+		return
+	}
+	if attachedDisk == nil {
+		return
+	}
+
+	// volumeAttachment is a named return
+	volumeAttachment = &storage.VolumeAttachment{
+		p.Tag,
+		p.Attachment.Machine,
+		storage.VolumeAttachmentInfo{
+			DeviceName: attachedDisk.DeviceName,
+		},
+	}
+
+	return
 }
 
 func (v *gceVolumeSource) DestroyVolumes(volNames []string) ([]error, error) {
@@ -332,6 +338,7 @@ func (v *gceVolumeSource) describeOneVolume(volName string) (storage.DescribeVol
 	return desc, nil
 }
 
+// TODO(perrito666) These rules are yet to be defined.
 func (v *gceVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	return nil
 }

@@ -60,7 +60,7 @@ type DiskSpec struct {
 	// AutoDelete indicates that the attached disk should be removed
 	// when the instance to which it is attached is removed.
 	AutoDelete bool
-	// PersistenDiskType is exclusive to ssd and indicates of which of the persistent
+	// PersistenDiskType is exclusive to ssd and indicates which of the persistent
 	// types available this disk should be.
 	PersistentDiskType string
 	// Name: Name of the resource; provided by the client when the resource

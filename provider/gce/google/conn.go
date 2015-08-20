@@ -61,7 +61,7 @@ type rawConnectionWrapper interface {
 	RemoveDisk(project, zone, id string) error
 	// GetDisk will return the disk correspondent to the passed id.
 	GetDisk(project, zone, id string) (*compute.Disk, error)
-	// AttachDisk attache the disk described in attachedDisks (if it exists) into
+	// AttachDisk will attach the disk described in attachedDisks (if it exists) into
 	// the instance with id instanceId.
 	AttachDisk(project, zone, instanceId string, attachedDisk *compute.AttachedDisk) error
 	// Detach disk detaches device diskDeviceName (if it exists and its attached)

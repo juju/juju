@@ -8,7 +8,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
-	jujustorage "github.com/juju/juju/storage"
+	"github.com/juju/juju/storage"
 )
 
 var (
@@ -77,7 +77,6 @@ func GetInstances(env *environ) ([]instance.Instance, error) {
 }
 
 // Storage
-
-func GCEStorageProvider() jujustorage.Provider {
+func GCEStorageProvider() storage.Provider {
 	return &gceStorageProvider{}
 }

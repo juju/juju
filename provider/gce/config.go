@@ -97,9 +97,7 @@ var configDefaults = schema.Defaults{
 }
 
 var configSecretFields = []string{
-// TODO(perrito666) this breaks storage I cannot see how its solved
-// elsewere.
-//cfgPrivateKey,
+	cfgPrivateKey,
 }
 
 var configImmutableFields = []string{

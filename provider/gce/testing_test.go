@@ -10,6 +10,8 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	// TODO(perrito666) create intermediate types to
+	// avoid depending of compute in this package.
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -88,6 +90,7 @@ type BaseSuiteUnpatched struct {
 
 	Addresses     []network.Address
 	BaseInstance  *google.Instance
+	BaseDisk      *compute.Disk
 	Instance      *environInstance
 	InstName      string
 	Metadata      map[string]string
@@ -162,6 +165,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.InstanceType = allInstanceTypes[0]
+	// Storage
+	s.BaseDisk = &compute.Disk{
+		Id:       1234567,
+		Name:     "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:     "home-zone",
+		Status:   "READY",
+		SizeGb:   1,
+		SelfLink: "https://www.googleapis.com/compute/v1/projects/my-juju/zones/home-zone/disks/home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
