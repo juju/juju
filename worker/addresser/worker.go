@@ -24,12 +24,13 @@ type addresserHandler struct {
 func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
 	ok, err := api.CanDeallocateAddresses()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "checking address deallocation")
 	}
 	if !ok {
 		// Environment does not support IP address
 		// deallocation.
-		return worker.NewFinishedWorker(), nil
+		logger.Debugf("address deallocation not supported; not starting worker")
+		return worker.FinishedWorker{}, nil
 	}
 	ah := &addresserHandler{
 		api: api,

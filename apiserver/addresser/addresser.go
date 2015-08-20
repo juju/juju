@@ -27,8 +27,6 @@ type AddresserAPI struct {
 	st            StateInterface
 	resources     *common.Resources
 	authorizer    common.Authorizer
-	netEnv        environs.NetworkingEnviron
-	canDeallocate bool
 }
 
 // NewAddresserAPI creates a new server-side Addresser API facade.
@@ -50,63 +48,52 @@ func NewAddresserAPI(
 	}, nil
 }
 
+// getNetworingEnviron checks if the environment implements NetworkingEnviron
+// and also if it supports IP address allocation.
+func (api *AddresserAPI) getNetworingEnviron() (environs.NetworkingEnviron, bool, error) {
+	config, err := api.st.EnvironConfig()
+	if err != nil {
+		return nil, false, errors.Annotate(err, "getting environment config")
+	}
+	env, err := environs.New(config)
+	if err != nil {
+		return nil, false, errors.Annotate(err, "validating environment config")
+	}
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		return nil, false, nil
+	}
+	ok, err = netEnv.SupportsAddressAllocation(network.AnySubnet)
+	if err != nil {
+		if !errors.IsNotSupported(err) {
+			return nil, false, errors.Annotate(err, "checking allocation support")
+		}
+	}
+	return netEnv, ok, nil
+}
+
 // CanDeallocateAddresses checks if the current environment can
 // deallocate IP addresses.
 func (api *AddresserAPI) CanDeallocateAddresses() params.BoolResult {
 	result := params.BoolResult{}
-	// Create an environment to verify networking support.
-	config, err := api.st.EnvironConfig()
+	_, ok, err := api.getNetworingEnviron()
 	if err != nil {
-		err = errors.Annotate(err, "getting environment config")
 		result.Error = common.ServerError(err)
 		return result
 	}
-	env, err := environs.New(config)
-	if err != nil {
-		err = errors.Annotate(err, "validating environment config")
-		result.Error = common.ServerError(err)
-		return result
-	}
-	netEnv, ok := environs.SupportsNetworking(env)
-	if !ok {
-		// No error, but log the result.
-		logger.Warningf("IP address deallocation not supported")
-		return result
-	}
-	api.netEnv = netEnv
-	api.canDeallocate, err = api.netEnv.SupportsAddressAllocation(network.AnySubnet)
-	if err != nil {
-		if errors.IsNotSupported(err) {
-			// No error, but log the result.
-			logger.Warningf("IP address deallocation not supported")
-		} else {
-			err = errors.Annotate(err, "checking allocation support")
-			result.Error = common.ServerError(err)
-		}
-		return result
-	}
-	if !api.canDeallocate {
-		// No error, but log the result.
-		logger.Warningf("IP address deallocation not supported")
-	}
-	result.Result = api.canDeallocate
+	result.Result = ok
 	return result
 }
 
 // CleanupIPAddresses releases and removes the dead IP addresses.
 func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	result := params.ErrorResult{}
-	// Lazy setting of the networking environment, so only
-	// has to be done once.
-	if api.netEnv == nil {
-		checkResult := api.CanDeallocateAddresses()
-		if checkResult.Error != nil {
-			result.Error = checkResult.Error
-			return result
-		}
+	netEnv, ok, err := api.getNetworingEnviron()
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
 	}
-	// Check flag set inside of CanDeallocateAddresses.
-	if !api.canDeallocate {
+	if !ok {
 		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
 		return result
 	}
@@ -122,7 +109,7 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	for _, ipAddress := range ipAddresses {
 		ipAddressValue := ipAddress.Value()
 		logger.Debugf("releasing dead IP address %q", ipAddressValue)
-		err := api.releaseIPAddress(api.netEnv, ipAddress)
+		err := api.releaseIPAddress(netEnv, ipAddress)
 		if err != nil {
 			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddressValue, err)
 			canRetry = true

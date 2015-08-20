@@ -198,7 +198,7 @@ func (s *workerEnabledSuite) TestWorkerIsStringsWorker(c *gc.C) {
 	// In case of an environment able to allocte/deallocate
 	// IP addresses the addresser worker is no finished worker.
 	// See also TestWorkerIsFinishedWorker.
-	c.Assert(worker.IsFinishedWorker(s.Worker), jc.IsFalse)
+	c.Assert(s.Worker, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
 }
 
 func (s *workerEnabledSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
@@ -337,7 +337,7 @@ func (s *workerDisabledSuite) TestWorkerIsFinishedWorker(c *gc.C) {
 	// In case of an environment not able to allocte/deallocate
 	// IP addresses the worker is a finished worker.
 	// See also TestWorkerIsStringsWorker.
-	c.Assert(worker.IsFinishedWorker(s.Worker), jc.IsTrue)
+	c.Assert(s.Worker, gc.FitsTypeOf, worker.FinishedWorker{})
 }
 
 func (s *workerDisabledSuite) TestWorkerIgnoresAddresses(c *gc.C) {
