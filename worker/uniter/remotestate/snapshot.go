@@ -40,6 +40,10 @@ type Snapshot struct {
 	// the unit's config settings.
 	ConfigVersion int
 
+	// Leader indicates whether or not the unit is the
+	// elected leader.
+	Leader bool
+
 	// LeaderSettingsVersion is the last published
 	// version of the leader settings for the service.
 	LeaderSettingsVersion int
