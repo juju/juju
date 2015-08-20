@@ -27,7 +27,7 @@ func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
 	err := ps.Track(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Insert")
+	s.stub.CheckCallNames(c, "Track")
 	s.persist.checkWorkloads(c, workloads)
 }
 

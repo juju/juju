@@ -54,10 +54,10 @@ func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
 	}
 }
 
-// Insert adds records for the workload to persistence. If the workload
+// Track adds records for the workload to persistence. If the workload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Insert(info workload.Info) (bool, error) {
+func (pp Persistence) Track(info workload.Info) (bool, error) {
 	logger.Tracef("insertng %#v", info)
 
 	var okay bool
@@ -150,11 +150,11 @@ func (pp Persistence) ListAll() ([]workload.Info, error) {
 // TODO(ericsnow) How to ensure they are completely removed from state
 // (when you factor in status stored in a separate collection)?
 
-// Remove removes all records associated with the identified workload
+// Untrack removes all records associated with the identified workload
 // from persistence. Also returned is whether or not the workload was
 // found. If the records for the workload are not consistent then
 // errors.NotValid is returned.
-func (pp Persistence) Remove(id string) (bool, error) {
+func (pp Persistence) Untrack(id string) (bool, error) {
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?

@@ -84,8 +84,8 @@ func (s *fakeWorkloadsPersistence) setWorkloads(workloads ...*workload.Info) {
 	}
 }
 
-func (s *fakeWorkloadsPersistence) Insert(info workload.Info) (bool, error) {
-	s.AddCall("Insert", info)
+func (s *fakeWorkloadsPersistence) Track(info workload.Info) (bool, error) {
+	s.AddCall("Track", info)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
@@ -143,8 +143,8 @@ func (s *fakeWorkloadsPersistence) ListAll() ([]workload.Info, error) {
 	return workloads, nil
 }
 
-func (s *fakeWorkloadsPersistence) Remove(id string) (bool, error) {
-	s.AddCall("Remove", id)
+func (s *fakeWorkloadsPersistence) Untrack(id string) (bool, error) {
+	s.AddCall("Untrack", id)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}

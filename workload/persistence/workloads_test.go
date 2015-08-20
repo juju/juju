@@ -22,11 +22,11 @@ type workloadsPersistenceSuite struct {
 	persistence.BaseSuite
 }
 
-func (s *workloadsPersistenceSuite) TestInsertOkay(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
 
 	wp := s.NewPersistence()
-	okay, err := wp.Insert(wl)
+	okay, err := wp.Track(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
@@ -52,13 +52,13 @@ func (s *workloadsPersistenceSuite) TestInsertOkay(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
 	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
 	s.SetDocs(wl)
 	s.Stub.SetErrors(txn.ErrAborted)
 
 	wp := s.NewPersistence()
-	okay, err := wp.Insert(wl)
+	okay, err := wp.Track(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
@@ -84,13 +84,13 @@ func (s *workloadsPersistenceSuite) TestInsertAlreadyExists(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestInsertFailed(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 	wl := s.NewWorkloads("docker", "workloadA")[0]
 
 	pp := s.NewPersistence()
-	_, err := pp.Insert(wl)
+	_, err := pp.Track(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -265,12 +265,12 @@ func (s *workloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *workloadsPersistenceSuite) TestRemoveOkay(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 	wl := s.NewWorkloads("docker", "workloadA/xyz")[0]
 	s.SetDocs(wl)
 
 	pp := s.NewPersistence()
-	found, err := pp.Remove("workloadA/xyz")
+	found, err := pp.Untrack("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.IsTrue)
@@ -285,11 +285,11 @@ func (s *workloadsPersistenceSuite) TestRemoveOkay(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestRemoveMissing(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	found, err := pp.Remove("workloadA/xyz")
+	found, err := pp.Untrack("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.IsFalse)
@@ -304,12 +304,12 @@ func (s *workloadsPersistenceSuite) TestRemoveMissing(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestRemoveFailed(c *gc.C) {
+func (s *workloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.Remove("workloadA/xyz")
+	_, err := pp.Untrack("workloadA/xyz")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

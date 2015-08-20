@@ -21,11 +21,11 @@ var logger = loggo.GetLogger("juju.workload.state")
 
 // The persistence methods needed for workloads in state.
 type workloadsPersistence interface {
-	Insert(info workload.Info) (bool, error)
+	Track(info workload.Info) (bool, error)
 	SetStatus(id string, status workload.CombinedStatus) (bool, error)
 	List(ids ...string) ([]workload.Info, []string, error)
 	ListAll() ([]workload.Info, error)
-	Remove(id string) (bool, error)
+	Untrack(id string) (bool, error)
 }
 
 // UnitWorkloads provides the functionality related to a unit's
@@ -49,14 +49,14 @@ func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag, getMet
 	}
 }
 
-// Add registers the provided workload info in state.
+// Track inserts the provided workload info in state.
 func (ps UnitWorkloads) Track(info workload.Info) error {
 	logger.Tracef("tracking %#v", info)
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad workload info")
 	}
 
-	ok, err := ps.Persist.Insert(info)
+	ok, err := ps.Persist.Track(info)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -120,12 +120,12 @@ func (ps UnitWorkloads) Definitions() ([]charm.Workload, error) {
 	return definitions, nil
 }
 
-// Remove removes the identified workload from state. It does not
+// Untrack removes the identified workload from state. It does not
 // trigger the actual destruction of the workload.
 func (ps UnitWorkloads) Untrack(id string) error {
 	logger.Tracef("untracking %q", id)
 	// If the record wasn't found then we're already done.
-	_, err := ps.Persist.Remove(id)
+	_, err := ps.Persist.Untrack(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
