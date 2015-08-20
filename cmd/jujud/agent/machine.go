@@ -1159,20 +1159,10 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
 		return newCleaner(apiSt.Cleaner()), nil
 	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return newAddresser(apiSt.Addresser())
+	})
 
-	// Addresser Worker needs a networking environment. Check
-	// first before starting the worker.
-	isNetEnv, err := isNetworkingEnvironment(apiSt)
-	if err != nil {
-		return nil, errors.Annotate(err, "checking environment networking support")
-	}
-	if isNetEnv {
-		singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-			return newAddresser(apiSt.Addresser())
-		})
-	} else {
-		logger.Debugf("address deallocation not supported: not starting addresser worker")
-	}
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
 	// environments are capable of managing ports
@@ -1190,19 +1180,6 @@ func (a *MachineAgent) startEnvWorkers(
 	}
 
 	return runner, nil
-}
-
-func isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
-	envConfig, err := apiConn.Environment().EnvironConfig()
-	if err != nil {
-		return false, errors.Annotate(err, "cannot read environment config")
-	}
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return false, errors.Annotate(err, "cannot get environment")
-	}
-	_, ok := environs.SupportsNetworking(env)
-	return ok, nil
 }
 
 var getFirewallMode = _getFirewallMode
