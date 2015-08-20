@@ -19,62 +19,62 @@ type infoSuite struct {
 
 var _ = gc.Suite(&infoSuite{})
 
-func (s *infoSuite) newInfo(name, procType string) *workload.Info {
+func (s *infoSuite) newInfo(name, workloadType string) *workload.Info {
 	return &workload.Info{
 		Workload: charm.Workload{
 			Name: name,
-			Type: procType,
+			Type: workloadType,
 		},
 	}
 }
 
 func (s *infoSuite) TestIDFull(c *gc.C) {
-	info := s.newInfo("a-proc", "docker")
-	info.Details.ID = "my-proc"
+	info := s.newInfo("a-workload", "docker")
+	info.Details.ID = "my-workload"
 	id := info.ID()
 
-	c.Check(id, gc.Equals, "a-proc/my-proc")
+	c.Check(id, gc.Equals, "a-workload/my-workload")
 }
 
 func (s *infoSuite) TestIDMissingDetailsID(c *gc.C) {
-	info := s.newInfo("a-proc", "docker")
+	info := s.newInfo("a-workload", "docker")
 	id := info.ID()
 
-	c.Check(id, gc.Equals, "a-proc")
+	c.Check(id, gc.Equals, "a-workload")
 }
 
 func (s *infoSuite) TestIDNameOnly(c *gc.C) {
-	info := s.newInfo("a-proc", "docker")
+	info := s.newInfo("a-workload", "docker")
 	id := info.ID()
 
-	c.Check(id, gc.Equals, "a-proc")
+	c.Check(id, gc.Equals, "a-workload")
 }
 
 func (s *infoSuite) TestParseIDFull(c *gc.C) {
-	name, id := workload.ParseID("a-proc/my-proc")
+	name, id := workload.ParseID("a-workload/my-workload")
 
-	c.Check(name, gc.Equals, "a-proc")
-	c.Check(id, gc.Equals, "my-proc")
+	c.Check(name, gc.Equals, "a-workload")
+	c.Check(id, gc.Equals, "my-workload")
 }
 
 func (s *infoSuite) TestParseIDNameOnly(c *gc.C) {
-	name, id := workload.ParseID("a-proc")
+	name, id := workload.ParseID("a-workload")
 
-	c.Check(name, gc.Equals, "a-proc")
+	c.Check(name, gc.Equals, "a-workload")
 	c.Check(id, gc.Equals, "")
 }
 
 func (s *infoSuite) TestParseIDExtras(c *gc.C) {
-	name, id := workload.ParseID("somecharm/0/a-proc/my-proc")
+	name, id := workload.ParseID("somecharm/0/a-workload/my-workload")
 
 	c.Check(name, gc.Equals, "somecharm")
-	c.Check(id, gc.Equals, "0/a-proc/my-proc")
+	c.Check(id, gc.Equals, "0/a-workload/my-workload")
 }
 
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
-	info := s.newInfo("a proc", "docker")
+	info := s.newInfo("a workload", "docker")
 	info.Status.State = workload.StateRunning
-	info.Details.ID = "my-proc"
+	info.Details.ID = "my-workload"
 	info.Details.Status.State = "running"
 	err := info.Validate()
 
@@ -82,7 +82,7 @@ func (s *infoSuite) TestValidateOkay(c *gc.C) {
 }
 
 func (s *infoSuite) TestValidateBadMetadata(c *gc.C) {
-	info := s.newInfo("a proc", "")
+	info := s.newInfo("a workload", "")
 	err := info.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -90,16 +90,16 @@ func (s *infoSuite) TestValidateBadMetadata(c *gc.C) {
 }
 
 func (s *infoSuite) TestValidateBadStatus(c *gc.C) {
-	info := s.newInfo("a proc", "docker")
+	info := s.newInfo("a workload", "docker")
 	err := info.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *infoSuite) TestValidateBadDetails(c *gc.C) {
-	info := s.newInfo("a proc", "docker")
+	info := s.newInfo("a workload", "docker")
 	info.Status.State = workload.StateRunning
-	info.Details.ID = "my-proc"
+	info.Details.ID = "my-workload"
 	err := info.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -107,7 +107,7 @@ func (s *infoSuite) TestValidateBadDetails(c *gc.C) {
 }
 
 func (s *infoSuite) TestTrackedTrue(c *gc.C) {
-	info := s.newInfo("a proc", "docker")
+	info := s.newInfo("a workload", "docker")
 	info.Details.ID = "abc123"
 	info.Details.Status.State = "running"
 	isTracked := info.IsTracked()
@@ -116,7 +116,7 @@ func (s *infoSuite) TestTrackedTrue(c *gc.C) {
 }
 
 func (s *infoSuite) TestIsTrackedFalse(c *gc.C) {
-	info := s.newInfo("a proc", "docker")
+	info := s.newInfo("a workload", "docker")
 	isTracked := info.IsTracked()
 
 	c.Check(isTracked, jc.IsFalse)

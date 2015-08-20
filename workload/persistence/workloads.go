@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.workload.persistence")
 // TODO(ericsnow) Move PersistenceBase to the components package?
 
 // PersistenceBase exposes the core persistence functionality needed
-// for workload workloads.
+// for workloads.
 type PersistenceBase interface {
 	// One populates doc with the document corresponding to the given
 	// ID. Missing documents result in errors.NotFound.

@@ -53,7 +53,7 @@ type Component interface {
 
 var _ Component = (*Context)(nil)
 
-// Context is the workload workload portion of the hook context.
+// Context is the workload portion of the hook context.
 type Context struct {
 	api       APIClient
 	plugin    workload.Plugin
@@ -134,7 +134,7 @@ func (c *Context) Plugin(info *workload.Info) (workload.Plugin, error) {
 
 // Workloads returns the workloads known to the context.
 func (c *Context) Workloads() ([]workload.Info, error) {
-	workloads := mergeProcMaps(c.workloads, c.updates)
+	workloads := mergeWorkloadMaps(c.workloads, c.updates)
 	var newWorkloads []workload.Info
 	for _, info := range workloads {
 		newWorkloads = append(newWorkloads, info)
@@ -143,7 +143,7 @@ func (c *Context) Workloads() ([]workload.Info, error) {
 	return newWorkloads, nil
 }
 
-func mergeProcMaps(workloads, updates map[string]workload.Info) map[string]workload.Info {
+func mergeWorkloadMaps(workloads, updates map[string]workload.Info) map[string]workload.Info {
 	// At this point workloads and updates have already been checked for
 	// nil values so we won't see any here.
 	result := make(map[string]workload.Info)

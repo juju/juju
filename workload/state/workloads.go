@@ -87,7 +87,7 @@ func (ps UnitWorkloads) SetStatus(id string, status workload.CombinedStatus) err
 
 // List builds the list of workload information for the provided workload
 // IDs. If none are provided then the list contains the info for all
-// workload workloads associated with the unit. Missing workloads
+// workloads associated with the unit. Missing workloads
 // are ignored.
 func (ps UnitWorkloads) List(ids ...string) ([]workload.Info, error) {
 	logger.Tracef("listing %v", ids)

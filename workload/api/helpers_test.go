@@ -48,15 +48,15 @@ func (suite) TestAPI2Workload(c *gc.C) {
 		},
 	}
 
-	proc := API2Workload(p)
-	p2 := Workload2api(proc)
+	wl := API2Workload(p)
+	p2 := Workload2api(wl)
 	c.Assert(p2, gc.DeepEquals, p)
-	proc2 := API2Workload(p2)
-	c.Assert(proc2, gc.DeepEquals, proc)
+	wl2 := API2Workload(p2)
+	c.Assert(wl2, gc.DeepEquals, wl)
 }
 
 func (suite) TestWorkload2API(c *gc.C) {
-	proc := workload.Info{
+	wl := workload.Info{
 		Workload: charm.Workload{
 			Name:        "foobar",
 			Description: "desc",
@@ -94,9 +94,9 @@ func (suite) TestWorkload2API(c *gc.C) {
 		},
 	}
 
-	p := Workload2api(proc)
-	proc2 := API2Workload(p)
-	c.Assert(proc2, gc.DeepEquals, proc)
-	p2 := Workload2api(proc2)
-	c.Assert(p2, gc.DeepEquals, p)
+	w := Workload2api(wl)
+	wl2 := API2Workload(w)
+	c.Assert(wl2, gc.DeepEquals, wl)
+	w2 := Workload2api(wl2)
+	c.Assert(w2, gc.DeepEquals, w)
 }

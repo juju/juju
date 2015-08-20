@@ -27,9 +27,9 @@ func AddWorkload(ctx *Context, id string, info workload.Info) {
 	}
 }
 
-func AddWorkloads(ctx *Context, procs ...workload.Info) {
-	for _, proc := range procs {
-		AddWorkload(ctx, proc.Name, proc)
+func AddWorkloads(ctx *Context, workloads ...workload.Info) {
+	for _, wl := range workloads {
+		AddWorkload(ctx, wl.Name, wl)
 	}
 }
 
