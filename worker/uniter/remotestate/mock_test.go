@@ -4,12 +4,13 @@
 package remotestate_test
 
 import (
+	"github.com/juju/names"
+	"gopkg.in/juju/charm.v5"
+
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 )
 
 type mockNotifyWatcher struct {
