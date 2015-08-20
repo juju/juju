@@ -481,9 +481,9 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		MachineLock:          lock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
+		Observer:             ctx,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
-	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
 type waitUniterDead struct {
