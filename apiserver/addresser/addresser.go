@@ -24,9 +24,9 @@ var logger = loggo.GetLogger("juju.apiserver.addresser")
 
 // AddresserAPI provides access to the Addresser API facade.
 type AddresserAPI struct {
-	st            StateInterface
-	resources     *common.Resources
-	authorizer    common.Authorizer
+	st         StateInterface
+	resources  *common.Resources
+	authorizer common.Authorizer
 }
 
 // NewAddresserAPI creates a new server-side Addresser API facade.
@@ -64,10 +64,8 @@ func (api *AddresserAPI) getNetworingEnviron() (environs.NetworkingEnviron, bool
 		return nil, false, nil
 	}
 	ok, err = netEnv.SupportsAddressAllocation(network.AnySubnet)
-	if err != nil {
-		if !errors.IsNotSupported(err) {
-			return nil, false, errors.Annotate(err, "checking allocation support")
-		}
+	if err != nil && !errors.IsNotSupported(err) {
+		return nil, false, errors.Annotate(err, "checking allocation support")
 	}
 	return netEnv, ok, nil
 }

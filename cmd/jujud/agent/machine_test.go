@@ -729,13 +729,15 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestAddresserWorkerRunsIfFeatureFlagEnabled(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-
+func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
 	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
 		w, err := addresser.NewWorker(api)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
+		if expectFinished {
+			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
+		} else {
+			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
+		}
 		return w, err
 	})
 
@@ -750,25 +752,14 @@ func (s *MachineSuite) TestAddresserWorkerRunsIfFeatureFlagEnabled(c *gc.C) {
 	runner.waitForWorker(c, "firewaller")
 }
 
+func (s *MachineSuite) TestAddresserWorkerRunsIfFeatureFlagEnabled(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.testAddresserNewWorkerResult(c, false)
+}
+
 func (s *MachineSuite) TestAddresserWorkerIsFineshedIfFeatureFlagDisabled(c *gc.C) {
 	s.SetFeatureFlags()
-
-	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
-		w, err := addresser.NewWorker(api)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
-		return w, err
-	})
-
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	// Wait for firewaller as last worker.
-	s.singularRecord.nextRunner(c)
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "firewaller")
+	s.testAddresserNewWorkerResult(c, true)
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-type finishedSuite struct {}
+type FinishedSuite struct{}
 
-var _ = gc.Suite(&finishedSuite{})
+var _ = gc.Suite(&FinishedSuite{})
 
-func (s *finishedSuite) TestFinishedWorker(c *gc.C) {
+func (s *FinishedSuite) TestFinishedWorker(c *gc.C) {
 	// Pretty dumb test if interface is implemented
 	// and Wait() returns nil.
 	var fw worker.Worker = worker.FinishedWorker{}

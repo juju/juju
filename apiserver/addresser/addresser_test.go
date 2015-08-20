@@ -99,11 +99,11 @@ func (s *AddresserSuite) TestCanDeallocateAddressesConfigGetFailure(c *gc.C) {
 }
 
 func (s *AddresserSuite) TestCanDeallocateAddressesEnvironmentNewFailure(c *gc.C) {
-	config := tidelandTestingEnvConfig(c)
+	config := nonexTestingEnvConfig(c)
 	s.st.setConfig(c, config)
 
 	result := s.api.CanDeallocateAddresses()
-	c.Assert(result.Error, gc.ErrorMatches, `validating environment config: no registered provider for "tideland"`)
+	c.Assert(result.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
 	c.Assert(result.Result, jc.IsFalse)
 }
 
@@ -200,7 +200,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesConfigGetFailure(c *gc.C) {
 }
 
 func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
-	config := tidelandTestingEnvConfig(c)
+	config := nonexTestingEnvConfig(c)
 	s.st.setConfig(c, config)
 
 	dead, err := s.st.DeadIPAddresses()
@@ -209,7 +209,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
 
 	// Validation of configuration fails due to illegal provider.
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "tideland"`)
+	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()
@@ -273,11 +273,11 @@ func testingEnvConfig(c *gc.C) *config.Config {
 	return env.Config()
 }
 
-// tidelandTestingEnvConfig prepares an environment configuration using
-// the illegal tideland provider.
-func tidelandTestingEnvConfig(c *gc.C) *config.Config {
+// nonexTestingEnvConfig prepares an environment configuration using
+// a non-existent provider.
+func nonexTestingEnvConfig(c *gc.C) *config.Config {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
-		"type": "tideland",
+		"type": "nonex",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
