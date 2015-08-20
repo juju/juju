@@ -5,6 +5,7 @@ package systemmanager_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -111,4 +114,41 @@ func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
 	blocks, err := s.State.AllBlocksForSystem()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
+}
+
+func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
+	// The WatchAllEnvs infrastructure is comprehensively tested
+	// else. This test just ensure that the API calls work end-to-end.
+	sysManager := s.OpenAPI(c)
+
+	w, err := sysManager.WatchAllEnvs()
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		err := w.Stop()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	deltasC := make(chan []multiwatcher.Delta)
+	go func() {
+		deltas, err := w.Next()
+		c.Assert(err, jc.ErrorIsNil)
+		deltasC <- deltas
+	}()
+
+	select {
+	case deltas := <-deltasC:
+		c.Assert(deltas, gc.HasLen, 1)
+		envInfo := deltas[0].Entity.(*multiwatcher.EnvironmentInfo)
+
+		env, err := s.State.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Assert(envInfo.EnvUUID, gc.Equals, env.UUID())
+		c.Assert(envInfo.Name, gc.Equals, env.Name())
+		c.Assert(envInfo.Life, gc.Equals, multiwatcher.Life("alive"))
+		c.Assert(envInfo.Owner, gc.Equals, env.Owner().Id())
+		c.Assert(envInfo.ServerUUID, gc.Equals, env.ServerUUID())
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
 }
