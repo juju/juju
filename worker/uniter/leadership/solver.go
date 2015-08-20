@@ -20,7 +20,7 @@ type leadershipSolver struct {
 	opFactory operation.Factory
 	tracker   workerleadership.Tracker
 
-	settingsVersion          int
+	settingsVersion int
 }
 
 // NewSolver returns a new leadership solver.
@@ -83,7 +83,7 @@ func (l *leadershipSolver) NextOp(
 
 	// We want to run the leader settings hook if we're not the leader
 	// and the settings have changed.
-	if opState.Started && !opState.Leader && l.settingsVersion != remoteState.LeaderSettingsVersion {
+	if !opState.Leader && l.settingsVersion != remoteState.LeaderSettingsVersion {
 		op, err := l.opFactory.NewRunHook(hook.Info{Kind: hook.LeaderSettingsChanged})
 		if err != nil {
 			return nil, err
