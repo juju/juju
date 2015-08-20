@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package process
+package workload
 
 import (
 	"encoding/json"
@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 )
 
-// Details represents information about a process launched by a plugin.
+// Details represents information about a workload launched by a plugin.
 type Details struct {
-	// ID is a unique string identifying the process to the plugin.
+	// ID is a unique string identifying the workload to the plugin.
 	ID string `json:"id"`
-	// Status is the most recent plugin-defined status of the process.
+	// Status is the most recent plugin-defined status of the workload.
 	Status PluginStatus `json:"status"`
 }
 
@@ -21,10 +21,10 @@ type Details struct {
 func UnmarshalDetails(b []byte) (Details, error) {
 	var details Details
 	if err := json.Unmarshal(b, &details); err != nil {
-		return details, errors.Annotate(err, "error parsing data for workload process details")
+		return details, errors.Annotate(err, "error parsing data for workload details")
 	}
 	if err := details.Validate(); err != nil {
-		return details, errors.Annotate(err, "invalid workload process details")
+		return details, errors.Annotate(err, "invalid workload details")
 	}
 	return details, nil
 

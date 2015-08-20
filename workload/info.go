@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package process
+package workload
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 // charm metadata) and subsequently was launched by Juju (e.g. in a
 // unit hook context).
 type Info struct {
-	charm.Process
+	charm.Workload
 
 	// Status is the Juju-level status of the process.
 	Status Status
@@ -31,7 +31,7 @@ type Info struct {
 
 // ID composes a unique ID for the process (relative to the unit/charm).
 func (info Info) ID() string {
-	id := info.Process.Name
+	id := info.Workload.Name
 	if info.Details.ID != "" {
 		id = fmt.Sprintf("%s/%s", id, info.Details.ID)
 	}
@@ -49,7 +49,7 @@ func ParseID(id string) (string, string) {
 
 // Validate checks the process info to ensure it is correct.
 func (info Info) Validate() error {
-	if err := info.Process.Validate(); err != nil {
+	if err := info.Workload.Validate(); err != nil {
 		return errors.NewNotValid(err, "")
 	}
 
@@ -64,12 +64,12 @@ func (info Info) Validate() error {
 	return nil
 }
 
-// IsRegistered indicates whether the represented process has already
-// been registered with Juju.
-func (info Info) IsRegistered() bool {
+// IsTracked indicates whether the represented workload has
+// is already being tracked by Juju.
+func (info Info) IsTracked() bool {
 	// An unregistered process will not have the Status and Details
 	// fields set (they will be zero values). Thus a registered
 	// process can be identified by non-zero values in those fields.
 	// We use that fact here.
-	return !reflect.DeepEqual(info, Info{Process: info.Process})
+	return !reflect.DeepEqual(info, Info{Workload: info.Workload})
 }

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package process_test
+package workload_test
 
 import (
 	"github.com/juju/errors"
@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/workload"
 )
 
 type infoSuite struct {
@@ -19,9 +19,9 @@ type infoSuite struct {
 
 var _ = gc.Suite(&infoSuite{})
 
-func (s *infoSuite) newInfo(name, procType string) *process.Info {
-	return &process.Info{
-		Process: charm.Process{
+func (s *infoSuite) newInfo(name, procType string) *workload.Info {
+	return &workload.Info{
+		Workload: charm.Workload{
 			Name: name,
 			Type: procType,
 		},
@@ -51,21 +51,21 @@ func (s *infoSuite) TestIDNameOnly(c *gc.C) {
 }
 
 func (s *infoSuite) TestParseIDFull(c *gc.C) {
-	name, id := process.ParseID("a-proc/my-proc")
+	name, id := workload.ParseID("a-proc/my-proc")
 
 	c.Check(name, gc.Equals, "a-proc")
 	c.Check(id, gc.Equals, "my-proc")
 }
 
 func (s *infoSuite) TestParseIDNameOnly(c *gc.C) {
-	name, id := process.ParseID("a-proc")
+	name, id := workload.ParseID("a-proc")
 
 	c.Check(name, gc.Equals, "a-proc")
 	c.Check(id, gc.Equals, "")
 }
 
 func (s *infoSuite) TestParseIDExtras(c *gc.C) {
-	name, id := process.ParseID("somecharm/0/a-proc/my-proc")
+	name, id := workload.ParseID("somecharm/0/a-proc/my-proc")
 
 	c.Check(name, gc.Equals, "somecharm")
 	c.Check(id, gc.Equals, "0/a-proc/my-proc")
@@ -73,7 +73,7 @@ func (s *infoSuite) TestParseIDExtras(c *gc.C) {
 
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
-	info.Status.State = process.StateRunning
+	info.Status.State = workload.StateRunning
 	info.Details.ID = "my-proc"
 	info.Details.Status.State = "running"
 	err := info.Validate()
@@ -98,7 +98,7 @@ func (s *infoSuite) TestValidateBadStatus(c *gc.C) {
 
 func (s *infoSuite) TestValidateBadDetails(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
-	info.Status.State = process.StateRunning
+	info.Status.State = workload.StateRunning
 	info.Details.ID = "my-proc"
 	err := info.Validate()
 
@@ -106,18 +106,18 @@ func (s *infoSuite) TestValidateBadDetails(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*State cannot be empty.*")
 }
 
-func (s *infoSuite) TestIsRegisteredTrue(c *gc.C) {
+func (s *infoSuite) TestTrackedTrue(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
 	info.Details.ID = "abc123"
 	info.Details.Status.State = "running"
-	isRegistered := info.IsRegistered()
+	isTracked := info.IsTracked()
 
-	c.Check(isRegistered, jc.IsTrue)
+	c.Check(isTracked, jc.IsTrue)
 }
 
-func (s *infoSuite) TestIsRegisteredFalse(c *gc.C) {
+func (s *infoSuite) TestIsTrackedFalse(c *gc.C) {
 	info := s.newInfo("a proc", "docker")
-	isRegistered := info.IsRegistered()
+	isTracked := info.IsTracked()
 
-	c.Check(isRegistered, jc.IsFalse)
+	c.Check(isTracked, jc.IsFalse)
 }

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package process
+package workload
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// The Juju-recognized states in which a workload process might be.
+// The Juju-recognized states in which a workload might be.
 const (
 	StateUndefined = ""
 	StateDefined   = "defined"
@@ -32,29 +32,29 @@ var okayStates = set.NewStrings(
 const (
 	NotBlocked = ""
 	// BlockerError indicates that the plugin reported a problem with
-	// the workload process.
+	// the workload.
 	BlockerError = "error"
 	// BlockerFailed indicates that Juju got a failure while trying
-	// to interact with the process (via its plugin).
+	// to interact with the workload (via its plugin).
 	BlockerFailed = "failed"
 )
 
 // TODO(ericsnow) Use a separate StatusInfo and keep Status (quasi-)immutable?
 
-// Status is the Juju-level status of a workload process.
+// Status is the Juju-level status of a workload.
 type Status struct {
-	// State is which state the process is in relative to Juju.
+	// State is which state the workload is in relative to Juju.
 	State string
 	// Blocker identifies the kind of blocker preventing interaction
-	// with the process.
+	// with the workload.
 	Blocker string
 	// Message is a human-readable message describing the current status
-	// of the process, why it is in the current state, or what Juju is
-	// doing right now relative to the process. There may be no message.
+	// of the workload, why it is in the current state, or what Juju is
+	// doing right now relative to the workload. There may be no message.
 	Message string
 }
 
-// String returns a string representing the status of the process.
+// String returns a string representing the status of the workload.
 func (s Status) String() string {
 	message := s.Message
 	if s.IsBlocked() {
@@ -66,7 +66,7 @@ func (s Status) String() string {
 	return message
 }
 
-// IsBlocked indicates whether or not the workload process may proceed
+// IsBlocked indicates whether or not the workload may workload
 // to the next state.
 func (s *Status) IsBlocked() bool {
 	return s.Blocker != NotBlocked
@@ -101,8 +101,8 @@ func (s *Status) Advance(message string) error {
 }
 
 // SetFailed records that Juju encountered a problem when trying to
-// interact with the process. If Status.Blocker is already failed then
-// the message is updated. If the process is in an initial or final
+// interact with the workload. If Status.Blocker is already failed then
+// the message is updated. If the workload is in an initial or final
 // state then an error is returned.
 func (s *Status) SetFailed(message string) error {
 	switch s.State {
@@ -115,16 +115,16 @@ func (s *Status) SetFailed(message string) error {
 	}
 
 	if message == "" {
-		message = "problem while interacting with workload process"
+		message = "problem while interacting with workload"
 	}
 	s.Blocker = BlockerFailed
 	s.Message = message
 	return nil
 }
 
-// SetError records that the workload process isn't working correctly,
+// SetError records that the workload isn't working correctly,
 // as reported by the plugin. If already in an error state then the
-// message is updated. The process must be in a running state for there
+// message is updated. The workload must be in a running state for there
 // to be an error. problems during starting and stopping are recorded
 // as failures rather than errors.
 func (s *Status) SetError(message string) error {
@@ -136,18 +136,18 @@ func (s *Status) SetError(message string) error {
 	}
 
 	if message == "" {
-		message = "the workload process has an error"
+		message = "the workload has an error"
 	}
 	s.Blocker = BlockerError
 	s.Message = message
 	return nil
 }
 
-// Resolve clears any existing error or failure status for the process.
+// Resolve clears any existing error or failure status for the workload.
 // If a message is provided then it is set. Otherwise a message
-// describing what was resolved will be set. If the process is both
+// describing what was resolved will be set. If the workload is both
 // failed and in an error state then both will be resolved at once.
-// If the process isn't currently blocked then an error is returned.
+// If the workload isn't currently blocked then an error is returned.
 func (s *Status) Resolve(message string) error {
 	if !s.IsBlocked() {
 		// TODO(ericsnow) Do nothing?
@@ -193,7 +193,7 @@ func (s Status) Validate() error {
 // PluginStatus represents the data returned from the Plugin.Status call.
 type PluginStatus struct {
 	// State is the human-readable label returned by the plugin
-	// that represents the status of the workload process.
+	// that represents the status of the workload.
 	State string `json:"state"`
 }
 
@@ -206,7 +206,7 @@ func (s PluginStatus) Validate() error {
 	return nil
 }
 
-// CombinedStatus holds the status information for a process,
+// CombinedStatus holds the status information for a workload,
 // from all sources.
 type CombinedStatus struct {
 	// Status is the Juju-level status information.

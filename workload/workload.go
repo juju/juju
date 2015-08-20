@@ -4,8 +4,7 @@
 // The process package (and subpackages) contain the implementation of
 // the charm workload process feature component. The various pieces are
 // connected to the Juju machinery in component/all/process.go.
-package process
+package workload
 
-// ComponentName is the name of the Juju component for workload
-// process management.
-const ComponentName = "workload-processes"
+// ComponentName is the name of the Juju component for workload management.
+const ComponentName = "workloads"
