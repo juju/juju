@@ -8,33 +8,33 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
 type suite struct{}
 
 var _ = gc.Suite(&suite{})
 
-func (suite) TestRegisterProcess(c *gc.C) {
+func (suite) TestTrack(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 
-	args := api.RegisterProcessesArgs{
-		Processes: []api.Process{{
-			Definition: api.ProcessDefinition{
+	args := api.TrackArgs{
+		Workloads: []api.Workload{{
+			Definition: api.WorkloadDefinition{
 				Name:        "foobar",
 				Description: "desc",
 				Type:        "type",
 				TypeOptions: map[string]string{"foo": "bar"},
 				Command:     "cmd",
 				Image:       "img",
-				Ports: []api.ProcessPort{{
+				Ports: []api.WorkloadPort{{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				}},
-				Volumes: []api.ProcessVolume{{
+				Volumes: []api.WorkloadVolume{{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
 					Mode:          "ro",
@@ -42,11 +42,11 @@ func (suite) TestRegisterProcess(c *gc.C) {
 				}},
 				EnvVars: map[string]string{"envfoo": "bar"},
 			},
-			Status: api.ProcessStatus{
-				State:   process.StateRunning,
+			Status: api.WorkloadStatus{
+				State:   workload.StateRunning,
 				Message: "okay",
 			},
-			Details: api.ProcessDetails{
+			Details: api.WorkloadDetails{
 				ID: "idfoo",
 				Status: api.PluginStatus{
 					State: "running",
@@ -55,11 +55,11 @@ func (suite) TestRegisterProcess(c *gc.C) {
 		}},
 	}
 
-	res, err := a.RegisterProcesses(args)
+	res, err := a.Track(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResults := api.ProcessResults{
-		Results: []api.ProcessResult{{
+	expectedResults := api.WorkloadResults{
+		Results: []api.WorkloadResult{{
 			ID:    "foobar/idfoo",
 			Error: nil,
 		}},
@@ -67,22 +67,22 @@ func (suite) TestRegisterProcess(c *gc.C) {
 
 	c.Assert(res, gc.DeepEquals, expectedResults)
 
-	expected := process.Info{
-		Process: charm.Process{
+	expected := workload.Info{
+		Workload: charm.Workload{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []charm.ProcessPort{
+			Ports: []charm.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []charm.ProcessVolume{
+			Volumes: []charm.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -92,13 +92,13 @@ func (suite) TestRegisterProcess(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "idfoo",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
@@ -107,23 +107,23 @@ func (suite) TestRegisterProcess(c *gc.C) {
 	c.Assert(st.info, gc.DeepEquals, expected)
 }
 
-func (suite) TestListProcessesOne(c *gc.C) {
-	proc := process.Info{
-		Process: charm.Process{
+func (suite) TestListOne(c *gc.C) {
+	wl := workload.Info{
+		Workload: charm.Workload{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []charm.ProcessPort{
+			Ports: []charm.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []charm.ProcessVolume{
+			Volumes: []charm.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -133,41 +133,41 @@ func (suite) TestListProcessesOne(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "idfoo",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}
-	st := &FakeState{procs: []process.Info{proc}}
+	st := &FakeState{workloads: []workload.Info{wl}}
 	a := HookContextAPI{st}
-	args := api.ListProcessesArgs{
+	args := api.ListArgs{
 		IDs: []string{"foobar/idfoo"},
 	}
-	results, err := a.ListProcesses(args)
+	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.Process{
-		Definition: api.ProcessDefinition{
+	expected := api.Workload{
+		Definition: api.WorkloadDefinition{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []api.ProcessPort{
+			Ports: []api.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []api.ProcessVolume{
+			Volumes: []api.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -177,11 +177,11 @@ func (suite) TestListProcessesOne(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: api.ProcessStatus{
-			State:   process.StateRunning,
+		Status: api.WorkloadStatus{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: api.ProcessDetails{
+		Details: api.WorkloadDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{
 				State: "running",
@@ -189,8 +189,8 @@ func (suite) TestListProcessesOne(c *gc.C) {
 		},
 	}
 
-	expectedResults := api.ListProcessesResults{
-		Results: []api.ListProcessResult{{
+	expectedResults := api.ListResults{
+		Results: []api.ListResult{{
 			ID:    "foobar/idfoo",
 			Info:  expected,
 			Error: nil,
@@ -200,23 +200,23 @@ func (suite) TestListProcessesOne(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
-func (suite) TestListProcessesAll(c *gc.C) {
-	proc := process.Info{
-		Process: charm.Process{
+func (suite) TestListAll(c *gc.C) {
+	wl := workload.Info{
+		Workload: charm.Workload{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []charm.ProcessPort{
+			Ports: []charm.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []charm.ProcessVolume{
+			Volumes: []charm.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -226,39 +226,39 @@ func (suite) TestListProcessesAll(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "idfoo",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}
-	st := &FakeState{procs: []process.Info{proc}}
+	st := &FakeState{workloads: []workload.Info{wl}}
 	a := HookContextAPI{st}
-	args := api.ListProcessesArgs{}
-	results, err := a.ListProcesses(args)
+	args := api.ListArgs{}
+	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.Process{
-		Definition: api.ProcessDefinition{
+	expected := api.Workload{
+		Definition: api.WorkloadDefinition{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []api.ProcessPort{
+			Ports: []api.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []api.ProcessVolume{
+			Volumes: []api.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -268,11 +268,11 @@ func (suite) TestListProcessesAll(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: api.ProcessStatus{
-			State:   process.StateRunning,
+		Status: api.WorkloadStatus{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: api.ProcessDetails{
+		Details: api.WorkloadDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{
 				State: "running",
@@ -280,8 +280,8 @@ func (suite) TestListProcessesAll(c *gc.C) {
 		},
 	}
 
-	expectedResults := api.ListProcessesResults{
-		Results: []api.ListProcessResult{{
+	expectedResults := api.ListResults{
+		Results: []api.ListResult{{
 			ID:    "foobar/idfoo",
 			Info:  expected,
 			Error: nil,
@@ -291,22 +291,22 @@ func (suite) TestListProcessesAll(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
-func (suite) TestListDefinitions(c *gc.C) {
-	definition := charm.Process{
+func (suite) TestDefinitions(c *gc.C) {
+	definition := charm.Workload{
 		Name:        "foobar",
 		Description: "desc",
 		Type:        "type",
 		TypeOptions: map[string]string{"foo": "bar"},
 		Command:     "cmd",
 		Image:       "img",
-		Ports: []charm.ProcessPort{
+		Ports: []charm.WorkloadPort{
 			{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "endpoint",
 			},
 		},
-		Volumes: []charm.ProcessVolume{
+		Volumes: []charm.WorkloadVolume{
 			{
 				ExternalMount: "/foo/bar",
 				InternalMount: "/baz/bat",
@@ -316,28 +316,28 @@ func (suite) TestListDefinitions(c *gc.C) {
 		},
 		EnvVars: map[string]string{"envfoo": "bar"},
 	}
-	st := &FakeState{defs: []charm.Process{definition}}
+	st := &FakeState{defs: []charm.Workload{definition}}
 	a := HookContextAPI{st}
 
-	results, err := a.ListDefinitions()
+	results, err := a.Definitions()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, api.ListDefinitionsResults{
-		Results: []api.ProcessDefinition{{
+	c.Check(results, jc.DeepEquals, api.DefinitionsResults{
+		Results: []api.WorkloadDefinition{{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []api.ProcessPort{
+			Ports: []api.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []api.ProcessVolume{
+			Volumes: []api.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -350,14 +350,14 @@ func (suite) TestListDefinitions(c *gc.C) {
 	})
 }
 
-func (suite) TestSetProcessStatus(c *gc.C) {
+func (suite) TestSetStatus(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
-	args := api.SetProcessesStatusArgs{
-		Args: []api.SetProcessStatusArg{{
+	args := api.SetStatusArgs{
+		Args: []api.SetStatusArg{{
 			ID: "fooID/bar",
-			Status: api.ProcessStatus{
-				State:   process.StateRunning,
+			Status: api.WorkloadStatus{
+				State:   workload.StateRunning,
 				Message: "okay",
 			},
 			PluginStatus: api.PluginStatus{
@@ -365,22 +365,22 @@ func (suite) TestSetProcessStatus(c *gc.C) {
 			},
 		}},
 	}
-	res, err := a.SetProcessesStatus(args)
+	res, err := a.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(st.id, gc.Equals, "fooID/bar")
-	c.Assert(st.status, jc.DeepEquals, process.CombinedStatus{
-		Status: process.Status{
-			State:   process.StateRunning,
+	c.Assert(st.status, jc.DeepEquals, workload.CombinedStatus{
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		PluginStatus: process.PluginStatus{
+		PluginStatus: workload.PluginStatus{
 			State: "statusfoo",
 		},
 	})
 
-	expected := api.ProcessResults{
-		Results: []api.ProcessResult{{
+	expected := api.WorkloadResults{
+		Results: []api.WorkloadResult{{
 			ID:    "fooID/bar",
 			Error: nil,
 		}},
@@ -399,8 +399,8 @@ func (suite) TestUntrack(c *gc.C) {
 
 	c.Assert(st.id, gc.Equals, "fooID/bar")
 
-	expected := api.ProcessResults{
-		Results: []api.ProcessResult{{
+	expected := api.WorkloadResults{
+		Results: []api.WorkloadResult{{
 			ID:    "fooID/bar",
 			Error: nil,
 		}},
@@ -419,7 +419,7 @@ func (suite) TestUntrackEmptyID(c *gc.C) {
 
 	c.Assert(st.id, gc.Equals, "")
 
-	expected := api.ProcessResults{Results: []api.ProcessResult{api.ProcessResult{ID: ""}}}
+	expected := api.WorkloadResults{Results: []api.WorkloadResult{api.WorkloadResult{ID: ""}}}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
@@ -435,7 +435,7 @@ func (suite) TestUntrackEmpty(c *gc.C) {
 
 	c.Assert(st.id, gc.Equals, "foo")
 
-	expected := api.ProcessResults{}
+	expected := api.WorkloadResults{}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
@@ -443,38 +443,38 @@ type FakeState struct {
 	// inputs
 	id     string
 	ids    []string
-	status process.CombinedStatus
+	status workload.CombinedStatus
 
 	// info is used as input and output
-	info process.Info
+	info workload.Info
 
 	//outputs
-	procs []process.Info
-	defs  []charm.Process
-	err   error
+	workloads []workload.Info
+	defs      []charm.Workload
+	err       error
 }
 
-func (f *FakeState) Add(info process.Info) error {
+func (f *FakeState) Track(info workload.Info) error {
 	f.info = info
 	return f.err
 }
 
-func (f *FakeState) List(ids ...string) ([]process.Info, error) {
+func (f *FakeState) List(ids ...string) ([]workload.Info, error) {
 	f.ids = ids
-	return f.procs, f.err
+	return f.workloads, f.err
 }
 
-func (f *FakeState) ListDefinitions() ([]charm.Process, error) {
+func (f *FakeState) Definitions() ([]charm.Workload, error) {
 	return f.defs, f.err
 }
 
-func (f *FakeState) SetStatus(id string, status process.CombinedStatus) error {
+func (f *FakeState) SetStatus(id string, status workload.CombinedStatus) error {
 	f.id = id
 	f.status = status
 	return f.err
 }
 
-func (f *FakeState) Remove(id string) error {
+func (f *FakeState) Untrack(id string) error {
 	f.id = id
 	return f.err
 }

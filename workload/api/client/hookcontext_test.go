@@ -6,17 +6,17 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
-	"github.com/juju/juju/process/api/client"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
+	"github.com/juju/juju/workload/api/client"
 )
 
 type clientSuite struct {
 	stub       *testing.Stub
 	facade     *stubFacade
 	tag        string
-	process    api.Process
-	definition api.ProcessDefinition
+	workload   api.Workload
+	definition api.WorkloadDefinition
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -25,19 +25,19 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.tag = "machine-tag"
-	s.definition = api.ProcessDefinition{
+	s.definition = api.WorkloadDefinition{
 		Name:        "foobar",
 		Description: "desc",
 		Type:        "type",
 		TypeOptions: map[string]string{"foo": "bar"},
 		Command:     "cmd",
 		Image:       "img",
-		Ports: []api.ProcessPort{{
+		Ports: []api.WorkloadPort{{
 			External: 8080,
 			Internal: 80,
 			Endpoint: "endpoint",
 		}},
-		Volumes: []api.ProcessVolume{{
+		Volumes: []api.WorkloadVolume{{
 			ExternalMount: "/foo/bar",
 			InternalMount: "/baz/bat",
 			Mode:          "ro",
@@ -46,48 +46,48 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		EnvVars: map[string]string{"envfoo": "bar"},
 	}
 
-	s.process = api.Process{
+	s.workload = api.Workload{
 		Definition: s.definition,
-		Status: api.ProcessStatus{
-			State:   process.StateRunning,
+		Status: api.WorkloadStatus{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: api.ProcessDetails{
+		Details: api.WorkloadDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{
-				State: "process status",
+				State: "workload status",
 			},
 		},
 	}
 
 }
 
-func (s *clientSuite) TestAllDefinitions(c *gc.C) {
+func (s *clientSuite) TestDefinitions(c *gc.C) {
 	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
-		results := response.(*api.ListDefinitionsResults)
-		*results = api.ListDefinitionsResults{
-			Results: []api.ProcessDefinition{s.definition},
+		results := response.(*api.DefinitionsResults)
+		*results = api.DefinitionsResults{
+			Results: []api.WorkloadDefinition{s.definition},
 		}
 		return nil
 	}
 	pclient := client.NewHookContextClient(s.facade)
 
-	definitions, err := pclient.AllDefinitions()
+	definitions, err := pclient.Definitions()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(definitions, jc.DeepEquals, []charm.Process{{
+	c.Check(definitions, jc.DeepEquals, []charm.Workload{{
 		Name:        "foobar",
 		Description: "desc",
 		Type:        "type",
 		TypeOptions: map[string]string{"foo": "bar"},
 		Command:     "cmd",
 		Image:       "img",
-		Ports: []charm.ProcessPort{{
+		Ports: []charm.WorkloadPort{{
 			External: 8080,
 			Internal: 80,
 			Endpoint: "endpoint",
 		}},
-		Volumes: []charm.ProcessVolume{{
+		Volumes: []charm.WorkloadVolume{{
 			ExternalMount: "/foo/bar",
 			InternalMount: "/baz/bat",
 			Mode:          "ro",
@@ -98,16 +98,16 @@ func (s *clientSuite) TestAllDefinitions(c *gc.C) {
 	s.stub.CheckCallNames(c, "FacadeCall")
 }
 
-func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
+func (s *clientSuite) TestTrack(c *gc.C) {
 	numStubCalls := 0
 	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
 		numStubCalls++
-		c.Check(name, gc.Equals, "RegisterProcesses")
+		c.Check(name, gc.Equals, "Track")
 
-		typedResponse, ok := response.(*api.ProcessResults)
+		typedResponse, ok := response.(*api.WorkloadResults)
 		c.Assert(ok, gc.Equals, true)
 
-		typedResponse.Results = append(typedResponse.Results, api.ProcessResult{
+		typedResponse.Results = append(typedResponse.Results, api.WorkloadResult{
 			ID:    "idfoo",
 			Error: nil,
 		})
@@ -117,8 +117,8 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 
 	pclient := client.NewHookContextClient(s.facade)
 
-	procInfo := api.API2Proc(s.process)
-	ids, err := pclient.RegisterProcesses(procInfo)
+	workloadInfo := api.API2Workload(s.workload)
+	ids, err := pclient.Track(workloadInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(len(ids), gc.Equals, 1)
@@ -126,50 +126,50 @@ func (s *clientSuite) TestRegisterProcesses(c *gc.C) {
 	c.Check(ids[0], gc.Equals, "idfoo")
 }
 
-func (s *clientSuite) TestListAllProcesses(c *gc.C) {
+func (s *clientSuite) TestList(c *gc.C) {
 	numStubCalls := 0
 
 	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
 		numStubCalls++
-		c.Check(name, gc.Equals, "ListProcesses")
+		c.Check(name, gc.Equals, "List")
 
-		typedResponse, ok := response.(*api.ListProcessesResults)
+		typedResponse, ok := response.(*api.ListResults)
 		c.Assert(ok, gc.Equals, true)
 
-		result := api.ListProcessResult{ID: s.process.Details.ID, Info: s.process, Error: nil}
+		result := api.ListResult{ID: s.workload.Details.ID, Info: s.workload, Error: nil}
 		typedResponse.Results = append(typedResponse.Results, result)
 
 		return nil
 	}
 	pclient := client.NewHookContextClient(s.facade)
 
-	processes, err := pclient.ListProcesses(s.tag)
+	workloads, err := pclient.List(s.tag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(len(processes), gc.Equals, 1)
+	c.Check(len(workloads), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
 
-	proc := api.API2Proc(s.process)
-	c.Check(processes[0], gc.DeepEquals, proc)
+	wl := api.API2Workload(s.workload)
+	c.Check(workloads[0], gc.DeepEquals, wl)
 }
 
-func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
+func (s *clientSuite) TestSetStatus(c *gc.C) {
 	numStubCalls := 0
 
 	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
 		numStubCalls++
-		c.Check(name, gc.Equals, "SetProcessesStatus")
+		c.Check(name, gc.Equals, "SetStatus")
 
-		typedParams, ok := params.(*api.SetProcessesStatusArgs)
+		typedParams, ok := params.(*api.SetStatusArgs)
 		c.Assert(ok, gc.Equals, true)
 
 		c.Check(len(typedParams.Args), gc.Equals, 1)
 
 		arg := typedParams.Args[0]
-		c.Check(arg, jc.DeepEquals, api.SetProcessStatusArg{
+		c.Check(arg, jc.DeepEquals, api.SetStatusArg{
 			ID: "idfoo/bar",
-			Status: api.ProcessStatus{
-				State:   process.StateRunning,
+			Status: api.WorkloadStatus{
+				State:   workload.StateRunning,
 				Message: "okay",
 			},
 			PluginStatus: api.PluginStatus{
@@ -181,14 +181,14 @@ func (s *clientSuite) TestSetProcessesStatus(c *gc.C) {
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	status := process.Status{
-		State:   process.StateRunning,
+	status := workload.Status{
+		State:   workload.StateRunning,
 		Message: "okay",
 	}
-	pluginStatus := process.PluginStatus{
+	pluginStatus := workload.PluginStatus{
 		State: "Running",
 	}
-	err := pclient.SetProcessesStatus(status, pluginStatus, "idfoo/bar")
+	err := pclient.SetStatus(status, pluginStatus, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)

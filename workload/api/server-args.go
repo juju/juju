@@ -14,76 +14,76 @@ import (
 // BulkFailure indicates that at least one arg failed.
 var BulkFailure = errors.Errorf("at least one bulk arg has an error")
 
-// RegisterProcessArgs are the arguments for the RegisterProcesses endpoint.
-type RegisterProcessesArgs struct {
-	// Processes is the list of Processes to register
-	Processes []Process
+// TrackArgs are the arguments for the Track endpoint.
+type TrackArgs struct {
+	// Workloads is the list of Workloads to track
+	Workloads []Workload
 }
 
-// ProcessResults is the result for a call that makes one or more requests
+// WorkloadResults is the result for a call that makes one or more requests
 // about processes.
-type ProcessResults struct {
+type WorkloadResults struct {
 	// Results is the list of results.
-	Results []ProcessResult
+	Results []WorkloadResult
 	// Error is the error (if any) for the call as a whole.
 	Error *params.Error
 }
 
-// ProcessResult contains the result for a single call.
-type ProcessResult struct {
+// WorkloadResult contains the result for a single call.
+type WorkloadResult struct {
 	// ID is the id of the process referenced in the call..
 	ID string
 	// Error is the error (if any) for the call referring to ID.
 	Error *params.Error
 }
 
-// ListProcessesesArgs are the arguments for the ListProcesses endpoint.
-type ListProcessesArgs struct {
+// ListArgs are the arguments for the List endpoint.
+type ListArgs struct {
 	// IDs is the list of IDs of the processes you want information on.
 	IDs []string
 }
 
-// ListProcessesResults contains the results for a call to ListProcesses.
-type ListProcessesResults struct {
+// ListResults contains the results for a call to List.
+type ListResults struct {
 	// Results is the list of process results.
-	Results []ListProcessResult
+	Results []ListResult
 	// Error is the error (if any) for the call as a whole.
 	Error *params.Error
 }
 
-// ListProcessResult contains the results for a single call to ListProcess.
-type ListProcessResult struct {
+// ListResult contains the results for a single call to List.
+type ListResult struct {
 	// ID is the id of the process this result applies to.
 	ID string
 	// Info holds the details of the process.
-	Info Process
+	Info Workload
 	// NotFound indicates that the process was not found in state.
 	NotFound bool
 	// Error holds the error retrieving this information (if any).
 	Error *params.Error
 }
 
-// ListDefinitionsResults contains the results for a call to ListDefinitions.
-type ListDefinitionsResults struct {
+// DefinitionsResults contains the results for a call to Definitions.
+type DefinitionsResults struct {
 	// Results is the list of definition results.
-	Results []ProcessDefinition
+	Results []WorkloadDefinition
 	// Error is the error (if any) for the call as a whole.
 	Error *params.Error
 }
 
-// SetProcessesStatusArgs are the arguments for the SetProcessesStatus endpoint.
-type SetProcessesStatusArgs struct {
+// SetStatusArgs are the arguments for the SetStatus endpoint.
+type SetStatusArgs struct {
 	// Args is the list of arguments to pass to this function.
-	Args []SetProcessStatusArg
+	Args []SetStatusArg
 }
 
-// SetProcessStatusArg are the arguments for a single call to the
-// SetProcessStatus endpoint.
-type SetProcessStatusArg struct {
+// SetStatusArg are the arguments for a single call to the
+// SetStatus endpoint.
+type SetStatusArg struct {
 	// ID is the ID of the process.
 	ID string
 	// Status is the status of the process.
-	Status ProcessStatus
+	Status WorkloadStatus
 	// PluginStatus is the plugin-provided status of the process.
 	PluginStatus PluginStatus
 }
@@ -94,18 +94,18 @@ type UntrackArgs struct {
 	IDs []string
 }
 
-// Process contains information about a workload process.
-type Process struct {
-	// Process is information about the process itself.
-	Definition ProcessDefinition
+// Workload contains information about a workload process.
+type Workload struct {
+	// Workload is information about the process itself.
+	Definition WorkloadDefinition
 	// Status is the Juju-level status for the process.
-	Status ProcessStatus
+	Status WorkloadStatus
 	// Details are the information returned from starting the process.
-	Details ProcessDetails
+	Details WorkloadDetails
 }
 
-// ProcessDefinition is the static definition of a workload process in a charm.
-type ProcessDefinition struct {
+// WorkloadDefinition is the static definition of a workload process in a charm.
+type WorkloadDefinition struct {
 	// Name is the name of the process.
 	Name string
 	// Description is a brief description of the process.
@@ -118,16 +118,16 @@ type ProcessDefinition struct {
 	Command string
 	// Image is the image used by the process, if any.
 	Image string
-	// Ports is a list of ProcessPort.
-	Ports []ProcessPort
-	// Volumes is a list of ProcessVolume.
-	Volumes []ProcessVolume
+	// Ports is a list of WorkloadPort.
+	Ports []WorkloadPort
+	// Volumes is a list of WorkloadVolume.
+	Volumes []WorkloadVolume
 	// EnvVars is map of environment variables used by the process.
 	EnvVars map[string]string
 }
 
-// ProcessPort is network port information for a workload process.
-type ProcessPort struct {
+// WorkloadPort is network port information for a workload process.
+type WorkloadPort struct {
 	// External is the port on the host.
 	External int
 	// Internal is the port on the process.
@@ -137,8 +137,8 @@ type ProcessPort struct {
 	Endpoint string
 }
 
-// ProcessVolume is storage volume information for a workload process.
-type ProcessVolume struct {
+// WorkloadVolume is storage volume information for a workload process.
+type WorkloadVolume struct {
 	// ExternalMount is the path on the host.
 	ExternalMount string
 	// InternalMount is the path on the process.
@@ -149,8 +149,8 @@ type ProcessVolume struct {
 	Name string
 }
 
-// ProcessStatus represents the Juju-level status of the process.
-type ProcessStatus struct {
+// WorkloadStatus represents the Juju-level status of the process.
+type WorkloadStatus struct {
 	// State is the Juju-defined state the process is in.
 	State string
 	// Blocker identifies the kind of blocker preventing interaction
@@ -161,8 +161,8 @@ type ProcessStatus struct {
 	Message string
 }
 
-// ProcessDetails represents information about a process launched by a plugin.
-type ProcessDetails struct {
+// WorkloadDetails represents information about a process launched by a plugin.
+type WorkloadDetails struct {
 	// ID is a unique string identifying the process to the plugin.
 	ID string
 	// Status is the status of the process after launch.

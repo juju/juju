@@ -8,38 +8,38 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
-var logger = loggo.GetLogger("juju.process.api.client")
+var logger = loggo.GetLogger("juju.workload.api.client")
 
 type facadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
 }
 
 // HookContextClient provides methods for interacting with Juju's internal
-// RPC API, relative to workload processes.
+// RPC API, relative to workloads.
 type HookContextClient struct {
 	facadeCaller
 }
 
-// NewHookContextClient builds a new workload process API client.
+// NewHookContextClient builds a new workload API client.
 func NewHookContextClient(caller facadeCaller) HookContextClient {
 	return HookContextClient{caller}
 }
 
-// AllDefinitions calls the ListDefinitions API server method.
-func (c HookContextClient) AllDefinitions() ([]charm.Process, error) {
-	var results api.ListDefinitionsResults
-	if err := c.FacadeCall("ListDefinitions", nil, &results); err != nil {
+// Definitions calls the Definitions API server method.
+func (c HookContextClient) Definitions() ([]charm.Workload, error) {
+	var results api.DefinitionsResults
+	if err := c.FacadeCall("Definitions", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if results.Error != nil {
 		return nil, errors.Errorf(results.Error.GoString())
 	}
 
-	var definitions []charm.Process
+	var definitions []charm.Workload
 	for _, result := range results.Results {
 		definition := api.API2Definition(result)
 		definitions = append(definitions, definition)
@@ -47,17 +47,17 @@ func (c HookContextClient) AllDefinitions() ([]charm.Process, error) {
 	return definitions, nil
 }
 
-// RegisterProcesses calls the RegisterProcesses API server method.
-func (c HookContextClient) RegisterProcesses(processes ...process.Info) ([]string, error) {
-	procArgs := make([]api.Process, len(processes))
-	for i, proc := range processes {
-		procArgs[i] = api.Proc2api(proc)
+// Track calls the Track API server method.
+func (c HookContextClient) Track(workloads ...workload.Info) ([]string, error) {
+	workloadArgs := make([]api.Workload, len(workloads))
+	for i, wl := range workloads {
+		workloadArgs[i] = api.Workload2api(wl)
 	}
 
-	var result api.ProcessResults
+	var result api.WorkloadResults
 
-	args := api.RegisterProcessesArgs{Processes: procArgs}
-	if err := c.FacadeCall("RegisterProcesses", &args, &result); err != nil {
+	args := api.TrackArgs{Workloads: workloadArgs}
+	if err := c.FacadeCall("Track", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
@@ -74,47 +74,47 @@ func (c HookContextClient) RegisterProcesses(processes ...process.Info) ([]strin
 	return ids, nil
 }
 
-// ListProcesses calls the ListProcesses API server method.
-func (c HookContextClient) ListProcesses(ids ...string) ([]process.Info, error) {
-	var result api.ListProcessesResults
+// List calls the List API server method.
+func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
+	var result api.ListResults
 
-	args := api.ListProcessesArgs{IDs: ids}
-	if err := c.FacadeCall("ListProcesses", &args, &result); err != nil {
+	args := api.ListArgs{IDs: ids}
+	if err := c.FacadeCall("List", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var notFound []string
-	procs := make([]process.Info, len(result.Results))
+	workloads := make([]workload.Info, len(result.Results))
 	for i, presult := range result.Results {
 		if presult.NotFound {
 			notFound = append(notFound, presult.ID)
 			continue
 		}
 		if presult.Error != nil {
-			return procs, errors.Errorf(presult.Error.GoString())
+			return workloads, errors.Errorf(presult.Error.GoString())
 		}
-		pp := api.API2Proc(presult.Info)
-		procs[i] = pp
+		pp := api.API2Workload(presult.Info)
+		workloads[i] = pp
 	}
 	if len(notFound) > 0 {
-		return procs, errors.NotFoundf("%v", notFound)
+		return workloads, errors.NotFoundf("%v", notFound)
 	}
-	return procs, nil
+	return workloads, nil
 }
 
-// SetProcessesStatus calls the SetProcessesStatus API server method.
-func (c HookContextClient) SetProcessesStatus(status process.Status, pluginStatus process.PluginStatus, ids ...string) error {
-	statusArgs := make([]api.SetProcessStatusArg, len(ids))
+// SetStatus calls the SetStatus API server method.
+func (c HookContextClient) SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error {
+	statusArgs := make([]api.SetStatusArg, len(ids))
 	for i, id := range ids {
-		statusArgs[i] = api.SetProcessStatusArg{
+		statusArgs[i] = api.SetStatusArg{
 			ID:           id,
 			Status:       api.Status2apiStatus(status),
 			PluginStatus: api.PluginStatus2apiPluginStatus(pluginStatus),
 		}
 	}
 
-	args := api.SetProcessesStatusArgs{Args: statusArgs}
-	return c.FacadeCall("SetProcessesStatus", &args, nil)
+	args := api.SetStatusArgs{Args: statusArgs}
+	return c.FacadeCall("SetStatus", &args, nil)
 }
 
 // Untrack calls the Untrack API server method.

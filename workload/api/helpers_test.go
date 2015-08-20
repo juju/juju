@@ -4,7 +4,7 @@
 package api
 
 import (
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 )
@@ -13,21 +13,21 @@ type suite struct{}
 
 var _ = gc.Suite(&suite{})
 
-func (suite) TestAPI2Proc(c *gc.C) {
-	p := Process{
-		Definition: ProcessDefinition{
+func (suite) TestAPI2Workload(c *gc.C) {
+	p := Workload{
+		Definition: WorkloadDefinition{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []ProcessPort{{
+			Ports: []WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "endpoint",
 			}},
-			Volumes: []ProcessVolume{{
+			Volumes: []WorkloadVolume{{
 				ExternalMount: "/foo/bar",
 				InternalMount: "/baz/bat",
 				Mode:          "ro",
@@ -35,43 +35,43 @@ func (suite) TestAPI2Proc(c *gc.C) {
 			}},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: ProcessStatus{
-			State:   process.StateRunning,
+		Status: WorkloadStatus{
+			State:   workload.StateRunning,
 			Blocker: "",
 			Message: "okay",
 		},
-		Details: ProcessDetails{
+		Details: WorkloadDetails{
 			ID: "idfoo",
 			Status: PluginStatus{
-				State: "process status",
+				State: "workload status",
 			},
 		},
 	}
 
-	proc := API2Proc(p)
-	p2 := Proc2api(proc)
+	proc := API2Workload(p)
+	p2 := Workload2api(proc)
 	c.Assert(p2, gc.DeepEquals, p)
-	proc2 := API2Proc(p2)
+	proc2 := API2Workload(p2)
 	c.Assert(proc2, gc.DeepEquals, proc)
 }
 
-func (suite) TestProc2API(c *gc.C) {
-	proc := process.Info{
-		Process: charm.Process{
+func (suite) TestWorkload2API(c *gc.C) {
+	proc := workload.Info{
+		Workload: charm.Workload{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []charm.ProcessPort{
+			Ports: []charm.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []charm.ProcessVolume{
+			Volumes: []charm.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -81,22 +81,22 @@ func (suite) TestProc2API(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Blocker: "",
 			Message: "okay",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "idfoo",
-			Status: process.PluginStatus{
-				State: "process status",
+			Status: workload.PluginStatus{
+				State: "workload status",
 			},
 		},
 	}
 
-	p := Proc2api(proc)
-	proc2 := API2Proc(p)
+	p := Workload2api(proc)
+	proc2 := API2Workload(p)
 	c.Assert(proc2, gc.DeepEquals, proc)
-	p2 := Proc2api(proc2)
+	p2 := Workload2api(proc2)
 	c.Assert(p2, gc.DeepEquals, p)
 }

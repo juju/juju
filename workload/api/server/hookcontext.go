@@ -11,45 +11,43 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
-var logger = loggo.GetLogger("juju.process.api.server")
+var logger = loggo.GetLogger("juju.workload.api.server")
 
-// UnitProcesses exposes the State functionality for a unit's
-// workload processes.
-type UnitProcesses interface {
-	// Add registers a workload process for the unit and info.
-	Add(info process.Info) error
-	// List returns information on the process with the id on the unit.
-	List(ids ...string) ([]process.Info, error)
-	// ListDefinitions returns the process definitions found in the
-	// unit's metadata.
-	ListDefinitions() ([]charm.Process, error)
-	// Settatus sets the status for the process with the given id on the unit.
-	SetStatus(id string, status process.CombinedStatus) error
-	// Remove removes the information for the process with the given id.
-	Remove(id string) error
+// UnitWorkloads exposes the State functionality for a unit's workloads.
+type UnitWorkloads interface {
+	// Track tracks a workload for the unit and info.
+	Track(info workload.Info) error
+	// List returns information on the workload with the id on the unit.
+	List(ids ...string) ([]workload.Info, error)
+	// Definitions returns workload definitions found in the unit's metadata.
+	Definitions() ([]charm.Workload, error)
+	// Settatus sets the status for the workload with the given id on the unit.
+	SetStatus(id string, status workload.CombinedStatus) error
+	// Untrack removes the information for the workload with the given id.
+	Untrack(id string) error
 }
 
-// HookContextAPI serves workload process-specific API methods.
+// HookContextAPI serves workload-specific API methods.
 type HookContextAPI struct {
-	// State exposes the workload process aspect of Juju's state.
-	State UnitProcesses
+	// State exposes the workload aspect of Juju's state.
+	State UnitWorkloads
 }
 
 // NewHookContextAPI builds a new facade for the given State.
-func NewHookContextAPI(st UnitProcesses) *HookContextAPI {
+func NewHookContextAPI(st UnitWorkloads) *HookContextAPI {
 	return &HookContextAPI{State: st}
 }
 
-// ListDefinitions builds the list of workload process definitions
+// Definitions builds the list of workload definitions
 // found in the metadata of the unit's charm.
-func (a HookContextAPI) ListDefinitions() (api.ListDefinitionsResults, error) {
-	var results api.ListDefinitionsResults
+func (a HookContextAPI) Definitions() (api.DefinitionsResults, error) {
+	var results api.DefinitionsResults
 
-	definitions, err := a.State.ListDefinitions()
+	definitions, err := a.State.Definitions()
 	if err != nil {
 		results.Error = common.ServerError(err)
 		return results, nil
@@ -62,18 +60,18 @@ func (a HookContextAPI) ListDefinitions() (api.ListDefinitionsResults, error) {
 	return results, nil
 }
 
-// RegisterProcess registers a workload process in state.
-func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.ProcessResults, error) {
-	logger.Tracef("registering %d procs from API", len(args.Processes))
+// Track stores a workload to be tracked in state.
+func (a HookContextAPI) Track(args api.TrackArgs) (api.WorkloadResults, error) {
+	logger.Debugf("tracking %d workloads from API", len(args.Workloads))
 
-	r := api.ProcessResults{}
-	for _, apiProc := range args.Processes {
-		info := api.API2Proc(apiProc)
-		logger.Tracef("registering proc from API: %#v", info)
-		res := api.ProcessResult{
+	r := api.WorkloadResults{}
+	for _, apiWorkload := range args.Workloads {
+		info := api.API2Workload(apiWorkload)
+		logger.Debugf("tracking workload from API: %#v", info)
+		res := api.WorkloadResult{
 			ID: info.ID(),
 		}
-		if err := a.State.Add(info); err != nil {
+		if err := a.State.Track(info); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}
@@ -83,38 +81,38 @@ func (a HookContextAPI) RegisterProcesses(args api.RegisterProcessesArgs) (api.P
 	return r, nil
 }
 
-// ListProcesses builds the list of workload processes registered for
-// the given unit and IDs. If no IDs are provided then all registered
-// processes for the unit are returned.
-func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProcessesResults, error) {
-	var r api.ListProcessesResults
+// List builds the list of workload being tracked for
+// the given unit and IDs. If no IDs are provided then all tracked
+// workloads for the unit are returned.
+func (a HookContextAPI) List(args api.ListArgs) (api.ListResults, error) {
+	var r api.ListResults
 
 	ids := args.IDs
-	procs, err := a.State.List(ids...)
+	workloads, err := a.State.List(ids...)
 	if err != nil {
 		r.Error = common.ServerError(err)
 		return r, nil
 	}
 
 	if len(ids) == 0 {
-		for _, proc := range procs {
-			ids = append(ids, proc.ID())
+		for _, wl := range workloads {
+			ids = append(ids, wl.ID())
 		}
 	}
 
 	for _, id := range ids {
-		res := api.ListProcessResult{
+		res := api.ListResult{
 			ID: id,
 		}
 
 		found := false
-		for _, proc := range procs {
-			procID := proc.Name
-			if proc.Details.ID != "" {
-				procID += "/" + proc.Details.ID
+		for _, wl := range workloads {
+			workloadID := wl.Name
+			if wl.Details.ID != "" {
+				workloadID += "/" + wl.Details.ID
 			}
-			if id == proc.ID() {
-				res.Info = api.Proc2api(proc)
+			if id == wl.ID() {
+				res.Info = api.Workload2api(wl)
 				found = true
 				break
 			}
@@ -127,14 +125,14 @@ func (a HookContextAPI) ListProcesses(args api.ListProcessesArgs) (api.ListProce
 	return r, nil
 }
 
-// SetProcessesStatus sets the raw status of a workload process.
-func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api.ProcessResults, error) {
-	r := api.ProcessResults{}
+// SetStatus sets the raw status of a workload.
+func (a HookContextAPI) SetStatus(args api.SetStatusArgs) (api.WorkloadResults, error) {
+	r := api.WorkloadResults{}
 	for _, arg := range args.Args {
-		res := api.ProcessResult{
+		res := api.WorkloadResult{
 			ID: arg.ID,
 		}
-		err := a.State.SetStatus(arg.ID, process.CombinedStatus{
+		err := a.State.SetStatus(arg.ID, workload.CombinedStatus{
 			Status:       api.APIStatus2Status(arg.Status),
 			PluginStatus: api.APIPluginStatus2PluginStatus(arg.PluginStatus),
 		})
@@ -147,14 +145,14 @@ func (a HookContextAPI) SetProcessesStatus(args api.SetProcessesStatusArgs) (api
 	return r, nil
 }
 
-// Untrack marks the identified process as unregistered.
-func (a HookContextAPI) Untrack(args api.UntrackArgs) (api.ProcessResults, error) {
-	r := api.ProcessResults{}
+// Untrack marks the identified workload as no longer being tracked.
+func (a HookContextAPI) Untrack(args api.UntrackArgs) (api.WorkloadResults, error) {
+	r := api.WorkloadResults{}
 	for _, id := range args.IDs {
-		res := api.ProcessResult{
+		res := api.WorkloadResult{
 			ID: id,
 		}
-		if err := a.State.Remove(id); err != nil {
+		if err := a.State.Untrack(id); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}

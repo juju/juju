@@ -4,14 +4,14 @@
 package api
 
 import (
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 	"gopkg.in/juju/charm.v5"
 )
 
-// API2Definition converts an API process definition struct into
-// a charm.Process struct.
-func API2Definition(d ProcessDefinition) charm.Process {
-	return charm.Process{
+// API2Definition converts an API workload definition struct into
+// a charm.Workload struct.
+func API2Definition(d WorkloadDefinition) charm.Workload {
+	return charm.Workload{
 		Name:        d.Name,
 		Description: d.Description,
 		Type:        d.Type,
@@ -24,10 +24,10 @@ func API2Definition(d ProcessDefinition) charm.Process {
 	}
 }
 
-// Definition2api converts a charm.Process struct into an
-// api.ProcessDefinition struct.
-func Definition2api(d charm.Process) ProcessDefinition {
-	return ProcessDefinition{
+// Definition2api converts a charm.Workload struct into an
+// api.WorkloadDefinition struct.
+func Definition2api(d charm.Workload) WorkloadDefinition {
+	return WorkloadDefinition{
 		Name:        d.Name,
 		Description: d.Description,
 		Type:        d.Type,
@@ -40,44 +40,44 @@ func Definition2api(d charm.Process) ProcessDefinition {
 	}
 }
 
-// API2Proc converts an API Process info struct into a process.Info struct.
-func API2Proc(p Process) process.Info {
-	return process.Info{
-		Process: API2Definition(p.Definition),
-		Status:  APIStatus2Status(p.Status),
-		Details: process.Details{
+// API2Workload converts an API Workload info struct into a workload.Info struct.
+func API2Workload(p Workload) workload.Info {
+	return workload.Info{
+		Workload: API2Definition(p.Definition),
+		Status:   APIStatus2Status(p.Status),
+		Details: workload.Details{
 			ID:     p.Details.ID,
 			Status: APIPluginStatus2PluginStatus(p.Details.Status),
 		},
 	}
 }
 
-// Proc2api converts a process.Info struct into an api.Process struct.
-func Proc2api(p process.Info) Process {
-	return Process{
-		Definition: Definition2api(p.Process),
+// Workload2api converts a workload.Info struct into an api.Workload struct.
+func Workload2api(p workload.Info) Workload {
+	return Workload{
+		Definition: Definition2api(p.Workload),
 		Status:     Status2apiStatus(p.Status),
-		Details: ProcessDetails{
+		Details: WorkloadDetails{
 			ID:     p.Details.ID,
 			Status: PluginStatus2apiPluginStatus(p.Details.Status),
 		},
 	}
 }
 
-// APIStatus2Status converts an API ProcessStatus struct into a
-// process.Status struct.
-func APIStatus2Status(status ProcessStatus) process.Status {
-	return process.Status{
+// APIStatus2Status converts an API WorkloadStatus struct into a
+// workload.Status struct.
+func APIStatus2Status(status WorkloadStatus) workload.Status {
+	return workload.Status{
 		State:   status.State,
 		Blocker: status.Blocker,
 		Message: status.Message,
 	}
 }
 
-// Status2APIStatus converts a process.Status struct into an
-// API ProcessStatus struct.
-func Status2apiStatus(status process.Status) ProcessStatus {
-	return ProcessStatus{
+// Status2apiStatus converts a workload.Status struct into an
+// API WorkloadStatus struct.
+func Status2apiStatus(status workload.Status) WorkloadStatus {
+	return WorkloadStatus{
 		State:   status.State,
 		Blocker: status.Blocker,
 		Message: status.Message,
@@ -85,27 +85,27 @@ func Status2apiStatus(status process.Status) ProcessStatus {
 }
 
 // APIPluginStatus2PluginStatus converts an API PluginStatus struct into
-// a process.PluginStatus struct.
-func APIPluginStatus2PluginStatus(status PluginStatus) process.PluginStatus {
-	return process.PluginStatus{
+// a workload.PluginStatus struct.
+func APIPluginStatus2PluginStatus(status PluginStatus) workload.PluginStatus {
+	return workload.PluginStatus{
 		State: status.State,
 	}
 }
 
-// PluginStatus2APIPluginStatus converts a process.PluginStatus struct
+// PluginStatus2apiPluginStatus converts a workload.PluginStatus struct
 // into an API PluginStatus struct.
-func PluginStatus2apiPluginStatus(status process.PluginStatus) PluginStatus {
+func PluginStatus2apiPluginStatus(status workload.PluginStatus) PluginStatus {
 	return PluginStatus{
 		State: status.State,
 	}
 }
 
-// API2charmPorts converts a slice of api.ProcessPorts into a slice of
-// charm.ProcessPorts.
-func API2charmPorts(ports []ProcessPort) []charm.ProcessPort {
-	ret := make([]charm.ProcessPort, len(ports))
+// API2charmPorts converts a slice of api.WorkloadPorts into a slice of
+// charm.WorkloadPorts.
+func API2charmPorts(ports []WorkloadPort) []charm.WorkloadPort {
+	ret := make([]charm.WorkloadPort, len(ports))
 	for i, p := range ports {
-		ret[i] = charm.ProcessPort{
+		ret[i] = charm.WorkloadPort{
 			Internal: p.Internal,
 			External: p.External,
 			Endpoint: p.Endpoint,
@@ -114,11 +114,11 @@ func API2charmPorts(ports []ProcessPort) []charm.ProcessPort {
 	return ret
 }
 
-// API2charmVolumes converts a slice of api.ProcessVolume into a slice of charm.ProcessVolume.
-func API2charmVolumes(vols []ProcessVolume) []charm.ProcessVolume {
-	ret := make([]charm.ProcessVolume, len(vols))
+// API2charmVolumes converts a slice of api.WorkloadVolume into a slice of charm.WorkloadVolume.
+func API2charmVolumes(vols []WorkloadVolume) []charm.WorkloadVolume {
+	ret := make([]charm.WorkloadVolume, len(vols))
 	for i, v := range vols {
-		ret[i] = charm.ProcessVolume{
+		ret[i] = charm.WorkloadVolume{
 			ExternalMount: v.ExternalMount,
 			InternalMount: v.InternalMount,
 			Mode:          v.Mode,
@@ -128,11 +128,11 @@ func API2charmVolumes(vols []ProcessVolume) []charm.ProcessVolume {
 	return ret
 }
 
-// Charm2apiPorts converts a slice of charm.ProcessPorts into a slice of api.ProcessPort.
-func Charm2apiPorts(ports []charm.ProcessPort) []ProcessPort {
-	ret := make([]ProcessPort, len(ports))
+// Charm2apiPorts converts a slice of charm.WorkloadPorts into a slice of api.WorkloadPort.
+func Charm2apiPorts(ports []charm.WorkloadPort) []WorkloadPort {
+	ret := make([]WorkloadPort, len(ports))
 	for i, p := range ports {
-		ret[i] = ProcessPort{
+		ret[i] = WorkloadPort{
 			Internal: p.Internal,
 			External: p.External,
 			Endpoint: p.Endpoint,
@@ -141,11 +141,11 @@ func Charm2apiPorts(ports []charm.ProcessPort) []ProcessPort {
 	return ret
 }
 
-// Charm2apiVolumes converts a slice of charm.ProcessVolume into a slice of api.ProcessVolume.
-func Charm2apiVolumes(vols []charm.ProcessVolume) []ProcessVolume {
-	ret := make([]ProcessVolume, len(vols))
+// Charm2apiVolumes converts a slice of charm.WorkloadVolume into a slice of api.WorkloadVolume.
+func Charm2apiVolumes(vols []charm.WorkloadVolume) []WorkloadVolume {
+	ret := make([]WorkloadVolume, len(vols))
 	for i, v := range vols {
-		ret[i] = ProcessVolume{
+		ret[i] = WorkloadVolume{
 			ExternalMount: v.ExternalMount,
 			InternalMount: v.InternalMount,
 			Mode:          v.Mode,
