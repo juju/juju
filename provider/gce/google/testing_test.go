@@ -156,6 +156,7 @@ type fakeCall struct {
 	InstanceId   string
 	AttachedDisk *compute.AttachedDisk
 	DeviceName   string
+	ComputeDisk  *compute.Disk
 }
 
 type fakeConn struct {
@@ -330,9 +331,10 @@ func (rc *fakeConn) ListAvailabilityZones(projectID, region string) ([]*compute.
 
 func (rc *fakeConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	call := fakeCall{
-		FuncName:  "CreateDisk",
-		ProjectID: project,
-		ZoneName:  zone,
+		FuncName:    "CreateDisk",
+		ProjectID:   project,
+		ZoneName:    zone,
+		ComputeDisk: spec,
 	}
 	rc.Calls = append(rc.Calls, call)
 
