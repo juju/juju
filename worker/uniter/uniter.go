@@ -100,6 +100,10 @@ type UniterParams struct {
 	MachineLock          *fslock.Lock
 	UpdateStatusSignal   TimedSignal
 	NewOperationExecutor NewExecutorFunc
+	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
+	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
+	// that write to files, and have the tests watch the output to know that hooks have finished.
+	Observer UniterExecutionObserver
 }
 
 type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
