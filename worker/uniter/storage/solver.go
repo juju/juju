@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5/hooks"
 
@@ -13,22 +14,21 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/solver"
-	"github.com/juju/utils/set"
 )
 
 type storageSolver struct {
 	opFactory operation.Factory
 	storage   *Attachments
-
-	knownStorage set.Tags
+	dying     bool
+	life      map[names.StorageTag]params.Life
 }
 
 // NewSolver returns a new storage solver.
 func NewSolver(opFactory operation.Factory, storage *Attachments) solver.Solver {
 	return &storageSolver{
-		opFactory:    opFactory,
-		storage:      storage,
-		knownStorage: set.NewTags(),
+		opFactory: opFactory,
+		storage:   storage,
+		life:      make(map[names.StorageTag]params.Life),
 	}
 }
 
@@ -38,25 +38,26 @@ func (s *storageSolver) NextOp(
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
 
-	allTags := set.NewTags()
-	allTags = allTags.Union(s.knownStorage)
-	for tag, _ := range remoteState.Storage {
-		allTags.Add(tag)
-	}
-
-	if len(s.knownStorage) != len(allTags) {
-		logger.Debugf("setting up storage for %v", allTags)
-		s.knownStorage = s.knownStorage.Union(allTags)
-		storage := make([]names.StorageTag, len(allTags))
-		for i, tag := range allTags.SortedValues() {
-			storage[i] = tag.(names.StorageTag)
+	var changed []names.StorageTag
+	for _, storage := range remoteState.Storage {
+		life, ok := s.life[storage.Tag]
+		if !ok || life != storage.Life {
+			s.life[storage.Tag] = storage.Life
+			changed = append(changed, storage.Tag)
 		}
-		return s.opFactory.NewUpdateStorage(storage)
+	}
+	for tag := range s.life {
+		if _, ok := remoteState.Storage[tag]; !ok {
+			changed = append(changed, tag)
+			delete(s.life, tag)
+		}
+	}
+	if len(changed) > 0 {
+		return s.opFactory.NewUpdateStorage(changed)
 	}
 	if !opState.Installed && s.storage.Pending() == 0 {
 		logger.Infof("initial storage attachments ready")
 	}
-
 	return s.nextOp(opState, remoteState)
 }
 
@@ -64,15 +65,24 @@ func (s *storageSolver) nextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
+	if remoteState.Life == params.Dying {
+		if !s.dying {
+			if err := s.storage.SetDying(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			s.dying = true
+		}
+		for tag, snap := range remoteState.Storage {
+			snap.Life = params.Dying
+			remoteState.Storage[tag] = snap
+		}
+	}
 	for _, snap := range remoteState.Storage {
 		op, err := s.nextHookOp(snap)
-		if err == solver.ErrNoOperation {
+		if errors.Cause(err) == solver.ErrNoOperation {
 			continue
 		}
-		if err != nil {
-			return nil, err
-		}
-		return op, nil
+		return op, err
 	}
 	if s.storage.Pending() > 0 {
 		logger.Debugf("still pending %v", s.storage.pending)
@@ -80,7 +90,6 @@ func (s *storageSolver) nextOp(
 			return nil, solver.ErrWaiting
 		}
 	}
-
 	return nil, solver.ErrNoOperation
 }
 
@@ -107,7 +116,7 @@ func (s *storageSolver) nextHookOp(snap remotestate.StorageSnapshot) (operation.
 			return nil, solver.ErrNoOperation
 		}
 	case params.Dead:
-		// Storage must been Dying to become Dead;
+		// Storage must have been Dying to become Dead;
 		// no further action is required.
 		return nil, solver.ErrNoOperation
 	}
