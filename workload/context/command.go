@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 )
 
 const idArg = "name-or-id"
@@ -38,11 +38,11 @@ func (ci cmdInfo) isOptional(arg string) bool {
 	return false
 }
 
-// TODO(ericsnow) How to convert endpoints (charm.Process.Ports[].Name)
+// TODO(ericsnow) How to convert endpoints (charm.Workload.Ports[].Name)
 // into actual ports? For now we should error out with such definitions
 // (and recommend overriding).
 
-// baseCommand implements the common portions of the workload process
+// baseCommand implements the common portions of the workload
 // hook env commands.
 type baseCommand struct {
 	cmd.CommandBase
@@ -53,18 +53,18 @@ type baseCommand struct {
 	ctx     HookContext
 	compCtx Component
 
-	// Name is the name of the process in charm metadata.
+	// Name is the name of the workload in charm metadata.
 	Name string
-	// ID is the full ID of the registered process.
+	// ID is the full ID of the tracked workload.
 	ID string
-	// info is the process info for the named workload process.
-	info *process.Info
+	// info is the workload info for the named workload.
+	info *workload.Info
 }
 
 func newCommand(ctx HookContext) (*baseCommand, error) {
 	compCtx, err := ContextComponent(ctx)
 	if err != nil {
-		// The component wasn't registered properly.
+		// The component wasn't tracked properly.
 		return nil, errors.Trace(err)
 	}
 	c := &baseCommand{
@@ -95,14 +95,14 @@ func (c baseCommand) Info() *cmd.Info {
 
 // Init implements cmd.Command.
 func (c *baseCommand) Init(args []string) error {
-	argsMap, err := c.processArgs(args)
+	argsMap, err := c.workloadArgs(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(c.handleArgs(argsMap))
 }
 
-func (c *baseCommand) processArgs(args []string) (map[string]string, error) {
+func (c *baseCommand) workloadArgs(args []string) (map[string]string, error) {
 	argNames := append([]string{idArg}, c.cmdInfo.ExtraArgs...)
 	results := make(map[string]string)
 	for i, name := range argNames {
@@ -132,7 +132,7 @@ func (c *baseCommand) init(args map[string]string) error {
 	if id == "" {
 		return errors.Errorf("got empty " + idArg)
 	}
-	name, _ := process.ParseID(id)
+	name, _ := workload.ParseID(id)
 	c.Name = name
 	c.ID = id
 	return nil
@@ -153,12 +153,12 @@ func (c *baseCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *baseCommand) defsFromCharm() (map[string]charm.Process, error) {
-	definitions, err := c.compCtx.ListDefinitions()
+func (c *baseCommand) defsFromCharm() (map[string]charm.Workload, error) {
+	definitions, err := c.compCtx.Definitions()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defMap := make(map[string]charm.Process)
+	defMap := make(map[string]charm.Workload)
 	for _, definition := range definitions {
 		// We expect no collisions.
 		defMap[definition.Name] = definition
@@ -166,29 +166,29 @@ func (c *baseCommand) defsFromCharm() (map[string]charm.Process, error) {
 	return defMap, nil
 }
 
-func (c *baseCommand) registeredProcs(ids ...string) (map[string]*process.Info, error) {
+func (c *baseCommand) trackedWorkloads(ids ...string) (map[string]*workload.Info, error) {
 	if len(ids) == 0 {
-		registered, err := c.compCtx.List()
+		tracked, err := c.compCtx.List()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if len(registered) == 0 {
+		if len(tracked) == 0 {
 			return nil, nil
 		}
-		ids = registered
+		ids = tracked
 	}
 
-	procs := make(map[string]*process.Info)
+	workloads := make(map[string]*workload.Info)
 	for _, id := range ids {
-		proc, err := c.compCtx.Get(id)
+		wl, err := c.compCtx.Get(id)
 		if errors.IsNotFound(err) {
-			proc = nil
+			wl = nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		procs[id] = proc
+		workloads[id] = wl
 	}
-	return procs, nil
+	return workloads, nil
 }
 
 func (c *baseCommand) findID() (string, error) {
@@ -203,9 +203,9 @@ func (c *baseCommand) findID() (string, error) {
 	if len(ids) == 0 {
 		return "", errors.NotFoundf("ID for %q", c.Name)
 	}
-	// For now we only support a single proc for a given name.
+	// For now we only support a single workload for a given name.
 	if len(ids) > 1 {
-		return "", errors.Errorf("found more than one registered proc for %q", c.Name)
+		return "", errors.Errorf("found more than one tracked workload for %q", c.Name)
 	}
 
 	c.ID = ids[0]
@@ -213,51 +213,51 @@ func (c *baseCommand) findID() (string, error) {
 }
 
 func (c *baseCommand) idsForName(name string) ([]string, error) {
-	registered, err := c.compCtx.List()
+	tracked, err := c.compCtx.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var ids []string
-	for _, id := range registered {
-		registeredName, _ := process.ParseID(id)
-		// For now we only support a single proc for a given name.
-		if name == registeredName {
+	for _, id := range tracked {
+		trackedName, _ := workload.ParseID(id)
+		// For now we only support a single workload for a given name.
+		if name == trackedName {
 			ids = append(ids, id)
 		}
 	}
 	return ids, nil
 }
 
-// registeringCommand is the base for commands that register a process
+// trackingCommand is the base for commands that track workloads
 // that has been launched.
-type registeringCommand struct {
+type trackingCommand struct {
 	baseCommand
 
-	// Status is the juju-level status to set for the process.
-	Status process.Status
+	// Status is the juju-level status to set for the workload.
+	Status workload.Status
 
-	// Details is the launch details returned from the process plugin.
-	Details process.Details
+	// Details is the launch details returned from the workload plugin.
+	Details workload.Details
 
-	// Overrides overwrite the process definition.
+	// Overrides overwrite the workload definition.
 	Overrides []string
 
-	// Additions extend the process definition.
+	// Additions extend the workload definition.
 	Additions []string
 
-	// UpdatedProcess stores the new process, if there were any overrides OR additions.
-	UpdatedProcess *charm.Process
+	// UpdatedWorkload stores the new workload, if there were any overrides OR additions.
+	UpdatedWorkload *charm.Workload
 
-	// Definition is the file definition of the process.
+	// Definition is the file definition of the workload.
 	Definition cmd.FileVar
 }
 
-func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
+func newTrackingCommand(ctx HookContext) (*trackingCommand, error) {
 	base, err := newCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c := &registeringCommand{
+	c := &trackingCommand{
 		baseCommand: *base,
 	}
 	c.handleArgs = c.init
@@ -265,14 +265,14 @@ func newRegisteringCommand(ctx HookContext) (*registeringCommand, error) {
 }
 
 // SetFlags implements cmd.Command.
-func (c *registeringCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(&c.Definition, "definition", "process definition filename (use \"-\" for STDIN)")
-	f.Var(cmd.NewAppendStringsValue(&c.Overrides), "override", "override process definition")
-	f.Var(cmd.NewAppendStringsValue(&c.Additions), "extend", "extend process definition")
+func (c *trackingCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.Var(&c.Definition, "definition", "workload definition filename (use \"-\" for STDIN)")
+	f.Var(cmd.NewAppendStringsValue(&c.Overrides), "override", "override workload definition")
+	f.Var(cmd.NewAppendStringsValue(&c.Additions), "extend", "extend workload definition")
 }
 
 // Run implements cmd.Command.
-func (c *registeringCommand) Run(ctx *cmd.Context) error {
+func (c *trackingCommand) Run(ctx *cmd.Context) error {
 	// We do not call baseCommand.Run here since we do not yet know the ID.
 
 	// TODO(ericsnow) Ensure that c.ID == c.Name?
@@ -282,26 +282,26 @@ func (c *registeringCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if len(ids) > 0 {
-		// For now we only support a single proc for a given name.
-		return errors.Errorf("process %q already registered", c.Name)
+		// For now we only support a single workload for a given name.
+		return errors.Errorf("workload %q already tracked", c.Name)
 	}
 
 	if err := c.checkSpace(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.Status = process.Status{
-		State: process.StateRunning,
+	c.Status = workload.Status{
+		State: workload.StateRunning,
 		// TODO(ericsnow) Set a default Message?
 	}
 
 	return nil
 }
 
-// register updates the hook context with the information for the
-// registered workload process. An error is returned if the process
-// was already registered.
-func (c *registeringCommand) register(ctx *cmd.Context) error {
+// track updates the hook context with the information for the
+// tracked workload. An error is returned if the workload
+// is already being tracked.
+func (c *trackingCommand) track(ctx *cmd.Context) error {
 	info, err := c.findValidInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -310,14 +310,14 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 	info.Status = c.Status
 	info.Details = c.Details
 
-	logger.Tracef("registering %#v", info)
+	logger.Tracef("tracking %#v", info)
 
-	if err := c.compCtx.Set(*info); err != nil {
+	if err := c.compCtx.Track(*info); err != nil {
 		return errors.Trace(err)
 	}
 
 	// We flush to state immedeiately so that status reflects the
-	// process correctly.
+	// workload correctly.
 	if err := c.compCtx.Flush(); err != nil {
 		return errors.Trace(err)
 	}
@@ -325,7 +325,7 @@ func (c *registeringCommand) register(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, error) {
+func (c *trackingCommand) findValidInfo(ctx *cmd.Context) (*workload.Info, error) {
 	if c.info == nil {
 		info, err := c.findInfo(ctx)
 		if err != nil {
@@ -335,28 +335,28 @@ func (c *registeringCommand) findValidInfo(ctx *cmd.Context) (*process.Info, err
 	}
 	info := *c.info // copied
 
-	if c.UpdatedProcess == nil {
+	if c.UpdatedWorkload == nil {
 		logger.Tracef("parsing updates")
-		newProcess, err := c.parseUpdates(c.info.Process)
+		newWorkload, err := c.parseUpdates(c.info.Workload)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		c.UpdatedProcess = newProcess
+		c.UpdatedWorkload = newWorkload
 	}
-	info.Process = *c.UpdatedProcess
+	info.Workload = *c.UpdatedWorkload
 
 	// validate
-	if err := info.Process.Validate(); err != nil {
+	if err := info.Workload.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if info.IsRegistered() {
-		return nil, errors.Errorf("already registered")
+	if info.IsTracked() {
+		return nil, errors.Errorf("already tracked")
 	}
 	return &info, nil
 }
 
-func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
-	var definition charm.Process
+func (c *trackingCommand) findInfo(ctx *cmd.Context) (*workload.Info, error) {
+	var definition charm.Workload
 	if c.Definition.Path == "" {
 		defs, err := c.defsFromCharm()
 		if err != nil {
@@ -379,18 +379,18 @@ func (c *registeringCommand) findInfo(ctx *cmd.Context) (*process.Info, error) {
 		}
 		definition = *cliDef
 	}
-	logger.Tracef("creating new process.Info")
-	return &process.Info{Process: definition}, nil
+	logger.Tracef("creating new workload.Info")
+	return &workload.Info{Workload: definition}, nil
 }
 
 // checkSpace ensures that the requested network space is available
 // to the hook.
-func (c *registeringCommand) checkSpace() error {
+func (c *trackingCommand) checkSpace() error {
 	// TODO(wwitzel3) implement this to ensure that the endpoints provided exist in this space
 	return nil
 }
 
-func (c *registeringCommand) parseUpdates(definition charm.Process) (*charm.Process, error) {
+func (c *trackingCommand) parseUpdates(definition charm.Workload) (*charm.Workload, error) {
 	overrides, err := parseUpdates(c.Overrides)
 	if err != nil {
 		return nil, errors.Annotate(err, "override")

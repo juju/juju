@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 type commandSuite struct {
@@ -31,7 +31,7 @@ func (s *commandSuite) SetUpTest(c *gc.C) {
 
 	s.compCtx = newStubContextComponent(s.Stub)
 	hctx, info := s.NewHookContext()
-	info.SetComponent(process.ComponentName, s.compCtx)
+	info.SetComponent(workload.ComponentName, s.compCtx)
 	s.Ctx = hctx
 	s.cmdCtx = coretesting.Context(c)
 
@@ -46,9 +46,9 @@ func (s *commandSuite) setCommand(c *gc.C, name string, cmd cmd.Command) {
 	s.cmd = cmd
 }
 
-func (s *commandSuite) setMetadata(procs ...process.Info) {
-	for _, proc := range procs {
-		definition := proc.Process
+func (s *commandSuite) setMetadata(workloads ...workload.Info) {
+	for _, wl := range workloads {
+		definition := wl.Workload
 		s.compCtx.definitions[definition.Name] = definition
 	}
 }
@@ -64,7 +64,7 @@ func (s *commandSuite) checkStderr(c *gc.C, expected string) {
 func (s *commandSuite) checkCommandRegistered(c *gc.C) {
 	component := &context.Context{}
 	hctx, info := s.NewHookContext()
-	info.SetComponent(process.ComponentName, component)
+	info.SetComponent(workload.ComponentName, component)
 
 	cmd, err := jujuc.NewCommand(hctx.Context, s.cmdName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,12 +91,12 @@ type registeringCommandSuite struct {
 	commandSuite
 }
 
-func (s *registeringCommandSuite) checkRunInfo(c *gc.C, orig, sent process.Info) {
+func (s *registeringCommandSuite) checkRunInfo(c *gc.C, orig, sent workload.Info) {
 	s.checkRun(c, "", "")
 
 	info := context.GetCmdInfo(s.cmd)
 	c.Check(info, jc.DeepEquals, &orig)
 
-	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Set", "Flush")
+	s.Stub.CheckCallNames(c, "List", "Definitions", "Track", "Flush")
 	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{sent})
 }

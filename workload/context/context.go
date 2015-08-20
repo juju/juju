@@ -10,91 +10,87 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/plugin"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/plugin"
 )
 
-var logger = loggo.GetLogger("juju.process.context")
-
-// TODO(ericsnow) Normalize method names across all the arch. layers
-// (e.g. List->AllProcesses, Get->Processes, Set->AddProcess).
+var logger = loggo.GetLogger("juju.workload.context")
 
 // APIClient represents the API needs of a Context.
 type APIClient interface {
-	// ListProcesses requests the process info for the given ID.
-	ListProcesses(ids ...string) ([]process.Info, error)
-	// RegisterProcesses sends a request to update state with the provided processes.
-	RegisterProcesses(procs ...process.Info) ([]string, error)
-	// Untrack removes the processes from our list of processes to track.
+	// List requests the workload info for the given IDs.
+	List(ids ...string) ([]workload.Info, error)
+	// Register sends a request to update state with the provided workloads.
+	Track(workloads ...workload.Info) ([]string, error)
+	// Untrack removes the workloads from our list track.
 	Untrack(ids []string) error
-	// AllDefinitions returns the process definitions found in the
-	// unit's metadata.
-	AllDefinitions() ([]charm.Process, error)
-	// SetProcessesStatus sets the status for the given ID.
-	SetProcessesStatus(status process.Status, pluginStatus process.PluginStatus, ids ...string) error
+	// Definitions returns the workload definitions found in the unit's metadata.
+	Definitions() ([]charm.Workload, error)
+	// SetStatus sets the status for the given IDs.
+	SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error
 }
 
 // TODO(ericsnow) Rename Get and Set to more specifically describe what
 // they are for.
 
-// Component provides the hook context data specific to workload processes.
+// Component provides the hook context data specific to workloads.
 type Component interface {
-	// Plugin returns the plugin to use for the given proc.
-	Plugin(info *process.Info) (process.Plugin, error)
-	// Get returns the process info corresponding to the given ID.
-	Get(id string) (*process.Info, error)
-	// Set records the process info in the hook context.
-	Set(info process.Info) error
-	// Untrack removes the process from our list of processes to track.
+	// Plugin returns the plugin to use for the given workload.
+	Plugin(info *workload.Info) (workload.Plugin, error)
+	// Get returns the workload info corresponding to the given ID.
+	Get(id string) (*workload.Info, error)
+	// Track records the workload info in the hook context.
+	Track(info workload.Info) error
+	// Untrack removes the workload from our list of workloads to track.
 	Untrack(id string)
-	// List returns the list of registered process IDs.
+	// List returns the list of registered workload IDs.
 	List() ([]string, error)
-	// ListDefinitions returns the charm-defined processes.
-	ListDefinitions() ([]charm.Process, error)
+	// Definitions returns the charm-defined workloads.
+	Definitions() ([]charm.Workload, error)
 	// Flush pushes the hook context data out to state.
 	Flush() error
 }
 
 var _ Component = (*Context)(nil)
 
-// Context is the workload process portion of the hook context.
+// Context is the workload workload portion of the hook context.
 type Context struct {
 	api       APIClient
-	plugin    process.Plugin
-	processes map[string]process.Info
-	updates   map[string]process.Info
+	plugin    workload.Plugin
+	workloads map[string]workload.Info
+	updates   map[string]workload.Info
 	removes   map[string]struct{}
 
-	addEvents func(...process.Event)
+	addEvents func(...workload.Event)
 	// FindPlugin is the function used to find the plugin for the given
 	// plugin name.
-	FindPlugin func(pluginName string) (process.Plugin, error)
+	FindPlugin func(pluginName string) (workload.Plugin, error)
 }
 
-// NewContext returns a new jujuc.ContextComponent for workload processes.
-func NewContext(api APIClient, addEvents func(...process.Event)) *Context {
+// NewContext returns a new jujuc.ContextComponent for workloads.
+func NewContext(api APIClient, addEvents func(...workload.Event)) *Context {
 	return &Context{
 		api:       api,
-		processes: make(map[string]process.Info),
-		updates:   make(map[string]process.Info),
+		workloads: make(map[string]workload.Info),
+		updates:   make(map[string]workload.Info),
 		removes:   make(map[string]struct{}),
 		addEvents: addEvents,
-		FindPlugin: func(ptype string) (process.Plugin, error) {
+		FindPlugin: func(ptype string) (workload.Plugin, error) {
 			return plugin.Find(ptype)
 		},
 	}
 }
 
-// NewContextAPI returns a new jujuc.ContextComponent for workload processes.
-func NewContextAPI(api APIClient, addEvents func(...process.Event)) (*Context, error) {
-	procs, err := api.ListProcesses()
+// NewContextAPI returns a new jujuc.ContextComponent for workloads.
+func NewContextAPI(api APIClient, addEvents func(...workload.Event)) (*Context, error) {
+	workloads, err := api.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	ctx := NewContext(api, addEvents)
-	for _, proc := range procs {
-		ctx.processes[proc.ID()] = proc
+	for _, wl := range workloads {
+		ctx.workloads[wl.ID()] = wl
 	}
 	return ctx, nil
 }
@@ -106,23 +102,23 @@ type HookContext interface {
 }
 
 // ContextComponent returns the hook context for the workload
-// process component.
+// workload component.
 func ContextComponent(ctx HookContext) (Component, error) {
-	compCtx, err := ctx.Component(process.ComponentName)
+	compCtx, err := ctx.Component(workload.ComponentName)
 	if errors.IsNotFound(err) {
-		return nil, errors.Errorf("component %q not registered", process.ComponentName)
+		return nil, errors.Errorf("component %q not registered", workload.ComponentName)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if compCtx == nil {
-		return nil, errors.Errorf("component %q disabled", process.ComponentName)
+		return nil, errors.Errorf("component %q disabled", workload.ComponentName)
 	}
 	return compCtx, nil
 }
 
 // Plugin returns the plugin to use in this context.
-func (c *Context) Plugin(info *process.Info) (process.Plugin, error) {
+func (c *Context) Plugin(info *workload.Info) (workload.Plugin, error) {
 	if c.plugin != nil {
 		return c.plugin, nil
 	}
@@ -136,22 +132,22 @@ func (c *Context) Plugin(info *process.Info) (process.Plugin, error) {
 
 // TODO(ericsnow) Should we build in refreshes in all the methods?
 
-// Processes returns the processes known to the context.
-func (c *Context) Processes() ([]process.Info, error) {
-	processes := mergeProcMaps(c.processes, c.updates)
-	var procs []process.Info
-	for _, info := range processes {
-		procs = append(procs, info)
+// Workloads returns the workloads known to the context.
+func (c *Context) Workloads() ([]workload.Info, error) {
+	workloads := mergeProcMaps(c.workloads, c.updates)
+	var newWorkloads []workload.Info
+	for _, info := range workloads {
+		newWorkloads = append(newWorkloads, info)
 	}
 
-	return procs, nil
+	return newWorkloads, nil
 }
 
-func mergeProcMaps(procs, updates map[string]process.Info) map[string]process.Info {
-	// At this point procs and updates have already been checked for
+func mergeProcMaps(workloads, updates map[string]workload.Info) map[string]workload.Info {
+	// At this point workloads and updates have already been checked for
 	// nil values so we won't see any here.
-	result := make(map[string]process.Info)
-	for k, v := range procs {
+	result := make(map[string]workload.Info)
+	for k, v := range workloads {
 		result[k] = v
 	}
 	for k, v := range updates {
@@ -160,13 +156,13 @@ func mergeProcMaps(procs, updates map[string]process.Info) map[string]process.In
 	return result
 }
 
-// Get returns the process info corresponding to the given ID.
-func (c *Context) Get(id string) (*process.Info, error) {
+// Get returns the workload info corresponding to the given ID.
+func (c *Context) Get(id string) (*workload.Info, error) {
 	logger.Tracef("getting %q from hook context", id)
 
 	actual, ok := c.updates[id]
 	if !ok {
-		actual, ok = c.processes[id]
+		actual, ok = c.workloads[id]
 		if !ok {
 			return nil, errors.NotFoundf("%s", id)
 		}
@@ -174,20 +170,20 @@ func (c *Context) Get(id string) (*process.Info, error) {
 	return &actual, nil
 }
 
-// List returns the sorted names of all registered processes.
+// List returns the sorted names of all registered workloads.
 func (c *Context) List() ([]string, error) {
-	logger.Tracef("listing all procs in hook context")
+	logger.Tracef("listing all workloads in hook context")
 
-	procs, err := c.Processes()
+	workloads, err := c.Workloads()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(procs) == 0 {
+	if len(workloads) == 0 {
 		return nil, nil
 	}
 	var ids []string
-	for _, proc := range procs {
-		ids = append(ids, proc.ID())
+	for _, wl := range workloads {
+		ids = append(ids, wl.ID())
 	}
 	sort.Strings(ids)
 	return ids, nil
@@ -195,8 +191,8 @@ func (c *Context) List() ([]string, error) {
 
 // TODO(ericsnow) rename to Track
 
-// Set records the process info in the hook context.
-func (c *Context) Set(info process.Info) error {
+// Track records the workload info in the hook context.
+func (c *Context) Track(info workload.Info) error {
 	// TODO(ericsnow) rename to Track
 	logger.Tracef("adding %q to hook context: %#v", info.ID(), info)
 
@@ -209,16 +205,16 @@ func (c *Context) Set(info process.Info) error {
 	return nil
 }
 
-// Untrack tells juju to stop tracking this process.
+// Untrack tells juju to stop tracking this workload.
 func (c *Context) Untrack(id string) {
 	// We assume that flush always gets called immediately after a set/untrack,
 	// so we don't have to worry about conflicting updates/deletes.
 	c.removes[id] = struct{}{}
 }
 
-// ListDefinitions returns the unit's charm-defined processes.
-func (c *Context) ListDefinitions() ([]charm.Process, error) {
-	definitions, err := c.api.AllDefinitions()
+// Definitions returns the unit's charm-defined workloads.
+func (c *Context) Definitions() ([]charm.Workload, error) {
+	definitions, err := c.api.Definitions()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -228,16 +224,16 @@ func (c *Context) ListDefinitions() ([]charm.Process, error) {
 // TODO(ericsnow) The context machinery is not actually using this yet.
 
 // Flush implements jujuc.ContextComponent. In this case that means all
-// added and updated process.Info in the hook context are pushed to
+// added and updated workload.Info in the hook context are pushed to
 // Juju state via the API.
 func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
 
 	// TODO(natefinch): make this a noop and move this code into set/untrack.
 
-	var events []process.Event
+	var events []workload.Event
 	if len(c.updates) > 0 {
-		var updates []process.Info
+		var updates []workload.Info
 		for _, info := range c.updates {
 			updates = append(updates, info)
 
@@ -245,34 +241,34 @@ func (c *Context) Flush() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			events = append(events, process.Event{
-				Kind:     process.EventKindTracked,
+			events = append(events, workload.Event{
+				Kind:     workload.EventKindTracked,
 				ID:       info.ID(),
 				Plugin:   plugin,
 				PluginID: info.Details.ID,
 			})
 		}
-		if _, err := c.api.RegisterProcesses(updates...); err != nil {
+		if _, err := c.api.Track(updates...); err != nil {
 			return errors.Trace(err)
 		}
 		for k, v := range c.updates {
-			c.processes[k] = v
+			c.workloads[k] = v
 		}
-		c.updates = map[string]process.Info{}
+		c.updates = map[string]workload.Info{}
 	}
 	if len(c.removes) > 0 {
 		removes := make([]string, 0, len(c.removes))
 		for id := range c.removes {
-			info := c.processes[id]
+			info := c.workloads[id]
 			removes = append(removes, id)
-			delete(c.processes, id)
+			delete(c.workloads, id)
 
 			plugin, err := c.Plugin(&info)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			events = append(events, process.Event{
-				Kind:     process.EventKindUntracked,
+			events = append(events, workload.Event{
+				Kind:     workload.EventKindUntracked,
 				ID:       id,
 				Plugin:   plugin,
 				PluginID: info.Details.ID,

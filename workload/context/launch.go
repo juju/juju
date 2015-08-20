@@ -10,43 +10,43 @@ import (
 	"github.com/juju/errors"
 )
 
-// LaunchCommandInfo is the info for the proc-launch command.
+// LaunchCommandInfo is the info for the workload-launch command.
 var LaunchCommandInfo = cmdInfo{
-	Name:    "process-launch",
-	Summary: "launch a workload process",
+	Name:    "workload-launch",
+	Summary: "launch a workload",
 	Doc: `
-"process-launch" is used to launch a workload process.
+"workload-launch" is used to launch a workload.
 
-The process name must correspond to one of the processes defined in
-the charm's metadata.yaml.`,
+The workload name must correspond to one of the workloads defined in
+the charm's workloads.yaml.`,
 }
 
-// NewProcLaunchCommand constructs a new ProcLaunchCommand.
-func NewProcLaunchCommand(ctx HookContext) (*ProcLaunchCommand, error) {
+// NewWorkloadLaunchCommand constructs a new WorkloadLaunchCommand.
+func NewWorkloadLaunchCommand(ctx HookContext) (*WorkloadLaunchCommand, error) {
 
-	base, err := newRegisteringCommand(ctx)
+	base, err := newTrackingCommand(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &ProcLaunchCommand{
-		registeringCommand: *base,
+	c := &WorkloadLaunchCommand{
+		trackingCommand: *base,
 	}
 	c.cmdInfo = LaunchCommandInfo
 	c.handleArgs = c.init
 	return c, nil
 }
 
-// ProcLaunchCommand implements the launch command for launching
-// workflow processes.
-type ProcLaunchCommand struct {
-	registeringCommand
+// WorkloadLaunchCommand implements the launch command for launching
+// workloads.
+type WorkloadLaunchCommand struct {
+	trackingCommand
 }
 
 // Run implements cmd.Command.
-func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
+func (c *WorkloadLaunchCommand) Run(ctx *cmd.Context) error {
 	logger.Tracef("running %s command", LaunchCommandInfo.Name)
-	if err := c.registeringCommand.Run(ctx); err != nil {
+	if err := c.trackingCommand.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -69,18 +69,18 @@ func (c *ProcLaunchCommand) Run(ctx *cmd.Context) error {
 
 	// The plugin is responsible for validating that the launch was
 	// successful and returning an err if not. If err is not set, we
-	// assume success, and that the procDetails are for informational
+	// assume success, and that the workloadDetails are for informational
 	// purposes.
-	procDetails, err := plugin.Launch(info.Process)
+	workloadDetails, err := plugin.Launch(info.Workload)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	c.Details = procDetails
+	c.Details = workloadDetails
 
-	// TODO(ericsnow) Register the proc even if it fails?
+	// TODO(ericsnow) Register the workload even if it fails?
 	//  (e.g. set a status with a "failed" state)
 
-	if err := c.register(ctx); err != nil {
+	if err := c.track(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -12,32 +12,32 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-// InfoCommandInfo is the info for the proc-info command.
+// InfoCommandInfo is the info for the workload-info command.
 var InfoCommandInfo = cmdInfo{
-	Name:         "process-info",
+	Name:         "workload-info",
 	OptionalArgs: []string{idArg},
-	Summary:      "get info about a workload process (or all of them)",
+	Summary:      "get info about a workload (or all of them)",
 	Doc: `
-"process-info" is used while a hook is running to access a currently
-registered workload process (or the list of all the unit's processes).
-The process info is printed to stdout as YAML-formatted text.
+"workload-info" is used while a hook is running to access a currently
+tracked workload (or the list of all the unit's workloads).
+The workload info is printed to stdout as YAML-formatted text.
 `,
 }
 
-// ProcInfoCommand implements the register command.
-type ProcInfoCommand struct {
+// WorkloadInfoCommand implements the register command.
+type WorkloadInfoCommand struct {
 	baseCommand
 
 	output cmd.Output
 }
 
-// NewProcInfoCommand returns a new ProcInfoCommand.
-func NewProcInfoCommand(ctx HookContext) (*ProcInfoCommand, error) {
+// NewWorkloadInfoCommand returns a new WorkloadInfoCommand.
+func NewWorkloadInfoCommand(ctx HookContext) (*WorkloadInfoCommand, error) {
 	base, err := newCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c := &ProcInfoCommand{
+	c := &WorkloadInfoCommand{
 		baseCommand: *base,
 	}
 	c.cmdInfo = InfoCommandInfo
@@ -45,7 +45,7 @@ func NewProcInfoCommand(ctx HookContext) (*ProcInfoCommand, error) {
 	return c, nil
 }
 
-func (c *ProcInfoCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *WorkloadInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "yaml"
 	c.output.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
@@ -53,7 +53,7 @@ func (c *ProcInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *ProcInfoCommand) init(args map[string]string) error {
+func (c *WorkloadInfoCommand) init(args map[string]string) error {
 	if len(args) == 0 {
 		return nil
 	}
@@ -64,7 +64,7 @@ func (c *ProcInfoCommand) init(args map[string]string) error {
 }
 
 // Run implements cmd.Command.
-func (c *ProcInfoCommand) Run(ctx *cmd.Context) error {
+func (c *WorkloadInfoCommand) Run(ctx *cmd.Context) error {
 	var ids []string
 	if c.ID != "" {
 		id, err := c.findID()
@@ -81,7 +81,7 @@ func (c *ProcInfoCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if len(formatted) == 0 {
-		fmt.Fprintln(ctx.Stderr, "<no processes registered>")
+		fmt.Fprintln(ctx.Stderr, "<no workloads tracked>")
 		return nil
 	}
 
@@ -91,29 +91,29 @@ func (c *ProcInfoCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *ProcInfoCommand) formatInfos(ids ...string) (map[string]interface{}, error) {
-	procs, err := c.registeredProcs(ids...)
+func (c *WorkloadInfoCommand) formatInfos(ids ...string) (map[string]interface{}, error) {
+	workloads, err := c.trackedWorkloads(ids...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(ids) != 0 {
-		if len(procs) == 0 {
+		if len(workloads) == 0 {
 			return nil, errors.NotFoundf("%v", ids)
 		}
 	} else {
-		for _, proc := range procs {
-			ids = append(ids, proc.ID())
+		for _, wl := range workloads {
+			ids = append(ids, wl.ID())
 		}
 		sort.Strings(ids)
 	}
 
 	results := make(map[string]interface{}, len(ids))
 	for _, id := range ids {
-		proc := procs[id]
-		if proc == nil {
+		wl := workloads[id]
+		if wl == nil {
 			results[id] = "<not found>"
 		} else {
-			results[id] = *proc
+			results[id] = *wl
 		}
 	}
 	return results, nil

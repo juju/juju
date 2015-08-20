@@ -9,14 +9,14 @@ import (
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 var (
-	proc0 = process.Info{
-		Process: charm.Process{
-			Name: "myprocess0",
+	workload0 = workload.Info{
+		Workload: charm.Workload{
+			Name: "myworkload0",
 			Type: "myplugin",
 			TypeOptions: map[string]string{
 				"extra": "5",
@@ -27,35 +27,35 @@ var (
 				"ENV_VAR": "some value",
 			},
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz123",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}
-	proc1 = process.Info{
-		Process: charm.Process{
-			Name:    "myprocess1",
+	workload1 = workload.Info{
+		Workload: charm.Workload{
+			Name:    "myworkload1",
 			Type:    "myplugin",
 			Command: "do-something",
 			Image:   "myimage",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz456",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}
-	proc2 = process.Info{
-		Process: charm.Process{
-			Name: "myprocess2",
+	workload2 = workload.Info{
+		Workload: charm.Workload{
+			Name: "myworkload2",
 			Type: "myplugin",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz789",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "invalid",
 			},
 		},
@@ -65,7 +65,7 @@ var (
 type infoSuite struct {
 	registeringCommandSuite
 
-	infoCmd *context.ProcInfoCommand
+	infoCmd *context.WorkloadInfoCommand
 }
 
 var _ = gc.Suite(&infoSuite{})
@@ -73,11 +73,11 @@ var _ = gc.Suite(&infoSuite{})
 func (s *infoSuite) SetUpTest(c *gc.C) {
 	s.registeringCommandSuite.SetUpTest(c)
 
-	cmd, err := context.NewProcInfoCommand(s.Ctx)
+	cmd, err := context.NewWorkloadInfoCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.infoCmd = cmd
-	s.setCommand(c, "process-info", s.infoCmd)
+	s.setCommand(c, "workload-info", s.infoCmd)
 }
 
 func (s *infoSuite) init(c *gc.C, name string) {
@@ -98,8 +98,8 @@ func (s *infoSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *infoSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: process-info [options] [<name-or-id>]
-purpose: get info about a workload process (or all of them)
+usage: workload-info [options] [<name-or-id>]
+purpose: get info about a workload (or all of them)
 
 options:
 --format  (= yaml)
@@ -107,19 +107,19 @@ options:
 -o, --output (= "")
     specify an output file
 
-"process-info" is used while a hook is running to access a currently
-registered workload process (or the list of all the unit's processes).
-The process info is printed to stdout as YAML-formatted text.
+"workload-info" is used while a hook is running to access a currently
+tracked workload (or the list of all the unit's workloads).
+The workload info is printed to stdout as YAML-formatted text.
 `[1:])
 }
 
 func (s *infoSuite) TestInitWithName(c *gc.C) {
-	s.compCtx.procs[s.proc.Name] = s.proc
+	s.compCtx.workloads[s.workload.Name] = s.workload
 
-	err := s.infoCmd.Init([]string{s.proc.Name})
+	err := s.infoCmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.infoCmd.Name, gc.Equals, s.proc.Name)
+	c.Check(s.infoCmd.Name, gc.Equals, s.workload.Name)
 }
 
 func (s *infoSuite) TestInitWithoutName(c *gc.C) {
@@ -130,28 +130,28 @@ func (s *infoSuite) TestInitWithoutName(c *gc.C) {
 }
 
 func (s *infoSuite) TestInitNotFound(c *gc.C) {
-	err := s.infoCmd.Init([]string{s.proc.Name})
+	err := s.infoCmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.infoCmd.Name, gc.Equals, s.proc.Name)
+	c.Check(s.infoCmd.Name, gc.Equals, s.workload.Name)
 }
 
 func (s *infoSuite) TestInitTooManyArgs(c *gc.C) {
-	err := s.infoCmd.Init([]string{s.proc.Name, "other"})
+	err := s.infoCmd.Init([]string{s.workload.Name, "other"})
 
 	c.Check(err, gc.ErrorMatches, `unrecognized args: .*`)
 }
 
 func (s *infoSuite) TestRunWithIDkay(c *gc.C) {
-	s.compCtx.procs["myprocess0/xyz123"] = proc0
-	s.compCtx.procs["myprocess1/xyz456"] = proc1
-	s.compCtx.procs["myprocess2/xyz789"] = proc2
-	s.init(c, "myprocess0/xyz123")
+	s.compCtx.workloads["myworkload0/xyz123"] = workload0
+	s.compCtx.workloads["myworkload1/xyz456"] = workload1
+	s.compCtx.workloads["myworkload2/xyz789"] = workload2
+	s.init(c, "myworkload0/xyz123")
 
 	expected := `
-myprocess0/xyz123:
-  process:
-    name: myprocess0
+myworkload0/xyz123:
+  workload:
+    name: myworkload0
     description: ""
     type: myplugin
     typeoptions:
@@ -176,15 +176,15 @@ myprocess0/xyz123:
 }
 
 func (s *infoSuite) TestRunWithoutIDOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0/xyz123"] = proc0
-	s.compCtx.procs["myprocess1/xyz456"] = proc1
-	s.compCtx.procs["myprocess2/xyz789"] = proc2
+	s.compCtx.workloads["myworkload0/xyz123"] = workload0
+	s.compCtx.workloads["myworkload1/xyz456"] = workload1
+	s.compCtx.workloads["myworkload2/xyz789"] = workload2
 	s.init(c, "")
 
 	expected := `
-myprocess0/xyz123:
-  process:
-    name: myprocess0
+myworkload0/xyz123:
+  workload:
+    name: myworkload0
     description: ""
     type: myplugin
     typeoptions:
@@ -203,9 +203,9 @@ myprocess0/xyz123:
     id: xyz123
     status:
       state: running
-myprocess1/xyz456:
-  process:
-    name: myprocess1
+myworkload1/xyz456:
+  workload:
+    name: myworkload1
     description: ""
     type: myplugin
     typeoptions: {}
@@ -222,9 +222,9 @@ myprocess1/xyz456:
     id: xyz456
     status:
       state: running
-myprocess2/xyz789:
-  process:
-    name: myprocess2
+myworkload2/xyz789:
+  workload:
+    name: myworkload2
     description: ""
     type: myplugin
     typeoptions: {}
@@ -247,15 +247,15 @@ myprocess2/xyz789:
 }
 
 func (s *infoSuite) TestRunWithNameOkay(c *gc.C) {
-	s.compCtx.procs["myprocess0/xyz123"] = proc0
-	s.compCtx.procs["myprocess1/xyz456"] = proc1
-	s.compCtx.procs["myprocess2/xyz789"] = proc2
-	s.init(c, "myprocess0")
+	s.compCtx.workloads["myworkload0/xyz123"] = workload0
+	s.compCtx.workloads["myworkload1/xyz456"] = workload1
+	s.compCtx.workloads["myworkload2/xyz789"] = workload2
+	s.init(c, "myworkload0")
 
 	expected := `
-myprocess0/xyz123:
-  process:
-    name: myprocess0
+myworkload0/xyz123:
+  workload:
+    name: myworkload0
     description: ""
     type: myplugin
     typeoptions:
@@ -280,22 +280,22 @@ myprocess0/xyz123:
 }
 
 func (s *infoSuite) TestRunWithIDMissing(c *gc.C) {
-	s.init(c, "myprocess0/xyz123")
+	s.init(c, "myworkload0/xyz123")
 
-	s.checkRun(c, `myprocess0/xyz123: <not found>`+"\n", "")
+	s.checkRun(c, `myworkload0/xyz123: <not found>`+"\n", "")
 	s.Stub.CheckCallNames(c, "Get")
 }
 
 func (s *infoSuite) TestRunWithNameMissing(c *gc.C) {
-	s.init(c, "myprocess0")
+	s.init(c, "myworkload0")
 
-	s.checkRun(c, `myprocess0: <not found>`+"\n", "")
+	s.checkRun(c, `myworkload0: <not found>`+"\n", "")
 	s.Stub.CheckCallNames(c, "List", "Get")
 }
 
 func (s *infoSuite) TestRunWithoutIDEmpty(c *gc.C) {
 	s.init(c, "")
 
-	s.checkRun(c, "", "<no processes registered>\n")
+	s.checkRun(c, "", "<no workloads tracked>\n")
 	s.Stub.CheckCallNames(c, "List")
 }

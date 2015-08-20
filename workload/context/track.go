@@ -7,52 +7,52 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 )
 
-// RegisterCommandInfo is the info for the proc-register command.
-var RegisterCommandInfo = cmdInfo{
-	Name:      "process-register",
-	ExtraArgs: []string{"proc-details"},
-	Summary:   "register a workload process",
+// TrackCommandInfo is the info for the workload-track command.
+var TrackCommandInfo = cmdInfo{
+	Name:      "workload-track",
+	ExtraArgs: []string{"workload-details"},
+	Summary:   "track a workload",
 	Doc: `
-"process-register" is used while a hook is running to let Juju know
-that a workload process has been manually started. The information
-used to start the process must be provided when "register" is run.
+"workload-track" is used while a hook is running to let Juju know
+that a workload has been started. The information
+used to start the workload must be provided when "track" is run.
 
-The process name must correspond to one of the processes defined in
-the charm's metadata.yaml.
+The workload name must correspond to one of the workloads defined in
+the charm's workloads.yaml.
 `,
 }
 
 // TODO(ericsnow) Also support setting the juju-level status?
 
-// ProcRegistrationCommand implements the register command.
-type ProcRegistrationCommand struct {
-	registeringCommand
+// WorkloadTrackCommand implements the track command.
+type WorkloadTrackCommand struct {
+	trackingCommand
 }
 
-// NewProcRegistrationCommand returns a new ProcRegistrationCommand.
-func NewProcRegistrationCommand(ctx HookContext) (*ProcRegistrationCommand, error) {
-	base, err := newRegisteringCommand(ctx)
+// NewWorkloadTrackCommand returns a new WorkloadTrackCommand.
+func NewWorkloadTrackCommand(ctx HookContext) (*WorkloadTrackCommand, error) {
+	base, err := newTrackingCommand(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c := &ProcRegistrationCommand{
-		registeringCommand: *base,
+	c := &WorkloadTrackCommand{
+		trackingCommand: *base,
 	}
-	c.cmdInfo = RegisterCommandInfo
+	c.cmdInfo = TrackCommandInfo
 	c.handleArgs = c.init
 	return c, nil
 }
 
-func (c *ProcRegistrationCommand) init(args map[string]string) error {
-	if err := c.registeringCommand.init(args); err != nil {
+func (c *WorkloadTrackCommand) init(args map[string]string) error {
+	if err := c.trackingCommand.init(args); err != nil {
 		return errors.Trace(err)
 	}
 
-	detailsStr := args["proc-details"]
-	details, err := process.UnmarshalDetails([]byte(detailsStr))
+	detailsStr := args["workload-details"]
+	details, err := workload.UnmarshalDetails([]byte(detailsStr))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -62,13 +62,13 @@ func (c *ProcRegistrationCommand) init(args map[string]string) error {
 }
 
 // Run implements cmd.Command.
-func (c *ProcRegistrationCommand) Run(ctx *cmd.Context) error {
-	if err := c.registeringCommand.Run(ctx); err != nil {
+func (c *WorkloadTrackCommand) Run(ctx *cmd.Context) error {
+	if err := c.trackingCommand.Run(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
 	// TODO(wwitzel3) should charmer have direct access to pInfo.Status?
-	if err := c.register(ctx); err != nil {
+	if err := c.track(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -6,38 +6,38 @@ package context
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 )
 
 func SetComponent(cmd cmd.Command, compCtx Component) {
 	switch cmd := cmd.(type) {
-	case *ProcRegistrationCommand:
+	case *WorkloadTrackCommand:
 		cmd.compCtx = compCtx
-	case *ProcInfoCommand:
+	case *WorkloadInfoCommand:
 		cmd.compCtx = compCtx
 	}
-	// TODO(ericsnow) Add ProcLaunchCommand here.
+	// TODO(ericsnow) Add WorkloadLaunchCommand here.
 }
 
-func AddProc(ctx *Context, id string, info process.Info) {
-	if _, ok := ctx.processes[id]; !ok {
-		ctx.processes[id] = info
+func AddWorkload(ctx *Context, id string, info workload.Info) {
+	if _, ok := ctx.workloads[id]; !ok {
+		ctx.workloads[id] = info
 	} else {
 		ctx.updates[info.ID()] = info
 	}
 }
 
-func AddProcs(ctx *Context, procs ...process.Info) {
+func AddWorkloads(ctx *Context, procs ...workload.Info) {
 	for _, proc := range procs {
-		AddProc(ctx, proc.Name, proc)
+		AddWorkload(ctx, proc.Name, proc)
 	}
 }
 
-func GetCmdInfo(cmd cmd.Command) *process.Info {
+func GetCmdInfo(cmd cmd.Command) *workload.Info {
 	switch cmd := cmd.(type) {
-	case *ProcRegistrationCommand:
+	case *WorkloadTrackCommand:
 		return cmd.info
-	case *ProcLaunchCommand:
+	case *WorkloadLaunchCommand:
 		return cmd.info
 	default:
 		return nil

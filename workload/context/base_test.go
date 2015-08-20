@@ -12,10 +12,10 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	components "github.com/juju/juju/component/all"
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
 	"github.com/juju/juju/utils"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 func init() {
@@ -24,31 +24,31 @@ func init() {
 
 type baseSuite struct {
 	jujuctesting.ContextSuite
-	proc process.Info
+	workload workload.Info
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
-	s.proc = s.newProc("proc A", "docker", "", "")
+	s.workload = s.newWorkload("workload A", "docker", "", "")
 }
 
-func (s *baseSuite) newProc(name, ptype, id, status string) process.Info {
-	info := process.Info{
-		Process: charm.Process{
+func (s *baseSuite) newWorkload(name, ptype, id, status string) workload.Info {
+	info := workload.Info{
+		Workload: charm.Workload{
 			Name: name,
 			Type: ptype,
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: id,
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: status,
 			},
 		},
 	}
 	if status != "" {
-		info.Status = process.Status{
-			State: process.StateRunning,
+		info.Status = workload.Status{
+			State: workload.StateRunning,
 		}
 	}
 	return info
@@ -59,20 +59,20 @@ func (s *baseSuite) NewHookContext() (*stubHookContext, *jujuctesting.ContextInf
 	return &stubHookContext{ctx}, info
 }
 
-func checkProcs(c *gc.C, procs, expected []process.Info) {
-	if !c.Check(procs, gc.HasLen, len(expected)) {
+func checkWorkloads(c *gc.C, workloads, expected []workload.Info) {
+	if !c.Check(workloads, gc.HasLen, len(expected)) {
 		return
 	}
-	for _, proc := range procs {
+	for _, wl := range workloads {
 		matched := false
-		for _, expProc := range expected {
-			if reflect.DeepEqual(proc, expProc) {
+		for _, expWorkload := range expected {
+			if reflect.DeepEqual(wl, expWorkload) {
 				matched = true
 				break
 			}
 		}
 		if !matched {
-			c.Errorf("%#v != %#v", procs, expected)
+			c.Errorf("%#v != %#v", workloads, expected)
 			return
 		}
 	}
@@ -98,22 +98,22 @@ var _ context.Component = (*stubContextComponent)(nil)
 
 type stubContextComponent struct {
 	stub        *testing.Stub
-	procs       map[string]process.Info
-	definitions map[string]charm.Process
+	workloads   map[string]workload.Info
+	definitions map[string]charm.Workload
 	untracks    map[string]struct{}
-	plugin      process.Plugin
+	plugin      workload.Plugin
 }
 
 func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	return &stubContextComponent{
 		stub:        stub,
-		procs:       make(map[string]process.Info),
-		definitions: make(map[string]charm.Process),
+		workloads:   make(map[string]workload.Info),
+		definitions: make(map[string]charm.Workload),
 		untracks:    make(map[string]struct{}),
 	}
 }
 
-func (c *stubContextComponent) Plugin(info *process.Info) (process.Plugin, error) {
+func (c *stubContextComponent) Plugin(info *workload.Info) (workload.Plugin, error) {
 	c.stub.AddCall("Plugin", info)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -125,13 +125,13 @@ func (c *stubContextComponent) Plugin(info *process.Info) (process.Plugin, error
 	return c.plugin, nil
 }
 
-func (c *stubContextComponent) Get(id string) (*process.Info, error) {
+func (c *stubContextComponent) Get(id string) (*workload.Info, error) {
 	c.stub.AddCall("Get", id)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info, ok := c.procs[id]
+	info, ok := c.workloads[id]
 	if !ok {
 		return nil, errors.NotFoundf(id)
 	}
@@ -145,19 +145,19 @@ func (c *stubContextComponent) List() ([]string, error) {
 	}
 
 	var ids []string
-	for k := range c.procs {
+	for k := range c.workloads {
 		ids = append(ids, k)
 	}
 	return ids, nil
 }
 
-func (c *stubContextComponent) Set(info process.Info) error {
-	c.stub.AddCall("Set", info)
+func (c *stubContextComponent) Track(info workload.Info) error {
+	c.stub.AddCall("Track", info)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.procs[info.ID()] = info
+	c.workloads[info.ID()] = info
 	return nil
 }
 
@@ -167,13 +167,13 @@ func (c *stubContextComponent) Untrack(id string) {
 	c.untracks[id] = struct{}{}
 }
 
-func (c *stubContextComponent) ListDefinitions() ([]charm.Process, error) {
-	c.stub.AddCall("ListDefinitions")
+func (c *stubContextComponent) Definitions() ([]charm.Workload, error) {
+	c.stub.AddCall("Definitions")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var definitions []charm.Process
+	var definitions []charm.Workload
 	for _, definition := range c.definitions {
 		definitions = append(definitions, definition)
 	}
@@ -192,95 +192,95 @@ func (c *stubContextComponent) Flush() error {
 type stubAPIClient struct {
 	context.APIClient
 	stub        *testing.Stub
-	procs       map[string]process.Info
-	definitions map[string]charm.Process
+	workloads   map[string]workload.Info
+	definitions map[string]charm.Workload
 }
 
 func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 	return &stubAPIClient{
 		stub:        stub,
-		procs:       make(map[string]process.Info),
-		definitions: make(map[string]charm.Process),
+		workloads:   make(map[string]workload.Info),
+		definitions: make(map[string]charm.Workload),
 	}
 }
 
-func (c *stubAPIClient) setNew(ids ...string) []process.Info {
-	var procs []process.Info
+func (c *stubAPIClient) setNew(ids ...string) []workload.Info {
+	var workloads []workload.Info
 	for _, id := range ids {
-		name, pluginID := process.ParseID(id)
+		name, pluginID := workload.ParseID(id)
 		if name == "" {
 			panic("missing name")
 		}
 		if pluginID == "" {
 			panic("missing id")
 		}
-		proc := process.Info{
-			Process: charm.Process{
+		wl := workload.Info{
+			Workload: charm.Workload{
 				Name: name,
 				Type: "myplugin",
 			},
-			Status: process.Status{
-				State: process.StateRunning,
+			Status: workload.Status{
+				State: workload.StateRunning,
 			},
-			Details: process.Details{
+			Details: workload.Details{
 				ID: pluginID,
-				Status: process.PluginStatus{
+				Status: workload.PluginStatus{
 					State: "okay",
 				},
 			},
 		}
-		c.procs[id] = proc
-		procs = append(procs, proc)
+		c.workloads[id] = wl
+		workloads = append(workloads, wl)
 	}
-	return procs
+	return workloads
 }
 
-func (c *stubAPIClient) AllDefinitions() ([]charm.Process, error) {
-	c.stub.AddCall("AllDefinitions")
+func (c *stubAPIClient) Definitions() ([]charm.Workload, error) {
+	c.stub.AddCall("Definitions")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var definitions []charm.Process
+	var definitions []charm.Workload
 	for _, definition := range c.definitions {
 		definitions = append(definitions, definition)
 	}
 	return definitions, nil
 }
 
-func (c *stubAPIClient) ListProcesses(ids ...string) ([]process.Info, error) {
-	c.stub.AddCall("ListProcesses", ids)
+func (c *stubAPIClient) List(ids ...string) ([]workload.Info, error) {
+	c.stub.AddCall("List", ids)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var procs []process.Info
+	var workloads []workload.Info
 	if ids == nil {
-		for _, proc := range c.procs {
-			procs = append(procs, proc)
+		for _, wl := range c.workloads {
+			workloads = append(workloads, wl)
 		}
 	} else {
 		for _, id := range ids {
-			proc, ok := c.procs[id]
+			wl, ok := c.workloads[id]
 			if !ok {
-				return nil, errors.NotFoundf("proc %q", id)
+				return nil, errors.NotFoundf("wl %q", id)
 			}
-			procs = append(procs, proc)
+			workloads = append(workloads, wl)
 		}
 	}
-	return procs, nil
+	return workloads, nil
 }
 
-func (c *stubAPIClient) RegisterProcesses(procs ...process.Info) ([]string, error) {
-	c.stub.AddCall("RegisterProcesses", procs)
+func (c *stubAPIClient) Track(workloads ...workload.Info) ([]string, error) {
+	c.stub.AddCall("Track", workloads)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var ids []string
-	for _, proc := range procs {
-		c.procs[proc.Name] = proc
-		ids = append(ids, proc.ID())
+	for _, wl := range workloads {
+		c.workloads[wl.Name] = wl
+		ids = append(ids, wl.ID())
 	}
 	return ids, nil
 }
@@ -292,18 +292,18 @@ func (c *stubAPIClient) Untrack(ids []string) error {
 	}
 
 	for _, id := range ids {
-		delete(c.procs, id)
+		delete(c.workloads, id)
 	}
 	return nil
 }
 
 type stubPlugin struct {
 	stub    *testing.Stub
-	details process.Details
-	status  process.PluginStatus
+	details workload.Details
+	status  workload.PluginStatus
 }
 
-func (c *stubPlugin) Launch(definition charm.Process) (process.Details, error) {
+func (c *stubPlugin) Launch(definition charm.Workload) (workload.Details, error) {
 	c.stub.AddCall("Launch", definition)
 	if err := c.stub.NextErr(); err != nil {
 		return c.details, errors.Trace(err)
@@ -321,7 +321,7 @@ func (c *stubPlugin) Destroy(id string) error {
 	return nil
 }
 
-func (c *stubPlugin) Status(id string) (process.PluginStatus, error) {
+func (c *stubPlugin) Status(id string) (workload.PluginStatus, error) {
 	c.stub.AddCall("Status", id)
 	if err := c.stub.NextErr(); err != nil {
 		return c.status, errors.Trace(err)

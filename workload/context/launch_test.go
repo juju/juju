@@ -5,8 +5,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 type launchCmdSuite struct {
@@ -20,15 +20,15 @@ func (s *launchCmdSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *launchCmdSuite) TestInitReturnsNoErr(c *gc.C) {
-	cmd, err := context.NewProcLaunchCommand(s.Ctx)
+	cmd, err := context.NewWorkloadLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = cmd.Init([]string{s.proc.Name})
+	err = cmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *launchCmdSuite) TestInitInvalidArgsReturnsErr(c *gc.C) {
-	cmd, err := context.NewProcLaunchCommand(s.Ctx)
+	cmd, err := context.NewWorkloadLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmd.Init([]string{"mock-name", "invalid-arg"})
@@ -42,31 +42,31 @@ func (s *launchCmdSuite) TestInitInvalidArgsReturnsErr(c *gc.C) {
 
 func (s *launchCmdSuite) TestRun(c *gc.C) {
 	// TODO(ericsnow) Setting these to empty maps should not be necessary.
-	s.proc.Process.TypeOptions = map[string]string{}
-	s.proc.Process.EnvVars = map[string]string{}
+	s.workload.Workload.TypeOptions = map[string]string{}
+	s.workload.Workload.EnvVars = map[string]string{}
 
 	plugin := &stubPlugin{stub: s.Stub}
-	plugin.details = process.Details{
+	plugin.details = workload.Details{
 		ID: "id",
-		Status: process.PluginStatus{
+		Status: workload.PluginStatus{
 			State: "foo",
 		},
 	}
 	s.compCtx.plugin = plugin
 
-	cmd, err := context.NewProcLaunchCommand(s.Ctx)
+	cmd, err := context.NewWorkloadLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setCommand(c, "process-launch", cmd)
-	s.setMetadata(s.proc)
+	s.setCommand(c, "workload-launch", cmd)
+	s.setMetadata(s.workload)
 
-	err = cmd.Init([]string{s.proc.Name})
+	err = cmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 	s.Stub.ResetCalls()
 
 	s.checkRun(c, "", "")
-	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Plugin", "Launch", "Set", "Flush")
-	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{&s.proc})
-	c.Check(s.Stub.Calls()[3].Args, jc.DeepEquals, []interface{}{s.proc.Process})
+	s.Stub.CheckCallNames(c, "List", "Definitions", "Plugin", "Launch", "Track", "Flush")
+	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{&s.workload})
+	c.Check(s.Stub.Calls()[3].Args, jc.DeepEquals, []interface{}{s.workload.Workload})
 }
 
 func (s *launchCmdSuite) TestRunCantFindPlugin(c *gc.C) {
@@ -74,12 +74,12 @@ func (s *launchCmdSuite) TestRunCantFindPlugin(c *gc.C) {
 	failure := errors.NotFoundf("mock-error")
 	s.compCtx.plugin = plugin
 
-	cmd, err := context.NewProcLaunchCommand(s.Ctx)
+	cmd, err := context.NewWorkloadLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setCommand(c, "process-launch", cmd)
-	s.setMetadata(s.proc)
+	s.setCommand(c, "workload-launch", cmd)
+	s.setMetadata(s.workload)
 
-	err = cmd.Init([]string{s.proc.Name})
+	err = cmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Stub.ResetCalls()
@@ -87,7 +87,7 @@ func (s *launchCmdSuite) TestRunCantFindPlugin(c *gc.C) {
 
 	err = s.cmd.Run(s.cmdCtx)
 	c.Assert(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Plugin")
+	s.Stub.CheckCallNames(c, "List", "Definitions", "Plugin")
 }
 
 func (s *launchCmdSuite) TestLaunchCommandErrorRunning(c *gc.C) {
@@ -95,17 +95,17 @@ func (s *launchCmdSuite) TestLaunchCommandErrorRunning(c *gc.C) {
 	failure := errors.Errorf("mock-error")
 	s.compCtx.plugin = plugin
 
-	cmd, err := context.NewProcLaunchCommand(s.Ctx)
+	cmd, err := context.NewWorkloadLaunchCommand(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setCommand(c, "process-launch", cmd)
-	s.setMetadata(s.proc)
+	s.setCommand(c, "workload-launch", cmd)
+	s.setMetadata(s.workload)
 
-	err = cmd.Init([]string{s.proc.Name})
+	err = cmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 	s.Stub.ResetCalls()
 	s.Stub.SetErrors(nil, nil, nil, failure)
 
 	err = cmd.Run(s.cmdCtx)
 	c.Assert(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "List", "ListDefinitions", "Plugin", "Launch")
+	s.Stub.CheckCallNames(c, "List", "Definitions", "Plugin", "Launch")
 }

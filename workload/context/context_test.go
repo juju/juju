@@ -11,9 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 type contextSuite struct {
@@ -30,50 +30,50 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 	s.apiClient = newStubAPIClient(s.Stub)
 	s.compCtx = context.NewContext(s.apiClient, s.addEvents)
 
-	context.AddProcs(s.compCtx, s.proc)
+	context.AddWorkloads(s.compCtx, s.workload)
 }
 
-func (s *contextSuite) newContext(c *gc.C, procs ...process.Info) *context.Context {
+func (s *contextSuite) newContext(c *gc.C, workloads ...workload.Info) *context.Context {
 	ctx := context.NewContext(s.apiClient, s.addEvents)
-	for _, proc := range procs {
-		c.Logf("adding proc: %s", proc.ID())
-		context.AddProc(ctx, proc.ID(), proc)
+	for _, wl := range workloads {
+		c.Logf("adding workload: %s", wl.ID())
+		context.AddWorkload(ctx, wl.ID(), wl)
 	}
 	return ctx
 }
 
-func (s *contextSuite) addEvents(events ...process.Event) {
+func (s *contextSuite) addEvents(events ...workload.Event) {
 	s.Stub.AddCall("addEvents", events)
 	s.Stub.NextErr()
 }
 
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
 	ctx := context.NewContext(s.apiClient, s.addEvents)
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(procs, gc.HasLen, 0)
+	c.Check(workloads, gc.HasLen, 0)
 }
 
 func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
-	expected := []process.Info{
-		s.newProc("A", "myplugin", "spam", "okay"),
-		s.newProc("B", "myplugin", "eggs", "okay"),
+	expected := []workload.Info{
+		s.newWorkload("A", "myplugin", "spam", "okay"),
+		s.newWorkload("B", "myplugin", "eggs", "okay"),
 	}
 
 	ctx := s.newContext(c, expected...)
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(procs, gc.HasLen, 2)
+	c.Assert(workloads, gc.HasLen, 2)
 
 	// Map ordering is indeterminate, so this if-else is needed.
-	if procs[0].Name == "A" {
-		c.Check(procs[0], jc.DeepEquals, expected[0])
-		c.Check(procs[1], jc.DeepEquals, expected[1])
+	if workloads[0].Name == "A" {
+		c.Check(workloads[0], jc.DeepEquals, expected[0])
+		c.Check(workloads[1], jc.DeepEquals, expected[1])
 	} else {
-		c.Check(procs[0], jc.DeepEquals, expected[1])
-		c.Check(procs[1], jc.DeepEquals, expected[0])
+		c.Check(workloads[0], jc.DeepEquals, expected[1])
+		c.Check(workloads[1], jc.DeepEquals, expected[0])
 	}
 }
 
@@ -83,10 +83,10 @@ func (s *contextSuite) TestNewContextAPIOkay(c *gc.C) {
 	ctx, err := context.NewContextAPI(s.apiClient, s.addEvents)
 	c.Assert(err, jc.ErrorIsNil)
 
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(procs, jc.DeepEquals, expected)
+	c.Check(workloads, jc.DeepEquals, expected)
 }
 
 func (s *contextSuite) TestNewContextAPICalls(c *gc.C) {
@@ -95,17 +95,17 @@ func (s *contextSuite) TestNewContextAPICalls(c *gc.C) {
 	_, err := context.NewContextAPI(s.apiClient, s.addEvents)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "ListProcesses")
+	s.Stub.CheckCallNames(c, "List")
 }
 
 func (s *contextSuite) TestNewContextAPIEmpty(c *gc.C) {
 	ctx, err := context.NewContextAPI(s.apiClient, s.addEvents)
 	c.Assert(err, jc.ErrorIsNil)
 
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(procs, gc.HasLen, 0)
+	c.Check(workloads, gc.HasLen, 0)
 }
 
 func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
@@ -115,34 +115,34 @@ func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
 	_, err := context.NewContextAPI(s.apiClient, s.addEvents)
 
 	c.Check(errors.Cause(err), gc.Equals, expected)
-	s.Stub.CheckCallNames(c, "ListProcesses")
+	s.Stub.CheckCallNames(c, "List")
 }
 
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
 	hctx, info := s.NewHookContext()
 	expected := context.NewContext(s.apiClient, s.addEvents)
-	info.SetComponent(process.ComponentName, expected)
+	info.SetComponent(workload.ComponentName, expected)
 
 	compCtx, err := context.ContextComponent(hctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(compCtx, gc.Equals, expected)
 	s.Stub.CheckCallNames(c, "Component")
-	s.Stub.CheckCall(c, 0, "Component", process.ComponentName)
+	s.Stub.CheckCall(c, 0, "Component", workload.ComponentName)
 }
 
 func (s *contextSuite) TestContextComponentMissing(c *gc.C) {
 	hctx, _ := s.NewHookContext()
 	_, err := context.ContextComponent(hctx)
 
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf("component %q not registered", process.ComponentName))
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("component %q not registered", workload.ComponentName))
 	s.Stub.CheckCallNames(c, "Component")
 }
 
 func (s *contextSuite) TestContextComponentWrong(c *gc.C) {
 	hctx, info := s.NewHookContext()
 	compCtx := &jujuctesting.ContextComponent{}
-	info.SetComponent(process.ComponentName, compCtx)
+	info.SetComponent(workload.ComponentName, compCtx)
 
 	_, err := context.ContextComponent(hctx)
 
@@ -152,93 +152,93 @@ func (s *contextSuite) TestContextComponentWrong(c *gc.C) {
 
 func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
 	hctx, info := s.NewHookContext()
-	info.SetComponent(process.ComponentName, nil)
+	info.SetComponent(workload.ComponentName, nil)
 
 	_, err := context.ContextComponent(hctx)
 
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf("component %q disabled", process.ComponentName))
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("component %q disabled", workload.ComponentName))
 	s.Stub.CheckCallNames(c, "Component")
 }
 
-func (s *contextSuite) TestProcessesOkay(c *gc.C) {
-	expected := []process.Info{
-		s.newProc("A", "myplugin", "spam", "okay"),
-		s.newProc("B", "myplugin", "eggs", "okay"),
-		s.newProc("C", "myplugin", "ham", "okay"),
+func (s *contextSuite) TestWorkloadsOkay(c *gc.C) {
+	expected := []workload.Info{
+		s.newWorkload("A", "myplugin", "spam", "okay"),
+		s.newWorkload("B", "myplugin", "eggs", "okay"),
+		s.newWorkload("C", "myplugin", "ham", "okay"),
 	}
 
 	ctx := s.newContext(c, expected...)
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkProcs(c, procs, expected)
+	checkWorkloads(c, workloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestProcessesAPI(c *gc.C) {
+func (s *contextSuite) TestWorkloadsAPI(c *gc.C) {
 	expected := s.apiClient.setNew("A/spam", "B/eggs", "C/ham")
 
 	ctx := context.NewContext(s.apiClient, s.addEvents)
-	context.AddProc(ctx, "A/spam", s.apiClient.procs["A/spam"])
-	context.AddProc(ctx, "B/eggs", s.apiClient.procs["B/eggs"])
-	context.AddProc(ctx, "C/ham", s.apiClient.procs["C/ham"])
+	context.AddWorkload(ctx, "A/spam", s.apiClient.workloads["A/spam"])
+	context.AddWorkload(ctx, "B/eggs", s.apiClient.workloads["B/eggs"])
+	context.AddWorkload(ctx, "C/ham", s.apiClient.workloads["C/ham"])
 
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkProcs(c, procs, expected)
+	checkWorkloads(c, workloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestProcessesEmpty(c *gc.C) {
+func (s *contextSuite) TestWorkloadsEmpty(c *gc.C) {
 	ctx := context.NewContext(s.apiClient, s.addEvents)
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(procs, gc.HasLen, 0)
+	c.Check(workloads, gc.HasLen, 0)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestProcessesAdditions(c *gc.C) {
+func (s *contextSuite) TestWorkloadsAdditions(c *gc.C) {
 	expected := s.apiClient.setNew("A/spam", "B/eggs")
-	infoC := s.newProc("C", "myplugin", "xyz789", "okay")
-	infoD := s.newProc("D", "myplugin", "xyzabc", "okay")
+	infoC := s.newWorkload("C", "myplugin", "xyz789", "okay")
+	infoD := s.newWorkload("D", "myplugin", "xyzabc", "okay")
 	expected = append(expected, infoC, infoD)
 
 	ctx := s.newContext(c, expected[0])
-	context.AddProc(ctx, "B/eggs", s.apiClient.procs["B/eggs"])
-	ctx.Set(infoC)
-	ctx.Set(infoD)
+	context.AddWorkload(ctx, "B/eggs", s.apiClient.workloads["B/eggs"])
+	ctx.Track(infoC)
+	ctx.Track(infoD)
 
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkProcs(c, procs, expected)
+	checkWorkloads(c, workloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestProcessesOverrides(c *gc.C) {
+func (s *contextSuite) TestWorkloadsOverrides(c *gc.C) {
 	expected := s.apiClient.setNew("A/xyz123", "B/something-else")
-	infoB := s.newProc("B", "myplugin", "xyz456", "okay")
-	infoC := s.newProc("C", "myplugin", "xyz789", "okay")
+	infoB := s.newWorkload("B", "myplugin", "xyz456", "okay")
+	infoC := s.newWorkload("C", "myplugin", "xyz789", "okay")
 	expected = append(expected[:1], infoB, infoC)
 
 	ctx := context.NewContext(s.apiClient, s.addEvents)
-	context.AddProc(ctx, "A/xyz123", s.apiClient.procs["A/xyz123"])
-	context.AddProc(ctx, "B/xyz456", infoB)
-	ctx.Set(infoB)
-	ctx.Set(infoC)
+	context.AddWorkload(ctx, "A/xyz123", s.apiClient.workloads["A/xyz123"])
+	context.AddWorkload(ctx, "B/xyz456", infoB)
+	ctx.Track(infoB)
+	ctx.Track(infoC)
 
-	procs, err := ctx.Processes()
+	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkProcs(c, procs, expected)
+	checkWorkloads(c, workloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
 func (s *contextSuite) TestGetOkay(c *gc.C) {
-	expected := s.newProc("A", "myplugin", "spam", "okay")
-	extra := s.newProc("B", "myplugin", "eggs", "okay")
+	expected := s.newWorkload("A", "myplugin", "spam", "okay")
+	extra := s.newWorkload("B", "myplugin", "eggs", "okay")
 
 	ctx := s.newContext(c, expected, extra)
 	info, err := ctx.Get("A/spam")
@@ -249,15 +249,15 @@ func (s *contextSuite) TestGetOkay(c *gc.C) {
 }
 
 func (s *contextSuite) TestGetOverride(c *gc.C) {
-	procs := s.apiClient.setNew("A/spam", "B/eggs")
-	expected := procs[0]
+	workloads := s.apiClient.setNew("A/spam", "B/eggs")
+	expected := workloads[0]
 
 	unexpected := expected
 	unexpected.Details.ID = "C"
 
-	ctx := s.newContext(c, procs[1])
-	context.AddProc(ctx, "A/spam", unexpected)
-	context.AddProc(ctx, "A/spam", expected)
+	ctx := s.newContext(c, workloads[1])
+	context.AddWorkload(ctx, "A/spam", unexpected)
+	context.AddWorkload(ctx, "A/spam", expected)
 
 	info, err := ctx.Get("A/spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -274,70 +274,70 @@ func (s *contextSuite) TestGetNotFound(c *gc.C) {
 }
 
 func (s *contextSuite) TestSetOkay(c *gc.C) {
-	info := s.newProc("A", "myplugin", "spam", "okay")
+	info := s.newWorkload("A", "myplugin", "spam", "okay")
 	ctx := context.NewContext(s.apiClient, s.addEvents)
-	before, err := ctx.Processes()
+	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Set(info)
+	err = ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
-	after, err := ctx.Processes()
+	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(before, gc.HasLen, 0)
-	c.Check(after, jc.DeepEquals, []process.Info{info})
+	c.Check(after, jc.DeepEquals, []workload.Info{info})
 }
 
 func (s *contextSuite) TestSetOverwrite(c *gc.C) {
-	info := s.newProc("A", "myplugin", "xyz123", "running")
-	other := s.newProc("A", "myplugin", "xyz123", "stopped")
+	info := s.newWorkload("A", "myplugin", "xyz123", "running")
+	other := s.newWorkload("A", "myplugin", "xyz123", "stopped")
 	ctx := s.newContext(c, other)
-	before, err := ctx.Processes()
+	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Set(info)
+	err = ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
-	after, err := ctx.Processes()
+	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(before, jc.DeepEquals, []process.Info{other})
-	c.Check(after, jc.DeepEquals, []process.Info{info})
+	c.Check(before, jc.DeepEquals, []workload.Info{other})
+	c.Check(after, jc.DeepEquals, []workload.Info{info})
 }
 
-func (s *contextSuite) TestListDefinitions(c *gc.C) {
-	definition := charm.Process{
-		Name: "procA",
+func (s *contextSuite) TestDefinitions(c *gc.C) {
+	definition := charm.Workload{
+		Name: "wlA",
 		Type: "myplugin",
 	}
-	s.apiClient.definitions["procA"] = definition
+	s.apiClient.definitions["wlA"] = definition
 	ctx := context.NewContext(s.apiClient, s.addEvents)
 
-	definitions, err := ctx.ListDefinitions()
+	definitions, err := ctx.Definitions()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(definitions, gc.DeepEquals, []charm.Process{
+	c.Check(definitions, gc.DeepEquals, []charm.Workload{
 		definition,
 	})
-	s.Stub.CheckCallNames(c, "AllDefinitions")
+	s.Stub.CheckCallNames(c, "Definitions")
 }
 
 func (s *contextSuite) TestFlushDirty(c *gc.C) {
-	info := s.newProc("A", "myplugin", "xyz123", "okay")
-	findPlugin := func(ptype string) (process.Plugin, error) {
+	info := s.newWorkload("A", "myplugin", "xyz123", "okay")
+	findPlugin := func(ptype string) (workload.Plugin, error) {
 		return &stubPlugin{stub: s.Stub}, nil
 	}
 
 	ctx := context.NewContext(s.apiClient, s.addEvents)
 	ctx.FindPlugin = findPlugin
-	err := ctx.Set(info)
+	err := ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "RegisterProcesses", "addEvents")
+	s.Stub.CheckCallNames(c, "Track", "addEvents")
 }
 
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
-	info := s.newProc("flush-not-dirty", "myplugin", "xyz123", "okay")
+	info := s.newWorkload("flush-not-dirty", "myplugin", "xyz123", "okay")
 	ctx := s.newContext(c, info)
 
 	err := ctx.Flush()
@@ -355,23 +355,23 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 }
 
 func (s *contextSuite) TestUntrackOkay(c *gc.C) {
-	findPlugin := func(ptype string) (process.Plugin, error) {
+	findPlugin := func(ptype string) (workload.Plugin, error) {
 		return &stubPlugin{stub: s.Stub}, nil
 	}
 
-	info := s.newProc("A", "myplugin", "spam", "okay")
+	info := s.newWorkload("A", "myplugin", "spam", "okay")
 	ctx := context.NewContext(s.apiClient, s.addEvents)
 	ctx.FindPlugin = findPlugin
-	err := ctx.Set(info)
+	err := ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
-	before, err := ctx.Processes()
+	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(before, jc.DeepEquals, []process.Info{info})
+	c.Check(before, jc.DeepEquals, []workload.Info{info})
 	ctx.Untrack(info.ID())
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiClient.stub.CheckCallNames(c, "RegisterProcesses", "Untrack", "addEvents")
-	after, err := ctx.Processes()
+	s.apiClient.stub.CheckCallNames(c, "Track", "Untrack", "addEvents")
+	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
 	if len(after) > 0 {
@@ -380,15 +380,15 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 }
 
 func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
-	info := s.newProc("A", "myplugin", "spam", "okay")
+	info := s.newWorkload("A", "myplugin", "spam", "okay")
 	ctx := context.NewContext(s.apiClient, s.addEvents)
-	err := ctx.Set(info)
+	err := ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
-	before, err := ctx.Processes()
+	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(before, jc.DeepEquals, []process.Info{info})
+	c.Check(before, jc.DeepEquals, []workload.Info{info})
 	ctx.Untrack("not gonna match")
-	after, err := ctx.Processes()
+	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(after, gc.DeepEquals, before)
 }
