@@ -28,13 +28,13 @@ import (
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/component/all"
 	jjj "github.com/juju/juju/juju"
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/workers"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/workers"
 )
 
-func initProcessesSuites() {
+func initWorkloadsSuites() {
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)
 	}
@@ -50,37 +50,37 @@ func initProcessesSuites() {
 	userInfo = u
 	// TODO(ericsnow) Re-enable once we get the local provider cleaning
 	// up properly.
-	// gc.Suite(&processesSuite{})
+	// gc.Suite(&workloadsSuite{})
 }
 
 var (
 	repoDir  = testcharms.Repo.Path()
 	userInfo *user.User
 	// Set this to true to prevent the test env from being cleaned up.
-	procsDoNotCleanUp = false
+	workloadsDoNotCleanUp = false
 )
 
-type processesSuite struct {
-	env *procsEnviron
-	svc *procsService
+type workloadsSuite struct {
+	env *workloadsEnviron
+	svc *workloadsService
 }
 
-func (s *processesSuite) SetUpSuite(c *gc.C) {
-	env := newProcsEnv(c, "", "<local>")
+func (s *workloadsSuite) SetUpSuite(c *gc.C) {
+	env := newWorkloadsEnv(c, "", "<local>")
 	env.bootstrap(c)
 	s.env = env
 }
 
-func (s *processesSuite) TearDownSuite(c *gc.C) {
+func (s *workloadsSuite) TearDownSuite(c *gc.C) {
 	if s.env != nil {
 		s.env.destroy(c)
 	}
 }
 
-func (s *processesSuite) SetUpTest(c *gc.C) {
+func (s *workloadsSuite) SetUpTest(c *gc.C) {
 }
 
-func (s *processesSuite) TearDownTest(c *gc.C) {
+func (s *workloadsSuite) TearDownTest(c *gc.C) {
 	if c.Failed() {
 		s.env.markFailure(c, s)
 	} else {
@@ -90,28 +90,28 @@ func (s *processesSuite) TearDownTest(c *gc.C) {
 	}
 }
 
-func (s *processesSuite) TestHookLifecycle(c *gc.C) {
+func (s *workloadsSuite) TestHookLifecycle(c *gc.C) {
 	// start: info, launch, info
 	// config-changed: info, set-status, info
 	// stop: info, destroy, info
 
-	svc := s.env.addService(c, "proc-hooks", "a-service")
+	svc := s.env.addService(c, "workload-hooks", "a-service")
 	s.svc = svc
 
 	// Add/start the unit.
 
-	unit := svc.deploy(c, "myproc", "xyz123", "running")
+	unit := svc.deploy(c, "myworkload", "xyz123", "running")
 
-	unit.checkState(c, []process.Info{{
-		Process: charm.Process{
-			Name: "myproc",
+	unit.checkState(c, []workload.Info{{
+		Workload: charm.Workload{
+			Name: "myworkload",
 			Type: "myplugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
 			Command: "run-server",
 			Image:   "web-server",
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "",
@@ -120,7 +120,7 @@ func (s *processesSuite) TestHookLifecycle(c *gc.C) {
 				Internal: 443,
 				Endpoint: "",
 			}},
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/some-server/html",
 				InternalMount: "/usr/share/some-server/html",
 				Mode:          "ro",
@@ -135,26 +135,26 @@ func (s *processesSuite) TestHookLifecycle(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Blocker: "",
 			Message: "",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz123",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}})
 	unit.checkPluginLog(c, []string{
-		`myproc	xyz123	running		added`,
-		`myproc	xyz123	running	{"Name":"myproc","Description":"","Type":"myplugin","TypeOptions":{"critical":"true"},"Command":"run-server","Image":"web-server","Ports":[{"External":8080,"Internal":80,"Endpoint":""},{"External":8081,"Internal":443,"Endpoint":""}],"Volumes":[{"ExternalMount":"/var/some-server/html","InternalMount":"/usr/share/some-server/html","Mode":"ro","Name":""},{"ExternalMount":"/var/some-server/conf","InternalMount":"/etc/some-server","Mode":"ro","Name":""}],"EnvVars":{"IMPORTANT":"some value"}}	definition set`,
+		`myworkload	xyz123	running		added`,
+		`myworkload	xyz123	running	{"Name":"myworkload","Description":"","Type":"myplugin","TypeOptions":{"critical":"true"},"Command":"run-server","Image":"web-server","Ports":[{"External":8080,"Internal":80,"Endpoint":""},{"External":8081,"Internal":443,"Endpoint":""}],"Volumes":[{"ExternalMount":"/var/some-server/html","InternalMount":"/usr/share/some-server/html","Mode":"ro","Name":""},{"ExternalMount":"/var/some-server/conf","InternalMount":"/etc/some-server","Mode":"ro","Name":""}],"EnvVars":{"IMPORTANT":"some value"}}	definition set`,
 	})
 
 	// Change the config.
 
-	// TODO(ericsnow) Implement once proc-set-status exists...
+	// TODO(ericsnow) Implement once workload-set-status exists...
 
 	// Stop the unit.
 
@@ -170,27 +170,27 @@ func (s *processesSuite) TestHookLifecycle(c *gc.C) {
 // TODO(ericsnow) Add a test specifically for each supported plugin
 // (e.g. docker)?
 
-func (s *processesSuite) TestHookContextRegister(c *gc.C) {
-	svc := s.env.addService(c, "proc-actions", "register-service")
+func (s *workloadsSuite) TestHookContextRegister(c *gc.C) {
+	svc := s.env.addService(c, "workload-actions", "register-service")
 	s.svc = svc
 
 	args := map[string]interface{}{
-		"name":   "myproc",
+		"name":   "myworkload",
 		"id":     "xyz123",
 		"status": "running",
 	}
 	svc.dummy.runAction(c, "register", args)
 
-	svc.dummy.checkState(c, []process.Info{{
-		Process: charm.Process{
-			Name: "myproc",
+	svc.dummy.checkState(c, []workload.Info{{
+		Workload: charm.Workload{
+			Name: "myworkload",
 			Type: "myplugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
 			Command: "run-server",
 			Image:   "web-server",
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "",
@@ -199,7 +199,7 @@ func (s *processesSuite) TestHookContextRegister(c *gc.C) {
 				Internal: 443,
 				Endpoint: "",
 			}},
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/some-server/html",
 				InternalMount: "/usr/share/some-server/html",
 				Mode:          "ro",
@@ -214,41 +214,41 @@ func (s *processesSuite) TestHookContextRegister(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Blocker: "",
 			Message: "",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz123",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}})
 }
 
-func (s *processesSuite) TestHookContextLaunch(c *gc.C) {
-	svc := s.env.addService(c, "proc-actions", "launch-service")
+func (s *workloadsSuite) TestHookContextLaunch(c *gc.C) {
+	svc := s.env.addService(c, "workload-actions", "launch-service")
 	s.svc = svc
 
-	svc.dummy.prepPlugin(c, "myproc", "xyz123", "running")
+	svc.dummy.prepPlugin(c, "myworkload", "xyz123", "running")
 
 	args := map[string]interface{}{
-		"name": "myproc",
+		"name": "myworkload",
 	}
 	svc.dummy.runAction(c, "launch", args)
 
-	svc.dummy.checkState(c, []process.Info{{
-		Process: charm.Process{
-			Name: "myproc",
+	svc.dummy.checkState(c, []workload.Info{{
+		Workload: charm.Workload{
+			Name: "myworkload",
 			Type: "myplugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
 			Command: "run-server",
 			Image:   "web-server",
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "",
@@ -257,7 +257,7 @@ func (s *processesSuite) TestHookContextLaunch(c *gc.C) {
 				Internal: 443,
 				Endpoint: "",
 			}},
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/some-server/html",
 				InternalMount: "/usr/share/some-server/html",
 				Mode:          "ro",
@@ -272,45 +272,45 @@ func (s *processesSuite) TestHookContextLaunch(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Blocker: "",
 			Message: "",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz123",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}})
 }
 
-func (s *processesSuite) TestHookContextInfo(c *gc.C) {
-	svc := s.env.addService(c, "proc-actions", "info-service")
+func (s *workloadsSuite) TestHookContextInfo(c *gc.C) {
+	svc := s.env.addService(c, "workload-actions", "info-service")
 	s.svc = svc
-	unit := svc.deploy(c, "myproc", "xyz123", "running")
+	unit := svc.deploy(c, "myworkload", "xyz123", "running")
 
 	unit.checkState(c, nil)
 
 	args := map[string]interface{}{
-		"name":   "myproc",
+		"name":   "myworkload",
 		"id":     "xyz123",
 		"status": "running",
 	}
 	unit.runAction(c, "register", args)
 
 	// checkState calls the "list" action, which wraps "info".
-	unit.checkState(c, []process.Info{{
-		Process: charm.Process{
-			Name: "myproc",
+	unit.checkState(c, []workload.Info{{
+		Workload: charm.Workload{
+			Name: "myworkload",
 			Type: "myplugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
 			Command: "run-server",
 			Image:   "web-server",
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "",
@@ -319,7 +319,7 @@ func (s *processesSuite) TestHookContextInfo(c *gc.C) {
 				Internal: 443,
 				Endpoint: "",
 			}},
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/some-server/html",
 				InternalMount: "/usr/share/some-server/html",
 				Mode:          "ro",
@@ -334,43 +334,43 @@ func (s *processesSuite) TestHookContextInfo(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Blocker: "",
 			Message: "",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz123",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}})
 }
 
-func (s *processesSuite) TestHookContextSetStatus(c *gc.C) {
+func (s *workloadsSuite) TestHookContextSetStatus(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-func (s *processesSuite) TestHookContextUnregister(c *gc.C) {
+func (s *workloadsSuite) TestHookContextUnregister(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-func (s *processesSuite) TestHookContextDestroy(c *gc.C) {
+func (s *workloadsSuite) TestHookContextDestroy(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-func (s *processesSuite) TestWorkerSetStatus(c *gc.C) {
-	svc := s.env.addService(c, "proc-actions", "workerStatusSvc")
+func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
+	svc := s.env.addService(c, "workload-actions", "workerStatusSvc")
 	s.svc = svc
 
-	svc.dummy.prepPlugin(c, "myproc", "xyz123", "running")
+	svc.dummy.prepPlugin(c, "myworkload", "xyz123", "running")
 
 	args := map[string]interface{}{
-		"name": "myproc",
+		"name": "myworkload",
 	}
 	period := time.Second * 5
 	workers.SetStatusWorkerUpdatePeriod(period)
@@ -383,16 +383,16 @@ func (s *processesSuite) TestWorkerSetStatus(c *gc.C) {
 	svc.dummy.runAction(c, "plugin-setstatus", args)
 	time.Sleep(period * 2)
 
-	svc.dummy.checkState(c, []process.Info{{
-		Process: charm.Process{
-			Name: "myproc",
+	svc.dummy.checkState(c, []workload.Info{{
+		Workload: charm.Workload{
+			Name: "myworkload",
 			Type: "myplugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
 			Command: "run-server",
 			Image:   "web-server",
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "",
@@ -401,7 +401,7 @@ func (s *processesSuite) TestWorkerSetStatus(c *gc.C) {
 				Internal: 443,
 				Endpoint: "",
 			}},
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/some-server/html",
 				InternalMount: "/usr/share/some-server/html",
 				Mode:          "ro",
@@ -416,14 +416,14 @@ func (s *processesSuite) TestWorkerSetStatus(c *gc.C) {
 				"IMPORTANT": "some value",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Blocker: "",
 			Message: "",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz123",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "testing",
 			},
 		},
@@ -431,17 +431,17 @@ func (s *processesSuite) TestWorkerSetStatus(c *gc.C) {
 
 }
 
-func (s *processesSuite) TestWorkerCleanUp(c *gc.C) {
+func (s *workloadsSuite) TestWorkerCleanUp(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-func (s *processesSuite) TestCmdJujuStatus(c *gc.C) {
+func (s *workloadsSuite) TestCmdJujuStatus(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
 
-type procsEnviron struct {
+type workloadsEnviron struct {
 	name         string
 	envType      string
 	machine      string
@@ -451,7 +451,7 @@ type procsEnviron struct {
 	failed       bool
 }
 
-func newProcsEnv(c *gc.C, envName, envType string) *procsEnviron {
+func newWorkloadsEnv(c *gc.C, envName, envType string) *workloadsEnviron {
 	isolated := false
 	if strings.HasPrefix(envType, "<") && strings.HasSuffix(envType, ">") {
 		envType = envType[1 : len(envType)-1]
@@ -463,14 +463,14 @@ func newProcsEnv(c *gc.C, envName, envType string) *procsEnviron {
 	if envName == "" {
 		envName = envType
 	}
-	return &procsEnviron{
+	return &workloadsEnviron{
 		name:     envName,
 		envType:  envType,
 		isolated: isolated,
 	}
 }
 
-func (env *procsEnviron) markFailure(c *gc.C, s interface{}) {
+func (env *workloadsEnviron) markFailure(c *gc.C, s interface{}) {
 	env.failed = true
 }
 
@@ -479,7 +479,7 @@ func initJuju(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (env *procsEnviron) ensureOSEnv(c *gc.C) {
+func (env *workloadsEnviron) ensureOSEnv(c *gc.C) {
 	homedir := env.homedir
 	if homedir == "" {
 		if env.isolated {
@@ -502,7 +502,7 @@ func (env *procsEnviron) ensureOSEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (env procsEnviron) writeConfig(c *gc.C, rootdir string) {
+func (env workloadsEnviron) writeConfig(c *gc.C, rootdir string) {
 	config := map[string]interface{}{
 		"environments": map[string]interface{}{
 			env.name: env.localConfig(rootdir),
@@ -518,7 +518,7 @@ func (env procsEnviron) writeConfig(c *gc.C, rootdir string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (env procsEnviron) localConfig(rootdir string) map[string]interface{} {
+func (env workloadsEnviron) localConfig(rootdir string) map[string]interface{} {
 	// Run in a test-only local provider
 	//  (see https://github.com/juju/docs/issues/35).
 	return map[string]interface{}{
@@ -530,7 +530,7 @@ func (env procsEnviron) localConfig(rootdir string) map[string]interface{} {
 	}
 }
 
-func (env *procsEnviron) run(c *gc.C, cmd string, args ...string) string {
+func (env *workloadsEnviron) run(c *gc.C, cmd string, args ...string) string {
 	envArg := "--environment=" + env.name
 	if cmd == "destroy-environment" {
 		envArg = env.name
@@ -578,7 +578,7 @@ func lookUpCommand(cmd string) cmd.Command {
 	return nil
 }
 
-func (env *procsEnviron) bootstrap(c *gc.C) {
+func (env *workloadsEnviron) bootstrap(c *gc.C) {
 	if env.bootstrapped {
 		return
 	}
@@ -590,7 +590,7 @@ func (env *procsEnviron) bootstrap(c *gc.C) {
 	env.run(c, "environment set", "logging-config=<root>=DEBUG")
 }
 
-func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *procsService {
+func (env *workloadsEnviron) addService(c *gc.C, charmName, serviceName string) *workloadsService {
 	if serviceName == "" {
 		serviceName = charmName
 	}
@@ -603,20 +603,20 @@ func (env *procsEnviron) addService(c *gc.C, charmName, serviceName string) *pro
 	env.run(c, "deploy", "--to="+env.machine, "--repository="+repoDir, charmURL, serviceName)
 	// We leave unit /0 alive to keep the machine alive.
 
-	svc := &procsService{
+	svc := &workloadsService{
 		env:       env,
 		charmName: charmName,
 		name:      serviceName,
 	}
-	svc.dummy = procsUnit{
+	svc.dummy = workloadsUnit{
 		svc: svc,
 		id:  serviceName + "/0",
 	}
 	return svc
 }
 
-func (env *procsEnviron) destroy(c *gc.C) {
-	if procsDoNotCleanUp {
+func (env *workloadsEnviron) destroy(c *gc.C) {
+	if workloadsDoNotCleanUp {
 		return
 	}
 	if env.bootstrapped {
@@ -631,19 +631,19 @@ func (env *procsEnviron) destroy(c *gc.C) {
 	}
 }
 
-type procsService struct {
-	env       *procsEnviron
+type workloadsService struct {
+	env       *workloadsEnviron
 	charmName string
 	name      string
-	dummy     procsUnit
+	dummy     workloadsUnit
 	lastUnit  int
 }
 
-func (svc *procsService) block(c *gc.C) {
+func (svc *workloadsService) block(c *gc.C) {
 	svc.dummy.runAction(c, "noop", nil)
 }
 
-func (svc *procsService) setConfig(c *gc.C, settings map[string]string) {
+func (svc *workloadsService) setConfig(c *gc.C, settings map[string]string) {
 	if len(settings) == 0 {
 		return
 	}
@@ -655,13 +655,13 @@ func (svc *procsService) setConfig(c *gc.C, settings map[string]string) {
 		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}
 	svc.env.run(c, "service set", args...)
-	//filename := procsYAMLFile(c, map[string]interface{}{svc.name: settings})
+	//filename := workloadsYAMLFile(c, map[string]interface{}{svc.name: settings})
 	//svc.env.run(c, "service set", "--config="+filename, svc.name)
 }
 
-func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *procsUnit {
+func (svc *workloadsService) deploy(c *gc.C, workloadName, pluginID, status string) *workloadsUnit {
 	settings := map[string]string{
-		"plugin-name":   procName,
+		"plugin-name":   workloadName,
 		"plugin-id":     pluginID,
 		"plugin-status": status,
 	}
@@ -670,7 +670,7 @@ func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *pro
 	svc.env.run(c, "service add-unit", "--to="+svc.env.machine, svc.name)
 
 	svc.lastUnit += 1
-	u := &procsUnit{
+	u := &workloadsUnit{
 		svc: svc,
 		id:  fmt.Sprintf("%s/%d", svc.name, svc.lastUnit),
 	}
@@ -679,19 +679,19 @@ func (svc *procsService) deploy(c *gc.C, procName, pluginID, status string) *pro
 	return u
 }
 
-func (svc *procsService) destroy(c *gc.C) {
-	if procsDoNotCleanUp {
+func (svc *workloadsService) destroy(c *gc.C) {
+	if workloadsDoNotCleanUp {
 		return
 	}
 	svc.env.run(c, "destroy-service", svc.name)
 }
 
-type procsUnit struct {
-	svc *procsService
+type workloadsUnit struct {
+	svc *workloadsService
 	id  string
 }
 
-func (u *procsUnit) waitForStatus(c *gc.C, target string, okayList ...string) {
+func (u *workloadsUnit) waitForStatus(c *gc.C, target string, okayList ...string) {
 	// TODO(ericsnow) Support a timeout?
 	for {
 		status := u.agentStatus(c)
@@ -712,13 +712,13 @@ func (u *procsUnit) waitForStatus(c *gc.C, target string, okayList ...string) {
 	}
 }
 
-var procsStatusRegex = regexp.MustCompile(`^- (.*): .* \((.*)\)$`)
+var workloadsStatusRegex = regexp.MustCompile(`^- (.*): .* \((.*)\)$`)
 
-func (u *procsUnit) agentStatus(c *gc.C) string {
+func (u *workloadsUnit) agentStatus(c *gc.C) string {
 	out := u.svc.env.run(c, "status", "--format=short")
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
-		match := procsStatusRegex.FindStringSubmatch(line)
+		match := workloadsStatusRegex.FindStringSubmatch(line)
 		if match[0] == "" {
 			// Not a match.
 			continue
@@ -733,18 +733,18 @@ func (u *procsUnit) agentStatus(c *gc.C) string {
 	return ""
 }
 
-func (u *procsUnit) setConfigStatus(c *gc.C, status string) {
+func (u *workloadsUnit) setConfigStatus(c *gc.C, status string) {
 	settings := map[string]string{"plugin-status": status}
 	u.svc.setConfig(c, settings)
 }
 
-func (u *procsUnit) destroy(c *gc.C) {
+func (u *workloadsUnit) destroy(c *gc.C) {
 	u.svc.env.run(c, "destroy-unit", u.id)
 
 	u.waitForStatus(c, "stopped", "started")
 }
 
-func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]interface{}) map[string]string {
+func (u *workloadsUnit) runAction(c *gc.C, action string, actionArgs map[string]interface{}) map[string]string {
 	// Send the command.
 	args := []string{
 		u.id,
@@ -754,7 +754,7 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}
 	doOut := u.svc.env.run(c, "action do", args...)
-	//filename := procsYAMLFile(c, actionArgs)
+	//filename := workloadsYAMLFile(c, actionArgs)
 	//doOut := u.svc.env.run(c, "action do", "--params="+filename, u.id, action)
 	c.Assert(strings.Split(doOut, ": "), gc.HasLen, 2)
 	actionID := strings.Split(doOut, ": ")[1]
@@ -779,7 +779,7 @@ func (u *procsUnit) runAction(c *gc.C, action string, actionArgs map[string]inte
 	return results
 }
 
-func (u *procsUnit) injectStatus(c *gc.C, pluginID, status string) {
+func (u *workloadsUnit) injectStatus(c *gc.C, pluginID, status string) {
 	args := map[string]interface{}{
 		"id":     pluginID,
 		"status": status,
@@ -787,34 +787,34 @@ func (u *procsUnit) injectStatus(c *gc.C, pluginID, status string) {
 	u.runAction(c, "plugin-setstatus", args)
 }
 
-func (u *procsUnit) prepPlugin(c *gc.C, procName, pluginID, status string) {
+func (u *workloadsUnit) prepPlugin(c *gc.C, workloadName, pluginID, status string) {
 	args := map[string]interface{}{
-		"name":   procName,
+		"name":   workloadName,
 		"id":     pluginID,
 		"status": status,
 	}
 	u.runAction(c, "plugin-prep", args)
 }
 
-func (u *procsUnit) checkState(c *gc.C, expected []process.Info) {
-	var procs []process.Info
+func (u *workloadsUnit) checkState(c *gc.C, expected []workload.Info) {
+	var workloads []workload.Info
 
 	results := u.runAction(c, "list", nil)
 	out, ok := results["output"]
 	c.Assert(ok, jc.IsTrue)
-	if strings.TrimSpace(out) != "[no processes registered]" {
-		procsMap := make(map[string]process.Info)
-		err := goyaml.Unmarshal([]byte(out), &procsMap)
+	if strings.TrimSpace(out) != "[no workloads registered]" {
+		workloadsMap := make(map[string]workload.Info)
+		err := goyaml.Unmarshal([]byte(out), &workloadsMap)
 		c.Assert(err, jc.ErrorIsNil)
-		for _, proc := range procsMap {
-			procs = append(procs, proc)
+		for _, wl := range workloadsMap {
+			workloads = append(workloads, wl)
 		}
 	}
 
-	c.Check(procs, jc.DeepEquals, expected)
+	c.Check(workloads, jc.DeepEquals, expected)
 }
 
-func (u *procsUnit) checkPluginLog(c *gc.C, expected []string) {
+func (u *workloadsUnit) checkPluginLog(c *gc.C, expected []string) {
 	results := u.runAction(c, "plugin-dump", nil)
 	c.Assert(results, gc.HasLen, 1)
 	output, ok := results["output"]
@@ -824,7 +824,7 @@ func (u *procsUnit) checkPluginLog(c *gc.C, expected []string) {
 	c.Check(lines, jc.DeepEquals, expected)
 }
 
-func procsYAMLFile(c *gc.C, value interface{}) string {
+func workloadsYAMLFile(c *gc.C, value interface{}) string {
 	filename := filepath.Join(c.MkDir(), "data.yaml")
 	data, err := goyaml.Marshal(value)
 	c.Assert(err, jc.ErrorIsNil)
