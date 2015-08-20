@@ -338,7 +338,7 @@ func (sf *statusFormatter) format() formattedStatus {
 	}
 	out := formattedStatus{
 		Environment:      sf.status.EnvironmentName,
-		AvailableVersion: sf.status.Version,
+		AvailableVersion: sf.status.AvailableVersion,
 		Machines:         make(map[string]machineStatus),
 		Services:         make(map[string]serviceStatus),
 	}

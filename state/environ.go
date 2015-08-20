@@ -34,9 +34,11 @@ type environmentDoc struct {
 	Owner      string `bson:"owner"`
 	ServerUUID string `bson:"server-uuid"`
 
-	// AvailableVersion
-	LatestAvailableTools string     `bson:"available-tools,omitempty"`
-	LatestToolCheck      *time.Time `bson:"latest-tools-check,omitempty"`
+	// LatestAvailableTools is a string representing the newest version
+	// found while checking streams for new versions.
+	LatestAvailableTools string `bson:"available-tools,omitempty"`
+	// LatestToolCheck holds the time when the last check was performed.
+	LatestToolCheck *time.Time `bson:"latest-tools-check,omitempty"`
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.
@@ -236,6 +238,10 @@ func (e *Environment) UpdateLatestToolsVersion(ver string) error {
 	return e.Refresh()
 }
 
+// LatestToolsVersion returns the newest version found in the last
+// check in the streams.
+// Bear in mind that the check was performed filtering only
+// new patches for the current major.minor.
 func (e *Environment) LatestToolsVersion() string {
 	return e.doc.LatestAvailableTools
 }

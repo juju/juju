@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package newtoolsversionchecker
+package toolsversionchecker
 
 import (
 	"testing"
@@ -28,22 +28,6 @@ type UpdaterSuite struct {
 
 var _ = gc.Suite(&UpdaterSuite{})
 
-func (s *UpdaterSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *UpdaterSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *UpdaterSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *UpdaterSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
-
 type dummyEnviron struct {
 	environs.Environ
 }
@@ -58,25 +42,24 @@ func (s *UpdaterSuite) TestCheckTools(c *gc.C) {
 	}
 	s.PatchValue(&newEnvirons, fakeNewEnvirons)
 	var (
-		cEnv       environs.Environ
-		cMaj, cMin int
-		cFilter    coretools.Filter
+		calledWithEnviron                environs.Environ
+		calledWithMajor, calledWithMinor int
+		calledWithFilter                 coretools.Filter
 	)
 	fakeToolFinder := func(e environs.Environ, maj int, min int, filter coretools.Filter) (coretools.List, error) {
-		cEnv = e
-		cMaj = maj
-		cMin = min
-		cFilter = filter
+		calledWithEnviron = e
+		calledWithMajor = maj
+		calledWithMinor = min
+		calledWithFilter = filter
 		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
+		c.Assert(calledWithMajor, gc.Equals, 2)
+		c.Assert(calledWithMinor, gc.Equals, 5)
 		return coretools.List{&t}, nil
 	}
 
 	ver, err := checkToolsAvailability(cfg, fakeToolFinder)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(cMaj, gc.Equals, 2)
-	c.Assert(cMin, gc.Equals, 5)
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
 	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
 }
@@ -102,9 +85,11 @@ func (s *UpdaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	s.PatchValue(&envConfig, fakeEnvConfig)
 
 	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ coretools.Filter) (coretools.List, error) {
-		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5}}
+		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 2}}
+		olderVer := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 1}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
-		return coretools.List{&t}, nil
+		tOld := coretools.Tools{Version: olderVer, URL: "http://example.com", Size: 1}
+		return coretools.List{&t, &tOld}, nil
 	}
 
 	var ver version.Number
@@ -117,5 +102,5 @@ func (s *UpdaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
-	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
+	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 2})
 }

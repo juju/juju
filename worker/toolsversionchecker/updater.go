@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package newtoolsversionchecker
+package toolsversionchecker
 
 import (
 	"github.com/juju/errors"
@@ -18,12 +18,12 @@ var (
 	findTools = tools.FindTools
 )
 
-type toolFinder func(environs.Environ, int, int, coretools.Filter) (coretools.List, error)
+type toolsFinder func(environs.Environ, int, int, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Environment, version.Number) error
 
 var newEnvirons = environs.New
 
-func checkToolsAvailability(cfg *config.Config, find toolFinder) (version.Number, error) {
+func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Number, error) {
 	currentVersion, ok := cfg.AgentVersion()
 	if !ok || currentVersion == version.Zero {
 		return version.Zero, nil
@@ -34,7 +34,9 @@ func checkToolsAvailability(cfg *config.Config, find toolFinder) (version.Number
 		return version.Zero, errors.Annotatef(err, "cannot make environ")
 	}
 
-	vers, err := find(env, currentVersion.Major, currentVersion.Minor, coretools.Filter{})
+	// finder receives major and minor as parameters as it uses them to filter versions and
+	// only return patches for the passed major.minor.
+	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, coretools.Filter{})
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "canot find available tools")
 	}
@@ -52,7 +54,7 @@ func envVersionUpdate(env *state.Environment, ver version.Number) error {
 	return env.UpdateLatestToolsVersion(ver.String())
 }
 
-func updateToolsAvailability(st EnvironmentCapable, find toolFinder, update envVersionUpdater) error {
+func updateToolsAvailability(st EnvironmentCapable, finder toolsFinder, update envVersionUpdater) error {
 	env, err := st.Environment()
 	if err != nil {
 		return errors.Annotate(err, "cannot get environment")
@@ -61,12 +63,12 @@ func updateToolsAvailability(st EnvironmentCapable, find toolFinder, update envV
 	if err != nil {
 		return errors.Annotate(err, "cannot get config")
 	}
-	ver, err := checkToolsAvailability(cfg, find)
+	ver, err := checkToolsAvailability(cfg, finder)
 	if err != nil {
 		return errors.Annotate(err, "cannot get latest version")
 	}
 	if ver == version.Zero {
-		logger.Debugf("toos lookup returned version Zero, this should only happen during bootstrap.")
+		logger.Debugf("tools lookup returned version Zero, this should only happen during bootstrap.")
 		return nil
 	}
 	return update(env, ver)

@@ -80,7 +80,6 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
-	"github.com/juju/juju/worker/newtoolsversionchecker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -91,6 +90,7 @@ import (
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -1049,12 +1049,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
 			})
 
-			a.startWorkerAfterUpgrade(singularRunner, "newtoolsversionchecker", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(singularRunner, "toolsversionchecker", func() (worker.Worker, error) {
 				// 4 times a day seems a decent enough amount of checks.
-				checkerParams := newtoolsversionchecker.VersionCheckerParams{
+				checkerParams := toolsversionchecker.VersionCheckerParams{
 					CheckInterval: time.Hour * 6,
 				}
-				return newtoolsversionchecker.New(st, &checkerParams), nil
+				return toolsversionchecker.New(st, &checkerParams), nil
 			})
 
 		case state.JobManageStateDeprecated:

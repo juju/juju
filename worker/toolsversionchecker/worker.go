@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package newtoolsversionchecker
+package toolsversionchecker
 
 import (
 	"time"
@@ -19,8 +19,7 @@ type EnvironmentCapable interface {
 	Environment() (*state.Environment, error)
 }
 
-// VersionCheckerParams specifies how often should juju look for new
-// tool versions available.
+// VersionCheckerParams holds params for the version checker worker..
 type VersionCheckerParams struct {
 	CheckInterval time.Duration
 }
@@ -35,17 +34,21 @@ func New(st EnvironmentCapable, params *VersionCheckerParams) worker.Worker {
 		findTools:        findTools,
 		envVersionUpdate: envVersionUpdate,
 	}
-	return worker.NewPeriodicWorker(w.doCheck, params.CheckInterval)
+
+	f := func(stop <-chan struct{}) error {
+		return w.doCheck()
+	}
+	return worker.NewPeriodicWorker(f, params.CheckInterval)
 }
 
 type toolsVersionWorker struct {
 	st               EnvironmentCapable
 	params           *VersionCheckerParams
-	findTools        toolFinder
+	findTools        toolsFinder
 	envVersionUpdate envVersionUpdater
 }
 
-func (w *toolsVersionWorker) doCheck(stopCh <-chan struct{}) error {
+func (w *toolsVersionWorker) doCheck() error {
 	err := updateToolsAvailability(w.st, w.findTools, w.envVersionUpdate)
 	if err != nil {
 		return errors.Annotate(err, "cannot fetch new tools information")

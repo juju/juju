@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package newtoolsversionchecker_test
+package toolsversionchecker_test
 
 import (
 	"time"
@@ -16,7 +16,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/newtoolsversionchecker"
+	"github.com/juju/juju/worker/toolsversionchecker"
 )
 
 var _ = gc.Suite(&ToolsCheckerSuite{})
@@ -67,16 +67,16 @@ func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
 		c.Log("entered fake new environ")
 		return &dummyEnviron{}, nil
 	}
-	s.PatchValue(newtoolsversionchecker.NewEnvirons, fakeNewEnvirons)
+	s.PatchValue(toolsversionchecker.NewEnvirons, fakeNewEnvirons)
 
 	fakeEnvConfig := func(_ *state.Environment) (*config.Config, error) {
 		sConfig := dummy.SampleConfig()
 		sConfig["agent-version"] = "2.5.0"
 		return config.New(config.NoDefaults, sConfig)
 	}
-	s.PatchValue(newtoolsversionchecker.EnvConfig, fakeEnvConfig)
+	s.PatchValue(toolsversionchecker.EnvConfig, fakeEnvConfig)
 
-	params := &newtoolsversionchecker.VersionCheckerParams{
+	params := &toolsversionchecker.VersionCheckerParams{
 		CheckInterval: coretesting.ShortWait,
 	}
 
@@ -97,7 +97,7 @@ func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
 		return nil
 	}
 
-	checker := newtoolsversionchecker.NewForTests(
+	checker := toolsversionchecker.NewPeriodicWorkerForTests(
 		&envCapable{},
 		params,
 		findTools,
