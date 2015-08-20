@@ -8,8 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
 type serverSuite struct{}
@@ -17,22 +17,22 @@ type serverSuite struct{}
 var _ = gc.Suite(&serverSuite{})
 
 func (*serverSuite) TestGood(c *gc.C) {
-	input := []process.Info{{
-		Process: charm.Process{
+	input := []workload.Info{{
+		Workload: charm.Workload{
 			Name:        "foobar",
 			Description: "desc",
 			Type:        "type",
 			TypeOptions: map[string]string{"foo": "bar"},
 			Command:     "cmd",
 			Image:       "img",
-			Ports: []charm.ProcessPort{
+			Ports: []charm.WorkloadPort{
 				{
 					External: 8080,
 					Internal: 80,
 					Endpoint: "endpoint",
 				},
 			},
-			Volumes: []charm.ProcessVolume{
+			Volumes: []charm.WorkloadVolume{
 				{
 					ExternalMount: "/foo/bar",
 					InternalMount: "/baz/bat",
@@ -42,20 +42,20 @@ func (*serverSuite) TestGood(c *gc.C) {
 			},
 			EnvVars: map[string]string{"envfoo": "bar"},
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "idfoo",
-			Status: process.PluginStatus{
-				State: "process status",
+			Status: workload.PluginStatus{
+				State: "workload status",
 			},
 		},
 	}}
 
 	i, err := UnitStatus(input)
 	c.Assert(err, jc.ErrorIsNil)
-	procs, ok := i.([]api.Process)
+	workloads, ok := i.([]api.Workload)
 	if !ok {
-		c.Fatalf("Expected []api.Process, got %#v", i)
+		c.Fatalf("Expected []api.Workload, got %#v", i)
 	}
-	expected := []api.Process{api.Proc2api(input[0])}
-	c.Assert(procs, gc.DeepEquals, expected)
+	expected := []api.Workload{api.Workload2api(input[0])}
+	c.Assert(workloads, gc.DeepEquals, expected)
 }

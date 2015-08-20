@@ -7,19 +7,19 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
 // UnitStatus returns a status object to be returned by juju status.
-func UnitStatus(procs []process.Info) (interface{}, error) {
-	if len(procs) == 0 {
+func UnitStatus(workloads []workload.Info) (interface{}, error) {
+	if len(workloads) == 0 {
 		return nil, nil
 	}
 
-	results := make([]api.Process, len(procs))
-	for i, p := range procs {
-		results[i] = api.Proc2api(p)
+	results := make([]api.Workload, len(workloads))
+	for i, wl := range workloads {
+		results[i] = api.Workload2api(wl)
 	}
 	return results, nil
 }
@@ -38,9 +38,9 @@ type cliStatus struct {
 
 // Format converts the object returned from the API for our component
 // to the object we want to display in the CLI.  In our case, the api object is
-// a []process.Info.
+// a []workload.Info.
 func Format(b []byte) interface{} {
-	var infos []api.Process
+	var infos []api.Workload
 	if err := json.Unmarshal(b, &infos); err != nil {
 		return fmt.Errorf("error loading type returned from api: %s", err)
 	}

@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/api"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
 type clientSuite struct{}
@@ -25,24 +25,24 @@ func (*clientSuite) TestWrongObj(c *gc.C) {
 }
 
 func (*clientSuite) TestGood(c *gc.C) {
-	in := []api.Process{
+	in := []api.Workload{
 		{
-			Definition: api.ProcessDefinition{
+			Definition: api.WorkloadDefinition{
 				Name:        "foo",
 				Description: "desc",
 				Type:        "type",
 				TypeOptions: map[string]string{"foo": "bar"},
 				Command:     "command",
 				Image:       "image",
-				Ports:       []api.ProcessPort{{External: 1, Internal: 2, Endpoint: "endpoint"}},
-				Volumes:     []api.ProcessVolume{{ExternalMount: "ext", InternalMount: "int", Mode: "rw", Name: "foo"}},
+				Ports:       []api.WorkloadPort{{External: 1, Internal: 2, Endpoint: "endpoint"}},
+				Volumes:     []api.WorkloadVolume{{ExternalMount: "ext", InternalMount: "int", Mode: "rw", Name: "foo"}},
 				EnvVars:     map[string]string{"baz": "baz"},
 			},
-			Status: api.ProcessStatus{
-				State:   process.StateRunning,
+			Status: api.WorkloadStatus{
+				State:   workload.StateRunning,
 				Message: "okay",
 			},
-			Details: api.ProcessDetails{
+			Details: api.WorkloadDetails{
 				ID: "id",
 				Status: api.PluginStatus{
 					State: "Running",
@@ -63,7 +63,7 @@ func (*clientSuite) TestGood(c *gc.C) {
 			ID:   in[0].Details.ID,
 			Type: in[0].Definition.Type,
 			Status: cliStatus{
-				State:       process.StateRunning,
+				State:       workload.StateRunning,
 				Info:        "okay",
 				PluginState: in[0].Details.Status.State,
 			},
