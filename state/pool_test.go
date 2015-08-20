@@ -55,7 +55,7 @@ func (s *statePoolSuite) TestGet(c *gc.C) {
 	c.Assert(st2_, gc.Equals, st2)
 }
 
-func (s *statePoolSuite) TestGetForStateServerEnv(c *gc.C) {
+func (s *statePoolSuite) TestGetWithStateServerEnv(c *gc.C) {
 	p := state.NewStatePool(s.State)
 	defer p.Close()
 
@@ -63,6 +63,14 @@ func (s *statePoolSuite) TestGetForStateServerEnv(c *gc.C) {
 	// State that was original passed in should be returned.
 	st0, err := p.Get(s.EnvUUID)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st0, gc.Equals, s.State)
+}
+
+func (s *statePoolSuite) TestSystemState(c *gc.C) {
+	p := state.NewStatePool(s.State)
+	defer p.Close()
+
+	st0 := p.SystemState()
 	c.Assert(st0, gc.Equals, s.State)
 }
 

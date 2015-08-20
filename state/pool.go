@@ -50,6 +50,11 @@ func (p *StatePool) Get(envUUID string) (*State, error) {
 	return st, nil
 }
 
+// SystemState returns the State passed in to NewStatePool.
+func (p *StatePool) SystemState() *State {
+	return p.ssSt
+}
+
 // Close closes all State instances in the pool.
 func (p *StatePool) Close() error {
 	p.mu.Lock()
