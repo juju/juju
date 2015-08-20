@@ -23,7 +23,7 @@ type uniterSolver struct {
 	configVersion int
 
 	leadershipSolver solver.Solver
-	//storageSolver   solver.Solver
+	storageSolver    solver.Solver
 	//relationsSolver solver.Solver
 }
 
@@ -41,6 +41,23 @@ func (s *uniterSolver) NextOp(
 		return op, err
 	}
 
+	op, err = s.storageSolver.NextOp(opState, remoteState)
+	if err != solver.ErrNoOperation {
+		return op, err
+	}
+
+	// Now that storage hooks have run at least once, before anything else,
+	// we need to run the install hook.
+	if !opState.Installed {
+		if opState.Kind == operation.RunHook || opState.Kind == operation.Continue {
+			opState.Hook = &hook.Info{Kind: hooks.Install}
+			logger.Infof("found queued %q hook", opState.Hook.Kind)
+			return s.opFactory.NewRunHook(*opState.Hook)
+		} else {
+			return nil, solver.ErrNoOperation
+		}
+	}
+
 	switch opState.Kind {
 	case operation.RunHook:
 		switch opState.Step {
@@ -48,6 +65,9 @@ func (s *uniterSolver) NextOp(
 			logger.Infof("awaiting error resolution for %q hook", opState.Hook.Kind)
 			break
 		case operation.Queued:
+			if !opState.Installed {
+				opState.Hook = &hook.Info{Kind: hooks.Install}
+			}
 			logger.Infof("found queued %q hook", opState.Hook.Kind)
 			return s.opFactory.NewRunHook(*opState.Hook)
 		case operation.Done:

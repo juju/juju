@@ -242,6 +242,7 @@ func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
+	c.Logf("ctx.hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}

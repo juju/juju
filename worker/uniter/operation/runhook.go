@@ -213,6 +213,8 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	newState := change.apply(state)
 
 	switch rh.info.Kind {
+	case hooks.Install:
+		newState.Installed = true
 	case hooks.Start:
 		newState.Started = true
 	case hooks.Stop:

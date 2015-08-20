@@ -20,9 +20,9 @@ type Snapshot struct {
 	// relation IDs.
 	Relations map[int]RelationSnapshot
 
-	// Storage contains the lifecycle states of
-	// each of the unit's storage attachments.
-	Storage map[names.StorageTag]params.Life
+	// Storage contains the lifecycle and attached
+	// states of each of the unit's storage attachments.
+	Storage map[names.StorageTag]StorageSnapshot
 
 	// CharmURL is the charm URL that the unit is
 	// expected to run.
@@ -48,4 +48,14 @@ type Snapshot struct {
 type RelationSnapshot struct {
 	Life    params.Life
 	Members map[string]int64
+}
+
+// StorageSnapshot has information relating to a storage
+// instance belonging to a unit.
+type StorageSnapshot struct {
+	Tag      names.StorageTag
+	Kind     params.StorageKind
+	Life     params.Life
+	Attached bool
+	Location string
 }

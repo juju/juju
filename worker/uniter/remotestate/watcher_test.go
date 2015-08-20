@@ -46,9 +46,10 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			configSettingsWatcher: mockNotifyWatcher{changes: make(chan struct{}, 1)},
 			storageWatcher:        mockStringsWatcher{changes: make(chan []string, 1)},
 		},
-		relations:             make(map[names.RelationTag]*mockRelation),
-		storageAttachmentLife: make(map[params.StorageAttachmentId]params.Life),
-		relationUnitsWatchers: make(map[names.RelationTag]*mockRelationUnitsWatcher),
+		relations:                 make(map[names.RelationTag]*mockRelation),
+		storageAttachment:         make(map[params.StorageAttachmentId]params.StorageAttachment),
+		relationUnitsWatchers:     make(map[names.RelationTag]*mockRelationUnitsWatcher),
+		storageAttachmentWatchers: make(map[names.StorageTag]*mockStorageAttachmentWatcher),
 	}
 }
 
@@ -59,7 +60,7 @@ func (s *WatcherSuite) TestInitialSnapshot(c *gc.C) {
 	c.Assert(w.Stop(), jc.ErrorIsNil)
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{},
-		Storage:   map[names.StorageTag]params.Life{},
+		Storage:   map[names.StorageTag]remotestate.StorageSnapshot{},
 	})
 }
 
@@ -103,7 +104,7 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
 		Relations:             map[int]remotestate.RelationSnapshot{},
-		Storage:               map[names.StorageTag]params.Life{},
+		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
 		CharmURL:              s.st.unit.service.curl,
 		ForceCharmUpgrade:     s.st.unit.service.forceUpgrade,
 		ResolvedMode:          s.st.unit.resolved,
@@ -186,8 +187,16 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 		UnitTag:    s.st.unit.tag.String(),
 		StorageTag: "storage-blob-1",
 	}
-	s.st.storageAttachmentLife[storageAttachmentId0] = params.Alive
-	s.st.storageAttachmentLife[storageAttachmentId1] = params.Dying
+	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+		UnitTag:    storageAttachmentId0.UnitTag,
+		StorageTag: storageAttachmentId0.StorageTag,
+		Life:       params.Alive,
+	}
+	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+		UnitTag:    storageAttachmentId0.UnitTag,
+		StorageTag: storageAttachmentId0.StorageTag,
+		Life:       params.Dying,
+	}
 	s.st.unit.storageWatcher.changes <- []string{"blob/0", "blob/1"}
 	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
 
@@ -196,8 +205,12 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 		names.NewStorageTag("blob/1"): params.Dying,
 	})
 
-	s.st.storageAttachmentLife[storageAttachmentId0] = params.Dying
-	delete(s.st.storageAttachmentLife, storageAttachmentId1)
+	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+		UnitTag:    storageAttachmentId0.UnitTag,
+		StorageTag: storageAttachmentId0.StorageTag,
+		Life:       params.Dying,
+	}
+	delete(s.st.storageAttachment, storageAttachmentId1)
 	s.st.unit.storageWatcher.changes <- []string{"blob/0", "blob/1"}
 	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]params.Life{

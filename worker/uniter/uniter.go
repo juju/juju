@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
+	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -76,8 +77,7 @@ type Uniter struct {
 	hookLock    *fslock.Lock
 	runListener *RunListener
 
-	ranLeaderSettingsChanged bool
-	ranConfigChanged         bool
+	ranConfigChanged bool
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
@@ -202,7 +202,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	// is started.
 	var charmURL *corecharm.URL
 	opState := u.operationExecutor.State()
-	if opState.Kind == operation.Install {
+	if !opState.Installed {
 		logger.Infof("resuming charm install")
 		op, err := u.operationFactory.NewInstall(opState.CharmURL)
 		if err != nil {
@@ -244,7 +244,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// We should only set idle status if we're in
 			// the "Continue" state, which indicates that
 			// there is nothing to do and we're not in an
-			// erro state.
+			// error state.
 			return nil
 		}
 		return setAgentStatus(u, params.StatusIdle, "", nil)
@@ -263,14 +263,12 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	uniterSolver := &uniterSolver{
-		opFactory:      u.operationFactory,
-		setAgentStatus: setAgentStatus,
-		clearResolved:  clearResolved,
-		charmURL:       charmURL,
-		leadershipSolver: &leadershipSolver{
-			opFactory: u.operationFactory,
-			tracker:   u.leadershipTracker,
-		},
+		opFactory:        u.operationFactory,
+		setAgentStatus:   setAgentStatus,
+		clearResolved:    clearResolved,
+		charmURL:         charmURL,
+		leadershipSolver: uniterleadership.NewSolver(u.operationFactory, u.leadershipTracker),
+		storageSolver:    storage.NewSolver(u.operationFactory, u.storage),
 	}
 
 	// TODO(axw) this is shitty duplication, clean up
@@ -355,7 +353,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}
 	u.storage = storageAttachments
-	u.addCleanup(storageAttachments.Stop)
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,

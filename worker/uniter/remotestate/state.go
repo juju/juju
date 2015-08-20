@@ -11,9 +11,11 @@ import (
 
 type State interface {
 	Relation(names.RelationTag) (Relation, error)
+	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
 	Unit(names.UnitTag) (Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
+	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 }
 
 type Unit interface {

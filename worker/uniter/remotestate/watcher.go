@@ -32,6 +32,9 @@ type RemoteStateWatcher struct {
 	out     chan struct{}
 	mu      sync.Mutex
 	current Snapshot
+
+	storageAttachementWatchers map[names.StorageTag]*storageAttachmentWatcher
+	storageAttachment          chan StorageSnapshotEvent
 }
 
 // NewFilter returns a RemoteStateWatcher that handles state changes pertaining to the
@@ -44,8 +47,10 @@ func NewWatcher(st State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 		out:                  make(chan struct{}),
 		current: Snapshot{
 			Relations: make(map[int]RelationSnapshot),
-			Storage:   make(map[names.StorageTag]params.Life),
+			Storage:   make(map[names.StorageTag]StorageSnapshot),
 		},
+		storageAttachementWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
+		storageAttachment:          make(chan StorageSnapshotEvent),
 	}
 	if err := w.init(unitTag); err != nil {
 		return nil, errors.Trace(err)
@@ -88,7 +93,7 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	for id, relationSnapshot := range w.current.Relations {
 		snapshot.Relations[id] = relationSnapshot
 	}
-	snapshot.Storage = make(map[names.StorageTag]params.Life)
+	snapshot.Storage = make(map[names.StorageTag]StorageSnapshot)
 	for tag, storageSnapshot := range w.current.Storage {
 		snapshot.Storage[tag] = storageSnapshot
 	}
@@ -270,7 +275,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenRelationsChange)
 
 		case keys, ok := <-storagew.Changes():
-			logger.Debugf("got storage change")
+			logger.Debugf("got storage change: %v", keys)
 			if !ok {
 				return watcher.EnsureErr(storagew)
 			}
@@ -279,6 +284,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenStorageChange)
 
+		case event, ok := <-w.storageAttachment:
+			logger.Debugf("storage %v snapshot event %v", event.Tag, event)
+			if ok {
+				if err := w.storageAttachmentChanged(event); err != nil {
+					return err
+				}
+			}
 		case change := <-w.relationUnitsChanges:
 			logger.Debugf("got a relation units change")
 			if err := w.relationUnitsChanged(change); err != nil {
@@ -415,6 +427,18 @@ func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) er
 	return nil
 }
 
+// storageAttachmentChanged responds to storage attachment changes.
+func (w *RemoteStateWatcher) storageAttachmentChanged(event StorageSnapshotEvent) error {
+	w.mu.Lock()
+	if event.remove {
+		delete(w.current.Storage, event.StorageSnapshot.Tag)
+	} else {
+		w.current.Storage[event.StorageSnapshot.Tag] = event.StorageSnapshot
+	}
+	w.mu.Unlock()
+	return nil
+}
+
 // storageChanged responds to unit storage changes.
 func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 	tags := make([]names.StorageTag, len(keys))
@@ -435,17 +459,60 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for i, result := range results {
+		logger.Debugf("storage result %v", result)
 		tag := tags[i]
+		// If the storage is alive and present, we start a watcher for it.
+		var watcherErr error
 		if result.Error == nil {
-			w.current.Storage[tag] = result.Life
+			//			if _, ok := w.current.Storage[tag]; !ok {
+			//				w.current.Storage[tag] = StorageSnapshot{
+			//					Tag: tag,
+			//					Life: result.Life,
+			//				}
+			//			}
+			watcherErr = w.startStorageAttachmentWatcher(tag)
 		} else if params.IsCodeNotFound(result.Error) {
 			delete(w.current.Storage, tag)
+			watcherErr = w.stopStorageAttachmentWatcher(tag)
 		} else {
+			logger.Errorf("error getting life of %v attachment: %v", names.ReadableString(tag), err)
 			return errors.Annotatef(
 				result.Error, "getting life of %s attachment",
 				names.ReadableString(tag),
 			)
 		}
+		logger.Debugf("watcher err %v", watcherErr)
+		if watcherErr != nil {
+			return errors.Annotatef(
+				watcherErr, "processing watcher of %s attachment",
+				names.ReadableString(tag),
+			)
+		}
+	}
+	logger.Debugf("storage change. snapshot is %v", w.current.Storage)
+	return nil
+}
+
+func (w *RemoteStateWatcher) startStorageAttachmentWatcher(tag names.StorageTag) error {
+	if _, ok := w.storageAttachementWatchers[tag]; ok {
+		return nil
+	}
+	logger.Debugf("starting storage attachment watcher for %v", tag)
+	watcher, err := newStorageAttachmentWatcher(w.st, w.unit.Tag(), tag, w.storageAttachment)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.storageAttachementWatchers[tag] = watcher
+	return nil
+}
+
+func (w *RemoteStateWatcher) stopStorageAttachmentWatcher(tag names.StorageTag) error {
+	if watcher, ok := w.storageAttachementWatchers[tag]; !ok {
+		return nil
+	} else {
+		delete(w.storageAttachementWatchers, tag)
+		logger.Debugf("stopping storage attachment watcher for %v", tag)
+		return watcher.Stop()
 	}
 	return nil
 }
