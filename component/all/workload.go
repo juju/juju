@@ -118,10 +118,10 @@ func (workloads) registerHookContextCommands() {
 		return
 	}
 
-	name := context.RegisterCommandInfo.Name
+	name := context.TrackCommandInfo.Name
 	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadsHookContext{ctx}
-		cmd, err := context.NewProcRegistrationCommand(compCtx)
+		cmd, err := context.NewWorkloadTrackCommand(compCtx)
 		if err != nil {
 			// TODO(ericsnow) Return an error instead.
 			panic(err)
@@ -132,7 +132,7 @@ func (workloads) registerHookContextCommands() {
 	name = context.LaunchCommandInfo.Name
 	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadsHookContext{ctx}
-		cmd, err := context.NewProcLaunchCommand(compCtx)
+		cmd, err := context.NewWorkloadLaunchCommand(compCtx)
 		if err != nil {
 			panic(err)
 		}
@@ -142,7 +142,7 @@ func (workloads) registerHookContextCommands() {
 	name = context.InfoCommandInfo.Name
 	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadsHookContext{ctx}
-		cmd, err := context.NewProcInfoCommand(compCtx)
+		cmd, err := context.NewWorkloadInfoCommand(compCtx)
 		if err != nil {
 			panic(err)
 		}
@@ -215,21 +215,21 @@ func (workloads) initialEvents(hctx context.Component) ([]workload.Event, error)
 
 	var events []workload.Event
 	for _, id := range ids {
-		proc, err := hctx.Get(id)
+		wl, err := hctx.Get(id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		//TODO(wwitzel3) (Upgrade/Restart broken) during a restart of the worker, the Plugin loses its absPath for the executable.
-		plugin, err := hctx.Plugin(proc)
+		plugin, err := hctx.Plugin(wl)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		events = append(events, workload.Event{
 			Kind:     workload.EventKindTracked,
-			ID:       proc.ID(),
+			ID:       wl.ID(),
 			Plugin:   plugin,
-			PluginID: proc.Details.ID,
+			PluginID: wl.Details.ID,
 		})
 	}
 	return events, nil

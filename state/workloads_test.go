@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/process"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/workload"
 )
 
 func init() {
@@ -20,9 +20,9 @@ func init() {
 	}
 }
 
-var _ = gc.Suite(&unitProcessesSuite{})
+var _ = gc.Suite(&unitWorkloadsSuite{})
 
-type unitProcessesSuite struct {
+type unitWorkloadsSuite struct {
 	ConnSuite
 }
 
@@ -30,8 +30,8 @@ const metaYAML = `
 name: a-charm
 summary: a charm...
 description: a charm...
-processes:
-  procA:
+workloads:
+  workloadA:
     type: docker
     command: do-something cool
     image: spam/eggs
@@ -43,7 +43,7 @@ processes:
       IMPORTANT: YES
 `
 
-func (s *unitProcessesSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, *state.Unit) {
+func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, *state.Unit) {
 	ch := s.AddTestingCharm(c, charmName)
 	ch = s.AddMetaCharm(c, charmName, meta, 2)
 
@@ -55,27 +55,27 @@ func (s *unitProcessesSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 	return charmTag, unit
 }
 
-func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
+func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	_, unit := s.addUnit(c, "dummy", "a-service", metaYAML)
 
-	st, err := s.State.UnitProcesses(unit)
+	st, err := s.State.UnitWorkloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	definitions, err := st.ListDefinitions()
+	definitions, err := st.Definitions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(definitions, jc.DeepEquals, []charm.Process{{
-		Name:        "procA",
+	c.Check(definitions, jc.DeepEquals, []charm.Workload{{
+		Name:        "workloadA",
 		Type:        "docker",
 		TypeOptions: map[string]string{},
 		Command:     "do-something cool",
 		Image:       "spam/eggs",
-		Volumes: []charm.ProcessVolume{{
+		Volumes: []charm.WorkloadVolume{{
 			ExternalMount: "/var/nginx/html",
 			InternalMount: "/usr/share/nginx/html",
 			Mode:          "ro",
 			Name:          "",
 		}},
-		Ports: []charm.ProcessPort{{
+		Ports: []charm.WorkloadPort{{
 			External: 8080,
 			Internal: 80,
 			Endpoint: "",
@@ -86,23 +86,23 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 		},
 	}})
 
-	procs, err := st.List()
+	workloads, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, gc.HasLen, 0)
+	c.Check(workloads, gc.HasLen, 0)
 
-	info := process.Info{
-		Process: charm.Process{
-			Name:    "procA",
+	info := workload.Info{
+		Workload: charm.Workload{
+			Name:    "workloadA",
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/nginx/html",
 				InternalMount: "/usr/share/nginx/html",
 				Mode:          "ro",
 				Name:          "",
 			}},
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "website",
@@ -111,35 +111,35 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				"IMPORTANT": "true",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}
-	err = st.Add(info)
+	err = st.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
 
-	procs, err = st.List()
+	workloads, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{{
-		Process: charm.Process{
-			Name:    "procA",
+	c.Check(workloads, jc.DeepEquals, []workload.Info{{
+		Workload: charm.Workload{
+			Name:    "workloadA",
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/nginx/html",
 				InternalMount: "/usr/share/nginx/html",
 				Mode:          "ro",
 				Name:          "",
 			}},
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "website",
@@ -148,48 +148,48 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				"IMPORTANT": "true",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
 	}})
 
-	procs, err = st.List("procA/xyz")
+	workloads, err = st.List("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{info})
+	c.Check(workloads, jc.DeepEquals, []workload.Info{info})
 
-	err = st.SetStatus("procA/xyz", process.CombinedStatus{
-		Status: process.Status{
-			State:   process.StateRunning,
+	err = st.SetStatus("workloadA/xyz", workload.CombinedStatus{
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "still okay",
 		},
-		PluginStatus: process.PluginStatus{
+		PluginStatus: workload.PluginStatus{
 			State: "still running",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	procs, err = st.List("procA/xyz")
+	workloads, err = st.List("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, jc.DeepEquals, []process.Info{{
-		Process: charm.Process{
-			Name:    "procA",
+	c.Check(workloads, jc.DeepEquals, []workload.Info{{
+		Workload: charm.Workload{
+			Name:    "workloadA",
 			Type:    "docker",
 			Command: "do-something cool",
 			Image:   "spam/eggs",
-			Volumes: []charm.ProcessVolume{{
+			Volumes: []charm.WorkloadVolume{{
 				ExternalMount: "/var/nginx/html",
 				InternalMount: "/usr/share/nginx/html",
 				Mode:          "ro",
 				Name:          "",
 			}},
-			Ports: []charm.ProcessPort{{
+			Ports: []charm.WorkloadPort{{
 				External: 8080,
 				Internal: 80,
 				Endpoint: "website",
@@ -198,22 +198,22 @@ func (s *unitProcessesSuite) TestFunctional(c *gc.C) {
 				"IMPORTANT": "true",
 			},
 		},
-		Status: process.Status{
-			State:   process.StateRunning,
+		Status: workload.Status{
+			State:   workload.StateRunning,
 			Message: "still okay",
 		},
-		Details: process.Details{
+		Details: workload.Details{
 			ID: "xyz",
-			Status: process.PluginStatus{
+			Status: workload.PluginStatus{
 				State: "still running",
 			},
 		},
 	}})
 
-	err = st.Remove("procA/xyz")
+	err = st.Untrack("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
-	procs, err = st.List()
+	workloads, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(procs, gc.HasLen, 0)
+	c.Check(workloads, gc.HasLen, 0)
 }

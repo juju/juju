@@ -15,10 +15,10 @@ import (
 
 // UnitWorkloads exposes high-level interaction with workloads for a unit.
 type UnitWorkloads interface {
-	// Add registers a workload in state. If a workload is
-	// already registered for the same (unit, workload name, plugin ID)
+	// Track tracks a workload in state. If a workload is
+	// already being tracked for the same (unit, workload name, plugin ID)
 	// then the request will fail. The unit must also be "alive".
-	Add(info workload.Info) error
+	Track(info workload.Info) error
 	// SetStatus sets the status of a workload. Only some fields
 	// must be set on the provided info: Name, Status, Details.ID, and
 	// Details.Status. If the workload is not in state then the request
@@ -33,10 +33,10 @@ type UnitWorkloads interface {
 	List(ids ...string) ([]workload.Info, error)
 	// ListDefinitions builds the list of workload definitions found
 	// in the unit's charm metadata.
-	ListDefinitions() ([]charm.Process, error)
-	// Remove removes the identified workload from state. If the
+	Definitions() ([]charm.Workload, error)
+	// Untrack removes the identified workload from state. If the
 	// given ID is not in state then the request will fail.
-	Remove(id string) error
+	Untrack(id string) error
 }
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
@@ -53,11 +53,11 @@ func SetWorkloadsComponent(upFunc newUnitWorkloadsFunc) {
 	newUnitWorkloads = upFunc
 }
 
-// UnitProcesses exposes interaction with workload processes in state
+// UnitWorkloads exposes interaction with workloads in state
 // for a the given unit.
-func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
-	if newUnitProcesses == nil {
-		return nil, errors.Errorf("workload processes not supported")
+func (st *State) UnitWorkloads(unit *Unit) (UnitWorkloads, error) {
+	if newUnitWorkloads == nil {
+		return nil, errors.Errorf("workloads not supported")
 	}
 
 	getMetadata := func() (*charm.Meta, error) {
@@ -71,10 +71,10 @@ func (st *State) UnitProcesses(unit *Unit) (UnitProcesses, error) {
 	}
 
 	persist := st.newPersistence()
-	unitProcs, err := newUnitProcesses(persist, unit.UnitTag(), getMetadata)
+	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag(), getMetadata)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return unitProcs, nil
+	return unitWorkloads, nil
 }
