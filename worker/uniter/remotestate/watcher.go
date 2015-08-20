@@ -462,29 +462,32 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 		logger.Debugf("storage result %v", result)
 		tag := tags[i]
 		// If the storage is alive and present, we start a watcher for it.
-		var watcherErr error
 		if result.Error == nil {
-			//			if _, ok := w.current.Storage[tag]; !ok {
-			//				w.current.Storage[tag] = StorageSnapshot{
-			//					Tag: tag,
-			//					Life: result.Life,
-			//				}
-			//			}
-			watcherErr = w.startStorageAttachmentWatcher(tag)
+			// TODO(wallyworld) - this should be there after consuming initial watcher event
+			if _, ok := w.current.Storage[tag]; !ok {
+				w.current.Storage[tag] = StorageSnapshot{
+					Tag:  tag,
+					Life: result.Life,
+				}
+			}
+			if err := w.startStorageAttachmentWatcher(tag); err != nil {
+				return errors.Annotatef(
+					err, "starting watcher of %s attachment",
+					names.ReadableString(tag),
+				)
+			}
 		} else if params.IsCodeNotFound(result.Error) {
 			delete(w.current.Storage, tag)
-			watcherErr = w.stopStorageAttachmentWatcher(tag)
+			if err := w.stopStorageAttachmentWatcher(tag); err != nil {
+				return errors.Annotatef(
+					err, "stopping watcher of %s attachment",
+					names.ReadableString(tag),
+				)
+			}
 		} else {
 			logger.Errorf("error getting life of %v attachment: %v", names.ReadableString(tag), err)
 			return errors.Annotatef(
 				result.Error, "getting life of %s attachment",
-				names.ReadableString(tag),
-			)
-		}
-		logger.Debugf("watcher err %v", watcherErr)
-		if watcherErr != nil {
-			return errors.Annotatef(
-				watcherErr, "processing watcher of %s attachment",
 				names.ReadableString(tag),
 			)
 		}
