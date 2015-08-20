@@ -153,11 +153,6 @@ type Callbacks interface {
 	NotifyHookCompleted(string, runner.Context)
 	NotifyHookFailed(string, runner.Context)
 
-	// InitializeMetricsTimers ensures that the collect-metrics hook timer is
-	// up to date given the current deployed charm. It's only used in deploy
-	// operations.
-	InitializeMetricsTimers() error
-
 	// The following methods exist primarily to allow us to test operation code
 	// without using a live api connection.
 

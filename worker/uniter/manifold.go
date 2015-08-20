@@ -73,7 +73,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				LeadershipTracker:    leadershipTracker,
 				DataDir:              config.DataDir(),
 				MachineLock:          machineLock,
-				MetricsTimerChooser:  NewMetricsTimerChooser(),
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
 			}), nil

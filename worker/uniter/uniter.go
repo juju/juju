@@ -83,18 +83,6 @@ type Uniter struct {
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
 
-	// metricsTimerChooser is a struct that allows metrics to switch between
-	// active and inactive timers.
-	metricsTimerChooser *timerChooser
-
-	// collectMetricsAt defines a function that will be used to generate signals
-	// for the collect-metrics hook.
-	collectMetricsAt TimedSignal
-
-	// sendMetricsAt defines a function that will be used to generate signals
-	// to send metrics to the state server.
-	sendMetricsAt TimedSignal
-
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
 	updateStatusAt TimedSignal
@@ -107,7 +95,6 @@ type UniterParams struct {
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	MachineLock          *fslock.Lock
-	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
 	NewOperationExecutor NewExecutorFunc
 }
@@ -123,9 +110,6 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
-		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
-		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
-		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 	}
@@ -437,18 +421,6 @@ func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 
 func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
-}
-
-// initializeMetricsTimers enables the periodic collect-metrics hook
-// and periodic sending of collected metrics for charms that declare metrics.
-func (u *Uniter) initializeMetricsTimers() error {
-	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
-	if err != nil {
-		return err
-	}
-	u.collectMetricsAt = u.metricsTimerChooser.getCollectMetricsTimer(charm)
-	u.sendMetricsAt = u.metricsTimerChooser.getSendMetricsTimer(charm)
-	return nil
 }
 
 // RunCommands executes the supplied commands in a hook context.
