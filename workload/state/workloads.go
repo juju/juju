@@ -9,51 +9,51 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/persistence"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/persistence"
 )
 
-var logger = loggo.GetLogger("juju.process.state")
+var logger = loggo.GetLogger("juju.workload.state")
 
-// TODO(ericsnow) Add names.ProcessTag and use it here?
+// TODO(ericsnow) Add names.WorkloadTag and use it here?
 
-// TODO(ericsnow) We need a worker to clean up dying procs.
+// TODO(ericsnow) We need a worker to clean up dying workloads.
 
-// The persistence methods needed for workload processes in state.
-type processesPersistence interface {
-	Insert(info process.Info) (bool, error)
-	SetStatus(id string, status process.CombinedStatus) (bool, error)
-	List(ids ...string) ([]process.Info, []string, error)
-	ListAll() ([]process.Info, error)
+// The persistence methods needed for workloads in state.
+type workloadsPersistence interface {
+	Insert(info workload.Info) (bool, error)
+	SetStatus(id string, status workload.CombinedStatus) (bool, error)
+	List(ids ...string) ([]workload.Info, []string, error)
+	ListAll() ([]workload.Info, error)
 	Remove(id string) (bool, error)
 }
 
-// UnitProcesses provides the functionality related to a unit's
-// processes, as needed by state.
-type UnitProcesses struct {
+// UnitWorkloads provides the functionality related to a unit's
+// workloads, as needed by state.
+type UnitWorkloads struct {
 	// Persist is the persistence layer that will be used.
-	Persist processesPersistence
-	// Unit identifies the unit associated with the processes.
+	Persist workloadsPersistence
+	// Unit identifies the unit associated with the workloads.
 	Unit names.UnitTag
 	// Metadata is a function that returns the metadata for the unit's charm.
 	Metadata func() (*charm.Meta, error)
 }
 
-// NewUnitProcesses builds a UnitProcesses for a unit.
-func NewUnitProcesses(st persistence.PersistenceBase, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) *UnitProcesses {
+// NewUnitWorkloads builds a UnitWorkloads for a unit.
+func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) *UnitWorkloads {
 	persist := persistence.NewPersistence(st, unit)
-	return &UnitProcesses{
+	return &UnitWorkloads{
 		Persist:  persist,
 		Unit:     unit,
 		Metadata: getMetadata,
 	}
 }
 
-// Add registers the provided process info in state.
-func (ps UnitProcesses) Add(info process.Info) error {
+// Add registers the provided workload info in state.
+func (ps UnitWorkloads) Add(info workload.Info) error {
 	logger.Tracef("adding %#v", info)
 	if err := info.Validate(); err != nil {
-		return errors.NewNotValid(err, "bad process info")
+		return errors.NewNotValid(err, "bad workload info")
 	}
 
 	ok, err := ps.Persist.Insert(info)
@@ -61,15 +61,15 @@ func (ps UnitProcesses) Add(info process.Info) error {
 		return errors.Trace(err)
 	}
 	if !ok {
-		return errors.NotValidf("process %s (already in state)", info.ID())
+		return errors.NotValidf("workload %s (already in state)", info.ID())
 	}
 
 	return nil
 }
 
-// SetStatus updates the raw status for the identified process to the
+// SetStatus updates the raw status for the identified workload to the
 // provided value.
-func (ps UnitProcesses) SetStatus(id string, status process.CombinedStatus) error {
+func (ps UnitWorkloads) SetStatus(id string, status workload.CombinedStatus) error {
 	logger.Tracef("setting status for %q", id)
 	if err := status.Validate(); err != nil {
 		return errors.Trace(err)
@@ -85,11 +85,11 @@ func (ps UnitProcesses) SetStatus(id string, status process.CombinedStatus) erro
 	return nil
 }
 
-// List builds the list of process information for the provided process
+// List builds the list of workload information for the provided workload
 // IDs. If none are provided then the list contains the info for all
-// workload processes associated with the unit. Missing processes
+// workload workloads associated with the unit. Missing workloads
 // are ignored.
-func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
+func (ps UnitWorkloads) List(ids ...string) ([]workload.Info, error) {
 	logger.Tracef("listing %v", ids)
 	if len(ids) == 0 {
 		results, err := ps.Persist.ListAll()
@@ -106,23 +106,23 @@ func (ps UnitProcesses) List(ids ...string) ([]process.Info, error) {
 	return results, nil
 }
 
-// ListDefinitions builds the list of process definitions found in the
+// ListDefinitions builds the list of workload definitions found in the
 // unit's charm metadata.
-func (ps UnitProcesses) ListDefinitions() ([]charm.Process, error) {
+func (ps UnitWorkloads) ListDefinitions() ([]charm.Workload, error) {
 	meta, err := ps.Metadata()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var definitions []charm.Process
-	for _, definition := range meta.Processes {
+	var definitions []charm.Workload
+	for _, definition := range meta.Workloads {
 		definitions = append(definitions, definition)
 	}
 	return definitions, nil
 }
 
-// Remove removes the identified process from state. It does not
-// trigger the actual destruction of the process.
-func (ps UnitProcesses) Remove(id string) error {
+// Remove removes the identified workload from state. It does not
+// trigger the actual destruction of the workload.
+func (ps UnitWorkloads) Remove(id string) error {
 	logger.Tracef("removing %q", id)
 	// If the record wasn't found then we're already done.
 	_, err := ps.Persist.Remove(id)

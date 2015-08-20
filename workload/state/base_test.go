@@ -13,145 +13,145 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/workload"
 )
 
-type baseProcessesSuite struct {
+type baseWorkloadsSuite struct {
 	testing.BaseSuite
 
 	stub    *gitjujutesting.Stub
-	persist *fakeProcsPersistence
+	persist *fakeWorkloadsPersistence
 }
 
-func (s *baseProcessesSuite) SetUpTest(c *gc.C) {
+func (s *baseWorkloadsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stub = &gitjujutesting.Stub{}
-	s.persist = &fakeProcsPersistence{Stub: s.stub}
+	s.persist = &fakeWorkloadsPersistence{Stub: s.stub}
 }
 
-func (s *baseProcessesSuite) newProcesses(pType string, ids ...string) []process.Info {
-	var processes []process.Info
+func (s *baseWorkloadsSuite) newWorkloads(pType string, ids ...string) []workload.Info {
+	var workloads []workload.Info
 	for _, id := range ids {
-		name, pluginID := process.ParseID(id)
+		name, pluginID := workload.ParseID(id)
 		if pluginID == "" {
 			pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
 		}
 
-		processes = append(processes, process.Info{
-			Process: charm.Process{
+		workloads = append(workloads, workload.Info{
+			Workload: charm.Workload{
 				Name: name,
 				Type: pType,
 			},
-			Status: process.Status{
-				State: process.StateRunning,
+			Status: workload.Status{
+				State: workload.StateRunning,
 			},
-			Details: process.Details{
+			Details: workload.Details{
 				ID: pluginID,
-				Status: process.PluginStatus{
+				Status: workload.PluginStatus{
 					State: "running",
 				},
 			},
 		})
 	}
-	return processes
+	return workloads
 }
 
-type fakeProcsPersistence struct {
+type fakeWorkloadsPersistence struct {
 	*gitjujutesting.Stub
-	procs map[string]*process.Info
+	workloads map[string]*workload.Info
 }
 
-func (s *fakeProcsPersistence) checkProcesses(c *gc.C, expectedList []process.Info) {
-	c.Check(s.procs, gc.HasLen, len(expectedList))
+func (s *fakeWorkloadsPersistence) checkWorkloads(c *gc.C, expectedList []workload.Info) {
+	c.Check(s.workloads, gc.HasLen, len(expectedList))
 	for _, expected := range expectedList {
-		proc, ok := s.procs[expected.ID()]
+		wl, ok := s.workloads[expected.ID()]
 		if !ok {
-			c.Errorf("process %q not found", expected.ID())
+			c.Errorf("workload %q not found", expected.ID())
 		} else {
-			c.Check(proc, jc.DeepEquals, &expected)
+			c.Check(wl, jc.DeepEquals, &expected)
 		}
 	}
 }
 
-func (s *fakeProcsPersistence) setProcesses(procs ...*process.Info) {
-	if s.procs == nil {
-		s.procs = make(map[string]*process.Info)
+func (s *fakeWorkloadsPersistence) setWorkloads(workloads ...*workload.Info) {
+	if s.workloads == nil {
+		s.workloads = make(map[string]*workload.Info)
 	}
-	for _, proc := range procs {
-		s.procs[proc.ID()] = proc
+	for _, wl := range workloads {
+		s.workloads[wl.ID()] = wl
 	}
 }
 
-func (s *fakeProcsPersistence) Insert(info process.Info) (bool, error) {
+func (s *fakeWorkloadsPersistence) Insert(info workload.Info) (bool, error) {
 	s.AddCall("Insert", info)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
 
-	if _, ok := s.procs[info.ID()]; ok {
+	if _, ok := s.workloads[info.ID()]; ok {
 		return false, nil
 	}
-	s.setProcesses(&info)
+	s.setWorkloads(&info)
 	return true, nil
 }
 
-func (s *fakeProcsPersistence) SetStatus(id string, status process.CombinedStatus) (bool, error) {
+func (s *fakeWorkloadsPersistence) SetStatus(id string, status workload.CombinedStatus) (bool, error) {
 	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
 
-	proc, ok := s.procs[id]
+	wl, ok := s.workloads[id]
 	if !ok {
 		return false, nil
 	}
-	proc.Status = status.Status
-	proc.Details.Status = status.PluginStatus
+	wl.Status = status.Status
+	wl.Details.Status = status.PluginStatus
 	return true, nil
 }
 
-func (s *fakeProcsPersistence) List(ids ...string) ([]process.Info, []string, error) {
+func (s *fakeWorkloadsPersistence) List(ids ...string) ([]workload.Info, []string, error) {
 	s.AddCall("List", ids)
 	if err := s.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	var procs []process.Info
+	var workloads []workload.Info
 	var missing []string
 	for _, id := range ids {
-		if proc, ok := s.procs[id]; !ok {
+		if wl, ok := s.workloads[id]; !ok {
 			missing = append(missing, id)
 		} else {
-			procs = append(procs, *proc)
+			workloads = append(workloads, *wl)
 		}
 	}
-	return procs, missing, nil
+	return workloads, missing, nil
 }
 
-func (s *fakeProcsPersistence) ListAll() ([]process.Info, error) {
+func (s *fakeWorkloadsPersistence) ListAll() ([]workload.Info, error) {
 	s.AddCall("ListAll")
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var procs []process.Info
-	for _, proc := range s.procs {
-		procs = append(procs, *proc)
+	var workloads []workload.Info
+	for _, wl := range s.workloads {
+		workloads = append(workloads, *wl)
 	}
-	return procs, nil
+	return workloads, nil
 }
 
-func (s *fakeProcsPersistence) Remove(id string) (bool, error) {
+func (s *fakeWorkloadsPersistence) Remove(id string) (bool, error) {
 	s.AddCall("Remove", id)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
 
-	if _, ok := s.procs[id]; !ok {
+	if _, ok := s.workloads[id]; !ok {
 		return false, nil
 	}
-	delete(s.procs, id)
+	delete(s.workloads, id)
 	return true, nil
 }

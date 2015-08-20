@@ -9,184 +9,184 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/state"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/state"
 )
 
-var _ = gc.Suite(&unitProcessesSuite{})
+var _ = gc.Suite(&unitWorkloadsSuite{})
 
-type unitProcessesSuite struct {
-	baseProcessesSuite
+type unitWorkloadsSuite struct {
+	baseWorkloadsSuite
 }
 
-func (s *unitProcessesSuite) TestAddOkay(c *gc.C) {
-	procs := s.newProcesses("docker", "procA")
-	proc := procs[0]
+func (s *unitWorkloadsSuite) TestAddOkay(c *gc.C) {
+	workloads := s.newWorkloads("docker", "workloadA")
+	wl := workloads[0]
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Add(proc)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Add(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Insert")
-	s.persist.checkProcesses(c, procs)
+	s.persist.checkWorkloads(c, workloads)
 }
 
-func (s *unitProcessesSuite) TestAddInvalid(c *gc.C) {
-	proc := s.newProcesses("", "procA")[0]
+func (s *unitWorkloadsSuite) TestAddInvalid(c *gc.C) {
+	wl := s.newWorkloads("", "workloadA")[0]
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Add(proc)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Add(wl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *unitProcessesSuite) TestAddEnsureDefinitionFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestAddEnsureDefinitionFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
-	proc := s.newProcesses("docker", "procA")[0]
+	wl := s.newWorkloads("docker", "wlA")[0]
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Add(proc)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Add(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitProcessesSuite) TestAddInsertFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestAddInsertFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
-	proc := s.newProcesses("docker", "procA")[0]
+	wl := s.newWorkloads("docker", "workloadA")[0]
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Add(proc)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Add(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitProcessesSuite) TestAddAlreadyExists(c *gc.C) {
-	proc := s.newProcesses("docker", "procA")[0]
-	s.persist.setProcesses(&proc)
+func (s *unitWorkloadsSuite) TestAddAlreadyExists(c *gc.C) {
+	wl := s.newWorkloads("docker", "workloadA")[0]
+	s.persist.setWorkloads(&wl)
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Add(proc)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Add(wl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func newStatusInfo(state, message, pluginStatus string) process.CombinedStatus {
-	return process.CombinedStatus{
-		Status: process.Status{
+func newStatusInfo(state, message, pluginStatus string) workload.CombinedStatus {
+	return workload.CombinedStatus{
+		Status: workload.Status{
 			State:   state,
 			Message: message,
 		},
-		PluginStatus: process.PluginStatus{
+		PluginStatus: workload.PluginStatus{
 			State: pluginStatus,
 		},
 	}
 }
 
-func (s *unitProcessesSuite) TestSetStatusOkay(c *gc.C) {
-	proc := s.newProcesses("docker", "procA")[0]
-	s.persist.setProcesses(&proc)
-	status := newStatusInfo(process.StateRunning, "good to go", "okay")
+func (s *unitWorkloadsSuite) TestSetStatusOkay(c *gc.C) {
+	wl := s.newWorkloads("docker", "workloadA")[0]
+	s.persist.setWorkloads(&wl)
+	status := newStatusInfo(workload.StateRunning, "good to go", "okay")
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus(proc.ID(), status)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.SetStatus(wl.ID(), status)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetStatus")
-	current := s.persist.procs[proc.ID()]
+	current := s.persist.workloads[wl.ID()]
 	c.Check(current.Status, jc.DeepEquals, status.Status)
 	c.Check(current.Details.Status, jc.DeepEquals, status.PluginStatus)
 }
 
-func (s *unitProcessesSuite) TestSetStatusFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
-	proc := s.newProcesses("docker", "procA")[0]
-	s.persist.setProcesses(&proc)
-	status := newStatusInfo(process.StateRunning, "good to go", "okay")
+	wl := s.newWorkloads("docker", "workloadA")[0]
+	s.persist.setWorkloads(&wl)
+	status := newStatusInfo(workload.StateRunning, "good to go", "okay")
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus(proc.ID(), status)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.SetStatus(wl.ID(), status)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitProcessesSuite) TestSetStatusMissing(c *gc.C) {
-	status := newStatusInfo(process.StateRunning, "good to go", "okay")
+func (s *unitWorkloadsSuite) TestSetStatusMissing(c *gc.C) {
+	status := newStatusInfo(workload.StateRunning, "good to go", "okay")
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.SetStatus("some/proc", status)
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.SetStatus("some/workload", status)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *unitProcessesSuite) TestListOkay(c *gc.C) {
-	proc1 := s.newProcesses("docker", "procA")[0]
-	proc2 := s.newProcesses("docker", "procB")[0]
-	s.persist.setProcesses(&proc1, &proc2)
+func (s *unitWorkloadsSuite) TestListOkay(c *gc.C) {
+	wl1 := s.newWorkloads("docker", "workloadA")[0]
+	wl2 := s.newWorkloads("docker", "workloadB")[0]
+	s.persist.setWorkloads(&wl1, &wl2)
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	procs, err := ps.List(proc1.ID())
+	ps := state.UnitWorkloads{Persist: s.persist}
+	workloads, err := ps.List(wl1.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "List")
-	c.Check(procs, jc.DeepEquals, []process.Info{proc1})
+	c.Check(workloads, jc.DeepEquals, []workload.Info{wl1})
 }
 
-func (s *unitProcessesSuite) TestListAll(c *gc.C) {
-	expected := s.newProcesses("docker", "procA", "procB")
-	s.persist.setProcesses(&expected[0], &expected[1])
+func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
+	expected := s.newWorkloads("docker", "workloadA", "workloadB")
+	s.persist.setWorkloads(&expected[0], &expected[1])
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	procs, err := ps.List()
+	ps := state.UnitWorkloads{Persist: s.persist}
+	workloads, err := ps.List()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListAll")
-	c.Check(procs, gc.HasLen, 2)
-	if procs[0].Name == "procA" {
-		c.Check(procs[0], jc.DeepEquals, expected[0])
-		c.Check(procs[1], jc.DeepEquals, expected[1])
+	c.Check(workloads, gc.HasLen, 2)
+	if workloads[0].Name == "workloadA" {
+		c.Check(workloads[0], jc.DeepEquals, expected[0])
+		c.Check(workloads[1], jc.DeepEquals, expected[1])
 	} else {
-		c.Check(procs[0], jc.DeepEquals, expected[1])
-		c.Check(procs[1], jc.DeepEquals, expected[0])
+		c.Check(workloads[0], jc.DeepEquals, expected[1])
+		c.Check(workloads[1], jc.DeepEquals, expected[0])
 	}
 }
 
-func (s *unitProcessesSuite) TestListFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestListFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
-	ps := state.UnitProcesses{Persist: s.persist}
+	ps := state.UnitWorkloads{Persist: s.persist}
 	_, err := ps.List()
 
 	s.stub.CheckCallNames(c, "ListAll")
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitProcessesSuite) TestListMissing(c *gc.C) {
-	proc := s.newProcesses("docker", "procA")[0]
-	s.persist.setProcesses(&proc)
+func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
+	wl := s.newWorkloads("docker", "workloadA")[0]
+	s.persist.setWorkloads(&wl)
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	procs, err := ps.List(proc.ID(), "procB/xyz")
+	ps := state.UnitWorkloads{Persist: s.persist}
+	workloads, err := ps.List(wl.ID(), "workloadB/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(procs, jc.DeepEquals, []process.Info{proc})
+	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
 }
 
-func (s *unitProcessesSuite) TestListDefinitions(c *gc.C) {
-	expected := s.newProcesses("docker", "procA", "procB")
+func (s *unitWorkloadsSuite) TestListDefinitions(c *gc.C) {
+	expected := s.newWorkloads("docker", "workloadA", "workloadB")
 	getMetadata := func() (*charm.Meta, error) {
 		meta := &charm.Meta{
-			Processes: map[string]charm.Process{
-				"procA": expected[0].Process,
-				"procB": expected[1].Process,
+			Workloads: map[string]charm.Workload{
+				"workloadA": expected[0].Workload,
+				"workloadB": expected[1].Workload,
 			},
 		}
 		return meta, nil
 	}
-	ps := state.UnitProcesses{Persist: s.persist}
+	ps := state.UnitWorkloads{Persist: s.persist}
 	ps.Metadata = getMetadata
 
 	definitions, err := ps.ListDefinitions()
@@ -194,42 +194,42 @@ func (s *unitProcessesSuite) TestListDefinitions(c *gc.C) {
 
 	s.stub.CheckCalls(c, nil)
 	c.Check(definitions, gc.HasLen, 2)
-	if definitions[0].Name == "procA" {
-		c.Check(definitions[0], jc.DeepEquals, expected[0].Process)
-		c.Check(definitions[1], jc.DeepEquals, expected[1].Process)
+	if definitions[0].Name == "workloadA" {
+		c.Check(definitions[0], jc.DeepEquals, expected[0].Workload)
+		c.Check(definitions[1], jc.DeepEquals, expected[1].Workload)
 	} else {
-		c.Check(definitions[0], jc.DeepEquals, expected[1].Process)
-		c.Check(definitions[1], jc.DeepEquals, expected[0].Process)
+		c.Check(definitions[0], jc.DeepEquals, expected[1].Workload)
+		c.Check(definitions[1], jc.DeepEquals, expected[0].Workload)
 	}
 }
 
-func (s *unitProcessesSuite) TestRemoveOkay(c *gc.C) {
-	proc := s.newProcesses("docker", "procA")[0]
-	s.persist.setProcesses(&proc)
+func (s *unitWorkloadsSuite) TestRemoveOkay(c *gc.C) {
+	wl := s.newWorkloads("docker", "workloadA")[0]
+	s.persist.setWorkloads(&wl)
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Remove(proc.ID())
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Remove(wl.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Remove")
-	c.Check(s.persist.procs, gc.HasLen, 0)
+	c.Check(s.persist.workloads, gc.HasLen, 0)
 }
 
-func (s *unitProcessesSuite) TestRemoveMissing(c *gc.C) {
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Remove("procA/xyz")
+func (s *unitWorkloadsSuite) TestRemoveMissing(c *gc.C) {
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Remove("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Remove")
-	c.Check(s.persist.procs, gc.HasLen, 0)
+	c.Check(s.persist.workloads, gc.HasLen, 0)
 }
 
-func (s *unitProcessesSuite) TestRemoveFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestRemoveFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
-	ps := state.UnitProcesses{Persist: s.persist}
-	err := ps.Remove("procA/xyz")
+	ps := state.UnitWorkloads{Persist: s.persist}
+	err := ps.Remove("workloadA/xyz")
 
 	s.stub.CheckCallNames(c, "Remove")
 	c.Check(errors.Cause(err), gc.Equals, failure)
