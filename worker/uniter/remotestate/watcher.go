@@ -37,7 +37,7 @@ type RemoteStateWatcher struct {
 	storageAttachment          chan StorageSnapshotEvent
 }
 
-// NewFilter returns a RemoteStateWatcher that handles state changes pertaining to the
+// NewWatcher returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
 func NewWatcher(st State, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{

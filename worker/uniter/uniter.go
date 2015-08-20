@@ -58,7 +58,6 @@ type Uniter struct {
 	tomb  tomb.Tomb
 	st    *uniter.State
 	paths Paths
-	//f         filter.Filter
 	unit      *uniter.Unit
 	relations relation.Relations
 	cleanups  []cleanup
@@ -144,45 +143,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
 	}
 	logger.Infof("unit %q started", u.unit)
-
-	/*
-		// Start filtering state change events for consumption by modes.
-		u.f, err = filter.NewFilter(u.st, unitTag)
-		if err != nil {
-			return err
-		}
-		u.addCleanup(u.f.Stop)
-
-		// Stop the uniter if the filter fails.
-		go func() { u.tomb.Kill(u.f.Wait()) }()
-
-		// Start handling leader settings events, or not, as appropriate.
-		u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
-
-		// Run modes until we encounter an error.
-		mode := ModeContinue
-		for err == nil {
-			select {
-			case <-u.tomb.Dying():
-				err = tomb.ErrDying
-			default:
-				mode, err = mode(u)
-				switch cause := errors.Cause(err); cause {
-				case operation.ErrNeedsReboot:
-					err = worker.ErrRebootMachine
-				case tomb.ErrDying, worker.ErrTerminateAgent:
-					err = cause
-				case operation.ErrHookFailed:
-					mode, err = ModeHookError, nil
-				default:
-					charmURL, ok := operation.DeployConflictCharmURL(cause)
-					if ok {
-						mode, err = ModeConflicted(charmURL), nil
-					}
-				}
-			}
-		}
-	*/
 
 	// Install is a special case, as it must run before there
 	// is any remote state, and before the remote state watcher
