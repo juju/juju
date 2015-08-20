@@ -193,7 +193,8 @@ func (*kernelVersionSuite) TestMacOSXSeries(c *gc.C) {
 		{version: 13, series: "mavericks"},
 		{version: 12, series: "mountainlion"},
 		{version: 14, series: "yosemite"},
-		{version: 15, series: "unknown", err: `unknown series ""`},
+		{version: 15, series: "elcapitan"},
+		{version: 16, series: "unknown", err: `unknown series ""`},
 		{version: 4, series: "unknown", err: `unknown series ""`},
 		{version: 0, series: "unknown", err: `unknown series ""`},
 	}

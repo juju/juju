@@ -46,7 +46,7 @@ func (s *LoginSuite) SetUpTest(c *gc.C) {
 	s.username = "valid-user"
 }
 
-func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (system.APIConnection, error) {
+func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	if s.openError != nil {
 		return nil, s.openError
 	}
@@ -54,7 +54,7 @@ func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (system.APIConne
 	return s.apiConnection, nil
 }
 
-func (s *LoginSuite) getUserManager(conn system.APIConnection) (system.UserManager, error) {
+func (s *LoginSuite) getUserManager(conn api.Connection) (system.UserManager, error) {
 	return s.apiConnection, nil
 }
 
@@ -205,6 +205,7 @@ func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
 }
 
 type mockAPIConnection struct {
+	api.Connection
 	info         *api.Info
 	addr         string
 	apiHostPorts [][]network.HostPort
@@ -212,8 +213,6 @@ type mockAPIConnection struct {
 	username     string
 	password     string
 }
-
-var _ system.APIConnection = (*mockAPIConnection)(nil)
 
 func (*mockAPIConnection) Close() error {
 	return nil

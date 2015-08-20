@@ -554,7 +554,7 @@ var _ = gc.Suite(&clientSuite{})
 
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
-func clearSinceTimes(status *api.Status) {
+func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
 			unit.Workload.Since = nil
@@ -2459,6 +2459,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
+			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},

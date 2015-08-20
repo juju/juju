@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/leadership"
@@ -211,11 +212,11 @@ func (manager *manager) nextExpiry() <-chan time.Time {
 		nextExpiry = &info.Expiry
 	}
 	if nextExpiry == nil {
-		logger.Debugf("no leases recorded; never waking for expiry")
+		logger.Tracef("no leases recorded; never waking for expiry")
 		return nil
 	}
-	logger.Debugf("waking to expire leases at %s", *nextExpiry)
-	return manager.config.Clock.Alarm(*nextExpiry)
+	logger.Tracef("waking to expire leases at %s", *nextExpiry)
+	return clock.Alarm(manager.config.Clock, *nextExpiry)
 }
 
 // expire will attempt to expire all leases that may have expired. There might
@@ -224,6 +225,7 @@ func (manager *manager) nextExpiry() <-chan time.Time {
 // client will have been updated and we'll see fresh info when we scan for new
 // expiries next time through the loop. It will return only unrecoverable errors.
 func (manager *manager) expire() error {
+	logger.Tracef("expiring leases...")
 	client := manager.config.Client
 	leases := client.Leases()
 

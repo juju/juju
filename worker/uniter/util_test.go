@@ -34,14 +34,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
+	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/metrics"
@@ -83,7 +83,8 @@ type context struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
-	leader                 *leadership.Manager
+	leaderClaimer          coreleadership.Claimer
+	leaderTracker          *mockLeaderTracker
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
@@ -127,14 +128,6 @@ func (ctx *context) setExpectedError(err string) {
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
-	// We need this lest leadership calls block forever.
-	lease, err := lease.NewLeaseManager(ctx.st)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		lease.Kill()
-		c.Assert(lease.Wait(), jc.ErrorIsNil)
-	}()
-
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
@@ -162,7 +155,9 @@ func (ctx *context) apiLogin(c *gc.C) {
 	ctx.api, err = st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.api, gc.NotNil)
-	ctx.leader = leadership.NewLeadershipManager(lease.Manager())
+	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
+	ctx.leaderTracker = newMockLeaderTracker(ctx)
+	ctx.leaderTracker.setLeader(c, true)
 }
 
 func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
@@ -479,12 +474,13 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc
 	}
+
 	uniterParams := uniter.UniterParams{
-		St:                ctx.api,
+		UniterFacade:      ctx.api,
 		UnitTag:           tag,
-		LeadershipClaimer: ctx.leader,
+		LeadershipTracker: ctx.leaderTracker,
 		DataDir:           ctx.dataDir,
-		HookLock:          lock,
+		MachineLock:       lock,
 		MetricsTimerChooser: uniter.NewTestingMetricsTimerChooser(
 			ctx.collectMetricsTicker.ReturnTimer,
 			ctx.sendMetricsTicker.ReturnTimer,
@@ -1526,42 +1522,119 @@ func (waitContextWaitGroup) step(c *gc.C, ctx *context) {
 	ctx.wg.Wait()
 }
 
-const otherLeader = "some-other-unit/123"
-
 type forceMinion struct{}
 
 func (forceMinion) step(c *gc.C, ctx *context) {
-	// TODO(fwereade): this is designed to work when the uniter is still running,
-	// which is... unexpected, because the uniter's running a tracker that will
-	// do its best to maintain leadership. But... it's possible for us to make it
-	// resign by going via the lease manager directly, and we can be confident
-	// that the uniter's tracker *will* see the problem when it fails to renew.
-	// This lets us test the uniter's behaviour under bizarre/adverse conditions
-	// (in addition to working just fine when the uniter's not running).
-	for i := 0; i < 3; i++ {
-		c.Logf("deposing local unit (attempt %d)", i)
-		err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), ctx.unit.Name())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("promoting other unit (attempt %d)", i)
-		err = ctx.leader.ClaimLeadership(ctx.svc.Name(), otherLeader, coretesting.LongWait)
-		if err == nil {
-			return
-		} else if errors.Cause(err) != leadership.ErrClaimDenied {
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-	c.Fatalf("failed to promote a different leader")
+	ctx.leaderTracker.setLeader(c, false)
 }
 
 type forceLeader struct{}
 
 func (forceLeader) step(c *gc.C, ctx *context) {
-	c.Logf("deposing other unit")
-	err := ctx.leader.ReleaseLeadership(ctx.svc.Name(), otherLeader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("promoting local unit")
-	err = ctx.leader.ClaimLeadership(ctx.svc.Name(), ctx.unit.Name(), coretesting.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
+	ctx.leaderTracker.setLeader(c, true)
+}
+
+func newMockLeaderTracker(ctx *context) *mockLeaderTracker {
+	return &mockLeaderTracker{
+		ctx: ctx,
+	}
+}
+
+type mockLeaderTracker struct {
+	mu       sync.Mutex
+	ctx      *context
+	isLeader bool
+	waiting  []chan struct{}
+}
+
+func (mock *mockLeaderTracker) ServiceName() string {
+	return mock.ctx.svc.Name()
+}
+
+func (mock *mockLeaderTracker) ClaimDuration() time.Duration {
+	return 30 * time.Second
+}
+
+func (mock *mockLeaderTracker) ClaimLeader() leadership.Ticket {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if mock.isLeader {
+		return fastTicket{true}
+	}
+	return fastTicket{}
+}
+
+func (mock *mockLeaderTracker) WaitLeader() leadership.Ticket {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if mock.isLeader {
+		return fastTicket{}
+	}
+	return mock.waitTicket()
+}
+
+func (mock *mockLeaderTracker) WaitMinion() leadership.Ticket {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if !mock.isLeader {
+		return fastTicket{}
+	}
+	return mock.waitTicket()
+}
+
+func (mock *mockLeaderTracker) waitTicket() leadership.Ticket {
+	// very internal, expects mu to be locked already
+	ch := make(chan struct{})
+	mock.waiting = append(mock.waiting, ch)
+	return waitTicket{ch}
+}
+
+func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if mock.isLeader == isLeader {
+		return
+	}
+	if isLeader {
+		err := mock.ctx.leaderClaimer.ClaimLeadership(
+			mock.ctx.svc.Name(), mock.ctx.unit.Name(), time.Minute,
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		leaseClock.Advance(61 * time.Second)
+		time.Sleep(coretesting.ShortWait)
+	}
+	mock.isLeader = isLeader
+	for _, ch := range mock.waiting {
+		close(ch)
+	}
+	mock.waiting = nil
+}
+
+type waitTicket struct {
+	ch chan struct{}
+}
+
+func (t waitTicket) Ready() <-chan struct{} {
+	return t.ch
+}
+
+func (t waitTicket) Wait() bool {
+	return false
+}
+
+type fastTicket struct {
+	value bool
+}
+
+func (fastTicket) Ready() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
+func (t fastTicket) Wait() bool {
+	return t.value
 }
 
 type setLeaderSettings map[string]string
@@ -1569,22 +1642,21 @@ type setLeaderSettings map[string]string
 func (s setLeaderSettings) step(c *gc.C, ctx *context) {
 	// We do this directly on State, not the API, so we don't have to worry
 	// about getting an API conn for whatever unit's meant to be leader.
-	settings, err := ctx.st.ReadLeadershipSettings(ctx.svc.Name())
+	err := ctx.svc.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
-	for key := range settings.Map() {
-		settings.Delete(key)
-	}
-	for key, value := range s {
-		settings.Set(key, value)
-	}
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
+	ctx.s.BackingState.StartSync()
+}
+
+type successToken struct{}
+
+func (successToken) Check(interface{}) error {
+	return nil
 }
 
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.api.LeadershipSettings.Read(ctx.svc.Name())
+	actual, err := ctx.svc.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }

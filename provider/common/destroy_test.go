@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type DestroySuite struct {
@@ -83,6 +84,7 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 }
 
 func (s *DestroySuite) TestSuccess(c *gc.C) {
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	stor := newStorage(s, c)
 	err := stor.Put("somewhere", strings.NewReader("stuff"), 5)
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,6 +113,7 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 }
 
 func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	stor := newStorage(s, c)
 	err := stor.Put("elsewhere", strings.NewReader("stuff"), 5)
 	c.Assert(err, jc.ErrorIsNil)
@@ -131,8 +134,8 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 		ListVolumesFunc: func() ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ids []string) []error {
-			return make([]error, len(ids))
+		DestroyVolumesFunc: func(ids []string) ([]error, error) {
+			return make([]error, len(ids)), nil
 		},
 	}
 	staticProvider := &dummy.StorageProvider{
@@ -169,12 +172,12 @@ func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 		ListVolumesFunc: func() ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ids []string) []error {
+		DestroyVolumesFunc: func(ids []string) ([]error, error) {
 			return []error{
 				nil,
 				errors.New("cannot destroy vol-1"),
 				errors.New("cannot destroy vol-2"),
-			}
+			}, nil
 		},
 	}
 

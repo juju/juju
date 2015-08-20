@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 )
@@ -35,25 +33,25 @@ type FactorySuite struct {
 
 var _ = gc.Suite(&FactorySuite{})
 
-type fakeTracker struct {
-	leadership.Tracker
-}
-
-func (fakeTracker) ServiceName() string {
-	return "service-name"
-}
-
 func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.HookContextSuite.SetUpTest(c)
 	s.paths = NewRealPaths(c)
 	s.membership = map[int][]string{}
-	factory, err := runner.NewFactory(
+
+	contextFactory, err := runner.NewContextFactory(
 		s.uniter,
 		s.unit.Tag().(names.UnitTag),
 		fakeTracker{},
 		s.getRelationInfos,
 		s.storage,
 		s.paths,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	factory, err := runner.NewFactory(
+		s.uniter,
+		s.paths,
+		contextFactory,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = factory
@@ -96,76 +94,6 @@ func (s *FactorySuite) getCache(relId int, unitName string) (params.Settings, bo
 
 func (s *FactorySuite) AssertPaths(c *gc.C, rnr runner.Runner) {
 	c.Assert(runner.RunnerPaths(rnr), gc.DeepEquals, s.paths)
-}
-
-func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
-	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
-	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
-	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
-
-	expect, expectOK := s.unit.PrivateAddress()
-	actual, actualOK := ctx.PrivateAddress()
-	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
-
-	expect, expectOK = s.unit.PublicAddress()
-	actual, actualOK = ctx.PublicAddress()
-	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
-
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	name, uuid := runner.ContextEnvInfo(ctx)
-	c.Assert(name, gc.Equals, env.Name())
-	c.Assert(uuid, gc.Equals, env.UUID())
-
-	c.Assert(ctx.RelationIds(), gc.HasLen, 2)
-
-	r, found := ctx.Relation(0)
-	c.Assert(found, jc.IsTrue)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:0")
-
-	r, found = ctx.Relation(1)
-	c.Assert(found, jc.IsTrue)
-	c.Assert(r.Name(), gc.Equals, "db")
-	c.Assert(r.FakeId(), gc.Equals, "db:1")
-}
-
-func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
-	actionData, err := ctx.ActionData()
-	c.Assert(actionData, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "not running an action")
-}
-
-func (s *FactorySuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
-	storageAttachment, ok := ctx.HookStorage()
-	c.Assert(storageAttachment, gc.IsNil)
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, id string, attachment storage.StorageAttachmentInfo) {
-	fromCache, ok := ctx.HookStorage()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(fromCache, gc.NotNil)
-	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
-	c.Assert(fromCache.Kind(), gc.Equals, attachment.Kind)
-	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
-}
-
-func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
-	actualRemoteUnit, _ := ctx.RemoteUnitName()
-	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
-	rel, found := ctx.HookRelation()
-	c.Assert(found, jc.IsTrue)
-	c.Assert(rel.Id(), gc.Equals, relId)
-	return rel.(*runner.ContextRelation)
-}
-
-func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx runner.Context) {
-	rel, found := ctx.HookRelation()
-	c.Assert(rel, gc.IsNil)
-	c.Assert(found, jc.IsFalse)
 }
 
 func (s *FactorySuite) TestNewCommandRunnerNoRelation(c *gc.C) {
@@ -320,13 +248,19 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 
-	factory, err := runner.NewFactory(
+	contextFactory, err := runner.NewContextFactory(
 		uniter,
 		unit.Tag().(names.UnitTag),
 		fakeTracker{},
 		s.getRelationInfos,
 		s.storage,
 		s.paths,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	factory, err := runner.NewFactory(
+		uniter,
+		s.paths,
+		contextFactory,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -634,66 +568,4 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
-}
-
-func (s *FactorySuite) testLeadershipContextWiring(c *gc.C, createRunner func() runner.Runner) {
-	var stub testing.Stub
-	stub.SetErrors(errors.New("bam"))
-	restore := runner.PatchNewLeadershipContext(
-		func(accessor runner.LeadershipSettingsAccessor, tracker leadership.Tracker) runner.LeadershipContext {
-			stub.AddCall("NewLeadershipContext", accessor, tracker)
-			return &StubLeadershipContext{Stub: &stub}
-		},
-	)
-	defer restore()
-
-	rnr := createRunner()
-	isLeader, err := rnr.Context().IsLeader()
-	c.Check(err, gc.ErrorMatches, "bam")
-	c.Check(isLeader, jc.IsFalse)
-
-	stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "NewLeadershipContext",
-		Args:     []interface{}{s.uniter.LeadershipSettings, fakeTracker{}},
-	}, {
-		FuncName: "IsLeader",
-	}})
-
-}
-
-func (s *FactorySuite) TestNewHookRunnerLeadershipContext(c *gc.C) {
-	s.testLeadershipContextWiring(c, func() runner.Runner {
-		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.ConfigChanged})
-		c.Assert(err, jc.ErrorIsNil)
-		return rnr
-	})
-}
-
-func (s *FactorySuite) TestNewActionRunnerLeadershipContext(c *gc.C) {
-	s.testLeadershipContextWiring(c, func() runner.Runner {
-		s.SetCharm(c, "dummy")
-		action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
-		c.Assert(err, jc.ErrorIsNil)
-		rnr, err := s.factory.NewActionRunner(action.Id())
-		c.Assert(err, jc.ErrorIsNil)
-		return rnr
-	})
-}
-
-func (s *FactorySuite) TestNewCommandRunnerLeadershipContext(c *gc.C) {
-	s.testLeadershipContextWiring(c, func() runner.Runner {
-		rnr, err := s.factory.NewCommandRunner(runner.CommandInfo{RelationId: -1})
-		c.Assert(err, jc.ErrorIsNil)
-		return rnr
-	})
-}
-
-type StubLeadershipContext struct {
-	runner.LeadershipContext
-	*testing.Stub
-}
-
-func (stub *StubLeadershipContext) IsLeader() (bool, error) {
-	stub.MethodCall(stub, "IsLeader")
-	return false, stub.NextErr()
 }

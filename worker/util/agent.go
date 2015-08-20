@@ -4,8 +4,8 @@
 package util
 
 import (
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 )
 

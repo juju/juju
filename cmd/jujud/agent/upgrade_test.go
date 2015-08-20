@@ -912,7 +912,7 @@ func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	defer apiState.Close()
 
 	// this call should always work
-	var result api.Status
+	var result params.FullStatus
 	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1001,7 +1001,7 @@ type MachineStatusCall struct {
 	Info   string
 }
 
-func (a *fakeUpgradingMachineAgent) setMachineStatus(_ *api.State, status params.Status, info string) error {
+func (a *fakeUpgradingMachineAgent) setMachineStatus(_ api.Connection, status params.Status, info string) error {
 	// Record setMachineStatus calls for later inspection.
 	a.MachineStatusCalls = append(a.MachineStatusCalls, MachineStatusCall{status, info})
 	return nil

@@ -13,8 +13,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
-	"github.com/juju/juju/lease"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -33,13 +31,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
 	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := lease.NewLeaseManager(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		m.Kill()
-		c.Assert(m.Wait(), jc.ErrorIsNil)
-	})
 }
 
 func (s *serviceSuite) TestNameTagAndString(c *gc.C) {
@@ -159,49 +150,50 @@ func (s *serviceSuite) patchNewState(
 func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	message := "a test message"
 	stat, err := s.wordpressService.Status()
-
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
 	err = s.apiService.SetStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
-	c.Assert(err, gc.ErrorMatches, "this unit is not the leader")
+	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 
 	err = s.apiService.SetStatus(s.wordpressUnit.Name(), params.StatusActive, message, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
-	c.Assert(stat.Message, gc.Equals, message)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(stat.Status, gc.Equals, state.Status(params.StatusActive))
+	c.Check(stat.Message, gc.Equals, message)
 }
 
 func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	message := "a test message"
 	stat, err := s.wordpressService.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stat.Status, gc.Not(gc.Equals), state.Status(params.StatusActive))
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
 	err = s.wordpressService.SetStatus(state.Status(params.StatusActive), message, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Equals, state.Status(params.StatusActive))
-	c.Assert(stat.Message, gc.Equals, message)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(stat.Status, gc.Equals, state.Status(params.StatusActive))
+	c.Check(stat.Message, gc.Equals, message)
 
 	result, err := s.apiService.Status(s.wordpressUnit.Name())
-	c.Assert(err, gc.ErrorMatches, "this unit is not the leader")
+	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err = s.apiService.Status(s.wordpressUnit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Service.Status, gc.Equals, params.StatusActive)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result.Service.Status, gc.Equals, params.StatusActive)
 }
 
 func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {
-	leadership := leadership.NewLeadershipManager(lease.Manager())
-	err := leadership.ClaimLeadership(service.Name(), unit.Name(), time.Minute)
+	claimer := s.State.LeadershipClaimer()
+	err := claimer.ClaimLeadership(service.Name(), unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }

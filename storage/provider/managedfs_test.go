@@ -51,8 +51,14 @@ func (s *managedfsSuite) initSource(c *gc.C) storage.FilesystemSource {
 
 func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 	source := s.initSource(c)
-	s.commands.expect("mkfs.ext4", "/dev/sda")
-	s.commands.expect("mkfs.ext4", "/dev/disk/by-id/weetbix")
+	// sda is (re)partitioned and the filesystem created
+	// on the partition.
+	s.commands.expect("sgdisk", "--zap-all", "/dev/sda")
+	s.commands.expect("sgdisk", "-n", "1:0:-1", "/dev/sda")
+	s.commands.expect("mkfs.ext4", "/dev/sda1")
+	// xvdf1 is assumed to not require a partition, on
+	// account of ending with a digit.
+	s.commands.expect("mkfs.ext4", "/dev/xvdf1")
 
 	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
 		DeviceName: "sda",
@@ -60,6 +66,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 		Size:       2,
 	}
 	s.blockDevices[names.NewVolumeTag("1")] = storage.BlockDevice{
+		DeviceName: "xvdf1",
 		HardwareId: "weetbix",
 		Size:       3,
 	}
@@ -127,7 +134,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool)
 		if readOnly {
 			args = append(args, "-o", "ro")
 		}
-		args = append(args, "/dev/sda", testMountPoint)
+		args = append(args, "/dev/sda1", testMountPoint)
 		s.commands.expect("mount", args...)
 	}
 

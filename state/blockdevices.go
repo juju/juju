@@ -35,6 +35,7 @@ type BlockDeviceInfo struct {
 	Label          string `bson:"label,omitempty"`
 	UUID           string `bson:"uuid,omitempty"`
 	HardwareId     string `bson:"hardwareid,omitempty"`
+	BusAddress     string `bson:"busaddress,omitempty"`
 	Size           uint64 `bson:"size"`
 	FilesystemType string `bson:"fstype,omitempty"`
 	InUse          bool   `bson:"inuse"`

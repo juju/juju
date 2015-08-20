@@ -10,11 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -25,6 +25,7 @@ type ManifoldSuite struct {
 	testing.Stub
 	manifold    dependency.Manifold
 	agent       *mockAgent
+	gate        *mockGate
 	conn        *mockConn
 	getResource dependency.GetResourceFunc
 }
@@ -35,15 +36,20 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testing.Stub{}
 	s.manifold = apicaller.Manifold(apicaller.ManifoldConfig{
-		AgentName: "agent-name",
+		AgentName:       "agent-name",
+		APIInfoGateName: "api-info-gate-name",
 	})
 
 	s.agent = &mockAgent{
 		stub: &s.Stub,
 		env:  coretesting.EnvironmentTag,
 	}
+	s.gate = &mockGate{
+		stub: &s.Stub,
+	}
 	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: s.agent},
+		"agent-name":         dt.StubResource{Output: s.agent},
+		"api-info-gate-name": dt.StubResource{Output: s.gate},
 	})
 
 	// Watch out for this: it uses its own Stub because Close calls are made from
@@ -54,8 +60,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		stub:   &testing.Stub{},
 		broken: make(chan struct{}),
 	}
-	s.PatchValue(apicaller.OpenConnection, func(agent agent.Agent) (apicaller.Connection, error) {
-		s.AddCall("openConnection", agent)
+	s.PatchValue(apicaller.OpenConnection, func(a agent.Agent) (api.Connection, error) {
+		s.AddCall("openConnection", a)
 		if err := s.NextErr(); err != nil {
 			return nil, err
 		}
@@ -64,12 +70,25 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name"})
+	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-info-gate-name"})
 }
 
-func (s *ManifoldSuite) TestStartMissingDependency(c *gc.C) {
+func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Error: dependency.ErrMissing},
+		"agent-name":         dt.StubResource{Error: dependency.ErrMissing},
+		"api-info-gate-name": dt.StubResource{Output: s.gate},
+	})
+
+	worker, err := s.manifold.Start(getResource)
+	c.Check(worker, gc.IsNil)
+	c.Check(err, gc.Equals, dependency.ErrMissing)
+	s.CheckCalls(c, nil)
+}
+
+func (s *ManifoldSuite) TestStartMissingGate(c *gc.C) {
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent-name":         dt.StubResource{Output: s.agent},
+		"api-info-gate-name": dt.StubResource{Error: dependency.ErrMissing},
 	})
 
 	worker, err := s.manifold.Start(getResource)
@@ -97,10 +116,12 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdSet(c *gc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "openConnection",
 		Args:     []interface{}{s.agent},
+	}, {
+		FuncName: "Unlock",
 	}})
 }
 
-func (s *ManifoldSuite) setupMutatorTest(c *gc.C) coreagent.ConfigMutator {
+func (s *ManifoldSuite) setupMutatorTest(c *gc.C) agent.ConfigMutator {
 	s.agent.env = names.EnvironTag{}
 	s.conn.stub = &s.Stub // will be unsafe if worker stopped before test finished
 	s.SetErrors(
@@ -112,11 +133,11 @@ func (s *ManifoldSuite) setupMutatorTest(c *gc.C) coreagent.ConfigMutator {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { assertStop(c, worker) })
 
-	s.CheckCallNames(c, "openConnection", "ChangeConfig")
+	s.CheckCallNames(c, "openConnection", "ChangeConfig", "Unlock")
 	changeArgs := s.Calls()[1].Args
 	c.Assert(changeArgs, gc.HasLen, 1)
 	s.ResetCalls()
-	return changeArgs[0].(coreagent.ConfigMutator)
+	return changeArgs[0].(agent.ConfigMutator)
 }
 
 func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSet(c *gc.C) {
@@ -129,7 +150,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSet(c *gc.C) {
 		FuncName: "EnvironTag",
 	}, {
 		FuncName: "Migrate",
-		Args: []interface{}{coreagent.MigrateParams{
+		Args: []interface{}{agent.MigrateParams{
 			Environment: coretesting.EnvironmentTag,
 		}},
 	}})
@@ -157,7 +178,7 @@ func (s *ManifoldSuite) TestStartSuccessWithEnvironnmentIdNotSetMigrateFailure(c
 		FuncName: "EnvironTag",
 	}, {
 		FuncName: "Migrate",
-		Args: []interface{}{coreagent.MigrateParams{
+		Args: []interface{}{agent.MigrateParams{
 			Environment: coretesting.EnvironmentTag,
 		}},
 	}})

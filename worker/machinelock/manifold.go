@@ -5,12 +5,10 @@ package machinelock
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/fslock"
-	"launchpad.net/tomb"
 
+	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
 )
@@ -31,49 +29,16 @@ type ManifoldConfig util.AgentManifoldConfig
 // of their GetResourceFunc.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	manifold := util.AgentManifold(util.AgentManifoldConfig(config), newWorker)
-	manifold.Output = outputFunc
+	manifold.Output = util.ValueWorkerOutput
 	return manifold
 }
 
 // newWorker creates a degenerate worker that provides access to an fslock.
-func newWorker(agent agent.Agent) (worker.Worker, error) {
-	dataDir := agent.CurrentConfig().DataDir()
+func newWorker(a agent.Agent) (worker.Worker, error) {
+	dataDir := a.CurrentConfig().DataDir()
 	lock, err := createLock(dataDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := &machineLockWorker{lock: lock}
-	go func() {
-		defer w.tomb.Done()
-		<-w.tomb.Dying()
-	}()
-	return w, nil
-}
-
-// outputFunc extracts a *fslock.Lock from a *machineLockWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
-	inWorker, _ := in.(*machineLockWorker)
-	outPointer, _ := out.(**fslock.Lock)
-	if inWorker == nil || outPointer == nil {
-		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
-	}
-	*outPointer = inWorker.lock
-	return nil
-}
-
-// machineLockWorker is a degenerate worker that exists only to hold a reference
-// to its lock.
-type machineLockWorker struct {
-	tomb tomb.Tomb
-	lock *fslock.Lock
-}
-
-// Kill is part of the worker.Worker interface.
-func (w *machineLockWorker) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait is part of the worker.Worker interface.
-func (w *machineLockWorker) Wait() error {
-	return w.tomb.Wait()
+	return util.NewValueWorker(lock)
 }

@@ -104,7 +104,10 @@ func destroyVolumes(
 	}
 
 	var errStrings []string
-	errs := volumeSource.DestroyVolumes(volumeIds)
+	errs, err := volumeSource.DestroyVolumes(volumeIds)
+	if err != nil {
+		return errors.Annotate(err, "destroying volumes")
+	}
 	for _, err := range errs {
 		if err != nil {
 			errStrings = append(errStrings, err.Error())

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
 )
 
 // NewLeadershipSettingsAccessor creates a new
@@ -16,16 +17,16 @@ func NewLeadershipSettingsAccessor(
 	authorizer common.Authorizer,
 	registerWatcherFn RegisterWatcherFn,
 	getSettingsFn GetSettingsFn,
+	leaderCheckFn LeaderCheckFn,
 	mergeSettingsChunkFn MergeSettingsChunkFn,
-	isLeaderFn IsLeaderFn,
 ) *LeadershipSettingsAccessor {
 
 	return &LeadershipSettingsAccessor{
 		authorizer:           authorizer,
 		registerWatcherFn:    registerWatcherFn,
 		getSettingsFn:        getSettingsFn,
+		leaderCheckFn:        leaderCheckFn,
 		mergeSettingsChunkFn: mergeSettingsChunkFn,
-		isLeaderFn:           isLeaderFn,
 	}
 }
 
@@ -38,14 +39,15 @@ type RegisterWatcherFn func(serviceId string) (watcherId string, _ error)
 // settings for the given service ID.
 type GetSettingsFn func(serviceId string) (map[string]string, error)
 
+// LeaderCheckFn returns a Token whose Check method will return an error
+// if the unit is not leader of the service.
+type LeaderCheckFn func(serviceId, unitId string) leadership.Token
+
 // MergeSettingsChunk declares a function-type which will write the
 // provided settings chunk into the greater leadership settings for
-// the provided service ID.
-type MergeSettingsChunkFn func(serviceId string, settings map[string]string) error
-
-// IsLeaderFn declares a function-type which will return whether the
-// given service-unit-id combination is currently the leader.
-type IsLeaderFn func(serviceId, unitId string) (bool, error)
+// the provided service ID, so long as the supplied Token remains
+// valid.
+type MergeSettingsChunkFn func(token leadership.Token, serviceId string, settings map[string]string) error
 
 // LeadershipSettingsAccessor provides a type which can read, write,
 // and watch leadership settings.
@@ -53,8 +55,8 @@ type LeadershipSettingsAccessor struct {
 	authorizer           common.Authorizer
 	registerWatcherFn    RegisterWatcherFn
 	getSettingsFn        GetSettingsFn
+	leaderCheckFn        LeaderCheckFn
 	mergeSettingsChunkFn MergeSettingsChunkFn
-	isLeaderFn           IsLeaderFn
 }
 
 // Merge merges in the provided leadership settings. Only leaders for
@@ -62,66 +64,68 @@ type LeadershipSettingsAccessor struct {
 func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSettingsBulkParams) (params.ErrorResults, error) {
 
 	callerUnitId := lsa.authorizer.GetAuthTag().Id()
-	errors := make([]params.ErrorResult, len(bulkArgs.Params))
+	requireServiceId, err := names.UnitService(callerUnitId)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := make([]params.ErrorResult, len(bulkArgs.Params))
 
-	for argIdx, arg := range bulkArgs.Params {
+	for i, arg := range bulkArgs.Params {
+		result := &results[i]
 
-		currErr := &errors[argIdx]
-		serviceTag, parseErr := parseServiceTag(arg.ServiceTag)
-		if parseErr != nil {
-			currErr.Error = parseErr
-			continue
-		}
-
-		// Check to ensure we can write settings.
-		isLeader, err := lsa.isLeaderFn(serviceTag.Id(), callerUnitId)
+		// TODO(fwereade): we shoudn't assume a ServiceTag: we should
+		// use an actual auth func to determine permissions.
+		serviceTag, err := names.ParseServiceTag(arg.ServiceTag)
 		if err != nil {
-			currErr.Error = common.ServerError(err)
-			continue
-		}
-		if !isLeader || !lsa.authorizer.AuthUnitAgent() {
-			currErr.Error = common.ServerError(common.ErrPerm)
+			result.Error = common.ServerError(err)
 			continue
 		}
 
-		// TODO(katco-): <2015-01-21 Wed>
-		// There is a race-condition here: if this unit should lose
-		// leadership status between the check above, and actually
-		// writing the settings, another unit could obtain leadership,
-		// write settings, and then those settings could be
-		// overwritten by this request. This will be addressed in a
-		// future PR.
+		serviceId := serviceTag.Id()
+		if serviceId != requireServiceId {
+			result.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
 
-		err = lsa.mergeSettingsChunkFn(serviceTag.Id(), arg.Settings)
+		token := lsa.leaderCheckFn(serviceId, callerUnitId)
+		err = lsa.mergeSettingsChunkFn(token, serviceId, arg.Settings)
 		if err != nil {
-			currErr.Error = common.ServerError(err)
+			result.Error = common.ServerError(err)
 		}
 	}
 
-	return params.ErrorResults{Results: errors}, nil
+	return params.ErrorResults{Results: results}, nil
 }
 
 // Read reads leadership settings for the provided service ID. Any
 // unit of the service may perform this operation.
 func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.Entities) (params.GetLeadershipSettingsBulkResults, error) {
 
+	callerUnitId := lsa.authorizer.GetAuthTag().Id()
+	requireServiceId, err := names.UnitService(callerUnitId)
+	if err != nil {
+		return params.GetLeadershipSettingsBulkResults{}, err
+	}
 	results := make([]params.GetLeadershipSettingsResult, len(bulkArgs.Entities))
-	for argIdx, arg := range bulkArgs.Entities {
 
-		result := &results[argIdx]
+	for i, arg := range bulkArgs.Entities {
+		result := &results[i]
 
-		serviceTag, parseErr := parseServiceTag(arg.Tag)
-		if parseErr != nil {
-			result.Error = parseErr
+		// TODO(fwereade): we shoudn't assume a ServiceTag: we should
+		// use an actual auth func to determine permissions.
+		serviceTag, err := names.ParseServiceTag(arg.Tag)
+		if err != nil {
+			result.Error = common.ServerError(err)
 			continue
 		}
 
-		if !lsa.authorizer.AuthUnitAgent() {
+		serviceId := serviceTag.Id()
+		if serviceId != requireServiceId {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		settings, err := lsa.getSettingsFn(serviceTag.Id())
+		settings, err := lsa.getSettingsFn(serviceId)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
@@ -135,19 +139,33 @@ func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.Entities) (params.Ge
 
 // WatchLeadershipSettings will block the caller until leadership settings
 // for the given service ID change.
-func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(arg params.Entities) (params.NotifyWatchResults, error) {
+func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(bulkArgs params.Entities) (params.NotifyWatchResults, error) {
 
-	results := make([]params.NotifyWatchResult, len(arg.Entities))
-	for entIdx, entity := range arg.Entities {
-		result := &results[entIdx]
+	callerUnitId := lsa.authorizer.GetAuthTag().Id()
+	requireServiceId, err := names.UnitService(callerUnitId)
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	results := make([]params.NotifyWatchResult, len(bulkArgs.Entities))
 
-		serviceTag, parseErr := parseServiceTag(entity.Tag)
-		if parseErr != nil {
-			result.Error = parseErr
+	for i, arg := range bulkArgs.Entities {
+		result := &results[i]
+
+		// TODO(fwereade): we shoudn't assume a ServiceTag: we should
+		// use an actual auth func to determine permissions.
+		serviceTag, err := names.ParseServiceTag(arg.Tag)
+		if err != nil {
+			result.Error = common.ServerError(err)
 			continue
 		}
 
-		watcherId, err := lsa.registerWatcherFn(serviceTag.Id())
+		serviceId := serviceTag.Id()
+		if serviceId != requireServiceId {
+			result.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		watcherId, err := lsa.registerWatcherFn(serviceId)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
@@ -156,16 +174,4 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(arg params.Entiti
 		result.NotifyWatcherId = watcherId
 	}
 	return params.NotifyWatchResults{Results: results}, nil
-}
-
-// parseServiceTag attempts to parse the given serviceTag, and if it
-// fails returns an error which is safe to return to the client -- in
-// both a structure and security context.
-func parseServiceTag(serviceTag string) (names.ServiceTag, *params.Error) {
-	parsedTag, err := names.ParseServiceTag(serviceTag)
-	if err != nil {
-		// We intentionally mask the real error for security purposes.
-		return names.ServiceTag{}, common.ServerError(common.ErrPerm)
-	}
-	return parsedTag, nil
 }

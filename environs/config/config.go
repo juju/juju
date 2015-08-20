@@ -1532,7 +1532,6 @@ var configSchema = environschema.Fields{
 	AgentStreamKey: {
 		Description: `Version of Juju to use for deploy/upgrades.`,
 		Type:        environschema.Tstring,
-		Values:      []interface{}{"released", "devel", "proposed"},
 		Group:       environschema.EnvironGroup,
 	},
 	"agent-version": {

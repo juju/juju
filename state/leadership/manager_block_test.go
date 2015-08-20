@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type BlockUntilLeadershipReleasedSuite struct {
@@ -22,7 +23,7 @@ var _ = gc.Suite(&BlockUntilLeadershipReleasedSuite{})
 
 func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipNotHeld(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		err := blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
@@ -45,7 +46,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpires(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 
@@ -76,7 +77,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipChanged(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 
@@ -101,7 +102,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestLeadershipExpiredEarly(c *gc.C) 
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 
@@ -142,7 +143,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestMultiple(c *gc.C) {
 			err:    lease.ErrInvalid,
 		}},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, clock *coretesting.Clock) {
 		redisTest1 := newBlockTest(manager, "redis")
 		redisTest1.assertBlocked(c)
 		redisTest2 := newBlockTest(manager, "redis")
@@ -173,7 +174,7 @@ func (s *BlockUntilLeadershipReleasedSuite) TestKillManager(c *gc.C) {
 			},
 		},
 	}
-	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *Clock) {
+	fix.RunTest(c, func(manager leadership.ManagerWorker, _ *coretesting.Clock) {
 		blockTest := newBlockTest(manager, "redis")
 		blockTest.assertBlocked(c)
 

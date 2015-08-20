@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
@@ -71,7 +70,6 @@ type Uniter struct {
 	operationExecutor    operation.Executor
 	newOperationExecutor NewExecutorFunc
 
-	leadershipClaimer coreleadership.Claimer
 	leadershipTracker leadership.Tracker
 
 	hookLock    *fslock.Lock
@@ -103,11 +101,11 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	St                   *uniter.State
+	UniterFacade         *uniter.State
 	UnitTag              names.UnitTag
-	LeadershipClaimer    coreleadership.Claimer
+	LeadershipTracker    leadership.Tracker
 	DataDir              string
-	HookLock             *fslock.Lock
+	MachineLock          *fslock.Lock
 	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
 	NewOperationExecutor NewExecutorFunc
@@ -120,10 +118,10 @@ type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (
 // hooks and operations provoked by changes in st.
 func NewUniter(uniterParams *UniterParams) *Uniter {
 	u := &Uniter{
-		st:                   uniterParams.St,
+		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		hookLock:             uniterParams.HookLock,
-		leadershipClaimer:    uniterParams.LeadershipClaimer,
+		hookLock:             uniterParams.MachineLock,
+		leadershipTracker:    uniterParams.LeadershipTracker,
 		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
 		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
 		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
@@ -151,19 +149,6 @@ func (u *Uniter) runCleanups() {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-	// Start tracking leadership state.
-	// TODO(fwereade): ideally, this wouldn't be created here; as a worker it's
-	// clearly better off being managed by a Runner. However, we haven't come up
-	// with a clean way to reference one (lineage of a...) worker from another,
-	// so for now the tracker is accessible only to its unit.
-	leadershipTracker := leadership.NewTrackerWorker(
-		unitTag, u.leadershipClaimer, leadershipGuarantee,
-	)
-	u.addCleanup(func() error {
-		return worker.Stop(leadershipTracker)
-	})
-	u.leadershipTracker = leadershipTracker
-
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -179,8 +164,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	u.addCleanup(u.f.Stop)
 
-	// Stop the uniter if either of these components fails.
-	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
+	// Stop the uniter if the filter fails.
 	go func() { u.tomb.Kill(u.f.Wait()) }()
 
 	// Start handling leader settings events, or not, as appropriate.
@@ -273,8 +257,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
-	runnerFactory, err := runner.NewFactory(
+	contextFactory, err := runner.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
+	)
+	if err != nil {
+		return err
+	}
+	runnerFactory, err := runner.NewFactory(
+		u.st, u.paths, contextFactory,
 	)
 	if err != nil {
 		return err

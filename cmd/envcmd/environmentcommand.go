@@ -96,7 +96,7 @@ func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
-func (c *EnvCommandBase) NewAPIRoot() (*api.State, error) {
+func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the EnvName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
