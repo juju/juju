@@ -1312,6 +1312,7 @@ func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
 }
 
 func (s *UniterSuite) TestActionEvents(c *gc.C) {
+	c.Skip("maltese-falcon: implement actions")
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"simple action event: defined in actions.yaml, no args",
@@ -1716,6 +1717,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 }
 
 func (s *UniterSuite) TestReboot(c *gc.C) {
+	c.Skip("maltese-falcon: implement actions")
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"test that juju-reboot disabled in actions",
