@@ -494,7 +494,9 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		RemoteUnitName:  args.RemoteUnitName,
 		ForceRemoteUnit: args.ForceRemoteUnit,
 	}
-	err = u.runOperation(newCommandsOp(commandArgs, sendResponse))
+	err = u.runOperation(func(f operation.Factory) (operation.Operation, error) {
+		return f.NewCommands(commandArgs, sendResponse)
+	})
 	if err == nil {
 		select {
 		case response := <-responseChan:
@@ -512,6 +514,13 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	}
 	return results, err
 }
+
+// creator exists primarily to make the implementation of the Mode funcs more
+// readable -- the general pattern is to switch to get a creator func (which
+// doesn't allow for the possibility of error) and then to pass the chosen
+// creator down to runOperation (which can then consistently create and run
+// all the operations in the same way).
+type creator func(factory operation.Factory) (operation.Operation, error)
 
 // runOperation uses the uniter's operation factory to run the supplied creation
 // func, and then runs the resulting operation.
