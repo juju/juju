@@ -4,7 +4,6 @@
 package featuretests
 
 import (
-	"flag"
 	"testing"
 
 	gc "gopkg.in/check.v1"
@@ -12,26 +11,20 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var runFeatureTests = flag.Bool("featuretests", true, "Run long-running feature tests.")
-
 func init() {
-
-	flag.Parse()
-
-	if *runFeatureTests == false {
-		return
+	if os.Getenv("JUJU_FEATURE_TESTS") == "1" || *runFeatureTests {
+		// Initialize all suites here.
+		gc.Suite(&cmdJujuSuite{})
+		gc.Suite(&annotationsSuite{})
+		gc.Suite(&apiEnvironmentSuite{})
+		gc.Suite(&blockSuite{})
+		gc.Suite(&apiCharmsSuite{})
+		gc.Suite(&cmdEnvironmentSuite{})
+		gc.Suite(&cmdStorageSuite{})
+		gc.Suite(&cmdSystemSuite{})
+		gc.Suite(&dblogSuite{})
+		gc.Suite(&cloudImageMetadataSuite{})
 	}
-	// Initialize all suites here.
-	gc.Suite(&cmdJujuSuite{})
-	gc.Suite(&annotationsSuite{})
-	gc.Suite(&apiEnvironmentSuite{})
-	gc.Suite(&blockSuite{})
-	gc.Suite(&apiCharmsSuite{})
-	gc.Suite(&cmdEnvironmentSuite{})
-	gc.Suite(&cmdStorageSuite{})
-	gc.Suite(&cmdSystemSuite{})
-	gc.Suite(&dblogSuite{})
-	gc.Suite(&cloudImageMetadataSuite{})
 }
 
 func Test(t *testing.T) {

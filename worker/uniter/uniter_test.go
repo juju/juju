@@ -43,7 +43,11 @@ type UniterSuite struct {
 	updateStatusHookTicker *uniter.ManualTicker
 }
 
-var _ = gc.Suite(&UniterSuite{})
+func init() {
+	if os.Getenv("JUJU_FEATURE_TESTS") == "1" {
+		gc.Suite(&UniterSuite{})
+	}
+}
 
 var leaseClock *coretesting.Clock
 
