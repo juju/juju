@@ -10,6 +10,10 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
+var (
+	DefaultUniterStateDir = defaultUniterStateDir
+)
+
 func Password(config Config) string {
 	c := config.(*configInternal)
 	if c.stateDetails == nil {
@@ -52,6 +56,7 @@ func ConfigFileExists(config Config) bool {
 }
 
 var (
-	MachineJobFromParams = machineJobFromParams
-	IsLocalEnv           = &isLocalEnv
+	MachineJobFromParams   = machineJobFromParams
+	IsLocalEnv             = &isLocalEnv
+	DefaultMetricsSpoolDir = metricsSpoolDir
 )

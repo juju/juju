@@ -40,11 +40,14 @@ type UniterSuite struct {
 	unitDir  string
 
 	collectMetricsTicker   *uniter.ManualTicker
-	sendMetricsTicker      *uniter.ManualTicker
 	updateStatusHookTicker *uniter.ManualTicker
 }
 
-var _ = gc.Suite(&UniterSuite{})
+func init() {
+	if os.Getenv("JUJU_FEATURE_TESTS") == "1" {
+		gc.Suite(&UniterSuite{})
+	}
+}
 
 var leaseClock *coretesting.Clock
 
@@ -89,7 +92,6 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.collectMetricsTicker = uniter.NewManualTicker()
-	s.sendMetricsTicker = uniter.NewManualTicker()
 	s.updateStatusHookTicker = uniter.NewManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
@@ -127,7 +129,6 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				dataDir:                s.dataDir,
 				charms:                 make(map[string][]byte),
 				collectMetricsTicker:   s.collectMetricsTicker,
-				sendMetricsTicker:      s.sendMetricsTicker,
 				updateStatusHookTicker: s.updateStatusHookTicker,
 			}
 			ctx.run(c, t.steps)
@@ -1360,26 +1361,6 @@ func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterSendMetricsBeforeDying(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"metrics must be sent before the unit is destroyed",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			addMetrics{[]string{"5", "42"}},
-			unitDying,
-			waitUniterDead{},
-			checkStateMetrics{number: 1, values: []string{"5", "42"}},
-		),
-	})
-}
-
 func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1452,72 +1433,6 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			quickStart{},
 			collectMetricsTick{expectFail: true},
 			waitHooks{},
-		),
-	})
-}
-
-func (s *UniterSuite) TestUniterSendMetrics(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"send metrics event triggered by manual timer",
-			createCharm{
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			serveCharm{},
-			createUniter{},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			addMetrics{[]string{"15", "17"}},
-			sendMetricsTick{},
-			checkStateMetrics{number: 1, values: []string{"17", "15"}},
-		), ut(
-			"send-metrics resumed after hook error",
-			startupErrorWithCustomCharm{
-				badHook: "config-changed",
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			addMetrics{[]string{"15"}},
-			sendMetricsTick{expectFail: true},
-			fixHook{"config-changed"},
-			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"config-changed", "start"},
-			addMetrics{[]string{"17"}},
-			sendMetricsTick{},
-			checkStateMetrics{number: 2, values: []string{"15", "17"}},
-			verifyRunning{},
-		), ut(
-			"send-metrics state maintained during uniter restart",
-			startupErrorWithCustomCharm{
-				badHook: "config-changed",
-				customize: func(c *gc.C, ctx *context, path string) {
-					ctx.writeMetricsYaml(c, path)
-				},
-			},
-			collectMetricsTick{expectFail: true},
-			addMetrics{[]string{"13"}},
-			sendMetricsTick{expectFail: true},
-			fixHook{"config-changed"},
-			stopUniter{},
-			startUniter{},
-			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"config-changed", "start"},
-			collectMetricsTick{},
-			waitHooks{"collect-metrics"},
-			addMetrics{[]string{"21"}},
-			sendMetricsTick{},
-			checkStateMetrics{number: 2, values: []string{"13", "21"}},
-			verifyRunning{},
-		), ut(
-			"collect-metrics event not triggered for non-metered charm",
-			quickStart{},
-			collectMetricsTick{expectFail: true},
-			addMetrics{[]string{"21"}},
-			sendMetricsTick{expectFail: true},
-			waitHooks{},
-			checkStateMetrics{number: 0},
 		),
 	})
 }
@@ -1883,7 +1798,6 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		dataDir:                s.dataDir,
 		charms:                 make(map[string][]byte),
 		collectMetricsTicker:   s.collectMetricsTicker,
-		sendMetricsTicker:      s.sendMetricsTicker,
 		updateStatusHookTicker: s.updateStatusHookTicker,
 	}
 

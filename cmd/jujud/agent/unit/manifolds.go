@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machinelock"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
@@ -150,6 +151,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
 		}),
+
+		// TODO (mattyw) should be added to machine agent.
+		MetricSpoolName: spool.Manifold(spool.ManifoldConfig{
+			AgentName: AgentName,
+		}),
 	}
 }
 
@@ -166,4 +172,5 @@ const (
 	RsyslogConfigUpdaterName = "rsyslog-config-updater"
 	UniterName               = "uniter"
 	UpgraderName             = "upgrader"
+	MetricSpoolName          = "metric-spool"
 )

@@ -114,10 +114,6 @@ type Factory interface {
 	// NewResignLeadership creates an operation to ensure the uniter does not
 	// act as service leader.
 	NewResignLeadership() (Operation, error)
-
-	// NewSendMetrics creates an operation that sends all metrics collected
-	// by the unit.
-	NewSendMetrics() (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
