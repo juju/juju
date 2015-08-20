@@ -1,10 +1,11 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package relation
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	corecharm "gopkg.in/juju/charm.v5"
@@ -16,11 +17,12 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/solver"
 )
+
+var logger = loggo.GetLogger("juju.worker.uniter.relation")
 
 // Relations exists to encapsulate relation state and operations behind an
 // interface for the benefit of future refactoring.
@@ -42,6 +44,10 @@ type Relations interface {
 	GetInfo() map[int]*runner.RelationInfo
 
 	NextHook(operation.State, remotestate.Snapshot) (hook.Info, error)
+}
+
+func NewRelationsSolver(r Relations, f operation.Factory) solver.Solver {
+	return &relationsSolver{r, f}
 }
 
 type relationsSolver struct {
@@ -70,7 +76,7 @@ type relations struct {
 	abort        <-chan struct{}
 }
 
-func newRelations(st *uniter.State, tag names.UnitTag, paths Paths, abort <-chan struct{}) (*relations, error) {
+func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir string, abort <-chan struct{}) (Relations, error) {
 	unit, err := st.Unit(tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -78,8 +84,8 @@ func newRelations(st *uniter.State, tag names.UnitTag, paths Paths, abort <-chan
 	r := &relations{
 		st:           st,
 		unit:         unit,
-		charmDir:     paths.State.CharmDir,
-		relationsDir: paths.State.RelationsDir,
+		charmDir:     charmDir,
+		relationsDir: relationsDir,
 		relationers:  make(map[int]*Relationer),
 		abort:        abort,
 	}
@@ -105,7 +111,7 @@ func (r *relations) init() error {
 		}
 		joinedRelations[relation.Id()] = relation
 	}
-	knownDirs, err := relation.ReadAllStateDirs(r.relationsDir)
+	knownDirs, err := ReadAllStateDirs(r.relationsDir)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -122,7 +128,7 @@ func (r *relations) init() error {
 		if _, ok := knownDirs[id]; ok {
 			continue
 		}
-		dir, err := relation.ReadStateDir(r.relationsDir, id)
+		dir, err := ReadStateDir(r.relationsDir, id)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -171,7 +177,7 @@ func (r *relations) NextHook(
 // if the states do not refer to the same relation; or ErrRelationUpToDate if
 // no hooks need to be executed.
 func nextRelationHook(
-	local *relation.State,
+	local *State,
 	remote remotestate.RelationSnapshot,
 	remoteBroken bool,
 ) (hook.Info, error) {
@@ -347,7 +353,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 			logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
 			continue
 		}
-		dir, err := relation.ReadStateDir(r.relationsDir, id)
+		dir, err := ReadStateDir(r.relationsDir, id)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -381,7 +387,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 
 // add causes the unit agent to join the supplied relation, and to
 // store persistent state in the supplied dir.
-func (r *relations) add(rel *uniter.Relation, dir *relation.StateDir) (err error) {
+func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 	logger.Infof("joining relation %q", rel)
 	ru, err := rel.Unit(r.unit)
 	if err != nil {

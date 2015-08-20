@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -58,7 +59,7 @@ type Uniter struct {
 	paths Paths
 	//f         filter.Filter
 	unit      *uniter.Unit
-	relations Relations
+	relations relation.Relations
 	cleanups  []cleanup
 	storage   *storage.Attachments
 
@@ -255,10 +256,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		leadershipSolver: uniterleadership.NewSolver(
 			u.operationFactory, u.leadershipTracker,
 		),
-		relationsSolver: &relationsSolver{
-			opFactory: u.operationFactory,
-			relations: u.relations,
-		},
+		relationsSolver: relation.NewRelationsSolver(
+			u.relations, u.operationFactory,
+		),
 		storageSolver: storage.NewSolver(
 			u.operationFactory, u.storage,
 		),
@@ -369,7 +369,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
-	relations, err := newRelations(u.st, unitTag, u.paths, u.tomb.Dying())
+	relations, err := relation.NewRelations(
+		u.st, unitTag, u.paths.State.CharmDir,
+		u.paths.State.RelationsDir, u.tomb.Dying(),
+	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create relations")
 	}
