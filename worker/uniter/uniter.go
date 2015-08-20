@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
@@ -271,6 +272,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			opFactory: u.operationFactory,
 			tracker:   u.leadershipTracker,
 		},
+		relationsSolver: &relationsSolver{
+			opFactory: u.operationFactory,
+			relations: u.relations,
+		},
 	}
 
 	// TODO(axw) this is shitty duplication, clean up
@@ -293,6 +298,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			uniterSolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
 		)
 		switch errors.Cause(err) {
+		case tomb.ErrDying:
+			err = tomb.ErrDying
 		case operation.ErrHookFailed:
 			// Loop back around. The solver can tell that it is in
 			// an error state by inspecting the operation state.
@@ -300,11 +307,44 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		case solver.ErrTerminate:
 			// TODO(axw) wait for subordinates to disappear,
 			// return worker.ErrTerminate.
+			err = u.terminate()
 		}
 	}
 
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
+}
+
+func (u *Uniter) terminate() error {
+	w, err := u.unit.Watch()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer watcher.Stop(w, &u.tomb)
+	for {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case _, ok := <-w.Changes():
+			if !ok {
+				return watcher.EnsureErr(w)
+			}
+			if err := u.unit.Refresh(); err != nil {
+				return errors.Trace(err)
+			}
+			if hasSubs, err := u.unit.HasSubordinates(); err != nil {
+				return errors.Trace(err)
+			} else if hasSubs {
+				continue
+			}
+			// The unit is known to be Dying; so if it didn't have subordinates
+			// just above, it can't acquire new ones before this call.
+			if err := u.unit.EnsureDead(); err != nil {
+				return errors.Trace(err)
+			}
+			return worker.ErrTerminateAgent
+		}
+	}
 }
 
 func (u *Uniter) setupLocks() (err error) {

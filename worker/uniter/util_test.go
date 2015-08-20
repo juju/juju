@@ -1353,10 +1353,6 @@ func (s custom) step(c *gc.C, ctx *context) {
 	s.f(c, ctx)
 }
 
-var serviceDying = custom{func(c *gc.C, ctx *context) {
-	c.Assert(ctx.svc.Destroy(), gc.IsNil)
-}}
-
 var relationDying = custom{func(c *gc.C, ctx *context) {
 	c.Assert(ctx.relation.Destroy(), gc.IsNil)
 }}

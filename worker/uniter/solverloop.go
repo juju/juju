@@ -19,10 +19,11 @@ func solverLoop(
 	for {
 		remoteState := w.Snapshot()
 		op, err := s.NextOp(e.State(), remoteState)
-		for err != solver.ErrNoOperation {
+		for errors.Cause(err) != solver.ErrNoOperation {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			logger.Tracef("running op: %v", op)
 			if err := e.Run(op); err != nil {
 				return errors.Trace(err)
 			}

@@ -95,10 +95,6 @@ type Factory interface {
 	// func.
 	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
 
-	// NewUpdateRelations creates an operation to ensure the supplied relation
-	// ids are known and tracked.
-	NewUpdateRelations(ids []int) (Operation, error)
-
 	// NewUpdateStorage creates an operation to ensure the supplied storage
 	// tags are known and tracked.
 	NewUpdateStorage(tags []names.StorageTag) (Operation, error)
@@ -144,9 +140,6 @@ type Callbacks interface {
 
 	// SetExecutingStatus sets the agent state to "Executing" with a message.
 	SetExecutingStatus(string) error
-
-	// UpdateRelations exists so that we can encapsulate it in an operation.
-	UpdateRelations(ids []int) error
 
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.
