@@ -9,27 +9,65 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
-// AllWatcher holds information allowing us to get Deltas describing changes
-// to the entire environment.
+// AllWatcher holds information allowing us to get Deltas describing
+// changes to the entire environment or all environments (depending on
+// the watcher type).
 type AllWatcher struct {
-	caller base.APICaller
-	id     *string
+	objType string
+	caller  base.APICaller
+	id      *string
 }
 
-func newAllWatcher(caller base.APICaller, id *string) *AllWatcher {
-	return &AllWatcher{caller, id}
+// NewAllWatcher returns an AllWatcher instance which interacts with a
+// watcher created by the WatchAll API call.
+//
+// There should be no need to call this from outside of the api
+// package. It is only used by Client.WatchAll in this package.
+func NewAllWatcher(caller base.APICaller, id *string) *AllWatcher {
+	return newAllWatcher("AllWatcher", caller, id)
 }
 
+// NewAllEnvWatcher returns an AllWatcher instance which interacts
+// with a watcher created by the WatchAllEnvs API call.
+//
+// There should be no need to call this from outside of the api
+// package. It is only used by Client.WatchAllEnvs in
+// api/systemmanager.
+func NewAllEnvWatcher(caller base.APICaller, id *string) *AllWatcher {
+	return newAllWatcher("AllEnvWatcher", caller, id)
+}
+
+func newAllWatcher(objType string, caller base.APICaller, id *string) *AllWatcher {
+	return &AllWatcher{
+		objType: objType,
+		caller:  caller,
+		id:      id,
+	}
+}
+
+// Next returns a new set of deltas from a watcher previously created
+// by the WatchAll or WatchAllEnvs API calls. It will block until
+// there are deltas to return.
 func (watcher *AllWatcher) Next() ([]multiwatcher.Delta, error) {
 	var info params.AllWatcherNextResults
 	err := watcher.caller.APICall(
-		"AllWatcher", watcher.caller.BestFacadeVersion("AllWatcher"),
-		*watcher.id, "Next", nil, &info)
+		watcher.objType,
+		watcher.caller.BestFacadeVersion(watcher.objType),
+		*watcher.id,
+		"Next",
+		nil, &info,
+	)
 	return info.Deltas, err
 }
 
+// Stop shutdowns down a watcher previously created by the WatchAll or
+// WatchAllEnvs API calls
 func (watcher *AllWatcher) Stop() error {
 	return watcher.caller.APICall(
-		"AllWatcher", watcher.caller.BestFacadeVersion("AllWatcher"),
-		*watcher.id, "Stop", nil, nil)
+		watcher.objType,
+		watcher.caller.BestFacadeVersion(watcher.objType),
+		*watcher.id,
+		"Stop",
+		nil, nil,
+	)
 }

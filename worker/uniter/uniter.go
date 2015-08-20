@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/solver"
 	"github.com/juju/juju/worker/uniter/storage"
@@ -355,7 +356,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
-	contextFactory, err := runner.NewContextFactory(
+	contextFactory, err := context.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
 	)
 	if err != nil {
@@ -373,7 +374,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Callbacks:      &operationCallbacks{u},
 		StorageUpdater: u.storage,
 		Abort:          u.tomb.Dying(),
-		MetricSender:   u.unit,
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 

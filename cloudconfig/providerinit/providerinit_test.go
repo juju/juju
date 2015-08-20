@@ -189,6 +189,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	// Use actual series paths instead of local defaults
 	logDir := must(paths.LogDir("quantal"))
+	metricsSpoolDir := must(paths.MetricsSpoolDir("quantal"))
+	uniterStateDir := must(paths.UniterStateDir("quantal"))
 	dataDir := must(paths.DataDir("quantal"))
 	tools := &tools.Tools{
 		URL:     "http://foo.com/tools/released/juju1.2.3-quantal-amd64.tgz",
@@ -225,6 +227,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		},
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
+		MetricsSpoolDir:         metricsSpoolDir,
+		UniterStateDir:          uniterStateDir,
 		Jobs:                    allJobs,
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		Config:                  envConfig,
