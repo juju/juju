@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )
@@ -93,7 +92,7 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 
 func (s *RelationerSuite) TestStateDir(c *gc.C) {
 	// Create the relationer; check its state dir is not created.
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir)
+	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 	path := strconv.Itoa(s.rel.Id())
 	ft.Removed{path}.Check(c, s.dirPath)
 
@@ -116,7 +115,7 @@ func (s *RelationerSuite) TestStateDir(c *gc.C) {
 
 func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir)
+	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 
 	// u/1 does not consider u/0 to be alive.
 	w := ru1.Watch()
@@ -166,13 +165,13 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(ch.Changed, gc.HasLen, 0)
 		c.Assert(ch.Departed, gc.DeepEquals, []string{"u/0"})
-	case <-time.After(worstCase):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for absence detection")
 	}
 }
 
 func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir)
+	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
