@@ -45,9 +45,3 @@ func NewManualTicker() *ManualTicker {
 		c: make(chan time.Time),
 	}
 }
-
-/*
-func UpdateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
-	return updateStatusSignal(now, lastSignal, interval)
-}
-*/
