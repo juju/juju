@@ -19,55 +19,55 @@ type unitWorkloadsSuite struct {
 	baseWorkloadsSuite
 }
 
-func (s *unitWorkloadsSuite) TestAddOkay(c *gc.C) {
+func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
 	workloads := s.newWorkloads("docker", "workloadA")
 	wl := workloads[0]
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Add(wl)
+	err := ps.Track(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Insert")
 	s.persist.checkWorkloads(c, workloads)
 }
 
-func (s *unitWorkloadsSuite) TestAddInvalid(c *gc.C) {
+func (s *unitWorkloadsSuite) TestTrackInvalid(c *gc.C) {
 	wl := s.newWorkloads("", "workloadA")[0]
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Add(wl)
+	err := ps.Track(wl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *unitWorkloadsSuite) TestAddEnsureDefinitionFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	wl := s.newWorkloads("docker", "wlA")[0]
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Add(wl)
+	err := ps.Track(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitWorkloadsSuite) TestAddInsertFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestTrackInsertFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	wl := s.newWorkloads("docker", "workloadA")[0]
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Add(wl)
+	err := ps.Track(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitWorkloadsSuite) TestAddAlreadyExists(c *gc.C) {
+func (s *unitWorkloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 	wl := s.newWorkloads("docker", "workloadA")[0]
 	s.persist.setWorkloads(&wl)
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Add(wl)
+	err := ps.Track(wl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -175,7 +175,7 @@ func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
 	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
 }
 
-func (s *unitWorkloadsSuite) TestListDefinitions(c *gc.C) {
+func (s *unitWorkloadsSuite) TestDefinitions(c *gc.C) {
 	expected := s.newWorkloads("docker", "workloadA", "workloadB")
 	getMetadata := func() (*charm.Meta, error) {
 		meta := &charm.Meta{
@@ -189,7 +189,7 @@ func (s *unitWorkloadsSuite) TestListDefinitions(c *gc.C) {
 	ps := state.UnitWorkloads{Persist: s.persist}
 	ps.Metadata = getMetadata
 
-	definitions, err := ps.ListDefinitions()
+	definitions, err := ps.Definitions()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCalls(c, nil)
@@ -203,34 +203,34 @@ func (s *unitWorkloadsSuite) TestListDefinitions(c *gc.C) {
 	}
 }
 
-func (s *unitWorkloadsSuite) TestRemoveOkay(c *gc.C) {
+func (s *unitWorkloadsSuite) TestUntrackOkay(c *gc.C) {
 	wl := s.newWorkloads("docker", "workloadA")[0]
 	s.persist.setWorkloads(&wl)
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Remove(wl.ID())
+	err := ps.Untrack(wl.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Remove")
+	s.stub.CheckCallNames(c, "Untrack")
 	c.Check(s.persist.workloads, gc.HasLen, 0)
 }
 
-func (s *unitWorkloadsSuite) TestRemoveMissing(c *gc.C) {
+func (s *unitWorkloadsSuite) TestUntrackMissing(c *gc.C) {
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Remove("workloadA/xyz")
+	err := ps.Untrack("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Remove")
+	s.stub.CheckCallNames(c, "Untrack")
 	c.Check(s.persist.workloads, gc.HasLen, 0)
 }
 
-func (s *unitWorkloadsSuite) TestRemoveFailed(c *gc.C) {
+func (s *unitWorkloadsSuite) TestUntrackFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.Remove("workloadA/xyz")
+	err := ps.Untrack("workloadA/xyz")
 
-	s.stub.CheckCallNames(c, "Remove")
+	s.stub.CheckCallNames(c, "Untrack")
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

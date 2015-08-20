@@ -50,8 +50,8 @@ func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag, getMet
 }
 
 // Add registers the provided workload info in state.
-func (ps UnitWorkloads) Add(info workload.Info) error {
-	logger.Tracef("adding %#v", info)
+func (ps UnitWorkloads) Track(info workload.Info) error {
+	logger.Tracef("tracking %#v", info)
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad workload info")
 	}
@@ -108,7 +108,7 @@ func (ps UnitWorkloads) List(ids ...string) ([]workload.Info, error) {
 
 // ListDefinitions builds the list of workload definitions found in the
 // unit's charm metadata.
-func (ps UnitWorkloads) ListDefinitions() ([]charm.Workload, error) {
+func (ps UnitWorkloads) Definitions() ([]charm.Workload, error) {
 	meta, err := ps.Metadata()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -122,8 +122,8 @@ func (ps UnitWorkloads) ListDefinitions() ([]charm.Workload, error) {
 
 // Remove removes the identified workload from state. It does not
 // trigger the actual destruction of the workload.
-func (ps UnitWorkloads) Remove(id string) error {
-	logger.Tracef("removing %q", id)
+func (ps UnitWorkloads) Untrack(id string) error {
+	logger.Tracef("untracking %q", id)
 	// If the record wasn't found then we're already done.
 	_, err := ps.Persist.Remove(id)
 	if err != nil {
