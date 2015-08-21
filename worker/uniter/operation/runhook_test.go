@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -247,7 +247,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks
 }
 
 func (s *RunHookSuite) testExecuteMissingHookError(c *gc.C, newHook newHook) {
-	runErr := runner.NewMissingHookError("blah-blah")
+	runErr := context.NewMissingHookError("blah-blah")
 	for _, kind := range hooks.UnitHooks() {
 		c.Logf("hook %v", kind)
 		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, kind, runErr)
@@ -280,7 +280,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError_Retry(c *gc.C) {
 }
 
 func (s *RunHookSuite) testExecuteRequeueRebootError(c *gc.C, newHook newHook) {
-	runErr := runner.ErrRequeueAndReboot
+	runErr := context.ErrRequeueAndReboot
 	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,7 +307,7 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError_Retry(c *gc.C) {
 }
 
 func (s *RunHookSuite) testExecuteRebootError(c *gc.C, newHook newHook) {
-	runErr := runner.ErrReboot
+	runErr := context.ErrReboot
 	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, newHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)

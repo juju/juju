@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner
+package context
 
 import (
 	"fmt"
@@ -20,6 +20,16 @@ import (
 	"github.com/juju/juju/worker/uniter/metrics"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+// CommandInfo specifies the information necessary to run a command.
+type CommandInfo struct {
+	// RelationId is the relation context to execute the commands in.
+	RelationId int
+	// RemoteUnitName is the remote unit for the relation context.
+	RemoteUnitName string
+	// ForceRemoteUnit skips unit inference and existence validation.
+	ForceRemoteUnit bool
+}
 
 // ContextFactory represents a long-lived object that can create execution contexts
 // relevant to a specific unit.
@@ -355,4 +365,12 @@ func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, str
 		}
 	}
 	return -1, "", errors.Errorf("unknown remote unit %s; possibilities are %+v", remoteUnit, possibles)
+}
+
+func getCharm(charmPath string) (charm.Charm, error) {
+	ch, err := charm.ReadCharm(charmPath)
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
 }

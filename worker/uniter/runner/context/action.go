@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner
+package context
 
 import (
 	"github.com/juju/names"
@@ -19,7 +19,7 @@ type ActionData struct {
 
 // NewActionData builds a suitable ActionData struct with no nil members.
 // this should only be called in the event that an Action hook is being requested.
-func newActionData(name string, tag *names.ActionTag, params map[string]interface{}) *ActionData {
+func NewActionData(name string, tag *names.ActionTag, params map[string]interface{}) *ActionData {
 	return &ActionData{
 		Name:       name,
 		Tag:        *tag,

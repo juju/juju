@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner_test
+package context_test
 
 import (
 	"os"
@@ -20,7 +20,9 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
 type InterfaceSuite struct {
@@ -85,8 +87,8 @@ func (s *InterfaceSuite) TestAddingMetricsWhenNotEnabledFails(c *gc.C) {
 
 func (s *InterfaceSuite) TestAddingMetrics(c *gc.C) {
 	uuid := utils.MustNewUUID()
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), NewRealPaths(c))
-	cleanup := runner.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), runnertesting.NewRealPaths(c))
+	cleanup := context.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
 	defer cleanup()
 
 	now := time.Now()
@@ -109,7 +111,7 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 
 func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	defer runner.PatchCachedStatus(ctx.(runner.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
+	defer context.PatchCachedStatus(ctx.(runner.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
 	status, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(status.Status, gc.Equals, "maintenance")
@@ -210,7 +212,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 // it simply makes sure that Action-related calls to HookContexts with a nil
 // actionData member error out correctly.
 func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
-	ctx := runner.HookContext{}
+	ctx := context.HookContext{}
 	_, err := ctx.ActionParams()
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionFailed()
@@ -262,7 +264,7 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
-		hctx := runner.GetStubActionContext(t.initial)
+		hctx := context.GetStubActionContext(t.initial)
 		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, jc.ErrorIsNil)
 		actionData, err := hctx.ActionData()
@@ -273,7 +275,7 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 
 // TestSetActionFailed ensures SetActionFailed works properly.
 func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
-	hctx := runner.GetStubActionContext(nil)
+	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionFailed()
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
@@ -283,7 +285,7 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 
 // TestSetActionMessage ensures SetActionMessage works properly.
 func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
-	hctx := runner.GetStubActionContext(nil)
+	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
@@ -306,7 +308,7 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Cannot send sigterm on windows")
 	}
-	ctx := runner.HookContext{}
+	ctx := context.HookContext{}
 	p := s.startProcess(c)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
@@ -320,7 +322,7 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
-	ctx := runner.HookContext{}
+	ctx := context.HookContext{}
 	p := s.startProcess(c)
 	ctx.SetProcess(p)
 	go func() {
@@ -339,7 +341,7 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 	// reboot with the --now flag, the process is killed and only
 	// then will we set the reboot priority. This test basically simulates
 	// the case when the process calling juju-reboot is not recorded.
-	ctx := runner.HookContext{}
+	ctx := context.HookContext{}
 	err := ctx.RequestReboot(jujuc.RebootNow)
 	c.Assert(err, gc.ErrorMatches, "no process to kill")
 	priority := ctx.GetRebootPriority()
@@ -353,7 +355,7 @@ func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
 		},
 	}
 
-	ctx := runner.HookContext{}
+	ctx := context.HookContext{}
 	addStorageToContext(&ctx, "data", params.StorageConstraints{})
 	assertStorageAddInContext(c, ctx, expected)
 }
@@ -368,7 +370,7 @@ func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 		},
 	}
 
-	ctx := runner.HookContext{}
+	ctx := context.HookContext{}
 	addStorageToContext(&ctx, "data", params.StorageConstraints{})
 	addStorageToContext(&ctx, "data", params.StorageConstraints{Count: &two})
 	assertStorageAddInContext(c, ctx, expected)
@@ -381,13 +383,13 @@ func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
 			params.StorageConstraints{Count: &two}},
 	}
 
-	ctx := runner.HookContext{}
+	ctx := context.HookContext{}
 	addStorageToContext(&ctx, "data", params.StorageConstraints{})
 	addStorageToContext(&ctx, "diff", params.StorageConstraints{Count: &two})
 	assertStorageAddInContext(c, ctx, expected)
 }
 
-func addStorageToContext(ctx *runner.HookContext,
+func addStorageToContext(ctx *context.HookContext,
 	name string,
 	cons params.StorageConstraints,
 ) {
@@ -396,9 +398,9 @@ func addStorageToContext(ctx *runner.HookContext,
 }
 
 func assertStorageAddInContext(c *gc.C,
-	ctx runner.HookContext, expected map[string][]params.StorageConstraints,
+	ctx context.HookContext, expected map[string][]params.StorageConstraints,
 ) {
-	obtained := ctx.StorageAddConstraints()
+	obtained := context.StorageAddConstraints(&ctx)
 	c.Assert(len(obtained), gc.Equals, len(expected))
 	for k, v := range obtained {
 		c.Assert(v, jc.SameContents, expected[k])
