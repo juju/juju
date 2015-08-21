@@ -25,11 +25,9 @@ var _ = gc.Suite(&DeploySuite{})
 type newDeploy func(operation.Factory, *corecharm.URL) (operation.Operation, error)
 
 func (s *DeploySuite) testPrepareAlreadyDone(
-	c *gc.C, newDeploy newDeploy, kind operation.Kind, expectClearResolvedFlag bool,
+	c *gc.C, newDeploy newDeploy, kind operation.Kind,
 ) {
-	callbacks := &DeployCallbacks{
-		MockClearResolvedFlag: &MockNoArgs{},
-	}
+	callbacks := &DeployCallbacks{}
 	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
 	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -40,14 +38,12 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 	})
 	c.Check(newState, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, operation.ErrSkipExecute)
-	c.Check(callbacks.MockClearResolvedFlag.called, gc.Equals, expectClearResolvedFlag)
 }
 
 func (s *DeploySuite) TestPrepareAlreadyDone_Install(c *gc.C) {
 	s.testPrepareAlreadyDone(c,
 		(operation.Factory).NewInstall,
 		operation.Install,
-		false,
 	)
 }
 
@@ -55,7 +51,6 @@ func (s *DeploySuite) TestPrepareAlreadyDone_Upgrade(c *gc.C) {
 	s.testPrepareAlreadyDone(c,
 		(operation.Factory).NewUpgrade,
 		operation.Upgrade,
-		false,
 	)
 }
 
@@ -63,7 +58,6 @@ func (s *DeploySuite) TestPrepareAlreadyDone_RevertUpgrade(c *gc.C) {
 	s.testPrepareAlreadyDone(c,
 		(operation.Factory).NewRevertUpgrade,
 		operation.Upgrade,
-		true,
 	)
 }
 
@@ -71,7 +65,6 @@ func (s *DeploySuite) TestPrepareAlreadyDone_ResolvedUpgrade(c *gc.C) {
 	s.testPrepareAlreadyDone(c,
 		(operation.Factory).NewResolvedUpgrade,
 		operation.Upgrade,
-		true,
 	)
 }
 

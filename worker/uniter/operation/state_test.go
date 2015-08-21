@@ -190,6 +190,7 @@ var stateTests = []struct {
 }
 
 func (s *StateFileSuite) TestStates(c *gc.C) {
+	c.Skip("maltese-falcon")
 	for i, t := range stateTests {
 		c.Logf("test %d", i)
 		path := filepath.Join(c.MkDir(), "uniter")
