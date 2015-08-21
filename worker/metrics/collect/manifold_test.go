@@ -4,21 +4,28 @@
 package collect_test
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniteravailability"
@@ -26,6 +33,10 @@ import (
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
+
+	dataDir  string
+	oldLcAll string
+
 	manifoldConfig collect.ManifoldConfig
 	manifold       dependency.Manifold
 	dummyResources dt.StubResources
@@ -43,13 +54,41 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		UniterAvailabilityName: "uniteravailability-name",
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
+
+	s.dataDir = c.MkDir()
+	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	// TODO(cmars) Move this ludicrous thing to a single place, where we can at
+	// least reuse among uniter_test and other suites that need tools.
+	cmd := exec.Command("go", "build", "github.com/juju/juju/cmd/jujud")
+	cmd.Dir = toolsDir
+	out, err := cmd.CombinedOutput()
+	c.Logf(string(out))
+	c.Assert(err, jc.ErrorIsNil)
+	s.oldLcAll = os.Getenv("LC_ALL")
+	os.Setenv("LC_ALL", "en_US")
+
 	s.dummyResources = dt.StubResources{
-		"agent-name":              dt.StubResource{Output: &dummyAgent{dataDir: "/path/to/data/dir"}},
+		"agent-name":              dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
 		"apicaller-name":          dt.StubResource{Output: &dummyAPICaller{}},
 		"metric-spool-name":       dt.StubResource{Output: &dummyMetricFactory{}},
 		"uniteravailability-name": dt.StubResource{Output: &dummyUniterAvailability{available: true}},
 	}
 	s.getResource = dt.StubGetResource(s.dummyResources)
+}
+
+func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
+	os.Setenv("LC_ALL", s.oldLcAll)
+}
+
+func (s *ManifoldSuite) SetCharm(c *gc.C, name, unitTag string) {
+	paths := uniter.NewPaths(s.dataDir, names.NewUnitTag(unitTag))
+	err := os.MkdirAll(filepath.Dir(paths.GetCharmDir()), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = fs.Copy(testcharms.Repo.CharmDirPath(name), paths.GetCharmDir())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Log("charmdir=", paths.GetCharmDir())
 }
 
 // TestInputs ensures the collect manifold has the expected defined inputs.
@@ -138,10 +177,10 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 
 func (s *ManifoldSuite) TestDeclaredMetric(c *gc.C) {
 	// TODO(cmars): need to have the runner execute an actual charm hook
-	c.Skip("TODO")
+	s.SetCharm(c, "metered", "u/0")
 	recorder := &dummyRecorder{
-		charmURL: "cs:wordpress-37",
-		unitTag:  "wp/0",
+		charmURL: "local:quantal/metered-1",
+		unitTag:  "u/0",
 		metrics: map[string]corecharm.Metric{
 			"pings": corecharm.Metric{
 				Type:        corecharm.MetricTypeGauge,
@@ -164,10 +203,10 @@ func (s *ManifoldSuite) TestDeclaredMetric(c *gc.C) {
 func (s *ManifoldSuite) TestUndeclaredMetric(c *gc.C) {
 	// TODO(cmars): need to have the runner execute an actual charm hook
 	// that sends an undeclared metric.
-	c.Skip("TODO")
+	s.SetCharm(c, "metered", "u/0")
 	recorder := &dummyRecorder{
-		charmURL: "cs:wordpress-37",
-		unitTag:  "wp/0",
+		charmURL: "cs:metered-1",
+		unitTag:  "u/0",
 	}
 	s.PatchValue(collect.NewRecorder,
 		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
