@@ -148,49 +148,49 @@ class TestFindCandidates(TestCase):
                                   [master_path, master_path_2])
 
 
-class TestFindLatestBranchCandidates(TestCase):
+def make_candidate_dir(root, candidate_id, branch='foo', revision_build=1234,
+                       modified=None):
+    candidates_path = get_candidates_path(root)
+    if not os.path.isdir(candidates_path):
+        os.mkdir(candidates_path)
+    master_path = os.path.join(candidates_path, candidate_id)
+    os.mkdir(master_path)
+    buildvars_path = os.path.join(master_path, 'buildvars.json')
+    with open(buildvars_path, 'w') as buildvars_file:
+        json.dump(
+            {'branch': branch, 'revision_build': str(revision_build)},
+            buildvars_file)
+    if modified is not None:
+        os.utime(buildvars_path, (time(), modified))
+    return master_path
 
-    def make_candidate_dir(self, root, candidate_id, branch='foo',
-                           revision_build=1234, modified=None):
-        candidates_path = get_candidates_path(root)
-        if not os.path.isdir(candidates_path):
-            os.mkdir(candidates_path)
-        master_path = os.path.join(candidates_path, candidate_id)
-        os.mkdir(master_path)
-        buildvars_path = os.path.join(master_path, 'buildvars.json')
-        with open(buildvars_path, 'w') as buildvars_file:
-            json.dump(
-                {'branch': branch, 'revision_build': str(revision_build)},
-                buildvars_file)
-        if modified is not None:
-            os.utime(buildvars_path, (time(), modified))
-        return master_path
+
+class TestFindLatestBranchCandidates(TestCase):
 
     def test_find_latest_branch_candidates(self):
         with temp_dir() as root:
-            master_path = self.make_candidate_dir(root, 'master')
+            master_path = make_candidate_dir(root, 'master')
             self.assertEqual(find_latest_branch_candidates(root),
                              [master_path])
 
     def test_find_latest_branch_candidates_old_buildvars(self):
         with temp_dir() as root:
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
-            master_path = self.make_candidate_dir(
-                root, 'master', modified=a_week_ago)
+            make_candidate_dir(root, 'master', modified=a_week_ago)
             self.assertEqual(find_latest_branch_candidates(root), [])
 
     def test_ignore_older_revision_build(self):
         with temp_dir() as root:
-            path_1234 = self.make_candidate_dir(
+            path_1234 = make_candidate_dir(
                 root, '1234', 'mybranch', '1234')
-            self.make_candidate_dir(root, '1233', 'mybranch', '1233')
+            make_candidate_dir(root, '1233', 'mybranch', '1233')
             self.assertEqual(find_latest_branch_candidates(root), [path_1234])
 
     def test_include_older_revision_build_different_branch(self):
         with temp_dir() as root:
-            path_1234 = self.make_candidate_dir(
+            path_1234 = make_candidate_dir(
                 root, '1234', 'branch_foo', '1234')
-            path_1233 = self.make_candidate_dir(
+            path_1233 = make_candidate_dir(
                 root, '1233', 'branch_bar', '1233')
             self.assertItemsEqual(
                 find_latest_branch_candidates(root), [path_1233, path_1234])
