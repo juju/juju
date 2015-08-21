@@ -20,7 +20,7 @@ def win_test(script_dir, address, juju_home):
             mkdir logs
             python ci\\\\deploy_job.py test-win-client \
                 'c:\\Program Files (x86)\\Juju\\juju.exe' \
-                logs win-client-deploy
+                logs win-client-deploy --series trusty
             """))
 
     ci = [os.path.join(script_dir, f) for f in [
