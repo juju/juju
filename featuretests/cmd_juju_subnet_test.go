@@ -163,13 +163,16 @@ func (s *cmdSubnetSuite) TestSubnetListResultsWithFilters(c *gc.C) {
 	})
 	s.AddSpace(c, "myspace", []string{"10.10.0.0/16"}, true)
 
-	expectedOutput := "{\"subnets\":{\"myspace\":{}}}\n"
 	context := s.RunSuper(c,
 		expectedSuccess,
 		"list", "--zone", "zone1", "--space", "myspace",
 	)
-	s.AssertOutput(c, context,
-		expectedOutput,
-		"", // no stderr output
-	)
+	c.Assert(testing.Stderr(context), gc.Equals, "") // no stderr expected
+	stdout := testing.Stdout(context)
+	c.Assert(stdout, jc.Contains, "subnets:")
+	c.Assert(stdout, jc.Contains, "10.10.0.0/16:")
+	c.Assert(stdout, jc.Contains, "space: myspace")
+	c.Assert(stdout, jc.Contains, "zones:")
+	c.Assert(stdout, jc.Contains, "- zone1")
+	c.Assert(stdout, gc.Not(jc.Contains), "10.0.0.0/8:")
 }
