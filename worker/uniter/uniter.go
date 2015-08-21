@@ -252,17 +252,22 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			err = resolverLoop(
 				uniterResolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
 			)
-			switch errors.Cause(err) {
+			switch cause := errors.Cause(err); cause {
 			case tomb.ErrDying:
 				err = tomb.ErrDying
+			case operation.ErrNeedsReboot:
+				err = worker.ErrRebootMachine
 			case operation.ErrHookFailed:
 				// Loop back around. The resolver can tell that it is in
 				// an error state by inspecting the operation state.
 				err = nil
 			case resolver.ErrTerminate:
-				// TODO(axw) wait for subordinates to disappear,
-				// return worker.ErrTerminate.
 				err = u.terminate()
+			default:
+				if ok := operation.IsDeployConflictError(cause); ok {
+					uniterResolver.conflicted = true
+					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
+				}
 			}
 		}
 
@@ -274,6 +279,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 			err = errors.Annotate(restartErr, "restarting resolver")
 		}
+		break
 	}
 
 	logger.Infof("unit %q shutting down: %s", u.unit, err)

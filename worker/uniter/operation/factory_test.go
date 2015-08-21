@@ -70,14 +70,14 @@ func (s *FactorySuite) TestNewUpgradeString(c *gc.C) {
 func (s *FactorySuite) TestNewRevertUpgradeString(c *gc.C) {
 	s.testNewDeployString(c,
 		(operation.Factory).NewRevertUpgrade,
-		"clear resolved flag and switch upgrade to",
+		"switch upgrade to",
 	)
 }
 
 func (s *FactorySuite) TestNewResolvedUpgradeString(c *gc.C) {
 	s.testNewDeployString(c,
 		(operation.Factory).NewResolvedUpgrade,
-		"clear resolved flag and continue upgrade to",
+		"continue upgrade to",
 	)
 }
 
@@ -196,7 +196,7 @@ func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
 		RelationId: 123,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "clear resolved flag and skip run relation-joined (123; foo/22) hook")
+	c.Check(op.String(), gc.Equals, "skip run relation-joined (123; foo/22) hook")
 }
 
 func (s *FactorySuite) TestNewAcceptLeadershipString(c *gc.C) {

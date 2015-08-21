@@ -220,8 +220,6 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		newState.Started = true
 	case hooks.Stop:
 		newState.Stopped = true
-	case hooks.CollectMetrics:
-		newState.CollectMetricsTime = time.Now().Unix()
 	case hooks.UpdateStatus:
 		newState.UpdateStatusTime = time.Now().Unix()
 	}
