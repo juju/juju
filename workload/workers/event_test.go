@@ -44,6 +44,7 @@ func (s *eventHandlerSuite) checkUnhandled(c *gc.C, eh *workers.EventHandlers, e
 	eventsChan, _, _, _ := workers.ExposeEventHandlers(eh)
 
 	var unhandled [][]workload.Event
+	// Using range here also ensures that the channel is closed.
 	for events := range eventsChan {
 		unhandled = append(unhandled, events)
 	}
@@ -87,9 +88,10 @@ func (s *eventHandlerSuite) TestReset(c *gc.C) {
 	s.stub.CheckCalls(c, nil)
 }
 
-func (s *eventHandlerSuite) TestClose(c *gc.C) {
+func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {
 	eh := workers.NewEventHandlers()
 	c.Assert(eh, gc.NotNil)
+
 	err := eh.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -99,6 +101,22 @@ func (s *eventHandlerSuite) TestClose(c *gc.C) {
 	c.Check(apiClient, gc.IsNil)
 	c.Check(runner, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
+}
+
+func (s *eventHandlerSuite) TestCloseIdempotent(c *gc.C) {
+	eh := workers.NewEventHandlers()
+	c.Assert(eh, gc.NotNil)
+
+	err := eh.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	err = eh.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkUnhandled(c, eh)
+	s.checkRegistered(c, eh)
+	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	c.Check(apiClient, gc.IsNil)
+	c.Check(runner, gc.IsNil)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {

@@ -34,6 +34,8 @@ type EventHandlers struct {
 	apiClient context.APIClient
 	// runner is used in lieu of the engine due to support for stopping.
 	runner worker.Runner
+
+	closed bool
 }
 
 // NewEventHandlers creates a new EventHandlers.
@@ -47,6 +49,7 @@ func NewEventHandlers() *EventHandlers {
 func (eh *EventHandlers) init(apiClient context.APIClient) {
 	eh.events = make(chan []workload.Event)
 	eh.apiClient = apiClient
+	eh.closed = false
 }
 
 // Reset resets the event handlers.
@@ -60,7 +63,10 @@ func (eh *EventHandlers) Reset(apiClient context.APIClient) error {
 
 // Close cleans up the handler's resources.
 func (eh *EventHandlers) Close() error {
-	close(eh.events)
+	if eh.events != nil && !eh.closed {
+		close(eh.events)
+	}
+	eh.closed = true
 	if eh.runner != nil {
 		eh.runner.Kill()
 		if err := eh.runner.Wait(); err != nil {
