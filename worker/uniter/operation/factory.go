@@ -20,7 +20,6 @@ type FactoryParams struct {
 	Callbacks      Callbacks
 	StorageUpdater StorageUpdater
 	Abort          <-chan struct{}
-	MetricSender   apiMetricSender
 	MetricSpoolDir string
 }
 
@@ -182,12 +181,4 @@ func (f *factory) NewResignLeadership() (Operation, error) {
 // NewAcceptLeadership is part of the Factory interface.
 func (f *factory) NewAcceptLeadership() (Operation, error) {
 	return &acceptLeadership{}, nil
-}
-
-// NewSendMetrics is part of the Factory interface.
-func (f *factory) NewSendMetrics() (Operation, error) {
-	return &sendMetrics{
-		sender:   f.config.MetricSender,
-		spoolDir: f.config.MetricSpoolDir,
-	}, nil
 }

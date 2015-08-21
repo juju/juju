@@ -37,7 +37,6 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 // depending on the charm.
 type timerChooser struct {
 	collector TimedSignal
-	sender    TimedSignal
 	inactive  TimedSignal
 }
 
@@ -51,22 +50,11 @@ func (t *timerChooser) getCollectMetricsTimer(ch corecharm.Charm) TimedSignal {
 	return t.inactive
 }
 
-// getSendMetricsTimer returns a timer used to trigger sending metrics
-// to the state server, given the supplied charm.
-func (t *timerChooser) getSendMetricsTimer(ch corecharm.Charm) TimedSignal {
-	metrics := ch.Metrics()
-	if metrics != nil && len(metrics.Metrics) > 0 {
-		return t.sender
-	}
-	return t.inactive
-}
-
 // NewMetricsTimerChooser returns a timerChooser for
-// collect-metrics hook and the send-metrics operation.
+// collect-metrics hook.
 func NewMetricsTimerChooser() *timerChooser {
 	return &timerChooser{
 		collector: activeCollectMetricsTimer,
-		sender:    activeSendMetricsTimer,
 		inactive:  inactiveMetricsTimer,
 	}
 }

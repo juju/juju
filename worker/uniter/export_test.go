@@ -48,10 +48,9 @@ func NewManualTicker() *ManualTicker {
 	}
 }
 
-func NewTestingMetricsTimerChooser(collector TimedSignal, sender TimedSignal) *timerChooser {
+func NewTestingMetricsTimerChooser(collector TimedSignal) *timerChooser {
 	return &timerChooser{
 		collector: collector,
-		sender:    sender,
 		inactive:  inactiveMetricsTimer,
 	}
 }
