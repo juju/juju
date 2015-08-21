@@ -118,6 +118,21 @@ func (s *EngineSuite) TestDoubleInstall(c *gc.C) {
 	mh.AssertNoStart(c)
 }
 
+func (s *EngineSuite) TestInstallCycle(c *gc.C) {
+
+	// Install a worker with an unmet dependency.
+	mh1 := newManifoldHarness("robin-hood")
+	err := s.engine.Install("friar-tuck", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertNoStart(c)
+
+	// Can't install another worker that creates a dependency cycle.
+	mh2 := newManifoldHarness("friar-tuck")
+	err = s.engine.Install("robin-hood", mh2.Manifold())
+	c.Assert(err, gc.ErrorMatches, `cannot install "robin-hood" manifold: cycle detected at .*`)
+	mh2.AssertNoStart(c)
+}
+
 func (s *EngineSuite) TestInstallAlreadyStopped(c *gc.C) {
 
 	// Shut down the engine.
@@ -490,4 +505,38 @@ func (s *EngineSuite) TestConfigValidate(c *gc.C) {
 		err := test.config.Validate()
 		c.Assert(err, gc.ErrorMatches, test.err)
 	}
+}
+
+func (s *EngineSuite) TestValidateEmptyManifolds(c *gc.C) {
+	err := dependency.Validate(dependency.Manifolds{})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *EngineSuite) TestValidateTrivialCycle(c *gc.C) {
+	err := dependency.Validate(dependency.Manifolds{
+		"a": dependency.Manifold{Inputs: []string{"a"}},
+	})
+	c.Check(err.Error(), gc.Equals, `cycle detected at "a" (considering: map[a:true])`)
+}
+
+func (s *EngineSuite) TestValidateComplexManifolds(c *gc.C) {
+
+	// Create a bunch of manifolds with tangled but acyclic dependencies; check
+	// that they pass validation.
+	manifolds := dependency.Manifolds{
+		"root1": dependency.Manifold{},
+		"root2": dependency.Manifold{},
+		"mid1":  dependency.Manifold{Inputs: []string{"root1"}},
+		"mid2":  dependency.Manifold{Inputs: []string{"root1", "root2"}},
+		"leaf1": dependency.Manifold{Inputs: []string{"root2", "mid1"}},
+		"leaf2": dependency.Manifold{Inputs: []string{"root1", "mid2"}},
+		"leaf3": dependency.Manifold{Inputs: []string{"root1", "root2", "mid1", "mid2"}},
+	}
+	err := dependency.Validate(manifolds)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Introduce a cycle; check the manifolds no longer validate.
+	manifolds["root1"] = dependency.Manifold{Inputs: []string{"leaf1"}}
+	err = dependency.Validate(manifolds)
+	c.Check(err, gc.ErrorMatches, "cycle detected at .*")
 }
