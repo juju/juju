@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/solver"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.relation")
@@ -46,16 +46,16 @@ type Relations interface {
 	NextHook(operation.State, remotestate.Snapshot) (hook.Info, error)
 }
 
-func NewRelationsSolver(r Relations, f operation.Factory) solver.Solver {
-	return &relationsSolver{r, f}
+func NewRelationsResolver(r Relations, f operation.Factory) resolver.Resolver {
+	return &relationsResolver{r, f}
 }
 
-type relationsSolver struct {
+type relationsResolver struct {
 	relations Relations
 	opFactory operation.Factory
 }
 
-func (s *relationsSolver) NextOp(
+func (s *relationsResolver) NextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
@@ -164,12 +164,12 @@ func (r *relations) NextHook(
 		// If either the unit or the relation are Dying,
 		// then the relation should be broken.
 		hook, err := nextRelationHook(relationer.dir.State(), relationSnapshot, remoteBroken)
-		if err == solver.ErrNoOperation {
+		if err == resolver.ErrNoOperation {
 			continue
 		}
 		return hook, err
 	}
-	return hook.Info{}, solver.ErrNoOperation
+	return hook.Info{}, resolver.ErrNoOperation
 }
 
 // nextRelationHook returns the next hook op that should be executed in the
@@ -268,7 +268,7 @@ func nextRelationHook(
 	}
 
 	// Nothing left to do for this relation.
-	return hook.Info{}, solver.ErrNoOperation
+	return hook.Info{}, resolver.ErrNoOperation
 }
 
 // Name is part of the Relations interface.

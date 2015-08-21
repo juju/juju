@@ -13,27 +13,34 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/solver"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-type storageSolver struct {
-	opFactory operation.Factory
+// StorageResolverOperations instances know how to make operations
+// required by the resolver.
+type StorageResolverOperations interface {
+	NewUpdateStorage(tags []names.StorageTag) (operation.Operation, error)
+	NewRunHook(hookInfo hook.Info) (operation.Operation, error)
+}
+
+type storageResolver struct {
+	opFactory StorageResolverOperations
 	storage   *Attachments
 	dying     bool
 	life      map[names.StorageTag]params.Life
 }
 
-// NewSolver returns a new storage solver.
-func NewSolver(opFactory operation.Factory, storage *Attachments) solver.Solver {
-	return &storageSolver{
+// NewResolver returns a new storage resolver.
+func NewResolver(opFactory StorageResolverOperations, storage *Attachments) resolver.Resolver {
+	return &storageResolver{
 		opFactory: opFactory,
 		storage:   storage,
 		life:      make(map[names.StorageTag]params.Life),
 	}
 }
 
-// NextOp is defined on the Solver interface.
-func (s *storageSolver) NextOp(
+// NextOp is defined on the Resolver interface.
+func (s *storageResolver) NextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
@@ -61,7 +68,7 @@ func (s *storageSolver) NextOp(
 	return s.nextOp(opState, remoteState)
 }
 
-func (s *storageSolver) nextOp(
+func (s *storageResolver) nextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
@@ -79,7 +86,7 @@ func (s *storageSolver) nextOp(
 	}
 	for tag, snap := range remoteState.Storage {
 		op, err := s.nextHookOp(tag, snap)
-		if errors.Cause(err) == solver.ErrNoOperation {
+		if errors.Cause(err) == resolver.ErrNoOperation {
 			continue
 		}
 		return op, err
@@ -87,19 +94,19 @@ func (s *storageSolver) nextOp(
 	if s.storage.Pending() > 0 {
 		logger.Debugf("still pending %v", s.storage.pending)
 		if !opState.Installed {
-			return nil, solver.ErrWaiting
+			return nil, resolver.ErrWaiting
 		}
 	}
-	return nil, solver.ErrNoOperation
+	return nil, resolver.ErrNoOperation
 }
 
-func (s *storageSolver) nextHookOp(
+func (s *storageResolver) nextHookOp(
 	tag names.StorageTag, snap remotestate.StorageSnapshot,
 ) (operation.Operation, error) {
 	logger.Debugf("next hook op for %v: %+v", tag, snap)
 	storageAttachment, ok := s.storage.storageAttachments[tag]
 	if !ok {
-		return nil, solver.ErrNoOperation
+		return nil, resolver.ErrNoOperation
 	}
 	switch snap.Life {
 	case params.Alive:
@@ -108,19 +115,19 @@ func (s *storageSolver) nextHookOp(
 			// (apart from lifecycle) after being provisioned.
 			// We don't process unprovisioned storage here,
 			// so there's nothing to do.
-			return nil, solver.ErrNoOperation
+			return nil, resolver.ErrNoOperation
 		}
 	case params.Dying:
 		if !storageAttachment.attached {
 			// Nothing to do: attachment is dying, but
 			// the storage-attached hook has not been
 			// consumed.
-			return nil, solver.ErrNoOperation
+			return nil, resolver.ErrNoOperation
 		}
 	case params.Dead:
 		// Storage must have been Dying to become Dead;
 		// no further action is required.
-		return nil, solver.ErrNoOperation
+		return nil, resolver.ErrNoOperation
 	}
 
 	hookInfo := hook.Info{

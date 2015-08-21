@@ -6,11 +6,11 @@ import (
 
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/solver"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-func solverLoop(
-	s solver.Solver,
+func resolverLoop(
+	s resolver.Resolver,
 	w remotestate.Watcher,
 	e operation.Executor,
 	dying <-chan struct{},
@@ -32,10 +32,10 @@ func solverLoop(
 
 		switch errors.Cause(err) {
 		case nil:
-		case solver.ErrWaiting:
-			// If a solver is waiting for events to
+		case resolver.ErrWaiting:
+			// If a resolver is waiting for events to
 			// complete, the agent is not idle.
-		case solver.ErrNoOperation:
+		case resolver.ErrNoOperation:
 			if err := onIdle(); err != nil {
 				return errors.Trace(err)
 			}

@@ -10,30 +10,30 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/solver"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.leadership")
 
-type leadershipSolver struct {
+type leadershipResolver struct {
 	opFactory       operation.Factory
 	settingsVersion int
 }
 
-// NewSolver returns a new leadership solver.
-func NewSolver(opFactory operation.Factory) solver.Solver {
-	return &leadershipSolver{opFactory: opFactory}
+// NewResolver returns a new leadership resolver.
+func NewResolver(opFactory operation.Factory) resolver.Resolver {
+	return &leadershipResolver{opFactory: opFactory}
 }
 
-// NextOp is defined on the Solver interface.
-func (l *leadershipSolver) NextOp(
+// NextOp is defined on the Resolver interface.
+func (l *leadershipResolver) NextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
 
 	// TODO(wallyworld) - maybe this can occur before install
 	if !opState.Installed {
-		return nil, solver.ErrNoOperation
+		return nil, resolver.ErrNoOperation
 	}
 
 	// Check for any leadership change, and enact it if possible.
@@ -84,7 +84,7 @@ func (l *leadershipSolver) NextOp(
 	}
 
 	logger.Infof("leadership status is up-to-date")
-	return nil, solver.ErrNoOperation
+	return nil, resolver.ErrNoOperation
 }
 
 type leadersettingsChangedWrapper struct {

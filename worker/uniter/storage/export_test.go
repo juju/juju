@@ -8,20 +8,12 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
 type State interface {
 	hook.Committer
 	hook.Validator
-}
-
-type StorageHookQueue interface {
-	Empty() bool
-	Next() hook.Info
-	Pop()
-	Update(attachment params.StorageAttachment) error
-	Context() (jujuc.ContextStorageAttachment, bool)
 }
 
 func StateAttached(s State) bool {
@@ -48,4 +40,8 @@ func ReadAllStateFiles(dirPath string) (map[names.StorageTag]State, error) {
 		states[tag] = f
 	}
 	return states, nil
+}
+
+func SetStorageLife(resolver resolver.Resolver, life map[names.StorageTag]params.Life) {
+	resolver.(*storageResolver).life = life
 }

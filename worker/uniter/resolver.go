@@ -9,10 +9,10 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/juju/worker/uniter/solver"
+	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-type uniterSolver struct {
+type uniterResolver struct {
 	opFactory       operation.Factory
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
@@ -20,12 +20,12 @@ type uniterSolver struct {
 	charmURL      *charm.URL
 	configVersion int
 
-	leadershipSolver solver.Solver
-	relationsSolver  solver.Solver
-	storageSolver    solver.Solver
+	leadershipResolver resolver.Resolver
+	relationsResolver  resolver.Resolver
+	storageResolver    resolver.Resolver
 }
 
-func (s *uniterSolver) NextOp(
+func (s *uniterResolver) NextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
@@ -35,13 +35,13 @@ func (s *uniterSolver) NextOp(
 		return s.opFactory.NewUpgrade(opState.CharmURL)
 	}
 
-	op, err := s.leadershipSolver.NextOp(opState, remoteState)
-	if errors.Cause(err) != solver.ErrNoOperation {
+	op, err := s.leadershipResolver.NextOp(opState, remoteState)
+	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.storageSolver.NextOp(opState, remoteState)
-	if errors.Cause(err) != solver.ErrNoOperation {
+	op, err = s.storageResolver.NextOp(opState, remoteState)
+	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
@@ -73,7 +73,7 @@ func (s *uniterSolver) NextOp(
 	}
 }
 
-func (s *uniterSolver) nextOpHookError(
+func (s *uniterResolver) nextOpHookError(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
@@ -90,7 +90,7 @@ func (s *uniterSolver) nextOpHookError(
 
 	switch remoteState.ResolvedMode {
 	case params.ResolvedNone:
-		return nil, solver.ErrNoOperation
+		return nil, resolver.ErrNoOperation
 	case params.ResolvedRetryHooks:
 		if err := s.clearResolved(); err != nil {
 			return nil, errors.Trace(err)
@@ -108,7 +108,7 @@ func (s *uniterSolver) nextOpHookError(
 	}
 }
 
-func (s *uniterSolver) nextOp(
+func (s *uniterResolver) nextOp(
 	opState operation.State,
 	remoteState remotestate.Snapshot,
 ) (operation.Operation, error) {
@@ -118,8 +118,8 @@ func (s *uniterSolver) nextOp(
 	case params.Dying:
 		// Normally we handle relations last, but if we're dying we
 		// must ensure that all relations are broken first.
-		op, err := s.relationsSolver.NextOp(opState, remoteState)
-		if errors.Cause(err) != solver.ErrNoOperation {
+		op, err := s.relationsResolver.NextOp(opState, remoteState)
+		if errors.Cause(err) != resolver.ErrNoOperation {
 			return op, err
 		}
 
@@ -138,7 +138,7 @@ func (s *uniterSolver) nextOp(
 	case params.Dead:
 		// The unit is dying/dead and stopped, so tell the uniter
 		// to terminate.
-		return nil, solver.ErrTerminate
+		return nil, resolver.ErrTerminate
 	}
 
 	// Now that storage hooks have run at least once, before anything else,
@@ -162,7 +162,7 @@ func (s *uniterSolver) nextOp(
 		}, nil
 	}
 
-	return s.relationsSolver.NextOp(opState, remoteState)
+	return s.relationsResolver.NextOp(opState, remoteState)
 }
 
 type updateVersionHookWrapper struct {

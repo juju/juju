@@ -16,6 +16,8 @@ import (
 	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/storage"
 )
 
@@ -173,7 +175,7 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// There should be no context for data/0 until a hook is queued.
+	// There should be no context for data/0 until a required remote state change occurs.
 	_, ok := att.Storage(storageTag)
 	c.Assert(ok, jc.IsFalse)
 	assertStorageTags(c, att)
@@ -181,6 +183,25 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	err = att.UpdateStorage([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
 	assertStorageTags(c, att, storageTag)
+
+	resolver := storage.NewResolver(&mockOperations{}, att)
+	storage.SetStorageLife(resolver, map[names.StorageTag]params.Life{
+		storageTag: params.Alive,
+	})
+	localState := operation.State{}
+	remoteState := remotestate.Snapshot{
+		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
+			storageTag: remotestate.StorageSnapshot{
+				Kind:     params.StorageKindBlock,
+				Life:     params.Alive,
+				Location: "/dev/sdb",
+				Attached: true,
+			},
+		},
+	}
+	op, err := resolver.NextOp(localState, remoteState)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run hook storage-attached")
 
 	ctx, ok := att.Storage(storageTag)
 	c.Assert(ok, jc.IsTrue)
