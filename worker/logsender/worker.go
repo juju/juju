@@ -13,10 +13,12 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/gate"
 )
 
 const loggerName = "juju.worker.logsender"
@@ -25,10 +27,17 @@ var logger = loggo.GetLogger(loggerName)
 
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the JES via the logsink API.
-func New(logs LogRecordCh, apiInfo *api.Info) worker.Worker {
+func New(logs LogRecordCh, apiInfoGate gate.Waiter, agent agent.Agent) worker.Worker {
 	loop := func(stop <-chan struct{}) error {
-		logger.Debugf("starting logsender worker")
+		logger.Debugf("started log-sender worker; waiting for api info")
+		select {
+		case <-apiInfoGate.Unlocked():
+		case <-stop:
+			return nil
+		}
 
+		logger.Debugf("dialing log-sender connection")
+		apiInfo := agent.CurrentConfig().APIInfo()
 		conn, err := dialLogsinkAPI(apiInfo)
 		if err != nil {
 			return errors.Annotate(err, "logsender dial failed")
