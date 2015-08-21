@@ -4,7 +4,7 @@
 package params
 
 // ImageMetadataFilter holds filter properties used to search for image metadata.
-// This is amalgamates both simplestreams.MetadataLookupParams and simplestreams.LookupParams
+// It amalgamates both simplestreams.MetadataLookupParams and simplestreams.LookupParams
 // and adds additional properties to satisfy existing and new use cases.
 type ImageMetadataFilter struct {
 	// Region stores metadata region.

@@ -23,16 +23,15 @@ type Client struct {
 // NewClient returns a new metadata client.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "ImageMetadata")
-	logger.Debugf("\n IMAGE METADATA FRONT-END: %#v", frontend)
-	logger.Debugf("\n IMAGE METADATA BACK-END: %#v", backend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // List returns image metadata that matches filter.
 // Empty filter will return all image metadata.
 func (c *Client) List(
-	region, stream, virtualType, rootStorageType string,
+	stream, region string,
 	series, arches []string,
+	virtualType, rootStorageType string,
 ) ([]params.CloudImageMetadata, error) {
 	in := params.ImageMetadataFilter{
 		Region:          region,

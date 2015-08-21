@@ -68,8 +68,9 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 		})
 	client := imagemetadata.NewClient(apiCaller)
 	found, err := client.List(
-		region, stream, virtualType, rootStorageType,
+		stream, region,
 		[]string{series}, []string{arch},
+		virtualType, rootStorageType,
 	)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -107,7 +108,7 @@ func (s *imagemetadataSuite) TestListFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := imagemetadata.NewClient(apiCaller)
-	found, err := client.List("", "", "", "", nil, nil)
+	found, err := client.List("", "", nil, nil, "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
 	c.Assert(called, jc.IsTrue)
