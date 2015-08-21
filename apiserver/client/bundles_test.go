@@ -7,8 +7,6 @@ import (
 	"github.com/juju/bundlechanges"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 type bundlesSuite struct {
@@ -18,8 +16,10 @@ type bundlesSuite struct {
 var _ = gc.Suite(&bundlesSuite{})
 
 func (s *bundlesSuite) TestGetBundleChangesBundleContentError(c *gc.C) {
-	_, err := s.APIState.Client().GetBundleChanges(":")
+	changes, errors, err := s.APIState.Client().GetBundleChanges(":")
 	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: YAML error: did not find expected key`)
+	c.Assert(changes, gc.IsNil)
+	c.Assert(errors, gc.IsNil)
 }
 
 func (s *bundlesSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
@@ -32,10 +32,10 @@ func (s *bundlesSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
                 charm: 42
                 num_units: -1
     `
-	r, err := s.APIState.Client().GetBundleChanges(yaml)
+	changes, errors, err := s.APIState.Client().GetBundleChanges(yaml)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
+	c.Assert(changes, gc.IsNil)
+	c.Assert(errors, jc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
 		`too many units specified in unit placement for service "django"`,
 		`invalid charm URL in service "haproxy": charm URL has invalid charm name: "42"`,
@@ -56,32 +56,31 @@ func (s *bundlesSuite) TestGetBundleChangesSuccess(c *gc.C) {
             - - django:web
               - haproxy:web
     `
-	r, err := s.APIState.Client().GetBundleChanges(yaml)
+	changes, errors, err := s.APIState.Client().GetBundleChanges(yaml)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, jc.DeepEquals, &params.GetBundleChangesResults{
-		Changes: []*bundlechanges.Change{{
-			Id:     "addCharm-0",
-			Method: "addCharm",
-			Args:   []interface{}{"django"},
-		}, {
-			Id:       "addService-1",
-			Method:   "deploy",
-			Args:     []interface{}{"django", "django", map[string]interface{}{"debug": true}},
-			Requires: []string{"addCharm-0"},
-		}, {
-			Id:     "addCharm-2",
-			Method: "addCharm",
-			Args:   []interface{}{"cs:trusty/haproxy-42"},
-		}, {
-			Id:       "addService-3",
-			Method:   "deploy",
-			Args:     []interface{}{"cs:trusty/haproxy-42", "haproxy", map[string]interface{}{}},
-			Requires: []string{"addCharm-2"},
-		}, {
-			Id:       "addRelation-4",
-			Method:   "addRelation",
-			Args:     []interface{}{"$addService-1:web", "$addService-3:web"},
-			Requires: []string{"addService-1", "addService-3"},
-		}},
-	})
+	c.Assert(changes, jc.DeepEquals, []*bundlechanges.Change{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django"},
+	}, {
+		Id:       "addService-1",
+		Method:   "deploy",
+		Args:     []interface{}{"django", "django", map[string]interface{}{"debug": true}},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:trusty/haproxy-42"},
+	}, {
+		Id:       "addService-3",
+		Method:   "deploy",
+		Args:     []interface{}{"cs:trusty/haproxy-42", "haproxy", map[string]interface{}{}},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$addService-1:web", "$addService-3:web"},
+		Requires: []string{"addService-1", "addService-3"},
+	}})
+	c.Assert(errors, gc.IsNil)
 }

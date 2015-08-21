@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -613,12 +614,24 @@ func (c *Client) DestroyEnvironment() error {
 
 // GetBundleChanges returns the list of changes required to deploy the given
 // bundle data. The changes are sorted by requirements, so that they can be
-// applied in order.
-func (c *Client) GetBundleChanges(yaml string) (*params.GetBundleChangesResults, error) {
-	var results params.GetBundleChangesResults
-	args := params.GetBundleChanges{YAML: yaml}
-	err := c.facade.FacadeCall("GetBundleChanges", args, &results)
-	return &results, err
+// applied in order. If the bundle data is not valid, a list of verification
+// errors is returned instead.
+func (c *Client) GetBundleChanges(yaml string) (changes []*bundlechanges.Change, errors []string, err error) {
+	var r params.GetBundleChangesResults
+	args := params.GetBundleChangesParams{BundleDataYAML: yaml}
+	err = c.facade.FacadeCall("GetBundleChanges", args, &r)
+	if r.Changes != nil {
+		changes = make([]*bundlechanges.Change, len(r.Changes))
+		for i, c := range r.Changes {
+			changes[i] = &bundlechanges.Change{
+				Id:       c.Id,
+				Method:   c.Method,
+				Args:     c.Args,
+				Requires: c.Requires,
+			}
+		}
+	}
+	return changes, r.Errors, err
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its

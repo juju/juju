@@ -16,9 +16,9 @@ import (
 // GetBundleChanges returns the list of changes required to deploy the given
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
-func (c *Client) GetBundleChanges(args params.GetBundleChanges) (params.GetBundleChangesResults, error) {
+func (c *Client) GetBundleChanges(args params.GetBundleChangesParams) (params.GetBundleChangesResults, error) {
 	var results params.GetBundleChangesResults
-	data, err := charm.ReadBundleData(strings.NewReader(args.YAML))
+	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
 		return results, errors.Annotate(err, "cannot read bundle YAML")
 	}
@@ -34,6 +34,15 @@ func (c *Client) GetBundleChanges(args params.GetBundleChanges) (params.GetBundl
 		// This should never happen as Verify only returns verification errors.
 		return results, errors.Annotate(err, "cannot verify bundle")
 	}
-	results.Changes = bundlechanges.FromData(data)
+	changes := bundlechanges.FromData(data)
+	results.Changes = make([]*params.BundleChangesChange, len(changes))
+	for i, c := range changes {
+		results.Changes[i] = &params.BundleChangesChange{
+			Id:       c.Id,
+			Method:   c.Method,
+			Args:     c.Args,
+			Requires: c.Requires,
+		}
+	}
 	return results, nil
 }
