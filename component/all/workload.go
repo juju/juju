@@ -171,6 +171,8 @@ func (c workloads) registerUnitWorkers() *workers.EventHandlers {
 
 	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
 		// At this point no workload workers are running for the unit.
+		// TODO(ericsnow) Move this code to workers.Manifold
+		// (and ManifoldConfig)?
 		apiConfig := util.ApiManifoldConfig{
 			APICallerName: unit.APICallerName,
 		}

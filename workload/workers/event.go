@@ -24,6 +24,8 @@ const (
 
 // TODO(ericsnow) Switch handlers to...manifests? workers?
 
+// TODO(ericsnow) Implement ManifoldConfig and Manifold() here?
+
 // EventHandlers orchestrates handling of events on workloads.
 type EventHandlers struct {
 	events   chan []workload.Event
