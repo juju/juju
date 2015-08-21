@@ -39,11 +39,11 @@ func (s *storageSolver) NextOp(
 ) (operation.Operation, error) {
 
 	var changed []names.StorageTag
-	for _, storage := range remoteState.Storage {
-		life, ok := s.life[storage.Tag]
+	for tag, storage := range remoteState.Storage {
+		life, ok := s.life[tag]
 		if !ok || life != storage.Life {
-			s.life[storage.Tag] = storage.Life
-			changed = append(changed, storage.Tag)
+			s.life[tag] = storage.Life
+			changed = append(changed, tag)
 		}
 	}
 	for tag := range s.life {
@@ -77,8 +77,8 @@ func (s *storageSolver) nextOp(
 			remoteState.Storage[tag] = snap
 		}
 	}
-	for _, snap := range remoteState.Storage {
-		op, err := s.nextHookOp(snap)
+	for tag, snap := range remoteState.Storage {
+		op, err := s.nextHookOp(tag, snap)
 		if errors.Cause(err) == solver.ErrNoOperation {
 			continue
 		}
@@ -93,9 +93,11 @@ func (s *storageSolver) nextOp(
 	return nil, solver.ErrNoOperation
 }
 
-func (s *storageSolver) nextHookOp(snap remotestate.StorageSnapshot) (operation.Operation, error) {
-	logger.Debugf("next hook op for %+v", snap)
-	storageAttachment, ok := s.storage.storageAttachments[snap.Tag]
+func (s *storageSolver) nextHookOp(
+	tag names.StorageTag, snap remotestate.StorageSnapshot,
+) (operation.Operation, error) {
+	logger.Debugf("next hook op for %v: %+v", tag, snap)
+	storageAttachment, ok := s.storage.storageAttachments[tag]
 	if !ok {
 		return nil, solver.ErrNoOperation
 	}
@@ -122,7 +124,7 @@ func (s *storageSolver) nextHookOp(snap remotestate.StorageSnapshot) (operation.
 	}
 
 	hookInfo := hook.Info{
-		StorageId: snap.Tag.Id(),
+		StorageId: tag.Id(),
 	}
 	if snap.Life == params.Alive {
 		hookInfo.Kind = hooks.StorageAttached
@@ -130,12 +132,12 @@ func (s *storageSolver) nextHookOp(snap remotestate.StorageSnapshot) (operation.
 		hookInfo.Kind = hooks.StorageDetaching
 	}
 	context := &contextStorage{
-		tag:      snap.Tag,
+		tag:      tag,
 		kind:     storage.StorageKind(snap.Kind),
 		location: snap.Location,
 	}
 	storageAttachment.ContextStorageAttachment = context
-	s.storage.storageAttachments[snap.Tag] = storageAttachment
+	s.storage.storageAttachments[tag] = storageAttachment
 
 	logger.Debugf("queued hook: %v", hookInfo)
 	return s.opFactory.NewRunHook(hookInfo)

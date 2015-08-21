@@ -108,13 +108,17 @@ func (st *mockState) StorageAttachment(
 	if unitTag != st.unit.tag {
 		return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
 	}
-	for _, attachment := range st.storageAttachment {
-		if attachment.StorageTag != storageTag.String() {
-			continue
-		}
-		return attachment, nil
+	attachment, ok := st.storageAttachment[params.StorageAttachmentId{
+		UnitTag:    unitTag.String(),
+		StorageTag: storageTag.String(),
+	}]
+	if !ok {
+		return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
 	}
-	return params.StorageAttachment{}, &params.Error{Code: params.CodeNotFound}
+	if attachment.Kind == params.StorageKindUnknown {
+		return params.StorageAttachment{}, &params.Error{Code: params.CodeNotProvisioned}
+	}
+	return attachment, nil
 }
 
 func (st *mockState) StorageAttachmentLife(

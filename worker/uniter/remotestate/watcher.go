@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
@@ -23,15 +24,15 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
-	st                         State
-	unit                       Unit
-	service                    Service
-	relations                  map[names.RelationTag]*relationUnitsWatcher
-	relationUnitsChanges       chan relationUnitsChange
-	storageAttachementWatchers map[names.StorageTag]*storageAttachmentWatcher
-	storageAttachment          chan StorageSnapshotEvent
-	leadershipTracker          leadership.Tracker
-	tomb                       tomb.Tomb
+	st                        State
+	unit                      Unit
+	service                   Service
+	relations                 map[names.RelationTag]*relationUnitsWatcher
+	relationUnitsChanges      chan relationUnitsChange
+	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
+	storageAttachmentChanges  chan storageAttachmentChange
+	leadershipTracker         leadership.Tracker
+	tomb                      tomb.Tomb
 
 	out     chan struct{}
 	mu      sync.Mutex
@@ -42,13 +43,13 @@ type RemoteStateWatcher struct {
 // supplied unit.
 func NewWatcher(st State, leadershipTracker leadership.Tracker, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{
-		st:                         st,
-		relations:                  make(map[names.RelationTag]*relationUnitsWatcher),
-		relationUnitsChanges:       make(chan relationUnitsChange),
-		storageAttachementWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
-		storageAttachment:          make(chan StorageSnapshotEvent),
-		leadershipTracker:          leadershipTracker,
-		out:                        make(chan struct{}),
+		st:                        st,
+		relations:                 make(map[names.RelationTag]*relationUnitsWatcher),
+		relationUnitsChanges:      make(chan relationUnitsChange),
+		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
+		storageAttachmentChanges:  make(chan storageAttachmentChange),
+		leadershipTracker:         leadershipTracker,
+		out:                       make(chan struct{}),
 		current: Snapshot{
 			Relations: make(map[int]RelationSnapshot),
 			Storage:   make(map[names.StorageTag]StorageSnapshot),
@@ -61,7 +62,7 @@ func NewWatcher(st State, leadershipTracker leadership.Tracker, unitTag names.Un
 		defer w.tomb.Done()
 		err := w.loop(unitTag)
 		logger.Errorf("remote state watcher exited: %v", err)
-		w.tomb.Kill(err)
+		w.tomb.Kill(errors.Cause(err))
 	}()
 	return w, nil
 }
@@ -325,12 +326,10 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			waitLeader = nil
 			waitMinion = w.leadershipTracker.WaitMinion().Ready()
 
-		case event, ok := <-w.storageAttachment:
-			logger.Debugf("storage %v snapshot event %v", event.Tag, event)
-			if ok {
-				if err := w.storageAttachmentChanged(event); err != nil {
-					return err
-				}
+		case change := <-w.storageAttachmentChanges:
+			logger.Debugf("storage attachment change %v", change)
+			if err := w.storageAttachmentChanged(change); err != nil {
+				return err
 			}
 
 		case change := <-w.relationUnitsChanges:
@@ -435,27 +434,40 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			relationSnapshot := RelationSnapshot{
-				Life:    rel.Life(),
-				Members: make(map[string]int64),
+			if err := w.watchRelationUnits(rel, relationTag, in); err != nil {
+				watcher.Stop(in, &w.tomb)
+				return errors.Trace(err)
 			}
-			select {
-			case <-w.tomb.Dying():
-				return tomb.ErrDying
-			case change, ok := <-in.Changes():
-				if !ok {
-					return watcher.EnsureErr(in)
-				}
-				for unit, settings := range change.Changed {
-					relationSnapshot.Members[unit] = settings.Version
-				}
-			}
-			w.current.Relations[rel.Id()] = relationSnapshot
-			w.relations[relationTag] = newRelationUnitsWatcher(
-				rel.Id(), in, w.relationUnitsChanges,
-			)
 		}
 	}
+	return nil
+}
+
+// watchRelationUnits starts watching the relation units for the given
+// relation, waits for its first event, and records the information in
+// the current snapshot.
+func (w *RemoteStateWatcher) watchRelationUnits(
+	rel Relation, relationTag names.RelationTag, in apiwatcher.RelationUnitsWatcher,
+) error {
+	relationSnapshot := RelationSnapshot{
+		Life:    rel.Life(),
+		Members: make(map[string]int64),
+	}
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case change, ok := <-in.Changes():
+		if !ok {
+			return watcher.EnsureErr(in)
+		}
+		for unit, settings := range change.Changed {
+			relationSnapshot.Members[unit] = settings.Version
+		}
+	}
+	w.current.Relations[rel.Id()] = relationSnapshot
+	w.relations[relationTag] = newRelationUnitsWatcher(
+		rel.Id(), in, w.relationUnitsChanges,
+	)
 	return nil
 }
 
@@ -477,13 +489,9 @@ func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) er
 }
 
 // storageAttachmentChanged responds to storage attachment changes.
-func (w *RemoteStateWatcher) storageAttachmentChanged(event StorageSnapshotEvent) error {
+func (w *RemoteStateWatcher) storageAttachmentChanged(change storageAttachmentChange) error {
 	w.mu.Lock()
-	if event.remove {
-		delete(w.current.Storage, event.StorageSnapshot.Tag)
-	} else {
-		w.current.Storage[event.StorageSnapshot.Tag] = event.StorageSnapshot
-	}
+	w.current.Storage[change.Tag] = change.Snapshot
 	w.mu.Unlock()
 	return nil
 }
@@ -505,70 +513,83 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	for i, result := range results {
-		logger.Debugf("storage result %v", result)
-		tag := tags[i]
-		// If the storage is alive and present, we start a watcher for it.
-		if result.Error == nil {
-			storageSnapshot, ok := w.current.Storage[tag]
-			if !ok {
-				// TODO(wallyworld) - this should be there after consuming initial watcher event
-				storageSnapshot = StorageSnapshot{
-					Tag:  tag,
-					Life: result.Life,
-				}
-			}
-			storageSnapshot.Life = result.Life
-			w.current.Storage[tag] = storageSnapshot
 
-			if err := w.startStorageAttachmentWatcher(tag); err != nil {
-				return errors.Annotatef(
-					err, "starting watcher of %s attachment",
-					names.ReadableString(tag),
-				)
+	for i, result := range results {
+		tag := tags[i]
+		if result.Error == nil {
+			if storageSnapshot, ok := w.current.Storage[tag]; ok {
+				// We've previously started a watcher for this storage
+				// attachment, so all we needed to do was update the
+				// lifecycle state.
+				storageSnapshot.Life = result.Life
+				w.current.Storage[tag] = storageSnapshot
+				continue
+			}
+			// We haven't seen this storage attachment before, so start
+			// a watcher now and wait for the initial event.
+			in, err := w.st.WatchStorageAttachment(tag, w.unit.Tag())
+			if err != nil {
+				return errors.Annotate(err, "watching storage attachment")
+			}
+			if err := w.watchStorageAttachment(tag, result.Life, in); err != nil {
+				watcher.Stop(in, &w.tomb)
+				return errors.Trace(err)
 			}
 		} else if params.IsCodeNotFound(result.Error) {
-			delete(w.current.Storage, tag)
-			if err := w.stopStorageAttachmentWatcher(tag); err != nil {
-				return errors.Annotatef(
-					err, "stopping watcher of %s attachment",
-					names.ReadableString(tag),
-				)
+			if watcher, ok := w.storageAttachmentWatchers[tag]; ok {
+				if err := watcher.Stop(); err != nil {
+					return errors.Annotatef(
+						err, "stopping watcher of %s attachment",
+						names.ReadableString(tag),
+					)
+				}
+				delete(w.storageAttachmentWatchers, tag)
 			}
+			delete(w.current.Storage, tag)
 		} else {
-			logger.Errorf("error getting life of %v attachment: %v", names.ReadableString(tag), err)
 			return errors.Annotatef(
 				result.Error, "getting life of %s attachment",
 				names.ReadableString(tag),
 			)
 		}
 	}
-	logger.Debugf("storage change. snapshot is %v", w.current.Storage)
 	return nil
 }
 
-func (w *RemoteStateWatcher) startStorageAttachmentWatcher(tag names.StorageTag) error {
-	if _, ok := w.storageAttachementWatchers[tag]; ok {
-		return nil
+// watchStorageAttachment starts watching the storage attachment with
+// the specified storage tag, waits for its first event, and records
+// the information in the current snapshot.
+func (w *RemoteStateWatcher) watchStorageAttachment(
+	tag names.StorageTag,
+	life params.Life,
+	in apiwatcher.NotifyWatcher,
+) error {
+	var storageSnapshot StorageSnapshot
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case _, ok := <-in.Changes():
+		if !ok {
+			return watcher.EnsureErr(in)
+		}
+		var err error
+		storageSnapshot, err = getStorageSnapshot(w.st, tag, w.unit.Tag())
+		if params.IsCodeNotProvisioned(err) {
+			// If the storage is unprovisioned, we still want to
+			// record the attachment, but we'll mark it as
+			// unattached. This allows the uniter to wait for
+			// pending storage attachments to be provisioned.
+			storageSnapshot = StorageSnapshot{Life: life}
+		} else if err != nil {
+			return errors.Annotatef(err, "processing initial storage attachment change")
+		}
 	}
-	logger.Debugf("starting storage attachment watcher for %v", tag)
-	watcher, err := newStorageAttachmentWatcher(w.st, w.unit.Tag(), tag, w.storageAttachment)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.storageAttachementWatchers[tag] = watcher
-	return nil
-}
-
-func (w *RemoteStateWatcher) stopStorageAttachmentWatcher(tag names.StorageTag) error {
-	if watcher, ok := w.storageAttachementWatchers[tag]; !ok {
-		return nil
-	} else {
-		delete(w.storageAttachementWatchers, tag)
-		logger.Debugf("stopping storage attachment watcher for %v", tag)
-		return watcher.Stop()
-	}
+	w.current.Storage[tag] = storageSnapshot
+	w.storageAttachmentWatchers[tag] = newStorageAttachmentWatcher(
+		w.st, in, w.unit.Tag(), tag, w.storageAttachmentChanges,
+	)
 	return nil
 }
