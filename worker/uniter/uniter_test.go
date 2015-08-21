@@ -433,6 +433,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
+	c.Skip("maltese-falcon")
 	s.runUniterTests(c, []uniterTest{
 		// Reaction to entity deaths.
 		ut(
@@ -467,6 +468,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
+	c.Skip("maltese-falcon")
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from steady state.
 		ut(
@@ -694,6 +696,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
+	c.Skip("maltese-falcon")
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from error state.
 		ut(
@@ -765,6 +768,7 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
+	c.Skip("maltese-falcon")
 	coretesting.SkipIfGitNotAvailable(c)
 
 	deployerConversionTests := []uniterTest{
@@ -1296,17 +1300,6 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 					"relation-id": 0,
 				},
 			},
-		),
-	})
-}
-
-func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
-	s.runUniterTests(c, []uniterTest{
-		ut(
-			"meter status event triggered by unit meter status change",
-			quickStart{},
-			changeMeterStatus{"AMBER", "Investigate charm."},
-			waitHooks{"meter-status-changed"},
 		),
 	})
 }
