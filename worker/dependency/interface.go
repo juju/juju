@@ -20,6 +20,8 @@ type Engine interface {
 
 	// Engine is just another Worker.
 	worker.Worker
+
+	Reporter
 }
 
 // Manifold defines the behaviour of a node in an Engine's dependency graph. It's
