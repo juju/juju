@@ -24,7 +24,6 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -44,11 +43,7 @@ type UniterSuite struct {
 	updateStatusHookTicker *uniter.ManualTicker
 }
 
-func init() {
-	if os.Getenv(osenv.JujuFeatureTestsEnvKey) == "1" {
-		gc.Suite(&UniterSuite{})
-	}
-}
+var _ = gc.Suite(&UniterSuite{})
 
 var leaseClock *coretesting.Clock
 
