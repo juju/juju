@@ -4,5 +4,5 @@
 package unit
 
 var (
-	RegisteredManifolds = registeredManifolds
+	RegisteredManifoldFuncs = registeredManifoldFuncs
 )

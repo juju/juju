@@ -32,8 +32,8 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TearDownTest(c *gc.C) {
-	for name := range unit.RegisteredManifolds {
-		delete(unit.RegisteredManifolds, name)
+	for name := range unit.RegisteredManifoldFuncs {
+		delete(unit.RegisteredManifoldFuncs, name)
 	}
 
 	s.BaseSuite.TearDownTest(c)
@@ -66,14 +66,14 @@ func (s *ManifoldsSuite) newManifold(config unit.ManifoldsConfig) (dependency.Ma
 	return manifold, nil
 }
 
-func (s *ManifoldsSuite) TestRegisterManifold(c *gc.C) {
-	err := unit.RegisterManifold("spam", s.newManifold)
+func (s *ManifoldsSuite) TestRegisterManifoldFunc(c *gc.C) {
+	err := unit.RegisterManifoldFunc("spam", s.newManifold)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We can't compare functions so we jump through hoops instead.
-	c.Check(unit.RegisteredManifolds, gc.HasLen, 1)
+	c.Check(unit.RegisteredManifoldFuncs, gc.HasLen, 1)
 	var config unit.ManifoldsConfig
-	registered := unit.RegisteredManifolds["spam"]
+	registered := unit.RegisteredManifoldFuncs["spam"]
 	manifold, err := registered(config)
 	c.Assert(err, jc.ErrorIsNil)
 	manifold.Start(nil)
@@ -82,7 +82,7 @@ func (s *ManifoldsSuite) TestRegisterManifold(c *gc.C) {
 
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	for _, name := range []string{"spam", "eggs"} {
-		err := unit.RegisterManifold(name, s.newManifold)
+		err := unit.RegisterManifoldFunc(name, s.newManifold)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
