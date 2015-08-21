@@ -3,6 +3,9 @@
 # the --cloud-city option will also update credential and configs.
 set -eux
 
+SCRIPTS=$(readlink -f $(dirname $0))
+REPOSITORY=${JUJU_REPOSITORY:-$(dirname $SCRIPTS)/repository}
+
 MASTER="juju-ci.vapour.ws"
 SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     vivid-slave.vapour.ws wily-slave.vapour.ws \
@@ -10,6 +13,7 @@ SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
     cloud-health-slave.vapour.ws certification-slave.vapour.ws \
     charm-bundle-slave.vapour.ws osx-slave.vapour.ws"
+WIN_SLAVES="win-slave.vapour.ws"
 KEY="staging-juju-rsa"
 export JUJU_ENV="juju-ci3"
 
@@ -74,6 +78,16 @@ done
 SKIPPED=""
 for host in $MASTER $SLAVES; do
     update_jenkins $host || SKIPPED="$SKIPPED $host"
+done
+# win-slaves have a different user and directory layout tan POSIX hosts.
+for host in $WIN_SLAVES; do
+    zip -q -r repository.zip $REPOSITORY -x *.bzr*
+    scp repository.zip Administrator@$host:/cygdrive/c/Users/Administrator/
+    ssh Administrator@$host << EOT
+bzr pull -d ./juju-release-tools
+bzr pull -d ./juju-ci-tools
+/cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip
+EOT
 done
 
 if [[ -n "$SKIPPED" ]]; then
