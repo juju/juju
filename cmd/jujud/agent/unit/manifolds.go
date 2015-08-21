@@ -24,14 +24,12 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-type manifoldFactory func(config ManifoldsConfig) (dependency.Manifold, error)
-
 var (
-	registeredManifolds = make(map[string]manifoldFactory)
+	registeredManifolds = make(map[string]func(ManifoldsConfig) (dependency.Manifold, error))
 )
 
 // RegisterManifold adds the worker to the list of workers to start.
-func RegisterManifold(name string, newManifold manifoldFactory) error {
+func RegisterManifold(name string, newManifold func(ManifoldsConfig) (dependency.Manifold, error)) error {
 	if _, ok := registeredManifolds[name]; ok {
 		return errors.Errorf("%q manifold already registered", name)
 	}
