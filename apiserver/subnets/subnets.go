@@ -40,6 +40,10 @@ type API interface {
 
 	// AddSubnets adds existing subnets to Juju.
 	AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error)
+
+	// ListSubnets returns the matching subnets after applying
+	// optional filters.
+	ListSubnets(args params.SubnetsFilters) (params.ListSubnetsResults, error)
 }
 
 // subnetsAPI implements the API interface.
@@ -548,6 +552,54 @@ func (api *subnetsAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorRes
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
+	}
+	return results, nil
+}
+
+// ListSubnets lists all the available subnets or only those matching
+// all given optional filters.
+func (api *subnetsAPI) ListSubnets(args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
+	subnets, err := api.backing.AllSubnets()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	var spaceFilter string
+	if args.SpaceTag != "" {
+		tag, err := names.ParseSpaceTag(args.SpaceTag)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		spaceFilter = tag.Id()
+	}
+	zoneFilter := args.Zone
+
+	for _, subnet := range subnets {
+		if spaceFilter != "" && subnet.SpaceName() != spaceFilter {
+			logger.Tracef(
+				"filtering subnet %q from space %q not matching filter %q",
+				subnet.CIDR(), subnet.SpaceName(), spaceFilter,
+			)
+			continue
+		}
+		zoneSet := set.NewStrings(subnet.AvailabilityZones()...)
+		if zoneFilter != "" && !zoneSet.IsEmpty() && !zoneSet.Contains(zoneFilter) {
+			logger.Tracef(
+				"filtering subnet %q with zones %v not matching filter %q",
+				subnet.CIDR(), subnet.AvailabilityZones(), zoneFilter,
+			)
+			continue
+		}
+		result := params.Subnet{
+			CIDR:       subnet.CIDR(),
+			ProviderId: subnet.ProviderId(),
+			VLANTag:    subnet.VLANTag(),
+			Life:       subnet.Life(),
+			SpaceTag:   names.NewSpaceTag(subnet.SpaceName()).String(),
+			Zones:      subnet.AvailabilityZones(),
+			Status:     subnet.Status(),
+		}
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
 }
