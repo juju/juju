@@ -884,31 +884,34 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
 		AllocatableIPHigh: net.ParseIP("10.10.0.254").To4(),
+		AvailabilityZones: []string{"test-available"},
 	}, {
 		CIDR:              "10.10.1.0/24",
 		ProviderId:        "subnet-1",
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("10.10.1.4").To4(),
 		AllocatableIPHigh: net.ParseIP("10.10.1.254").To4(),
+		AvailabilityZones: []string{"test-impaired"},
 	}, {
 		CIDR:              "10.10.2.0/24",
 		ProviderId:        "subnet-2",
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("10.10.2.4").To4(),
 		AllocatableIPHigh: net.ParseIP("10.10.2.254").To4(),
+		AvailabilityZones: []string{"test-unavailable"},
 	}}
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets[:1])
 
-	subnets, err = env.Subnets("ignored", nil)
+	subnets, err = env.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
 
-func (t *localServerSuite) TestSubnetsNeitherInstIdsNorSubnetIds(c *gc.C) {
+func (t *localServerSuite) TestSubnetsInstIdNotSupported(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	_, err := env.Subnets("", []network.Id{})
-	c.Assert(err, gc.ErrorMatches, "either instId or subnetIds must be set")
+	_, err := env.Subnets("foo", []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "instId not supported")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {

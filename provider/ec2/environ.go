@@ -960,11 +960,13 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 }
 
 // Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance. Either instId or
-// subnetIds must be specified. Implements NetworkingEnviron.Subnets.
+// by the provider for the specified instance or list of ids. instId
+// equal to instance.UnknownId is the only supported value, other ones
+// result in NotSupportedError. subnetIds can be empty, in which case
+// all known are returned. Implements NetworkingEnviron.Subnets.
 func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	if instId == "" && len(subnetIds) == 0 {
-		return nil, errors.Errorf("either instId or subnetIds must be set")
+	if instId != instance.UnknownId {
+		return nil, errors.NotSupportedf("instId")
 	}
 	ec2Inst := e.ec2()
 	// We can't filter by instance id here, unfortunately.
@@ -1021,6 +1023,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			VLANTag:           0, // Not supported on EC2
 			AllocatableIPLow:  allocatableLow,
 			AllocatableIPHigh: allocatableHigh,
+			AvailabilityZones: []string{subnet.AvailZone},
 		}
 		logger.Tracef("found subnet with info %#v", info)
 		results = append(results, info)
