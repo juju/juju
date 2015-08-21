@@ -340,16 +340,3 @@ func DescribeFacades() []params.FacadeVersions {
 	}
 	return result
 }
-
-type stateResource struct {
-	state *state.State
-}
-
-func (s stateResource) Stop() error {
-	logger.Debugf("close state connection: %s", s.state.EnvironUUID())
-	return s.state.Close()
-}
-
-func (s stateResource) String() string {
-	return s.state.EnvironUUID()
-}
