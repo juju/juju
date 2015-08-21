@@ -42,6 +42,34 @@ func (s *AddresserSuite) TestNewAPIWithNilCaller(c *gc.C) {
 	c.Assert(panicFunc, gc.PanicMatches, "caller is nil")
 }
 
+func (s *AddresserSuite) TestCanDeallocateAddressesSuccess(c *gc.C) {
+	var called int
+	expectedResult := params.BoolResult{
+		Result: true,
+	}
+	apiCaller := successAPICaller(c, "CanDeallocateAddresses", nil, expectedResult, &called)
+	api := addresser.NewAPI(apiCaller)
+
+	ok, err := api.CanDeallocateAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesServerError(c *gc.C) {
+	var called int
+	expectedResult := params.BoolResult{
+		Error: apiservertesting.ServerError("server boom!"),
+	}
+	apiCaller := successAPICaller(c, "CanDeallocateAddresses", nil, expectedResult, &called)
+	api := addresser.NewAPI(apiCaller)
+
+	ok, err := api.CanDeallocateAddresses()
+	c.Assert(err, gc.ErrorMatches, "server boom!")
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(called, gc.Equals, 1)
+}
+
 func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
 	var called int
 	expectedResult := params.ErrorResult{}

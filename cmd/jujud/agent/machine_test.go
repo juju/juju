@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
@@ -47,6 +48,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -64,6 +66,7 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
@@ -724,6 +727,39 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for peergrouper worker to be started")
 	}
+}
+
+func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
+	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
+		w, err := addresser.NewWorker(api)
+		c.Check(err, jc.ErrorIsNil)
+		if expectFinished {
+			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
+		} else {
+			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
+		}
+		return w, err
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
+	// Wait for firewaller as last worker.
+	s.singularRecord.nextRunner(c)
+	runner := s.singularRecord.nextRunner(c)
+	runner.waitForWorker(c, "firewaller")
+}
+
+func (s *MachineSuite) TestAddresserWorkerRunsIfFeatureFlagEnabled(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.testAddresserNewWorkerResult(c, false)
+}
+
+func (s *MachineSuite) TestAddresserWorkerIsFineshedIfFeatureFlagDisabled(c *gc.C) {
+	s.SetFeatureFlags()
+	s.testAddresserNewWorkerResult(c, true)
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {

@@ -4,13 +4,23 @@
 package google
 
 import (
+	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
 )
 
-// The different types of disks supported by GCE.
+// The different types of disk persistence supported by GCE.
 const (
-	diskTypeScratch    = "SCRATCH"
-	diskTypePersistent = "PERSISTENT"
+	diskPersistenceTypeScratch    = "SCRATCH"
+	diskPersistenceTypePersistent = "PERSISTENT"
+)
+
+// The types of disk supported by GCE
+const (
+	// persistent
+	DiskTypePersistentStandard = "pd-standard"
+	DiskTypePersistentSSD      = "pd-ssd"
+	// scratch
+	DiskTypeLocalSSD = "local-ssd"
 )
 
 // The different disk modes supported by GCE.
@@ -50,6 +60,17 @@ type DiskSpec struct {
 	// AutoDelete indicates that the attached disk should be removed
 	// when the instance to which it is attached is removed.
 	AutoDelete bool
+	// PersistenDiskType is exclusive to ssd and indicates which of the persistent
+	// types available this disk should be.
+	PersistentDiskType string
+	// Name: Name of the resource; provided by the client when the resource
+	// is created. The name must be 1-63 characters long, and comply with
+	// RFC1035. Specifically, the name must be 1-63 characters long and
+	// match the regular expression [a-z]([-a-z0-9]*[a-z0-9])? which means
+	// the first character must be a lowercase letter, and all following
+	// characters must be a dash, lowercase letter, or digit, except the
+	// last character, which cannot be a dash.
+	Name string
 }
 
 // TooSmall checks the spec's size hint and indicates whether or not
@@ -75,9 +96,9 @@ func (ds *DiskSpec) SizeGB() uint64 {
 // Note: Not all AttachedDisk fields are set.
 func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 	// TODO(ericsnow) Fail if SizeHintGB is 0?
-	diskType := diskTypePersistent
+	diskType := diskPersistenceTypePersistent
 	if ds.Scratch {
-		diskType = diskTypeScratch
+		diskType = diskPersistenceTypeScratch
 	}
 	mode := diskModeRW
 	if ds.Readonly {
@@ -99,4 +120,28 @@ func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 		// DeviceName (GCE sets this, persistent disk only)
 	}
 	return &disk
+}
+
+// newDetached creates a new detached persistent disk representation,
+// this DOES NOT create a disk in gce, just creates the spec.
+// reference in https://cloud.google.com/compute/docs/reference/latest/disks#resource
+func (ds *DiskSpec) newDetached() (*compute.Disk, error) {
+	if ds.Scratch {
+		return nil, errors.New("cannot create scratch volumes detached")
+	}
+	if ds.PersistentDiskType == DiskTypeLocalSSD {
+		return nil, errors.New("cannot create local ssd disks detached")
+	}
+	return &compute.Disk{
+		Name:        ds.Name,
+		SizeGb:      int64(ds.SizeGB()),
+		SourceImage: ds.ImageURL,
+		Type:        ds.PersistentDiskType,
+	}, nil
+}
+
+type AttachedDisk struct {
+	VolumeName string
+	DeviceName string
+	Mode       string
 }
