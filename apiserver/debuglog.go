@@ -84,7 +84,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				socket.sendError(err)
 				return
 			}
-			defer stateWrapper.cleanup()
 			if err := stateWrapper.authenticateUser(req); err != nil {
 				socket.sendError(fmt.Errorf("auth failed: %v", err))
 				return

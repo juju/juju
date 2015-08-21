@@ -25,17 +25,16 @@ func (s *utilsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *utilsSuite) TestValidateEmpty(c *gc.C) {
-	st, needsClosing, err := validateEnvironUUID(
+	st, err := validateEnvironUUID(
 		validateArgs{
 			statePool: s.pool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needsClosing, jc.IsFalse)
 	c.Assert(st.EnvironUUID(), gc.Equals, s.State.EnvironUUID())
 }
 
 func (s *utilsSuite) TestValidateEmptyStrict(c *gc.C) {
-	_, _, err := validateEnvironUUID(
+	_, err := validateEnvironUUID(
 		validateArgs{
 			statePool: s.pool,
 			strict:    true,
@@ -44,30 +43,28 @@ func (s *utilsSuite) TestValidateEmptyStrict(c *gc.C) {
 }
 
 func (s *utilsSuite) TestValidateStateServer(c *gc.C) {
-	st, needsClosing, err := validateEnvironUUID(
+	st, err := validateEnvironUUID(
 		validateArgs{
 			statePool: s.pool,
 			envUUID:   s.State.EnvironUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needsClosing, jc.IsFalse)
 	c.Assert(st.EnvironUUID(), gc.Equals, s.State.EnvironUUID())
 }
 
 func (s *utilsSuite) TestValidateStateServerStrict(c *gc.C) {
-	st, needsClosing, err := validateEnvironUUID(
+	st, err := validateEnvironUUID(
 		validateArgs{
 			statePool: s.pool,
 			envUUID:   s.State.EnvironUUID(),
 			strict:    true,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needsClosing, jc.IsFalse)
 	c.Assert(st.EnvironUUID(), gc.Equals, s.State.EnvironUUID())
 }
 
 func (s *utilsSuite) TestValidateBadEnvUUID(c *gc.C) {
-	_, _, err := validateEnvironUUID(
+	_, err := validateEnvironUUID(
 		validateArgs{
 			statePool: s.pool,
 			envUUID:   "bad",
@@ -79,13 +76,12 @@ func (s *utilsSuite) TestValidateOtherEnvironment(c *gc.C) {
 	envState := s.Factory.MakeEnvironment(c, nil)
 	defer envState.Close()
 
-	st, needsClosing, err := validateEnvironUUID(
+	st, err := validateEnvironUUID(
 		validateArgs{
 			statePool: s.pool,
 			envUUID:   envState.EnvironUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needsClosing, jc.IsFalse)
 	c.Assert(st.EnvironUUID(), gc.Equals, envState.EnvironUUID())
 	st.Close()
 }
@@ -94,7 +90,7 @@ func (s *utilsSuite) TestValidateOtherEnvironmentStateServerOnly(c *gc.C) {
 	envState := s.Factory.MakeEnvironment(c, nil)
 	defer envState.Close()
 
-	_, _, err := validateEnvironUUID(
+	_, err := validateEnvironUUID(
 		validateArgs{
 			statePool:          s.pool,
 			envUUID:            envState.EnvironUUID(),
@@ -111,7 +107,7 @@ func (s *utilsSuite) TestValidateNonAliveEnvironment(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, err = validateEnvironUUID(
+	_, err = validateEnvironUUID(
 		validateArgs{
 			statePool: s.pool,
 			envUUID:   envState.EnvironUUID(),

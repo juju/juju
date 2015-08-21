@@ -441,7 +441,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	conn := rpc.NewConn(codec, notifier)
 
 	var h *apiHandler
-	st, _, err := validateEnvironUUID(validateArgs{statePool: srv.statePool, envUUID: envUUID})
+	st, err := validateEnvironUUID(validateArgs{statePool: srv.statePool, envUUID: envUUID})
 	if err == nil {
 		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
 	}

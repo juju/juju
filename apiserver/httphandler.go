@@ -33,8 +33,7 @@ type httpHandler struct {
 
 // httpStateWrapper reflects a state connection for a given http connection.
 type httpStateWrapper struct {
-	state       *state.State
-	cleanupFunc func()
+	state *state.State
 }
 
 func (h *httpHandler) getEnvironUUID(r *http.Request) string {
@@ -49,7 +48,7 @@ func (h *httpHandler) authError(w http.ResponseWriter, sender errorSender) {
 
 func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
 	envUUID := h.getEnvironUUID(r)
-	envState, needsClosing, err := validateEnvironUUID(validateArgs{
+	envState, err := validateEnvironUUID(validateArgs{
 		statePool:          h.statePool,
 		envUUID:            envUUID,
 		strict:             h.strictValidation,
@@ -58,14 +57,7 @@ func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	wrapper := &httpStateWrapper{state: envState}
-	if needsClosing {
-		wrapper.cleanupFunc = func() {
-			logger.Debugf("close connection to environment: %s", envState.EnvironUUID())
-			envState.Close()
-		}
-	}
-	return wrapper, nil
+	return &httpStateWrapper{state: envState}, nil
 }
 
 // authenticate parses HTTP basic authentication and authorizes the
@@ -124,11 +116,5 @@ func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error)
 		return tag, nil
 	default:
 		return nil, common.ErrBadCreds
-	}
-}
-
-func (h *httpStateWrapper) cleanup() {
-	if h.cleanupFunc != nil {
-		h.cleanupFunc()
 	}
 }
