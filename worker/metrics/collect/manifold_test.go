@@ -115,11 +115,11 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 	getResource := dt.StubGetResource(s.dummyResources)
 	worker, err := s.manifold.Start(getResource)
-	c.Check(err, gc.IsNil)
-	c.Check(worker, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
 	worker.Kill()
 	err = worker.Wait()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestJujuUnitsBuiltinMetric tests that the juju-units built-in metric is collected
@@ -135,9 +135,9 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 			return recorder, nil
 		})
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.closed, jc.IsTrue)
 	c.Assert(recorder.batches, gc.HasLen, 1)
 	c.Assert(recorder.batches[0].CharmURL, gc.Equals, "cs:wordpress-37")
@@ -160,9 +160,9 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 			return recorder, nil
 		})
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.closed, jc.IsTrue)
 	c.Assert(recorder.batches, gc.HasLen, 0)
 }
@@ -186,9 +186,9 @@ func (s *ManifoldSuite) TestDeclaredMetric(c *gc.C) {
 			return recorder, nil
 		})
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.closed, jc.IsTrue)
 	c.Assert(recorder.batches, gc.HasLen, 2)
 }
@@ -207,9 +207,9 @@ func (s *ManifoldSuite) TestUndeclaredMetric(c *gc.C) {
 			return recorder, nil
 		})
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.closed, jc.IsTrue)
 	c.Assert(recorder.batches, gc.HasLen, 0)
 }
