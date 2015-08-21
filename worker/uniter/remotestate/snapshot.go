@@ -57,7 +57,6 @@ type RelationSnapshot struct {
 // StorageSnapshot has information relating to a storage
 // instance belonging to a unit.
 type StorageSnapshot struct {
-	Tag      names.StorageTag
 	Kind     params.StorageKind
 	Life     params.Life
 	Attached bool

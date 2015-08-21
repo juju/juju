@@ -232,49 +232,115 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
-
-	// These watchers are not used in this test but need to be there
-	// when the storage changes are processed.
-	storageTag0 := names.NewStorageTag("blob/0")
-	s.st.storageAttachmentWatchers[storageTag0] = &mockStorageAttachmentWatcher{
-		changes: make(chan struct{}, 1),
-	}
-	storageTag1 := names.NewStorageTag("blob/1")
-	s.st.storageAttachmentWatchers[storageTag1] = &mockStorageAttachmentWatcher{
-		changes: make(chan struct{}, 1),
-	}
 	signalAll(&s.st, &s.leadership)
 	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
 
+	storageTag0 := names.NewStorageTag("blob/0")
 	storageAttachmentId0 := params.StorageAttachmentId{
 		UnitTag:    s.st.unit.tag.String(),
 		StorageTag: storageTag0.String(),
 	}
-	storageAttachmentId1 := params.StorageAttachmentId{
-		UnitTag:    s.st.unit.tag.String(),
-		StorageTag: storageTag1.String(),
+	storageTag0Watcher := &mockStorageAttachmentWatcher{
+		changes: make(chan struct{}, 1),
 	}
+	s.st.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
 	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
 		Life:       params.Alive,
+		Kind:       params.StorageKindUnknown, // unprovisioned
+		Location:   "nowhere",
 	}
+
+	storageTag1 := names.NewStorageTag("blob/1")
+	storageAttachmentId1 := params.StorageAttachmentId{
+		UnitTag:    s.st.unit.tag.String(),
+		StorageTag: storageTag1.String(),
+	}
+	storageTag1Watcher := &mockStorageAttachmentWatcher{
+		changes: make(chan struct{}, 1),
+	}
+	s.st.storageAttachmentWatchers[storageTag1] = storageTag1Watcher
 	s.st.storageAttachment[storageAttachmentId1] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId1.UnitTag,
 		StorageTag: storageAttachmentId1.StorageTag,
 		Life:       params.Dying,
+		Kind:       params.StorageKindBlock,
+		Location:   "malta",
 	}
+
+	// We should not see any event until the storage attachment watchers
+	// return their initial events.
 	s.st.unit.storageWatcher.changes <- []string{"blob/0", "blob/1"}
+	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	storageTag0Watcher.changes <- struct{}{}
+	storageTag1Watcher.changes <- struct{}{}
 	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
 
 	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: remotestate.StorageSnapshot{
-			Tag:  storageTag0,
 			Life: params.Alive,
 		},
 		storageTag1: remotestate.StorageSnapshot{
-			Tag:  storageTag1,
-			Life: params.Dying,
+			Life:     params.Dying,
+			Kind:     params.StorageKindBlock,
+			Attached: true,
+			Location: "malta",
+		},
+	})
+
+	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+		UnitTag:    storageAttachmentId0.UnitTag,
+		StorageTag: storageAttachmentId0.StorageTag,
+		Life:       params.Dying,
+		Kind:       params.StorageKindFilesystem,
+		Location:   "somewhere",
+	}
+	delete(s.st.storageAttachment, storageAttachmentId1)
+	storageTag0Watcher.changes <- struct{}{}
+	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	s.st.unit.storageWatcher.changes <- []string{"blob/1"}
+	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+		storageTag0: remotestate.StorageSnapshot{
+			Life:     params.Dying,
+			Attached: true,
+			Kind:     params.StorageKindFilesystem,
+			Location: "somewhere",
+		},
+	})
+}
+
+func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
+	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
+	signalAll(&s.st, &s.leadership)
+	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+
+	storageTag0 := names.NewStorageTag("blob/0")
+	storageAttachmentId0 := params.StorageAttachmentId{
+		UnitTag:    s.st.unit.tag.String(),
+		StorageTag: storageTag0.String(),
+	}
+	storageTag0Watcher := &mockStorageAttachmentWatcher{
+		changes: make(chan struct{}, 1),
+	}
+	s.st.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
+	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+		UnitTag:    storageAttachmentId0.UnitTag,
+		StorageTag: storageAttachmentId0.StorageTag,
+		Life:       params.Alive,
+		Kind:       params.StorageKindUnknown, // unprovisioned
+	}
+
+	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	storageTag0Watcher.changes <- struct{}{}
+	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+
+	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+		storageTag0: remotestate.StorageSnapshot{
+			Life: params.Alive,
 		},
 	})
 
@@ -283,15 +349,29 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 		StorageTag: storageAttachmentId0.StorageTag,
 		Life:       params.Dying,
 	}
-	delete(s.st.storageAttachment, storageAttachmentId1)
-	s.st.unit.storageWatcher.changes <- []string{"blob/0", "blob/1"}
+	// The storage is still unattached; triggering the storage-specific
+	// watcher should not cause any event to be emitted.
+	storageTag0Watcher.changes <- struct{}{}
+	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: remotestate.StorageSnapshot{
-			Tag:  storageTag0,
 			Life: params.Dying,
 		},
 	})
+
+	// Removing the storage attachment and then triggering the storage-
+	// specific watcher should not cause an event to be emitted, but it
+	// will cause that watcher to stop running. Triggering the top-level
+	// storage watcher will remove it and update the snapshot.
+	delete(s.st.storageAttachment, storageAttachmentId0)
+	storageTag0Watcher.changes <- struct{}{}
+	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	c.Assert(storageTag0Watcher.stopped, jc.IsTrue)
+	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(w.Snapshot().Storage, gc.HasLen, 0)
 }
 
 func (s *WatcherSuite) TestStorageChangedNotFoundInitially(c *gc.C) {

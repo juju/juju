@@ -192,7 +192,6 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: remotestate.StorageSnapshot{
-				Tag:      storageTag,
 				Kind:     params.StorageKindBlock,
 				Life:     params.Alive,
 				Location: "/dev/sdb",
