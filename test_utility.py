@@ -109,35 +109,27 @@ class TestGetAuthToken(TestCase):
 
 class TestFindCandidates(TestCase):
 
-    def make_candidate_dir(self, root, candidate_id):
-        master_path = make_candidate_dir(root, candidate_id)
-        buildvars_path = os.path.join(master_path, 'buildvars.json')
-        return master_path, buildvars_path
-
     def test_find_candidates(self):
         with temp_dir() as root:
-            master_path = self.make_candidate_dir(root, 'master')[0]
+            master_path = make_candidate_dir(root, 'master')
             self.assertEqual(list(find_candidates(root)), [master_path])
 
     def test_find_candidates_old_buildvars(self):
         with temp_dir() as root:
-            _, buildvars_path = self.make_candidate_dir(root, 'master')
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
-            os.utime(buildvars_path, (time(), a_week_ago))
+            make_candidate_dir(root, 'master', modified=a_week_ago)
             self.assertEqual(list(find_candidates(root)), [])
 
     def test_find_candidates_artifacts(self):
         with temp_dir() as root:
-            self.make_candidate_dir(root, 'master-artifacts')
+            make_candidate_dir(root, 'master-artifacts')
             self.assertEqual(list(find_candidates(root)), [])
 
     def test_find_candidates_find_all(self):
         with temp_dir() as root:
-            master_path, buildvars_path = self.make_candidate_dir(
-                root, '1.23')
-            master_path_2, _ = self.make_candidate_dir(root, '1.24')
             a_week_ago = time() - timedelta(days=7, seconds=1).total_seconds()
-            os.utime(buildvars_path, (time(), a_week_ago))
+            master_path = make_candidate_dir(root, '1.23', modified=a_week_ago)
+            master_path_2 = make_candidate_dir(root, '1.24')
             self.assertItemsEqual(list(find_candidates(root)), [master_path_2])
             self.assertItemsEqual(list(find_candidates(root, find_all=True)),
                                   [master_path, master_path_2])
