@@ -144,7 +144,6 @@ func (s *uniterResolver) nextOp(
 		// We're not in a hook error and the unit is Dying,
 		// so we should proceed to tear down.
 		//
-		// TODO(axw) u.unit.DestroyAllSubordinates()
 		// TODO(axw) move logic for cascading destruction of
 		//           subordinates, relation units and storage
 		//           attachments into state, via cleanups.

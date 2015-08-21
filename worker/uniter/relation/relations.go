@@ -144,6 +144,30 @@ func (r *relations) NextHook(
 	remoteState remotestate.Snapshot,
 ) (hook.Info, error) {
 
+	if remoteState.Life == params.Dying {
+		// The unit is Dying, so make sure all subordinates are dying.
+		var destroyAllSubordinates bool
+		for relationId, relationSnapshot := range remoteState.Relations {
+			if relationSnapshot.Life != params.Alive {
+				continue
+			}
+			relationer, ok := r.relationers[relationId]
+			if !ok {
+				continue
+			}
+			if relationer.ru.Endpoint().Scope == corecharm.ScopeContainer {
+				relationSnapshot.Life = params.Dying
+				remoteState.Relations[relationId] = relationSnapshot
+				destroyAllSubordinates = true
+			}
+		}
+		if destroyAllSubordinates {
+			if err := r.unit.DestroyAllSubordinates(); err != nil {
+				return hook.Info{}, errors.Trace(err)
+			}
+		}
+	}
+
 	// Add/remove local relation state; enter and leave scope as necessary.
 	if err := r.update(remoteState.Relations); err != nil {
 		return hook.Info{}, errors.Trace(err)
@@ -152,7 +176,7 @@ func (r *relations) NextHook(
 	// See if any of the relations have operations to perform.
 	for relationId, relationSnapshot := range remoteState.Relations {
 		relationer, ok := r.relationers[relationId]
-		if !ok {
+		if !ok || relationer.IsImplicit() {
 			continue
 		}
 		var remoteBroken bool

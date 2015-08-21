@@ -1637,7 +1637,7 @@ func (s *UniterSuite) TestUniterSubordinates(c *gc.C) {
 			waitSubordinateExists{"logging/0"},
 			unitDying,
 			waitSubordinateDying{},
-			waitHooks{"stop"},
+			waitHooks{"leader-settings-changed", "stop"},
 			verifyWaiting{},
 			removeSubordinate{},
 			waitUniterDead{},
