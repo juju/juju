@@ -502,14 +502,9 @@ type ListSubnetsResults struct {
 	Results []Subnet `json:"Results"`
 }
 
-// ListSubnetsParams holds the arguments of a ListSubnets API call.
-type ListSubnetsParams struct {
-	Filters []ListSubnetsFilterParams `json:"Filters"`
-}
-
-// ListSubnetsFilterParams holds an optional Space Tag and Availability Zone
-// for filtering the subnets returned by a ListSubnets call.
-type ListSubnetsFilterParams struct {
+// SubnetsFilters holds an optional SpaceTag and Zone for filtering
+// the subnets returned by a ListSubnets call.
+type SubnetsFilters struct {
 	SpaceTag string `json:"SpaceTag,omitempty"`
 	Zone     string `json:"Zone,omitempty"`
 }

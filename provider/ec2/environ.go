@@ -960,20 +960,22 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 }
 
 // Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance. subnetIds must not be
-// empty. Implements NetworkingEnviron.Subnets.
-func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	// At some point in the future an empty subnetIds may mean "fetch
-	// all subnets" but until that functionality is needed it's an
-	// error.
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnetIds must not be empty")
+// by the provider for the specified instance. Either instId or
+// subnetIds must be specified. Implements NetworkingEnviron.Subnets.
+func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	if instId == "" && len(subnetIds) == 0 {
+		return nil, errors.Errorf("either instId or subnetIds must be set")
 	}
 	ec2Inst := e.ec2()
 	// We can't filter by instance id here, unfortunately.
 	resp, err := ec2Inst.Subnets(nil, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to retrieve subnets")
+	}
+	if len(subnetIds) == 0 {
+		for _, subnet := range resp.Subnets {
+			subnetIds = append(subnetIds, network.Id(subnet.Id))
+		}
 	}
 
 	subIdSet := make(map[string]bool)

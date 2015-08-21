@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/names"
-	"github.com/juju/utils/set"
 )
 
 // ListCommand displays a list of all subnets known to Juju
@@ -89,40 +88,6 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		// Validate space and/or zone, if given to display a nicer error
 		// message.
-		if c.spaceTag != nil {
-			spaces, err := api.AllSpaces()
-			if err != nil {
-				return errors.Annotate(err, "cannot list spaces")
-			}
-
-			spacesSet := set.NewTags(spaces...)
-			if !spacesSet.Contains(*c.spaceTag) {
-				sorted := spacesSet.SortedValues()
-				expected := make([]string, len(sorted))
-				for i, space := range sorted {
-					expected[i] = space.Id()
-				}
-				return errors.Errorf(
-					"%q is not a known space; expected one of: %s",
-					c.SpaceName, strings.Join(expected, ", "),
-				)
-			}
-		}
-		if c.ZoneName != "" {
-			zones, err := api.AllZones()
-			if err != nil {
-				return errors.Annotate(err, "cannot list zones")
-			}
-			zonesSet := set.NewStrings(zones...)
-			if !zonesSet.Contains(c.ZoneName) {
-				expected := strings.Join(zonesSet.SortedValues(), ", ")
-				return errors.Errorf(
-					"%q is not a known zone; expected one of: %s",
-					c.ZoneName, expected,
-				)
-			}
-		}
-
 		// Get the list of subnets, filtering them as requested.
 		subnets, err := api.ListSubnets(c.spaceTag, c.ZoneName)
 		if err != nil {

@@ -1305,6 +1305,22 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 	return &Subnet{st, *doc}, nil
 }
 
+// AllSubnets returns all known subnets in the environment.
+func (st *State) AllSubnets() (subnets []*Subnet, err error) {
+	subnetsCollection, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	docs := []subnetDoc{}
+	err = subnetsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all subnets")
+	}
+	for _, doc := range docs {
+		subnets = append(subnets, &Subnet{st, doc})
+	}
+	return subnets, nil
+}
+
 // AddNetwork creates a new network with the given params. If a
 // network with the same name or provider id already exists in state,
 // an error satisfying errors.IsAlreadyExists is returned.

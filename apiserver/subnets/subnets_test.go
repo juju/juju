@@ -714,15 +714,17 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 	}
 
 	// Pass 2 arguments covering all cases we need.
-	args := params.AddSubnetsParams{Subnets: []params.AddSubnetParams{{
-		SubnetTag: "subnet-10.42.0.0/16",
-		SpaceTag:  "space-dmz",
-		Zones:     []string{"zone1"},
-	}, {
-		SubnetProviderId: "vlan-42",
-		SpaceTag:         "space-private",
-		Zones:            []string{"zone3"},
-	}}}
+	args := params.AddSubnetsParams{
+		Subnets: []params.AddSubnetParams{{
+			SubnetTag: "subnet-10.42.0.0/16",
+			SpaceTag:  "space-dmz",
+			Zones:     []string{"zone1"},
+		}, {
+			SubnetProviderId: "vlan-42",
+			SpaceTag:         "space-private",
+			Zones:            []string{"zone3"},
+		}},
+	}
 	results, err := s.facade.AddSubnets(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Subnets))
@@ -767,4 +769,62 @@ func (s *SubnetsSuite) TestAddSubnetsWhenNetworkingEnvironNotSupported(c *gc.C) 
 		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets,
 		"environment networking features not supported",
 	)
+}
+
+func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
+	expected := []params.Subnet{{
+		CIDR:       "10.10.0.0/24",
+		ProviderId: "sn-zadf00d",
+		VLANTag:    0,
+		Life:       "",
+		SpaceTag:   "space-private",
+		Zones:      []string{"zone1"},
+		Status:     "",
+	}, {
+		CIDR:       "2001:db8::/32",
+		ProviderId: "sn-ipv6",
+		VLANTag:    0,
+		Life:       "",
+		SpaceTag:   "space-dmz",
+		Zones:      []string{"zone1", "zone3"},
+		Status:     "",
+	}}
+	// No filtering.
+	args := params.SubnetsFilters{}
+	subnets, err := s.facade.ListSubnets(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets.Results, jc.DeepEquals, expected)
+
+	// Filter by space only.
+	args.SpaceTag = "space-dmz"
+	subnets, err = s.facade.ListSubnets(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+
+	// Filter by zone only.
+	args.SpaceTag = ""
+	args.Zone = "zone3"
+	subnets, err = s.facade.ListSubnets(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
+
+	// Filter by both space and zone.
+	args.SpaceTag = "space-private"
+	args.Zone = "zone1"
+	subnets, err = s.facade.ListSubnets(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets.Results, jc.DeepEquals, expected[:1])
+}
+
+func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
+	args := params.SubnetsFilters{SpaceTag: "invalid"}
+	_, err := s.facade.ListSubnets(args)
+	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
+}
+
+func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
+	boom := errors.New("no subnets for you")
+	apiservertesting.BackingInstance.SetErrors(boom)
+	_, err := s.facade.ListSubnets(params.SubnetsFilters{})
+	c.Assert(err, gc.ErrorMatches, "no subnets for you")
 }

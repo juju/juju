@@ -107,13 +107,12 @@ func makeCreateSubnetsArgs(cidr, space string, zones []string, isPublic bool) ap
 	return args
 }
 
-func makeListSubnetsArgs(space names.SpaceTag, zone string) apitesting.CheckArgs {
+func makeListSubnetsArgs(space *names.SpaceTag, zone string) apitesting.CheckArgs {
 	expectResults := params.ListSubnetsResults{}
-	expectArgs := params.ListSubnetsParams{
-		Filters: []params.ListSubnetsFilterParams{{
-			SpaceTag: space.String(),
-			Zone:     zone,
-		}}}
+	expectArgs := params.SubnetsFilters{
+		SpaceTag: space.String(),
+		Zone:     zone,
+	}
 	args := apitesting.CheckArgs{
 		Facade:  "Subnets",
 		Method:  "ListSubnets",
@@ -191,10 +190,10 @@ func (s *SubnetsSuite) TestCreateSubnetFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bang")
 }
 
-func (s *SubnetsSuite) TestListSubnets(c *gc.C) {
+func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {
 	space := names.NewSpaceTag("foo")
 	zone := "bar"
-	args := makeListSubnetsArgs(space, zone)
+	args := makeListSubnetsArgs(&space, zone)
 	s.prepareAPICall(c, &args, nil)
 	results, err := s.api.ListSubnets(&space, zone)
 	c.Assert(s.called, gc.Equals, 1)
@@ -207,7 +206,7 @@ func (s *SubnetsSuite) TestListSubnets(c *gc.C) {
 func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
 	space := names.NewSpaceTag("foo")
 	zone := "bar"
-	args := makeListSubnetsArgs(space, zone)
+	args := makeListSubnetsArgs(&space, zone)
 	s.prepareAPICall(c, &args, errors.New("bang"))
 	results, err := s.api.ListSubnets(&space, zone)
 	c.Assert(s.called, gc.Equals, 1)

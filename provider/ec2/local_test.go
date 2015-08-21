@@ -876,22 +876,39 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// These are defined in the test server for the testing default
+	// VPC.
 	defaultSubnets := []network.SubnetInfo{{
-		// this is defined in the test server for the default-vpc
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
 		AllocatableIPHigh: net.ParseIP("10.10.0.254").To4(),
+	}, {
+		CIDR:              "10.10.1.0/24",
+		ProviderId:        "subnet-1",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("10.10.1.4").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.1.254").To4(),
+	}, {
+		CIDR:              "10.10.2.0/24",
+		ProviderId:        "subnet-2",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("10.10.2.4").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.2.254").To4(),
 	}}
+	c.Assert(subnets, jc.DeepEquals, defaultSubnets[:1])
+
+	subnets, err = env.Subnets("ignored", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
 
-func (t *localServerSuite) TestSubnetsNoNetIds(c *gc.C) {
+func (t *localServerSuite) TestSubnetsNeitherInstIdsNorSubnetIds(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
 	_, err := env.Subnets("", []network.Id{})
-	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
+	c.Assert(err, gc.ErrorMatches, "either instId or subnetIds must be set")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {

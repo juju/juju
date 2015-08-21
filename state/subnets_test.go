@@ -217,6 +217,31 @@ func (s *SubnetSuite) TestRefresh(c *gc.C) {
 	c.Assert(subnetCopy.Life(), gc.Equals, state.Dead)
 }
 
+func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
+	subnetInfos := []state.SubnetInfo{
+		{CIDR: "192.168.1.0/24"},
+		{CIDR: "8.8.8.0/24", SpaceName: "bar"},
+		{CIDR: "10.0.2.0/24", ProviderId: "foo"},
+		{CIDR: "2001:db8::/64", AvailabilityZone: "zone1"},
+	}
+
+	for _, info := range subnetInfos {
+		_, err := s.State.AddSubnet(info)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, len(subnetInfos))
+
+	for i, subnet := range subnets {
+		c.Assert(subnet.CIDR(), gc.Equals, subnetInfos[i].CIDR)
+		c.Assert(subnet.ProviderId(), gc.Equals, subnetInfos[i].ProviderId)
+		c.Assert(subnet.SpaceName(), gc.Equals, subnetInfos[i].SpaceName)
+		c.Assert(subnet.AvailabilityZone(), gc.Equals, subnetInfos[i].AvailabilityZone)
+	}
+}
+
 func (s *SubnetSuite) TestPickNewAddressNoAddresses(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		CIDR:              "192.168.1.0/24",

@@ -89,7 +89,6 @@ func (s *stateShim) EnvironConfig() (*config.Config, error) {
 }
 
 func (s *stateShim) AllSpaces() ([]common.BackingSpace, error) {
-	// TODO(dimitern): Make this ListSpaces() instead.
 	results, err := s.st.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -115,6 +114,18 @@ func (s *stateShim) AddSubnet(info common.BackingSubnetInfo) (common.BackingSubn
 		SpaceName:        info.SpaceName,
 	})
 	return nil, err // Drop the first result, as it's unused.
+}
+
+func (s *stateShim) AllSubnets() ([]common.BackingSubnet, error) {
+	results, err := s.st.AllSubnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnets := make([]common.BackingSubnet, len(results))
+	for i, result := range results {
+		subnets[i] = &subnetShim{subnet: result}
+	}
+	return subnets, nil
 }
 
 type availZoneShim struct{}
