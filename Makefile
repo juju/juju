@@ -51,9 +51,6 @@ build: godeps
 check: godeps
 	go test -test.timeout=1200s $(PROJECT)/...
 
-featurecheck: godeps
-	JUJU_FEATURE_TESTS=1 go test -test.timeout=1200s $(PROJECT)/...
-
 install: godeps
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
 

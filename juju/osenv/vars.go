@@ -16,7 +16,6 @@ const (
 	JujuRepositoryEnvKey    = "JUJU_REPOSITORY"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
-	JujuFeatureTestsEnvKey  = "JUJU_FEATURE_TESTS"
 
 	// Registry key containing juju related information
 	JujuRegistryKey = `HKLM:\SOFTWARE\juju-core`
