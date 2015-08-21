@@ -1,14 +1,13 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter_test
+package relation_test
 
 import (
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )
@@ -94,7 +92,7 @@ func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.Relation
 
 func (s *RelationerSuite) TestStateDir(c *gc.C) {
 	// Create the relationer; check its state dir is not created.
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 	path := strconv.Itoa(s.rel.Id())
 	ft.Removed{path}.Check(c, s.dirPath)
 
@@ -117,7 +115,7 @@ func (s *RelationerSuite) TestStateDir(c *gc.C) {
 
 func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 
 	// u/1 does not consider u/0 to be alive.
 	w := ru1.Watch()
@@ -167,91 +165,13 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(ch.Changed, gc.HasLen, 0)
 		c.Assert(ch.Departed, gc.DeepEquals, []string{"u/0"})
-	case <-time.After(worstCase):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for absence detection")
 	}
 }
 
-func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
-	ru1, _ := s.AddRelationUnit(c, "u/1")
-	ru2, _ := s.AddRelationUnit(c, "u/2")
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
-	c.Assert(r.IsImplicit(), jc.IsFalse)
-	err := r.Join()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check no hooks are being sent.
-	s.assertNoHook(c)
-
-	// Start hooks, and check that still no changes are sent.
-	r.StartHooks()
-	defer stopHooks(c, r)
-	s.assertNoHook(c)
-
-	// Check we can't start hooks again.
-	f := func() { r.StartHooks() }
-	c.Assert(f, gc.PanicMatches, "hooks already started!")
-
-	// Join u/1 to the relation, and check that we receive the expected hooks.
-	settings := map[string]interface{}{"unit": "settings"}
-	err = ru1.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertHook(c, hook.Info{
-		Kind:       hooks.RelationJoined,
-		RemoteUnit: "u/1",
-	})
-	s.assertHook(c, hook.Info{
-		Kind:       hooks.RelationChanged,
-		RemoteUnit: "u/1",
-	})
-	s.assertNoHook(c)
-
-	// Stop hooks, make more changes, check no events.
-	err = r.StopHooks()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru1.LeaveScope()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru2.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	node, err := ru2.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	node.Set("private-address", "roehampton")
-	_, err = node.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertNoHook(c)
-
-	// Stop hooks again to verify safety.
-	err = r.StopHooks()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertNoHook(c)
-
-	// Start them again, and check we get the expected events sent.
-	r.StartHooks()
-	defer stopHooks(c, r)
-	s.assertHook(c, hook.Info{
-		Kind:       hooks.RelationDeparted,
-		RemoteUnit: "u/1",
-	})
-	s.assertHook(c, hook.Info{
-		Kind:          hooks.RelationJoined,
-		ChangeVersion: 1,
-		RemoteUnit:    "u/2",
-	})
-	s.assertHook(c, hook.Info{
-		Kind:          hooks.RelationChanged,
-		ChangeVersion: 1,
-		RemoteUnit:    "u/2",
-	})
-	s.assertNoHook(c)
-
-	// Stop them again, just to be sure.
-	err = r.StopHooks()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertNoHook(c)
-}
-
 func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -324,12 +244,13 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	assertMembers(map[string]int64{"u/1": 7, "u/2": 3})
 }
 
+/*
 func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	r := uniter.NewRelationer(s.apiRelUnit, s.dir)
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 	r.StartHooks()
@@ -360,6 +281,7 @@ func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	err = s.dir.State().Validate(hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, gc.ErrorMatches, ".*: relation is broken and cannot be changed further")
 }
+*/
 
 func (s *RelationerSuite) assertNoHook(c *gc.C) {
 	s.BackingState.StartSync()
@@ -393,16 +315,13 @@ func stop(c *gc.C, s stopper) {
 	c.Assert(s.Stop(), gc.IsNil)
 }
 
-func stopHooks(c *gc.C, r *uniter.Relationer) {
-	c.Assert(r.StopHooks(), gc.IsNil)
-}
-
 type RelationerImplicitSuite struct {
 	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&RelationerImplicitSuite{})
 
+/*
 func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -485,3 +404,4 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	default:
 	}
 }
+*/

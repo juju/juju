@@ -4,31 +4,22 @@
 package storage_test
 
 import (
-	"time"
+	"fmt"
 
 	"github.com/juju/names"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 type mockStorageAccessor struct {
-	watchStorageAttachment        func(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	storageAttachment             func(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	storageAttachmentLife         func([]params.StorageAttachmentId) ([]params.LifeResult, error)
 	unitStorageAttachments        func(names.UnitTag) ([]params.StorageAttachmentId, error)
 	destroyUnitStorageAttachments func(names.UnitTag) error
 	remove                        func(names.StorageTag, names.UnitTag) error
-}
-
-func (m *mockStorageAccessor) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-	return m.watchStorageAttachment(s, u)
 }
 
 func (m *mockStorageAccessor) StorageAttachment(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
@@ -73,54 +64,37 @@ func (m *mockStorageAccessor) RemoveStorageAttachment(s names.StorageTag, u name
 	return m.remove(s, u)
 }
 
-type mockNotifyWatcher struct {
-	tomb    tomb.Tomb
-	changes chan struct{}
+type mockOperations struct {
 }
 
-func newMockNotifyWatcher() *mockNotifyWatcher {
-	m := &mockNotifyWatcher{
-		changes: make(chan struct{}, 1),
-	}
-	go func() {
-		<-m.tomb.Dying()
-		close(m.changes)
-		m.tomb.Kill(tomb.ErrDying)
-		m.tomb.Done()
-	}()
-	return m
+func (m *mockOperations) NewUpdateStorage(tags []names.StorageTag) (operation.Operation, error) {
+	return &mockOperation{"update storage"}, nil
 }
 
-func (m *mockNotifyWatcher) Changes() <-chan struct{} {
-	return m.changes
+func (m *mockOperations) NewRunHook(hookInfo hook.Info) (operation.Operation, error) {
+	return &mockOperation{fmt.Sprintf("run hook %v", hookInfo.Kind)}, nil
 }
 
-func (m *mockNotifyWatcher) Stop() error {
-	m.tomb.Kill(nil)
-	return m.tomb.Wait()
+type mockOperation struct {
+	name string
 }
 
-func (m *mockNotifyWatcher) Err() error {
-	return m.tomb.Err()
+func (m *mockOperation) String() string {
+	return m.name
 }
 
-func assertNoHooks(c *gc.C, hooks <-chan hook.Info) {
-	select {
-	case <-hooks:
-		c.Fatal("unexpected hook")
-	case <-time.After(testing.ShortWait):
-	}
+func (m *mockOperation) NeedsGlobalMachineLock() bool {
+	return false
 }
 
-func waitOneHook(c *gc.C, hooks <-chan hook.Info) hook.Info {
-	var hi hook.Info
-	var ok bool
-	select {
-	case hi, ok = <-hooks:
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for hook")
-	}
-	assertNoHooks(c, hooks)
-	return hi
+func (m *mockOperation) Prepare(state operation.State) (*operation.State, error) {
+	return &state, nil
+}
+
+func (m *mockOperation) Execute(state operation.State) (*operation.State, error) {
+	return &state, nil
+}
+
+func (m *mockOperation) Commit(state operation.State) (*operation.State, error) {
+	return &state, nil
 }
