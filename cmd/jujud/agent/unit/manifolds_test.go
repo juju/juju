@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	deptesting "github.com/juju/juju/worker/dependency/testing"
 )
 
 type ManifoldsSuite struct {
@@ -37,19 +37,6 @@ func (s *ManifoldsSuite) TearDownTest(c *gc.C) {
 	}
 
 	s.BaseSuite.TearDownTest(c)
-}
-
-func (s *ManifoldsSuite) getResourceFunc(apiCaller base.APICaller) dependency.GetResourceFunc {
-	return func(name string, out interface{}) error {
-		s.stub.AddCall("getResource", name, out)
-		if err := s.stub.NextErr(); err != nil {
-			return errors.Trace(err)
-		}
-
-		unpacked := out.(*base.APICaller)
-		*unpacked = apiCaller
-		return nil
-	}
 }
 
 func (s *ManifoldsSuite) newManifold(config unit.ManifoldsConfig) (dependency.Manifold, error) {
@@ -129,7 +116,7 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	})
 	s.stub.CheckCallNames(c, "newManifold", "newManifold")
 	s.stub.ResetCalls()
-	manifolds["spam"].Start(s.getResourceFunc(nil))
+	manifolds["spam"].Start(deptesting.StubGetResource(nil))
 	s.stub.CheckCallNames(c, "Start")
 }
 
