@@ -4,6 +4,7 @@ from datetime import (
     timedelta,
     )
 import errno
+import json
 import logging
 import os
 import re
@@ -290,6 +291,25 @@ def get_candidates_path(root_dir):
 
 
 def find_candidates(root_dir, find_all=False):
+    return (path for path, buildvars in _find_candidates(root_dir, find_all))
+
+
+def find_latest_branch_candidates(root_dir):
+    """Return a list of one candidate per branch.
+
+    :param root_dir: The root directory to find candidates from.
+    """
+    candidates = []
+    for path, buildvars_path in _find_candidates(root_dir, find_all=False):
+        with open(buildvars_path) as buildvars_file:
+            buildvars = json.load(buildvars_file)
+            candidates.append(
+                (buildvars['branch'], int(buildvars['revision_build']), path))
+    latest = dict((branch, path) for branch, build, path in sorted(candidates))
+    return latest.values()
+
+
+def _find_candidates(root_dir, find_all=False):
     candidates_path = get_candidates_path(root_dir)
     a_week_ago = time() - timedelta(days=7).total_seconds()
     for candidate_dir in os.listdir(candidates_path):
@@ -305,7 +325,7 @@ def find_candidates(root_dir, find_all=False):
             raise
         if not find_all and stat.st_mtime < a_week_ago:
             continue
-        yield candidate_path
+        yield candidate_path, buildvars
 
 
 def get_deb_arch():

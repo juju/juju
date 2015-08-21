@@ -6,7 +6,7 @@ from jujuci import (
     get_credentials,
     )
 from utility import (
-    find_candidates,
+    find_latest_branch_candidates,
     get_auth_token,
     )
 
@@ -45,12 +45,12 @@ def build_job(credentials, root, job_name, candidates, suite):
         jenkins.build_job(job_name, call_parameters, token=token)
 
 
-def main():
-    args, credentials = parse_args()
+def main(argv=None):
+    args, credentials = parse_args(argv)
     suite = args.suite
     if suite == []:
         suite = [FULL]
-    candidates = list(find_candidates(args.root_dir))
+    candidates = find_latest_branch_candidates(args.root_dir)[:3]
     jobs = args.jobs
     if jobs is None:
         jobs = ['industrial-test', 'industrial-test-aws',

@@ -1,5 +1,6 @@
-from unittest import TestCase
 from argparse import Namespace
+from contextlib import contextmanager
+from unittest import TestCase
 
 from mock import (
     call,
@@ -15,8 +16,10 @@ from jujuci import Credentials
 from schedule_reliability_tests import (
     build_job,
     parse_args,
+    main,
     )
 from test_utility import (
+    make_candidate_dir,
     parse_error,
     write_config,
     )
@@ -96,3 +99,44 @@ class TestBuildJob(TestCase):
         jenkins_mock.return_value.build_job.assert_called_once_with(
             'foo', {'suite': 'qux,quxx', 'attempts': '10',
                     'new_juju_dir': 'baz'}, token='bar')
+
+
+class TestMain(TestCase):
+
+    @contextmanager
+    def build_job_context(self):
+        with temp_dir() as root:
+            write_config(root, 'foo', 'quxxx')
+            yield root
+
+    def run_main(self, root):
+        with patch('jenkins.Jenkins.build_job') as build_job_mock:
+            main([root, 'foo', '--user', 'bar', '--password', 'baz'])
+        return build_job_mock
+
+    def test_selects_newest_candidate(self):
+        with self.build_job_context() as root:
+            path_1234 = make_candidate_dir(
+                root, '1234', 'mybranch', '1234')
+            make_candidate_dir(root, '1233', 'mybranch', '1233')
+            build_job_mock = self.run_main(root)
+        build_job_mock.assert_called_once_with('foo', {
+            'new_juju_dir': path_1234,
+            'attempts': '10',
+            'suite': 'full',
+            }, token='quxxx')
+
+    def test_limit_3(self):
+        # Even though it's only testing the latest, it should only test 3,
+        # even if there are more than 3 latest.
+        with self.build_job_context() as root:
+            make_candidate_dir(
+                root, 'branch1', 'mybranch1')
+            make_candidate_dir(
+                root, 'branch2', 'mybranch2')
+            make_candidate_dir(
+                root, 'branch3', 'mybranch3')
+            make_candidate_dir(
+                root, 'branch4', 'mybranch4')
+            build_job_mock = self.run_main(root)
+        self.assertEqual(build_job_mock.call_count, 3)
