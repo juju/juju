@@ -110,13 +110,8 @@ class TestGetAuthToken(TestCase):
 class TestFindCandidates(TestCase):
 
     def make_candidate_dir(self, root, candidate_id):
-        candidates_path = get_candidates_path(root)
-        if not os.path.isdir(candidates_path):
-            os.mkdir(candidates_path)
-        master_path = os.path.join(candidates_path, candidate_id)
-        os.mkdir(master_path)
+        master_path = make_candidate_dir(root, candidate_id)
         buildvars_path = os.path.join(master_path, 'buildvars.json')
-        open(buildvars_path, 'w')
         return master_path, buildvars_path
 
     def test_find_candidates(self):
