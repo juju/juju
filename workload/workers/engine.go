@@ -35,10 +35,14 @@ func newEngineConfig() dependency.EngineConfig {
 	}
 }
 
+// isFatal is an implementation of the IsFatal function in
+// dependency.EnginConfig.
 func isFatal(err error) bool {
 	return false
 }
 
+// moreImportant is an implementation of the MoreImportant function in
+// dependency.EnginConfig.
 func moreImportant(err, worst error) error {
 	return worst
 }
