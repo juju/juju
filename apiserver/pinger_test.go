@@ -95,7 +95,7 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
-	const shortTimeout = 20 * time.Millisecond
+	const shortTimeout = 100 * time.Millisecond
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(shortTimeout))
 
 	st, _ := s.OpenAPIAsNewMachine(c)
