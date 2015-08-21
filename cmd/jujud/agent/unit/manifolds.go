@@ -25,16 +25,16 @@ import (
 )
 
 var (
-	registeredManifoldFuncs = make(map[string]func(ManifoldsConfig) (dependency.Manifold, error))
+	componentManifoldFuncs = make(map[string]func(ManifoldsConfig) (dependency.Manifold, error))
 )
 
-// RegisterManifoldFunc adds the given manifold factory func to the list
-// of component-registered manifest funcs.
-func RegisterManifoldFunc(name string, newManifold func(ManifoldsConfig) (dependency.Manifold, error)) error {
-	if _, ok := registeredManifoldFuncs[name]; ok {
+// RegisterComponentManifoldFunc adds the given manifold factory func
+// to the list of component-registered manifest funcs.
+func RegisterComponentManifoldFunc(name string, newManifold func(ManifoldsConfig) (dependency.Manifold, error)) error {
+	if _, ok := componentManifoldFuncs[name]; ok {
 		return errors.Errorf("%q manifold func already registered", name)
 	}
-	registeredManifoldFuncs[name] = newManifold
+	componentManifoldFuncs[name] = newManifold
 	return nil
 }
 
@@ -168,7 +168,7 @@ func Manifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
 		}),
 	}
 
-	for name, newManifold := range registeredManifoldFuncs {
+	for name, newManifold := range componentManifoldFuncs {
 		if _, ok := manifolds[name]; ok {
 			return manifolds, errors.Errorf("%q manifold already added", name)
 		}

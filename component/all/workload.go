@@ -181,7 +181,7 @@ func (c workloads) registerUnitWorkers() *workers.EventHandlers {
 		})
 		return manifold, nil
 	}
-	err := unit.RegisterManifoldFunc(workload.ComponentName, newManifold)
+	err := unit.RegisterComponentManifoldFunc(workload.ComponentName, newManifold)
 	if err != nil {
 		panic(err)
 	}
