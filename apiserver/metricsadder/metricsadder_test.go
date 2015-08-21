@@ -189,7 +189,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 				Tag: test.tag,
 				Batch: params.MetricBatch{
 					UUID:     uuid,
-					CharmURL: "",
+					CharmURL: s.meteredCharm.URL().String(),
 					Created:  time.Now(),
 					Metrics:  metrics,
 				}}}})
