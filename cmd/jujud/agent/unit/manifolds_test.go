@@ -4,7 +4,6 @@
 package unit_test
 
 import (
-	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -12,7 +11,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -38,45 +36,24 @@ func (s *ManifoldsSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *ManifoldsSuite) newManifold(config unit.ManifoldsConfig) (dependency.Manifold, error) {
-	var manifold dependency.Manifold
-
-	s.stub.AddCall("newManifold", config)
-	if err := s.stub.NextErr(); err != nil {
-		return manifold, errors.Trace(err)
-	}
-
-	manifold.Start = func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-		s.stub.AddCall("Start", getResource)
-		if err := s.stub.NextErr(); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		loop := func(stopCh <-chan struct{}) error {
-			s.stub.AddCall("loop", stopCh)
-			if err := s.stub.NextErr(); err != nil {
-				return errors.Trace(err)
-			}
-
-			return nil
-		}
-		return worker.NewSimpleWorker(loop), nil
-	}
-	return manifold, nil
-}
-
 func (s *ManifoldsSuite) TestRegisterComponentManifoldFunc(c *gc.C) {
-	err := unit.RegisterComponentManifoldFunc("spam", s.newManifold)
+	expected := dependency.Manifold{
+		Inputs: []string{"ham", "eggs"},
+	}
+	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+		return expected, nil
+	}
+	err := unit.RegisterComponentManifoldFunc("spam", newManifold)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// We can't compare functions so we jump through hoops instead.
+	// We can't compare functions (e.g. check unit.ComponentManifoldFuncs)
+	// so we jump through hoops instead.
 	c.Check(unit.ComponentManifoldFuncs, gc.HasLen, 1)
 	var config unit.ManifoldsConfig
 	registered := unit.ComponentManifoldFuncs["spam"]
 	manifold, err := registered(config)
 	c.Assert(err, jc.ErrorIsNil)
-	manifold.Start(nil)
-	s.stub.CheckCallNames(c, "newManifold", "Start")
+	c.Check(manifold, jc.DeepEquals, expected)
 }
 
 func (s *ManifoldsSuite) TestComponentManifold(c *gc.C) {
@@ -97,8 +74,11 @@ func (s *ManifoldsSuite) TestComponentManifold(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestNames(c *gc.C) {
+	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+		return dependency.Manifold{}, nil
+	}
 	for _, name := range []string{"spam", "eggs"} {
-		err := unit.RegisterComponentManifoldFunc(name, s.newManifold)
+		err := unit.RegisterComponentManifoldFunc(name, newManifold)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
