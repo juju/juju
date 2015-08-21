@@ -170,7 +170,7 @@ func (c workloads) registerUnitWorkers() *workers.EventHandlers {
 	}
 
 	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
-		// At this point no workload process workers are running for the unit.
+		// At this point no workload workers are running for the unit.
 		apiConfig := util.ApiManifoldConfig{
 			APICallerName: unit.APICallerName,
 		}
