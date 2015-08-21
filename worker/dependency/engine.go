@@ -61,7 +61,7 @@ func NewEngine(config EngineConfig) (Engine, error) {
 	engine := &engine{
 		config: config,
 
-		manifolds:  map[string]Manifold{},
+		manifolds:  Manifolds{},
 		dependents: map[string][]string{},
 		current:    map[string]workerInfo{},
 
@@ -92,7 +92,7 @@ type engine struct {
 	worstError error
 
 	// manifolds holds the installed manifolds by name.
-	manifolds map[string]Manifold
+	manifolds Manifolds
 
 	// dependents holds, for each named manifold, those that depend on it.
 	dependents map[string][]string
@@ -204,9 +204,12 @@ func (engine *engine) gotReport() map[string]interface{} {
 // gotInstall handles the params originally supplied to Install. It must only be
 // called from the loop goroutine.
 func (engine *engine) gotInstall(name string, manifold Manifold) error {
-	logger.Infof("installing %q manifold...", name)
+	logger.Debugf("installing %q manifold...", name)
 	if _, found := engine.manifolds[name]; found {
 		return errors.Errorf("%q manifold already installed", name)
+	}
+	if err := engine.checkAcyclic(name, manifold); err != nil {
+		return errors.Annotatef(err, "cannot install %q manifold", name)
 	}
 	engine.manifolds[name] = manifold
 	for _, input := range manifold.Inputs {
@@ -215,6 +218,16 @@ func (engine *engine) gotInstall(name string, manifold Manifold) error {
 	engine.current[name] = workerInfo{}
 	engine.requestStart(name, 0)
 	return nil
+}
+
+// checkAcyclic returns an error if the introduction of the supplied manifold
+// would cause the dependency graph to contain cycles.
+func (engine *engine) checkAcyclic(name string, manifold Manifold) error {
+	manifolds := Manifolds{name: manifold}
+	for name, manifold := range engine.manifolds {
+		manifolds[name] = manifold
+	}
+	return Validate(manifolds)
 }
 
 // requestStart invokes a runWorker goroutine for the manifold with the supplied
@@ -326,7 +339,7 @@ func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceF
 // back to the loop goroutine. It must not be run on the loop goroutine.
 func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, getResource GetResourceFunc) {
 	startWorkerAndWait := func() error {
-		logger.Infof("starting %q manifold worker in %s...", name, delay)
+		logger.Debugf("starting %q manifold worker in %s...", name, delay)
 		select {
 		case <-time.After(delay):
 		case <-engine.tomb.Dying():
@@ -371,7 +384,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker) {
 		worker.Kill()
 	default:
 		// It's fine to use this worker; update info and copy back.
-		logger.Infof("%q manifold worker started", name)
+		logger.Debugf("%q manifold worker started", name)
 		info.starting = false
 		info.worker = worker
 		engine.current[name] = info
@@ -384,7 +397,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker) {
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
 func (engine *engine) gotStopped(name string, err error) {
-	logger.Infof("%q manifold worker stopped: %v", name, err)
+	logger.Debugf("%q manifold worker stopped: %v", name, err)
 
 	// Copy current info and check for reasons to stop the engine.
 	info := engine.current[name]
