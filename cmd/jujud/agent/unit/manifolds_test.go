@@ -96,7 +96,7 @@ func (s *ManifoldsSuite) TestComponentManifold(c *gc.C) {
 	})
 }
 
-func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
+func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	for _, name := range []string{"spam", "eggs"} {
 		err := unit.RegisterComponentManifoldFunc(name, s.newManifold)
 		c.Assert(err, jc.ErrorIsNil)
@@ -109,9 +109,7 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var names []string
-	for name, manifold := range manifolds {
-		c.Logf("checking %q manifold", name)
-		c.Check(manifold.Start, gc.NotNil)
+	for name := range manifolds {
 		names = append(names, name)
 	}
 	c.Check(names, jc.SameContents, []string{
@@ -130,6 +128,18 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 		"spam",
 		"eggs",
 	})
+}
+
+func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
+	manifolds, err := unit.Manifolds(unit.ManifoldsConfig{
+		Agent: fakeAgent{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	for name, manifold := range manifolds {
+		c.Logf("checking %q manifold", name)
+		c.Check(manifold.Start, gc.NotNil)
+	}
 }
 
 // TODO(cmars) 2015/08/10: rework this into builtin Engine cycle checker.
