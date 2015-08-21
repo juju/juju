@@ -2459,6 +2459,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
+			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},

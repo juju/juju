@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -85,4 +86,14 @@ func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error
 func (c *Client) RemoveBlocks() error {
 	args := params.RemoveBlocksArgs{All: true}
 	return c.facade.FacadeCall("RemoveBlocks", args, nil)
+}
+
+// WatchAllEnv returns an AllEnvWatcher, from which you can request
+// the Next collection of Deltas (for all environments).
+func (c *Client) WatchAllEnvs() (*api.AllWatcher, error) {
+	info := new(api.WatchAll)
+	if err := c.facade.FacadeCall("WatchAllEnvs", nil, info); err != nil {
+		return nil, err
+	}
+	return api.NewAllEnvWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
 }

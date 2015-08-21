@@ -200,6 +200,29 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 	logVersion(mongoPath)
 
+	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
+		return err
+	}
+
+	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write mongod shared secret: %v", err)
+	}
+
+	// Disable the default mongodb installed by the mongodb-server package.
+	// Only do this if the file doesn't exist already, so users can run
+	// their own mongodb server if they wish to.
+	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
+		err = utils.AtomicWriteFile(
+			mongoConfigPath,
+			[]byte("ENABLE_MONGODB=no"),
+			0644,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
 	svc, err := newService(ServiceName(args.Namespace), svcConf)
 	if err != nil {
@@ -224,29 +247,6 @@ func EnsureServer(args EnsureServerParams) error {
 				return svc.Start()
 			}
 			return nil
-		}
-	}
-
-	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
-		return err
-	}
-
-	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
-	if err != nil {
-		return fmt.Errorf("cannot write mongod shared secret: %v", err)
-	}
-
-	// Disable the default mongodb installed by the mongodb-server package.
-	// Only do this if the file doesn't exist already, so users can run
-	// their own mongodb server if they wish to.
-	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
-		err = utils.AtomicWriteFile(
-			mongoConfigPath,
-			[]byte("ENABLE_MONGODB=no"),
-			0644,
-		)
-		if err != nil {
-			return err
 		}
 	}
 

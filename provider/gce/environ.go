@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -15,8 +16,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 )
-
-// Note: This provider/environment does *not* implement storage.
 
 type gceConnection interface {
 	VerifyCredentials() error
@@ -33,6 +32,14 @@ type gceConnection interface {
 	ClosePorts(fwname string, ports ...network.PortRange) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
+
+	CreateDisks(zone string, disks []google.DiskSpec) ([]*compute.Disk, error)
+	Disks(zone string) ([]*compute.Disk, error)
+	Disk(zone, id string) (*compute.Disk, error)
+	RemoveDisk(zone, id string) error
+	AttachDisk(zone, volumeName, instanceId, mode string) (*google.AttachedDisk, error)
+	DetachDisk(zone, instanceId, volumeName string) error
+	InstanceDisks(zone, instanceId string) ([]*google.AttachedDisk, error)
 }
 
 type environ struct {

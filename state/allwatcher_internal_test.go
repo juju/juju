@@ -85,6 +85,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Id:                      "0",
 		InstanceId:              "i-machine-0",
 		Status:                  multiwatcher.Status("pending"),
+		StatusData:              map[string]interface{}{},
 		Life:                    multiwatcher.Life("alive"),
 		Series:                  "quantal",
 		Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
@@ -174,6 +175,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			MachineId:   m.Id(),
 			Ports:       []network.Port{},
 			Status:      multiwatcher.Status("pending"),
+			StatusData:  map[string]interface{}{},
 			Subordinate: false,
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "unknown",
@@ -207,6 +209,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			InstanceId:              "i-" + m.Tag().String(),
 			Status:                  multiwatcher.Status("error"),
 			StatusInfo:              m.Tag().String(),
+			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
@@ -243,6 +246,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Series:      "quantal",
 			Ports:       []network.Port{},
 			Status:      multiwatcher.Status("pending"),
+			StatusData:  map[string]interface{}{},
 			Subordinate: true,
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "unknown",
@@ -552,6 +556,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Ports:          []network.Port{{"tcp", 12345}},
 			PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
 			Status:         "pending",
+			StatusData:     map[string]interface{}{},
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "unknown",
 				Message: "Waiting for agent initialization to finish",
@@ -588,6 +593,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Ports:          []network.Port{},
 			PortRanges:     []network.PortRange{},
 			Status:         "pending",
+			StatusData:     map[string]interface{}{},
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "unknown",
 				Message: "Waiting for agent initialization to finish",
@@ -671,27 +677,29 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	deltas := tw.All(2)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   s.state.EnvironUUID(),
-			Id:        "0",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "trusty",
-			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
-			Addresses: []network.Address{},
-			HasVote:   false,
-			WantsVote: true,
+			EnvUUID:    s.state.EnvironUUID(),
+			Id:         "0",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "trusty",
+			Jobs:       []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  true,
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   s.state.EnvironUUID(),
-			Id:        "1",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "saucy",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
-			HasVote:   false,
-			WantsVote: false,
+			EnvUUID:    s.state.EnvironUUID(),
+			Id:         "1",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 	}})
 
@@ -733,6 +741,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Id:                      "0",
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
+			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
 			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
@@ -744,25 +753,27 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}, {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   s.state.EnvironUUID(),
-			Id:        "1",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "saucy",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
+			EnvUUID:    s.state.EnvironUUID(),
+			Id:         "1",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   s.state.EnvironUUID(),
-			Id:        "2",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "quantal",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
-			HasVote:   false,
-			WantsVote: false,
+			EnvUUID:    s.state.EnvironUUID(),
+			Id:         "2",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "quantal",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 	}, {
 		Entity: &multiwatcher.ServiceInfo{
@@ -780,12 +791,13 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.UnitInfo{
-			EnvUUID:   s.state.EnvironUUID(),
-			Name:      "wordpress/0",
-			Service:   "wordpress",
-			Series:    "quantal",
-			MachineId: "2",
-			Status:    "pending",
+			EnvUUID:    s.state.EnvironUUID(),
+			Name:       "wordpress/0",
+			Service:    "wordpress",
+			Series:     "quantal",
+			MachineId:  "2",
+			Status:     "pending",
+			StatusData: map[string]interface{}{},
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "unknown",
 				Message: "Waiting for agent initialization to finish",
@@ -1225,27 +1237,29 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   st0.EnvironUUID(),
-			Id:        "0",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "trusty",
-			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
-			Addresses: []network.Address{},
-			HasVote:   false,
-			WantsVote: true,
+			EnvUUID:    st0.EnvironUUID(),
+			Id:         "0",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "trusty",
+			Jobs:       []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  true,
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   st1.EnvironUUID(),
-			Id:        "0",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "saucy",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
-			HasVote:   false,
-			WantsVote: false,
+			EnvUUID:    st1.EnvironUUID(),
+			Id:         "0",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 	}})
 
@@ -1290,6 +1304,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Id:                      "0",
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
+			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
 			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
@@ -1301,25 +1316,27 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}, {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   st1.EnvironUUID(),
-			Id:        "0",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "saucy",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
+			EnvUUID:    st1.EnvironUUID(),
+			Id:         "0",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   st1.EnvironUUID(),
-			Id:        "1",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "quantal",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
-			HasVote:   false,
-			WantsVote: false,
+			EnvUUID:    st1.EnvironUUID(),
+			Id:         "1",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "quantal",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 	}, {
 		Entity: &multiwatcher.ServiceInfo{
@@ -1337,12 +1354,13 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.UnitInfo{
-			EnvUUID:   st1.EnvironUUID(),
-			Name:      "wordpress/0",
-			Service:   "wordpress",
-			Series:    "quantal",
-			MachineId: "1",
-			Status:    "pending",
+			EnvUUID:    st1.EnvironUUID(),
+			Name:       "wordpress/0",
+			Service:    "wordpress",
+			Series:     "quantal",
+			MachineId:  "1",
+			Status:     "pending",
+			StatusData: map[string]interface{}{},
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "unknown",
 				Message: "Waiting for agent initialization to finish",
@@ -1364,15 +1382,16 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:   st2.EnvironUUID(),
-			Id:        "0",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "trusty",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
-			HasVote:   false,
-			WantsVote: false,
+			EnvUUID:    st2.EnvironUUID(),
+			Id:         "0",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("alive"),
+			Series:     "trusty",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 	}})
 }
@@ -1556,6 +1575,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Id:         "0",
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
+						StatusData: map[string]interface{}{},
 						Life:       multiwatcher.Life("alive"),
 						Series:     "quantal",
 						Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
@@ -1580,6 +1600,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Id:         "0",
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
+						StatusData: map[string]interface{}{},
 					},
 				},
 				change: watcher.Change{
@@ -1593,6 +1614,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						InstanceId:               "i-0",
 						Status:                   multiwatcher.Status("error"),
 						StatusInfo:               "another failure",
+						StatusData:               map[string]interface{}{},
 						Life:                     multiwatcher.Life("alive"),
 						Series:                   "trusty",
 						Jobs:                     []multiwatcher.MachineJob{JobHostUnits.ToParams()},
@@ -1610,6 +1632,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					Id:         "0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
+					StatusData: map[string]interface{}{},
 				}},
 				change: watcher.Change{
 					C:  "statuses",
@@ -1621,6 +1644,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Id:         "0",
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
+						StatusData: map[string]interface{}{},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1636,6 +1660,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					Id:         "0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
+					StatusData: map[string]interface{}{},
 				}},
 				change: watcher.Change{
 					C:  "statuses",
@@ -2090,6 +2115,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
+						StatusData: map[string]interface{}{},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
@@ -2120,6 +2146,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					Name:       "wordpress/0",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "another failure",
+					StatusData: map[string]interface{}{},
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -2150,6 +2177,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
+						StatusData: map[string]interface{}{},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
@@ -2177,12 +2205,14 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				about: "unit info is updated if a port is opened on the machine it is placed in",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID: st.EnvironUUID(),
-						Name:    "wordpress/0",
+						EnvUUID:    st.EnvironUUID(),
+						Name:       "wordpress/0",
+						StatusData: map[string]interface{}{},
 					},
 					&multiwatcher.MachineInfo{
-						EnvUUID: st.EnvironUUID(),
-						Id:      "0",
+						EnvUUID:    st.EnvironUUID(),
+						Id:         "0",
+						StatusData: map[string]interface{}{},
 					},
 				},
 				change: watcher.Change{
@@ -2195,10 +2225,12 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Name:       "wordpress/0",
 						Ports:      []network.Port{{"tcp", 4242}},
 						PortRanges: []network.PortRange{{4242, 4242, "tcp"}},
+						StatusData: map[string]interface{}{},
 					},
 					&multiwatcher.MachineInfo{
-						EnvUUID: st.EnvironUUID(),
-						Id:      "0",
+						EnvUUID:    st.EnvironUUID(),
+						Id:         "0",
+						StatusData: map[string]interface{}{},
 					},
 				}}
 		},
@@ -2227,12 +2259,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						EnvUUID:   st.EnvironUUID(),
-						Name:      "wordpress/0",
-						Service:   "wordpress",
-						Series:    "quantal",
-						MachineId: "0",
-						Status:    "pending",
+						EnvUUID:    st.EnvironUUID(),
+						Name:       "wordpress/0",
+						Service:    "wordpress",
+						Series:     "quantal",
+						MachineId:  "0",
+						Status:     "pending",
+						StatusData: map[string]interface{}{},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "unknown",
 							Message: "Waiting for agent initialization to finish",
@@ -2287,6 +2320,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
 						Status:         multiwatcher.Status("error"),
 						StatusInfo:     "failure",
+						StatusData:     map[string]interface{}{},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
@@ -2316,6 +2350,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					Service:    "wordpress",
 					Status:     multiwatcher.Status("error"),
 					StatusInfo: "failure",
+					StatusData: map[string]interface{}{},
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -2340,6 +2375,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Service:    "wordpress",
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
+						StatusData: map[string]interface{}{},
 						AgentStatus: multiwatcher.StatusInfo{
 							Current: "idle",
 							Message: "",
@@ -2367,6 +2403,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					Service:    "wordpress",
 					Status:     multiwatcher.Status("started"),
 					StatusInfo: "",
+					StatusData: map[string]interface{}{},
 					AgentStatus: multiwatcher.StatusInfo{
 						Current: "idle",
 						Message: "",
@@ -2657,6 +2694,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:      []network.Port{},
 						PortRanges: []network.PortRange{},
 						Status:     "pending",
+						StatusData: map[string]interface{}{},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "unknown",
 							Message: "Waiting for agent initialization to finish",
@@ -2690,6 +2728,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:          []network.Port{{"tcp", 12345}},
 						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
 						Status:         "pending",
+						StatusData:     map[string]interface{}{},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "unknown",
 							Message: "Waiting for agent initialization to finish",
@@ -2723,6 +2762,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:          []network.Port{},
 						PortRanges:     []network.PortRange{},
 						Status:         "pending",
+						StatusData:     map[string]interface{}{},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "unknown",
 							Message: "Waiting for agent initialization to finish",
@@ -2753,6 +2793,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:      []network.Port{},
 						PortRanges: []network.PortRange{},
 						Status:     "pending",
+						StatusData: map[string]interface{}{},
 						WorkloadStatus: multiwatcher.StatusInfo{
 							Current: "unknown",
 							Message: "Waiting for agent initialization to finish",
@@ -2946,11 +2987,11 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	var errorOutput string
 	errorOutput = "\ngot: \n"
 	for _, e := range got {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
+		errorOutput += fmt.Sprintf("  %T %#v\n", e, e)
 	}
 	errorOutput += "expected: \n"
 	for _, e := range want {
-		errorOutput += fmt.Sprintf("\t%T %#v\n", e, e)
+		errorOutput += fmt.Sprintf("  %T %#v\n", e, e)
 	}
 
 	c.Errorf(errorOutput)
@@ -2962,11 +3003,11 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 			w := want[i]
 			if !deepEqual(c, g, w) {
 				firstDiffError += "\n"
-				firstDiffError += fmt.Sprintf("first difference at position %d", i)
-				firstDiffError += "got: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", g, g)
-				firstDiffError += "expected: \n"
-				firstDiffError += fmt.Sprintf("\t%T %#v", w, w)
+				firstDiffError += fmt.Sprintf("first difference at position %d\n", i)
+				firstDiffError += "got:\n"
+				firstDiffError += fmt.Sprintf("  %T %#v\n", g, g)
+				firstDiffError += "expected:\n"
+				firstDiffError += fmt.Sprintf("  %T %#v\n", w, w)
 				break
 			}
 		}
@@ -2977,8 +3018,5 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 
 func deepEqual(c *gc.C, got, want interface{}) bool {
 	same, err := jc.DeepEqual(got, want)
-	if err != nil {
-		c.Fatal(err.Error())
-	}
-	return same
+	return err == nil && same
 }
