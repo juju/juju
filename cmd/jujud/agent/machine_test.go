@@ -743,8 +743,10 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 		w, err := addresser.NewWorker(api)
 		c.Check(err, jc.ErrorIsNil)
 		if expectFinished {
+			// When the address-allocation feature flag is disabled.
 			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
 		} else {
+			// When the address-allocation feature flag is enabled.
 			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
 		}
 		return w, err
