@@ -196,9 +196,9 @@ type hookContext struct {
 }
 
 // HookVars implements jujuc.Context.
-func (ctx *hookContext) HookVars(paths context.Paths) []string {
+func (ctx *hookContext) HookVars(paths context.Paths) ([]string, error) {
 	// TODO(cmars): Provide restricted hook context vars.
-	return nil
+	return nil, nil
 }
 
 // UnitName implements jujuc.Context.
