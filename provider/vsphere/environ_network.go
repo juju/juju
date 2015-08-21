@@ -45,6 +45,11 @@ func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr net
 	return errors.Trace(err)
 }
 
+// SupportsSpaces is specified on environs.Networking.
+func (env *environ) SupportsSpaces() bool {
+	return false
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	return true, nil
