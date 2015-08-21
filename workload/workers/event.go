@@ -36,7 +36,7 @@ type EventHandlers struct {
 	runner worker.Runner
 }
 
-// NewEventHandlers wraps a new EventHandler around the provided channel.
+// NewEventHandlers creates a new EventHandlers.
 func NewEventHandlers() *EventHandlers {
 	logger.Debugf("new event handler created")
 	var eh EventHandlers
