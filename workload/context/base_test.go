@@ -161,10 +161,15 @@ func (c *stubContextComponent) Track(info workload.Info) error {
 	return nil
 }
 
-func (c *stubContextComponent) Untrack(id string) {
+func (c *stubContextComponent) Untrack(id string) error {
 	c.stub.AddCall("Untrack", id)
 
 	c.untracks[id] = struct{}{}
+
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (c *stubContextComponent) Definitions() ([]charm.Workload, error) {
@@ -285,14 +290,16 @@ func (c *stubAPIClient) Track(workloads ...workload.Info) ([]string, error) {
 	return ids, nil
 }
 
-func (c *stubAPIClient) Untrack(ids []string) error {
+func (c *stubAPIClient) Untrack(ids []string) ([]process.ProcError, error) {
 	c.stub.AddCall("Untrack", ids)
 	if err := c.stub.NextErr(); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
+	errs := []process.ProcError{}
 	for _, id := range ids {
-		delete(c.workloads, id)
+		delete(c.procs, id)
+		errs = append(errs, process.ProcError{ID: id})
 	}
 	return nil
 }

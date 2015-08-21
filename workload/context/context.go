@@ -56,6 +56,7 @@ var _ Component = (*Context)(nil)
 // Context is the workload portion of the hook context.
 type Context struct {
 	api       APIClient
+<<<<<<< feature-proc-mgmt:workload/context/context.go
 	plugin    workload.Plugin
 	workloads map[string]workload.Info
 	updates   map[string]workload.Info
@@ -65,6 +66,10 @@ type Context struct {
 	// FindPlugin is the function used to find the plugin for the given
 	// plugin name.
 	FindPlugin func(pluginName string) (workload.Plugin, error)
+=======
+	processes map[string]process.Info
+	updates   map[string]process.Info
+>>>>>>> HEAD~2:process/context/context.go
 }
 
 // NewContext returns a new jujuc.ContextComponent for workloads.
@@ -205,11 +210,22 @@ func (c *Context) Track(info workload.Info) error {
 	return nil
 }
 
-// Untrack tells juju to stop tracking this workload.
-func (c *Context) Untrack(id string) {
-	// We assume that flush always gets called immediately after a set/untrack,
-	// so we don't have to worry about conflicting updates/deletes.
-	c.removes[id] = struct{}{}
+// Untrack tells juju to stop tracking this process.
+func (c *Context) Untrack(id string) error {
+	logger.Tracef("Calling untrack on process context %q", id)
+
+	res, err := c.api.Untrack([]string{id})
+	logger.Debugf("result: %#v", res)
+	logger.Debugf("error: %#v", err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(res) > 0 && res[0].Err != nil {
+		return errors.Trace(res[0].Err)
+	}
+	delete(c.processes, id)
+
+	return nil
 }
 
 // Definitions returns the unit's charm-defined workloads.
@@ -228,8 +244,7 @@ func (c *Context) Definitions() ([]charm.Workload, error) {
 // Juju state via the API.
 func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
-
-	// TODO(natefinch): make this a noop and move this code into set/untrack.
+	// TODO(natefinch): make this a noop and move this code into set.
 
 	var events []workload.Event
 	if len(c.updates) > 0 {
@@ -256,30 +271,5 @@ func (c *Context) Flush() error {
 		}
 		c.updates = map[string]workload.Info{}
 	}
-	if len(c.removes) > 0 {
-		removes := make([]string, 0, len(c.removes))
-		for id := range c.removes {
-			info := c.workloads[id]
-			removes = append(removes, id)
-			delete(c.workloads, id)
-
-			plugin, err := c.Plugin(&info)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			events = append(events, workload.Event{
-				Kind:     workload.EventKindUntracked,
-				ID:       id,
-				Plugin:   plugin,
-				PluginID: info.Details.ID,
-			})
-		}
-		c.api.Untrack(removes)
-		c.removes = map[string]struct{}{}
-	}
-	if len(events) > 0 {
-		c.addEvents(events...)
-	}
-
 	return nil
 }

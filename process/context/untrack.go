@@ -12,7 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-const UntrackCmdName = "process-untrack"
+const UntrackCmdName = "workload-untrack"
 
 func NewUntrackCmd(ctx HookContext) (*UntrackCmd, error) {
 	comp, err := ContextComponent(ctx)
@@ -27,7 +27,7 @@ var _ cmd.Command = (*UntrackCmd)(nil)
 // UntrackCmd implements the untrack command.
 type UntrackCmd struct {
 	comp Component
-	id   string
+	name string
 }
 
 func (c *UntrackCmd) Init(args []string) error {
@@ -39,9 +39,9 @@ func (c *UntrackCmd) Init(args []string) error {
 		return errors.Errorf("unexpected args: %q", args[1:])
 	}
 
-	c.id, _ = process.ParseID(args[0])
+	c.name, _ = process.ParseID(args[0])
 
-	if c.id == "" {
+	if c.name == "" {
 		return errors.New(idArg + " cannot be empty")
 	}
 
@@ -53,8 +53,18 @@ func (*UntrackCmd) SetFlags(*gnuflag.FlagSet) {
 }
 
 func (c *UntrackCmd) Run(*cmd.Context) error {
-	c.comp.Untrack(c.id)
-	return nil
+	logger.Tracef("Running untrack command with name %q", c.name)
+
+	ids, err := idsForName(c.comp, c.name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(ids) == 0 {
+		return errors.New("No process with that name or id.")
+	}
+
+	err = c.comp.Untrack(ids[0])
+	return err
 }
 
 // Info implements cmd.Command.
@@ -62,11 +72,11 @@ func (*UntrackCmd) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    UntrackCmdName,
 		Args:    fmt.Sprintf("<%s>", idArg),
-		Purpose: "stop tracking a workload process",
+		Purpose: "stop tracking a workload",
 		Doc: `
-"process-untrack" is used while a hook is running to let Juju know
-that a workload process has been manually stopped. The id 
-used to start tracking the process must be provided.
+"workload-untrack" is used while a hook is running to let Juju know
+that a workload has been manually stopped. The id 
+used to start tracking the workload must be provided.
 `,
 	}
 }

@@ -140,12 +140,15 @@ func (c *baseCommand) init(args map[string]string) error {
 
 // Run implements cmd.Command.
 func (c *baseCommand) Run(ctx *cmd.Context) error {
-	id, err := c.findID()
-	if err != nil {
-		return errors.Trace(err)
+	if c.ID == c.Name {
+		var err error
+		c.ID, err = findID(c.compCtx, c.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
-	pInfo, err := c.compCtx.Get(id)
+	pInfo, err := c.compCtx.Get(c.ID)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -191,29 +194,26 @@ func (c *baseCommand) trackedWorkloads(ids ...string) (map[string]*workload.Info
 	return workloads, nil
 }
 
-func (c *baseCommand) findID() (string, error) {
-	if c.ID != c.Name {
-		return c.ID, nil
-	}
+// TODO(natefinch): move to findID API server side.
 
-	ids, err := c.idsForName(c.Name)
+func findID(compCtx Component, name string) (string, error) {
+	ids, err := idsForName(compCtx, name)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	if len(ids) == 0 {
-		return "", errors.NotFoundf("ID for %q", c.Name)
+		return "", errors.NotFoundf("ID for %q", name)
 	}
 	// For now we only support a single workload for a given name.
 	if len(ids) > 1 {
 		return "", errors.Errorf("found more than one tracked workload for %q", c.Name)
 	}
 
-	c.ID = ids[0]
-	return c.ID, nil
+	return ids[0], nil
 }
 
-func (c *baseCommand) idsForName(name string) ([]string, error) {
-	tracked, err := c.compCtx.List()
+func idsForName(compCtx Component, name string) ([]string, error) {
+	registered, err := compCtx.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -277,7 +277,7 @@ func (c *trackingCommand) Run(ctx *cmd.Context) error {
 
 	// TODO(ericsnow) Ensure that c.ID == c.Name?
 
-	ids, err := c.idsForName(c.Name)
+	ids, err := idsForName(c.compCtx, c.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
