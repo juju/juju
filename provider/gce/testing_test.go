@@ -10,6 +10,9 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	// TODO(perrito666) create intermediate types to
+	// avoid depending of compute in this package.
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -87,6 +90,7 @@ type BaseSuiteUnpatched struct {
 
 	Addresses     []network.Address
 	BaseInstance  *google.Instance
+	BaseDisk      *compute.Disk
 	Instance      *environInstance
 	InstName      string
 	Metadata      map[string]string
@@ -161,6 +165,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.InstanceType = allInstanceTypes[0]
+	// Storage
+	s.BaseDisk = &compute.Disk{
+		Id:       1234567,
+		Name:     "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:     "home-zone",
+		Status:   "READY",
+		SizeGb:   1,
+		SelfLink: "https://www.googleapis.com/compute/v1/projects/my-juju/zones/home-zone/disks/home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
@@ -422,6 +435,10 @@ type fakeConnCall struct {
 	FirewallName string
 	PortRanges   []network.PortRange
 	Region       string
+	Disks        []google.DiskSpec
+	VolumeName   string
+	InstanceId   string
+	Mode         string
 }
 
 type fakeConn struct {
@@ -431,6 +448,12 @@ type fakeConn struct {
 	Insts      []google.Instance
 	PortRanges []network.PortRange
 	Zones      []google.AvailabilityZone
+
+	ComputeDisks  []*compute.Disk
+	ComputeDisk   *compute.Disk
+	AttachedDisk  *google.AttachedDisk
+	AttachedDisks []*google.AttachedDisk
+
 	Err        error
 	FailOnCall int
 }
@@ -517,6 +540,71 @@ func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone,
 		Region:   region,
 	})
 	return fc.Zones, fc.err()
+}
+
+func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*compute.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "CreateDisks",
+		ZoneName: zone,
+		Disks:    disks,
+	})
+	return fc.ComputeDisks, fc.err()
+}
+
+func (fc *fakeConn) Disks(zone string) ([]*compute.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Disks",
+		ZoneName: zone,
+	})
+	return fc.ComputeDisks, fc.err()
+}
+
+func (fc *fakeConn) RemoveDisk(zone, id string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "RemoveDisk",
+		ZoneName: zone,
+		ID:       id,
+	})
+	return fc.err()
+}
+
+func (fc *fakeConn) Disk(zone, id string) (*compute.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Disk",
+		ZoneName: zone,
+		ID:       id,
+	})
+	return fc.ComputeDisk, fc.err()
+}
+
+func (fc *fakeConn) AttachDisk(zone, volumeName, instanceId, mode string) (*google.AttachedDisk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "AttachDisk",
+		ZoneName:   zone,
+		VolumeName: volumeName,
+		InstanceId: instanceId,
+		Mode:       mode,
+	})
+	return fc.AttachedDisk, fc.err()
+}
+
+func (fc *fakeConn) DetachDisk(zone, instanceId, volumeName string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "DetachDisk",
+		ZoneName:   zone,
+		InstanceId: instanceId,
+		VolumeName: volumeName,
+	})
+	return fc.err()
+}
+
+func (fc *fakeConn) InstanceDisks(zone, instanceId string) ([]*google.AttachedDisk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "InstanceDisks",
+		ZoneName:   zone,
+		InstanceId: instanceId,
+	})
+	return fc.AttachedDisks, fc.err()
 }
 
 func (fc *fakeConn) WasCalled(funcName string) (bool, []fakeConnCall) {
