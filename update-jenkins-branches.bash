@@ -3,6 +3,9 @@
 # the --cloud-city option will also update credential and configs.
 set -eux
 
+SCRIPTS=$(readlink -f $(dirname $0))
+REPOSITORY=${JUJU_REPOSITORY:-$(dirname $SCRIPTS)/repository}
+
 MASTER="juju-ci.vapour.ws"
 SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     vivid-slave.vapour.ws wily-slave.vapour.ws \
@@ -78,10 +81,12 @@ for host in $MASTER $SLAVES; do
 done
 # win-slaves have a different user and directory layout tan POSIX hosts.
 for host in $WIN_SLAVES; do
+    zip -q -r repository.zip $REPOSITORY -x *.bzr*
+    scp repository.zip Administrator@$host:/cygdrive/c/Users/Administrator/
     ssh Administrator@$host << EOT
 bzr pull -d ./juju-release-tools
 bzr pull -d ./juju-ci-tools
-#bzr pull -d ./repository
+/cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip
 EOT
 done
 
