@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -25,13 +24,19 @@ import (
 // UniterAvailabilitySetter interface defines the function for setting
 // the state of the uniter (a boolean signifying whether it is available or not).
 type UniterAvailabilitySetter interface {
-	SetAvailable(bool) error
+	// Lock locks the uniter availability manifold worker and sets it to unavailable.
+	Lock() error
+	// Unlock unlocks the uniter availability manifold worker and sets it to available.
+	Unlock() error
 }
 
 // UniterAvailabilityGetter interface defines the function getting
 // the state of the uniter (a boolean signifying whether it is available or not).
+// When the state of the uniter is retrieved, it is locked, preventing it from
+// being changed (though multiple getters may lock it simultaneously).
+// Require also returns a function used to unlock it.
 type UniterAvailabilityGetter interface {
-	Available() bool
+	Require() (bool, func())
 }
 
 type readFunc func(file string) (bool, error)
@@ -67,7 +72,11 @@ func newWorker(read readFunc, write writeFunc) func(a agent.Agent) (worker.Worke
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		w := &uniterStateWorker{file: persistenceFile, available: avail, writeStateFile: write}
+		w := &uniterStateWorker{
+			file:           persistenceFile,
+			mtx:            NewRWAbortableLock(),
+			available:      avail,
+			writeStateFile: write}
 		go func() {
 			defer w.tomb.Done()
 			<-w.tomb.Dying()
@@ -76,7 +85,7 @@ func newWorker(read readFunc, write writeFunc) func(a agent.Agent) (worker.Worke
 	}
 }
 
-// outputFunc extracts a *fslock.Lock from a *machineLockWorker.
+// outputFunc extracts an UniterAvailabilityGetter or a UniterAvailabilitySetter from the worker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*uniterStateWorker)
 	if inWorker == nil {
@@ -124,7 +133,8 @@ func writeStateFile(file string, value bool) error {
 // to its lock.
 type uniterStateWorker struct {
 	tomb tomb.Tomb
-	sync.RWMutex
+
+	mtx *RWAbortableLock
 
 	file           string
 	available      bool
@@ -133,6 +143,7 @@ type uniterStateWorker struct {
 
 // Kill is part of the worker.Worker interface.
 func (w *uniterStateWorker) Kill() {
+	w.mtx.Abort()
 	w.tomb.Kill(nil)
 }
 
@@ -141,18 +152,37 @@ func (w *uniterStateWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-// Available is part of the UniterState interface.
-func (u *uniterStateWorker) Available() bool {
-	u.RLock()
-	defer u.RUnlock()
-	return u.available
+// Require is part of the UniterStateGetter interface.
+func (u *uniterStateWorker) Require() (bool, func()) {
+	err := u.mtx.RLock()
+	if err != nil {
+		// Acquiring the lock failed.
+		return false, func() {}
+	}
+	return u.available, u.mtx.RUnlock
+}
+
+// Lock is part of the UniterStateSetter interface.
+func (u *uniterStateWorker) Lock() error {
+	err := u.mtx.Lock()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return u.setAvailable(false)
+}
+
+// Unlock is part of the UniterStateSetter interface.
+func (u *uniterStateWorker) Unlock() error {
+	err := u.setAvailable(true)
+	if err == nil {
+		u.mtx.Unlock()
+	}
+	return err
 }
 
 // SetAvailable is part of the UniterState interface. If writing
 // to the persistence file fails, the worker will shut down.
-func (u *uniterStateWorker) SetAvailable(available bool) (retErr error) {
-	u.Lock()
-	defer u.Unlock()
+func (u *uniterStateWorker) setAvailable(available bool) (retErr error) {
 	// Set the in-memory variable if persisting succeeds,
 	// shut down worker otherwise.
 	defer func() {
