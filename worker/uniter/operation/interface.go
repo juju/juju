@@ -83,12 +83,8 @@ type Factory interface {
 	// NewRunHook creates an operation to execute the supplied hook.
 	NewRunHook(hookInfo hook.Info) (Operation, error)
 
-	// NewRetryHook creates an operation to clear the unit's resolved flag, and
-	// re-execute the supplied hook.
-	NewRetryHook(hookInfo hook.Info) (Operation, error)
-
-	// NewSkipHook creates an operation to clear the unit's resolved flag, and
-	// mark the supplied hook as completed successfully.
+	// NewSkipHook creates an operation to mark the supplied hook as
+	// completed successfully, without executing the hook.
 	NewSkipHook(hookInfo hook.Info) (Operation, error)
 
 	// NewAction creates an operation to execute the supplied action.
@@ -98,10 +94,6 @@ type Factory interface {
 	// indicated relation context, and pass the results back over the supplied
 	// func.
 	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
-
-	// NewUpdateRelations creates an operation to ensure the supplied relation
-	// ids are known and tracked.
-	NewUpdateRelations(ids []int) (Operation, error)
 
 	// NewUpdateStorage creates an operation to ensure the supplied storage
 	// tags are known and tracked.
@@ -145,18 +137,10 @@ type Callbacks interface {
 	// SetExecutingStatus sets the agent state to "Executing" with a message.
 	SetExecutingStatus(string) error
 
-	// UpdateRelations exists so that we can encapsulate it in an operation.
-	UpdateRelations(ids []int) error
-
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.
 	NotifyHookCompleted(string, runner.Context)
 	NotifyHookFailed(string, runner.Context)
-
-	// InitializeMetricsTimers ensures that the collect-metrics hook timer is
-	// up to date given the current deployed charm. It's only used in deploy
-	// operations.
-	InitializeMetricsTimers() error
 
 	// The following methods exist primarily to allow us to test operation code
 	// without using a live api connection.
@@ -174,11 +158,6 @@ type Callbacks interface {
 	// no path by which the state server can legitimately garbage collect that
 	// charm or the service's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
-
-	// ClearResolvedFlag notifies the state server that the uniter has accepted
-	// the resolved attempt and is trying to progress. It's only used by Resolved
-	// operations (which we generally expect to wrap other operations).
-	ClearResolvedFlag() error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

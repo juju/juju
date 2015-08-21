@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package relation
 
 import (
 	"fmt"
@@ -10,26 +10,22 @@ import (
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
 	ru    *apiuniter.RelationUnit
-	dir   *relation.StateDir
-	queue relation.HookQueue
-	hooks chan<- hook.Info
+	dir   *StateDir
 	dying bool
 }
 
 // NewRelationer creates a new Relationer. The unit will not join the
 // relation until explicitly requested.
-func NewRelationer(ru *apiuniter.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
+func NewRelationer(ru *apiuniter.RelationUnit, dir *StateDir) *Relationer {
 	return &Relationer{
-		ru:    ru,
-		dir:   dir,
-		hooks: hooks,
+		ru:  ru,
+		dir: dir,
 	}
 }
 
@@ -75,12 +71,6 @@ func (r *Relationer) SetDying() error {
 		r.dying = true
 		return r.die()
 	}
-	if r.queue != nil {
-		if err := r.StopHooks(); err != nil {
-			return err
-		}
-		defer r.StartHooks()
-	}
 	r.dying = true
 	return nil
 }
@@ -92,39 +82,6 @@ func (r *Relationer) die() error {
 		return err
 	}
 	return r.dir.Remove()
-}
-
-// StartHooks starts watching the relation, and sending hook.Info events on the
-// hooks channel. It will panic if called when already responding to relation
-// changes.
-func (r *Relationer) StartHooks() error {
-	if r.IsImplicit() {
-		return nil
-	}
-	if r.queue != nil {
-		panic("hooks already started!")
-	}
-	if r.dying {
-		r.queue = relation.NewDyingHookQueue(r.dir.State(), r.hooks)
-	} else {
-		w, err := r.ru.Watch()
-		if err != nil {
-			return err
-		}
-		r.queue = relation.NewAliveHookQueue(r.dir.State(), r.hooks, w)
-	}
-	return nil
-}
-
-// StopHooks ensures that the relationer is not watching the relation, or sending
-// hook.Info events on the hooks channel.
-func (r *Relationer) StopHooks() error {
-	if r.queue == nil {
-		return nil
-	}
-	queue := r.queue
-	r.queue = nil
-	return queue.Stop()
 }
 
 // PrepareHook checks that the relation is in a state such that it makes

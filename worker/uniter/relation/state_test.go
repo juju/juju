@@ -20,6 +20,8 @@ import (
 
 type StateDirSuite struct{}
 
+type msi map[string]int64
+
 var _ = gc.Suite(&StateDirSuite{})
 
 func (s *StateDirSuite) TestReadStateDirEmpty(c *gc.C) {

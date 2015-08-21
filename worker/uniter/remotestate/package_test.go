@@ -1,14 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package filter_test
+package remotestate_test
 
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
