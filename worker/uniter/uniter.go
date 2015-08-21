@@ -240,9 +240,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	case <-u.tomb.Dying():
 		return tomb.ErrDying
 	case _, ok := <-watcher.RemoteStateChanged():
-		// TODO(axw) !ok => dying
+		// Sanity check.
 		if !ok {
-			panic("!ok")
+			panic("unexpected remote state watcher closed")
 		}
 	}
 
@@ -253,13 +253,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		switch cause := errors.Cause(err); cause {
 		case tomb.ErrDying:
 			err = tomb.ErrDying
+		case operation.ErrNeedsReboot:
+			err = worker.ErrRebootMachine
 		case operation.ErrHookFailed:
 			// Loop back around. The resolver can tell that it is in
 			// an error state by inspecting the operation state.
 			err = nil
 		case resolver.ErrTerminate:
-			// TODO(axw) wait for subordinates to disappear,
-			// return worker.ErrTerminate.
 			err = u.terminate()
 		default:
 			if ok := operation.IsDeployConflictError(cause); ok {
