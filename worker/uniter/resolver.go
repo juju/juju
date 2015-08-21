@@ -16,6 +16,7 @@ type uniterResolver struct {
 	opFactory       operation.Factory
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
+	conflicted      bool
 
 	charmURL      *charm.URL
 	configVersion int
@@ -31,6 +32,15 @@ func (s *uniterResolver) NextOp(
 ) (operation.Operation, error) {
 
 	if opState.Kind == operation.Upgrade {
+		if s.conflicted {
+			if remoteState.ResolvedMode == params.ResolvedNone {
+				return nil, resolver.ErrNoOperation
+			}
+			if err := s.clearResolved(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			s.conflicted = false
+		}
 		logger.Infof("resuming charm upgrade")
 		return s.opFactory.NewUpgrade(opState.CharmURL)
 	}

@@ -250,7 +250,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		err = resolverLoop(
 			uniterResolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
 		)
-		switch errors.Cause(err) {
+		switch cause := errors.Cause(err); cause {
 		case tomb.ErrDying:
 			err = tomb.ErrDying
 		case operation.ErrHookFailed:
@@ -261,6 +261,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// TODO(axw) wait for subordinates to disappear,
 			// return worker.ErrTerminate.
 			err = u.terminate()
+		default:
+			if ok := operation.IsDeployConflictError(cause); ok {
+				uniterResolver.conflicted = true
+				err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
+			}
 		}
 	}
 

@@ -65,26 +65,12 @@ func (f *factory) NewUpgrade(charmURL *corecharm.URL) (Operation, error) {
 
 // NewRevertUpgrade is part of the Factory interface.
 func (f *factory) NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error) {
-	panic("TODO")
-	/*
-		charmOp, err := f.newDeploy(Upgrade, charmURL, true, false)
-		if err != nil {
-			return nil, err
-		}
-		return f.newResolved(charmOp)
-	*/
+	return f.newDeploy(Upgrade, charmURL, true, false)
 }
 
 // NewResolvedUpgrade is part of the Factory interface.
 func (f *factory) NewResolvedUpgrade(charmURL *corecharm.URL) (Operation, error) {
-	panic("TODO")
-	/*
-		charmOp, err := f.newDeploy(Upgrade, charmURL, false, true)
-		if err != nil {
-			return nil, err
-		}
-		return f.newResolved(charmOp)
-	*/
+	return f.newDeploy(Upgrade, charmURL, false, true)
 }
 
 // NewRunHook is part of the Factory interface.

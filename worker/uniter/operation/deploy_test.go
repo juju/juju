@@ -75,27 +75,6 @@ func (s *DeploySuite) TestPrepareAlreadyDone_ResolvedUpgrade(c *gc.C) {
 	)
 }
 
-func (s *DeploySuite) testClearResolvedFlagError(c *gc.C, newDeploy newDeploy) {
-	callbacks := &DeployCallbacks{
-		MockClearResolvedFlag: &MockNoArgs{err: errors.New("blort")},
-	}
-	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
-	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
-	c.Assert(err, jc.ErrorIsNil)
-	newState, err := op.Prepare(operation.State{})
-	c.Check(newState, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "blort")
-	c.Check(callbacks.MockClearResolvedFlag.called, jc.IsTrue)
-}
-
-func (s *DeploySuite) TestClearResolvedFlagError_RevertUpgrade(c *gc.C) {
-	s.testClearResolvedFlagError(c, (operation.Factory).NewRevertUpgrade)
-}
-
-func (s *DeploySuite) TestClearResolvedFlagError_ResolvedUpgrade(c *gc.C) {
-	s.testClearResolvedFlagError(c, (operation.Factory).NewResolvedUpgrade)
-}
-
 func (s *DeploySuite) testNotifyDeployerError(
 	c *gc.C, newDeploy newDeploy, expectNotifyRevert bool,
 ) {
@@ -359,12 +338,11 @@ func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 			newDeploy,
 			overwriteState,
 			operation.State{
-				Kind:               operation.Upgrade,
-				Step:               operation.Pending,
-				CharmURL:           curl("cs:quantal/nyancat-4"),
-				Started:            true,
-				CollectMetricsTime: 1234567,
-				UpdateStatusTime:   1234567,
+				Kind:             operation.Upgrade,
+				Step:             operation.Pending,
+				CharmURL:         curl("cs:quantal/nyancat-4"),
+				Started:          true,
+				UpdateStatusTime: 1234567,
 			},
 		)
 	}
@@ -391,9 +369,8 @@ func (s *DeploySuite) testExecuteConflictError(c *gc.C, newDeploy newDeploy) {
 	newState, err := op.Execute(operation.State{})
 	c.Check(newState, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot deploy charm cs:quantal/nyancat-4")
-	errURL, ok := operation.DeployConflictCharmURL(err)
+	ok := operation.IsDeployConflictError(err)
 	c.Check(ok, jc.IsTrue)
-	c.Check(errURL, gc.DeepEquals, charmURL)
 	c.Check(deployer.MockDeploy.called, jc.IsTrue)
 }
 
@@ -562,41 +539,14 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 			newDeploy,
 			overwriteState,
 			operation.State{
-				Kind:               operation.Upgrade,
-				Step:               operation.Done,
-				CharmURL:           curl("cs:quantal/lol-1"),
-				Started:            true,
-				CollectMetricsTime: 1234567,
-				UpdateStatusTime:   1234567,
+				Kind:             operation.Upgrade,
+				Step:             operation.Done,
+				CharmURL:         curl("cs:quantal/lol-1"),
+				Started:          true,
+				UpdateStatusTime: 1234567,
 			},
 		)
 	}
-}
-
-func (s *DeploySuite) testCommitMetricsError(c *gc.C, newDeploy newDeploy) {
-	callbacks := NewDeployCommitCallbacks(errors.New("glukh"))
-	factory := operation.NewFactory(operation.FactoryParams{Callbacks: callbacks})
-	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
-	c.Assert(err, jc.ErrorIsNil)
-	newState, err := op.Commit(operation.State{})
-	c.Check(err, gc.ErrorMatches, "glukh")
-	c.Check(newState, gc.IsNil)
-}
-
-func (s *DeploySuite) TestCommitMetricsError_Install(c *gc.C) {
-	s.testCommitMetricsError(c, (operation.Factory).NewInstall)
-}
-
-func (s *DeploySuite) TestCommitMetricsError_Upgrade(c *gc.C) {
-	s.testCommitMetricsError(c, (operation.Factory).NewUpgrade)
-}
-
-func (s *DeploySuite) TestCommitMetricsError_RevertUpgrade(c *gc.C) {
-	s.testCommitMetricsError(c, (operation.Factory).NewRevertUpgrade)
-}
-
-func (s *DeploySuite) TestCommitMetricsError_ResolvedUpgrade(c *gc.C) {
-	s.testCommitMetricsError(c, (operation.Factory).NewResolvedUpgrade)
 }
 
 func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {

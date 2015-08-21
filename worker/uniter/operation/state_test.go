@@ -182,10 +182,9 @@ var stateTests = []struct {
 		err: `unexpected action id`,
 	}, {
 		st: operation.State{
-			Kind:               operation.Continue,
-			Step:               operation.Pending,
-			CollectMetricsTime: 98765432,
-			Leader:             true,
+			Kind:   operation.Continue,
+			Step:   operation.Pending,
+			Leader: true,
 		},
 	},
 }
