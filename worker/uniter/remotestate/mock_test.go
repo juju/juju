@@ -180,6 +180,7 @@ type mockUnit struct {
 	addressesWatcher      mockNotifyWatcher
 	configSettingsWatcher mockNotifyWatcher
 	storageWatcher        mockStringsWatcher
+	actionWatcher         mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -216,6 +217,10 @@ func (u *mockUnit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 
 func (u *mockUnit) WatchStorage() (watcher.StringsWatcher, error) {
 	return &u.storageWatcher, nil
+}
+
+func (u *mockUnit) WatchActionNotifications() (watcher.StringsWatcher, error) {
+	return &u.actionWatcher, nil
 }
 
 type mockService struct {

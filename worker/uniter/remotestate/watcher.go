@@ -203,6 +203,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	defer watcher.Stop(leaderSettingsw, &w.tomb)
 	requiredEvents++
 
+	var seenActionsChange bool
+	actionsw, err := w.unit.WatchActionNotifications()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(actionsw, &w.tomb)
+	requiredEvents++
+
 	var seenLeadershipChange bool
 	// There's no watcher for this per se; we wait on a channel
 	// returned by the leadership tracker.
@@ -306,6 +314,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return err
 			}
 			observedEvent(&seenLeaderSettingsChange)
+
+		case actions, ok := <-actionsw.Changes():
+			logger.Debugf("got action change: %v", actions)
+			if !ok {
+				return watcher.EnsureErr(actionsw)
+			}
+			if err := w.actionsChanged(actions); err != nil {
+				return err
+			}
+			observedEvent(&seenActionsChange)
 
 		case keys, ok := <-relationsw.Changes():
 			logger.Debugf("got relations change")
@@ -510,6 +528,14 @@ func (w *RemoteStateWatcher) storageAttachmentChanged(change storageAttachmentCh
 	w.mu.Lock()
 	w.current.Storage[change.Tag] = change.Snapshot
 	w.mu.Unlock()
+	return nil
+}
+
+func (w *RemoteStateWatcher) actionsChanged(actions []string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	// TODO do we care about ordering?
+	w.current.Actions = append(w.current.Actions, actions...)
 	return nil
 }
 

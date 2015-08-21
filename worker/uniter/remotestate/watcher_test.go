@@ -47,6 +47,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			addressesWatcher:      mockNotifyWatcher{changes: make(chan struct{}, 1)},
 			configSettingsWatcher: mockNotifyWatcher{changes: make(chan struct{}, 1)},
 			storageWatcher:        mockStringsWatcher{changes: make(chan []string, 1)},
+			actionWatcher:         mockStringsWatcher{changes: make(chan []string, 1)},
 		},
 		relations:                 make(map[names.RelationTag]*mockRelation),
 		storageAttachment:         make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -91,6 +92,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
+	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.service.serviceWatcher.changes <- struct{}{}
 	s.st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.service.relationsWatcher.changes <- []string{}
@@ -103,6 +105,7 @@ func signalAll(st *mockState, l *mockLeadershipTracker) {
 	st.unit.addressesWatcher.changes <- struct{}{}
 	st.unit.configSettingsWatcher.changes <- struct{}{}
 	st.unit.storageWatcher.changes <- []string{}
+	st.unit.actionWatcher.changes <- []string{}
 	st.unit.service.serviceWatcher.changes <- struct{}{}
 	st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
 	st.unit.service.relationsWatcher.changes <- []string{}
@@ -164,6 +167,17 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	s.st.unit.service.relationsWatcher.changes <- []string{}
 	assertOneChange()
+}
+
+func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
+	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
+	signalAll(&s.st, &s.leadership)
+	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(w.Snapshot().Actions, gc.DeepEquals, []string{"an-action"})
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
