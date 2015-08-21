@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/leadership"
-	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -51,27 +50,9 @@ func NewHookContext(
 		relations:          relations,
 		apiAddrs:           apiAddrs,
 		proxySettings:      proxySettings,
-		metricsRecorder:    nil,
-		definedMetrics:     charmMetrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
-	}
-	if canAddMetrics {
-		charmURL, err := unit.CharmURL()
-		if err != nil {
-			return nil, err
-		}
-		ctx.metricsRecorder, err = spool.NewJSONMetricRecorder(
-			spool.MetricRecorderConfig{
-				SpoolDir: paths.GetMetricsSpoolDir(),
-				Metrics:  charmMetrics.Metrics,
-				CharmURL: charmURL.String(),
-				UnitTag:  unit.Tag().String(),
-			})
-		if err != nil {
-			return nil, err
-		}
 	}
 	// Get and cache the addresses.
 	var err error
@@ -116,17 +97,6 @@ func SetEnvironmentHookContextRelation(
 			endpointName: endpointName,
 			relationId:   relationId,
 		},
-	}
-}
-
-// PatchMetricsRecorder patches the metrics writer used by the context with a new
-// object.
-func PatchMetricsRecorder(ctx jujuc.Context, writer MetricsRecorder) func() {
-	hctx := ctx.(*HookContext)
-	oldRecorder := hctx.metricsRecorder
-	hctx.metricsRecorder = writer
-	return func() {
-		hctx.metricsRecorder = oldRecorder
 	}
 }
 

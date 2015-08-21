@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -54,21 +53,6 @@ var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 type meterStatus struct {
 	code string
 	info string
-}
-
-// MetricsRecorder is used to store metrics supplied by the add-metric command.
-type MetricsRecorder interface {
-	AddMetric(key, value string, created time.Time) error
-	IsDeclaredMetric(key string) bool
-	Close() error
-}
-
-// metricsReader is used to read metrics batches stored by the metrics recorder
-// and remove metrics batches that have been marked as succesfully sent.
-type metricsReader interface {
-	Open() ([]spool.MetricBatch, error)
-	Remove(uuid string) error
-	Close() error
 }
 
 // HookContext is the implementation of jujuc.Context.
