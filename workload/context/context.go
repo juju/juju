@@ -215,8 +215,6 @@ func (c *Context) Untrack(id string) error {
 	logger.Tracef("Calling untrack on process context %q", id)
 
 	res, err := c.api.Untrack([]string{id})
-	logger.Debugf("result: %#v", res)
-	logger.Debugf("error: %#v", err)
 	if err != nil {
 		return errors.Trace(err)
 	}

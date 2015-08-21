@@ -364,14 +364,15 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	ctx.FindPlugin = findPlugin
 	err := ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
-	before, err := ctx.Workloads()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(before, jc.DeepEquals, []workload.Info{info})
-	ctx.Untrack(info.ID())
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiClient.stub.CheckCallNames(c, "Track", "Untrack", "addEvents")
-	after, err := ctx.Workloads()
+	before, err := ctx.Processes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(before, jc.DeepEquals, []process.Info{info})
+	err = ctx.Untrack(info.ID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	after, err := ctx.Processes()
 	c.Assert(err, jc.ErrorIsNil)
 
 	if len(after) > 0 {

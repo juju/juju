@@ -60,7 +60,7 @@ func (c *UntrackCmd) Run(*cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if len(ids) == 0 {
-		return errors.New("No process with that name or id.")
+		return errors.NotFoundf("Workload with the name %q", c.name)
 	}
 
 	err = c.comp.Untrack(ids[0])

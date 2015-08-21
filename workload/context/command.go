@@ -140,15 +140,12 @@ func (c *baseCommand) init(args map[string]string) error {
 
 // Run implements cmd.Command.
 func (c *baseCommand) Run(ctx *cmd.Context) error {
-	if c.ID == c.Name {
-		var err error
-		c.ID, err = findID(c.compCtx, c.Name)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	id, err := c.findID()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	pInfo, err := c.compCtx.Get(c.ID)
+	pInfo, err := c.compCtx.Get(id)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -192,6 +189,17 @@ func (c *baseCommand) trackedWorkloads(ids ...string) (map[string]*workload.Info
 		workloads[id] = wl
 	}
 	return workloads, nil
+}
+
+func (c *baseCommand) findID() (string, error) {
+	if c.ID != c.Name {
+		return c.ID, nil
+	}
+	id, err := findID(c.compCtx, c.Name)
+	if err == nil {
+		c.ID = id
+	}
+	return id, err
 }
 
 // TODO(natefinch): move to findID API server side.

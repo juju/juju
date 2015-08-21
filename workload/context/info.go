@@ -67,7 +67,7 @@ func (c *WorkloadInfoCommand) init(args map[string]string) error {
 func (c *WorkloadInfoCommand) Run(ctx *cmd.Context) error {
 	var ids []string
 	if c.ID != "" {
-		id, err := findID(c.compCtx, c.Name)
+		id, err := c.findID()
 		if errors.IsNotFound(err) {
 			id = c.ID
 		} else if err != nil {
