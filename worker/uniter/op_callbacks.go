@@ -73,7 +73,7 @@ func (opc *operationCallbacks) UpdateRelations(ids []int) error {
 }
 
 func notifyHook(hook string, ctx runner.Context, method func(string)) {
-	if r, ok := ctx.HookRelation(); ok {
+	if r, err := ctx.HookRelation(); err == nil {
 		remote, _ := ctx.RemoteUnitName()
 		if remote != "" {
 			remote = " " + remote

@@ -331,8 +331,8 @@ func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 	c.Assert(settings1, gc.IsNil)
 
 	// Check the caches are being used by the context relations.
-	relCtx, found := ctx.Relation(0)
-	c.Assert(found, jc.IsTrue)
+	relCtx, err := ctx.Relation(0)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that the settings really were cached by trying to look them up.
 	// Nothing's really in scope, so the call would fail if they weren't.

@@ -51,7 +51,7 @@ var relationGetTests = []struct {
 		relid:   -1,
 		code:    2,
 		args:    []string{"-r", "burble:123"},
-		out:     `invalid value "burble:123" for flag -r: unknown relation id`,
+		out:     `invalid value "burble:123" for flag -r: relation not found`,
 	}, {
 		summary: "default relation, no unit chosen",
 		relid:   1,

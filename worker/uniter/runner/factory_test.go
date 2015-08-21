@@ -260,7 +260,8 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		},
 		ResultsMap: map[string]interface{}{},
 	})
-	vars := ctx.HookVars(s.paths)
+	vars, err := ctx.HookVars(s.paths)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
 	combined := strings.Join(vars, "|")
 	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_NAME=snapshot(\|.*|$)`)

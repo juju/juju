@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -61,7 +62,7 @@ type StorageContextAccessor struct {
 	CStorage map[names.StorageTag]*ContextStorage
 }
 
-func (s *StorageContextAccessor) StorageTags() []names.StorageTag {
+func (s *StorageContextAccessor) StorageTags() ([]names.StorageTag, error) {
 	tags := set.NewTags()
 	for tag := range s.CStorage {
 		tags.Add(tag)
@@ -70,12 +71,15 @@ func (s *StorageContextAccessor) StorageTags() []names.StorageTag {
 	for i, tag := range tags.SortedValues() {
 		storageTags[i] = tag.(names.StorageTag)
 	}
-	return storageTags
+	return storageTags, nil
 }
 
-func (s *StorageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
+func (s *StorageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
 	storage, ok := s.CStorage[tag]
-	return storage, ok
+	if !ok {
+		return nil, errors.NotFoundf("storage")
+	}
+	return storage, nil
 }
 
 type ContextStorage struct {

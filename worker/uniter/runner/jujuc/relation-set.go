@@ -32,15 +32,24 @@ key-value arguments. A value of "-" for the filename means <stdin>.
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
 	cmd.CommandBase
-	ctx          Context
-	RelationId   int
-	Settings     map[string]string
-	settingsFile cmd.FileVar
-	formatFlag   string // deprecated
+	ctx             Context
+	RelationId      int
+	relationIdProxy gnuflag.Value
+	Settings        map[string]string
+	settingsFile    cmd.FileVar
+	formatFlag      string // deprecated
 }
 
-func NewRelationSetCommand(ctx Context) cmd.Command {
-	return &RelationSetCommand{ctx: ctx}
+func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
+	c := &RelationSetCommand{ctx: ctx}
+
+	rV, err := newRelationIdValue(ctx, &c.RelationId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.relationIdProxy = rV
+
+	return c, nil
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
@@ -53,10 +62,8 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	rV := newRelationIdValue(c.ctx, &c.RelationId)
-
-	f.Var(rV, "r", "specify a relation by id")
-	f.Var(rV, "relation", "")
+	f.Var(c.relationIdProxy, "r", "specify a relation by id")
+	f.Var(c.relationIdProxy, "relation", "")
 
 	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
@@ -145,9 +152,9 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
-		return fmt.Errorf("unknown relation id")
+	r, err := c.ctx.Relation(c.RelationId)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	settings, err := r.Settings()
 	if err != nil {

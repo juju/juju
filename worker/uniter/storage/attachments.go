@@ -297,15 +297,15 @@ func (a *Attachments) Empty() bool {
 
 // Storage returns the ContextStorage with the supplied tag if it was
 // found, and whether it was found.
-func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, bool) {
+func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
 	if s, ok := a.storagers[tag]; ok {
 		return s.Context()
 	}
-	return nil, false
+	return nil, errors.NotFoundf("storage")
 }
 
 // StorageTags returns the names.StorageTags for the active storage attachments.
-func (a *Attachments) StorageTags() []names.StorageTag {
+func (a *Attachments) StorageTags() ([]names.StorageTag, error) {
 	tags := set.NewTags()
 	for tag := range a.storagers {
 		tags.Add(tag)
@@ -314,7 +314,7 @@ func (a *Attachments) StorageTags() []names.StorageTag {
 	for i, tag := range tags.SortedValues() {
 		storageTags[i] = tag.(names.StorageTag)
 	}
-	return storageTags
+	return storageTags, nil
 }
 
 // ValidateHook validates the hook against the current state.

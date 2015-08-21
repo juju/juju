@@ -42,7 +42,7 @@ type Runner interface {
 type Context interface {
 	jujuc.Context
 	Id() string
-	HookVars(paths context.Paths) []string
+	HookVars(paths context.Paths) ([]string, error)
 	ActionData() (*context.ActionData, error)
 	SetProcess(process *os.Process)
 	HasExecutionSetUnitStatus() bool
@@ -75,7 +75,10 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	}
 	defer srv.Close()
 
-	env := runner.context.HookVars(runner.paths)
+	env, err := runner.context.HookVars(runner.paths)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	command := utilexec.RunParams{
 		Commands:    commands,
 		WorkingDir:  runner.paths.GetCharmDir(),
@@ -113,7 +116,10 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 	}
 	defer srv.Close()
 
-	env := runner.context.HookVars(runner.paths)
+	env, err := runner.context.HookVars(runner.paths)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if version.Current.OS == version.Windows {
 		// TODO(fwereade): somehow consolidate with utils/exec?
 		// We don't do this on the other code path, which uses exec.RunCommands,

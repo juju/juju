@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -26,17 +28,24 @@ type ContextRelationHook struct {
 }
 
 // HookRelation implements jujuc.RelationHookContext.
-func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, bool) {
+func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, error) {
 	c.stub.AddCall("HookRelation")
-	c.stub.NextErr()
+	var err error
+	if c.info.HookRelation == nil {
+		err = errors.NotFoundf("hook relation")
+	}
 
-	return c.info.HookRelation, c.info.HookRelation != nil
+	return c.info.HookRelation, err
 }
 
 // RemoteUnitName implements jujuc.RelationHookContext.
-func (c *ContextRelationHook) RemoteUnitName() (string, bool) {
+func (c *ContextRelationHook) RemoteUnitName() (string, error) {
 	c.stub.AddCall("RemoteUnitName")
 	c.stub.NextErr()
+	var err error
+	if c.info.RemoteUnitName == "" {
+		err = errors.NotFoundf("remote unit")
+	}
 
-	return c.info.RemoteUnitName, c.info.RemoteUnitName != ""
+	return c.info.RemoteUnitName, err
 }

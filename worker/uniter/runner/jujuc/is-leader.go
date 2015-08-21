@@ -17,8 +17,8 @@ type isLeaderCommand struct {
 }
 
 // NewIsLeaderCommand returns a new isLeaderCommand with the given context.
-func NewIsLeaderCommand(ctx Context) cmd.Command {
-	return &isLeaderCommand{ctx: ctx}
+func NewIsLeaderCommand(ctx Context) (cmd.Command, error) {
+	return &isLeaderCommand{ctx: ctx}, nil
 }
 
 // Info is part of the cmd.Command interface.

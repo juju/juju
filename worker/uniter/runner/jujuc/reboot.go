@@ -13,8 +13,8 @@ type JujuRebootCommand struct {
 	Now bool
 }
 
-func NewJujuRebootCommand(ctx Context) cmd.Command {
-	return &JujuRebootCommand{ctx: ctx}
+func NewJujuRebootCommand(ctx Context) (cmd.Command, error) {
+	return &JujuRebootCommand{ctx: ctx}, nil
 }
 
 func (c *JujuRebootCommand) Info() *cmd.Info {
