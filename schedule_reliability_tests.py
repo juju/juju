@@ -50,7 +50,7 @@ def main(argv=None):
     suite = args.suite
     if suite == []:
         suite = [FULL]
-    candidates = list(find_latest_branch_candidates(args.root_dir))[:3]
+    candidates = find_latest_branch_candidates(args.root_dir)[:3]
     jobs = args.jobs
     if jobs is None:
         jobs = ['industrial-test', 'industrial-test-aws',
