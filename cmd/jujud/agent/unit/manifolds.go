@@ -38,6 +38,20 @@ func RegisterComponentManifoldFunc(name string, newManifold func(ManifoldsConfig
 	return nil
 }
 
+// ComponentManifolds returns a manifold for each component-registered
+// manifold func.
+func ComponentManifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
+	manifolds := make(dependency.Manifolds)
+	for name, newManifold := range componentManifoldFuncs {
+		manifold, err := newManifold(config)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		manifolds[name] = manifold
+	}
+	return manifolds, nil
+}
+
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
 
@@ -168,14 +182,14 @@ func Manifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
 		}),
 	}
 
-	for name, newManifold := range componentManifoldFuncs {
+	// Add in the component-registered manifolds.
+	registered, err := ComponentManifolds(config)
+	if err != nil {
+		return manifolds, errors.Trace(err)
+	}
+	for name, manifold := range registered {
 		if _, ok := manifolds[name]; ok {
 			return manifolds, errors.Errorf("%q manifold already added", name)
-		}
-
-		manifold, err := newManifold(config)
-		if err != nil {
-			return manifolds, errors.Trace(err)
 		}
 		manifolds[name] = manifold
 	}

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	deptesting "github.com/juju/juju/worker/dependency/testing"
 )
 
 type ManifoldsSuite struct {
@@ -80,6 +79,23 @@ func (s *ManifoldsSuite) TestRegisterComponentManifoldFunc(c *gc.C) {
 	s.stub.CheckCallNames(c, "newManifold", "Start")
 }
 
+func (s *ManifoldsSuite) TestComponentManifold(c *gc.C) {
+	manifold := dependency.Manifold{
+		Inputs: []string{"ham", "eggs"},
+	}
+	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+		return manifold, nil
+	}
+	unit.ComponentManifoldFuncs["spam"] = newManifold
+
+	manifolds, err := unit.ComponentManifolds(unit.ManifoldsConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(manifolds, jc.DeepEquals, dependency.Manifolds{
+		"spam": manifold,
+	})
+}
+
 func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	for _, name := range []string{"spam", "eggs"} {
 		err := unit.RegisterComponentManifoldFunc(name, s.newManifold)
@@ -114,10 +130,6 @@ func (s *ManifoldsSuite) TestStartFuncs(c *gc.C) {
 		"spam",
 		"eggs",
 	})
-	s.stub.CheckCallNames(c, "newManifold", "newManifold")
-	s.stub.ResetCalls()
-	manifolds["spam"].Start(deptesting.StubGetResource(nil))
-	s.stub.CheckCallNames(c, "Start")
 }
 
 // TODO(cmars) 2015/08/10: rework this into builtin Engine cycle checker.
