@@ -104,7 +104,9 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	var state uniteravailability.UniterAvailabilityGetter
 	err = s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(state.Available(), gc.Equals, true)
+	avail, release := state.Require()
+	defer release()
+	c.Check(avail, gc.Equals, true)
 }
 
 func (s *ManifoldSuite) setupWorker(c *gc.C, path string) worker.Worker {
@@ -125,22 +127,10 @@ func (s *ManifoldSuite) TestOutputIsSaved(c *gc.C) {
 	err := s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
 	// initial value should be false
-	c.Check(state.Available(), gc.Equals, false)
+	avail, release := state.Require()
+	c.Check(avail, gc.Equals, false)
+	release()
 
-	var setState uniteravailability.UniterAvailabilitySetter
-	err = s.manifold.Output(worker, &setState)
-	c.Check(err, jc.ErrorIsNil)
-	err = setState.SetAvailable(true)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(state.Available(), gc.Equals, true)
-	err = kill(worker)
-	c.Assert(err, jc.ErrorIsNil)
-
-	worker = s.setupWorker(c, dataDir)
-	defer kill(worker)
-	err = s.manifold.Output(worker, &state)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(state.Available(), gc.Equals, true)
 }
 
 func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
@@ -167,14 +157,16 @@ func (s *ManifoldSuite) TestWriteFailKills(c *gc.C) {
 	var state uniteravailability.UniterAvailabilityGetter
 	err := s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(state.Available(), gc.Equals, false)
+	avail, release := state.Require()
+	c.Check(avail, gc.Equals, false)
+	release()
 
 	var setState uniteravailability.UniterAvailabilitySetter
 	err = s.manifold.Output(worker, &setState)
 	c.Check(err, jc.ErrorIsNil)
 
 	// Try to set the available state, which triggers a write.
-	err = setState.SetAvailable(true)
+	err = setState.Lock()
 	c.Check(err, gc.ErrorMatches, "no save for you")
 
 	s.CheckCalls(c, []testing.StubCall{{
@@ -182,7 +174,7 @@ func (s *ManifoldSuite) TestWriteFailKills(c *gc.C) {
 		Args:     []interface{}{"/path/to/data/dir/unit-wordpress-1"},
 	}, {
 		FuncName: "writeStateFile",
-		Args:     []interface{}{fmt.Sprintf("%s/unit-wordpress-1", dir), true},
+		Args:     []interface{}{fmt.Sprintf("%s/unit-wordpress-1", dir), false},
 	}})
 
 	// The failure to write should have killed the worker.
@@ -208,8 +200,9 @@ func (s *ManifoldSuite) TestWriteFailKills(c *gc.C) {
 	// Make sure the value was not changed.
 	err = s.manifold.Output(worker, &state)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(state.Available(), gc.Equals, false)
-
+	avail, release = state.Require()
+	c.Check(avail, gc.Equals, false)
+	release()
 }
 
 type dummyAgent struct {
