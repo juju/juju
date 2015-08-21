@@ -16,6 +16,7 @@ type uniterResolver struct {
 	opFactory       operation.Factory
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
+	upgraded        bool
 
 	charmURL      *charm.URL
 	configVersion int
@@ -32,7 +33,14 @@ func (s *uniterResolver) NextOp(
 
 	if opState.Kind == operation.Upgrade {
 		logger.Infof("resuming charm upgrade")
-		return s.opFactory.NewUpgrade(opState.CharmURL)
+		return s.newUpgradeOp(opState.CharmURL)
+	}
+
+	if s.upgraded {
+		// We've just run the upgrade op, which will change the
+		// unit's charm URL. We need to restart the resolver
+		// loop so that we start watching the correct events.
+		return nil, resolver.ErrRestart
 	}
 
 	op, err := s.leadershipResolver.NextOp(opState, remoteState)
@@ -85,7 +93,7 @@ func (s *uniterResolver) nextOpHookError(
 
 	if remoteState.ForceCharmUpgrade && *s.charmURL != *remoteState.CharmURL {
 		logger.Debugf("upgrade from %v to %v", s.charmURL, remoteState.CharmURL)
-		return s.opFactory.NewUpgrade(remoteState.CharmURL)
+		return s.newUpgradeOp(remoteState.CharmURL)
 	}
 
 	switch remoteState.ResolvedMode {
@@ -149,7 +157,7 @@ func (s *uniterResolver) nextOp(
 
 	if *s.charmURL != *remoteState.CharmURL {
 		logger.Debugf("upgrade from %v to %v", s.charmURL, remoteState.CharmURL)
-		return s.opFactory.NewUpgrade(remoteState.CharmURL)
+		return s.newUpgradeOp(remoteState.CharmURL)
 	}
 
 	if s.configVersion != remoteState.ConfigVersion {
@@ -163,6 +171,30 @@ func (s *uniterResolver) nextOp(
 	}
 
 	return s.relationsResolver.NextOp(opState, remoteState)
+}
+
+func (s *uniterResolver) newUpgradeOp(curl *charm.URL) (operation.Operation, error) {
+	op, err := s.opFactory.NewUpgrade(curl)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &upgradeOpWrapper{op, &s.upgraded, &s.charmURL}, nil
+}
+
+type upgradeOpWrapper struct {
+	operation.Operation
+	upgraded *bool
+	charmURL **charm.URL
+}
+
+func (op upgradeOpWrapper) Commit(state operation.State) (*operation.State, error) {
+	st, err := op.Operation.Commit(state)
+	if err != nil {
+		return nil, err
+	}
+	*op.upgraded = true
+	*op.charmURL = state.CharmURL
+	return st, nil
 }
 
 type updateVersionHookWrapper struct {

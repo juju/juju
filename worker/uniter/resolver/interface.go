@@ -14,7 +14,14 @@ import (
 // currently pending operations to run.
 var ErrNoOperation = errors.New("no operations")
 
-var ErrWaiting = errors.New("waiting")
+// ErrWaiting indicates that the resolver loop should
+// not execute any more operations until a remote state
+// event has occurred.
+var ErrWaiting = errors.New("waiting for remote state change")
+
+// ErrRestart indicates that the resolver loop should
+// be restarted with a new remote state watcher.
+var ErrRestart = errors.New("restarting resolver")
 
 // ErrTerminate is used when the unit has been marked
 // as dead and so there will never be any more

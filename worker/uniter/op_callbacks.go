@@ -116,15 +116,11 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 
 // SetCurrentCharm is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
-	// TODO(axw)
-	//return opc.u.f.SetCharm(charmURL)
-	return nil
+	return opc.u.unit.SetCharmURL(charmURL)
 }
 
 // ClearResolvedFlag is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) ClearResolvedFlag() error {
-	// TODO(axw)
-	//return opc.u.f.ClearResolved()
 	return opc.u.unit.ClearResolved()
 }
 

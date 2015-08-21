@@ -164,9 +164,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if err := u.operationExecutor.Run(op); err != nil {
 			return errors.Trace(err)
 		}
-		if err := u.unit.SetCharmURL(opState.CharmURL); err != nil {
-			return errors.Trace(err)
-		}
 		charmURL = opState.CharmURL
 	} else {
 		curl, err := u.unit.CharmURL()
@@ -176,24 +173,34 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		charmURL = curl
 	}
 
-	// TODO(axw) below should be in a loop that restarts whenever
-	// an upgrade occurs.
-
-	watcher, err := remotestate.NewWatcher(
-		remotestate.NewAPIState(u.st),
-		u.leadershipTracker,
-		unitTag,
-	)
-	if err != nil {
-		return err
+	var watcher *remotestate.RemoteStateWatcher
+	restartWatcher := func() error {
+		if watcher != nil {
+			if err := watcher.Stop(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		var err error
+		watcher, err = remotestate.NewWatcher(
+			remotestate.NewAPIState(u.st),
+			u.leadershipTracker,
+			unitTag,
+		)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Stop the uniter if the watcher fails.
+		go func() { u.tomb.Kill(watcher.Wait()) }()
+		return nil
 	}
+	if err := restartWatcher(); err != nil {
+		return errors.Trace(err)
+	}
+
 	// watcher may be replaced, so use a closure.
 	u.addCleanup(func() error {
 		return watcher.Stop()
 	})
-
-	// Stop the uniter if the watcher fails.
-	go func() { u.tomb.Kill(watcher.Wait()) }()
 
 	onIdle := func() error {
 		opState := u.operationExecutor.State()
@@ -215,52 +222,57 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		return nil
 	}
 
-	uniterResolver := &uniterResolver{
-		opFactory:       u.operationFactory,
-		clearResolved:   clearResolved,
-		reportHookError: u.reportHookError,
-		charmURL:        charmURL,
-		leadershipResolver: uniterleadership.NewResolver(
-			u.operationFactory,
-		),
-		relationsResolver: relation.NewRelationsResolver(
-			u.relations, u.operationFactory,
-		),
-		storageResolver: storage.NewResolver(
-			u.operationFactory, u.storage,
-		),
-	}
-
-	// TODO(axw) this is shitty duplication, clean up
-	//
-	// We should not do anything until there has been a change
-	// to the remote state. The watcher will trigger at least
-	// once initially.
-	select {
-	case <-u.tomb.Dying():
-		return tomb.ErrDying
-	case _, ok := <-watcher.RemoteStateChanged():
-		// TODO(axw) !ok => dying
-		if !ok {
-			panic("!ok")
+	for {
+		uniterResolver := &uniterResolver{
+			opFactory:       u.operationFactory,
+			clearResolved:   clearResolved,
+			reportHookError: u.reportHookError,
+			charmURL:        charmURL,
+			leadershipResolver: uniterleadership.NewResolver(
+				u.operationFactory,
+			),
+			relationsResolver: relation.NewRelationsResolver(
+				u.relations, u.operationFactory,
+			),
+			storageResolver: storage.NewResolver(
+				u.operationFactory, u.storage,
+			),
 		}
-	}
 
-	for err == nil {
-		err = resolverLoop(
-			uniterResolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
-		)
-		switch errors.Cause(err) {
-		case tomb.ErrDying:
-			err = tomb.ErrDying
-		case operation.ErrHookFailed:
-			// Loop back around. The resolver can tell that it is in
-			// an error state by inspecting the operation state.
-			err = nil
-		case resolver.ErrTerminate:
-			// TODO(axw) wait for subordinates to disappear,
-			// return worker.ErrTerminate.
-			err = u.terminate()
+		// We should not do anything until there has been a change
+		// to the remote state. The watcher will trigger at least
+		// once initially.
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case <-watcher.RemoteStateChanged():
+		}
+
+		for err == nil {
+			err = resolverLoop(
+				uniterResolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
+			)
+			switch errors.Cause(err) {
+			case tomb.ErrDying:
+				err = tomb.ErrDying
+			case operation.ErrHookFailed:
+				// Loop back around. The resolver can tell that it is in
+				// an error state by inspecting the operation state.
+				err = nil
+			case resolver.ErrTerminate:
+				// TODO(axw) wait for subordinates to disappear,
+				// return worker.ErrTerminate.
+				err = u.terminate()
+			}
+		}
+
+		if errors.Cause(err) == resolver.ErrRestart {
+			restartErr := restartWatcher()
+			if restartErr == nil {
+				charmURL = uniterResolver.charmURL
+				continue
+			}
+			err = errors.Annotate(restartErr, "restarting resolver")
 		}
 	}
 
