@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -54,21 +53,6 @@ var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 type meterStatus struct {
 	code string
 	info string
-}
-
-// MetricsRecorder is used to store metrics supplied by the add-metric command.
-type MetricsRecorder interface {
-	AddMetric(key, value string, created time.Time) error
-	IsDeclaredMetric(key string) bool
-	Close() error
-}
-
-// metricsReader is used to read metrics batches stored by the metrics recorder
-// and remove metrics batches that have been marked as succesfully sent.
-type metricsReader interface {
-	Open() ([]spool.MetricBatch, error)
-	Remove(uuid string) error
-	Close() error
 }
 
 // HookContext is the implementation of jujuc.Context.
@@ -137,12 +121,6 @@ type HookContext struct {
 
 	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
-
-	// metricsRecorder is used to write metrics batches to a storage (usually a file).
-	metricsRecorder MetricsRecorder
-
-	// definedMetrics specifies the metrics the charm has defined in its metrics.yaml file.
-	definedMetrics *charm.Metrics
 
 	// meterStatus is the status of the unit's metering.
 	meterStatus *meterStatus
@@ -503,20 +481,7 @@ func (ctx *HookContext) RelationIds() ([]int, error) {
 
 // AddMetric adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
-	if ctx.metricsRecorder == nil || ctx.definedMetrics == nil {
-		return errors.New("metrics disabled")
-	}
-
-	err := ctx.definedMetrics.ValidateMetric(key, value)
-	if err != nil {
-		return errors.Annotatef(err, "invalid metric %q", key)
-	}
-
-	err = ctx.metricsRecorder.AddMetric(key, value, created)
-	if err != nil {
-		return errors.Annotate(err, "failed to store metric")
-	}
-	return nil
+	return errors.New("metrics not allowed in this context")
 }
 
 // ActionData returns the context's internal action data. It's meant to be
@@ -592,18 +557,6 @@ func (ctx *HookContext) handleReboot(err *error) {
 	}
 }
 
-// addJujuUnitsMetric adds the juju-units built in metric if it
-// is defined for this context.
-func (ctx *HookContext) addJujuUnitsMetric() error {
-	if ctx.metricsRecorder.IsDeclaredMetric("juju-units") {
-		err := ctx.metricsRecorder.AddMetric("juju-units", "1", time.Now().UTC())
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // Prepare implements the Context interface.
 func (ctx *HookContext) Prepare() error {
 	if ctx.actionData != nil {
@@ -617,19 +570,6 @@ func (ctx *HookContext) Prepare() error {
 
 // Flush implements the Context interface.
 func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
-	// A non-existant metricsRecorder simply means that metrics were disabled
-	// for this hook run.
-	if ctx.metricsRecorder != nil {
-		err := ctx.addJujuUnitsMetric()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = ctx.metricsRecorder.Close()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	writeChanges := ctxErr == nil
 
 	// In the case of Actions, handle any errors using finalizeAction.
