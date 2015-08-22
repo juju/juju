@@ -5,7 +5,6 @@ package context_test
 
 import (
 	"os"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"

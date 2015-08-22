@@ -78,10 +78,10 @@ func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
 	c.Assert(name, gc.Equals, "u/123")
 }
 
-func (s *InterfaceSuite) TestAddingMetricsWhenNotEnabledFails(c *gc.C) {
+func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
 	ctx := s.GetContext(c, 1, "u/123")
 	err := ctx.AddMetric("key", "123", time.Now())
-	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
 }
 
 func (s *InterfaceSuite) TestAddingMetrics(c *gc.C) {

@@ -375,8 +375,6 @@ func (s StubMetricsRecorder) Close() error {
 	return nil
 }
 
-var _ context.MetricsRecorder = (*StubMetricsRecorder)(nil)
-
 // MockEnvPaths implements Paths for tests that don't need to actually touch
 // the filesystem.
 type MockEnvPaths struct{}
