@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/process"
+	"github.com/juju/juju/workload"
 	"launchpad.net/gnuflag"
 )
 
@@ -39,7 +39,7 @@ func (c *UntrackCmd) Init(args []string) error {
 		return errors.Errorf("unexpected args: %q", args[1:])
 	}
 
-	c.name, _ = process.ParseID(args[0])
+	c.name, _ = workload.ParseID(args[0])
 
 	if c.name == "" {
 		return errors.New(idArg + " cannot be empty")

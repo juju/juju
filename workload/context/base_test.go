@@ -290,18 +290,18 @@ func (c *stubAPIClient) Track(workloads ...workload.Info) ([]string, error) {
 	return ids, nil
 }
 
-func (c *stubAPIClient) Untrack(ids []string) ([]process.ProcError, error) {
+func (c *stubAPIClient) Untrack(ids []string) ([]workload.WorkloadError, error) {
 	c.stub.AddCall("Untrack", ids)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	errs := []process.ProcError{}
+	errs := []workload.WorkloadError{}
 	for _, id := range ids {
-		delete(c.procs, id)
-		errs = append(errs, process.ProcError{ID: id})
+		delete(c.workloads, id)
+		errs = append(errs, workload.WorkloadError{ID: id})
 	}
-	return nil
+	return errs, nil
 }
 
 type stubPlugin struct {

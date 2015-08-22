@@ -7,15 +7,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/process"
-	"github.com/juju/juju/process/context"
+	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/context"
 )
 
 type untrackSuite struct {
 	commandSuite
 
 	cmd     *context.UntrackCmd
-	details process.Details
+	details workload.Details
 }
 
 var _ = gc.Suite(&untrackSuite{})
@@ -45,10 +45,10 @@ used to start tracking the workload must be provided.
 }
 
 func (s *untrackSuite) TestInitAllArgs(c *gc.C) {
-	err := s.cmd.Init([]string{s.proc.Name})
+	err := s.cmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(context.Name(s.cmd), gc.Equals, s.proc.Name)
+	c.Check(context.Name(s.cmd), gc.Equals, s.workload.Name)
 }
 
 func (s *untrackSuite) TestInitTooFewArgs(c *gc.C) {
@@ -58,7 +58,7 @@ func (s *untrackSuite) TestInitTooFewArgs(c *gc.C) {
 
 func (s *untrackSuite) TestInitTooManyArgs(c *gc.C) {
 	err := s.cmd.Init([]string{
-		s.proc.Name,
+		s.workload.Name,
 		`{"id":"abc123", "status":{"state":"okay"}}`,
 		"other",
 	})
@@ -73,9 +73,9 @@ func (s *untrackSuite) TestInitEmptyName(c *gc.C) {
 }
 
 func (s *untrackSuite) TestRunOkay(c *gc.C) {
-	s.setMetadata(s.proc)
-	s.compCtx.procs[s.proc.ID()] = s.proc
-	s.cmd.Init([]string{s.proc.Name})
+	s.setMetadata(s.workload)
+	s.compCtx.workloads[s.workload.ID()] = s.workload
+	s.cmd.Init([]string{s.workload.Name})
 
 	s.checkRun(c, "", "")
 }

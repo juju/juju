@@ -23,7 +23,7 @@ type APIClient interface {
 	// Register sends a request to update state with the provided workloads.
 	Track(workloads ...workload.Info) ([]string, error)
 	// Untrack removes the workloads from our list track.
-	Untrack(ids []string) error
+	Untrack(ids []string) ([]workload.WorkloadError, error)
 	// Definitions returns the workload definitions found in the unit's metadata.
 	Definitions() ([]charm.Workload, error)
 	// SetStatus sets the status for the given IDs.
@@ -42,7 +42,7 @@ type Component interface {
 	// Track records the workload info in the hook context.
 	Track(info workload.Info) error
 	// Untrack removes the workload from our list of workloads to track.
-	Untrack(id string)
+	Untrack(id string) error
 	// List returns the list of registered workload IDs.
 	List() ([]string, error)
 	// Definitions returns the charm-defined workloads.
@@ -56,20 +56,14 @@ var _ Component = (*Context)(nil)
 // Context is the workload portion of the hook context.
 type Context struct {
 	api       APIClient
-<<<<<<< feature-proc-mgmt:workload/context/context.go
 	plugin    workload.Plugin
 	workloads map[string]workload.Info
 	updates   map[string]workload.Info
-	removes   map[string]struct{}
 
 	addEvents func(...workload.Event)
 	// FindPlugin is the function used to find the plugin for the given
 	// plugin name.
 	FindPlugin func(pluginName string) (workload.Plugin, error)
-=======
-	processes map[string]process.Info
-	updates   map[string]process.Info
->>>>>>> HEAD~2:process/context/context.go
 }
 
 // NewContext returns a new jujuc.ContextComponent for workloads.
@@ -78,7 +72,6 @@ func NewContext(api APIClient, addEvents func(...workload.Event)) *Context {
 		api:       api,
 		workloads: make(map[string]workload.Info),
 		updates:   make(map[string]workload.Info),
-		removes:   make(map[string]struct{}),
 		addEvents: addEvents,
 		FindPlugin: func(ptype string) (workload.Plugin, error) {
 			return plugin.Find(ptype)
@@ -210,9 +203,9 @@ func (c *Context) Track(info workload.Info) error {
 	return nil
 }
 
-// Untrack tells juju to stop tracking this process.
+// Untrack tells juju to stop tracking this workload.
 func (c *Context) Untrack(id string) error {
-	logger.Tracef("Calling untrack on process context %q", id)
+	logger.Tracef("Calling untrack on workload context %q", id)
 
 	res, err := c.api.Untrack([]string{id})
 	if err != nil {
@@ -221,7 +214,7 @@ func (c *Context) Untrack(id string) error {
 	if len(res) > 0 && res[0].Err != nil {
 		return errors.Trace(res[0].Err)
 	}
-	delete(c.processes, id)
+	delete(c.workloads, id)
 
 	return nil
 }

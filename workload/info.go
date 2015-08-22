@@ -32,9 +32,9 @@ type Info struct {
 // ID composes a unique ID for the workload (relative to the unit/charm).
 func (info Info) ID() string {
 	if info.Details.ID != "" {
-		return fmt.Sprintf("%s/%s", info.Process.Name, info.Details.ID)
+		return fmt.Sprintf("%s/%s", info.Workload.Name, info.Details.ID)
 	}
-	return info.Process.Name
+	return info.Workload.Name
 }
 
 // ParseID extracts the workload name and details ID from the provided string.

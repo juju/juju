@@ -214,14 +214,14 @@ func findID(compCtx Component, name string) (string, error) {
 	}
 	// For now we only support a single workload for a given name.
 	if len(ids) > 1 {
-		return "", errors.Errorf("found more than one tracked workload for %q", c.Name)
+		return "", errors.Errorf("found more than one tracked workload for %q", name)
 	}
 
 	return ids[0], nil
 }
 
 func idsForName(compCtx Component, name string) ([]string, error) {
-	registered, err := compCtx.List()
+	tracked, err := compCtx.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
