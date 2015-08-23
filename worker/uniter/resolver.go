@@ -2,7 +2,6 @@ package uniter
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/apiserver/params"
@@ -13,14 +12,11 @@ import (
 )
 
 type uniterResolver struct {
-	opFactory       operation.Factory
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
-	upgraded        bool
-	conflicted      bool
 
-	charmURL      *charm.URL
-	configVersion int
+	// TODO(axw) move this to LocalState
+	conflicted bool
 
 	leadershipResolver resolver.Resolver
 	relationsResolver  resolver.Resolver
@@ -28,11 +24,14 @@ type uniterResolver struct {
 }
 
 func (s *uniterResolver) NextOp(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
-	if opState.Kind == operation.Upgrade {
+	if localState.Kind == operation.Upgrade {
+		// TODO(axw) double check this. I think we should
+		// be calling NewRevertUpgrade or whatever?
 		if s.conflicted {
 			if remoteState.ResolvedMode == params.ResolvedNone {
 				return nil, resolver.ErrNoOperation
@@ -43,67 +42,68 @@ func (s *uniterResolver) NextOp(
 			s.conflicted = false
 		}
 		logger.Infof("resuming charm upgrade")
-		return s.newUpgradeOp(opState.CharmURL)
+		return opFactory.NewUpgrade(localState.CharmURL)
 	}
 
-	if s.upgraded {
+	if localState.Upgraded {
 		// We've just run the upgrade op, which will change the
 		// unit's charm URL. We need to restart the resolver
 		// loop so that we start watching the correct events.
 		return nil, resolver.ErrRestart
 	}
 
-	op, err := s.leadershipResolver.NextOp(opState, remoteState)
+	op, err := s.leadershipResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.storageResolver.NextOp(opState, remoteState)
+	op, err = s.storageResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	switch opState.Kind {
+	switch localState.Kind {
 	case operation.RunHook:
-		switch opState.Step {
+		switch localState.Step {
 		case operation.Pending:
-			logger.Infof("awaiting error resolution for %q hook", opState.Hook.Kind)
-			return s.nextOpHookError(opState, remoteState)
+			logger.Infof("awaiting error resolution for %q hook", localState.Hook.Kind)
+			return s.nextOpHookError(localState, remoteState, opFactory)
 
 		case operation.Queued:
-			logger.Infof("found queued %q hook", opState.Hook.Kind)
-			return s.opFactory.NewRunHook(*opState.Hook)
+			logger.Infof("found queued %q hook", localState.Hook.Kind)
+			return opFactory.NewRunHook(*localState.Hook)
 
 		case operation.Done:
-			logger.Infof("committing %q hook", opState.Hook.Kind)
-			return s.opFactory.NewSkipHook(*opState.Hook)
+			logger.Infof("committing %q hook", localState.Hook.Kind)
+			return opFactory.NewSkipHook(*localState.Hook)
 
 		default:
-			return nil, errors.Errorf("unknown operation step %v", opState.Step)
+			return nil, errors.Errorf("unknown operation step %v", localState.Step)
 		}
 
 	case operation.Continue:
 		logger.Infof("no operations in progress; waiting for changes")
-		return s.nextOp(opState, remoteState)
+		return s.nextOp(localState, remoteState, opFactory)
 
 	default:
-		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)
+		return nil, errors.Errorf("unknown operation kind %v", localState.Kind)
 	}
 }
 
 func (s *uniterResolver) nextOpHookError(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
 	// Report the hook error.
-	if err := s.reportHookError(*opState.Hook); err != nil {
+	if err := s.reportHookError(*localState.Hook); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if remoteState.ForceCharmUpgrade && *s.charmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", s.charmURL, remoteState.CharmURL)
-		return s.newUpgradeOp(remoteState.CharmURL)
+	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
+		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
 	switch remoteState.ResolvedMode {
@@ -113,12 +113,12 @@ func (s *uniterResolver) nextOpHookError(
 		if err := s.clearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		return s.opFactory.NewRunHook(*opState.Hook)
+		return opFactory.NewRunHook(*localState.Hook)
 	case params.ResolvedNoHooks:
 		if err := s.clearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		return s.opFactory.NewSkipHook(*opState.Hook)
+		return opFactory.NewSkipHook(*localState.Hook)
 	default:
 		return nil, errors.Errorf(
 			"unknown resolved mode %q", remoteState.ResolvedMode,
@@ -127,8 +127,9 @@ func (s *uniterResolver) nextOpHookError(
 }
 
 func (s *uniterResolver) nextOp(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
 	switch remoteState.Life {
@@ -136,7 +137,7 @@ func (s *uniterResolver) nextOp(
 	case params.Dying:
 		// Normally we handle relations last, but if we're dying we
 		// must ensure that all relations are broken first.
-		op, err := s.relationsResolver.NextOp(opState, remoteState)
+		op, err := s.relationsResolver.NextOp(localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
 			return op, err
 		}
@@ -147,8 +148,8 @@ func (s *uniterResolver) nextOp(
 		// TODO(axw) move logic for cascading destruction of
 		//           subordinates, relation units and storage
 		//           attachments into state, via cleanups.
-		if opState.Started && !opState.Stopped {
-			return s.opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
+		if localState.Started && !localState.Stopped {
+			return opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
 		}
 		fallthrough
 
@@ -160,63 +161,18 @@ func (s *uniterResolver) nextOp(
 
 	// Now that storage hooks have run at least once, before anything else,
 	// we need to run the install hook.
-	if !opState.Installed {
-		return s.opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
+	if !localState.Installed {
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
-	if *s.charmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", s.charmURL, remoteState.CharmURL)
-		return s.newUpgradeOp(remoteState.CharmURL)
+	if *localState.CharmURL != *remoteState.CharmURL {
+		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
-	if s.configVersion != remoteState.ConfigVersion {
-		op, err := s.opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-		if err != nil {
-			return nil, err
-		}
-		return updateVersionHookWrapper{
-			op, &s.configVersion, remoteState.ConfigVersion,
-		}, nil
+	if localState.ConfigVersion != remoteState.ConfigVersion {
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	return s.relationsResolver.NextOp(opState, remoteState)
-}
-
-func (s *uniterResolver) newUpgradeOp(curl *charm.URL) (operation.Operation, error) {
-	op, err := s.opFactory.NewUpgrade(curl)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &upgradeOpWrapper{op, &s.upgraded, &s.charmURL}, nil
-}
-
-type upgradeOpWrapper struct {
-	operation.Operation
-	upgraded *bool
-	charmURL **charm.URL
-}
-
-func (op upgradeOpWrapper) Commit(state operation.State) (*operation.State, error) {
-	st, err := op.Operation.Commit(state)
-	if err != nil {
-		return nil, err
-	}
-	*op.upgraded = true
-	*op.charmURL = state.CharmURL
-	return st, nil
-}
-
-type updateVersionHookWrapper struct {
-	operation.Operation
-	oldVersion *int
-	newVersion int
-}
-
-func (op updateVersionHookWrapper) Commit(state operation.State) (*operation.State, error) {
-	st, err := op.Operation.Commit(state)
-	if err != nil {
-		return nil, err
-	}
-	*op.oldVersion = op.newVersion
-	return st, nil
+	return s.relationsResolver.NextOp(localState, remoteState, opFactory)
 }

@@ -468,7 +468,6 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
-	c.Skip("maltese-falcon")
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from steady state.
 		ut(
