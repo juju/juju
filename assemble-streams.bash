@@ -466,8 +466,8 @@ generate_streams() {
         cp $product_file $other_file
     done
     if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
-        cp $STREAM_DIR/com.ubuntu.juju-released-tools.json \
-           $STREAM_DIR/com.ubuntu.juju-devel-tools.json
+        cp $DEST_DIST/tools/streams/v1/com.ubuntu.juju-released-tools.json \
+           $DEST_DIST/tools/streams/v1/com.ubuntu.juju-devel-tools.json
     fi
     echo "Copied current product files to other product files for transition."
 
@@ -480,9 +480,10 @@ generate_streams() {
         $SCRIPT_DIR/generate_index.py -v $DEST_DIST/tools/
     fi
     if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
-        $SCRIPT_DIR/copy_stream.py $STREAM_DIR/index2.json released devel
-        cp $STREAM_DIR/com.ubuntu.juju-released-tools.json \
-           $STREAM_DIR/com.ubuntu.juju-devel-tools.json
+        $SCRIPT_DIR/copy_stream.py \
+            $DEST_DIST/tools/streams/v1/index2.json released devel
+        cp $DEST_DIST/tools/streams/v1/com.ubuntu.juju-released-tools.json \
+            $DEST_DIST/tools/streams/v1/com.ubuntu.juju-devel-tools.json
     fi
     set +x
     echo "The tools are in ${DEST_DIST}."
