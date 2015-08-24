@@ -143,7 +143,7 @@ func (s *PublishSuite) TestWrongRepository(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "charm URL must reference the juju charm store")
 }
 
-func (s *PublishSuite) TestInferURL(c *gc.C) {
+func (s *PublishSuite) TestParseReference(c *gc.C) {
 	addMeta(c, s.branch, "")
 
 	cmd := &PublishCommand{}
