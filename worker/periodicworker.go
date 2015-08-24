@@ -32,9 +32,10 @@ type PeriodicTimer interface {
 	// It returns true if the timer had been active, false
 	// if the timer had expired or been stopped.
 	Reset(time.Duration) bool
-	// C returns the channel used to signal expiration of
-	// the timer duration.
-	C() <-chan time.Time
+	// CountDown returns the channel used to signal expiration of
+	// the timer duration. The channel is called C in the base
+	// implementation of timer but the name is confusing.
+	CountDown() <-chan time.Time
 }
 
 // NewTimerFunc is a constructor used to obtain the instance
@@ -51,8 +52,8 @@ func (t *Timer) Reset(d time.Duration) bool {
 	return t.timer.Reset(d)
 }
 
-// C implements PeriodicTimer.
-func (t *Timer) C() <-chan time.Time {
+// CountDown implements PeriodicTimer.
+func (t *Timer) CountDown() <-chan time.Time {
 	return t.timer.C
 }
 
@@ -81,7 +82,7 @@ func (w *periodicWorker) run(call PeriodicWorkerCall, period time.Duration) erro
 		select {
 		case <-stop:
 			return tomb.ErrDying
-		case <-timer.C():
+		case <-timer.CountDown():
 			if err := call(stop); err != nil {
 				if err == ErrKilled {
 					return tomb.ErrDying

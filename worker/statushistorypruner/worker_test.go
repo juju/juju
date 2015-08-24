@@ -6,6 +6,7 @@ package statushistorypruner_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,58 +16,42 @@ import (
 	"github.com/juju/juju/worker/statushistorypruner"
 )
 
-type Timer struct {
+type mockTimer struct {
 	period time.Duration
 	c      chan time.Time
-	gcC    *gc.C
 }
 
-func (t *Timer) Reset(d time.Duration) bool {
+func (t *mockTimer) Reset(d time.Duration) bool {
 	t.period = d
 	return true
 }
 
-func (t *Timer) C() <-chan time.Time {
+func (t *mockTimer) CountDown() <-chan time.Time {
 	return t.c
 }
 
-func (t *Timer) Fire() {
+func (t *mockTimer) fire() error {
 	select {
 	case t.c <- time.Time{}:
 	case <-time.After(coretesting.LongWait):
-		t.gcC.Fatalf("timed out waiting for pruner to run")
+		return errors.New("timed out waiting for pruner to run")
+	}
+	return nil
+}
+
+func newMockTimer(d time.Duration) worker.PeriodicTimer {
+	return &mockTimer{period: d,
+		c: make(chan time.Time),
 	}
 }
 
-func NewTimer(d time.Duration, c *gc.C) worker.PeriodicTimer {
-	return &Timer{period: d,
-		c:   make(chan time.Time),
-		gcC: c}
-}
+var _ = gc.Suite(&statusHistoryPrunerSuite{})
 
-var _ = gc.Suite(&StatusHistoryPrunerSuite{})
-
-type StatusHistoryPrunerSuite struct {
+type statusHistoryPrunerSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *StatusHistoryPrunerSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *StatusHistoryPrunerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *StatusHistoryPrunerSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *StatusHistoryPrunerSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
-
-func (s *StatusHistoryPrunerSuite) TestWorker(c *gc.C) {
+func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
 	var passedMaxLogs int
 	fakePruner := func(_ *state.State, maxLogs int) error {
 		passedMaxLogs = maxLogs
@@ -76,7 +61,7 @@ func (s *StatusHistoryPrunerSuite) TestWorker(c *gc.C) {
 		MaxLogsPerState: 3,
 		PruneInterval:   coretesting.ShortWait,
 	}
-	fakeTimer := NewTimer(coretesting.LongWait, c)
+	fakeTimer := newMockTimer(coretesting.LongWait)
 
 	fakeTimerFunc := func(d time.Duration) worker.PeriodicTimer {
 		// construction of timer should be with 0 because we intend it to
@@ -84,7 +69,7 @@ func (s *StatusHistoryPrunerSuite) TestWorker(c *gc.C) {
 		c.Assert(d, gc.Equals, 0*time.Nanosecond)
 		return fakeTimer
 	}
-	pruner := statushistorypruner.NewForTests(
+	pruner := statushistorypruner.NewPruneWorker(
 		&state.State{},
 		&params,
 		fakeTimerFunc,
@@ -94,8 +79,9 @@ func (s *StatusHistoryPrunerSuite) TestWorker(c *gc.C) {
 		pruner.Kill()
 		c.Assert(pruner.Wait(), jc.ErrorIsNil)
 	})
-	fakeTimer.(*Timer).Fire()
+	err := fakeTimer.(*mockTimer).fire()
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(passedMaxLogs, gc.Equals, 3)
 	// Reset will have been called with the actual PruneInterval
-	c.Assert(fakeTimer.(*Timer).period, gc.Equals, coretesting.ShortWait)
+	c.Assert(fakeTimer.(*mockTimer).period, gc.Equals, coretesting.ShortWait)
 }

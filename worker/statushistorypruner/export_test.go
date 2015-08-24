@@ -8,7 +8,7 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-func NewForTests(st *state.State, params *HistoryPrunerParams, t worker.NewTimerFunc, psh pruneHistoryFunc) worker.Worker {
+func NewPruneWorker(st *state.State, params *HistoryPrunerParams, t worker.NewTimerFunc, psh pruneHistoryFunc) worker.Worker {
 	w := &pruneWorker{
 		st:     st,
 		params: params,
