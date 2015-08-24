@@ -109,7 +109,7 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
-	c.Check(data.Runner, gc.IsNil)
+	c.Check(data.Engine, gc.IsNil)
 }
 
 func (s *eventHandlerSuite) TestReset(c *gc.C) {
@@ -123,7 +123,7 @@ func (s *eventHandlerSuite) TestReset(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.Equals, s.apiClient)
-	c.Check(data.Runner, gc.IsNil)
+	c.Check(data.Engine, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
 
@@ -138,7 +138,7 @@ func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
-	c.Check(data.Runner, gc.IsNil)
+	c.Check(data.Engine, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
 
@@ -155,7 +155,7 @@ func (s *eventHandlerSuite) TestCloseIdempotent(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
-	c.Check(data.Runner, gc.IsNil)
+	c.Check(data.Engine, gc.IsNil)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
@@ -178,7 +178,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	engine, err := eh.StartEngine()
 	c.Assert(err, jc.ErrorIsNil)
 	data := workers.ExposeEventHandlers(eh)
-	runner := data.Runner
+	runner := data.Engine
 
 	eh.AddEvents(events...)
 
