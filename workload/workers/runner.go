@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// Runner is the portion of worker.Worker needed for Event handlers.
+// Runner is the portion of worker.Runner needed for Event handlers.
 type Runner interface {
 	// Start a worker using the provided func.
 	StartWorker(id string, newWorker func() (worker.Worker, error)) error
