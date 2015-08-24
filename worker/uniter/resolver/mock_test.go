@@ -57,6 +57,11 @@ func (f *mockOpFactory) NewSkipHook(info hook.Info) (operation.Operation, error)
 	return f.op, f.NextErr()
 }
 
+func (f *mockOpFactory) NewAction(id string) (operation.Operation, error) {
+	f.MethodCall(f, "NewAction", id)
+	return f.op, f.NextErr()
+}
+
 type mockOpExecutor struct {
 	operation.Executor
 	testing.Stub

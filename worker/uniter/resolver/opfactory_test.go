@@ -147,3 +147,33 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
 	// upgrade case.
 	c.Assert(f.LocalState.CharmURL, gc.IsNil)
 }
+
+func (s *ResolverOpFactorySuite) TestActionsCommit(c *gc.C) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.RemoteState.Actions = []string{"action 1", "action 2", "action 3"}
+	f.LocalState.CompletedActions = map[string]struct{}{}
+	op, err := f.NewAction("action 1")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+		"action 1": struct{}{},
+	})
+}
+
+func (s *ResolverOpFactorySuite) TestActionsTrimming(c *gc.C) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.RemoteState.Actions = []string{"c", "d"}
+	f.LocalState.CompletedActions = map[string]struct{}{
+		"a": struct{}{},
+		"b": struct{}{},
+		"c": struct{}{},
+	}
+	op, err := f.NewAction("c")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+		"c": struct{}{},
+	})
+}

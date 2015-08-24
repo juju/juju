@@ -117,6 +117,10 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	for tag, storageSnapshot := range w.current.Storage {
 		snapshot.Storage[tag] = storageSnapshot
 	}
+	snapshot.Actions = make([]string, len(w.current.Actions))
+	for i, action := range w.current.Actions {
+		snapshot.Actions[i] = action
+	}
 	return snapshot
 }
 
@@ -286,7 +290,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenServiceChange)
 
 		case _, ok := <-configw.Changes():
-			logger.Debugf("got config change")
+			logger.Debugf("got config change: ok=%t", ok)
 			if !ok {
 				return watcher.EnsureErr(configw)
 			}
@@ -296,7 +300,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenConfigChange)
 
 		case _, ok := <-addressesw.Changes():
-			logger.Debugf("got address change")
+			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {
 				return watcher.EnsureErr(addressesw)
 			}
@@ -316,7 +320,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenLeaderSettingsChange)
 
 		case actions, ok := <-actionsw.Changes():
-			logger.Debugf("got action change: %v", actions)
+			logger.Debugf("got action change: %v ok=%t", actions, ok)
 			if !ok {
 				return watcher.EnsureErr(actionsw)
 			}
@@ -326,7 +330,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenActionsChange)
 
 		case keys, ok := <-relationsw.Changes():
-			logger.Debugf("got relations change")
+			logger.Debugf("got relations change: ok=%t", ok)
 			if !ok {
 				return watcher.EnsureErr(relationsw)
 			}
@@ -336,7 +340,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenRelationsChange)
 
 		case keys, ok := <-storagew.Changes():
-			logger.Debugf("got storage change: %v", keys)
+			logger.Debugf("got storage change: %v ok=%t", keys, ok)
 			if !ok {
 				return watcher.EnsureErr(storagew)
 			}
@@ -534,7 +538,6 @@ func (w *RemoteStateWatcher) storageAttachmentChanged(change storageAttachmentCh
 func (w *RemoteStateWatcher) actionsChanged(actions []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	// TODO do we care about ordering?
 	w.current.Actions = append(w.current.Actions, actions...)
 	return nil
 }

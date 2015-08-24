@@ -20,6 +20,7 @@ type uniterResolver struct {
 	fixDeployer     func() error
 
 	leadershipResolver resolver.Resolver
+	actionsResolver    resolver.Resolver
 	relationsResolver  resolver.Resolver
 	storageResolver    resolver.Resolver
 }
@@ -56,6 +57,11 @@ func (s *uniterResolver) NextOp(
 	}
 
 	op, err := s.leadershipResolver.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		return op, err
+	}
+
+	op, err = s.actionsResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}

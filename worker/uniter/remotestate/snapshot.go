@@ -48,7 +48,8 @@ type Snapshot struct {
 	// version of the leader settings for the service.
 	LeaderSettingsVersion int
 
-	// TODO (mattyw) Are these pending actions?
+	// Actions is the list of pending actions to
+	// be peformed by this unit.
 	Actions []string
 }
 

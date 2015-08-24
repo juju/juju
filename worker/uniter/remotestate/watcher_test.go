@@ -170,7 +170,12 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
+	config := remotestate.WatcherConfig{
+		State:             &s.st,
+		LeadershipTracker: &s.leadership,
+		UnitTag:           s.st.unit.tag,
+	}
+	w, err := remotestate.NewWatcher(config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)

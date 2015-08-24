@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
@@ -236,6 +237,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			clearResolved:      clearResolved,
 			reportHookError:    u.reportHookError,
 			fixDeployer:        u.deployer.Fix,
+			actionsResolver:    actions.NewResolver(),
 			leadershipResolver: uniterleadership.NewResolver(),
 			relationsResolver:  relation.NewRelationsResolver(u.relations),
 			storageResolver:    storage.NewResolver(u.storage),

@@ -140,7 +140,8 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
 	lastLocal, err := s.loop()
 	c.Assert(err, gc.Equals, tomb.ErrDying)
 	c.Assert(local, jc.DeepEquals, resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmURL:         s.charmURL,
+		CompletedActions: map[string]struct{}{},
 	})
 	c.Assert(lastLocal, jc.DeepEquals, local)
 }

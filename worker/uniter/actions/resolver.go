@@ -4,7 +4,6 @@
 package actions
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/worker/uniter/operation"
@@ -14,41 +13,51 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.actions")
 
-type actionsResolver struct {
-	opFactory       operation.Factory
-	settingsVersion int
+type actionsResolver struct{}
+
+// NewResolver returns a new resolver with determins which action realted operation
+// shoukd be run based on local and remote uniter states.
+func NewResolver() resolver.Resolver {
+	return &actionsResolver{}
 }
 
-func NewResolver(opFactory operation.Factory) resolver.Resolver {
-	return &actionsResolver{opFactory: opFactory}
+func nextAction(pendingActions []string, completedActions map[string]struct{}) (string, error) {
+	for _, action := range pendingActions {
+		if _, ok := completedActions[action]; !ok {
+			return action, nil
+		}
+	}
+	return "", resolver.ErrNoOperation
 }
 
+// NextOp implements the resolver.Resolver interface.
 func (r *actionsResolver) NextOp(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
-	// TODO Probably need this????
-	if !opState.Installed {
-		return nil, resolver.ErrNoOperation
-	}
-
-	// TODO the completedAction and runningAction
-	// need to be reported back to the state server
-	// somehow.
-	if opState.Kind == operation.Continue {
-		//completedAction := opState.ActionId
-	}
-	if opState.Kind == operation.RunHook {
-		//runningAction := opState.ActionId
-	}
-	// TODO How do we pick what to do next.
-	// TODO how do we report back up to the state server
-	// what is being done
-	actionID := remoteState.Actions[0]
-	action, err := r.opFactory.NewAction(actionID)
+	nextAction, err := nextAction(remoteState.Actions, localState.CompletedActions)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	return action, nil
+	switch localState.Kind {
+	case operation.RunHook:
+		// We can still run actions if the unit is in a hook error state.
+		if localState.Step == operation.Pending {
+			return opFactory.NewAction(nextAction)
+		}
+	case operation.RunAction:
+		// TODO(fwereade): we *should* handle interrupted actions, and make sure
+		// they're marked as failed, but that's not for now.
+		if localState.Hook != nil {
+			logger.Infof("found incomplete action %q; ignoring", localState.ActionId)
+			logger.Infof("recommitting prior %q hook", localState.Hook.Kind)
+			return opFactory.NewSkipHook(*localState.Hook)
+		} else {
+			logger.Infof("%q hook is nil", operation.RunAction)
+		}
+	case operation.Continue:
+		return opFactory.NewAction(nextAction)
+	}
+	return nil, resolver.ErrNoOperation
 }

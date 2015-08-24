@@ -56,8 +56,9 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 	rf := &resolverOpFactory{
 		Factory: cfg.Factory,
 		LocalState: LocalState{
-			CharmURL:   cfg.CharmURL,
-			Conflicted: cfg.Conflicted,
+			CharmURL:         cfg.CharmURL,
+			Conflicted:       cfg.Conflicted,
+			CompletedActions: map[string]struct{}{},
 		},
 	}
 	for {
