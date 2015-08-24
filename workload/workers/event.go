@@ -120,7 +120,7 @@ func (eh *EventHandlers) AddEvents(events ...workload.Event) error {
 	return nil
 }
 
-func (eh *EventHandlers) handle(events []workload.Event) error {
+func (eh *EventHandlers) handleEvents(events []workload.Event) error {
 	logger.Debugf("handling %d events", len(events))
 	for _, handleEvents := range eh.data.Handlers {
 		if err := handleEvents(events, eh.data.APIClient, eh.data.Runner); err != nil {
@@ -139,7 +139,7 @@ func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 		case events, alive := <-eh.data.Events.events:
 			if !alive {
 				done = true
-			} else if err := eh.handle(events); err != nil {
+			} else if err := eh.handleEvents(events); err != nil {
 				return errors.Trace(err)
 			}
 		}
