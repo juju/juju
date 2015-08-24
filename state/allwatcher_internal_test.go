@@ -2787,6 +2787,7 @@ type testWatcher struct {
 	st     *State
 	c      *gc.C
 	b      Backing
+	sm     *storeManager
 	w      *Multiwatcher
 	deltas chan []multiwatcher.Delta
 }
@@ -2798,6 +2799,7 @@ func newTestWatcher(b Backing, st *State, c *gc.C) *testWatcher {
 		st:     st,
 		c:      c,
 		b:      b,
+		sm:     sm,
 		w:      w,
 		deltas: make(chan []multiwatcher.Delta),
 	}
@@ -2872,7 +2874,8 @@ func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
 
 func (tw *testWatcher) Stop() {
 	tw.c.Assert(tw.w.Stop(), jc.ErrorIsNil)
-	tw.b.Release()
+	tw.c.Assert(tw.sm.Stop(), jc.ErrorIsNil)
+	tw.c.Assert(tw.b.Release(), jc.ErrorIsNil)
 }
 
 func (tw *testWatcher) AssertNoChange() {
