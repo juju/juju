@@ -1124,7 +1124,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
-			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
+			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2008,7 +2008,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
-			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
+			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{

@@ -748,7 +748,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		ops = append(ops, setConstraintsOps(s.st, agentGlobalKey, cons)...)
+		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial
@@ -1091,7 +1091,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 		Id:     s.doc.DocID,
 		Assert: isAliveDoc,
 	}}
-	ops = append(ops, setConstraintsOps(s.st, s.globalKey(), cons)...)
+	ops = append(ops, setConstraintsOp(s.st, s.globalKey(), cons))
 	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 

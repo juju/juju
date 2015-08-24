@@ -286,7 +286,7 @@ var parseConstraintsTests = []struct {
 	// networks
 	{
 		summary: "single network",
-		args:    []string{"networks=space1"},
+		args:    []string{"networks=net1"},
 	}, {
 		summary: "multiple networks - positive",
 		args:    []string{"networks=net1,net2"},

@@ -68,65 +68,53 @@ var setConstraintsTests = []struct {
 	effectiveUnitCons:    "instance-type=foo-42 cpu-power=9001 spaces=bar networks=net1,^net2",
 	effectiveMachineCons: "instance-type=foo-42 cpu-power=9001 spaces=bar networks=net1,^net2",
 }, {
-	about:        "(implicitly) empty constraints override set fallbacks except for services",
+	about:        "(implicitly) empty constraints never override explictly set fallbacks",
 	consToSet:    "",
 	consFallback: "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
 
 	effectiveEnvironCons: "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
-	effectiveServiceCons: "", // set as given and not merged with fallbacks like below
+	effectiveServiceCons: "", // set as given.
 	effectiveUnitCons:    "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
-	// set as given, then merged with fallbacks; since it's empty, it
-	// inherits everything from fallbacks; like the unit, but only
-	// because the service constraints are also empty.
+	// set as given, then merged with fallbacks; since consToSet is
+	// empty, the effective values inherit everything from fallbacks;
+	// like the unit, but only because the service constraints are
+	// also empty.
 	effectiveMachineCons: "arch=amd64 cpu-cores=42 mem=2G tags=foo networks=net1,^net2",
 }, {
-	about:        "(explicitly) empty constraints are OK and stored as empty",
+	about:        "(explicitly) empty constraints are OK and stored as given",
 	consToSet:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	consFallback: "",
-	// cons.MustParse("") != cons.MustParse("mem= arch="), but when we
-	// store them in a state document, they are considered equal and
-	// empty values are never stored or read back as non-empty.
-	// Explicit empty values like "mem=" are only respected when
-	// merging given constraints with environment fallbacks (causing
-	// matching fallback values to be dropped).
+
 	effectiveEnvironCons: "",
-	effectiveServiceCons: "",
-	effectiveUnitCons:    "",
-	effectiveMachineCons: "",
+	effectiveServiceCons: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
+	effectiveUnitCons:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
+	effectiveMachineCons: "cpu-cores= cpu-power= instance-type= root-disk= tags= spaces= networks=", // container= is dropped
 }, {
-	about:        "(explicitly) empty fallback constraints are OK and stored as empty",
+	about:        "(explicitly) empty fallback constraints are OK and stored as given",
 	consToSet:    "",
 	consFallback: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
-	// same reason as above, however since the environment are only
-	// used as fallbacks there effectively is no difference between
-	// setting "mem=", "mem=0", or omitting it altogether.
-	effectiveEnvironCons: "",
+
+	effectiveEnvironCons: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
 	effectiveServiceCons: "",
-	effectiveUnitCons:    "",
-	effectiveMachineCons: "",
+	effectiveUnitCons:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
+	effectiveMachineCons: "cpu-cores= cpu-power= instance-type= root-disk= tags= spaces= networks=", // container= is dropped
 }, {
-	about:        "(explicitly) empty constraints and fallbacks are OK and stored as empty",
-	consToSet:    "arch= mem= cpu-cores= container=",
-	consFallback: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
-	// even though the explicitly empty values override the fallbacks,
-	// all are empty so result is the same when stored.
-	effectiveEnvironCons: "",
-	effectiveServiceCons: "",
-	effectiveUnitCons:    "",
-	effectiveMachineCons: "",
+	about:                "(explicitly) empty constraints and fallbacks are OK and stored as given",
+	consToSet:            "arch= mem= cpu-cores= container=",
+	consFallback:         "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
+	effectiveEnvironCons: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces= networks=",
+	effectiveServiceCons: "arch= mem= cpu-cores= container=",
+	effectiveUnitCons:    "arch= container= cpu-cores= cpu-power= mem= root-disk= tags= spaces= networks=",
+	effectiveMachineCons: "arch= cpu-cores= cpu-power= mem= root-disk= tags= spaces= networks=", // container= is dropped
 }, {
-	about:        "(explicitly) empty constraints override set fallbacks for provisioning",
+	about:        "(explicitly) empty constraints override set fallbacks for deployment and provisioning",
 	consToSet:    "cpu-cores= arch= spaces= networks= cpu-power=",
 	consFallback: "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
 
 	effectiveEnvironCons: "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
-	effectiveServiceCons: "", // stored as empty, so units will inherit just the fallbacks
-	effectiveUnitCons:    "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
-	// machine constraints have no empty service constraints to inherit here,
-	// so they will override any matching fallbacks (tags, cpu-core, arch, spaces)
-	// with an explicit value (empty or not), while any not set explicitly will be
-	// inherited from then fallbacks only.
-	effectiveMachineCons: "tags=foo mem=4G",
+	effectiveServiceCons: "cpu-cores= arch= spaces= networks= cpu-power=",
+	effectiveUnitCons:    "arch= cpu-cores= cpu-power= mem=4G tags=foo spaces= networks=",
+	effectiveMachineCons: "arch= cpu-cores= cpu-power= mem=4G tags=foo spaces= networks=",
 	// we're also checking if m.SetConstraints() does the same with
 	// regards to the effective constraints as AddMachine(), because
 	// some of these tests proved they had different behavior (i.e.
@@ -136,7 +124,7 @@ var setConstraintsTests = []struct {
 	consToSet:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	consFallback: "cpu-cores= arch= tags=",
 
-	effectiveEnvironCons: "", // like the other cases when environ constraints end up empty.
+	effectiveEnvironCons: "cpu-cores= arch= tags=",
 	effectiveServiceCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	effectiveUnitCons:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
 	effectiveMachineCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar networks=^dmz,db",
@@ -161,28 +149,26 @@ var setConstraintsTests = []struct {
 	effectiveUnitCons:    "mem=8G arch=amd64 cpu-cores=4 tags=bar cpu-power=1000",
 	effectiveMachineCons: "mem=8G arch=amd64 cpu-cores=4 tags=bar cpu-power=1000",
 }, {
-	about:        "set fallbacks are overriden differently for provisioning and deployment",
+	about:        "set fallbacks are overriden the same way for provisioning and deployment",
 	consToSet:    "networks= tags= cpu-power= spaces=bar",
 	consFallback: "networks=net1,^net3 tags=foo cpu-power=42",
-	// a variation of the above case showing the difference between
-	// deployment (service, unit) and provisioning (machine) constraints.
+
+	// a variation of the above case showing there's no difference
+	// between deployment (service, unit) and provisioning (machine)
+	// constraints when it comes to effective values.
 	effectiveEnvironCons: "networks=net1,^net3 tags=foo cpu-power=42",
-	effectiveServiceCons: "spaces=bar", // set as given, empty values are dropped
-	// unit constraints are the effective service constraints from above,
-	// merged with the fallbacks, overriding them.
-	effectiveUnitCons: "networks=net1,^net3 tags=foo cpu-power=42 spaces=bar",
-	// machine provisioning constraints as set as given (before ignoring
-	// explicitly unset values) and then merged with fallbacks, overriding
-	// them for all matching explicit values.
-	effectiveMachineCons: "spaces=bar",
+	effectiveServiceCons: "cpu-power= tags= spaces=bar networks=",
+	effectiveUnitCons:    "cpu-power= tags= spaces=bar networks=",
+	effectiveMachineCons: "cpu-power= tags= spaces=bar networks=",
 }, {
 	about:        "container type can only be used for deployment, not provisioning",
 	consToSet:    "container=kvm arch=amd64",
 	consFallback: "container=lxc mem=8G",
+
 	// service deployment constraints are transformed into machine
 	// provisioning constraints, and the container type only makes
-	// sense currently as a deployment constraint, it's cleared when
-	// merging service/environment deployment constraints into
+	// sense currently as a deployment constraint, so it's cleared
+	// when merging service/environment deployment constraints into
 	// effective machine provisioning constraints.
 	effectiveEnvironCons: "container=lxc mem=8G",
 	effectiveServiceCons: "container=kvm arch=amd64",
