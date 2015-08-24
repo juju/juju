@@ -142,11 +142,16 @@ func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 			if !alive {
 				done = true
 			} else if err := eh.handleEvents(events); err != nil {
+				if err := eh.Close(); err != nil {
+					logger.Errorf("failed to close EventHandlers: %v", err)
+				}
 				return errors.Trace(err)
 			}
 		}
 	}
-	// TODO(ericsnow) Call eh.Close() here?
+	if err := eh.Close(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
