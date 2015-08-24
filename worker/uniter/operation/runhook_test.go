@@ -655,9 +655,10 @@ func (s *RunHookSuite) testQueueNothing_BlankSlate(c *gc.C, hookInfo hook.Info) 
 			hookInfo,
 			operation.State{},
 			operation.State{
-				Kind:    operation.Continue,
-				Step:    operation.Pending,
-				Stopped: hookInfo.Kind == hooks.Stop,
+				Installed: hookInfo.Kind == hooks.Install,
+				Kind:      operation.Continue,
+				Step:      operation.Pending,
+				Stopped:   hookInfo.Kind == hooks.Stop,
 			},
 		)
 	}
@@ -676,6 +677,7 @@ func (s *RunHookSuite) testQueueNothing_Preserve(c *gc.C, hookInfo hook.Info) {
 			operation.State{
 				Kind:             operation.Continue,
 				Step:             operation.Pending,
+				Installed:        hookInfo.Kind == hooks.Install,
 				Started:          true,
 				Stopped:          hookInfo.Kind == hooks.Stop,
 				UpdateStatusTime: 1234567,
@@ -685,14 +687,12 @@ func (s *RunHookSuite) testQueueNothing_Preserve(c *gc.C, hookInfo hook.Info) {
 }
 
 func (s *RunHookSuite) TestQueueNothing_Install_BlankSlate(c *gc.C) {
-	c.Skip("maltese-falcon")
 	s.testQueueNothing_BlankSlate(c, hook.Info{
 		Kind: hooks.Install,
 	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_Install_Preserve(c *gc.C) {
-	c.Skip("maltese-falcon")
 	s.testQueueNothing_Preserve(c, hook.Info{
 		Kind: hooks.Install,
 	})
