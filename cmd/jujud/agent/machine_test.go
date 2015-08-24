@@ -734,12 +734,9 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 }
 
 func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
-	started := make(chan struct{}, 1)
+	started := make(chan struct{})
 	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
-		select {
-		case started <- struct{}{}:
-		default:
-		}
+		close(started)
 		w, err := addresser.NewWorker(api)
 		c.Check(err, jc.ErrorIsNil)
 		if expectFinished {
@@ -758,6 +755,11 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 	go func() {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
+
+	// Wait for the worker that starts before the addresser to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "cleaner")
 
 	select {
 	case <-started:

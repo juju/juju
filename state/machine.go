@@ -1434,7 +1434,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		return err
 	}
 
-	ops = append(ops, setConstraintsOps(m.st, m.globalKey(), mcons)...)
+	ops = append(ops, setConstraintsOp(m.st, m.globalKey(), mcons))
 	// make multiple attempts to push the ErrExcessiveContention case out of the
 	// realm of plausibility: it implies local state indicating unprovisioned,
 	// and remote state indicating provisioned (reasonable); but which changes
