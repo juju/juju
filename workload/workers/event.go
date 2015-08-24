@@ -129,9 +129,12 @@ func (eh *EventHandlers) RegisterHandler(handler func([]workload.Event, context.
 	eh.handlers = append(eh.handlers, handler)
 }
 
-// Events returns the Events waiting to be handled.
-func (eh *EventHandlers) Events() *Events {
-	return eh.events
+// AddEvents adds events to the list of events to be handled.
+func (eh *EventHandlers) AddEvents(events ...workload.Event) error {
+	if err := eh.events.AddEvents(events...); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // StartEngine creates a new dependency engine and starts it.

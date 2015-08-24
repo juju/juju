@@ -105,9 +105,9 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	c.Assert(eh, gc.NotNil)
 	eh.Close()
 
-	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
-	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, events)
 	c.Check(apiClient, gc.IsNil)
 	c.Check(runner, gc.IsNil)
 }
@@ -119,9 +119,9 @@ func (s *eventHandlerSuite) TestReset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
-	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
-	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, events)
 	c.Check(apiClient, gc.Equals, s.apiClient)
 	c.Check(runner, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
@@ -134,9 +134,9 @@ func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {
 	err := eh.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
-	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, events)
 	c.Check(apiClient, gc.IsNil)
 	c.Check(runner, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
@@ -151,20 +151,11 @@ func (s *eventHandlerSuite) TestCloseIdempotent(c *gc.C) {
 	err = eh.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
-	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, events)
 	c.Check(apiClient, gc.IsNil)
 	c.Check(runner, gc.IsNil)
-}
-
-func (s *eventHandlerSuite) TestEvents(c *gc.C) {
-	eh := workers.NewEventHandlers()
-	defer eh.Close()
-	events := eh.Events()
-	expected, _, _, _ := workers.ExposeEventHandlers(eh)
-
-	c.Check(events, gc.Equals, expected)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
@@ -186,16 +177,16 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	eh.RegisterHandler(s.handler)
 	engine, err := eh.StartEngine()
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, runner := workers.ExposeEventHandlers(eh)
+	expectedEvents, _, _, runner := workers.ExposeEventHandlers(eh)
 
-	eh.Events().AddEvents(events...)
+	eh.AddEvents(events...)
 
 	engine.Kill()
 	err = engine.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
-	checkUnhandledEvents(c, eh.Events())
+	checkUnhandledEvents(c, expectedEvents)
 	s.stub.CheckCallNames(c, "List", "handler")
 	c.Check(s.stub.Calls()[1].Args[0], gc.DeepEquals, events)
 	c.Check(s.stub.Calls()[1].Args[1], gc.DeepEquals, s.apiClient)
