@@ -61,14 +61,7 @@ func NewErrRoot(err error) *errRoot {
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingApiRoot(st *state.State) rpc.MethodFinder {
-	return newApiRoot(st, false, common.NewResources(), nil)
-}
-
-// TestApiRootEx creates an apiRoot for testing. It's not connected to
-// anything but allows access to some functionality.
-func TestingApiRootEx(st *state.State, closeState bool) (*apiRoot, *common.Resources) {
-	resources := common.NewResources()
-	return newApiRoot(st, closeState, resources, nil), resources
+	return newApiRoot(st, common.NewResources(), nil)
 }
 
 // TestingApiHandler gives you an ApiHandler that isn't connected to

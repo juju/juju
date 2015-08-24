@@ -1396,41 +1396,6 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}})
 }
 
-func (s *allEnvWatcherStateSuite) TestStatePool(c *gc.C) {
-	envUUID0 := s.state.EnvironUUID()
-	envUUID1 := s.state1.EnvironUUID()
-
-	p := newStatePool(s.state)
-	defer p.closeAll()
-
-	st0, err := p.get(envUUID0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st0.EnvironUUID(), gc.Equals, envUUID0)
-
-	st1, err := p.get(envUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1.EnvironUUID(), gc.Equals, envUUID1)
-
-	// Check that pooling works and the same instances are returned
-	// when re-requested.
-	st0_, err := p.get(envUUID0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st0_, gc.Equals, st0)
-
-	st1_, err := p.get(envUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1_, gc.Equals, st1)
-
-	// Now close pooled States and ensure a new one is returned when a
-	// State is re-requested.
-	err = p.closeAll()
-	c.Assert(err, jc.ErrorIsNil)
-
-	st1__, err := p.get(envUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1__, gc.Not(gc.Equals), st1)
-}
-
 func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
 	for i, delta := range deltas {
 		if unitInfo, ok := delta.Entity.(*multiwatcher.UnitInfo); ok {
@@ -2822,6 +2787,7 @@ type testWatcher struct {
 	st     *State
 	c      *gc.C
 	b      Backing
+	sm     *storeManager
 	w      *Multiwatcher
 	deltas chan []multiwatcher.Delta
 }
@@ -2833,6 +2799,7 @@ func newTestWatcher(b Backing, st *State, c *gc.C) *testWatcher {
 		st:     st,
 		c:      c,
 		b:      b,
+		sm:     sm,
 		w:      w,
 		deltas: make(chan []multiwatcher.Delta),
 	}
@@ -2907,7 +2874,8 @@ func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
 
 func (tw *testWatcher) Stop() {
 	tw.c.Assert(tw.w.Stop(), jc.ErrorIsNil)
-	tw.b.Release()
+	tw.c.Assert(tw.sm.Stop(), jc.ErrorIsNil)
+	tw.c.Assert(tw.b.Release(), jc.ErrorIsNil)
 }
 
 func (tw *testWatcher) AssertNoChange() {
