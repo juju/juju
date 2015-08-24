@@ -6,6 +6,7 @@ package workers
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -26,16 +27,61 @@ const (
 
 // TODO(ericsnow) Implement ManifoldConfig and Manifold() here?
 
+// Events contains the events queued up for EventHandlers.
+type Events struct {
+	events chan []workload.Event
+	tomb   tomb.Tomb
+}
+
+// NewEvents returns a new Events.
+func NewEvents() *Events {
+	e := &Events{
+		events: make(chan []workload.Event),
+	}
+	go func() {
+		select {
+		case <-e.tomb.Dying():
+			e.stop()
+		}
+	}()
+	return e
+}
+
+func (e *Events) stop() {
+	if e.events != nil {
+		close(e.events)
+	}
+	e.tomb.Done()
+}
+
+// Close closes the Events.
+func (e *Events) Close() error {
+	e.tomb.Kill(nil)
+	e.tomb.Wait()
+	return nil
+}
+
+// AddEvents adds events to the list of events to be handled.
+func (e *Events) AddEvents(events ...workload.Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+	select {
+	case <-e.tomb.Dying():
+		return errors.Trace(workload.EventsClosed)
+	case e.events <- events:
+	}
+	return nil
+}
+
 // EventHandlers orchestrates handling of events on workloads.
 type EventHandlers struct {
-	events   chan []workload.Event
+	events   *Events
 	handlers []func([]workload.Event, context.APIClient, Runner) error
 
 	apiClient context.APIClient
 	// runner is used in lieu of the engine due to support for stopping.
 	runner worker.Runner
-
-	closed bool
 }
 
 // NewEventHandlers creates a new EventHandlers.
@@ -47,9 +93,8 @@ func NewEventHandlers() *EventHandlers {
 }
 
 func (eh *EventHandlers) init(apiClient context.APIClient) {
-	eh.events = make(chan []workload.Event)
+	eh.events = NewEvents()
 	eh.apiClient = apiClient
-	eh.closed = false
 }
 
 // Reset resets the event handlers.
@@ -63,10 +108,10 @@ func (eh *EventHandlers) Reset(apiClient context.APIClient) error {
 
 // Close cleans up the handler's resources.
 func (eh *EventHandlers) Close() error {
-	if eh.events != nil && !eh.closed {
-		close(eh.events)
+	if err := eh.events.Close(); err != nil {
+		// TODO(ericsnow) Stop the runner anyway?
+		return errors.Trace(err)
 	}
-	eh.closed = true
 	if eh.runner != nil {
 		eh.runner.Kill()
 		if err := eh.runner.Wait(); err != nil {
@@ -84,12 +129,9 @@ func (eh *EventHandlers) RegisterHandler(handler func([]workload.Event, context.
 	eh.handlers = append(eh.handlers, handler)
 }
 
-// AddEvents adds events to the list of events to be handled.
-func (eh *EventHandlers) AddEvents(events ...workload.Event) {
-	if len(events) == 0 {
-		return
-	}
-	eh.events <- events
+// Events returns the Events waiting to be handled.
+func (eh *EventHandlers) Events() *Events {
+	return eh.events
 }
 
 // StartEngine creates a new dependency engine and starts it.
@@ -140,7 +182,7 @@ func (eh *EventHandlers) eventsManifold() dependency.Manifold {
 			logger.Debugf("starting new worker")
 			w := worker.NewSimpleWorker(eh.loop)
 			// These must be added *after* the worker is started.
-			eh.AddEvents(events...)
+			eh.events.AddEvents(events...)
 			return w, nil
 		},
 	}
@@ -182,7 +224,7 @@ func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 		select {
 		case <-stopCh:
 			done = true
-		case events, alive := <-eh.events:
+		case events, alive := <-eh.events.events:
 			if !alive {
 				done = true
 			} else if err := eh.handle(events); err != nil {

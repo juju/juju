@@ -46,16 +46,18 @@ func (workloads) registerForClient() error {
 	return nil
 }
 
-func (c workloads) registerHookContext(handlers *workers.EventHandlers) {
+// TODO(ericsnow) Just pass in AddEvents?
+
+func (c workloads) registerHookContext(events *workers.Events) {
 	if !markRegistered(workload.ComponentName, "hook-context") {
 		return
 	}
 
 	runner.RegisterComponentFunc(workload.ComponentName,
 		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
-			var addEvents func(...workload.Event)
-			if handlers != nil {
-				addEvents = handlers.AddEvents
+			var addEvents func(...workload.Event) error
+			if events != nil {
+				addEvents = events.AddEvents
 			}
 			hctxClient := c.newHookContextAPIClient(caller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
@@ -154,7 +156,7 @@ func (workloads) registerHookContextCommands() {
 
 // TODO(ericsnow) Use a watcher instead of passing around the event handlers?
 
-func (c workloads) registerUnitWorkers() *workers.EventHandlers {
+func (c workloads) registerUnitWorkers() *workers.Events {
 	if !markRegistered(workload.ComponentName, "workers") {
 		return nil
 	}
@@ -188,7 +190,7 @@ func (c workloads) registerUnitWorkers() *workers.EventHandlers {
 		panic(err)
 	}
 
-	return unitHandlers
+	return unitHandlers.Events()
 }
 
 func (workloads) registerState() {

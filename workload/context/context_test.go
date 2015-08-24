@@ -42,9 +42,12 @@ func (s *contextSuite) newContext(c *gc.C, workloads ...workload.Info) *context.
 	return ctx
 }
 
-func (s *contextSuite) addEvents(events ...workload.Event) {
+func (s *contextSuite) addEvents(events ...workload.Event) error {
 	s.Stub.AddCall("addEvents", events)
-	s.Stub.NextErr()
+	if err := s.Stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {

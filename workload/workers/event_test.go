@@ -15,6 +15,56 @@ import (
 	"github.com/juju/juju/workload/workers"
 )
 
+type eventsSuite struct {
+	testing.BaseSuite
+
+	stub      *gitjujutesting.Stub
+	apiClient *stubAPIClient
+}
+
+var _ = gc.Suite(&eventsSuite{})
+
+func (s *eventsSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	s.stub = &gitjujutesting.Stub{}
+	s.apiClient = &stubAPIClient{stub: s.stub}
+}
+
+func (s *eventsSuite) TestAddEventsOkay(c *gc.C) {
+	events := []workload.Event{{
+		Kind: workload.EventKindTracked,
+		ID:   "spam/eggs",
+	}}
+	e := workers.NewEvents()
+	go func() {
+		e.AddEvents(events...)
+		e.Close()
+	}()
+
+	checkUnhandledEvents(c, e, events)
+}
+
+func (s *eventsSuite) TestAddEventsEmpty(c *gc.C) {
+	e := workers.NewEvents()
+	go func() {
+		e.AddEvents()
+		e.Close()
+	}()
+
+	checkUnhandledEvents(c, e)
+}
+
+func checkUnhandledEvents(c *gc.C, e *workers.Events, expected ...[]workload.Event) {
+	eventsChan := workers.ExposeEvents(e)
+
+	var unhandled [][]workload.Event
+	for events := range eventsChan {
+		unhandled = append(unhandled, events)
+	}
+	c.Check(unhandled, jc.DeepEquals, expected)
+}
+
 type eventHandlerSuite struct {
 	testing.BaseSuite
 
@@ -40,17 +90,6 @@ func (s *eventHandlerSuite) handler(events []workload.Event, apiClient context.A
 	return nil
 }
 
-func (s *eventHandlerSuite) checkUnhandled(c *gc.C, eh *workers.EventHandlers, expected ...[]workload.Event) {
-	eventsChan, _, _, _ := workers.ExposeEventHandlers(eh)
-
-	var unhandled [][]workload.Event
-	// Using range here also ensures that the channel is closed.
-	for events := range eventsChan {
-		unhandled = append(unhandled, events)
-	}
-	c.Check(unhandled, jc.DeepEquals, expected)
-}
-
 func (s *eventHandlerSuite) checkRegistered(c *gc.C, eh *workers.EventHandlers, expected ...string) {
 	_, handlers, _, _ := workers.ExposeEventHandlers(eh)
 	for _, handler := range handlers {
@@ -66,7 +105,7 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	c.Assert(eh, gc.NotNil)
 	eh.Close()
 
-	s.checkUnhandled(c, eh)
+	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
 	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
 	c.Check(apiClient, gc.IsNil)
@@ -80,7 +119,7 @@ func (s *eventHandlerSuite) TestReset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
-	s.checkUnhandled(c, eh)
+	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
 	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
 	c.Check(apiClient, gc.Equals, s.apiClient)
@@ -95,7 +134,7 @@ func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {
 	err := eh.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkUnhandled(c, eh)
+	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
 	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
 	c.Check(apiClient, gc.IsNil)
@@ -112,11 +151,20 @@ func (s *eventHandlerSuite) TestCloseIdempotent(c *gc.C) {
 	err = eh.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkUnhandled(c, eh)
+	checkUnhandledEvents(c, eh.Events())
 	s.checkRegistered(c, eh)
 	_, _, apiClient, runner := workers.ExposeEventHandlers(eh)
 	c.Check(apiClient, gc.IsNil)
 	c.Check(runner, gc.IsNil)
+}
+
+func (s *eventHandlerSuite) TestEvents(c *gc.C) {
+	eh := workers.NewEventHandlers()
+	defer eh.Close()
+	events := eh.Events()
+	expected, _, _, _ := workers.ExposeEventHandlers(eh)
+
+	c.Check(events, gc.Equals, expected)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
@@ -125,32 +173,6 @@ func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
 	eh.RegisterHandler(s.handler)
 
 	s.checkRegistered(c, eh, "handler")
-}
-
-func (s *eventHandlerSuite) TestAddEventsOkay(c *gc.C) {
-	events := []workload.Event{{
-		Kind: workload.EventKindTracked,
-		ID:   "spam/eggs",
-	}}
-	eh := workers.NewEventHandlers()
-	eh.Reset(s.apiClient)
-	go func() {
-		eh.AddEvents(events...)
-		eh.Close()
-	}()
-
-	s.checkUnhandled(c, eh, events)
-}
-
-func (s *eventHandlerSuite) TestAddEventsEmpty(c *gc.C) {
-	eh := workers.NewEventHandlers()
-	eh.Reset(s.apiClient)
-	go func() {
-		eh.AddEvents()
-		eh.Close()
-	}()
-
-	s.checkUnhandled(c, eh)
 }
 
 func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
@@ -166,14 +188,14 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, runner := workers.ExposeEventHandlers(eh)
 
-	eh.AddEvents(events...)
+	eh.Events().AddEvents(events...)
 
 	engine.Kill()
 	err = engine.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
-	s.checkUnhandled(c, eh)
+	checkUnhandledEvents(c, eh.Events())
 	s.stub.CheckCallNames(c, "List", "handler")
 	c.Check(s.stub.Calls()[1].Args[0], gc.DeepEquals, events)
 	c.Check(s.stub.Calls()[1].Args[1], gc.DeepEquals, s.apiClient)
