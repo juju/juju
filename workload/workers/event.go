@@ -120,6 +120,34 @@ func (eh *EventHandlers) AddEvents(events ...workload.Event) error {
 	return nil
 }
 
+func (eh *EventHandlers) handle(events []workload.Event) error {
+	logger.Debugf("handling %d events", len(events))
+	for _, handleEvents := range eh.data.Handlers {
+		if err := handleEvents(events, eh.data.APIClient, eh.data.Runner); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
+	done := false
+	for !done {
+		select {
+		case <-stopCh:
+			done = true
+		case events, alive := <-eh.data.Events.events:
+			if !alive {
+				done = true
+			} else if err := eh.handle(events); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	// TODO(ericsnow) Call eh.Close() here?
+	return nil
+}
+
 // StartEngine creates a new dependency engine and starts it.
 func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
 	if eh.data.Runner != nil {
@@ -155,25 +183,6 @@ func (eh *EventHandlers) manifolds() dependency.Manifolds {
 	return manifolds
 }
 
-func (eh *EventHandlers) eventsManifold() dependency.Manifold {
-	return dependency.Manifold{
-		Inputs: []string{},
-		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
-			// Pull all existing from State (via API) and add an event for each.
-			events, err := InitialEvents(eh.data.APIClient)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			logger.Debugf("starting new worker")
-			w := worker.NewSimpleWorker(eh.loop)
-			// These must be added *after* the worker is started.
-			eh.data.Events.AddEvents(events...)
-			return w, nil
-		},
-	}
-}
-
 func (eh *EventHandlers) runnerManifold() dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},
@@ -194,32 +203,23 @@ func (eh *EventHandlers) apiManifold() dependency.Manifold {
 	}
 }
 
-func (eh *EventHandlers) handle(events []workload.Event) error {
-	logger.Debugf("handling %d events", len(events))
-	for _, handleEvents := range eh.data.Handlers {
-		if err := handleEvents(events, eh.data.APIClient, eh.data.Runner); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
-	done := false
-	for !done {
-		select {
-		case <-stopCh:
-			done = true
-		case events, alive := <-eh.data.Events.events:
-			if !alive {
-				done = true
-			} else if err := eh.handle(events); err != nil {
-				return errors.Trace(err)
+func (eh *EventHandlers) eventsManifold() dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{},
+		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
+			// Pull all existing from State (via API) and add an event for each.
+			events, err := InitialEvents(eh.data.APIClient)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
-		}
+
+			logger.Debugf("starting new worker")
+			w := worker.NewSimpleWorker(eh.loop)
+			// These must be added *after* the worker is started.
+			eh.data.Events.AddEvents(events...)
+			return w, nil
+		},
 	}
-	// TODO(ericsnow) Call eh.Close() here?
-	return nil
 }
 
 // InitialEvents returns the events that correspond to the current Juju state.
