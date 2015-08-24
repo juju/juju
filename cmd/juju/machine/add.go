@@ -209,7 +209,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	var config *config.Config
 	if defaultStore, err := configstore.Default(); err != nil {
 		return err
-	} else if config, err = c.Config(defaultStore); err != nil {
+	} else if config, err = c.Config(defaultStore, client); err != nil {
 		return err
 	}
 
