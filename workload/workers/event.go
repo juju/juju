@@ -76,48 +76,31 @@ func (e *Events) AddEvents(events ...workload.Event) error {
 
 // EventHandlers orchestrates handling of events on workloads.
 type EventHandlers struct {
-	events   *Events
-	handlers []func([]workload.Event, context.APIClient, Runner) error
-
-	apiClient context.APIClient
-	// runner is used in lieu of the engine due to support for stopping.
-	runner worker.Runner
+	data eventHandlersData
 }
 
 // NewEventHandlers creates a new EventHandlers.
 func NewEventHandlers() *EventHandlers {
 	logger.Debugf("new event handler created")
-	var eh EventHandlers
-	eh.init(nil)
+	eh := EventHandlers{
+		data: newEventHandlersData(nil),
+	}
 	return &eh
-}
-
-func (eh *EventHandlers) init(apiClient context.APIClient) {
-	eh.events = NewEvents()
-	eh.apiClient = apiClient
 }
 
 // Reset resets the event handlers.
 func (eh *EventHandlers) Reset(apiClient context.APIClient) error {
-	if err := eh.Close(); err != nil {
+	if err := eh.data.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	eh.init(apiClient)
+	eh.data = newEventHandlersData(apiClient)
 	return nil
 }
 
 // Close cleans up the handler's resources.
 func (eh *EventHandlers) Close() error {
-	if err := eh.events.Close(); err != nil {
-		// TODO(ericsnow) Stop the runner anyway?
+	if err := eh.data.Close(); err != nil {
 		return errors.Trace(err)
-	}
-	if eh.runner != nil {
-		eh.runner.Kill()
-		if err := eh.runner.Wait(); err != nil {
-			return errors.Trace(err)
-		}
-		eh.runner = nil
 	}
 	return nil
 }
@@ -126,12 +109,12 @@ func (eh *EventHandlers) Close() error {
 // events are processed.
 func (eh *EventHandlers) RegisterHandler(handler func([]workload.Event, context.APIClient, Runner) error) {
 	logger.Debugf("registering handler: %#v", handler)
-	eh.handlers = append(eh.handlers, handler)
+	eh.data.Handlers = append(eh.data.Handlers, handler)
 }
 
 // AddEvents adds events to the list of events to be handled.
 func (eh *EventHandlers) AddEvents(events ...workload.Event) error {
-	if err := eh.events.AddEvents(events...); err != nil {
+	if err := eh.data.Events.AddEvents(events...); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -139,14 +122,14 @@ func (eh *EventHandlers) AddEvents(events ...workload.Event) error {
 
 // StartEngine creates a new dependency engine and starts it.
 func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
-	if eh.runner != nil {
+	if eh.data.Runner != nil {
 		return nil, errors.Errorf("engine already started")
 	}
 	engine, err := newEngine()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	eh.runner = newRunner()
+	eh.data.Runner = newRunner()
 
 	manifolds := eh.manifolds()
 	// TODO(ericsnow) Move the following to a helper in worker/dependency or worker/util?
@@ -154,7 +137,7 @@ func (eh *EventHandlers) StartEngine() (worker.Worker, error) {
 		if err := worker.Stop(engine); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
 		}
-		eh.runner = nil
+		eh.data.Runner = nil
 		return nil, errors.Trace(err)
 	}
 	return engine, nil
@@ -166,7 +149,7 @@ func (eh *EventHandlers) manifolds() dependency.Manifolds {
 		resEvents:    eh.eventsManifold(),
 		resAPIClient: eh.apiManifold(),
 	}
-	if eh.runner != nil {
+	if eh.data.Runner != nil {
 		manifolds[resRunner] = eh.runnerManifold()
 	}
 	return manifolds
@@ -177,7 +160,7 @@ func (eh *EventHandlers) eventsManifold() dependency.Manifold {
 		Inputs: []string{},
 		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
 			// Pull all existing from State (via API) and add an event for each.
-			events, err := InitialEvents(eh.apiClient)
+			events, err := InitialEvents(eh.data.APIClient)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -185,7 +168,7 @@ func (eh *EventHandlers) eventsManifold() dependency.Manifold {
 			logger.Debugf("starting new worker")
 			w := worker.NewSimpleWorker(eh.loop)
 			// These must be added *after* the worker is started.
-			eh.events.AddEvents(events...)
+			eh.data.Events.AddEvents(events...)
 			return w, nil
 		},
 	}
@@ -195,7 +178,7 @@ func (eh *EventHandlers) runnerManifold() dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},
 		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
-			return util.NewValueWorker(eh.runner)
+			return util.NewValueWorker(eh.data.Runner)
 		},
 		Output: util.ValueWorkerOutput,
 	}
@@ -205,7 +188,7 @@ func (eh *EventHandlers) apiManifold() dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},
 		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
-			return util.NewValueWorker(eh.apiClient)
+			return util.NewValueWorker(eh.data.APIClient)
 		},
 		Output: util.ValueWorkerOutput,
 	}
@@ -213,8 +196,8 @@ func (eh *EventHandlers) apiManifold() dependency.Manifold {
 
 func (eh *EventHandlers) handle(events []workload.Event) error {
 	logger.Debugf("handling %d events", len(events))
-	for _, handleEvents := range eh.handlers {
-		if err := handleEvents(events, eh.apiClient, eh.runner); err != nil {
+	for _, handleEvents := range eh.data.Handlers {
+		if err := handleEvents(events, eh.data.APIClient, eh.data.Runner); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -227,7 +210,7 @@ func (eh *EventHandlers) loop(stopCh <-chan struct{}) error {
 		select {
 		case <-stopCh:
 			done = true
-		case events, alive := <-eh.events.events:
+		case events, alive := <-eh.data.Events.events:
 			if !alive {
 				done = true
 			} else if err := eh.handle(events); err != nil {
@@ -275,4 +258,37 @@ func InitialEvents(apiClient context.APIClient) ([]workload.Event, error) {
 		})
 	}
 	return events, nil
+}
+
+type eventHandlersData struct {
+	Events   *Events
+	Handlers []func([]workload.Event, context.APIClient, Runner) error
+
+	APIClient context.APIClient
+	// runner is used in lieu of the engine due to support for stopping.
+	Runner worker.Runner
+}
+
+func newEventHandlersData(apiClient context.APIClient) eventHandlersData {
+	data := eventHandlersData{
+		Events:    NewEvents(),
+		APIClient: apiClient,
+	}
+	return data
+}
+
+// Close cleans up the handler's resources.
+func (data *eventHandlersData) Close() error {
+	if err := data.Events.Close(); err != nil {
+		// TODO(ericsnow) Stop the runner anyway?
+		return errors.Trace(err)
+	}
+	if data.Runner != nil {
+		data.Runner.Kill()
+		if err := data.Runner.Wait(); err != nil {
+			return errors.Trace(err)
+		}
+		data.Runner = nil
+	}
+	return nil
 }

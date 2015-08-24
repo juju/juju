@@ -91,8 +91,8 @@ func (s *eventHandlerSuite) handler(events []workload.Event, apiClient context.A
 }
 
 func (s *eventHandlerSuite) checkRegistered(c *gc.C, eh *workers.EventHandlers, expected ...string) {
-	_, handlers, _, _ := workers.ExposeEventHandlers(eh)
-	for _, handler := range handlers {
+	data := workers.ExposeEventHandlers(eh)
+	for _, handler := range data.Handlers {
 		err := handler(nil, s.apiClient, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -106,10 +106,10 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	eh.Close()
 
 	s.checkRegistered(c, eh)
-	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
-	checkUnhandledEvents(c, events)
-	c.Check(apiClient, gc.IsNil)
-	c.Check(runner, gc.IsNil)
+	data := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, data.Events)
+	c.Check(data.APIClient, gc.IsNil)
+	c.Check(data.Runner, gc.IsNil)
 }
 
 func (s *eventHandlerSuite) TestReset(c *gc.C) {
@@ -120,10 +120,10 @@ func (s *eventHandlerSuite) TestReset(c *gc.C) {
 	eh.Close()
 
 	s.checkRegistered(c, eh)
-	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
-	checkUnhandledEvents(c, events)
-	c.Check(apiClient, gc.Equals, s.apiClient)
-	c.Check(runner, gc.IsNil)
+	data := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, data.Events)
+	c.Check(data.APIClient, gc.Equals, s.apiClient)
+	c.Check(data.Runner, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
 
@@ -135,10 +135,10 @@ func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkRegistered(c, eh)
-	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
-	checkUnhandledEvents(c, events)
-	c.Check(apiClient, gc.IsNil)
-	c.Check(runner, gc.IsNil)
+	data := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, data.Events)
+	c.Check(data.APIClient, gc.IsNil)
+	c.Check(data.Runner, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
 
@@ -152,10 +152,10 @@ func (s *eventHandlerSuite) TestCloseIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkRegistered(c, eh)
-	events, _, apiClient, runner := workers.ExposeEventHandlers(eh)
-	checkUnhandledEvents(c, events)
-	c.Check(apiClient, gc.IsNil)
-	c.Check(runner, gc.IsNil)
+	data := workers.ExposeEventHandlers(eh)
+	checkUnhandledEvents(c, data.Events)
+	c.Check(data.APIClient, gc.IsNil)
+	c.Check(data.Runner, gc.IsNil)
 }
 
 func (s *eventHandlerSuite) TestRegisterHandler(c *gc.C) {
@@ -177,7 +177,8 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	eh.RegisterHandler(s.handler)
 	engine, err := eh.StartEngine()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedEvents, _, _, runner := workers.ExposeEventHandlers(eh)
+	data := workers.ExposeEventHandlers(eh)
+	runner := data.Runner
 
 	eh.AddEvents(events...)
 
@@ -186,7 +187,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
-	checkUnhandledEvents(c, expectedEvents)
+	checkUnhandledEvents(c, data.Events)
 	s.stub.CheckCallNames(c, "List", "handler")
 	c.Check(s.stub.Calls()[1].Args[0], gc.DeepEquals, events)
 	c.Check(s.stub.Calls()[1].Args[1], gc.DeepEquals, s.apiClient)
