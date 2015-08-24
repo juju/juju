@@ -901,12 +901,12 @@ func (s *upgradesSuite) TestAddEnvUUIDToConstraints(c *gc.C) {
 
 	var newDoc constraintsDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.CpuCores, gc.Equals, uint64(4))
-	c.Assert(newDoc.Networks, jc.DeepEquals, networks1)
+	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(4))
+	c.Assert(*newDoc.Networks, jc.DeepEquals, networks1)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.CpuCores, gc.Equals, uint64(8))
-	c.Assert(newDoc.Networks, jc.DeepEquals, networks2)
+	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(8))
+	c.Assert(*newDoc.Networks, jc.DeepEquals, networks2)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToConstraintsIdempotent(c *gc.C) {
