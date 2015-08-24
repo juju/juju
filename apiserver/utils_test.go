@@ -98,19 +98,3 @@ func (s *utilsSuite) TestValidateOtherEnvironmentStateServerOnly(c *gc.C) {
 		})
 	c.Assert(err, gc.ErrorMatches, `requested environment ".*" is not the state server environment`)
 }
-
-func (s *utilsSuite) TestValidateNonAliveEnvironment(c *gc.C) {
-	envState := s.Factory.MakeEnvironment(c, nil)
-	defer envState.Close()
-	env, err := envState.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = validateEnvironUUID(
-		validateArgs{
-			statePool: s.pool,
-			envUUID:   envState.EnvironUUID(),
-		})
-	c.Assert(err, gc.ErrorMatches, `environment ".*" is no longer live`)
-}
