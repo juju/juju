@@ -218,7 +218,6 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
-	c.Skip("maltese-falcon")
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"update status hook runs on timer",

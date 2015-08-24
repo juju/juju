@@ -5,6 +5,7 @@ package remotestate
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -39,28 +40,40 @@ type RemoteStateWatcher struct {
 	current Snapshot
 }
 
+// WatcherConfig holds configuration parameters for the
+// remote state watcher.
+type WatcherConfig struct {
+	State             State
+	LeadershipTracker leadership.Tracker
+	UnitTag           names.UnitTag
+}
+
+// TimedSignal is the signature of a function used to generate a
+// hook signal.
+type TimedSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
+
 // NewWatcher returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
-func NewWatcher(st State, leadershipTracker leadership.Tracker, unitTag names.UnitTag) (*RemoteStateWatcher, error) {
+func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 	w := &RemoteStateWatcher{
-		st:                        st,
+		st:                        config.State,
 		relations:                 make(map[names.RelationTag]*relationUnitsWatcher),
 		relationUnitsChanges:      make(chan relationUnitsChange),
 		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
 		storageAttachmentChanges:  make(chan storageAttachmentChange),
-		leadershipTracker:         leadershipTracker,
+		leadershipTracker:         config.LeadershipTracker,
 		out:                       make(chan struct{}),
 		current: Snapshot{
 			Relations: make(map[int]RelationSnapshot),
 			Storage:   make(map[names.StorageTag]StorageSnapshot),
 		},
 	}
-	if err := w.init(unitTag); err != nil {
+	if err := w.init(config.UnitTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	go func() {
 		defer w.tomb.Done()
-		err := w.loop(unitTag)
+		err := w.loop(config.UnitTag)
 		logger.Errorf("remote state watcher exited: %v", err)
 		w.tomb.Kill(errors.Cause(err))
 	}()
