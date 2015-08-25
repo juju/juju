@@ -71,9 +71,7 @@ func (s *DeploySuite) TestPrepareAlreadyDone_ResolvedUpgrade(c *gc.C) {
 func (s *DeploySuite) testNotifyDeployerError(
 	c *gc.C, newDeploy newDeploy, expectNotifyRevert bool,
 ) {
-	callbacks := &DeployCallbacks{
-		MockClearResolvedFlag: &MockNoArgs{},
-	}
+	callbacks := &DeployCallbacks{}
 	deployer := &MockDeployer{}
 	expectCall := &MockNoArgs{err: errors.New("snh")}
 	if expectNotifyRevert {
@@ -104,8 +102,7 @@ func (s *DeploySuite) TestNotifyDeployerError_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) testPrepareArchiveInfoError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
-		MockClearResolvedFlag: &MockNoArgs{},
-		MockGetArchiveInfo:    &MockGetArchiveInfo{err: errors.New("pew")},
+		MockGetArchiveInfo: &MockGetArchiveInfo{err: errors.New("pew")},
 	}
 	deployer := &MockDeployer{
 		MockNotifyRevert:   &MockNoArgs{},
@@ -142,8 +139,7 @@ func (s *DeploySuite) TestPrepareArchiveInfoError_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) testPrepareStageError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
-		MockClearResolvedFlag: &MockNoArgs{},
-		MockGetArchiveInfo:    &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockGetArchiveInfo: &MockGetArchiveInfo{info: &MockBundleInfo{}},
 	}
 	deployer := &MockDeployer{
 		MockNotifyRevert:   &MockNoArgs{},
@@ -184,9 +180,8 @@ func (s *DeploySuite) TestPrepareStageError_ResolvedUpgrade(c *gc.C) {
 
 func (s *DeploySuite) testPrepareSetCharmError(c *gc.C, newDeploy newDeploy) {
 	callbacks := &DeployCallbacks{
-		MockClearResolvedFlag: &MockNoArgs{},
-		MockGetArchiveInfo:    &MockGetArchiveInfo{},
-		MockSetCurrentCharm:   &MockSetCurrentCharm{err: errors.New("blargh")},
+		MockGetArchiveInfo:  &MockGetArchiveInfo{},
+		MockSetCurrentCharm: &MockSetCurrentCharm{err: errors.New("blargh")},
 	}
 	deployer := &MockDeployer{
 		MockNotifyRevert:   &MockNoArgs{},
