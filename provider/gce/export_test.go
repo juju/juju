@@ -78,5 +78,5 @@ func GetInstances(env *environ) ([]instance.Instance, error) {
 
 // Storage
 func GCEStorageProvider() storage.Provider {
-	return &gceStorageProvider{}
+	return &storageProvider{}
 }

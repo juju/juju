@@ -6,7 +6,6 @@ package gce_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -121,8 +120,8 @@ func (s *volumeSourceSuite) TestCreateVolumesNoDiskCreated(c *gc.C) {
 
 func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
-	s.FakeConn.ComputeDisks = []*compute.Disk{s.BaseDisk}
-	s.FakeConn.ComputeDisk = s.BaseDisk
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
+	s.FakeConn.GoogleDisk = s.BaseDisk
 	s.FakeConn.AttachedDisk = &google.AttachedDisk{
 		VolumeName: s.BaseDisk.Name,
 		DeviceName: "home-zone-1234567",
@@ -179,7 +178,7 @@ func (s *volumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 }
 
 func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
-	s.FakeConn.ComputeDisks = []*compute.Disk{s.BaseDisk}
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
 	vols, err := s.source.ListVolumes()
 	c.Check(err, jc.ErrorIsNil)
@@ -197,7 +196,7 @@ func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 }
 
 func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {
-	s.FakeConn.ComputeDisk = s.BaseDisk
+	s.FakeConn.GoogleDisk = s.BaseDisk
 	volName := "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
 	res, err := s.source.DescribeVolumes([]string{volName})
 	c.Check(err, jc.ErrorIsNil)
