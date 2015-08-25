@@ -133,7 +133,7 @@ func (c *EnvCommandBase) Config(store configstore.Storage, client EnvironmentGet
 	}
 	cfg, _, err := environs.ConfigForName(c.envName, store)
 	if err == nil {
-		return cfg, err
+		return cfg, nil
 	} else if !environs.IsEmptyConfig(err) {
 		return nil, errors.Trace(err)
 	}
