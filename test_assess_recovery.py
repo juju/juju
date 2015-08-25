@@ -115,3 +115,15 @@ class TestMain(TestCase):
         ws_mock.assert_called_once_with('host', client, 'i_id')
         ns_mock.assert_called_once_with(error)
         dl_mock.assert_called_once_with(client, 'new_host', 'log_dir')
+
+    def test_destroy_on_boot_error(self, so_mock, cc_mock, co_mock,
+                                   dns_mock, ds_mock, di_mock, ws_mock,
+                                   ns_mock, dl_mock):
+        client = make_mocked_client('foo')
+        with patch('assess_recovery.make_client', autospec=True,
+                   return_value=client):
+            with patch.object(client, 'bootstrap', side_effect=Exception):
+                with self.assertRaises(SystemExit):
+                    main(['./', 'foo', 'log_dir',
+                          '--ha', '--charm-prefix', 'prefix'])
+        client.destroy_environment.assert_called_once_with()
