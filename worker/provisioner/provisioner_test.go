@@ -1563,13 +1563,13 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 type mockToolsFinder struct {
 }
 
-func (f mockToolsFinder) FindTools(number version.Number, series string, arch *string) (coretools.List, error) {
-	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, version.Current.Arch))
+func (f mockToolsFinder) FindTools(number version.Number, series string, a *string) (coretools.List, error) {
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, arch.HostArch()))
 	if err != nil {
 		return nil, err
 	}
-	if arch != nil {
-		v.Arch = *arch
+	if a != nil {
+		v.Arch = *a
 	}
 	return coretools.List{&coretools.Tools{Version: v}}, nil
 }

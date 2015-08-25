@@ -731,7 +731,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+version.Current.Arch))
+	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+arch.HostArch()))
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -748,7 +748,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
-	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
+	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
@@ -782,7 +782,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 Bootstrapping environment "devenv"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
-`[1:], version.Current.Arch))
+`[1:], arch.HostArch()))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }
 
