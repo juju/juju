@@ -50,7 +50,7 @@ func initWorkloadsSuites() {
 	userInfo = u
 	// TODO(ericsnow) Re-enable once we get the local provider cleaning
 	// up properly.
-	// gc.Suite(&workloadsSuite{})
+	gc.Suite(&workloadsSuite{})
 }
 
 var (
