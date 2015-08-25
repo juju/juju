@@ -2009,7 +2009,6 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	c.Skip("maltese-falcon")
 	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func() error, error)) (operation.Executor, error) {
 		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
@@ -2023,7 +2022,7 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 			createUniter{executorFunc: executorFunc},
 			waitUnitAgent{
 				status: params.StatusFailed,
-				info:   "run install hook",
+				info:   "resolver loop error",
 			},
 			expectError{".*some error occurred.*"},
 		),
