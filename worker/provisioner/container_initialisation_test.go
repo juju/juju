@@ -203,14 +203,13 @@ func (s *ContainerSetupSuite) TestKvmContainerUsesHostArch(c *gc.C) {
 func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
 	var called bool
 	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
-		return toolsFinderFunc(func(v version.Number, series string, arch *string) (tools.List, error) {
+		return toolsFinderFunc(func(v version.Number, series string, arch string) (tools.List, error) {
 			called = true
-			c.Assert(arch, gc.NotNil)
-			c.Assert(*arch, gc.Equals, expectArch)
+			c.Assert(arch, gc.Equals, expectArch)
 			result := version.Current
 			result.Number = v
 			result.Series = series
-			result.Arch = *arch
+			result.Arch = arch
 			return tools.List{{Version: result}}, nil
 		})
 	})
@@ -218,8 +217,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
-		amd64 := arch.AMD64
-		toolsFinder.FindTools(version.Current.Number, version.Current.Series, &amd64)
+		toolsFinder.FindTools(version.Current.Number, version.Current.Series, arch.AMD64)
 		return nil
 	})
 
@@ -481,9 +479,9 @@ func (s *SetIPAndARPForwardingSuite) TestFailure(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-type toolsFinderFunc func(v version.Number, series string, arch *string) (tools.List, error)
+type toolsFinderFunc func(v version.Number, series string, arch string) (tools.List, error)
 
-func (t toolsFinderFunc) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string) (tools.List, error) {
 	return t(v, series, arch)
 }
 

@@ -52,8 +52,8 @@ type MachineGetter interface {
 // provisioned instances.
 type ToolsFinder interface {
 	// FindTools returns a list of tools matching the specified
-	// version and series, and optionally arch.
-	FindTools(version version.Number, series string, arch *string) (coretools.List, error)
+	// version, series, and architecture.
+	FindTools(version version.Number, series string, arch string) (coretools.List, error)
 }
 
 var _ MachineGetter = (*apiprovisioner.State)(nil)
@@ -609,10 +609,15 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 		assocProvInfoAndMachCfg(pInfo, instanceCfg)
 
+		var arch string
+		if pInfo.Constraints.Arch != nil {
+			arch = *pInfo.Constraints.Arch
+		}
+
 		possibleTools, err := task.toolsFinder.FindTools(
 			version.Current.Number,
 			pInfo.Series,
-			pInfo.Constraints.Arch,
+			arch,
 		)
 		if err != nil {
 			return task.setErrorStatus("cannot find tools for machine %q: %v", m, err)
