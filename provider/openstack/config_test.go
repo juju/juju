@@ -66,6 +66,7 @@ type configTest struct {
 	err                     string
 	sslHostnameVerification bool
 	sslHostnameSet          bool
+	blockStorageSource      string
 }
 
 type attrs map[string]interface{}
@@ -165,6 +166,13 @@ func (t configTest) check(c *gc.C) {
 		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
 	}
+	expectedStorage := "cinder"
+	if t.blockStorageSource != "" {
+		expectedStorage = t.blockStorageSource
+	}
+	storage, ok := ecfg.StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(storage, gc.Equals, expectedStorage)
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
@@ -437,6 +445,16 @@ var configTests = []configTest{
 			"network": "a-network-label",
 		},
 		network: "a-network-label",
+	}, {
+		summary:            "no default block storage specified",
+		config:             attrs{},
+		blockStorageSource: "cinder",
+	}, {
+		summary: "block storage specified",
+		config: attrs{
+			"storage-default-block-source": "my-cinder",
+		},
+		blockStorageSource: "my-cinder",
 	},
 }
 
@@ -505,6 +523,21 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
+}
+
+func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
+	s.setupEnvCredentials()
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
+		"type": "openstack",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(source, gc.Equals, "cinder")
 }
 
 func (s *ConfigSuite) setupEnvCredentials() {
