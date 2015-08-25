@@ -48,23 +48,49 @@ func NewAddresserAPI(
 	}, nil
 }
 
-// CleanupIPAddresses releases and removes the dead IP addresses.
-func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
-	result := params.ErrorResult{}
-	// Create an environment to verify networking support.
+// getNetworingEnviron checks if the environment implements NetworkingEnviron
+// and also if it supports IP address allocation.
+func (api *AddresserAPI) getNetworingEnviron() (environs.NetworkingEnviron, bool, error) {
 	config, err := api.st.EnvironConfig()
 	if err != nil {
-		err = errors.Annotate(err, "getting environment config")
-		result.Error = common.ServerError(err)
-		return result
+		return nil, false, errors.Annotate(err, "getting environment config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		err = errors.Annotate(err, "validating environment config")
+		return nil, false, errors.Annotate(err, "validating environment config")
+	}
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		return nil, false, nil
+	}
+	ok, err = netEnv.SupportsAddressAllocation(network.AnySubnet)
+	if err != nil && !errors.IsNotSupported(err) {
+		return nil, false, errors.Annotate(err, "checking allocation support")
+	}
+	return netEnv, ok, nil
+}
+
+// CanDeallocateAddresses checks if the current environment can
+// deallocate IP addresses.
+func (api *AddresserAPI) CanDeallocateAddresses() params.BoolResult {
+	result := params.BoolResult{}
+	_, ok, err := api.getNetworingEnviron()
+	if err != nil {
 		result.Error = common.ServerError(err)
 		return result
 	}
-	netEnv, ok := environs.SupportsNetworking(env)
+	result.Result = ok
+	return result
+}
+
+// CleanupIPAddresses releases and removes the dead IP addresses.
+func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
+	result := params.ErrorResult{}
+	netEnv, ok, err := api.getNetworingEnviron()
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
+	}
 	if !ok {
 		result.Error = common.ServerError(errors.NotSupportedf("IP address deallocation"))
 		return result

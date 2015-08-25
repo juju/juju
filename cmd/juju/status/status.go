@@ -34,7 +34,7 @@ There are a number of ways to format the status output:
 
 - {short|line|oneline}: List units and their subordinates. For each
            unit, the IP address and agent status are listed.
-- summary: Displays the subnet(s) and port(s) the environment utilizes.
+- summary: Displays the subnet(s) and port(s) the environment utilises.
            Also displays aggregate information about:
            - MACHINES: total #, and # in each state.
            - UNITS: total #, and # in each state.

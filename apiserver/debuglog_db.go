@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func newDebugLogDBHandler(ssState *state.State, stop <-chan struct{}) http.Handler {
-	return newDebugLogHandler(ssState, stop, handleDebugLogDBRequest)
+func newDebugLogDBHandler(statePool *state.StatePool, stop <-chan struct{}) http.Handler {
+	return newDebugLogHandler(statePool, stop, handleDebugLogDBRequest)
 }
 
 func handleDebugLogDBRequest(
