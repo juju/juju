@@ -741,8 +741,40 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 		},
 	})
 }
+func (s *withoutStateServerSuite) addTestSpacesAndSubnets(c *gc.C) {
+	_, err := s.State.AddSpace("space1", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space2", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		ProviderId:       "subnet-0",
+		CIDR:             "10.10.0.0/24",
+		AvailabilityZone: "zone1",
+		SpaceName:        "space1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		ProviderId:        "subnet-1",
+		CIDR:              "10.20.0.0/24",
+		VLANTag:           42,
+		AllocatableIPLow:  "10.20.0.5",
+		AllocatableIPHigh: "10.20.0.254",
+		AvailabilityZone:  "zone2",
+		SpaceName:         "space2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSubnet(state.SubnetInfo{
+		ProviderId:       "subnet-2",
+		CIDR:             "10.30.0.0/24",
+		AvailabilityZone: "zone3",
+		SpaceName:        "space2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	s.addTestSpacesAndSubnets(c)
+
 	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "static")
@@ -751,13 +783,12 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
+	cons := constraints.MustParse("cpu-cores=123 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       cons,
-		Placement:         "valid",
-		RequestedNetworks: []string{"net1", "net2"},
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+		Placement:   "valid",
 		Volumes: []state.MachineVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static-pool"}},
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
@@ -795,6 +826,10 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
 				},
+				SubnetsToZones: map[string][]string{
+					"subnet-1": []string{"zone2"},
+					"subnet-2": []string{"zone3"},
+				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-0",
 					Size:       1000,
@@ -828,8 +863,9 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	}
-	// The order of volumes is not predictable, so we make sure we compare the right ones. This only
-	// applies to Results[1] since it is the only result to contain volumes.
+	// The order of volumes is not predictable, so we make sure we
+	// compare the right ones. This only applies to Results[1] since
+	// it is the only result to contain volumes.
 	if expected.Results[1].Result.Volumes[0].VolumeTag != result.Results[1].Result.Volumes[0].VolumeTag {
 		vols := expected.Results[1].Result.Volumes
 		vols[0], vols[1] = vols[1], vols[0]

@@ -551,13 +551,14 @@ type AgentVersionResult struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
-	Constraints constraints.Value
-	Series      string
-	Placement   string
-	Networks    []string
-	Jobs        []multiwatcher.MachineJob
-	Volumes     []VolumeParams
-	Tags        map[string]string
+	Constraints    constraints.Value
+	Series         string
+	Placement      string
+	Networks       []string
+	Jobs           []multiwatcher.MachineJob
+	Volumes        []VolumeParams
+	Tags           map[string]string
+	SubnetsToZones map[string][]string
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

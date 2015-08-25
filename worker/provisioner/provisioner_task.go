@@ -561,6 +561,14 @@ func constructStartInstanceParams(
 			},
 		}
 	}
+	var subnetsToZones map[network.Id][]string
+	if provisioningInfo.SubnetsToZones != nil {
+		// Convert subnet provider ids from string to network.Id.
+		subnetsToZones = make(map[network.Id][]string, len(provisioningInfo.SubnetsToZones))
+		for providerId, zones := range provisioningInfo.SubnetsToZones {
+			subnetsToZones[network.Id(providerId)] = zones
+		}
+	}
 
 	return environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
@@ -569,6 +577,7 @@ func constructStartInstanceParams(
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
+		SubnetsToZones:    subnetsToZones,
 	}, nil
 }
 
@@ -590,12 +599,12 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 		pInfo, err := task.blockUntilProvisioned(m.ProvisioningInfo)
 		if err != nil {
-			return err
+			return task.setErrorStatus("fetching provisioning info for machine %q: %v", m, err)
 		}
 
 		instanceCfg, err := task.constructInstanceConfig(m, task.auth, pInfo)
 		if err != nil {
-			return err
+			return task.setErrorStatus("creating instance config for machine %q: %v", m, err)
 		}
 
 		assocProvInfoAndMachCfg(pInfo, instanceCfg)
@@ -710,7 +719,9 @@ func (task *provisionerTask) startMachine(
 	} else if err == nil {
 		logger.Infof(
 			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v",
-			machine, inst.Id(), hardware, networks, ifaces, volumes, volumeAttachments,
+			machine, inst.Id(), hardware,
+			networks, ifaces,
+			volumes, volumeAttachments,
 		)
 		return nil
 	}
@@ -728,6 +739,7 @@ type provisioningInfo struct {
 	Series         string
 	Placement      string
 	InstanceConfig *instancecfg.InstanceConfig
+	SubnetsToZones map[string][]string
 }
 
 func assocProvInfoAndMachCfg(
@@ -747,6 +759,7 @@ func assocProvInfoAndMachCfg(
 		Series:         provInfo.Series,
 		Placement:      provInfo.Placement,
 		InstanceConfig: instanceConfig,
+		SubnetsToZones: provInfo.SubnetsToZones,
 	}
 }
 
