@@ -1122,6 +1122,29 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 						ServerUUID: env.ServerUUID(),
 					}}}
 		},
+		func(c *gc.C, st *State) changeTestCase {
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "status is changed if the service exists in the store",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+					EnvUUID:     st.EnvironUUID(),
+					Name:        "wordpress",
+					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
+				}},
+				change: watcher.Change{
+					C:  "constraints",
+					Id: st.docID("s#wordpress"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ServiceInfo{
+						EnvUUID:     st.EnvironUUID(),
+						Name:        "wordpress",
+						Constraints: constraints.MustParse("mem=4G arch=amd64"),
+					}}}
+		},
 	}
 	s.performChangeTestCases(c, changeTestFuncs)
 }
@@ -1985,7 +2008,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
-			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
+			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2003,7 +2026,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 					&multiwatcher.ServiceInfo{
 						EnvUUID:     st.EnvironUUID(),
 						Name:        "wordpress",
-						Constraints: constraints.MustParse("mem=4G cpu-cores= arch=amd64"),
+						Constraints: constraints.MustParse("mem=4G arch=amd64"),
 					}}}
 		},
 	}
@@ -2936,21 +2959,26 @@ func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
 	}
 }
 
+func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
+	ok, err := jc.DeepEqual(got, want)
+	if ok {
+		c.Check(err, jc.ErrorIsNil)
+	}
+	return ok
+}
+
 // assertEntitiesEqual is a specialised version of the typical
 // jc.DeepEquals check that provides more informative output when
 // comparing EntityInfo slices.
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
-	if len(got) == 0 {
-		got = nil
-	}
-	if len(want) == 0 {
-		want = nil
-	}
-
-	if deepEqual(c, got, want) {
+	if jcDeepEqualsCheck(c, got, want) {
 		return
 	}
-	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	if len(got) != len(want) {
+		c.Errorf("entity length mismatch; got %d; want %d", len(got), len(want))
+	} else {
+		c.Errorf("entity contents mismatch; same length %d", len(got))
+	}
 	// Lets construct a decent output.
 	var errorOutput string
 	errorOutput = "\ngot: \n"
@@ -2969,7 +2997,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
-			if !deepEqual(c, g, w) {
+			if !jcDeepEqualsCheck(c, g, w) {
 				firstDiffError += "\n"
 				firstDiffError += fmt.Sprintf("first difference at position %d\n", i)
 				firstDiffError += "got:\n"

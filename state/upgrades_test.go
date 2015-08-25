@@ -895,17 +895,18 @@ func (s *upgradesSuite) TestAddEnvUUIDToConstraints(c *gc.C) {
 			},
 		},
 		true)
-	// The test expects three records because there is a preexisting environment constraints doc in mongo.
+	// The test expects three records because there is a preexisting
+	// environment constraints doc in mongo.
 	c.Assert(count, gc.Equals, 3)
 
 	var newDoc constraintsDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
 	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(4))
-	c.Assert(*newDoc.Networks, gc.DeepEquals, networks1)
+	c.Assert(*newDoc.Networks, jc.DeepEquals, networks1)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
 	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(8))
-	c.Assert(*newDoc.Networks, gc.DeepEquals, networks2)
+	c.Assert(*newDoc.Networks, jc.DeepEquals, networks2)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToConstraintsIdempotent(c *gc.C) {

@@ -10,7 +10,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-2
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	337aa7d5d712728d181dbda2547a6556d4189626	2015-05-08T07:43:36Z
-github.com/juju/cmd	git	a7964f7cbac96484d1a9ba25e37bd32b7fa3cd90	2015-06-12T00:20:39Z
+github.com/juju/cmd	git	4a5e8abce36462f89d92d28bd69b54c7845db818	2015-08-20T13:46:44Z
 github.com/juju/errors	git	4567a5e69fd3130ca0d89f69478e7ac025b67452	2015-03-27T19:24:31Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
@@ -34,7 +34,7 @@ golang.org/x/net	git	bb64f4dc73d4ab97978d5e1cb34515dcc570361b	2015-05-18T01:39:5
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
 google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23:51:26Z
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
-gopkg.in/amz.v3	git	c48fcea7c93a08f9c64b568a15ae5c40bbc6493d	2015-08-10T14:29:15Z
+gopkg.in/amz.v3	git	bff3a097c4108da57bb8cbe3aad2990d74d23676	2015-08-20T12:28:33Z
 gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:28Z
 gopkg.in/errgo.v1	git	15098963088579c1cd9eb1a7da285831e548390b	2015-07-07T18:34:45Z
 gopkg.in/goose.v1	git	39e4e7a5d0eba2923cec7c841870e39decddf05e	2015-07-23T01:53:30Z

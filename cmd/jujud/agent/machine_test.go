@@ -670,7 +670,11 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
+		c, s.DefaultToolsStorage,
+		s.Environ.Config().AgentStream(),
+		s.Environ.Config().AgentStream(),
+		usefulVersion,
+	)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
@@ -730,12 +734,16 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 }
 
 func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
+	started := make(chan struct{})
 	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
+		close(started)
 		w, err := addresser.NewWorker(api)
 		c.Check(err, jc.ErrorIsNil)
 		if expectFinished {
+			// When the address-allocation feature flag is disabled.
 			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
 		} else {
+			// When the address-allocation feature flag is enabled.
 			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
 		}
 		return w, err
@@ -743,21 +751,29 @@ func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool
 
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
 
-	// Wait for firewaller as last worker.
-	s.singularRecord.nextRunner(c)
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "firewaller")
+	// Wait for the worker that starts before the addresser to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "cleaner")
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for addresser to start")
+	}
 }
 
-func (s *MachineSuite) TestAddresserWorkerRunsIfFeatureFlagEnabled(c *gc.C) {
+func (s *MachineSuite) TestAddresserWorkerDoesNotStopWhenAddressDeallocationSupported(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 	s.testAddresserNewWorkerResult(c, false)
 }
 
-func (s *MachineSuite) TestAddresserWorkerIsFineshedIfFeatureFlagDisabled(c *gc.C) {
+func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupported(c *gc.C) {
 	s.SetFeatureFlags()
 	s.testAddresserNewWorkerResult(c, true)
 }
