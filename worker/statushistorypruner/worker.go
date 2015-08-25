@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -31,9 +30,12 @@ func NewHistoryPrunerParams() *HistoryPrunerParams {
 	}
 }
 
+type pruneHistoryFunc func(*state.State, int) error
+
 type pruneWorker struct {
 	st     *state.State
 	params *HistoryPrunerParams
+	pruner pruneHistoryFunc
 }
 
 // New returns a worker.Worker for history Pruner.
@@ -41,22 +43,15 @@ func New(st *state.State, params *HistoryPrunerParams) worker.Worker {
 	w := &pruneWorker{
 		st:     st,
 		params: params,
+		pruner: state.PruneStatusHistory,
 	}
-	return worker.NewSimpleWorker(w.loop)
+	return worker.NewPeriodicWorker(w.doPruning, w.params.PruneInterval, worker.NewTimer)
 }
 
-// TODO(perrito666) Adda comprehensive test for the worker features
-func (w *pruneWorker) loop(stopCh <-chan struct{}) error {
-	p := w.params
-	for {
-		select {
-		case <-stopCh:
-			return tomb.ErrDying
-		case <-time.After(p.PruneInterval):
-			err := state.PruneStatusHistory(w.st, p.MaxLogsPerState)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
+func (w *pruneWorker) doPruning(stop <-chan struct{}) error {
+	err := w.pruner(w.st, w.params.MaxLogsPerState)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	return nil
 }
