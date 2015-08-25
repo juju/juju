@@ -267,7 +267,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				if ok := operation.IsDeployConflictError(cause); ok {
 					uniterResolver.conflicted = true
 					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
+					continue
 				}
+				reportAgentError(u, "resolver loop error", err)
 			}
 		}
 
