@@ -94,9 +94,26 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
 }
 
+func (s *pingerSuite) calculatePingTimeout(c *gc.C) time.Duration {
+	openStart := time.Now()
+	st, _ := s.OpenAPIAsNewMachine(c)
+	defer st.Close()
+
+	err := st.Ping()
+	c.Assert(err, jc.ErrorIsNil)
+	openDelay := time.Since(openStart)
+	pingTimeout := openDelay + openDelay/10
+	c.Logf("API open and initial ping took %v; using ping timeout %v", openDelay, pingTimeout)
+	return pingTimeout
+}
+
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
-	const shortTimeout = 100 * time.Millisecond
-	const attemptDelay = shortTimeout / 4
+	// To negate the effects of an underpowered or heavily loaded
+	// machine running this test, tune the shortTimeout based on the
+	// time it takes to open an API connection +10%.
+	shortTimeout := s.calculatePingTimeout(c)
+	attemptDelay := shortTimeout / 4
+
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(shortTimeout))
 
 	st, _ := s.OpenAPIAsNewMachine(c)
@@ -120,13 +137,13 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 		if lastLoop.IsZero() {
 			loopDelta = 0
 		}
-		c.Logf("duration since last iteration: %v", loopDelta)
+		c.Logf("duration since last ping: %v", loopDelta)
 		err = st.Ping()
 		if !c.Check(
 			err, jc.ErrorIsNil,
 			gc.Commentf(
-				"pinger timeout exceeded at %v (%v since the test start)",
-				testNow, testNow.Sub(testNow),
+				"ping timeout exceeded at %v (%v since the test start)",
+				testNow, testNow.Sub(testStart),
 			),
 		) {
 			c.Check(err, gc.ErrorMatches, "connection is shut down")
