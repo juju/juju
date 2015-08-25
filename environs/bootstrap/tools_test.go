@@ -24,9 +24,7 @@ var _ = gc.Suite(&toolsSuite{})
 
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	// Host runs amd64, want ppc64 tools.
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
@@ -34,16 +32,14 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	arch := "ppc64el"
+	arch := arch.PPC64EL
 	err := bootstrap.ValidateUploadAllowed(env, &arch)
 	c.Assert(err, gc.ErrorMatches, `cannot build tools for "ppc64el" using a machine running on "amd64"`)
 }
 
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	// Host runs ppc64el, environment only supports amd64, arm64.
-	s.PatchValue(&arch.HostArch, func() string {
-		return "ppc64el"
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
@@ -59,9 +55,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	// Host runs arm64, environment supports arm64.
 	arm64 := "arm64"
-	s.PatchValue(&arch.HostArch, func() string {
-		return arm64
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	err := bootstrap.ValidateUploadAllowed(env, &arm64)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -163,9 +157,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	var findToolsCalled int
 	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		findToolsCalled++
@@ -232,10 +224,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
-	s.PatchValue(&version.Current.Arch, "amd64")
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	trustyTools := &tools.Tools{
 		Version: version.MustParseBinary("1.2.3-trusty-amd64"),
 		URL:     "http://testing.invalid/tools.tar.gz",
@@ -265,10 +254,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
-	s.PatchValue(&version.Current.Arch, "amd64")
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	var allTools tools.List
 	for _, series := range version.SupportedSeries() {
