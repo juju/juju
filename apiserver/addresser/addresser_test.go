@@ -4,16 +4,22 @@
 package addresser_test
 
 import (
-	"errors"
-
-	gc "gopkg.in/check.v1"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/addresser"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -30,8 +36,14 @@ type AddresserSuite struct {
 
 var _ = gc.Suite(&AddresserSuite{})
 
+func (s *AddresserSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	environs.RegisterProvider("mock", mockEnvironProvider{})
+}
+
 func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.AddressAllocation)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		EnvironManager: true,
@@ -47,88 +59,180 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *AddresserSuite) TestEnvironConfigSuccess(c *gc.C) {
-	config := coretesting.EnvironConfig(c)
+func (s *AddresserSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesEnabled(c *gc.C) {
+	config := testingEnvConfig(c)
 	s.st.setConfig(c, config)
 
-	result, err := s.api.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
-		Config: config.AllAttrs(),
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: true,
 	})
-
-	s.st.stub.CheckCallNames(c, "EnvironConfig")
 }
 
-func (s *AddresserSuite) TestEnvironConfigFailure(c *gc.C) {
+func (s *AddresserSuite) TestCanDeallocateAddressesDisabled(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+	s.SetFeatureFlags()
+
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: false,
+	})
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesConfigGetFailure(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
 	s.st.stub.SetErrors(errors.New("ouch"))
 
-	result, err := s.api.EnvironConfig()
-	c.Assert(err, gc.ErrorMatches, "ouch")
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
-
-	s.st.stub.CheckCallNames(c, "EnvironConfig")
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result.Error, gc.ErrorMatches, "getting environment config: ouch")
+	c.Assert(result.Result, jc.IsFalse)
 }
 
-func (s *AddresserSuite) TestLifeSuccess(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"}},
-	}
-	result, err := s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Life, gc.Equals, params.Alive)
+func (s *AddresserSuite) TestCanDeallocateAddressesEnvironmentNewFailure(c *gc.C) {
+	config := nonexTestingEnvConfig(c)
+	s.st.setConfig(c, config)
 
-	args = params.Entities{
-		Entities: []params.Entity{
-			{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"},
-			{Tag: "ipaddress-00000000-1111-2222-7777-0123456789ab"},
-		},
-	}
-	result, err = s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 2)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Life, gc.Equals, params.Alive)
-	c.Assert(result.Results[1].Error, gc.IsNil)
-	c.Assert(result.Results[1].Life, gc.Equals, params.Dead)
-
-	args = params.Entities{}
-	result, err = s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 0)
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
+	c.Assert(result.Result, jc.IsFalse)
 }
 
-func (s *AddresserSuite) TestLifeFail(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-9999-ffffffffffff"}},
-	}
-	result, err := s.api.Life(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `IP address ipaddress-00000000-1111-2222-9999-ffffffffffff not found`)
+func (s *AddresserSuite) TestCanDeallocateAddressesNotSupportedFailure(c *gc.C) {
+	config := mockTestingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: false,
+	})
 }
 
-func (s *AddresserSuite) TestRemoveSuccess(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-6666-0123456789ab"}},
-	}
-	result, err := s.api.Remove(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
 
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
 }
 
-func (s *AddresserSuite) TestRemoveFail(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "ipaddress-00000000-1111-2222-3333-0123456789ab"}},
-	}
-	result, err := s.api.Remove(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `cannot remove entity "ipaddress-00000000-1111-2222-3333-0123456789ab": still alive`)
+func (s *AddresserSuite) TestReleaseAddress(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
 
+	// Cleanup initial dead IP addresses.
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
+
+	// Prepare tests.
+	called := 0
+	s.PatchValue(addresser.NetEnvReleaseAddress, func(env environs.NetworkingEnviron,
+		instId instance.Id, subnetId network.Id, addr network.Address, macAddress string) error {
+		called++
+		c.Assert(instId, gc.Equals, instance.Id("a3"))
+		c.Assert(subnetId, gc.Equals, network.Id("a"))
+		c.Assert(addr, gc.Equals, network.NewAddress("0.1.2.3"))
+		c.Assert(macAddress, gc.Equals, "fff3")
+		return nil
+	})
+
+	// Set address 0.1.2.3 to dead.
+	s.st.setDead(c, "0.1.2.3")
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 1)
+
+	apiErr = s.api.CleanupIPAddresses()
+	c.Assert(apiErr, jc.DeepEquals, params.ErrorResult{})
+	c.Assert(called, gc.Equals, 1)
+
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 0)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesConfigGetFailure(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	s.st.stub.SetErrors(errors.New("ouch"))
+
+	// First action is getting the environment configuration,
+	// so the injected error is returned here.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, "getting environment config: ouch")
+
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
+	config := nonexTestingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	// Validation of configuration fails due to illegal provider.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
+
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+}
+
+func (s *AddresserSuite) TestCleanupIPAddressesNotSupportedFailure(c *gc.C) {
+	config := mockTestingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	dead, err := s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
+
+	// The tideland environment does not support networking.
+	apiErr := s.api.CleanupIPAddresses()
+	c.Assert(apiErr.Error, gc.ErrorMatches, "IP address deallocation not supported")
+
+	// Still has two dead addresses.
+	dead, err = s.st.DeadIPAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dead, gc.HasLen, 2)
 }
 
 func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
@@ -157,4 +261,35 @@ func (s *AddresserSuite) TestWatchIPAddresses(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.st, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
+}
+
+// testingEnvConfig prepares an environment configuration using
+// the dummy provider.
+func testingEnvConfig(c *gc.C) *config.Config {
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env.Config()
+}
+
+// nonexTestingEnvConfig prepares an environment configuration using
+// a non-existent provider.
+func nonexTestingEnvConfig(c *gc.C) *config.Config {
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "nonex",
+	})
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+// mockTestingEnvConfig prepares an environment configuration using
+// the mock provider which does not support networking.
+func mockTestingEnvConfig(c *gc.C) *config.Config {
+	cfg, err := config.New(config.NoDefaults, mockConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	return env.Config()
 }

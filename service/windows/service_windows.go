@@ -24,6 +24,12 @@ import (
 
 //sys enumServicesStatus(h windows.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
 
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms681988(v=vs.85).aspx
+const (
+	SERVICE_CONFIG_FAILURE_ACTIONS      = 2
+	SERVICE_CONFIG_FAILURE_ACTIONS_FLAG = 4
+)
+
 const (
 	SC_ACTION_NONE = iota
 	SC_ACTION_RESTART
@@ -32,16 +38,22 @@ const (
 )
 
 type serviceAction struct {
-	actionType int
+	actionType uint16
 	delay      uint32
 }
 
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms685939(v=vs.85).aspx
 type serviceFailureActions struct {
 	dwResetPeriod uint32
 	lpRebootMsg   *uint16
 	lpCommand     *uint16
 	cActions      uint32
 	scAction      *serviceAction
+}
+
+// https://msdn.microsoft.com/en-us/library/windows/desktop/ms685937(v=vs.85).aspx
+type serviceFailureActionsFlag struct {
+	failureActionsOnNonCrashFailures bool
 }
 
 // This is done so we can mock this function out
@@ -415,7 +427,7 @@ func (s *SvcManager) ensureRestartOnFailure(name string) (err error) {
 	}()
 	action := serviceAction{
 		actionType: SC_ACTION_RESTART,
-		delay:      1000,
+		delay:      5000,
 	}
 	failActions := serviceFailureActions{
 		dwResetPeriod: 5,
@@ -424,7 +436,14 @@ func (s *SvcManager) ensureRestartOnFailure(name string) (err error) {
 		cActions:      1,
 		scAction:      &action,
 	}
-	err = WinChangeServiceConfig2(handle, windows.SERVICE_CONFIG_FAILURE_ACTIONS, (*byte)(unsafe.Pointer(&failActions)))
+	err = WinChangeServiceConfig2(handle, SERVICE_CONFIG_FAILURE_ACTIONS, (*byte)(unsafe.Pointer(&failActions)))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	flag := serviceFailureActionsFlag{
+		failureActionsOnNonCrashFailures: true,
+	}
+	err = WinChangeServiceConfig2(handle, SERVICE_CONFIG_FAILURE_ACTIONS_FLAG, (*byte)(unsafe.Pointer(&flag)))
 	if err != nil {
 		return errors.Trace(err)
 	}

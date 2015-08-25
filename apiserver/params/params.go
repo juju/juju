@@ -28,7 +28,7 @@ type FindTags struct {
 	Prefixes []string `json:"prefixes"`
 }
 
-// FindTagResults wraps the mapping between the requested prefix and the
+// FindTagsResults wraps the mapping between the requested prefix and the
 // matching tags for each requested prefix.
 type FindTagsResults struct {
 	Matches map[string][]Entity `json:"matches"`
@@ -115,7 +115,7 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
-// AddCharm holds the arguments for making an AddCharmWithAuthorization API call.
+// AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string
 	CharmStoreMacaroon *macaroon.Macaroon
@@ -173,7 +173,7 @@ type AddMachinesResults struct {
 	Machines []AddMachinesResult `json:"Machines"`
 }
 
-// AddMachinesResults holds the name of a machine added by the
+// AddMachinesResult holds the name of a machine added by the
 // api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
 	Machine string `json:"Machine"`
@@ -434,7 +434,7 @@ type ListSSHKeys struct {
 	Mode ssh.ListMode
 }
 
-// ModifySSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
+// ModifyUserSSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
 type ModifyUserSSHKeys struct {
 	User string
 	Keys []string
@@ -526,11 +526,6 @@ type DeployerConnectionValues struct {
 	APIAddresses   []string
 }
 
-// StatusParams holds parameters for the Status call.
-type StatusParams struct {
-	Patterns []string
-}
-
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
@@ -612,7 +607,7 @@ type AuthUserInfo struct {
 	Credentials *string `json:"credentials,omitempty"`
 }
 
-// LoginRequestV1 holds the result of an Admin v1 Login call.
+// LoginResultV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers"`
@@ -673,7 +668,7 @@ type StateServersChangeResults struct {
 	Results []StateServersChangeResult
 }
 
-// StateServersChange lists the servers
+// StateServersChanges lists the servers
 // that have been added, removed or maintained in the
 // pool as a result of an ensure-availability operation.
 type StateServersChanges struct {
@@ -747,114 +742,3 @@ type RebootActionResult struct {
 	Result RebootAction `json:"result,omitempty"`
 	Error  *Error       `json:"error,omitempty"`
 }
-
-// Life describes the lifecycle state of an entity ("alive", "dying" or "dead").
-type Life multiwatcher.Life
-
-const (
-	Alive Life = "alive"
-	Dying Life = "dying"
-	Dead  Life = "dead"
-)
-
-// Status represents the status of an entity.
-// It could be a unit, machine or its agent.
-type Status multiwatcher.Status
-
-const (
-	// Status values common to machine and unit agents.
-
-	// The entity requires human intervention in order to operate
-	// correctly.
-	StatusError Status = "error"
-
-	// The entity is actively participating in the environment.
-	// For unit agents, this is a state we preserve for backwards
-	// compatibility with scripts during the life of Juju 1.x.
-	// In Juju 2.x, the agent-state will remain “active” and scripts
-	// will watch the unit-state instead for signals of service readiness.
-	StatusStarted Status = "started"
-)
-
-const (
-	// Status values specific to machine agents.
-
-	// The machine is not yet participating in the environment.
-	StatusPending Status = "pending"
-
-	// The machine's agent will perform no further action, other than
-	// to set the unit to Dead at a suitable moment.
-	StatusStopped Status = "stopped"
-
-	// The machine ought to be signalling activity, but it cannot be
-	// detected.
-	StatusDown Status = "down"
-)
-
-const (
-	// Status values specific to unit agents.
-
-	// The machine on which a unit is to be hosted is still being
-	// spun up in the cloud.
-	StatusAllocating Status = "allocating"
-
-	// The machine on which this agent is running is being rebooted.
-	// The juju-agent should move from rebooting to idle when the reboot is complete.
-	StatusRebooting Status = "rebooting"
-
-	// The agent is running a hook or action. The human-readable message should reflect
-	// which hook or action is being run.
-	StatusExecuting Status = "executing"
-
-	// Once the agent is installed and running it will notify the Juju server and its state
-	// becomes "idle". It will stay "idle" until some action (e.g. it needs to run a hook) or
-	// error (e.g it loses contact with the Juju server) moves it to a different state.
-	StatusIdle Status = "idle"
-
-	// The unit agent has failed in some way,eg the agent ought to be signalling
-	// activity, but it cannot be detected. It might also be that the unit agent
-	// detected an unrecoverable condition and managed to tell the Juju server about it.
-	StatusFailed Status = "failed"
-
-	// The juju agent has has not communicated with the juju server for an unexpectedly long time;
-	// the unit agent ought to be signalling activity, but none has been detected.
-	StatusLost Status = "lost"
-
-	// ---- Outdated ----
-	// The unit agent is downloading the charm and running the install hook.
-	StatusInstalling Status = "installing"
-
-	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
-	// In Juju 2.x this will describe the state of the agent rather than a unit.
-	StatusStopping Status = "stopping"
-)
-
-const (
-	// Status values specific to services and units, reflecting the
-	// state of the software itself.
-
-	// The unit is not yet providing services, but is actively doing stuff
-	// in preparation for providing those services.
-	// This is a "spinning" state, not an error state.
-	// It reflects activity on the unit itself, not on peers or related units.
-	StatusMaintenance Status = "maintenance"
-
-	// This unit used to exist, we have a record of it (perhaps because of storage
-	// allocated for it that was flagged to survive it). Nonetheless, it is now gone.
-	StatusTerminated Status = "terminated"
-
-	// A unit-agent has finished calling install, config-changed, and start,
-	// but the charm has not called status-set yet.
-	StatusUnknown Status = "unknown"
-
-	// The unit is unable to progress to an active state because a service to
-	// which it is related is not running.
-	StatusWaiting Status = "waiting"
-
-	// The unit needs manual intervention to get back to the Running state.
-	StatusBlocked Status = "blocked"
-
-	// The unit believes it is correctly offering all the services it has
-	// been asked to offer.
-	StatusActive Status = "active"
-)

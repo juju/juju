@@ -11,9 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/leadership"
@@ -32,7 +32,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.Stub = testing.Stub{}
 	s.manifold = leadership.Manifold(leadership.ManifoldConfig{
 		AgentName:           "agent-name",
-		ApiCallerName:       "api-caller-name",
+		APICallerName:       "api-caller-name",
 		LeadershipGuarantee: 123456 * time.Millisecond,
 	})
 }
@@ -70,8 +70,8 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 		"agent-name":      dt.StubResource{Output: dummyAgent},
 		"api-caller-name": dt.StubResource{Output: dummyApiCaller},
 	})
-	s.PatchValue(leadership.NewManifoldWorker, func(agent agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
-		s.AddCall("newManifoldWorker", agent, apiCaller, guarantee)
+	s.PatchValue(leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
+		s.AddCall("newManifoldWorker", a, apiCaller, guarantee)
 		return nil, errors.New("blammo")
 	})
 
@@ -92,8 +92,8 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		"api-caller-name": dt.StubResource{Output: dummyApiCaller},
 	})
 	dummyWorker := &dummyWorker{}
-	s.PatchValue(leadership.NewManifoldWorker, func(agent agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
-		s.AddCall("newManifoldWorker", agent, apiCaller, guarantee)
+	s.PatchValue(leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
+		s.AddCall("newManifoldWorker", a, apiCaller, guarantee)
 		return dummyWorker, nil
 	})
 

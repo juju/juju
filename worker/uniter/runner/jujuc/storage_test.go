@@ -14,6 +14,8 @@ var (
 		"location": "/dev/sda",
 		"kind":     "block",
 	}
+
+	storageName = "data/0"
 )
 
 type storageSuite struct {

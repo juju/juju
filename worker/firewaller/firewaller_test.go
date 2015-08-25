@@ -33,7 +33,7 @@ type firewallerBaseSuite struct {
 	op    <-chan dummy.Operation
 	charm *state.Charm
 
-	st         *api.State
+	st         api.Connection
 	firewaller *apifirewaller.State
 }
 

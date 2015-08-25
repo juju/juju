@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -19,8 +20,10 @@ import (
 
 // Volume describes a volume (disk, logical volume, etc.) in the environment.
 type Volume interface {
-	Entity
+	GlobalEntity
 	LifeBinder
+	StatusGetter
+	StatusSetter
 
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
@@ -68,6 +71,7 @@ type VolumeAttachment interface {
 }
 
 type volume struct {
+	st  *State
 	doc volumeDoc
 }
 
@@ -77,14 +81,11 @@ type volumeAttachment struct {
 
 // volumeDoc records information about a volume in the environment.
 type volumeDoc struct {
-	DocID     string `bson:"_id"`
-	Name      string `bson:"name"`
-	EnvUUID   string `bson:"env-uuid"`
-	Life      Life   `bson:"life"`
-	StorageId string `bson:"storageid,omitempty"`
-	// TODO(axw) 2015-06-22 #1467379
-	// upgrade step to set "attachmentcount" and "binding"
-	// for 1.24 environments.
+	DocID           string        `bson:"_id"`
+	Name            string        `bson:"name"`
+	EnvUUID         string        `bson:"env-uuid"`
+	Life            Life          `bson:"life"`
+	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
 	Binding         string        `bson:"binding,omitempty"`
 	Info            *VolumeInfo   `bson:"info,omitempty"`
@@ -129,6 +130,7 @@ type VolumeInfo struct {
 // VolumeAttachmentInfo describes information about a volume attachment.
 type VolumeAttachmentInfo struct {
 	DeviceName string `bson:"devicename,omitempty"`
+	BusAddress string `bson:"busaddress,omitempty"`
 	ReadOnly   bool   `bson:"read-only"`
 }
 
@@ -159,7 +161,12 @@ func (v *volume) validate() error {
 	return nil
 }
 
-// Tag is required to implement Entity.
+// globalKey is required to implement GlobalEntity.
+func (v *volume) globalKey() string {
+	return volumeGlobalKey(v.doc.Name)
+}
+
+// Tag is required to implement GlobalEntity.
 func (v *volume) Tag() names.Tag {
 	return v.VolumeTag()
 }
@@ -227,6 +234,16 @@ func (v *volume) Params() (VolumeParams, bool) {
 	return *v.doc.Params, true
 }
 
+// Status is required to implement StatusGetter.
+func (v *volume) Status() (StatusInfo, error) {
+	return v.st.VolumeStatus(v.VolumeTag())
+}
+
+// SetStatus is required to implement StatusSetter.
+func (v *volume) SetStatus(status Status, info string, data map[string]interface{}) error {
+	return v.st.SetVolumeStatus(v.VolumeTag(), status, info, data)
+}
+
 // Volume is required to implement VolumeAttachment.
 func (v *volumeAttachment) Volume() names.VolumeTag {
 	return names.NewVolumeTag(v.doc.Volume)
@@ -275,7 +292,7 @@ func (st *State) volumes(query interface{}) ([]*volume, error) {
 	}
 	volumes := make([]*volume, len(docs))
 	for i := range docs {
-		volume := &volume{docs[i]}
+		volume := &volume{st, docs[i]}
 		if err := volume.validate(); err != nil {
 			return nil, errors.Annotate(err, "validating volume")
 		}
@@ -307,15 +324,6 @@ func volumesToInterfaces(volumes []*volume) []Volume {
 		result[i] = v
 	}
 	return result
-}
-
-// PersistentVolumes returns any alive persistent Volumes scoped to the environment or any machine.
-func (st *State) PersistentVolumes() ([]Volume, error) {
-	volumes, err := st.volumes(bson.D{{"info.persistent", true}})
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get persistent volumes")
-	}
-	return volumesToInterfaces(volumes), nil
 }
 
 func (st *State) storageInstanceVolume(tag names.StorageTag) (*volume, error) {
@@ -687,12 +695,15 @@ func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 		if volume.Life() != Dead {
 			return nil, errors.New("volume is not dead")
 		}
-		return []txn.Op{{
-			C:      volumesC,
-			Id:     tag.Id(),
-			Assert: txn.DocExists,
-			Remove: true,
-		}}, nil
+		return []txn.Op{
+			{
+				C:      volumesC,
+				Id:     tag.Id(),
+				Assert: txn.DocExists,
+				Remove: true,
+			},
+			removeStatusOp(st, volumeGlobalKey(tag.Id())),
+		}, nil
 	}
 	return st.run(buildTxn)
 }
@@ -713,41 +724,46 @@ func newVolumeName(st *State, machineId string) (string, error) {
 	return id, nil
 }
 
-// addVolumeOp returns a txn.Op to create a new volume with the specified
+// addVolumeOps returns txn.Ops to create a new volume with the specified
 // parameters. If the supplied machine ID is non-empty, and the storage
 // provider is machine-scoped, then the volume will be scoped to that
 // machine.
-func (st *State) addVolumeOp(params VolumeParams, machineId string) (txn.Op, names.VolumeTag, error) {
+func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
 	if params.binding == nil {
 		params.binding = names.NewMachineTag(machineId)
 	}
 	params, err := st.volumeParamsWithDefaults(params)
 	if err != nil {
-		return txn.Op{}, names.VolumeTag{}, errors.Trace(err)
+		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
 	machineId, err = st.validateVolumeParams(params, machineId)
 	if err != nil {
-		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
+		return nil, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
-
 	name, err := newVolumeName(st, machineId)
 	if err != nil {
-		return txn.Op{}, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
+		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
-	op := txn.Op{
-		C:      volumesC,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: &volumeDoc{
-			Name:      name,
-			StorageId: params.storage.Id(),
-			Binding:   params.binding.String(),
-			Params:    &params,
-			// Every volume is created with one attachment.
-			AttachmentCount: 1,
+	ops := []txn.Op{
+		createStatusOp(st, volumeGlobalKey(name), statusDoc{
+			Status:  StatusPending,
+			Updated: time.Now().UnixNano(),
+		}),
+		{
+			C:      volumesC,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: &volumeDoc{
+				Name:      name,
+				StorageId: params.storage.Id(),
+				Binding:   params.binding.String(),
+				Params:    &params,
+				// Every volume is created with one attachment.
+				AttachmentCount: 1,
+			},
 		},
 	}
-	return op, names.NewVolumeTag(name), nil
+	return ops, names.NewVolumeTag(name), nil
 }
 
 func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
@@ -886,7 +902,9 @@ func (st *State) setVolumeAttachmentInfo(
 		// when we set info for the first time, ensuring that
 		// params and info are mutually exclusive.
 		_, unsetParams := va.Params()
-		ops := setVolumeAttachmentInfoOps(machineTag, volumeTag, info, unsetParams)
+		ops := setVolumeAttachmentInfoOps(
+			machineTag, volumeTag, info, unsetParams,
+		)
 		return ops, nil
 	}
 	return st.run(buildTxn)
@@ -939,6 +957,7 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 		// we set info for the first time, ensuring that
 		// params and info are mutually exclusive.
 		var unsetParams bool
+		var ops []txn.Op
 		if params, ok := v.Params(); ok {
 			info.Pool = params.Pool
 			unsetParams = true
@@ -952,7 +971,8 @@ func (st *State) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error)
 				return nil, err
 			}
 		}
-		return setVolumeInfoOps(tag, info, unsetParams), nil
+		ops = append(ops, setVolumeInfoOps(tag, info, unsetParams)...)
+		return ops, nil
 	}
 	return st.run(buildTxn)
 }
@@ -998,4 +1018,45 @@ func (st *State) AllVolumes() ([]Volume, error) {
 		return nil, errors.Annotate(err, "cannot get volumes")
 	}
 	return volumesToInterfaces(volumes), nil
+}
+
+func volumeGlobalKey(name string) string {
+	return "v#" + name
+}
+
+// VolumeStatus returns the status of the specified volume.
+func (st *State) VolumeStatus(tag names.VolumeTag) (StatusInfo, error) {
+	return getStatus(st, volumeGlobalKey(tag.Id()), "volume")
+}
+
+// SetVolumeStatus sets the status of the specified volume.
+func (st *State) SetVolumeStatus(tag names.VolumeTag, status Status, info string, data map[string]interface{}) error {
+	switch status {
+	case StatusAttaching, StatusAttached, StatusDetaching, StatusDestroying:
+	case StatusError:
+		if info == "" {
+			return errors.Errorf("cannot set status %q without info", status)
+		}
+	case StatusPending:
+		// If a volume is not yet provisioned, we allow its status
+		// to be set back to pending (when a retry is to occur).
+		v, err := st.Volume(tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = v.Info()
+		if errors.IsNotProvisioned(err) {
+			break
+		}
+		return errors.Errorf("cannot set status %q", status)
+	default:
+		return errors.Errorf("cannot set invalid status %q", status)
+	}
+	return setStatus(st, setStatusParams{
+		badge:     "volume",
+		globalKey: volumeGlobalKey(tag.Id()),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }

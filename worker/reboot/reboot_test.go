@@ -24,7 +24,7 @@ func TestPackage(t *stdtesting.T) {
 
 type machines struct {
 	machine     *state.Machine
-	stateAPI    *api.State
+	stateAPI    api.Connection
 	rebootState *apireboot.State
 }
 
@@ -32,7 +32,7 @@ type rebootSuite struct {
 	jujutesting.JujuConnSuite
 
 	machine     *state.Machine
-	stateAPI    *api.State
+	stateAPI    api.Connection
 	rebootState *apireboot.State
 
 	ct            *state.Machine

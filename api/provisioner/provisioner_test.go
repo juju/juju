@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -48,7 +49,7 @@ type provisionerSuite struct {
 	*apitesting.EnvironWatcherTests
 	*apitesting.APIAddresserTests
 
-	st      *api.State
+	st      api.Connection
 	machine *state.Machine
 
 	provisioner *provisioner.State
@@ -796,7 +797,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 			MajorVersion: -1,
 		}
 		if matchArch {
-			expected.Arch = version.Current.Arch
+			expected.Arch = arch.HostArch()
 		}
 		c.Assert(args, gc.Equals, expected)
 		result := response.(*params.FindToolsResult)
@@ -807,11 +808,12 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		return apiError
 	})
 
-	var arch *string
+	var a *string
 	if matchArch {
-		arch = &version.Current.Arch
+		arch := arch.HostArch()
+		a = &arch
 	}
-	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, arch)
+	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

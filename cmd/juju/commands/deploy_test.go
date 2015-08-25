@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/persistent-cookiejar"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -26,6 +27,7 @@ import (
 	"gopkg.in/macaroon-bakery.v0/bakerytest"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
@@ -193,27 +195,19 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2 networks=net1,^net2")
+	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,^net2"))
+	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
 }
 
-func (s *DeploySuite) TestNetworks(c *gc.C) {
+func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
-	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, jc.DeepEquals, []string{"net1", "net2"})
-	cons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))
+	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces")
 }
 
 // TODO(wallyworld) - add another test that deploy with storage fails for older environments
@@ -582,7 +576,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -609,7 +603,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -639,7 +633,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -654,4 +648,16 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 	c.Assert(handler.registrationCalls, gc.HasLen, 1)
 	c.Assert(handler.registrationCalls[0].CharmURL, gc.DeepEquals, "local:quantal/metered-1")
 	c.Assert(handler.registrationCalls[0].ServiceName, gc.DeepEquals, "metered")
+}
+
+func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
+
+	s.PatchValue(&registerMeteredCharm, func(r string, s api.Connection, j *cookiejar.Jar, c string, sv, e string) error {
+		return &params.Error{"IsMetered", params.CodeNotImplemented}
+	})
+
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
 }

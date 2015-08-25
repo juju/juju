@@ -124,7 +124,7 @@ func (m *Entity) SetPassword(password string) error {
 func (m *Entity) ClearReboot() error {
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: m.tag.String()},
 		},
 	}

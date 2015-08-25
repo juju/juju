@@ -31,9 +31,12 @@ type EntityInfo interface {
 	EntityId() EntityId
 }
 
+// EntityId uniquely identifies an entity being tracked by the
+// multiwatcherStore.
 type EntityId struct {
-	Kind string
-	Id   interface{}
+	Kind    string
+	EnvUUID string
+	Id      string
 }
 
 // Delta holds details of a change to the environment.
@@ -87,6 +90,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Unexpected operation %q", operation)
 	}
 	switch entityKind {
+	case "environment":
+		d.Entity = new(EnvironmentInfo)
 	case "machine":
 		d.Entity = new(MachineInfo)
 	case "service":
@@ -99,6 +104,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(AnnotationInfo)
 	case "block":
 		d.Entity = new(BlockInfo)
+	case "action":
+		d.Entity = new(ActionInfo)
 	default:
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -118,10 +125,11 @@ type UnitSettings struct {
 	Version int64
 }
 
-// MachineInfo holds the information about a Machine
-// that is watched by StateMultiwatcher.
+// MachineInfo holds the information about a machine
+// that is tracked by multiwatcherStore.
 type MachineInfo struct {
-	Id                       string `bson:"_id"`
+	EnvUUID                  string
+	Id                       string
 	InstanceId               string
 	Status                   Status
 	StatusInfo               string
@@ -137,13 +145,18 @@ type MachineInfo struct {
 	WantsVote                bool
 }
 
+// EntityId returns a unique identifier for a machine across
+// environments.
 func (i *MachineInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "machine",
-		Id:   i.Id,
+		Kind:    "machine",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Id,
 	}
 }
 
+// StatusInfo holds the unit and machine status information. It is
+// used by ServiceInfo and UnitInfo.
 type StatusInfo struct {
 	Err     error
 	Current Status
@@ -153,8 +166,11 @@ type StatusInfo struct {
 	Data    map[string]interface{}
 }
 
+// ServiceInfo holds the information about a service that is tracked
+// by multiwatcherStore.
 type ServiceInfo struct {
-	Name        string `bson:"_id"`
+	EnvUUID     string
+	Name        string
 	Exposed     bool
 	CharmURL    string
 	OwnerTag    string
@@ -166,15 +182,21 @@ type ServiceInfo struct {
 	Status      StatusInfo
 }
 
+// EntityId returns a unique identifier for a service across
+// environments.
 func (i *ServiceInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "service",
-		Id:   i.Name,
+		Kind:    "service",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Name,
 	}
 }
 
+// UnitInfo holds the information about a unit
+// that is tracked by multiwatcherStore.
 type UnitInfo struct {
-	Name           string `bson:"_id"`
+	EnvUUID        string
+	Name           string
 	Service        string
 	Series         string
 	CharmURL       string
@@ -193,61 +215,83 @@ type UnitInfo struct {
 	AgentStatus    StatusInfo
 }
 
+// EntityId returns a unique identifier for a unit across
+// environments.
 func (i *UnitInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "unit",
-		Id:   i.Name,
+		Kind:    "unit",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Name,
 	}
 }
 
+// ActionInfo holds the information about a action that is tracked by
+// multiwatcherStore.
 type ActionInfo struct {
-	Id         string                 `bson:"_id"`
-	Receiver   string                 `bson:"receiver"`
-	Name       string                 `bson:"name"`
-	Parameters map[string]interface{} `bson:"parameters"`
-	Status     string                 `bson:"status"`
-	Message    string                 `bson:"message"`
-	Results    map[string]interface{} `bson:"results"`
-	Enqueued   time.Time              `bson:"enqueued"`
-	Started    time.Time              `bson:"started"`
-	Completed  time.Time              `bson:"completed"`
+	EnvUUID    string
+	Id         string
+	Receiver   string
+	Name       string
+	Parameters map[string]interface{}
+	Status     string
+	Message    string
+	Results    map[string]interface{}
+	Enqueued   time.Time
+	Started    time.Time
+	Completed  time.Time
 }
 
+// EntityId returns a unique identifier for an action across
+// environments.
 func (i *ActionInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "action",
-		Id:   i.Id,
+		Kind:    "action",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Id,
 	}
 }
 
+// RelationInfo holds the information about a relation that is tracked
+// by multiwatcherStore.
 type RelationInfo struct {
-	Key       string `bson:"_id"`
+	EnvUUID   string
+	Key       string
 	Id        int
 	Endpoints []Endpoint
 }
 
+// Endpoint holds a service-relation pair.
+type Endpoint struct {
+	ServiceName string
+	Relation    charm.Relation
+}
+
+// EntityId returns a unique identifier for a relation across
+// environments.
 func (i *RelationInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "relation",
-		Id:   i.Key,
+		Kind:    "relation",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Key,
 	}
 }
 
+// AnnotationInfo holds the information about an annotation that is
+// tracked by multiwatcherStore.
 type AnnotationInfo struct {
+	EnvUUID     string
 	Tag         string
 	Annotations map[string]string
 }
 
+// EntityId returns a unique identifier for an annotation across
+// environments.
 func (i *AnnotationInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "annotation",
-		Id:   i.Tag,
+		Kind:    "annotation",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Tag,
 	}
-}
-
-type Endpoint struct {
-	ServiceName string
-	Relation    charm.Relation
 }
 
 // MachineJob values define responsibilities that machines may be
@@ -279,20 +323,23 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 	return false
 }
 
-// BlockInfo holds the information about blocks
-// in this environment that are watched.
+// BlockInfo holds the information about a block that is tracked by
+// multiwatcherStore.
 type BlockInfo struct {
-	Id      string    `bson:"_id"`
-	Type    BlockType `bson:"type"`
-	Message string    `bson:"message,omitempty"`
-	Tag     string    `bson:"tag"`
+	EnvUUID string
+	Id      string
+	Type    BlockType
+	Message string
+	Tag     string
 }
 
-// EntityId returns block id.
+// EntityId returns a unique identifier for a block across
+// environments.
 func (i *BlockInfo) EntityId() EntityId {
 	return EntityId{
-		Kind: "block",
-		Id:   i.Id,
+		Kind:    "block",
+		EnvUUID: i.EnvUUID,
+		Id:      i.Id,
 	}
 }
 
@@ -309,3 +356,22 @@ const (
 	// BlockChange type identifies change blocks.
 	BlockChange BlockType = "BlockChange"
 )
+
+// EnvironmentInfo holds the information about an environment that is
+// tracked by multiwatcherStore.
+type EnvironmentInfo struct {
+	EnvUUID    string
+	Name       string
+	Life       Life
+	Owner      string
+	ServerUUID string
+}
+
+// EntityId returns a unique identifier for an environment.
+func (i *EnvironmentInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:    "environment",
+		EnvUUID: i.EnvUUID,
+		Id:      i.EnvUUID,
+	}
+}

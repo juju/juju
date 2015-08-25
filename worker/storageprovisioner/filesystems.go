@@ -720,25 +720,6 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 	}, nil
 }
 
-func filesystemAttachmentFromParams(in params.FilesystemAttachment) (storage.FilesystemAttachment, error) {
-	filesystemTag, err := names.ParseFilesystemTag(in.FilesystemTag)
-	if err != nil {
-		return storage.FilesystemAttachment{}, errors.Trace(err)
-	}
-	machineTag, err := names.ParseMachineTag(in.MachineTag)
-	if err != nil {
-		return storage.FilesystemAttachment{}, errors.Trace(err)
-	}
-	return storage.FilesystemAttachment{
-		filesystemTag,
-		machineTag,
-		storage.FilesystemAttachmentInfo{
-			in.Info.MountPoint,
-			in.Info.ReadOnly,
-		},
-	}, nil
-}
-
 func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemParams, error) {
 	filesystemTag, err := names.ParseFilesystemTag(in.FilesystemTag)
 	if err != nil {

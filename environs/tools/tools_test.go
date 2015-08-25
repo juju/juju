@@ -159,7 +159,8 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{})
+		stream := envtools.PreferredStream(&version.Current.Number, s.env.Config().Development(), s.env.Config().AgentStream())
+		actual, err := envtools.FindTools(s.env, test.major, test.minor, stream, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -188,7 +189,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 
 	_, err := envtools.FindTools(
-		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
+		s.env, 1, -1, "released", coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
@@ -264,6 +265,64 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 		} else {
 			c.Check(err, jc.Satisfies, errors.IsNotFound)
 		}
+	}
+}
+
+var preferredStreamTests = []struct {
+	explicitVers   string
+	currentVers    string
+	forceDevel     bool
+	streamInConfig string
+	expected       string
+}{{
+	currentVers:    "1.22.0",
+	streamInConfig: "released",
+	expected:       "released",
+}, {
+	currentVers:    "1.22.0",
+	streamInConfig: "devel",
+	expected:       "devel",
+}, {
+	currentVers: "1.22.0",
+	expected:    "released",
+}, {
+	currentVers: "1.22-beta1",
+	expected:    "devel",
+}, {
+	currentVers:    "1.22-beta1",
+	streamInConfig: "released",
+	expected:       "devel",
+}, {
+	currentVers:    "1.22-beta1",
+	streamInConfig: "devel",
+	expected:       "devel",
+}, {
+	currentVers: "1.22.0",
+	forceDevel:  true,
+	expected:    "devel",
+}, {
+	currentVers:  "1.22.0",
+	explicitVers: "1.22-beta1",
+	expected:     "devel",
+}, {
+	currentVers:  "1.22-bta1",
+	explicitVers: "1.22.0",
+	expected:     "released",
+}}
+
+func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
+	for i, test := range preferredStreamTests {
+		c.Logf("\ntest %d", i)
+		origVers := version.Current
+		version.Current.Number = version.MustParse(test.currentVers)
+		var vers *version.Number
+		if test.explicitVers != "" {
+			v := version.MustParse(test.explicitVers)
+			vers = &v
+		}
+		obtained := envtools.PreferredStream(vers, test.forceDevel, test.streamInConfig)
+		c.Check(obtained, gc.Equals, test.expected)
+		version.Current = origVers
 	}
 }
 

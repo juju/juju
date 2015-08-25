@@ -7,121 +7,63 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	apiWatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
+	apiaddresser "github.com/juju/juju/api/addresser"
+	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.addresser")
 
-type releaser interface {
-	// ReleaseAddress has the same signature as the same method in the
-	// environs.Networking interface.
-	ReleaseAddress(instance.Id, network.Id, network.Address, string) error
-}
-
-// stateAddresser defines the State methods used by the addresserHandler
-type stateAddresser interface {
-	DeadIPAddresses() ([]*state.IPAddress, error)
-	EnvironConfig() (*config.Config, error)
-	IPAddress(string) (*state.IPAddress, error)
-	Machine(string) (*state.Machine, error)
-	WatchIPAddresses() state.StringsWatcher
-}
-
 type addresserHandler struct {
-	st       stateAddresser
-	releaser releaser
+	api *apiaddresser.API
 }
 
-// NewWorker returns a worker that keeps track of
-// IP address lifecycles, releaseing and removing Dead addresses.
-func NewWorker(st stateAddresser) (worker.Worker, error) {
-	config, err := st.EnvironConfig()
+// NewWorker returns a worker that keeps track of IP address
+// lifecycles, releaseing and removing dead addresses.
+func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
+	ok, err := api.CanDeallocateAddresses()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "checking address deallocation")
 	}
-	environ, err := environs.New(config)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if !ok {
+		// Environment does not support IP address
+		// deallocation.
+		logger.Debugf("address deallocation not supported; not starting worker")
+		return worker.FinishedWorker{}, nil
 	}
-	// If netEnviron is nil the worker will start but won't do anything as
-	// no IP addresses will be created or destroyed.
-	netEnviron, _ := environs.SupportsNetworking(environ)
-	a := newWorkerWithReleaser(st, netEnviron)
-	return a, nil
-}
-
-func newWorkerWithReleaser(st stateAddresser, releaser releaser) worker.Worker {
-	a := &addresserHandler{
-		st:       st,
-		releaser: releaser,
+	ah := &addresserHandler{
+		api: api,
 	}
-	w := worker.NewStringsWorker(a)
-	return w
-}
-
-// Handle is part of the StringsWorker interface.
-func (a *addresserHandler) Handle(ids []string) error {
-	if a.releaser == nil {
-		return nil
-	}
-	for _, id := range ids {
-		logger.Debugf("received notification about address %v", id)
-		addr, err := a.st.IPAddress(id)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				logger.Debugf("address %v was removed; skipping", id)
-				continue
-			}
-			return err
-		}
-		if addr.Life() != state.Dead {
-			logger.Debugf("address %v is not Dead (life %q); skipping", id, addr.Life())
-			continue
-		}
-		err = a.releaseIPAddress(addr)
-		if err != nil {
-			return err
-		}
-		logger.Debugf("address %v released", id)
-		err = addr.Remove()
-		if err != nil {
-			return err
-		}
-		logger.Debugf("address %v removed", id)
-	}
-	return nil
-}
-
-func (a *addresserHandler) releaseIPAddress(addr *state.IPAddress) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to release address %v", addr.Value())
-	logger.Debugf("attempting to release dead address %#v", addr.Value())
-
-	subnetId := network.Id(addr.SubnetId())
-	for attempt := common.ShortAttempt.Start(); attempt.Next(); {
-		err = a.releaser.ReleaseAddress(addr.InstanceId(), subnetId, addr.Address(), addr.MACAddress())
-		if err == nil {
-			return nil
-		}
-	}
-	// Don't remove the address from state so we
-	// can retry releasing the address later.
-	logger.Warningf("cannot release address %q: %v (will retry)", addr.Value(), err)
-	return errors.Trace(err)
+	aw := worker.NewStringsWorker(ah)
+	return aw, nil
 }
 
 // SetUp is part of the StringsWorker interface.
-func (a *addresserHandler) SetUp() (apiWatcher.StringsWatcher, error) {
-	return a.st.WatchIPAddresses(), nil
+func (a *addresserHandler) SetUp() (watcher.StringsWatcher, error) {
+	// WatchIPAddresses returns an EntityWatcher which is a StringsWatcher.
+	return a.api.WatchIPAddresses()
 }
 
 // TearDown is part of the StringsWorker interface.
 func (a *addresserHandler) TearDown() error {
+	return nil
+}
+
+// Handle is part of the Worker interface.
+func (a *addresserHandler) Handle(watcherTags []string) error {
+	// Changed IP address lifes are reported, clean them up.
+	err := a.api.CleanupIPAddresses()
+	if err != nil {
+		// TryAgainError are already logged on server-side.
+		// TODO(mue) Add a time based trigger for the cleanup
+		// so that those to try again will be cleaned up even
+		// without lifecycle changes of IP addresses.
+		if !params.IsCodeTryAgain(err) {
+			return errors.Annotate(err, "cannot cleanup IP addresses")
+		}
+	} else {
+		logger.Tracef("released and removed dead IP addresses")
+	}
 	return nil
 }

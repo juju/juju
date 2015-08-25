@@ -30,6 +30,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -53,7 +54,7 @@ type CommonProvisionerSuite struct {
 	// defaultConstraints are used when adding a machine and then later in test assertions.
 	defaultConstraints constraints.Value
 
-	st          *api.State
+	st          api.Connection
 	provisioner *apiprovisioner.State
 }
 
@@ -518,7 +519,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, stor, s.cfg.AgentStream(), s.cfg.AgentStream(), availableVersions...)
 
 	// Extract the tools that we expect to actually match.
-	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{
+	expectedList, err := tools.FindTools(s.Environ, -1, -1, s.cfg.AgentStream(), coretools.Filter{
 		Number: currentVersion.Number,
 		Series: currentVersion.Series,
 	})
@@ -1563,13 +1564,13 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 type mockToolsFinder struct {
 }
 
-func (f mockToolsFinder) FindTools(number version.Number, series string, arch *string) (coretools.List, error) {
-	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, version.Current.Arch))
+func (f mockToolsFinder) FindTools(number version.Number, series string, a *string) (coretools.List, error) {
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, arch.HostArch()))
 	if err != nil {
 		return nil, err
 	}
-	if arch != nil {
-		v.Arch = *arch
+	if a != nil {
+		v.Arch = *a
 	}
 	return coretools.List{&coretools.Tools{Version: v}}, nil
 }

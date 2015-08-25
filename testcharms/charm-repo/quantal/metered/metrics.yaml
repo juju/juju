@@ -3,5 +3,3 @@ metrics:
     type: gauge
     description: Description of the metric.
   juju-unit-time:
-    type: gauge
-    description: Builtin metric

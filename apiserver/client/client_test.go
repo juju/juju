@@ -172,17 +172,26 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 			},
 		},
 	} {
-		lastConn, err := r.user.LastConnection()
-		c.Assert(err, jc.ErrorIsNil)
 		r.info.CreatedBy = owner.UserName()
 		r.info.DateCreated = r.user.DateCreated()
-		r.info.LastConnection = &lastConn
+		r.info.LastConnection = lastConnPointer(c, r.user)
 		expected.Results = append(expected.Results, params.EnvUserInfoResult{Result: r.info})
 	}
 
 	sort.Sort(ByUserName(expected.Results))
 	sort.Sort(ByUserName(results.Results))
 	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func lastConnPointer(c *gc.C, envUser *state.EnvironmentUser) *time.Time {
+	lastConn, err := envUser.LastConnection()
+	if err != nil {
+		if state.IsNeverConnectedError(err) {
+			return nil
+		}
+		c.Fatal(err)
+	}
+	return &lastConn
 }
 
 // ByUserName implements sort.Interface for []params.EnvUserInfoResult based on
@@ -298,8 +307,8 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	lastConn, err := envUser.LastConnection()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lastConn, gc.Equals, time.Time{})
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
 func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
@@ -559,7 +568,7 @@ var _ = gc.Suite(&clientSuite{})
 
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
-func clearSinceTimes(status *api.Status) {
+func clearSinceTimes(status *params.FullStatus) {
 	for serviceId, service := range status.Services {
 		for unitId, unit := range service.Units {
 			unit.Workload.Since = nil
@@ -1632,7 +1641,7 @@ func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G networks=^net3")
@@ -1648,15 +1657,7 @@ func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
-
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
+	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces")
 }
 
 func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -1665,47 +1666,6 @@ func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, 
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
-}
-
-func (s *clientRepoSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, ch charm.Charm, cons constraints.Value) {
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", cons, "",
-		[]string{"network-net1", "network-net2"},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
-}
-
-func (s *clientRepoSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string, curl *charm.URL, cons constraints.Value) {
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", cons, "",
-		[]string{"network-net1", "network-net2"},
-	)
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *clientRepoSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
-	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
-}
-
-func (s *clientRepoSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
-	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
-}
-
-func (s *clientRepoSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
-	curl, _, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockAllChanges(c, "TestBlockChangeServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworksBlocked(c, "TestBlockChangeServiceDeployWithNetworks", curl, cons)
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployPrincipal(c *gc.C) {
@@ -2460,9 +2420,11 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:                 s.State.EnvironUUID(),
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
+			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},

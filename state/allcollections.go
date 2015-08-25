@@ -153,9 +153,7 @@ func allCollections() collectionSchema {
 		// This collection is used for internal bookkeeping; certain complex
 		// or tedious state changes are deferred by recording a cleanup doc
 		// for later handling.
-		cleanupsC: {
-			insertWithoutEnvironment: true,
-		},
+		cleanupsC: {},
 
 		// This collection contains incrementing integers, subdivided by name,
 		// to ensure various IDs aren't reused.
@@ -165,7 +163,6 @@ func allCollections() collectionSchema {
 		// implement service leadership, but is namespaced and available
 		// for use by other clients in future.
 		leasesC: {
-			insertWithoutEnvironment: true,
 			indexes: []mgo.Index{{
 				Key: []string{"env-uuid", "type"},
 			}, {
@@ -314,9 +311,13 @@ func allCollections() collectionSchema {
 		statusesC:           {},
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "entityid"},
+				Key: []string{"env-uuid", "globalkey"},
 			}},
 		},
+		spacesC: {},
+
+		// This collection holds information about cloud image metadata.
+		cloudimagemetadataC: {},
 
 		// ----------------------
 
@@ -340,6 +341,7 @@ const (
 	blocksC                = "blocks"
 	charmsC                = "charms"
 	cleanupsC              = "cleanups"
+	cloudimagemetadataC    = "cloudimagemetadata"
 	constraintsC           = "constraints"
 	containerRefsC         = "containerRefs"
 	envUsersC              = "envusers"
@@ -374,6 +376,7 @@ const (
 	storageConstraintsC    = "storageconstraints"
 	storageInstancesC      = "storageinstances"
 	subnetsC               = "subnets"
+	spacesC                = "spaces"
 	toolsmetadataC         = "toolsmetadata"
 	txnLogC                = "txns.log"
 	txnsC                  = "txns"

@@ -16,7 +16,7 @@ import (
 	apiserverhttp "github.com/juju/juju/apiserver/http"
 )
 
-var newHTTPClient = func(s *State) apihttp.HTTPClient {
+var newHTTPClient = func(s Connection) apihttp.HTTPClient {
 	return s.NewHTTPClient()
 }
 

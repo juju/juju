@@ -121,6 +121,20 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if err != nil {
 		return nil, err
 	}
+
+	// Add Openstack specific defaults.
+	providerDefaults := make(map[string]interface{})
+
+	// Storage.
+	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
+		providerDefaults[config.StorageDefaultBlockSourceKey] = CinderProviderType
+	}
+	if len(providerDefaults) > 0 {
+		if cfg, err = cfg.Apply(providerDefaults); err != nil {
+			return nil, err
+		}
+	}
+
 	ecfg := &environConfig{cfg, validated}
 
 	authMode := AuthMode(ecfg.authMode())

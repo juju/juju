@@ -22,7 +22,7 @@ var _ = gc.Suite(&unitSuite{})
 type unitSuite struct {
 	testing.JujuConnSuite
 	unit *state.Unit
-	st   *api.State
+	st   api.Connection
 }
 
 func (s *unitSuite) SetUpTest(c *gc.C) {

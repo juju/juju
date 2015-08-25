@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -97,6 +98,7 @@ func (s *suite) TearDownSuite(c *gc.C) {
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 }
@@ -393,6 +395,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		ProviderId:        "dummy-private",
 		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
 		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
 		CIDR:              "0.20.0.0/24",
 		ProviderId:        "dummy-public",
@@ -408,6 +411,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		noallocInfo[i].ProviderId = network.Id("noalloc-" + pid)
 		noallocInfo[i].AllocatableIPLow = nil
 		noallocInfo[i].AllocatableIPHigh = nil
+		noallocInfo[i].AvailabilityZones = exp.AvailabilityZones
 		noallocInfo[i].CIDR = exp.CIDR
 	}
 

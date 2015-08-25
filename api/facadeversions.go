@@ -12,8 +12,10 @@ package api
 // Facades that existed before versioning start at 0.
 var facadeVersions = map[string]int{
 	"Action":                       0,
+	"Addresser":                    1,
 	"Agent":                        1,
 	"AllWatcher":                   0,
+	"AllEnvWatcher":                1,
 	"Annotations":                  1,
 	"Backups":                      0,
 	"Block":                        1,
@@ -48,6 +50,8 @@ var facadeVersions = map[string]int{
 	"Rsyslog":                      0,
 	"Service":                      1,
 	"Storage":                      1,
+	"Spaces":                       1,
+	"Subnets":                      1,
 	"StorageProvisioner":           1,
 	"StringsWatcher":               0,
 	"SystemManager":                1,

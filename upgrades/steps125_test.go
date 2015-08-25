@@ -28,6 +28,12 @@ func (s *steps125Suite) TestStateStepsFor125(c *gc.C) {
 	expected := []string{
 		"set hosted environment count to number of hosted environments",
 		"tag machine instances",
+		"add missing env-uuid to statuses",
+		"add attachmentCount to volume",
+		"add attachmentCount to filesystem",
+		"add binding to volume",
+		"add binding to filesystem",
+		"add status to volume",
 		"move lastlogin and last connection to their own collections",
 	}
 	assertStateSteps(c, version.MustParse("1.25.0"), expected)

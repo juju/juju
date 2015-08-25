@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -560,11 +561,22 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
 	// Tag instance, for accounting and identification.
-	args.InstanceConfig.Tags[tagName] = resourceName(
+	instanceName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
+	args.InstanceConfig.Tags[tagName] = instanceName
 	if err := tagResources(e.ec2(), args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, errors.Annotate(err, "tagging instance")
+	}
+
+	// Tag the machine's root EBS volume, if it has one.
+	if inst.Instance.RootDeviceType == "ebs" {
+		uuid, _ := cfg.UUID()
+		tags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+		tags[tagName] = instanceName + "-root"
+		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
+			return nil, errors.Annotate(err, "tagging root disk")
+		}
 	}
 
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
@@ -607,6 +619,38 @@ func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) err
 		}
 	}
 	return err
+}
+
+func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
+	if len(tags) == 0 {
+		return nil
+	}
+	findVolumeId := func(inst *ec2.Instance) string {
+		for _, m := range inst.BlockDeviceMappings {
+			if m.DeviceName != inst.RootDeviceName {
+				continue
+			}
+			return m.VolumeId
+		}
+		return ""
+	}
+	// Wait until the instance has an associated EBS volume in the
+	// block-device-mapping.
+	volumeId := findVolumeId(inst)
+	for a := shortAttempt.Start(); volumeId == "" && a.Next(); {
+		resp, err := e.Instances([]string{inst.InstanceId}, nil)
+		if err != nil {
+			return err
+		}
+		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
+			inst = &resp.Reservations[0].Instances[0]
+			volumeId = findVolumeId(inst)
+		}
+	}
+	if volumeId == "" {
+		return errors.New("timed out waiting for EBS volume to be associated")
+	}
+	return tagResources(e, tags, volumeId)
 }
 
 var runInstances = _runInstances
@@ -916,19 +960,24 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 }
 
 // Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance. subnetIds must not be
-// empty. Implements NetworkingEnviron.Subnets.
-func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	// At some point in the future an empty netIds may mean "fetch all subnets"
-	// but until that functionality is needed it's an error.
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnetIds must not be empty")
+// by the provider for the specified instance or list of ids. instId
+// equal to instance.UnknownId is the only supported value, other ones
+// result in NotSupportedError. subnetIds can be empty, in which case
+// all known are returned. Implements NetworkingEnviron.Subnets.
+func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	if instId != instance.UnknownId {
+		return nil, errors.NotSupportedf("instId")
 	}
 	ec2Inst := e.ec2()
 	// We can't filter by instance id here, unfortunately.
 	resp, err := ec2Inst.Subnets(nil, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to retrieve subnets")
+	}
+	if len(subnetIds) == 0 {
+		for _, subnet := range resp.Subnets {
+			subnetIds = append(subnetIds, network.Id(subnet.Id))
+		}
 	}
 
 	subIdSet := make(map[string]bool)
@@ -974,6 +1023,7 @@ func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.Subn
 			VLANTag:           0, // Not supported on EC2
 			AllocatableIPLow:  allocatableLow,
 			AllocatableIPHigh: allocatableHigh,
+			AvailabilityZones: []string{subnet.AvailZone},
 		}
 		logger.Tracef("found subnet with info %#v", info)
 		results = append(results, info)

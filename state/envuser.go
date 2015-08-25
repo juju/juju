@@ -243,7 +243,8 @@ func (e *UserEnvironment) LastConnection() (time.Time, error) {
 	defer lastConnCloser()
 
 	lastConnDoc := envUserLastConnectionDoc{}
-	err := lastConnections.FindId(e.User.Id()).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
+	id := e.st.docID(strings.ToLower(e.User.Username()))
+	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
 	if err != nil && err != mgo.ErrNotFound {
 		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Username()))
 	}

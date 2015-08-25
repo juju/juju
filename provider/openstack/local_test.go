@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	jujuerrors "github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
@@ -45,6 +46,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
+	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -75,7 +77,7 @@ func registerLocalTests() {
 		TenantName: "some tenant",
 	}
 	config := makeTestConfig(cred)
-	config["agent-version"] = version.Current.Number.String()
+	config["agent-version"] = coretesting.FakeVersionNumber.String()
 	config["authorized-keys"] = "fakekey"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
@@ -147,6 +149,22 @@ type localLiveSuite struct {
 	srv localServer
 }
 
+func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
+	// Override the cinder storage provider, since there is no test
+	// double for cinder.
+	old, err := registry.StorageProvider(openstack.CinderProviderType)
+	c.Assert(err, jc.ErrorIsNil)
+	registry.RegisterProvider(openstack.CinderProviderType, nil)
+	registry.RegisterProvider(
+		openstack.CinderProviderType,
+		openstack.NewCinderProvider(&mockAdapter{}),
+	)
+	s.AddSuiteCleanup(func(*gc.C) {
+		registry.RegisterProvider(openstack.CinderProviderType, nil)
+		registry.RegisterProvider(openstack.CinderProviderType, old)
+	})
+}
+
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
@@ -155,6 +173,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	openstack.UseTestImageData(openstack.ImageMetadataStorage(s.Env), s.cred)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	overrideCinderProvider(c, &s.CleanupSuite)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -193,6 +212,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	overrideCinderProvider(c, &s.CleanupSuite)
 	c.Logf("Running local tests")
 }
 
@@ -209,6 +229,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	s.env = s.Prepare(c)
@@ -1096,9 +1117,14 @@ type localHTTPSServerSuite struct {
 	env   environs.Environ
 }
 
+func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	overrideCinderProvider(c, &s.CleanupSuite)
+}
+
 func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{} {
 	attrs := makeTestConfig(s.cred)
-	attrs["agent-version"] = version.Current.Number.String()
+	attrs["agent-version"] = coretesting.FakeVersionNumber.String()
 	attrs["authorized-keys"] = "fakekey"
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
@@ -1120,6 +1146,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -1729,10 +1756,10 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		"region":          s.cred.Region,
 		"auth-url":        s.cred.URL,
 		"tenant-name":     s.cred.TenantName,
-		"agent-version":   version.Current.Number.String(),
+		"agent-version":   coretesting.FakeVersionNumber.String(),
 		"authorized-keys": "fakekey",
 	})
-
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	// Serve fake tools and image metadata using "filestorage",
 	// rather than Swift as the rest of the tests do.
 	storageDir := c.MkDir()

@@ -900,6 +900,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	// Networking.
+	//
+	// TODO(dimitern): Once we can get from spaces constraints to MAAS
+	// networks (or even directly to spaces), include them in the
+	// instance selection.
 	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
@@ -1565,11 +1569,23 @@ func (environ *maasEnviron) ReleaseAddress(instId instance.Id, _ network.Id, add
 	}
 
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
-	// This can return a 404 error if the address has already been released
-	// or is unknown by maas. However this, like any other error, would be
-	// unexpected - so we don't treat it specially and just return it to
-	// the caller.
-	return ReleaseIPAddress(ipaddresses, addr)
+	retries := 0
+	for a := shortAttempt.Start(); a.Next(); {
+		retries++
+		// This can return a 404 error if the address has already been released
+		// or is unknown by maas. However this, like any other error, would be
+		// unexpected - so we don't treat it specially and just return it to
+		// the caller.
+		err = ReleaseIPAddress(ipaddresses, addr)
+		if err == nil {
+			break
+		}
+		logger.Infof("failed to release address %q from instance %q, will retry", addr, instId)
+	}
+	if err != nil {
+		logger.Warningf("failed to release address %q from instance %q after %d attempts: %v", addr, instId, retries, err)
+	}
+	return err
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.

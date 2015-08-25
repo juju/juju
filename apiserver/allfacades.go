@@ -8,6 +8,7 @@ package apiserver
 // function will get called to register it.
 import (
 	_ "github.com/juju/juju/apiserver/action"
+	_ "github.com/juju/juju/apiserver/addresser"
 	_ "github.com/juju/juju/apiserver/agent"
 	_ "github.com/juju/juju/apiserver/annotations"
 	_ "github.com/juju/juju/apiserver/backups"
@@ -35,8 +36,10 @@ import (
 	_ "github.com/juju/juju/apiserver/resumer"
 	_ "github.com/juju/juju/apiserver/rsyslog"
 	_ "github.com/juju/juju/apiserver/service"
+	_ "github.com/juju/juju/apiserver/spaces"
 	_ "github.com/juju/juju/apiserver/storage"
 	_ "github.com/juju/juju/apiserver/storageprovisioner"
+	_ "github.com/juju/juju/apiserver/subnets"
 	_ "github.com/juju/juju/apiserver/systemmanager"
 	_ "github.com/juju/juju/apiserver/uniter"
 	_ "github.com/juju/juju/apiserver/upgrader"

@@ -9,11 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
-	"github.com/juju/juju/worker/apicaller"
 )
 
 type mockAgent struct {
@@ -22,17 +21,17 @@ type mockAgent struct {
 	env  names.EnvironTag
 }
 
-func (mock *mockAgent) CurrentConfig() coreagent.Config {
+func (mock *mockAgent) CurrentConfig() agent.Config {
 	return dummyConfig{env: mock.env}
 }
 
-func (mock *mockAgent) ChangeConfig(mutator coreagent.ConfigMutator) error {
+func (mock *mockAgent) ChangeConfig(mutator agent.ConfigMutator) error {
 	mock.stub.AddCall("ChangeConfig", mutator)
 	return mock.stub.NextErr()
 }
 
 type dummyConfig struct {
-	coreagent.Config
+	agent.Config
 	env names.EnvironTag
 }
 
@@ -42,17 +41,17 @@ func (dummy dummyConfig) Environment() names.EnvironTag {
 
 type mockSetter struct {
 	stub *testing.Stub
-	coreagent.ConfigSetter
+	agent.ConfigSetter
 }
 
-func (mock *mockSetter) Migrate(params coreagent.MigrateParams) error {
+func (mock *mockSetter) Migrate(params agent.MigrateParams) error {
 	mock.stub.AddCall("Migrate", params)
 	return mock.stub.NextErr()
 }
 
 type mockConn struct {
 	stub *testing.Stub
-	apicaller.Connection
+	api.Connection
 	broken chan struct{}
 }
 
@@ -71,6 +70,14 @@ func (mock *mockConn) Broken() <-chan struct{} {
 func (mock *mockConn) Close() error {
 	mock.stub.AddCall("Close")
 	return mock.stub.NextErr()
+}
+
+type mockGate struct {
+	stub *testing.Stub
+}
+
+func (mock *mockGate) Unlock() {
+	mock.stub.AddCall("Unlock")
 }
 
 type dummyWorker struct {

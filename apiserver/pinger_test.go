@@ -95,7 +95,8 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
-	const shortTimeout = 20 * time.Millisecond
+	const shortTimeout = 100 * time.Millisecond
+	const attemptDelay = shortTimeout / 4
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(shortTimeout))
 
 	st, _ := s.OpenAPIAsNewMachine(c)
@@ -103,10 +104,35 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// As long as we don't wait too long, the connection stays open
-	for i := 0; i < 10; i++ {
-		time.Sleep(shortTimeout / 4)
+	attempt := utils.AttemptStrategy{
+		Min:   10,
+		Delay: attemptDelay,
+	}
+	testStart := time.Now()
+	c.Logf(
+		"pinging %d times with %v delay, starting at %v",
+		attempt.Min, attempt.Delay, testStart,
+	)
+	var lastLoop time.Time
+	for a := attempt.Start(); a.Next(); {
+		testNow := time.Now()
+		loopDelta := testNow.Sub(lastLoop)
+		if lastLoop.IsZero() {
+			loopDelta = 0
+		}
+		c.Logf("duration since last iteration: %v", loopDelta)
 		err = st.Ping()
-		c.Assert(err, jc.ErrorIsNil)
+		if !c.Check(
+			err, jc.ErrorIsNil,
+			gc.Commentf(
+				"pinger timeout exceeded at %v (%v since the test start)",
+				testNow, testNow.Sub(testNow),
+			),
+		) {
+			c.Check(err, gc.ErrorMatches, "connection is shut down")
+			return
+		}
+		lastLoop = time.Now()
 	}
 
 	// However, once we stop pinging for too long, the connection dies

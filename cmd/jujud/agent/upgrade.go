@@ -25,7 +25,7 @@ import (
 
 type upgradingMachineAgent interface {
 	ensureMongoServer(agent.Config) error
-	setMachineStatus(*api.State, params.Status, string) error
+	setMachineStatus(api.Connection, params.Status, string) error
 	CurrentConfig() agent.Config
 	ChangeConfig(agent.ConfigMutator) error
 	Dying() <-chan struct{}
@@ -66,7 +66,7 @@ type upgradeWorkerContext struct {
 	tag             names.MachineTag
 	machineId       string
 	isMaster        bool
-	apiState        *api.State
+	apiState        api.Connection
 	jobs            []multiwatcher.MachineJob
 	agentConfig     agent.Config
 	isStateServer   bool
@@ -97,7 +97,7 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 
 func (c *upgradeWorkerContext) Worker(
 	agent upgradingMachineAgent,
-	apiState *api.State,
+	apiState api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) worker.Worker {
 	c.agent = agent
