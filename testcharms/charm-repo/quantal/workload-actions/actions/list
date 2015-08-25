@@ -1,0 +1,15 @@
+#!/bin/bash
+set -x
+
+export PATH=$PWD/plugin:$PATH
+unitstatus=$(status-get)
+
+status-set $unitstatus "list: listing workloads in state"
+
+result=$(workload-info 2>&1)
+rc=$?
+if [ "$rc" == "0" ]; then
+    action-set output="$result"
+else
+    status-set $unitstatus "list: failed ($rc - $result)"
+fi

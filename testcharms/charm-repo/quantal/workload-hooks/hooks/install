@@ -1,0 +1,33 @@
+#!/bin/bash
+set -x
+
+export PATH=$PWD/plugin:$PATH
+ACTIVE_FILE=$PWD/.active
+
+name=$(config-get plugin-name)
+if [ -e $ACTIVE_FILE ]; then
+    status-set maintenance "not initializing plugin for $name (already active)"
+    exit 0
+fi
+
+if [ -n "$name" ]; then
+    id=$(config-get plugin-id)
+    status=$(config-get plugin-status)
+
+    status-set maintenance "initializing plugin ($name, $id, $status)..."
+    output=$(juju-workload-myplugin init "$name" "$id" "$status" 2>&1)
+    rc=$?
+    if [ -z "$output" ]; then
+        output='<no output>'
+    fi
+    if [ "$rc" = "0" ]; then
+        echo $name > $ACTIVE_FILE
+        status-set maintenance "plugin initialized ($output)"
+    else
+        status-set waiting "plugin failed to initialize ($rc - $output)"
+        exit $rc
+    fi
+else
+    status-set blocked 'not configured; skipping...'
+fi
+exit 0
