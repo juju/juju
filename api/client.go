@@ -706,10 +706,7 @@ func (c *Client) AbortCurrentUpgrade() error {
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.
-func (c *Client) FindTools(
-	majorVersion, minorVersion int,
-	series, arch string,
-) (result params.FindToolsResult, err error) {
+func (c *Client) FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error) {
 	args := params.FindToolsParams{
 		MajorVersion: majorVersion,
 		MinorVersion: minorVersion,
