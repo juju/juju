@@ -90,8 +90,8 @@ class TestJES(unittest.TestCase):
             env='baz', verbose=True, temp_env_name='jesjob',
             bootstrap_host='localhost', debug=True, machine=['0'],
             series='trusty', agent_stream='devel', agent_url='some_url',
-            logs='log/dir', keep_env=True, upload_tools=True,
-            juju_home='path/to/juju/home', juju_bin='/path/to/bin/juju')
+            logs='log/dir', keep_env=True, juju_home='/path/to/juju/home',
+            juju_bin='/path/to/bin/juju')
 
         # setup jes
         with jes_setup(setup_args) as (client, charm_previx, base_env):
@@ -109,7 +109,7 @@ class TestJES(unittest.TestCase):
         configure_logging_func.assert_called_once_with(True)
         boot_context_func.assert_called_once_with(
             'jesjob', expected_client, 'localhost', ['0'], 'trusty',
-            'some_url', 'devel', 'log/dir', True, True, permanent=True)
+            'some_url', 'devel', 'log/dir', True, False, permanent=True)
 
         add_ssh_machines_func.assert_called_once_with(client, ['0'])
 
