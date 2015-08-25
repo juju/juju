@@ -95,22 +95,39 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 }
 
 func (s *pingerSuite) calculatePingTimeout(c *gc.C) time.Duration {
-	openStart := time.Now()
-	st, _ := s.OpenAPIAsNewMachine(c)
-	defer st.Close()
-
-	err := st.Ping()
-	c.Assert(err, jc.ErrorIsNil)
-	openDelay := time.Since(openStart)
-	pingTimeout := openDelay + openDelay/10
-	c.Logf("API open and initial ping took %v; using ping timeout %v", openDelay, pingTimeout)
-	return pingTimeout
+	// Try opening an API connection a few times and take the max
+	// delay among the attempts.
+	attempt := utils.AttemptStrategy{
+		Delay: coretesting.ShortWait,
+		Min:   3,
+	}
+	var maxTimeout time.Duration
+	for a := attempt.Start(); a.Next(); {
+		openStart := time.Now()
+		st, _ := s.OpenAPIAsNewMachine(c)
+		err := st.Ping()
+		if c.Check(err, jc.ErrorIsNil) {
+			openDelay := time.Since(openStart)
+			c.Logf("API open and initial ping took %v", openDelay)
+			if maxTimeout < openDelay {
+				maxTimeout = openDelay
+			}
+		}
+		if st != nil {
+			c.Check(st.Close(), jc.ErrorIsNil)
+		}
+	}
+	if !c.Failed() && maxTimeout > 0 {
+		return maxTimeout
+	}
+	c.Fatalf("cannot calculate ping timeout")
+	return 0
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	// To negate the effects of an underpowered or heavily loaded
 	// machine running this test, tune the shortTimeout based on the
-	// time it takes to open an API connection +10%.
+	// maximum duration it takes to open an API connection.
 	shortTimeout := s.calculatePingTimeout(c)
 	attemptDelay := shortTimeout / 4
 
@@ -119,6 +136,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
 
 	// As long as we don't wait too long, the connection stays open
 	attempt := utils.AttemptStrategy{
@@ -127,8 +145,8 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	}
 	testStart := time.Now()
 	c.Logf(
-		"pinging %d times with %v delay, starting at %v",
-		attempt.Min, attempt.Delay, testStart,
+		"pinging %d times with %v delay, ping timeout %v, starting at %v",
+		attempt.Min, attempt.Delay, shortTimeout, testStart,
 	)
 	var lastLoop time.Time
 	for a := attempt.Start(); a.Next(); {
