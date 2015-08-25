@@ -26,33 +26,11 @@ var _ = gc.Suite(&RunHookSuite{})
 
 type newHook func(operation.Factory, hook.Info) (operation.Operation, error)
 
-func (s *RunHookSuite) testClearResolvedFlagError(c *gc.C, newHook newHook) {
-	callbacks := &PrepareHookCallbacks{
-		MockClearResolvedFlag: &MockNoArgs{err: errors.New("biff")},
-	}
-	factory := operation.NewFactory(operation.FactoryParams{
-		Callbacks: callbacks,
-	})
-	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newState, err := op.Prepare(operation.State{})
-	c.Check(newState, gc.IsNil)
-	c.Check(callbacks.MockClearResolvedFlag.called, jc.IsTrue)
-	c.Check(err, gc.ErrorMatches, "biff")
-}
-
-func (s *RunHookSuite) TestClearResolvedFlagError_Skip(c *gc.C) {
-	c.Skip("maltese-falcon")
-	s.testClearResolvedFlagError(c, (operation.Factory).NewSkipHook)
-}
-
 func (s *RunHookSuite) testPrepareHookError(
 	c *gc.C, newHook newHook, expectClearResolvedFlag, expectSkip bool,
 ) {
 	callbacks := &PrepareHookCallbacks{
-		MockPrepareHook:       &MockPrepareHook{err: errors.New("pow")},
-		MockClearResolvedFlag: &MockNoArgs{},
+		MockPrepareHook: &MockPrepareHook{err: errors.New("pow")},
 	}
 	factory := operation.NewFactory(operation.FactoryParams{
 		Callbacks: callbacks,
@@ -62,7 +40,6 @@ func (s *RunHookSuite) testPrepareHookError(
 
 	newState, err := op.Prepare(operation.State{})
 	c.Check(newState, gc.IsNil)
-	c.Check(callbacks.MockClearResolvedFlag.called, gc.Equals, expectClearResolvedFlag)
 	if expectSkip {
 		c.Check(err, gc.Equals, operation.ErrSkipExecute)
 		c.Check(callbacks.MockPrepareHook.gotHook, gc.IsNil)
@@ -77,8 +54,7 @@ func (s *RunHookSuite) testPrepareHookError(
 func (s *RunHookSuite) TestPrepareHookCtxCalled(c *gc.C) {
 	ctx := &MockContext{}
 	callbacks := &PrepareHookCallbacks{
-		MockPrepareHook:       &MockPrepareHook{},
-		MockClearResolvedFlag: &MockNoArgs{},
+		MockPrepareHook: &MockPrepareHook{},
 	}
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{
@@ -106,8 +82,7 @@ func (s *RunHookSuite) TestPrepareHookCtxError(c *gc.C) {
 	ctx := &MockContext{}
 	ctx.SetErrors(errors.New("ctx prepare error"))
 	callbacks := &PrepareHookCallbacks{
-		MockPrepareHook:       &MockPrepareHook{},
-		MockClearResolvedFlag: &MockNoArgs{},
+		MockPrepareHook: &MockPrepareHook{},
 	}
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{
