@@ -125,6 +125,9 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
+
+	// TODO(dfc) this should not be necessary
+	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -141,6 +144,9 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
+
+	// TODO(dfc) this should not be necessary
+	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
