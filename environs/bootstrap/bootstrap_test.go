@@ -296,6 +296,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	currentVersion.Arch = "amd64"
 	currentVersion.Tag = ""
 	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
