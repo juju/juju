@@ -58,7 +58,7 @@ type configTest struct {
 	username                string
 	password                string
 	tenantName              string
-	authMode                string
+	authMode                AuthMode
 	authURL                 string
 	accessKey               string
 	secretKey               string
@@ -283,7 +283,7 @@ var configTests = []configTest{
 		config: attrs{
 			"auth-mode": "invalid-mode",
 		},
-		err: ".*invalid authorization mode.*",
+		err: `auth-mode: expected one of \[keypair legacy userpass\], got "invalid-mode"`,
 	}, {
 		summary: "keypair authorization mode",
 		config: attrs{
@@ -345,7 +345,7 @@ var configTests = []configTest{
 		password:   "open sesame",
 		tenantName: "juju tenant",
 		authURL:    "http://some/url",
-		authMode:   string(AuthLegacy),
+		authMode:   AuthLegacy,
 	}, {
 		summary: "valid auth args in environment",
 		envVars: map[string]string{
@@ -362,7 +362,7 @@ var configTests = []configTest{
 		region:     "region",
 	}, {
 		summary:  "default auth mode based on environment",
-		authMode: string(AuthUserPass),
+		authMode: AuthUserPass,
 	}, {
 		summary: "default use floating ip",
 		// Do not use floating IP's by default.
@@ -546,4 +546,15 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_AUTH_URL", "http://auth")
 	os.Setenv("OS_TENANT_NAME", "sometenant")
 	os.Setenv("OS_REGION_NAME", "region")
+}
+
+func (*ConfigSuite) TestSchema(c *gc.C) {
+	fields := providerInstance.Schema()
+	// Check that all the fields defined in environs/config
+	// are in the returned schema.
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
+	}
 }
