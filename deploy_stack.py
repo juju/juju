@@ -445,7 +445,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
             jes_enabled = client.is_jes_enabled()
             with temp_bootstrap_env(juju_home, client, permanent=permanent):
                 try:
-                        client.bootstrap(upload_tools)
+                    client.bootstrap(upload_tools)
                 except:
                     # If run from a windows machine may not have ssh to get
                     # logs
@@ -453,7 +453,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                         remote = remote_from_address(host, series=series)
                         copy_remote_logs(remote, log_dir)
                         archive_logs(log_dir)
-                        tear_down(client, jes_enabled)
+                    tear_down(client, jes_enabled)
                     raise
             try:
                 if host is None:
