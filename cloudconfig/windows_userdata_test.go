@@ -806,6 +806,17 @@ Function GUnZip-File{
 	rm $tempFile
 }
 
+Function Get-FileSHA256{
+	Param(
+		$FilePath
+	)
+	$hash = [Security.Cryptography.HashAlgorithm]::Create( "SHA256" )
+	$stream = ([IO.StreamReader]$FilePath).BaseStream
+	$res = -join ($hash.ComputeHash($stream) | ForEach { "{0:x2}" -f $_ })
+	$stream.Close()
+	return $res
+}
+
 $juju_passwd = Get-RandomPassword 20
 $juju_passwd += "^"
 create-account jujud "Juju Admin user" $juju_passwd
@@ -837,7 +848,7 @@ mkdir $binDir
 $WebClient = New-Object System.Net.WebClient
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
 ExecRetry { $WebClient.DownloadFile('http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz', "$binDir\tools.tar.gz") }
-$dToolsHash = (Get-FileHash -Algorithm SHA256 "$binDir\tools.tar.gz").hash
+$dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"
 $dToolsHash > "$binDir\juju1.2.3-win8-amd64.sha256"
 if ($dToolsHash.ToLower() -ne "1234"){ Throw "Tools checksum mismatch"}
 GUnZip-File -infile $binDir\tools.tar.gz -outdir $binDir
