@@ -29,31 +29,32 @@ func (w *mockRemoteStateWatcher) Snapshot() remotestate.Snapshot {
 type mockOpFactory struct {
 	operation.Factory
 	testing.Stub
+	op mockOp
 }
 
 func (f *mockOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	f.MethodCall(f, "NewUpgrade", charmURL)
-	return mockOp{}, f.NextErr()
+	return f.op, f.NextErr()
 }
 
 func (f *mockOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	f.MethodCall(f, "NewRevertUpgrade", charmURL)
-	return mockOp{}, f.NextErr()
+	return f.op, f.NextErr()
 }
 
 func (f *mockOpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	f.MethodCall(f, "NewResolvedUpgrade", charmURL)
-	return mockOp{}, f.NextErr()
+	return f.op, f.NextErr()
 }
 
 func (f *mockOpFactory) NewRunHook(info hook.Info) (operation.Operation, error) {
 	f.MethodCall(f, "NewRunHook", info)
-	return mockOp{}, f.NextErr()
+	return f.op, f.NextErr()
 }
 
 func (f *mockOpFactory) NewSkipHook(info hook.Info) (operation.Operation, error) {
 	f.MethodCall(f, "NewSkipHook", info)
-	return mockOp{}, f.NextErr()
+	return f.op, f.NextErr()
 }
 
 type mockOpExecutor struct {
@@ -74,4 +75,12 @@ func (e *mockOpExecutor) Run(op operation.Operation) error {
 
 type mockOp struct {
 	operation.Operation
+	commit func(operation.State) (*operation.State, error)
+}
+
+func (op mockOp) Commit(st operation.State) (*operation.State, error) {
+	if op.commit != nil {
+		return op.commit(st)
+	}
+	return &st, nil
 }
