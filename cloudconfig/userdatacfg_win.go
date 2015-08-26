@@ -80,7 +80,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		`$WebClient = New-Object System.Net.WebClient`,
 		`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
 		fmt.Sprintf(`ExecRetry { $WebClient.DownloadFile('%s', "$binDir\tools.tar.gz") }`, w.icfg.Tools.URL),
-		`$dToolsHash = (Get-FileHash -Algorithm SHA256 "$binDir\tools.tar.gz").hash`,
+		`$dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"`,
 		fmt.Sprintf(`$dToolsHash > "$binDir\juju%s.sha256"`,
 			w.icfg.Tools.Version),
 		fmt.Sprintf(`if ($dToolsHash.ToLower() -ne "%s"){ Throw "Tools checksum mismatch"}`,
