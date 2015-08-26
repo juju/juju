@@ -4,17 +4,11 @@
 
 // +build windows
 
-package password
+package windows_test
 
 import (
-	"fmt"
-	"regexp"
-
-	// https://bugs.launchpad.net/juju-core/+bug/1470820
-	"github.com/gabriel-samfira/sys/windows/registry"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/windows"
@@ -43,13 +37,13 @@ func (mgr *myAmazingServiceManager) ChangeServicePassword(name, newPassword stri
 
 type ServicePasswordChangerSuite struct {
 	coretesting.BaseSuite
-	c   *passwordChanger
+	c   *windows.PasswordChanger
 	mgr *myAmazingServiceManager
 }
 
 func (s *ServicePasswordChangerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.c = &passwordChanger{}
+	s.c = &windows.PasswordChanger{}
 	s.mgr = &myAmazingServiceManager{}
 }
 
@@ -66,28 +60,25 @@ func brokenListServices() ([]string, error) {
 }
 
 func (s *ServicePasswordChangerSuite) TestChangeServicePasswordListSucceeds(c *gc.C) {
-	err := s.c.changeJujudServicesPassword("newPass", s.mgr, listServices)
+	err := s.c.ChangeJujudServicesPassword("newPass", s.mgr, listServices)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mgr.svcNames, gc.DeepEquals, []string{"boom", "pow"})
 	c.Assert(s.mgr.pwd, gc.Equals, "newPass")
 }
 
 func (s *ServicePasswordChangerSuite) TestChangeServicePasswordListFails(c *gc.C) {
-	err := s.c.changeJujudServicesPassword("newPass", s.mgr, brokenListServices)
+	err := s.c.ChangeJujudServicesPassword("newPass", s.mgr, brokenListServices)
 	c.Assert(err, gc.ErrorMatches, "ludicrous")
 }
 
 func (s *ServicePasswordChangerSuite) TestChangePasswordFails(c *gc.C) {
-	err := s.c.changeJujudServicesPassword("newPass", s.mgr, listServicesFailingService)
+	err := s.c.ChangeJujudServicesPassword("newPass", s.mgr, listServicesFailingService)
 	c.Assert(err, gc.ErrorMatches, "wubwub")
 	c.Assert(s.mgr.svcNames, gc.DeepEquals, []string{"boom", "failme"})
 	c.Assert(s.mgr.pwd, gc.Equals, "newPass")
 }
 
 type helpersStub struct {
-	k               registry.Key
-	deleteRegEntry  bool
-	regEntry        string
 	failLocalhost   bool
 	failServices    bool
 	localhostCalled bool
@@ -99,22 +90,16 @@ func (s *helpersStub) reset() {
 	s.serviceCalled = false
 }
 
-func (s *helpersStub) changeUserPasswordLocalhost(newPassword string) error {
+func (s *helpersStub) ChangeUserPasswordLocalhost(newPassword string) error {
 	s.localhostCalled = true
-	if s.deleteRegEntry {
-		s.k.DeleteValue(s.regEntry)
-	}
 	if s.failLocalhost {
 		return errors.New("zzz")
 	}
 	return nil
 }
 
-func (s *helpersStub) changeJujudServicesPassword(newPassword string, mgr windows.ServiceManager, listServices func() ([]string, error)) error {
+func (s *helpersStub) ChangeJujudServicesPassword(newPassword string, mgr windows.ServiceManager, listServices func() ([]string, error)) error {
 	s.serviceCalled = true
-	if s.deleteRegEntry {
-		s.k.DeleteValue(s.regEntry)
-	}
 	if s.failServices {
 		return errors.New("splat")
 	}
@@ -123,93 +108,36 @@ func (s *helpersStub) changeJujudServicesPassword(newPassword string, mgr window
 
 type EnsurePasswordSuite struct {
 	coretesting.BaseSuite
-	tempRegKey   string
-	username     string
-	newPassword  string
-	tempRegEntry string
-	k            registry.Key
+	username    string
+	newPassword string
 }
 
 func (s *EnsurePasswordSuite) SetUpSuite(c *gc.C) {
 	s.username = "jujud"
 	s.newPassword = "pass"
-	s.tempRegKey = `HKLM:\SOFTWARE\juju-1348930201394`
-	s.tempRegEntry = `password`
 }
 
-func (s *EnsurePasswordSuite) TestKeyNonexistent(c *gc.C) {
+func (s *EnsurePasswordSuite) TestBothCalledAndSucceed(c *gc.C) {
 	stub := helpersStub{}
-	err := ensureJujudPasswordHelper(s.username, s.newPassword, s.tempRegKey, s.tempRegEntry, nil, &stub)
-	c.Assert(err, gc.ErrorMatches, "failed to open juju registry key: .*")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, utils.NoSuchFileErrRegexp)
-}
-
-func (s *EnsurePasswordSuite) setUpKey(c *gc.C) {
-	k, exist, err := registry.CreateKey(registry.LOCAL_MACHINE, s.tempRegKey[6:], registry.ALL_ACCESS)
-	// If we get in here it means cleanup failed at some point earlier
-	if exist {
-		err = registry.DeleteKey(registry.LOCAL_MACHINE, s.tempRegKey[6:])
-		k, exist, err = registry.CreateKey(registry.LOCAL_MACHINE, s.tempRegKey[6:], registry.ALL_ACCESS)
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exist, jc.IsFalse)
-	s.k = k
-}
-
-func (s *EnsurePasswordSuite) tearDownKey(c *gc.C, shouldBeDeleted bool) {
-	err := s.k.DeleteValue(s.tempRegEntry)
-	if shouldBeDeleted {
-		c.Assert(err, gc.ErrorMatches, utils.NoSuchFileErrRegexp)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	s.k.Close()
-	err = registry.DeleteKey(registry.LOCAL_MACHINE, s.tempRegKey[6:])
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *EnsurePasswordSuite) TestKeyExists(c *gc.C) {
-	s.setUpKey(c)
-	defer s.tearDownKey(c, false)
-	stub := helpersStub{}
-	err := ensureJujudPasswordHelper(s.username, s.newPassword, s.tempRegKey, s.tempRegEntry, nil, &stub)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *EnsurePasswordSuite) TestKeyExistsValueWritten(c *gc.C) {
-	s.setUpKey(c)
-	defer s.tearDownKey(c, false)
-	stub := helpersStub{}
-	err := ensureJujudPasswordHelper(s.username, s.newPassword, s.tempRegKey, s.tempRegEntry, nil, &stub)
-	c.Assert(err, jc.ErrorIsNil)
+	err := windows.EnsureJujudPasswordHelper(s.username, s.newPassword, nil, &stub)
 	c.Assert(stub.localhostCalled, jc.IsTrue)
 	c.Assert(stub.serviceCalled, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+}
 
-	stub.reset()
-
-	err = ensureJujudPasswordHelper(s.username, s.newPassword, s.tempRegKey, s.tempRegEntry, nil, &stub)
-	c.Assert(err, gc.Equals, ERR_REGKEY_EXIST)
-	c.Assert(stub.localhostCalled, jc.IsFalse)
+func (s *EnsurePasswordSuite) TestChangePasswordFails(c *gc.C) {
+	stub := helpersStub{failLocalhost: true}
+	err := windows.EnsureJujudPasswordHelper(s.username, s.newPassword, nil, &stub)
+	c.Assert(err, gc.ErrorMatches, "could not change user password: zzz")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "zzz")
+	c.Assert(stub.localhostCalled, jc.IsTrue)
 	c.Assert(stub.serviceCalled, jc.IsFalse)
 }
 
 func (s *EnsurePasswordSuite) TestChangeServicesFails(c *gc.C) {
-	s.setUpKey(c)
-	defer s.tearDownKey(c, true)
 	stub := helpersStub{failServices: true}
-	err := ensureJujudPasswordHelper(s.username, s.newPassword, s.tempRegKey, s.tempRegEntry, nil, &stub)
+	err := windows.EnsureJujudPasswordHelper(s.username, s.newPassword, nil, &stub)
 	c.Assert(err, gc.ErrorMatches, "could not change password for all jujud services: splat")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "splat")
-	c.Assert(stub.localhostCalled, jc.IsTrue)
-	c.Assert(stub.serviceCalled, jc.IsTrue)
-}
-
-func (s *EnsurePasswordSuite) TestChangeServicesFailsDeleteFails(c *gc.C) {
-	s.setUpKey(c)
-	defer s.tearDownKey(c, true)
-	stub := helpersStub{failServices: true, deleteRegEntry: true, regEntry: s.tempRegEntry, k: s.k}
-	err := ensureJujudPasswordHelper(s.username, s.newPassword, s.tempRegKey, s.tempRegEntry, nil, &stub)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("could not change password for all jujud services; could not erase entry %s at %s: splat", regexp.QuoteMeta(s.tempRegEntry), regexp.QuoteMeta(s.tempRegKey)))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "splat")
 	c.Assert(stub.localhostCalled, jc.IsTrue)
 	c.Assert(stub.serviceCalled, jc.IsTrue)
