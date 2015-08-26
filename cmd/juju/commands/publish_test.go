@@ -114,7 +114,7 @@ func (s *PublishSuite) TestFrom(c *gc.C) {
 
 func (s *PublishSuite) TestMissingSeries(c *gc.C) {
 	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `cannot infer charm URL for "cs:wordpress": charm url series is not resolved`)
+	c.Assert(err, gc.ErrorMatches, `charm url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {
