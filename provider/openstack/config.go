@@ -26,6 +26,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		EnvVars:     identity.CredEnvSecrets,
 		Group:       environschema.AccountGroup,
+		Secret:      true,
 	},
 	"tenant-name": {
 		Description: "The openstack tenant name.",
@@ -51,12 +52,14 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		EnvVars:     identity.CredEnvUser,
 		Group:       environschema.AccountGroup,
+		Secret:      true,
 	},
 	"secret-key": {
 		Description: "The secret key to use when auth-mode is set to keypair.",
 		EnvVars:     identity.CredEnvSecrets,
 		Group:       environschema.AccountGroup,
 		Type:        environschema.Tstring,
+		Secret:      true,
 	},
 	"region": {
 		Description: "The openstack region.",
