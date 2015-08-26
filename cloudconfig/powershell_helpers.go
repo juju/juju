@@ -527,7 +527,7 @@ namespace Tarer
 				}
 			}
 		}
-		
+
 		public void Read(Stream dataDestination)
 		{
 			int readBytes;
@@ -566,12 +566,12 @@ namespace Tarer
 				bytesRemainingToRead -= bytesRead;
 				remainingBytesInFile -= bytesRead;
 			}
-			
+
 			if(inStream.CanSeek && align512 > 0)
 			{
 				inStream.Seek(align512, SeekOrigin.Current);
 			}
-			else 
+			else
 			{
 				while(align512 > 0)
 				{
@@ -579,7 +579,7 @@ namespace Tarer
 					--align512;
 				}
 			}
-				
+
 			buffer = dataBuffer;
 			return bytesRead;
 		}
@@ -753,7 +753,7 @@ namespace Tarer
 					{
 						break;
 					}
-				}	  
+				}
 				if (position == value.Length)
 				{
 					position = value.Length - 100;
@@ -811,6 +811,17 @@ Function GUnZip-File{
 	$tar.ReadToEnd($outdir)
 	$in.Close()
 	rm $tempFile
+}
+
+Function Get-FileSHA256{
+	Param(
+		$FilePath
+	)
+	$hash = [Security.Cryptography.HashAlgorithm]::Create( "SHA256" )
+	$stream = ([IO.StreamReader]$FilePath).BaseStream
+	$res = -join ($hash.ComputeHash($stream) | ForEach { "{0:x2}" -f $_ })
+	$stream.Close()
+	return $res
 }
 
 $juju_passwd = Get-RandomPassword 20
