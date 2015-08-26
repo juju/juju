@@ -169,7 +169,12 @@ def main(argv):
         juju_home = get_juju_home()
         ensure_deleted(get_jenv_path(juju_home, client.env.environment))
         with temp_bootstrap_env(juju_home, client):
-            client.bootstrap()
+            try:
+                client.bootstrap()
+            except Exception as e:
+                logging.exception(e)
+                client.destroy_environment()
+                sys.exit(1)
         bootstrap_host = get_machine_dns_name(client, 0)
         try:
             instance_id = deploy_stack(client, args.charm_prefix)

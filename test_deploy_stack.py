@@ -41,6 +41,7 @@ from deploy_stack import (
 from jujupy import (
     EnvJujuClient,
     get_timeout_prefix,
+    get_timeout_path,
     SimpleEnvironment,
     Status,
 )
@@ -790,7 +791,9 @@ class TestBootContext(TestCase):
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo'))
         self.addContext(patch('subprocess.check_call'))
-        self.addContext(patch('subprocess.call'))
+        call_mock = self.addContext(patch('subprocess.call'))
+        co_mock = self.addContext(patch('subprocess.check_output',
+                                        return_value=''))
         self.addContext(patch('deploy_stack.wait_for_port'))
         self.addContext(patch.object(client, 'bootstrap',
                                      side_effect=FakeException))
@@ -806,6 +809,14 @@ class TestBootContext(TestCase):
         self.assertEqual(call_args[0].get_address(), 'baz')
         self.assertEqual(call_args[1], 'log_dir')
         al_mock.assert_called_once_with('log_dir')
+        timeout_path = get_timeout_path()
+        assert_juju_call(self, call_mock, client, (
+            sys.executable, timeout_path, '600.00', '--',
+            'juju', '--show-log', 'destroy-environment', 'bar', '--force',
+            '-y'
+            ))
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
 
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))

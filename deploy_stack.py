@@ -360,6 +360,20 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['agent-stream'] = agent_stream
 
 
+def tear_down(client, jes_enabled):
+    """Tear down a JES or non-JES environment.
+
+    JES environments are torn down via 'system kill', and non-JES environments
+    are torn down via 'destroy-environment --force.'
+    """
+    if jes_enabled:
+        client.juju(
+            'system kill', (client.env.environment, '-y'),
+            include_e=False, check=False, timeout=600)
+    else:
+        client.destroy_environment()
+
+
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools,
@@ -428,17 +442,19 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
             juju_home = get_juju_home()
             jenv_path = get_jenv_path(juju_home, client.env.environment)
             ensure_deleted(jenv_path)
-            try:
-                with temp_bootstrap_env(juju_home, client,
-                                        permanent=permanent):
+            jes_enabled = client.is_jes_enabled()
+            with temp_bootstrap_env(juju_home, client, permanent=permanent):
+                try:
                     client.bootstrap(upload_tools)
-            except:
-                # If run from a windows machine may not have ssh to get logs
-                if host is not None and _can_run_ssh():
-                    remote = remote_from_address(host, series=series)
-                    copy_remote_logs(remote, log_dir)
-                    archive_logs(log_dir)
-                raise
+                except:
+                    # If run from a windows machine may not have ssh to get
+                    # logs
+                    if host is not None and _can_run_ssh():
+                        remote = remote_from_address(host, series=series)
+                        copy_remote_logs(remote, log_dir)
+                        archive_logs(log_dir)
+                    tear_down(client, jes_enabled)
+                    raise
             try:
                 if host is None:
                     host = get_machine_dns_name(client, 0)
@@ -451,7 +467,6 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     sys.exit(1)
             finally:
                 safe_print_status(client)
-                jes_enabled = client.is_jes_enabled()
                 if jes_enabled:
                     runtime_config = get_cache_path(client.juju_home)
                 else:
@@ -461,12 +476,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                     dump_env_logs(client, host, log_dir,
                                   runtime_config=runtime_config)
                 if not keep_env:
-                    if jes_enabled:
-                        client.juju(
-                            'system kill', (client.env.environment, '-y'),
-                            include_e=False, check=False, timeout=600)
-                    else:
-                        client.destroy_environment()
+                    tear_down(client, jes_enabled)
         finally:
             if created_machines and not keep_env:
                 destroy_job_instances(temp_env_name)
