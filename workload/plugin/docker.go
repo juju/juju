@@ -18,23 +18,14 @@ var dockerLogger = loggo.GetLogger("juju.workload.plugin.docker")
 
 // DockerPlugin is an implementation of workload.Plugin for docker.
 type DockerPlugin struct {
-	run     func(docker.RunArgs, func(string, ...string) ([]byte, error)) (id string, err error)
-	inspect func(string, func(string, ...string) ([]byte, error)) (*docker.Info, error)
-	stop    func(string, func(string, ...string) ([]byte, error)) error
-	remove  func(string, func(string, ...string) ([]byte, error)) error
-
-	exec func(string, ...string) ([]byte, error)
+	// Client is the docker client to use for the plugin.
+	Client docker.Client
 }
 
 // NewDockerPlugin returns a DockerPlugin.
-func NewDockerPlugin(exec func(string, ...string) ([]byte, error)) *DockerPlugin {
+func NewDockerPlugin() *DockerPlugin {
 	p := &DockerPlugin{
-		run:     docker.Run,
-		inspect: docker.Inspect,
-		stop:    docker.Stop,
-		remove:  docker.Remove,
-
-		exec: exec,
+		Client: docker.NewCLIClient(),
 	}
 	return p
 }
@@ -49,18 +40,18 @@ func (p DockerPlugin) Launch(definition charm.Workload) (workload.Details, error
 	}
 
 	args := runArgs(definition)
-	id, err := p.run(args, p.exec)
+	id, err := p.Client.Run(args)
 	if err != nil {
 		return details, errors.Trace(err)
 	}
 
-	info, err := p.inspect(id, p.exec)
+	info, err := p.Client.Inspect(id)
 	if err != nil {
 		return details, errors.Annotatef(err, "can't get status for container %q", id)
 	}
 
 	details.ID = strings.TrimPrefix(info.Name, "/")
-	details.Status.State = info.Process.State.String()
+	details.Status.State = info.StateValue()
 	return details, nil
 }
 
@@ -69,11 +60,11 @@ func (p DockerPlugin) Status(id string) (workload.PluginStatus, error) {
 	dockerLogger.Debugf("getting status for %q", id)
 
 	var status workload.PluginStatus
-	info, err := p.inspect(id, p.exec)
+	info, err := p.Client.Inspect(id)
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	status.State = info.Process.State.String()
+	status.State = info.StateValue()
 	return status, nil
 }
 
@@ -81,10 +72,10 @@ func (p DockerPlugin) Status(id string) (workload.PluginStatus, error) {
 func (p DockerPlugin) Destroy(id string) error {
 	dockerLogger.Debugf("destroying %q", id)
 
-	if err := p.stop(id, p.exec); err != nil {
+	if err := p.Client.Stop(id); err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.remove(id, p.exec); err != nil {
+	if err := p.Client.Remove(id); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

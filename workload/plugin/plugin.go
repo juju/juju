@@ -15,7 +15,7 @@ import (
 var logger = loggo.GetLogger("juju.workload.plugin")
 
 var builtinPlugins = map[string]workload.Plugin{
-	"docker": NewDockerPlugin(nil),
+	"docker": NewDockerPlugin(),
 }
 
 // Find returns the plugin for the given name.
