@@ -258,11 +258,11 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 
 	var allTools tools.List
 	for _, series := range version.SupportedSeries() {
-		binary := version.Binary {
+		binary := version.Binary{
 			Number: version.Current.Number,
 			Series: series,
-			Arch: arch.HostArch(),
-			OS: version.Current.OS,
+			Arch:   arch.HostArch(),
+			OS:     version.Current.OS,
 		}
 		allTools = append(allTools, &tools.Tools{
 			Version: binary,

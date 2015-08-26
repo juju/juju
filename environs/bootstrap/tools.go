@@ -119,11 +119,11 @@ func locallyBuildableTools() (buildable coretools.List) {
 		if os, err := version.GetOSFromSeries(series); err != nil || os != version.Current.OS {
 			continue
 		}
-		binary := version.Binary {
+		binary := version.Binary{
 			Number: version.Current.Number,
 			Series: series,
-			Arch: arch.HostArch(),
-			OS: version.Current.OS,
+			Arch:   arch.HostArch(),
+			OS:     version.Current.OS,
 		}
 		// Increment the build number so we know it's a development build.
 		binary.Build++
