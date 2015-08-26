@@ -245,7 +245,7 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloud
 
 	groups := make(map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata)
 	for _, one := range expected {
-		cloudimagemetadata.AddOneToGroup(one, groups)
+		groups[one.Source] = append(groups[one.Source], one)
 	}
 	c.Assert(metadata, jc.DeepEquals, groups)
 }

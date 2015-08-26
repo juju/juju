@@ -202,18 +202,10 @@ func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metada
 
 	metadata := make(map[SourceType][]Metadata)
 	for _, doc := range docs {
-		addOneToGroup(doc.metadata(), metadata)
+		one := doc.metadata()
+		metadata[one.Source] = append(metadata[one.Source], one)
 	}
 	return metadata, nil
-}
-
-func addOneToGroup(one Metadata, groups map[SourceType][]Metadata) {
-	_, ok := groups[one.Source]
-	if !ok {
-		groups[one.Source] = []Metadata{one}
-		return
-	}
-	groups[one.Source] = append(groups[one.Source], one)
 }
 
 func buildSearchClauses(criteria MetadataFilter) bson.D {
