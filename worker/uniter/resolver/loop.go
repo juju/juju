@@ -53,11 +53,8 @@ type LoopConfig struct {
 // charm URL being upgraded to.
 func Loop(cfg LoopConfig) (LocalState, error) {
 	rf := &resolverOpFactory{
-		Factory: cfg.Factory,
-		LocalState: LocalState{
-			CharmURL: cfg.CharmURL,
-			Upgraded: false,
-		},
+		Factory:    cfg.Factory,
+		LocalState: LocalState{CharmURL: cfg.CharmURL},
 	}
 	for {
 		// TODO(axw) move update status to the watcher.
@@ -84,8 +81,10 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			// If a resolver is waiting for events to
 			// complete, the agent is not idle.
 		case ErrNoOperation:
-			if err := cfg.OnIdle(); err != nil {
-				return rf.LocalState, errors.Trace(err)
+			if cfg.OnIdle != nil {
+				if err := cfg.OnIdle(); err != nil {
+					return rf.LocalState, errors.Trace(err)
+				}
 			}
 		default:
 			return rf.LocalState, err
