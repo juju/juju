@@ -116,9 +116,17 @@ type Environment struct {
 	ServerUUID string
 }
 
-// EnvironmentList holds information about a list of environments.
-type EnvironmentList struct {
-	Environments []Environment
+// UserEnvironment holds information about an environment and the last
+// time the environment was accessed for a particular user.
+type UserEnvironment struct {
+	Environment
+	LastConnection *time.Time
+}
+
+// UserEnvironmentList holds information about a list of environments
+// for a particular user.
+type UserEnvironmentList struct {
+	UserEnvironments []UserEnvironment
 }
 
 // ResolvedModeResult holds a resolved mode or an error.
@@ -331,8 +339,16 @@ type InstancesInfo struct {
 	Machines []InstanceInfo
 }
 
-// EntityStatus holds an entity tag, status and extra info.
+// EntityStatus holds the status of an entity.
 type EntityStatus struct {
+	Status Status
+	Info   string
+	Data   map[string]interface{}
+	Since  *time.Time
+}
+
+// EntityStatus holds parameters for setting the status of a single entity.
+type EntityStatusArgs struct {
 	Tag    string
 	Status Status
 	Info   string
@@ -341,7 +357,7 @@ type EntityStatus struct {
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
-	Entities []EntityStatus
+	Entities []EntityStatusArgs
 }
 
 // InstanceStatus holds an entity tag and instance status.
@@ -354,50 +370,6 @@ type InstanceStatus struct {
 // SetInstanceStatus() call.
 type SetInstancesStatus struct {
 	Entities []InstanceStatus
-}
-
-type HistoryKind string
-
-const (
-	KindCombined HistoryKind = "combined"
-	KindAgent    HistoryKind = "agent"
-	KindWorkload HistoryKind = "workload"
-)
-
-// StatusHistory holds the parameters to filter a status history query.
-type StatusHistory struct {
-	Kind HistoryKind
-	Size int
-	Name string
-}
-
-// StatusResult holds an entity status, extra information, or an
-// error.
-type StatusResult struct {
-	Error  *Error
-	Id     string
-	Life   Life
-	Status Status
-	Info   string
-	Data   map[string]interface{}
-	Since  *time.Time
-}
-
-// StatusResults holds multiple status results.
-type StatusResults struct {
-	Results []StatusResult
-}
-
-// ServiceStatusResult holds results for a service Full Status
-type ServiceStatusResult struct {
-	Service StatusResult
-	Units   map[string]StatusResult
-	Error   *Error
-}
-
-// ServiceStatusResults holds multiple StatusResult.
-type ServiceStatusResults struct {
-	Results []ServiceStatusResult
 }
 
 // ConstraintsResult holds machine constraints or an error.

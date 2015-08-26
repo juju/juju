@@ -6,14 +6,15 @@ package leadership
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // check is used to deliver leadership-check requests to a manager's loop
-// goroutine on behalf of CheckLeadership.
+// goroutine on behalf of LeadershipCheck.
 type check struct {
 	serviceName string
 	unitName    string
-	response    chan Token
+	response    chan txn.Op
 	abort       <-chan struct{}
 }
 
@@ -35,31 +36,36 @@ func (c check) validate() error {
 }
 
 // invoke sends the check on the supplied channel, waits for a response, and
-// returns either a Token that can be used to assert continued leadership in
+// returns either a txn.Op that can be used to assert continued leadership in
 // the future, or an error.
-func (c check) invoke(ch chan<- check) (Token, error) {
+func (c check) invoke(ch chan<- check) (txn.Op, error) {
 	if err := c.validate(); err != nil {
-		return nil, errors.Annotatef(err, "cannot check leadership")
+		return txn.Op{}, errors.Annotatef(err, "cannot check leadership")
 	}
 	for {
 		select {
 		case <-c.abort:
-			return nil, errStopped
+			return txn.Op{}, errStopped
 		case ch <- c:
 			ch = nil
-		case token := <-c.response:
-			if token == nil {
-				return nil, errors.Errorf("%q is not leader of %q", c.unitName, c.serviceName)
+		case op, ok := <-c.response:
+			if !ok {
+				return txn.Op{}, errors.Errorf("%q is not leader of %q", c.unitName, c.serviceName)
 			}
-			return token, nil
+			return op, nil
 		}
 	}
 }
 
-// respond causes the supplied token to be sent back to invoke.
-func (c check) respond(token Token) {
+// succeed sends the supplied operation back to the originating invoke.
+func (c check) succeed(op txn.Op) {
 	select {
 	case <-c.abort:
-	case c.response <- token:
+	case c.response <- op:
 	}
+}
+
+// fail causes the originating invoke to return an error indicating non-leadership.
+func (c check) fail() {
+	close(c.response)
 }

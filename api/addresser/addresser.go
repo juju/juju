@@ -5,20 +5,19 @@ package addresser
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
+
+var logger = loggo.GetLogger("juju.api.addresser")
 
 const addresserFacade = "Addresser"
 
 // API provides access to the InstancePoller API facade.
 type API struct {
-	*common.EnvironWatcher
-
 	facade base.FacadeCaller
 }
 
@@ -27,23 +26,23 @@ func NewAPI(caller base.APICaller) *API {
 	if caller == nil {
 		panic("caller is nil")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, addresserFacade)
 	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
+		facade: base.NewFacadeCaller(caller, addresserFacade),
 	}
 }
 
-// IPAddress provides access to methods of a state.IPAddress through the
-// facade.
-func (api *API) IPAddress(tag names.IPAddressTag) (*IPAddress, error) {
-	// TODO(mue) Change approach to use bulk requests for retrieval
-	// and later removal.
-	life, err := common.Life(api.facade, tag)
-	if err != nil {
-		return nil, errors.Trace(err)
+// CleanupIPAddresses releases and removes the dead IP addresses. If not
+// all IP addresses could be released and removed a params.ErrTryAgain
+// is returned.
+func (api *API) CleanupIPAddresses() error {
+	var result params.ErrorResult
+	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, &result); err != nil {
+		return errors.Trace(err)
 	}
-	return &IPAddress{api.facade, tag, life}, nil
+	if result.Error == nil {
+		return nil
+	}
+	return errors.Trace(result.Error)
 }
 
 var newEntityWatcher = watcher.NewEntityWatcher
@@ -56,14 +55,11 @@ func (api *API) WatchIPAddresses() (watcher.EntityWatcher, error) {
 	var result params.EntityWatchResult
 	err := api.facade.FacadeCall("WatchIPAddresses", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	if err != nil {
-		return nil, err
+	if result.Error == nil {
+		w := newEntityWatcher(api.facade.RawAPICaller(), result)
+		return w, nil
 	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := newEntityWatcher(api.facade.RawAPICaller(), result)
-	return w, nil
+	return nil, errors.Trace(result.Error)
 }

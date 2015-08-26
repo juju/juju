@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 const volumeCmdDoc = `
@@ -23,15 +24,14 @@ const volumeCmdPurpose = "manage storage volumes"
 // NewVolumeSuperCommand creates the storage volume super subcommand and
 // registers the subcommands that it supports.
 func NewVolumeSuperCommand() cmd.Command {
-	poolcmd := Command{
-		SuperCommand: *jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
-			Name:        "volume",
-			Doc:         volumeCmdDoc,
-			UsagePrefix: "juju storage",
-			Purpose:     volumeCmdPurpose,
-		})}
+	poolcmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
+		Name:        "volume",
+		Doc:         volumeCmdDoc,
+		UsagePrefix: "juju storage",
+		Purpose:     volumeCmdPurpose,
+	})
 	poolcmd.Register(envcmd.Wrap(&VolumeListCommand{}))
-	return &poolcmd
+	return poolcmd
 }
 
 // VolumeCommandBase is a helper base structure for volume commands.
@@ -61,6 +61,15 @@ type VolumeInfo struct {
 
 	// from params.Volume. This is juju volume id.
 	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
+
+	// from params.Volume.
+	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
+}
+
+type EntityStatus struct {
+	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
+	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 }
 
 // convertToVolumeInfo returns map of maps with volume info
@@ -127,6 +136,12 @@ func createInfo(volume params.VolumeInstance) (info VolumeInfo, unit, storage st
 	info.HardwareId = volume.HardwareId
 	info.Size = volume.Size
 	info.Persistent = volume.Persistent
+	info.Status = EntityStatus{
+		volume.Status.Status,
+		volume.Status.Info,
+		// TODO(axw) we should support formatting as ISO time
+		common.FormatTime(volume.Status.Since, false),
+	}
 
 	if v, err := idFromTag(volume.VolumeTag); err == nil {
 		info.Volume = v

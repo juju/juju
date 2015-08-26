@@ -49,7 +49,11 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 		// this should *really* never happen, but let's not panic
 		return nil, errors.Trace(err)
 	}
-	ra.name = actionData.ActionName
+	err = rnr.Context().Prepare()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ra.name = actionData.Name
 	ra.runner = rnr
 	return stateChange{
 		Kind:     RunAction,

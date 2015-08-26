@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -114,6 +115,7 @@ type localJujuTestSuite struct {
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -329,7 +331,7 @@ func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
 		container.ConfigName:   namespace,
 		container.ConfigLogDir: "logdir",
 		"use-clone":            "false",
-	}, nil)
+	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine1 := containertesting.CreateContainer(c, manager, "1")

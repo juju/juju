@@ -59,7 +59,7 @@ func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]
 	}
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
@@ -99,7 +99,7 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}

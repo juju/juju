@@ -86,6 +86,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	s.makeTestEnv(c)
 }
 

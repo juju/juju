@@ -55,6 +55,7 @@ var expectedProducts = `{
                     "items": {
                         "abcd": {
                             "id": "abcd",
+                            "root_store": "root",
                             "virt": "virt"
                         }
                     }
@@ -109,6 +110,7 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 		Version:  "12.04",
 		Arch:     "amd64",
 		VirtType: "virt",
+		Storage:  "root",
 	},
 }
 

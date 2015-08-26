@@ -42,9 +42,11 @@ type Context interface {
 	HookVars(paths Paths) []string
 	ActionData() (*ActionData, error)
 	SetProcess(process *os.Process)
-	FlushContext(badge string, failure error) error
 	HasExecutionSetUnitStatus() bool
 	ResetExecutionSetUnitStatus()
+
+	Prepare() error
+	Flush(badge string, failure error) error
 }
 
 // Paths exposes the paths needed by Runner.
@@ -97,6 +99,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 		WorkingDir:  runner.paths.GetCharmDir(),
 		Environment: env,
 	}
+
 	err = command.Run()
 	if err != nil {
 		return nil, err
@@ -105,7 +108,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 
 	// Block and wait for process to finish
 	result, err := command.Wait()
-	return result, runner.context.FlushContext("run commands", err)
+	return result, runner.context.Flush("run commands", err)
 }
 
 // RunAction exists to satisfy the Runner interface.
@@ -143,7 +146,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 	} else {
 		err = runner.runCharmHook(hookName, env, charmLocation)
 	}
-	return runner.context.FlushContext(hookName, err)
+	return runner.context.Flush(hookName, err)
 }
 
 func (runner *runner) runCharmHook(hookName string, env []string, charmLocation string) error {

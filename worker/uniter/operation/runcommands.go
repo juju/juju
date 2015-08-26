@@ -47,7 +47,12 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = rnr.Context().Prepare()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	rc.runner = rnr
+
 	return nil, nil
 }
 

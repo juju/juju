@@ -169,7 +169,7 @@ func (s *Service) SetStatus(unitName string, status params.Status, info string, 
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{
 				Tag:    tag.String(),
 				Status: status,

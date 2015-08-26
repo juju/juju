@@ -21,10 +21,16 @@ type environ struct {
 	openstackEnviron environs.Environ
 }
 
+// Exported for tests
+var Bootstrap = common.Bootstrap
+
+// Exported for tests
+var NewInstanceConfigurator = common.NewSshInstanceConfigurator
+
 // Bootstrap implements environs.Environ.
 func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
-	return common.Bootstrap(ctx, e, params)
+	return Bootstrap(ctx, e, params)
 }
 
 func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
@@ -47,9 +53,8 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 	var lastError error
 	var publicAddr string
 	var apiPort int
-	var client *common.SshInstanceConfigurator
+	var client common.InstanceConfigurator
 	for i := 0; i < 10; i++ {
-		time.Sleep(5 * time.Second)
 		logger.Debugf("Trying to connect to new instance.")
 		addresses, err := inst.Addresses()
 		if err != nil {
@@ -71,7 +76,7 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 		if isStateServer(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
-		client = common.NewSshInstanceConfigurator(publicAddr)
+		client = NewInstanceConfigurator(publicAddr)
 		err = client.DropAllPorts([]int{apiPort, 22}, publicAddr)
 		if err != nil {
 			logger.Debugf(err.Error())

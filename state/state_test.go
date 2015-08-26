@@ -188,7 +188,7 @@ func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
-	s.OtherState = s.factory.MakeEnvironment(c, nil)
+	s.OtherState = s.Factory.MakeEnvironment(c, nil)
 }
 
 func (s *MultiEnvStateSuite) TearDownTest(c *gc.C) {
@@ -2182,13 +2182,13 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dying environment...
-	st1 := s.factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeEnvironment(c, nil)
 	defer st1.Close()
 	dying, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	dying.Destroy()
 
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env2, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2219,7 +2219,7 @@ func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add an environment: reported.
-	st1 := s.factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeEnvironment(c, nil)
 	defer st1.Close()
 	env, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2673,7 +2673,7 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	st := s.factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeEnvironment(c, nil)
 	defer st.Close()
 
 	// insert one doc for each multiEnvCollection
@@ -2733,7 +2733,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
-	st := s.factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeEnvironment(c, nil)
 	defer st.Close()
 
 	err := st.RemoveAllEnvironDocs()
@@ -3099,7 +3099,7 @@ var entityTypes = map[string]interface{}{
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
-	s.factory.MakeUser(c, &factory.UserParams{Name: "eric"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "eric"})
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
@@ -3107,7 +3107,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.factory.MakeUser(c, &factory.UserParams{Name: "arble"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "ser-vice2")
@@ -3207,7 +3207,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "users")

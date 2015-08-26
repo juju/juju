@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package common
 
 import (
@@ -16,23 +14,32 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
-type SshInstanceConfigurator struct {
+type InstanceConfigurator interface {
+	DropAllPorts(exceptPorts []int, addr string) error
+	ConfigureExternalIpAddress(apiPort int) error
+	ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error
+	FindOpenPorts() ([]network.PortRange, error)
+	AddIpAddress(nic string, addr string) error
+	ReleaseIpAddress(addr string) error
+}
+
+type sshInstanceConfigurator struct {
 	client  ssh.Client
 	host    string
 	options *ssh.Options
 }
 
-func NewSshInstanceConfigurator(host string) *SshInstanceConfigurator {
+func NewSshInstanceConfigurator(host string) InstanceConfigurator {
 	options := ssh.Options{}
 	options.SetIdentities("/var/lib/juju/system-identity")
-	return &SshInstanceConfigurator{
+	return &sshInstanceConfigurator{
 		client:  ssh.DefaultClient,
 		host:    "ubuntu@" + host,
 		options: &options,
 	}
 }
 
-func (c *SshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) error {
+func (c *sshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) error {
 	cmd := fmt.Sprintf("sudo iptables -d %s -I INPUT -m state --state NEW -j DROP", addr)
 
 	for _, port := range exceptPorts {
@@ -49,7 +56,7 @@ func (c *SshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) e
 	return nil
 }
 
-func (c *SshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error {
+func (c *sshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error {
 	cmd := `printf 'auto eth1\niface eth1 inet dhcp' | sudo tee -a /etc/network/interfaces.d/eth1.cfg
 sudo ifup eth1
 sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP`
@@ -68,7 +75,7 @@ sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP`
 	return nil
 }
 
-func (c *SshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
+func (c *sshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
 	cmd := ""
 	insertArg := "-I"
 	if !insert {
@@ -93,7 +100,7 @@ func (c *SshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, por
 	return nil
 }
 
-func (c *SshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
+func (c *sshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 	cmd := "sudo iptables -L INPUT -n"
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -103,7 +110,7 @@ func (c *SshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 	}
 	logger.Tracef("find open ports output: %s", output)
 
-	//the output have the following format, we will skipp all other rules
+	//the output have the following format, we will skip all other rules
 	//Chain INPUT (policy ACCEPT)
 	//target     prot opt source               destination
 	//ACCEPT     tcp  --  0.0.0.0/0            192.168.0.1  multiport dports 3456:3458
@@ -162,7 +169,7 @@ func (c *SshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 	return res, nil
 }
 
-func (c *SshInstanceConfigurator) AddIpAddress(nic string, addr string) error {
+func (c *sshInstanceConfigurator) AddIpAddress(nic string, addr string) error {
 	cmd := fmt.Sprintf("ls /etc/network/interfaces.d | grep %s: | sed 's/%s://' | sed 's/.cfg//' | tail -1", nic, nic)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -187,7 +194,7 @@ func (c *SshInstanceConfigurator) AddIpAddress(nic string, addr string) error {
 	return nil
 }
 
-func (c *SshInstanceConfigurator) ReleaseIpAddress(_ string, addr string) error {
+func (c *sshInstanceConfigurator) ReleaseIpAddress(addr string) error {
 	cmd := fmt.Sprintf("ip addr show | grep %s | awk '{print $7}'", addr)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)

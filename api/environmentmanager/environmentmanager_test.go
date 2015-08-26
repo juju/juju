@@ -113,5 +113,7 @@ func (s *environmentmanagerSuite) TestListEnvironments(c *gc.C) {
 	c.Assert(envs, gc.HasLen, 2)
 
 	envNames := []string{envs[0].Name, envs[1].Name}
-	c.Assert(envNames, jc.SameContents, []string{"first", "second"})
+	c.Assert(envNames, jc.DeepEquals, []string{"first", "second"})
+	ownerNames := []string{envs[0].Owner, envs[1].Owner}
+	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
 }

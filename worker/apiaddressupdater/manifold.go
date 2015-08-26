@@ -7,10 +7,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
 )
@@ -29,12 +29,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // lines outweighs them by several times for very little confirmatory power; in the
 // long term, all APIAddressUpdaters should be constructed via a manifold, and the
 // tests can be updated to reflect that.
-var newWorker = func(agent agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+var newWorker = func(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	// TODO(fwereade): why on *earth* do we use the *uniter* facade for this
 	// worker? This code really ought to work anywhere...
-	unitTag, ok := agent.Tag().(names.UnitTag)
+	tag := a.CurrentConfig().Tag()
+	unitTag, ok := tag.(names.UnitTag)
 	if !ok {
-		return nil, errors.Errorf("expected a unit tag; got %q", agent.Tag())
+		return nil, errors.Errorf("expected a unit tag; got %q", tag)
 	}
-	return NewAPIAddressUpdater(uniter.NewState(apiCaller, unitTag), agent), nil
+	return NewAPIAddressUpdater(uniter.NewState(apiCaller, unitTag), agent.APIHostPortsSetter{a}), nil
 }

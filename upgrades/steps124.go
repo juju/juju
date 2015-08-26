@@ -48,6 +48,27 @@ func stateStepsFor124() []Step {
 				return migrateCharmStorage(context.State(), context.AgentConfig())
 			},
 		},
+		&upgradeStep{
+			description: "change entityid field on status history to globalkey",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.ChangeStatusHistoryEntityId(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "change updated field on statushistory from time to int",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.ChangeStatusHistoryUpdatedType(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "change updated field on status from time to int",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.ChangeStatusUpdatedType(context.State())
+			},
+		},
 	}
 }
 
@@ -58,6 +79,19 @@ func stepsFor124() []Step {
 			description: "move syslog config from LogDir to DataDir",
 			targets:     []Target{AllMachines},
 			run:         moveSyslogConfig,
+		},
+	}
+}
+
+// stateStepsFor1244 returns upgrade steps for Juju 1.24.4 that manipulate state directly.
+func stateStepsFor1244() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "add missing service statuses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddMissingServiceStatuses(context.State())
+			},
 		},
 	}
 }

@@ -90,7 +90,7 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	_, sshClient, err := inst.getSshClient()
+	_, sshClient, err := inst.getInstanceConfigurator()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,7 +101,7 @@ func (inst *environInstance) changePorts(insert bool, ports []network.PortRange)
 	if inst.env.ecfg.externalNetwork() == "" {
 		return errors.New("Can't close/open ports without external network")
 	}
-	addresses, sshClient, err := inst.getSshClient()
+	addresses, sshClient, err := inst.getInstanceConfigurator()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -117,7 +117,7 @@ func (inst *environInstance) changePorts(insert bool, ports []network.PortRange)
 	return nil
 }
 
-func (inst *environInstance) getSshClient() ([]network.Address, *common.SshInstanceConfigurator, error) {
+func (inst *environInstance) getInstanceConfigurator() ([]network.Address, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses()
 	if err != nil {
 		return nil, nil, errors.Trace(err)

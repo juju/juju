@@ -64,7 +64,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		// op performs the operation to be tested using the given state
 		// connection. It returns a function that should be used to
 		// undo any changes made by the operation.
-		op    func(c *gc.C, st *api.State, mst *state.State) (reset func(), err error)
+		op    func(c *gc.C, st api.Connection, mst *state.State) (reset func(), err error)
 		allow []names.Tag
 		deny  []names.Tag
 	}{{
@@ -189,7 +189,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 	}
 }
 
-func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientCharmInfo(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	info, err := st.Client().CharmInfo("local:quantal/wordpress-3")
 	if err != nil {
 		c.Check(info, gc.IsNil)
@@ -214,7 +214,7 @@ func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error)
 	return func() {}, nil
 }
 
-func opClientAddRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
@@ -222,7 +222,7 @@ func opClientAddRelation(c *gc.C, st *api.State, mst *state.State) (func(), erro
 	return func() {}, err
 }
 
-func opClientDestroyRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
@@ -230,7 +230,7 @@ func opClientDestroyRelation(c *gc.C, st *api.State, mst *state.State) (func(), 
 	return func() {}, err
 }
 
-func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientStatus(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	status, err := st.Client().Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
@@ -241,7 +241,7 @@ func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	return func() {}, nil
 }
 
-func resetBlogTitle(c *gc.C, st *api.State) func() {
+func resetBlogTitle(c *gc.C, st api.Connection) func() {
 	return func() {
 		err := st.Client().ServiceSet("wordpress", map[string]string{
 			"blog-title": "",
@@ -250,7 +250,7 @@ func resetBlogTitle(c *gc.C, st *api.State) func() {
 	}
 }
 
-func opClientServiceSet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSet("wordpress", map[string]string{
 		"blog-title": "foo",
 	})
@@ -260,7 +260,7 @@ func opClientServiceSet(c *gc.C, st *api.State, mst *state.State) (func(), error
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceSetYAML(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceSetYAML(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSetYAML("wordpress", `"wordpress": {"blog-title": "foo"}`)
 	if err != nil {
 		return func() {}, err
@@ -268,7 +268,7 @@ func opClientServiceSetYAML(c *gc.C, st *api.State, mst *state.State) (func(), e
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceGet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := st.Client().ServiceGet("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -276,7 +276,7 @@ func opClientServiceGet(c *gc.C, st *api.State, mst *state.State) (func(), error
 	return func() {}, nil
 }
 
-func opClientServiceExpose(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceExpose("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -288,7 +288,7 @@ func opClientServiceExpose(c *gc.C, st *api.State, mst *state.State) (func(), er
 	}, nil
 }
 
-func opClientServiceUnexpose(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceUnexpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceUnexpose("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -296,7 +296,7 @@ func opClientServiceUnexpose(c *gc.C, st *api.State, mst *state.State) (func(), 
 	return func() {}, nil
 }
 
-func opClientResolved(c *gc.C, st *api.State, _ *state.State) (func(), error) {
+func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
 	err := st.Client().Resolved("wordpress/1", false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
@@ -314,7 +314,7 @@ func opClientResolved(c *gc.C, st *api.State, _ *state.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientGetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientGetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	ann, err := st.Client().GetAnnotations("service-wordpress")
 	if err != nil {
 		return func() {}, err
@@ -323,7 +323,7 @@ func opClientGetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), e
 	return func() {}, nil
 }
 
-func opClientSetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	pairs := map[string]string{"key1": "value1", "key2": "value2"}
 	err := st.Client().SetAnnotations("service-wordpress", pairs)
 	if err != nil {
@@ -335,7 +335,7 @@ func opClientSetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), e
 	}, nil
 }
 
-func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceDeploy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
@@ -343,7 +343,7 @@ func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), er
 	return func() {}, err
 }
 
-func opClientServiceDeployWithNetworks(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceDeployWithNetworks(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeployWithNetworks("mad:bad/url-1", "x", 1, "", constraints.Value{}, "", nil)
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
@@ -351,7 +351,7 @@ func opClientServiceDeployWithNetworks(c *gc.C, st *api.State, mst *state.State)
 	return func() {}, err
 }
 
-func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	args := params.ServiceUpdate{
 		ServiceName:     "no-such-charm",
 		CharmUrl:        "cs:quantal/wordpress-42",
@@ -366,7 +366,7 @@ func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), er
 	return func() {}, err
 }
 
-func opClientServiceSetCharm(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
 	if params.IsCodeNotFound(err) {
 		err = nil
@@ -374,7 +374,7 @@ func opClientServiceSetCharm(c *gc.C, st *api.State, mst *state.State) (func(), 
 	return func() {}, err
 }
 
-func opClientAddServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := st.Client().AddServiceUnits("nosuch", 1, "")
 	if params.IsCodeNotFound(err) {
 		err = nil
@@ -382,7 +382,7 @@ func opClientAddServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), 
 	return func() {}, err
 }
 
-func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().DestroyServiceUnits("wordpress/99")
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
@@ -390,7 +390,7 @@ func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func
 	return func() {}, err
 }
 
-func opClientServiceDestroy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDestroy("non-existent")
 	if params.IsCodeNotFound(err) {
 		err = nil
@@ -398,12 +398,12 @@ func opClientServiceDestroy(c *gc.C, st *api.State, mst *state.State) (func(), e
 	return func() {}, err
 }
 
-func opClientGetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientGetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := st.Client().GetServiceConstraints("wordpress")
 	return func() {}, err
 }
 
-func opClientSetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
 	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
 	if err != nil {
@@ -412,7 +412,7 @@ func opClientSetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (fu
 	return func() {}, nil
 }
 
-func opClientSetEnvironmentConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
 	err := st.Client().SetEnvironmentConstraints(nullConstraints)
 	if err != nil {
@@ -421,7 +421,7 @@ func opClientSetEnvironmentConstraints(c *gc.C, st *api.State, mst *state.State)
 	return func() {}, nil
 }
 
-func opClientEnvironmentGet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientEnvironmentGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	_, err := st.Client().EnvironmentGet()
 	if err != nil {
 		return func() {}, err
@@ -429,7 +429,7 @@ func opClientEnvironmentGet(c *gc.C, st *api.State, mst *state.State) (func(), e
 	return func() {}, nil
 }
 
-func opClientEnvironmentSet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientEnvironmentSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	args := map[string]interface{}{"some-key": "some-value"}
 	err := st.Client().EnvironmentSet(args)
 	if err != nil {
@@ -441,7 +441,7 @@ func opClientEnvironmentSet(c *gc.C, st *api.State, mst *state.State) (func(), e
 	}, nil
 }
 
-func opClientSetEnvironAgentVersion(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	attrs, err := st.Client().EnvironmentGet()
 	if err != nil {
 		return func() {}, err
@@ -460,7 +460,7 @@ func opClientSetEnvironAgentVersion(c *gc.C, st *api.State, mst *state.State) (f
 	}, nil
 }
 
-func opClientWatchAll(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+func opClientWatchAll(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	watcher, err := st.Client().WatchAll()
 	if err == nil {
 		watcher.Stop()

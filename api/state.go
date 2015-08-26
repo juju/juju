@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
@@ -318,6 +319,11 @@ func (st *State) Reboot() (*reboot.State, error) {
 // Deployer returns access to the Deployer API
 func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
+}
+
+// Addresser returns access to the Addresser API.
+func (st *State) Addresser() *addresser.API {
+	return addresser.NewAPI(st)
 }
 
 // Environment returns access to the Environment API

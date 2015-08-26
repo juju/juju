@@ -5,6 +5,8 @@ package dummy
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
@@ -15,6 +17,8 @@ var _ storage.Provider = (*StorageProvider)(nil)
 // Each method's default behaviour may be overridden by setting the corresponding
 // Func field.
 type StorageProvider struct {
+	testing.Stub
+
 	// StorageScope defines the scope of storage managed by this provider.
 	StorageScope storage.Scope
 
@@ -41,6 +45,7 @@ type StorageProvider struct {
 
 // VolumeSource is defined on storage.Provider.
 func (p *StorageProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+	p.MethodCall(p, "VolumeSource", environConfig, providerConfig)
 	if p.VolumeSourceFunc != nil {
 		return p.VolumeSourceFunc(environConfig, providerConfig)
 	}
@@ -49,6 +54,7 @@ func (p *StorageProvider) VolumeSource(environConfig *config.Config, providerCon
 
 // FilesystemSource is defined on storage.Provider.
 func (p *StorageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+	p.MethodCall(p, "FilesystemSource", environConfig, providerConfig)
 	if p.FilesystemSourceFunc != nil {
 		return p.FilesystemSourceFunc(environConfig, providerConfig)
 	}
@@ -57,6 +63,7 @@ func (p *StorageProvider) FilesystemSource(environConfig *config.Config, provide
 
 // ValidateConfig is defined on storage.Provider.
 func (p *StorageProvider) ValidateConfig(providerConfig *storage.Config) error {
+	p.MethodCall(p, "ValidateConfig", providerConfig)
 	if p.ValidateConfigFunc != nil {
 		return p.ValidateConfigFunc(providerConfig)
 	}
@@ -65,6 +72,7 @@ func (p *StorageProvider) ValidateConfig(providerConfig *storage.Config) error {
 
 // Supports is defined on storage.Provider.
 func (p *StorageProvider) Supports(kind storage.StorageKind) bool {
+	p.MethodCall(p, "Supports", kind)
 	if p.SupportsFunc != nil {
 		return p.SupportsFunc(kind)
 	}
@@ -73,10 +81,12 @@ func (p *StorageProvider) Supports(kind storage.StorageKind) bool {
 
 // Scope is defined on storage.Provider.
 func (p *StorageProvider) Scope() storage.Scope {
+	p.MethodCall(p, "Scope")
 	return p.StorageScope
 }
 
 // Dynamic is defined on storage.Provider.
 func (p *StorageProvider) Dynamic() bool {
+	p.MethodCall(p, "Dynamic")
 	return p.IsDynamic
 }

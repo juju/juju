@@ -84,6 +84,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.CleanupSuite.SetUpTest(c)
+	t.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
