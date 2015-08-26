@@ -734,6 +734,9 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 }
 
 func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
+	// TODO(dimitern): Fix this in a follow-up.
+	c.Skip("Test temporarily disabled as flaky - see bug lp:1488576")
+
 	started := make(chan struct{})
 	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
 		close(started)
