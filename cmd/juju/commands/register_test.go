@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
 var _ = gc.Suite(&registrationSuite{})
@@ -28,7 +28,8 @@ func (s *registrationSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *registrationSuite) TestHttpMetricsRegistrar(c *gc.C) {
-	data, err := registerMetrics(s.server.URL, "environment uuid", "charm url", "service name", &http.Client{}, func(*url.URL) error { return nil })
+	client := httpbakery.NewClient()
+	data, err := registerMetrics(s.server.URL, "environment uuid", "charm url", "service name", client)
 	c.Assert(err, gc.IsNil)
 	var b []byte
 	err = json.Unmarshal(data, &b)

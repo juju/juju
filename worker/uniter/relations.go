@@ -6,8 +6,8 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"

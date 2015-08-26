@@ -5,10 +5,9 @@ package featuretests
 
 import (
 	"fmt"
-	"strings"
-
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"

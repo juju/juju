@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1/csclient"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
@@ -426,7 +426,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	// Change permissions on the new charm such that only bob
 	// can read from it.
 	s.DischargeUser = "restricted"
-	err := s.Srv.NewClient().Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
+	err := s.Client.Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to add a charm to the environment without authorization.
@@ -436,7 +436,7 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 
 	tryAs := func(user string) error {
 		client := csclient.New(csclient.Params{
-			URL: s.Srv.URL(),
+			URL: s.Srv.URL,
 		})
 		s.DischargeUser = user
 		var m *macaroon.Macaroon

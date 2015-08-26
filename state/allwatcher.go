@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
+
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/names"
-	"gopkg.in/mgo.v2"
 )
 
 // allWatcherStateBacking implements Backing by fetching entities for

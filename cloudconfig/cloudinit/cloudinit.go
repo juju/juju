@@ -7,10 +7,11 @@ package cloudinit
 import (
 	"strings"
 
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/shell"
+
+	"github.com/juju/juju/utils/ssh"
 )
 
 // cloudConfig represents a set of cloud-init configuration options.

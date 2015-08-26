@@ -25,8 +25,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -1991,8 +1991,8 @@ func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.commonMachineSuite.TearDownSuite(c)
 	s.CharmSuite.TearDownSuite(c)
+	s.commonMachineSuite.TearDownSuite(c)
 }
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
@@ -2001,8 +2001,8 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
-	s.commonMachineSuite.TearDownTest(c)
 	s.CharmSuite.TearDownTest(c)
+	s.commonMachineSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
