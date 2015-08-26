@@ -23,6 +23,7 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 	id := charm.MustParseReference(url)
 	promulgatedRevision := -1
 	if id.User == "" {
+		// We still need a user even if we are uploading a promulgated charm.
 		id.User = "who"
 		promulgatedRevision = id.Revision
 	}
