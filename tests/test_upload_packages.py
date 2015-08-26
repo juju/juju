@@ -1,4 +1,5 @@
 from mock import (
+    call,
     Mock,
     patch,
 )
@@ -47,10 +48,10 @@ class UploadPackageTestCase(TestCase):
         lw_mock.return_value = lp
         return_code = main(['-d', '-c', 'creds', 'ppa:team/archive', 'a', 'b'])
         self.assertEqual(0, return_code)
-        lw_mock.assert_called_with(
+        lw_mock.assert_called_once_with(
             'upload-packages', service_root='https://api.launchpad.net',
             version='devel', credentials_file='creds')
-        up_mock.assert_called_with(
+        up_mock.assert_called_once_with(
             lp, 'ppa:team/archive', ['a', 'b'], dry_run=True)
 
     def test_get_changes(self):
@@ -79,8 +80,8 @@ class UploadPackageTestCase(TestCase):
                 'ppa:bar/baz', archive, package_dir, dry_run=False)
         self.assertFalse(result)
         self.assertEqual(0, cc_mock.call_count)
-        gc_mock.assert_called_with(package_dir)
-        archive.getPublishedSources.assert_called_with(
+        gc_mock.assert_called_once_with(package_dir)
+        archive.getPublishedSources.assert_called_once_with(
             source_name='juju-core', version='1.24.5-0ubuntu1~14.04.1~juju1')
 
     @patch('subprocess.check_call', autospec=True)
@@ -94,10 +95,10 @@ class UploadPackageTestCase(TestCase):
             result = upload_package(
                 'ppa:bar/baz', archive, package_dir, dry_run=False)
         self.assertTrue(result)
-        gc_mock.assert_called_with(package_dir)
-        cc_mock.assert_called_with(
+        gc_mock.assert_called_once_with(package_dir)
+        cc_mock.assert_called_once_with(
             ['dput', 'ppa:bar/baz', 'foo_source.changes'], cwd=package_dir)
-        archive.getPublishedSources.assert_called_with(
+        archive.getPublishedSources.assert_called_once_with(
             source_name='juju-core', version='1.24.5-0ubuntu1~14.04.1~juju1')
 
     @patch('upload_packages.upload_package', autospec=True)
@@ -112,8 +113,7 @@ class UploadPackageTestCase(TestCase):
                     lp, 'ppa:bar/baz', [package_dir1, package_dir2],
                     dry_run=False)
         self.assertEqual(0, return_code)
-        up_mock.assert_called_with(
-            'ppa:bar/baz', 'baz', package_dir2, dry_run=False)
-        up_mock.assert_any_call(
-            'ppa:bar/baz', 'baz', package_dir2, dry_run=False)
-        team.getPPAByName.assert_called_with(name='baz')
+        call1 = call('ppa:bar/baz', 'baz', package_dir1, dry_run=False)
+        call2 = call('ppa:bar/baz', 'baz', package_dir2, dry_run=False)
+        self.assertEqual([call1, call2], up_mock.mock_calls)
+        team.getPPAByName.assert_called_once_with(name='baz')
