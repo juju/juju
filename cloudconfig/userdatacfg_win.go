@@ -52,6 +52,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`mkdir "%s"`, binDir),
 		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
 	)
+	w.conf.AddScripts(`setx /m PATH "$env:PATH;C:\Juju\bin\"`)
 	noncefile := renderer.Join(dataDir, NonceFile)
 	w.conf.AddScripts(
 		fmt.Sprintf(`Set-Content "%s" "%s"`, noncefile, shquote(w.icfg.MachineNonce)),
