@@ -4,6 +4,9 @@
 package plugin_test
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/juju-process-docker/docker"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -14,13 +17,19 @@ import (
 
 var _ = gc.Suite(&dockerSuite{})
 
-type dockerSuite struct{}
+type dockerSuite struct {
+	stub *testing.Stub
+}
+
+func (s *dockerSuite) SetUpTest(c *gc.C) {
+	s.stub = &testing.Stub{}
+}
 
 func (dockerSuite) TestPluginInterface(c *gc.C) {
 	var _ workload.Plugin = (*plugin.DockerPlugin)(nil)
 }
 
-func (dockerSuite) TestRunArgs(c *gc.C) {
+func (s *dockerSuite) TestRunArgs(c *gc.C) {
 	runArgs := plugin.RunArgs(fakeProc)
 	args := runArgs.CommandlineArgs()
 
@@ -38,18 +47,18 @@ func (dockerSuite) TestRunArgs(c *gc.C) {
 	})
 }
 
-func (dockerSuite) TestLaunch(c *gc.C) {
-	calls := []runDockerCall{{
-		out: []byte("/sad_perlman"),
-	}, {
-		out: []byte(dockerInspectOutput),
-	}}
-	fake := fakeRunDocker(calls...)
+func (s *dockerSuite) TestLaunch(c *gc.C) {
+	stub := &stubDockerClient{stub: s.stub}
+	stub.id = "/sad_perlman"
+	stub.info, _ = docker.ParseInfoJSON(stub.id, []byte(dockerInspectOutput))
 
-	p := plugin.NewDockerPlugin(fake)
+	p := plugin.NewDockerPlugin()
+	p.Client = stub
 	pd, err := p.Launch(fakeProc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pd, jc.DeepEquals, workload.Details{
+
+	s.stub.CheckCallNames(c, "Run", "Inspect")
+	c.Check(pd, jc.DeepEquals, workload.Details{
 		ID: "sad_perlman",
 		Status: workload.PluginStatus{
 			State: "Running",
@@ -57,27 +66,30 @@ func (dockerSuite) TestLaunch(c *gc.C) {
 	})
 }
 
-func (dockerSuite) TestStatus(c *gc.C) {
-	calls := []runDockerCall{{
-		out: []byte(dockerInspectOutput),
-	}}
-	fake := fakeRunDocker(calls...)
+func (s *dockerSuite) TestStatus(c *gc.C) {
+	stub := &stubDockerClient{stub: s.stub}
+	stub.info, _ = docker.ParseInfoJSON(stub.id, []byte(dockerInspectOutput))
 
-	p := plugin.NewDockerPlugin(fake)
-	ps, err := p.Status("someid")
+	p := plugin.NewDockerPlugin()
+	p.Client = stub
+	ps, err := p.Status("sad_perlman")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ps, jc.DeepEquals, workload.PluginStatus{
+
+	s.stub.CheckCallNames(c, "Inspect")
+	c.Check(ps, jc.DeepEquals, workload.PluginStatus{
 		State: "Running",
 	})
 }
 
-func (dockerSuite) TestDestroy(c *gc.C) {
-	calls := make([]runDockerCall, 2, 2)
-	fake := fakeRunDocker(calls...)
+func (s *dockerSuite) TestDestroy(c *gc.C) {
+	stub := &stubDockerClient{stub: s.stub}
 
-	p := plugin.NewDockerPlugin(fake)
+	p := plugin.NewDockerPlugin()
+	p.Client = stub
 	err := p.Destroy("someid")
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Stop", "Remove")
 }
 
 var fakeProc = charm.Workload{
@@ -112,27 +124,47 @@ var fakeProc = charm.Workload{
 	EnvVars: map[string]string{"foo": "bar", "baz": "bat"},
 }
 
-type runDockerCall struct {
-	out []byte
-	err error
+type stubDockerClient struct {
+	stub *testing.Stub
 
-	commandIn string
-	argsIn    []string
+	id   string
+	info *docker.Info
 }
 
-func fakeRunDocker(calls ...runDockerCall) func(string, ...string) ([]byte, error) {
-	index := 0
-	return func(command string, args ...string) ([]byte, error) {
-		calls[index].commandIn = command
-		calls[index].argsIn = args
-		call := calls[index]
-		index += 1
-
-		if call.err != nil {
-			return nil, call.err
-		}
-		return call.out, nil
+func (s *stubDockerClient) Run(args docker.RunArgs) (string, error) {
+	s.stub.AddCall("Run", args)
+	if err := s.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
 	}
+
+	return s.id, nil
+}
+
+func (s *stubDockerClient) Inspect(id string) (*docker.Info, error) {
+	s.stub.AddCall("Inspect", id)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.info, nil
+}
+
+func (s *stubDockerClient) Stop(id string) error {
+	s.stub.AddCall("Stop", id)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubDockerClient) Remove(id string) error {
+	s.stub.AddCall("Remove", id)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 const dockerInspectOutput = `
