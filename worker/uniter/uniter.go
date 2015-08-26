@@ -176,13 +176,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	var watcher *remotestate.RemoteStateWatcher
 	restartWatcher := func() error {
 		if watcher != nil {
-			logger.Debugf("restarting watcher")
 			if err := watcher.Stop(); err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("stopped watcher")
 		}
-		logger.Debugf("start watcher")
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
