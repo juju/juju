@@ -1,25 +1,37 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package resolver
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/hooks"
+
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.resolver")
 
-type OpFactory struct {
+// resolverOpFactory wraps an operation.Factory such that skips that affect
+// local state will, when committed, update the embedded LocalState struct.
+//
+// The wrapped operations embed information specific to the remote state
+// snapshot that was used to create the operation. Thus, remote state changes
+// observed between the time the operation was created and committed do not
+// affect the operation; and the local state change will not prevent further
+// operations from being enqueued to achieve the new remote state.
+type resolverOpFactory struct {
 	operation.Factory
 
 	LocalState  LocalState
 	RemoteState remotestate.Snapshot
 }
 
-func (s *OpFactory) NewRunHook(info hook.Info) (operation.Operation, error) {
+func (s *resolverOpFactory) NewRunHook(info hook.Info) (operation.Operation, error) {
 	op, err := s.Factory.NewRunHook(info)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -27,7 +39,7 @@ func (s *OpFactory) NewRunHook(info hook.Info) (operation.Operation, error) {
 	return s.wrapHookOp(op, info), nil
 }
 
-func (s *OpFactory) NewSkipHook(info hook.Info) (operation.Operation, error) {
+func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, error) {
 	op, err := s.Factory.NewSkipHook(info)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -35,7 +47,7 @@ func (s *OpFactory) NewSkipHook(info hook.Info) (operation.Operation, error) {
 	return s.wrapHookOp(op, info), nil
 }
 
-func (s *OpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	op, err := s.Factory.NewUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -43,7 +55,7 @@ func (s *OpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error)
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *OpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (s *resolverOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	op, err := s.Factory.NewRevertUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -51,7 +63,7 @@ func (s *OpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, 
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *OpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+func (s *resolverOpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	op, err := s.Factory.NewResolvedUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -59,14 +71,14 @@ func (s *OpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.Operation
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *OpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
+func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
 	return onCommitWrapper{op, func() {
 		s.LocalState.CharmURL = charmURL
 		s.LocalState.Upgraded = true
 	}}
 }
 
-func (s *OpFactory) wrapHookOp(op operation.Operation, info hook.Info) operation.Operation {
+func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) operation.Operation {
 	switch info.Kind {
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
