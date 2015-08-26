@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/bzr"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmrepo.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
@@ -114,7 +114,7 @@ func (s *PublishSuite) TestFrom(c *gc.C) {
 
 func (s *PublishSuite) TestMissingSeries(c *gc.C) {
 	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `cannot infer charm URL for "cs:wordpress": charm url series is not resolved`)
+	c.Assert(err, gc.ErrorMatches, `cannot infer charm or bundle URL for "cs:wordpress": charm or bundle url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {

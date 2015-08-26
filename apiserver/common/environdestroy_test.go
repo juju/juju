@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	jtesting "github.com/juju/testing"
 )
 
 type destroyEnvironmentSuite struct {

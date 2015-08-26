@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")
