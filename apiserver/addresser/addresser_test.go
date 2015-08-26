@@ -6,9 +6,8 @@ package addresser_test
 import (
 	"errors"
 
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/addresser"
 	"github.com/juju/juju/apiserver/common"

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"

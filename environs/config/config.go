@@ -18,8 +18,8 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon-bakery.v0/bakery"
 

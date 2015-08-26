@@ -4,12 +4,12 @@
 package testing
 
 import (
+	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/names"
-	"github.com/juju/testing"
 )
 
 // APICallerFunc is a function type that implements APICaller.

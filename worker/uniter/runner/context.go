@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"

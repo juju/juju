@@ -6,6 +6,7 @@ package storage_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
@@ -14,8 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-
-	"fmt"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
