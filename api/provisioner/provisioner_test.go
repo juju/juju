@@ -813,6 +813,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		expected := params.FindToolsParams{
 			Number:       version.Current.Number,
 			Series:       version.Current.Series,
+			Arch: version.Current.Arch,
 			MinorVersion: -1,
 			MajorVersion: -1,
 		}
@@ -828,10 +829,9 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		return apiError
 	})
 
-	var a *string
+	var a string
 	if matchArch {
-		arch := arch.HostArch()
-		a = &arch
+		a = arch.HostArch()
 	}
 	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, a)
 	c.Assert(called, jc.IsTrue)
