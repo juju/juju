@@ -9,24 +9,86 @@ import (
 
 	"github.com/juju/schema"
 	"gopkg.in/goose.v1/identity"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 )
 
-var configFields = schema.Fields{
-	"username":             schema.String(),
-	"password":             schema.String(),
-	"tenant-name":          schema.String(),
-	"auth-url":             schema.String(),
-	"auth-mode":            schema.String(),
-	"access-key":           schema.String(),
-	"secret-key":           schema.String(),
-	"region":               schema.String(),
-	"control-bucket":       schema.String(),
-	"use-floating-ip":      schema.Bool(),
-	"use-default-secgroup": schema.Bool(),
-	"network":              schema.String(),
+var configSchema = environschema.Fields{
+	"username": {
+		Description: "The user name  to use when auth-mode is userpass.",
+		Type:        environschema.Tstring,
+		EnvVars:     identity.CredEnvUser,
+		Group:       environschema.AccountGroup,
+	},
+	"password": {
+		Description: "The password to use when auth-mode is userpass.",
+		Type:        environschema.Tstring,
+		EnvVars:     identity.CredEnvSecrets,
+		Group:       environschema.AccountGroup,
+	},
+	"tenant-name": {
+		Description: "The openstack tenant name.",
+		Type:        environschema.Tstring,
+		EnvVars:     identity.CredEnvTenantName,
+		Group:       environschema.AccountGroup,
+	},
+	"auth-url": {
+		Description: "The keystone URL for authentication.",
+		Type:        environschema.Tstring,
+		EnvVars:     identity.CredEnvAuthURL,
+		Example:     "https://yourkeystoneurl:443/v2.0/",
+		Group:       environschema.AccountGroup,
+	},
+	"auth-mode": {
+		Description: "The authentication mode to use. When set to keypair, the access-key and secret-key parameters should be set; when set to userpass or legacy, the username and password parameters should be set.",
+		Type:        environschema.Tstring,
+		Values:      []interface{}{AuthKeyPair, AuthLegacy, AuthUserPass},
+		Group:       environschema.AccountGroup,
+	},
+	"access-key": {
+		Description: "The access key to use when auth-mode is set to keypair.",
+		Type:        environschema.Tstring,
+		EnvVars:     identity.CredEnvUser,
+		Group:       environschema.AccountGroup,
+	},
+	"secret-key": {
+		Description: "The secret key to use when auth-mode is set to keypair.",
+		EnvVars:     identity.CredEnvSecrets,
+		Group:       environschema.AccountGroup,
+		Type:        environschema.Tstring,
+	},
+	"region": {
+		Description: "The openstack region.",
+		Type:        environschema.Tstring,
+		EnvVars:     identity.CredEnvRegion,
+	},
+	"control-bucket": {
+		Description: "The name to use for the control bucket (do not set unless you know what you are doing!).",
+		Type:        environschema.Tstring,
+	},
+	"use-floating-ip": {
+		Description: "Whether a floating IP address is required to give the nodes a public IP address. Some installations assign public IP addresses by default without requiring a floating IP address.",
+		Type:        environschema.Tbool,
+	},
+	"use-default-secgroup": {
+		Description: `Whether new machine instances should have the "default" Openstack security group assigned.`,
+		Type:        environschema.Tbool,
+	},
+	"network": {
+		Description: "The network label or UUID to bring machines up on when multiple networks exist.",
+		Type:        environschema.Tstring,
+	},
 }
+
+var configFields = func() schema.Fields {
+	fs, _, err := configSchema.ValidationSchema()
+	if err != nil {
+		panic(err)
+	}
+	return fs
+}()
+
 var configDefaults = schema.Defaults{
 	"username":             "",
 	"password":             "",
@@ -67,8 +129,8 @@ func (c *environConfig) authURL() string {
 	return c.attrs["auth-url"].(string)
 }
 
-func (c *environConfig) authMode() string {
-	return c.attrs["auth-mode"].(string)
+func (c *environConfig) authMode() AuthMode {
+	return AuthMode(c.attrs["auth-mode"].(string))
 }
 
 func (c *environConfig) accessKey() string {
@@ -111,6 +173,15 @@ const (
 	AuthUserPass AuthMode = "userpass"
 )
 
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
@@ -121,16 +192,21 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if err != nil {
 		return nil, err
 	}
-	ecfg := &environConfig{cfg, validated}
 
-	authMode := AuthMode(ecfg.authMode())
-	switch authMode {
-	case AuthKeyPair:
-	case AuthLegacy:
-	case AuthUserPass:
-	default:
-		return nil, fmt.Errorf("invalid authorization mode: %q", authMode)
+	// Add Openstack specific defaults.
+	providerDefaults := make(map[string]interface{})
+
+	// Storage.
+	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
+		providerDefaults[config.StorageDefaultBlockSourceKey] = CinderProviderType
 	}
+	if len(providerDefaults) > 0 {
+		if cfg, err = cfg.Apply(providerDefaults); err != nil {
+			return nil, err
+		}
+	}
+
+	ecfg := &environConfig{cfg, validated}
 
 	if ecfg.authURL() != "" {
 		parts, err := url.Parse(ecfg.authURL())
@@ -140,7 +216,8 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	cred := identity.CredentialsFromEnv()
 	format := "required environment variable not set for credentials attribute: %s"
-	if authMode == AuthUserPass || authMode == AuthLegacy {
+	switch ecfg.authMode() {
+	case AuthUserPass, AuthLegacy:
 		if ecfg.username() == "" {
 			if cred.User == "" {
 				return nil, fmt.Errorf(format, "User")
@@ -153,7 +230,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			}
 			ecfg.attrs["password"] = cred.Secrets
 		}
-	} else if authMode == AuthKeyPair {
+	case AuthKeyPair:
 		if ecfg.accessKey() == "" {
 			if cred.User == "" {
 				return nil, fmt.Errorf(format, "User")
@@ -166,6 +243,8 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			}
 			ecfg.attrs["secret-key"] = cred.Secrets
 		}
+	default:
+		return nil, fmt.Errorf("unexpected authentication mode %q", ecfg.authMode())
 	}
 	if ecfg.authURL() == "" {
 		if cred.URL == "" {

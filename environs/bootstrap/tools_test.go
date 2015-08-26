@@ -224,6 +224,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
+	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	trustyTools := &tools.Tools{
 		Version: version.MustParseBinary("1.2.3-trusty-amd64"),

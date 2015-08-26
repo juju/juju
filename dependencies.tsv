@@ -23,7 +23,7 @@ github.com/juju/names	git	a6a253b0a94cc79e99a68d284b970ffce2a11ecd	2015-07-09T13
 github.com/juju/persistent-cookiejar	git	beee02cb39231c7ad4a01a677fc54c48d2b46b08	2015-04-09T09:48:35Z
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
-github.com/juju/schema	git	5fef1eb09944df7dea207cf14ffa8163268cc7cd	2015-06-16T19:52:11Z
+github.com/juju/schema	git	afe1151cb49d1d7ed3c75592dfc6f38703f2e988	2015-08-07T07:58:08Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	f521911d9a79aeb62c051fe18e689796369c5564	2015-05-29T04:40:43Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
@@ -37,10 +37,10 @@ google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T
 gopkg.in/amz.v3	git	bff3a097c4108da57bb8cbe3aad2990d74d23676	2015-08-20T12:28:33Z
 gopkg.in/check.v1	git	b3d3430320d4260e5fea99841af984b3badcea63	2015-06-26T10:50:28Z
 gopkg.in/errgo.v1	git	15098963088579c1cd9eb1a7da285831e548390b	2015-07-07T18:34:45Z
-gopkg.in/goose.v1	git	39e4e7a5d0eba2923cec7c841870e39decddf05e	2015-07-23T01:53:30Z
+gopkg.in/goose.v1	git	be6030ce33a6d77f5e9c63b7698030e6431d5343	2015-08-24T15:19:40Z
 gopkg.in/juju/charm.v5	git	1d5ef3d01f135c3324e309ca06393882ba5e6d0e	2015-07-20T12:55:48Z
 gopkg.in/juju/charmstore.v4	git	b90d24652753eeb1f7d209483d499f6b24dcf25e	2015-07-10T10:24:09Z
-gopkg.in/juju/environschema.v1	git	ec1fe091f545c41e29e336ff79800df14a924aca	2015-06-15T15:30:06Z
+gopkg.in/juju/environschema.v1	git	16cc59268c09c22870cb4de8eb6248652535f315	2015-08-24T13:22:26Z
 gopkg.in/macaroon-bakery.v0	git	9593b80b01ba04b519769d045dffd6abd827d2fd	2015-04-10T07:46:55Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	3569c88678d88179dcbd68d02ab081cbca3cd4d0	2015-06-04T15:26:27Z
