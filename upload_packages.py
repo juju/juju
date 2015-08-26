@@ -11,6 +11,7 @@ from launchpadlib.launchpad import Launchpad
 
 
 def get_changes(package_dir):
+    """Return source_name, version, file_name of the changes in the dir."""
     file_names = [
         f for f in os.listdir(package_dir) if f.endswith('_source.changes')]
     file_name = file_names[0]
@@ -31,6 +32,11 @@ def get_changes(package_dir):
 
 
 def upload_package(ppa, archive, package_dir, dry_run=False):
+    """Upload a source package found in the directory to the PPA.
+
+    Return True when the upload is performed, or False when the archive already
+    has the source package.
+    """
     source_name, version, file_name = get_changes(package_dir)
     package_histories = archive.getPublishedSources(
         source_name=source_name, version=version)
@@ -44,7 +50,7 @@ def upload_package(ppa, archive, package_dir, dry_run=False):
 
 
 def upload_packages(lp, ppa, package_dirs, dry_run=False):
-    """Upload new source packages to the archive."""
+    """Upload new source packages to the PPA."""
     ignore, team_archive = ppa.split(':')
     team_name, archive_name = team_archive.split('/')
     team = lp.people[team_name]
@@ -72,6 +78,7 @@ def get_args(argv=None):
 
 
 def main(argv=None):
+    """Upload new source packages to a PPA."""
     args = get_args(argv)
     lp = Launchpad.login_with(
         'upload-packages', service_root='https://api.launchpad.net',
