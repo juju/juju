@@ -718,10 +718,11 @@ func (task *provisionerTask) startMachine(
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
 	} else if err == nil {
 		logger.Infof(
-			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v",
+			"started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v, volume attachments %v, subnets to zones %v",
 			machine, inst.Id(), hardware,
 			networks, ifaces,
 			volumes, volumeAttachments,
+			startInstanceParams.SubnetsToZones,
 		)
 		return nil
 	}

@@ -741,46 +741,32 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 		},
 	})
 }
-func (s *withoutStateServerSuite) addTestSpacesAndSubnets(c *gc.C) {
+
+func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	// Add a couple of spaces.
 	_, err := s.State.AddSpace("space1", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("space2", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		ProviderId:       "subnet-0",
-		CIDR:             "10.10.0.0/24",
-		AvailabilityZone: "zone1",
-		SpaceName:        "space1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		ProviderId:        "subnet-1",
-		CIDR:              "10.20.0.0/24",
+	// Add 1 subnet into space1, and 2 into space2.
+	// Only the first subnet of space2 has AllocatableIPLow|High set.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
+		CIDR:              "10.10.{{.}}.0/24",
+		ProviderId:        "subnet-{{.}}",
+		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
+		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
+		AvailabilityZone:  "zone{{.}}",
+		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
 		VLANTag:           42,
-		AllocatableIPLow:  "10.20.0.5",
-		AllocatableIPHigh: "10.20.0.254",
-		AvailabilityZone:  "zone2",
-		SpaceName:         "space2",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		ProviderId:       "subnet-2",
-		CIDR:             "10.30.0.0/24",
-		AvailabilityZone: "zone3",
-		SpaceName:        "space2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
-	s.addTestSpacesAndSubnets(c)
 
 	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
 	registry.RegisterEnvironStorageProviders("dummy", "static")
 
 	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
+	_, err = pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("cpu-cores=123 mem=8G spaces=^space1,space2")
@@ -827,8 +813,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 					tags.JujuEnv: coretesting.EnvironmentTag.Id(),
 				},
 				SubnetsToZones: map[string][]string{
-					"subnet-1": []string{"zone2"},
-					"subnet-2": []string{"zone3"},
+					"subnet-1": []string{"zone1"},
+					"subnet-2": []string{"zone2"},
 				},
 				Volumes: []params.VolumeParams{{
 					VolumeTag:  "volume-0",

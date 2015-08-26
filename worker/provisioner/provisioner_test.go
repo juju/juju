@@ -997,11 +997,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 			continue
 		}
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(
-			statusInfo.Message,
-			gc.Matches,
-			`matching spaces to subnets and zones: space "missing" not found`,
-		)
+		c.Assert(statusInfo.Message, gc.Equals, `cannot match subnets to zones: space "missing" not found`)
 		break
 	}
 

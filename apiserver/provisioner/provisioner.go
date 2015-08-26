@@ -429,7 +429,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	}
 	subnetsToZones, err := p.machineSubnetsAndZones(m)
 	if err != nil {
-		return nil, errors.Annotate(err, "matching spaces to subnets and zones")
+		return nil, errors.Annotate(err, "cannot match subnets to zones")
 	}
 	return &params.ProvisioningInfo{
 		Constraints:    cons,
@@ -1359,7 +1359,7 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
 	mcons, err := m.Constraints()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting machine constraints")
+		return nil, errors.Annotate(err, "cannot get machine constraints")
 	}
 	includeSpaces := mcons.IncludeSpaces()
 	if len(includeSpaces) < 1 {

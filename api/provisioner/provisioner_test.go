@@ -470,39 +470,24 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 }
 
-func (s *provisionerSuite) addTestSpacesAndSubnets(c *gc.C) {
+func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
+	// Add a couple of spaces.
 	_, err := s.State.AddSpace("space1", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("space2", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		ProviderId:       "subnet-0",
-		CIDR:             "10.10.0.0/24",
-		AvailabilityZone: "zone1",
-		SpaceName:        "space1",
+	// Add 2 subnets into each space.
+	// Only the first subnet of space2 has AllocatableIPLow|High set.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 4, state.SubnetInfo{
+		CIDR:              "10.{{.}}.0.0/16",
+		ProviderId:        "subnet-{{.}}",
+		AllocatableIPLow:  "{{if (eq . 2)}}10.{{.}}.0.5{{end}}",
+		AllocatableIPHigh: "{{if (eq . 2)}}10.{{.}}.254.254{{end}}",
+		AvailabilityZone:  "zone{{.}}",
+		SpaceName:         "{{if (lt . 2)}}space1{{else}}space2{{end}}",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		ProviderId:        "subnet-1",
-		CIDR:              "10.20.0.0/24",
-		VLANTag:           42,
-		AllocatableIPLow:  "10.20.0.5",
-		AllocatableIPHigh: "10.20.0.254",
-		AvailabilityZone:  "zone2",
-		SpaceName:         "space2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSubnet(state.SubnetInfo{
-		ProviderId:       "subnet-2",
-		CIDR:             "10.30.0.0/24",
-		AvailabilityZone: "zone3",
-		SpaceName:        "space2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
 
-func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
-	s.addTestSpacesAndSubnets(c)
 	cons := constraints.MustParse("cpu-cores=12 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
 		Series:      "quantal",
@@ -521,8 +506,8 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
 	c.Assert(provisioningInfo.Networks, gc.HasLen, 0)
 	c.Assert(provisioningInfo.SubnetsToZones, jc.DeepEquals, map[string][]string{
-		"subnet-1": []string{"zone2"},
-		"subnet-2": []string{"zone3"},
+		"subnet-2": []string{"zone2"},
+		"subnet-3": []string{"zone3"},
 	})
 }
 
