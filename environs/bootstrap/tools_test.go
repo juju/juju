@@ -224,7 +224,6 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
-	s.PatchValue(&version.Current.Arch, arch.AMD64)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	trustyTools := &tools.Tools{
 		Version: version.MustParseBinary("1.2.3-trusty-amd64"),
@@ -259,8 +258,12 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 
 	var allTools tools.List
 	for _, series := range version.SupportedSeries() {
-		binary := version.Current
-		binary.Series = series
+		binary := version.Binary{
+			Number: version.Current.Number,
+			Series: series,
+			Arch:   arch.HostArch(),
+			OS:     version.Current.OS,
+		}
 		allTools = append(allTools, &tools.Tools{
 			Version: binary,
 			URL:     "http://testing.invalid/tools.tar.gz",

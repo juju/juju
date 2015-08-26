@@ -126,8 +126,6 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
 
-	// TODO(dfc) this should not be necessary
-	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -145,8 +143,6 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
 
-	// TODO(dfc) this should not be necessary
-	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
@@ -447,7 +443,7 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 
 func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 	e.supportedArchitecturesCount++
-	return []string{"amd64", "arm64"}, nil
+	return []string{arch.AMD64, arch.ARM64}, nil
 }
 
 func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
