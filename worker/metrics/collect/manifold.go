@@ -8,6 +8,7 @@
 package collect
 
 import (
+	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -195,23 +196,23 @@ type hookContext struct {
 	recorder spool.MetricRecorder
 }
 
-// HookVars implements jujuc.Context.
+// HookVars implements runner.Context.
 func (ctx *hookContext) HookVars(paths context.Paths) ([]string, error) {
 	// TODO(cmars): Provide restricted hook context vars.
 	return nil, nil
 }
 
-// UnitName implements jujuc.Context.
+// UnitName implements runner.Context.
 func (ctx *hookContext) UnitName() string {
 	return ctx.unitName
 }
 
-// Flush implements jujuc.Context.
+// Flush implements runner.Context.
 func (ctx *hookContext) Flush(process string, ctxErr error) (err error) {
 	return ctx.recorder.Close()
 }
 
-// AddMetric implements jujuc.
+// AddMetric implements runner.Context.
 func (ctx *hookContext) AddMetric(key string, value string, created time.Time) error {
 	return ctx.recorder.AddMetric(key, value, created)
 }
@@ -226,4 +227,8 @@ func (ctx *hookContext) addJujuUnitsMetric() error {
 		}
 	}
 	return nil
+}
+
+// SetProcess implements runner.Context.
+func (ctx *hookContext) SetProcess(process *os.Process) {
 }

@@ -4,34 +4,28 @@
 package collect_test
 
 import (
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/names"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniteravailability"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	coretesting.BaseSuite
 
 	dataDir  string
 	oldLcAll string
@@ -45,7 +39,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.manifoldConfig = collect.ManifoldConfig{
 		AgentName:              "agent-name",
 		APICallerName:          "apicaller-name",
@@ -53,15 +47,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		UniterAvailabilityName: "uniteravailability-name",
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
-
 	s.dataDir = c.MkDir()
-	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
-	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO(cmars): need to build the tools here, or copy them into the agent
-	// toolsDir if we can share them with uniter_test.
-
 	s.dummyResources = dt.StubResources{
 		"agent-name":              dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
 		"apicaller-name":          dt.StubResource{Output: &dummyAPICaller{}},
@@ -69,18 +55,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		"uniteravailability-name": dt.StubResource{Output: &dummyUniterAvailability{available: true}},
 	}
 	s.getResource = dt.StubGetResource(s.dummyResources)
-}
-
-func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
-	os.Setenv("LC_ALL", s.oldLcAll)
-}
-
-func (s *ManifoldSuite) SetCharm(c *gc.C, name, unitTag string) {
-	paths := uniter.NewPaths(s.dataDir, names.NewUnitTag(unitTag))
-	err := os.MkdirAll(filepath.Dir(paths.GetCharmDir()), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	err = fs.Copy(testcharms.Repo.CharmDirPath(name), paths.GetCharmDir())
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestInputs ensures the collect manifold has the expected defined inputs.
@@ -147,6 +121,35 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 	c.Assert(recorder.batches[0].Metrics[0].Value, gc.Equals, "1")
 }
 
+// TestAvailability tests that the availability resource is properly checked.
+func (s *ManifoldSuite) TestAvailability(c *gc.C) {
+	recorder := &dummyRecorder{
+		charmURL:         "cs:wordpress-37",
+		unitTag:          "wp/0",
+		isDeclaredMetric: true,
+	}
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			return recorder, nil
+		})
+	s.dummyResources["uniteravailability-name"] = dt.StubResource{Output: &dummyUniterAvailability{available: false}}
+	getResource := dt.StubGetResource(s.dummyResources)
+	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	err = collectEntity.Do(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(recorder.batches, gc.HasLen, 0)
+
+	s.dummyResources["uniteravailability-name"] = dt.StubResource{Output: &dummyUniterAvailability{available: true}}
+	getResource = dt.StubGetResource(s.dummyResources)
+	collectEntity, err = (*collect.NewCollect)(s.manifoldConfig, getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	err = collectEntity.Do(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(recorder.closed, jc.IsTrue)
+	c.Assert(recorder.batches, gc.HasLen, 1)
+}
+
 // TestNoMetricsDeclared tests that if metrics are not declared, none are
 // collected, not even builtin.
 func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
@@ -167,10 +170,7 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 	c.Assert(recorder.batches, gc.HasLen, 0)
 }
 
-func (s *ManifoldSuite) TestDeclaredMetric(c *gc.C) {
-	// TODO(cmars): need to have the runner execute an actual charm hook
-	c.Skip("TODO: get tools working in these tests")
-	s.SetCharm(c, "metered", "u/0")
+func (s *ManifoldSuite) TestCtxDeclaredMetric(c *gc.C) {
 	recorder := &dummyRecorder{
 		charmURL: "local:quantal/metered-1",
 		unitTag:  "u/0",
@@ -181,37 +181,16 @@ func (s *ManifoldSuite) TestDeclaredMetric(c *gc.C) {
 			},
 		},
 	}
-	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
-			return recorder, nil
-		})
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
+	ctx := collect.NewHookContext("u/0", recorder)
+	err := ctx.AddMetric("pings", "1", time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	err = collectEntity.Do(nil)
+	err = ctx.Flush("", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.closed, jc.IsTrue)
-	c.Assert(recorder.batches, gc.HasLen, 2)
-}
-
-func (s *ManifoldSuite) TestUndeclaredMetric(c *gc.C) {
-	// TODO(cmars): need to have the runner execute an actual charm hook
-	// that sends an undeclared metric.
-	c.Skip("TODO: get tools working in these tests")
-	s.SetCharm(c, "metered", "u/0")
-	recorder := &dummyRecorder{
-		charmURL: "cs:metered-1",
-		unitTag:  "u/0",
-	}
-	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
-			return recorder, nil
-		})
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
-	c.Assert(err, jc.ErrorIsNil)
-	err = collectEntity.Do(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(recorder.closed, jc.IsTrue)
-	c.Assert(recorder.batches, gc.HasLen, 0)
+	c.Assert(recorder.batches, gc.HasLen, 1)
+	c.Assert(recorder.batches[0].Metrics, gc.HasLen, 1)
+	c.Assert(recorder.batches[0].Metrics[0].Key, gc.Equals, "pings")
+	c.Assert(recorder.batches[0].Metrics[0].Value, gc.Equals, "1")
 }
 
 type dummyAgent struct {
