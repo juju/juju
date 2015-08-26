@@ -9,10 +9,10 @@ package testing
 import (
 	"os"
 
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/utils/featureflag"
 )
 
 // setUpFeatureFlags sets the feature flags from the environment.

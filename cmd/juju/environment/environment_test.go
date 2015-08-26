@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
-
 	// Bring in the dummy provider definition.
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"

@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 )
 
 // TODO(fwereade): move these definitions to juju/charm/hooks.
