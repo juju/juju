@@ -31,7 +31,7 @@ type MetadataAttributes struct {
 	RootStorageType string
 
 	// RootStorageSize contains size of root storage in gigabytes (GB).
-	RootStorageSize uint64
+	RootStorageSize *uint64
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source SourceType

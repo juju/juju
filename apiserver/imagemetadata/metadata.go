@@ -101,7 +101,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		Arch:            p.Arch,
 		VirtualType:     p.VirtualType,
 		RootStorageType: p.RootStorageType,
-		RootStorageSize: &p.RootStorageSize,
+		RootStorageSize: p.RootStorageSize,
 		Source:          string(p.Source),
 	}
 	return result
@@ -126,7 +126,7 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 			Arch:            p.Arch,
 			VirtualType:     p.VirtualType,
 			RootStorageType: p.RootStorageType,
-			RootStorageSize: *p.RootStorageSize,
+			RootStorageSize: p.RootStorageSize,
 			Source:          parseSource(p.Source),
 		},
 		p.ImageId,
