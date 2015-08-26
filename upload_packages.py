@@ -15,6 +15,11 @@ def get_changes(package_dir):
     file_names = [
         f for f in os.listdir(package_dir) if f.endswith('_source.changes')]
     file_name = file_names[0]
+    for file_name in os.listdir(package_dir):
+        if file_name.endswith('_source.changes'):
+            break
+    else:
+        raise ValueError('*.changes file not found in {}'.format(package_dir))
     with open(os.path.join(package_dir, file_name)) as changes_file:
         changes = changes_file.read()
     version = source_name = None
@@ -57,7 +62,6 @@ def upload_packages(lp, ppa, package_dirs, dry_run=False):
     archive = team.getPPAByName(name=archive_name)
     for package_dir in package_dirs:
         upload_package(ppa, archive, package_dir, dry_run=dry_run)
-    return 0
 
 
 def get_args(argv=None):
@@ -83,9 +87,9 @@ def main(argv=None):
     lp = Launchpad.login_with(
         'upload-packages', service_root='https://api.launchpad.net',
         version='devel', credentials_file=args.credentials)
-    ret_code = upload_packages(
+    upload_packages(
         lp, args.ppa, args.package_dirs, dry_run=args.dry_run)
-    return ret_code
+    return 0
 
 
 if __name__ == '__main__':

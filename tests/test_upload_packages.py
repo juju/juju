@@ -43,7 +43,6 @@ class UploadPackageTestCase(TestCase):
     @patch('upload_packages.Launchpad.login_with')
     @patch('upload_packages.upload_packages', autospec=True)
     def test_main(self, up_mock, lw_mock):
-        up_mock.return_value = 0
         lp = object()
         lw_mock.return_value = lp
         return_code = main(['-d', '-c', 'creds', 'ppa:team/archive', 'a', 'b'])
@@ -102,16 +101,16 @@ class UploadPackageTestCase(TestCase):
 
     @patch('upload_packages.upload_package', autospec=True)
     def test_upload_packages(self, up_mock):
+        # assigning a side_effect requires an iterable, unlike instantiation.
         up_mock.side_effect = iter([False, True])
         team = Mock(name='bar', getPPAByName=Mock())
         team.getPPAByName.return_value = 'baz'
         lp = Mock(people={'bar': team})
         with temp_dir() as package_dir1:
             with temp_dir() as package_dir2:
-                return_code = upload_packages(
+                upload_packages(
                     lp, 'ppa:bar/baz', [package_dir1, package_dir2],
                     dry_run=False)
-        self.assertEqual(0, return_code)
         call1 = call('ppa:bar/baz', 'baz', package_dir1, dry_run=False)
         call2 = call('ppa:bar/baz', 'baz', package_dir2, dry_run=False)
         self.assertEqual([call1, call2], up_mock.mock_calls)
