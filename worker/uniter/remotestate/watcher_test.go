@@ -20,6 +20,7 @@ type WatcherSuite struct {
 
 	st         mockState
 	leadership mockLeadershipTracker
+	watcher    *remotestate.RemoteStateWatcher
 }
 
 var _ = gc.Suite(&WatcherSuite{})
@@ -58,13 +59,23 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		leaderTicket: mockTicket{make(chan struct{}, 1), true},
 		minionTicket: mockTicket{make(chan struct{}, 1), true},
 	}
+
+	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		State:             &s.st,
+		LeadershipTracker: &s.leadership,
+		UnitTag:           s.st.unit.tag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.watcher = w
+}
+
+func (s *WatcherSuite) TearDownTest(c *gc.C) {
+	err := s.watcher.Stop()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *WatcherSuite) TestInitialSnapshot(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	snap := w.Snapshot()
-	c.Assert(w.Stop(), jc.ErrorIsNil)
+	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{},
 		Storage:   map[names.StorageTag]remotestate.StorageSnapshot{},
@@ -72,14 +83,10 @@ func (s *WatcherSuite) TestInitialSnapshot(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
-
 	// There should not be a remote state change until
 	// we've seen all of the top-level notifications.
 	s.st.unit.unitWatcher.changes <- struct{}{}
-	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
@@ -88,7 +95,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.service.relationsWatcher.changes <- []string{}
 	s.leadership.claimTicket.ch <- struct{}{}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
 
 func signalAll(st *mockState, l *mockLeadershipTracker) {
@@ -103,13 +110,10 @@ func signalAll(st *mockState, l *mockLeadershipTracker) {
 }
 
 func (s *WatcherSuite) TestSnapshot(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	snap := w.Snapshot()
+	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
 		Relations:             map[int]remotestate.RelationSnapshot{},
@@ -124,31 +128,27 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
-
 	assertOneChange := func() {
-		assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-		assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+		assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+		assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	}
 
 	signalAll(&s.st, &s.leadership)
 	assertOneChange()
-	initial := w.Snapshot()
+	initial := s.watcher.Snapshot()
 
 	s.st.unit.life = params.Dying
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(w.Snapshot().Life, gc.Equals, params.Dying)
+	c.Assert(s.watcher.Snapshot().Life, gc.Equals, params.Dying)
 
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(w.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
+	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
 
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(w.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+2)
+	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+2)
 
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
@@ -156,84 +156,66 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.service.forceUpgrade = true
 	s.st.unit.service.serviceWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(w.Snapshot().ForceCharmUpgrade, jc.IsTrue)
+	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 
 	s.st.unit.service.leaderSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(w.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
+	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
 
 	s.st.unit.service.relationsWatcher.changes <- []string{}
 	assertOneChange()
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	s.st.unit.resolved = params.ResolvedRetryHooks
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	snap := w.Snapshot()
+	snap := s.watcher.Snapshot()
 	c.Assert(snap.ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
-	w.ClearResolvedMode()
-	snap = w.Snapshot()
+	s.watcher.ClearResolvedMode()
+	snap = s.watcher.Snapshot()
 	c.Assert(snap.ResolvedMode, gc.Equals, params.ResolvedNone)
 }
 
 func (s *WatcherSuite) TestLeadershipChanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
-
 	s.leadership.claimTicket.result = false
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Leader, jc.IsFalse)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
 
 	s.leadership.leaderTicket.ch <- struct{}{}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Leader, jc.IsTrue)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Leader, jc.IsTrue)
 
 	s.leadership.minionTicket.ch <- struct{}{}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Leader, jc.IsFalse)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
 }
 
 func (s *WatcherSuite) TestLeadershipMinionUnchanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
-
 	s.leadership.claimTicket.result = false
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// Initially minion, so triggering minion should have no effect.
 	s.leadership.minionTicket.ch <- struct{}{}
-	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 }
 
 func (s *WatcherSuite) TestLeadershipLeaderUnchanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
-
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// Initially leader, so triggering leader should have no effect.
 	s.leadership.leaderTicket.ch <- struct{}{}
-	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 }
 
 func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	storageTag0 := names.NewStorageTag("blob/0")
 	storageAttachmentId0 := params.StorageAttachmentId{
@@ -272,12 +254,12 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	// We should not see any event until the storage attachment watchers
 	// return their initial events.
 	s.st.unit.storageWatcher.changes <- []string{"blob/0", "blob/1"}
-	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	storageTag0Watcher.changes <- struct{}{}
 	storageTag1Watcher.changes <- struct{}{}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: remotestate.StorageSnapshot{
 			Life: params.Alive,
 		},
@@ -298,10 +280,10 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	}
 	delete(s.st.storageAttachment, storageAttachmentId1)
 	storageTag0Watcher.changes <- struct{}{}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	s.st.unit.storageWatcher.changes <- []string{"blob/1"}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: remotestate.StorageSnapshot{
 			Life:     params.Dying,
 			Attached: true,
@@ -312,11 +294,8 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	storageTag0 := names.NewStorageTag("blob/0")
 	storageAttachmentId0 := params.StorageAttachmentId{
@@ -336,9 +315,9 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 
 	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
 	storageTag0Watcher.changes <- struct{}{}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: remotestate.StorageSnapshot{
 			Life: params.Alive,
 		},
@@ -352,10 +331,10 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	// The storage is still unattached; triggering the storage-specific
 	// watcher should not cause any event to be emitted.
 	storageTag0Watcher.changes <- struct{}{}
-	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: remotestate.StorageSnapshot{
 			Life: params.Dying,
 		},
@@ -367,34 +346,28 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	// storage watcher will remove it and update the snapshot.
 	delete(s.st.storageAttachment, storageAttachmentId0)
 	storageTag0Watcher.changes <- struct{}{}
-	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	c.Assert(storageTag0Watcher.stopped, jc.IsTrue)
 	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Storage, gc.HasLen, 0)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Storage, gc.HasLen, 0)
 }
 
 func (s *WatcherSuite) TestStorageChangedNotFoundInitially(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// blob/0 is initially in state, but is removed between the
 	// watcher signal and the uniter querying it. This should
 	// not cause the watcher to raise an error.
 	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Storage, gc.HasLen, 0)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Storage, gc.HasLen, 0)
 }
 
 func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
@@ -407,13 +380,13 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 
 	// There should not be any signal until the relation units watcher has
 	// returned its initial event also.
-	assertNoNotifyEvent(c, w.RemoteStateChanged(), "remote state change")
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.st.relationUnitsWatchers[relationTag].changes <- multiwatcher.RelationUnitsChange{
 		Changed: map[string]multiwatcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
 	}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(
-		w.Snapshot().Relations,
+		s.watcher.Snapshot().Relations,
 		jc.DeepEquals,
 		map[int]remotestate.RelationSnapshot{
 			123: remotestate.RelationSnapshot{
@@ -427,24 +400,21 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 	// from the relation units watcher.
 	s.st.relations[relationTag].life = params.Dying
 	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Relations[123].Life, gc.Equals, params.Dying)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Relations[123].Life, gc.Equals, params.Dying)
 
 	// If a relation is not found, then it should be removed from the
 	// snapshot and its relation units watcher stopped.
 	delete(s.st.relations, relationTag)
 	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Relations, gc.HasLen, 0)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Relations, gc.HasLen, 0)
 	c.Assert(s.st.relationUnitsWatchers[relationTag].stopped, jc.IsTrue)
 }
 
 func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
-	w, err := remotestate.NewWatcher(&s.st, &s.leadership, s.st.unit.tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
@@ -458,14 +428,14 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 	s.st.relationUnitsWatchers[relationTag].changes <- multiwatcher.RelationUnitsChange{
 		Changed: map[string]multiwatcher.UnitSettings{"mysql/1": {1}},
 	}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	s.st.relationUnitsWatchers[relationTag].changes <- multiwatcher.RelationUnitsChange{
 		Changed: map[string]multiwatcher.UnitSettings{"mysql/1": {2}, "mysql/2": {1}},
 	}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(
-		w.Snapshot().Relations[123].Members,
+		s.watcher.Snapshot().Relations[123].Members,
 		jc.DeepEquals,
 		map[string]int64{"mysql/1": 2, "mysql/2": 1},
 	)
@@ -473,9 +443,9 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 	s.st.relationUnitsWatchers[relationTag].changes <- multiwatcher.RelationUnitsChange{
 		Departed: []string{"mysql/1", "mysql/42"},
 	}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(
-		w.Snapshot().Relations[123].Members,
+		s.watcher.Snapshot().Relations[123].Members,
 		jc.DeepEquals,
 		map[string]int64{"mysql/2": 1},
 	)

@@ -182,10 +182,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 		var err error
 		watcher, err = remotestate.NewWatcher(
-			remotestate.NewAPIState(u.st),
-			u.leadershipTracker,
-			unitTag,
-		)
+			remotestate.WatcherConfig{
+				State:             remotestate.NewAPIState(u.st),
+				LeadershipTracker: u.leadershipTracker,
+				UnitTag:           unitTag,
+			})
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -247,11 +248,23 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return tomb.ErrDying
 		case <-watcher.RemoteStateChanged():
 		}
-
-		for err == nil {
-			err = resolverLoop(
-				uniterResolver, watcher, u.operationExecutor, u.tomb.Dying(), onIdle,
+		updateStatusChannel := func() <-chan time.Time {
+			return u.updateStatusAt(
+				time.Now(),
+				time.Unix(u.operationState().UpdateStatusTime, 0),
+				statusPollInterval,
 			)
+		}
+		for err == nil {
+			err = resolverLoop(resolverLoopConfig{
+				resolver:            uniterResolver,
+				remoteStateWatcher:  watcher,
+				executor:            u.operationExecutor,
+				factory:             u.operationFactory,
+				updateStatusChannel: updateStatusChannel,
+				dying:               u.tomb.Dying(),
+				onIdle:              onIdle,
+			})
 			switch cause := errors.Cause(err); cause {
 			case tomb.ErrDying:
 				err = tomb.ErrDying
