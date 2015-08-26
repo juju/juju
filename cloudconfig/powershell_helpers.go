@@ -69,7 +69,11 @@ function create-account ([string]$accountName, [string]$accountDescription, [str
 	$User.UserFlags[0] = $User.UserFlags[0] -bor 0x10000
 	$user.SetInfo()
 
-	$objOU = [ADSI]"WinNT://$hostname/Administrators,group"
+	# This gets the Administrator group name that is localized on different windows versions. 
+	# However the SID S-1-5-32-544 is the same on all versions.
+	$adminGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount]).Value.Split("\")[1]
+
+	$objOU = [ADSI]"WinNT://$hostname/$adminGroup,group"
 	$objOU.add("WinNT://$hostname/$accountName")
 }
 

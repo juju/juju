@@ -62,7 +62,11 @@ function create-account ([string]$accountName, [string]$accountDescription, [str
  $User.UserFlags[0] = $User.UserFlags[0] -bor 0x10000
  $user.SetInfo()
 
- $objOU = [ADSI]"WinNT://$hostname/Administrators,group"
+ # This gets the Administrator group name that is localized on different windows versions. 
+ # However the SID S-1-5-32-544 is the same on all versions.
+ $adminGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount]).Value.Split("\")[1]
+
+ $objOU = [ADSI]"WinNT://$hostname/$adminGroup,group"
  $objOU.add("WinNT://$hostname/$accountName")
 }
 
@@ -840,9 +844,10 @@ mkdir -Force "C:\Juju"
 mkdir C:\Juju\tmp
 mkdir "C:\Juju\bin"
 mkdir "C:\Juju\lib\juju\locks"
+$adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])
 $acl = Get-Acl -Path 'C:\Juju'
 $acl.SetAccessRuleProtection($true, $false)
-$adminPerm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+$adminPerm = "$adminsGroup", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $rule = New-Object System.Security.AccessControl.FileSystemAccessRule $adminPerm
 $acl.AddAccessRule($rule)
@@ -866,7 +871,7 @@ Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"h
 New-Item -Path 'HKLM:\SOFTWARE\juju-core'
 $acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju-core'
 $acl.SetAccessRuleProtection($true, $false)
-$adminPerm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+$adminPerm = "$adminsGroup", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
 $rule = New-Object System.Security.AccessControl.RegistryAccessRule $adminPerm
 $acl.AddAccessRule($rule)
