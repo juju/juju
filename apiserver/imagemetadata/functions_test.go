@@ -25,13 +25,23 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 		cloudimagemetadata.MetadataAttributes{
 			Stream: "released",
 			Source: cloudimagemetadata.Custom,
-		}, ""}
+		},
+		"",
+	}
 }
 
 var _ = gc.Suite(&funcSuite{})
 
-func (s *funcSuite) TestParseMetadataEmpty(c *gc.C) {
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{})
+func (s *funcSuite) TestParseMetadataSourcePanic(c *gc.C) {
+	m := func() { imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{}) }
+	c.Assert(m, gc.PanicMatches, `unknown cloud image metadata source ""`)
+}
+
+func (s *funcSuite) TestParseMetadataCustom(c *gc.C) {
+	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "custom"})
+	c.Assert(m, gc.DeepEquals, s.expected)
+
+	m = imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "CusTOM"})
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
@@ -45,10 +55,20 @@ func (s *funcSuite) TestParseMetadataPublic(c *gc.C) {
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
-func (s *funcSuite) TestParseMetadataWithStream(c *gc.C) {
+func (s *funcSuite) TestParseMetadataAnyStream(c *gc.C) {
 	stream := "happy stream"
 	s.expected.Stream = stream
 
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Stream: stream})
+	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{
+		Source: "custom",
+		Stream: stream,
+	})
+	c.Assert(m, gc.DeepEquals, s.expected)
+}
+
+func (s *funcSuite) TestParseMetadataDefaultStream(c *gc.C) {
+	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{
+		Source: "custom",
+	})
 	c.Assert(m, gc.DeepEquals, s.expected)
 }

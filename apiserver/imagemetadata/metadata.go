@@ -4,6 +4,7 @@
 package imagemetadata
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,16 +17,16 @@ func init() {
 	common.RegisterStandardFacade("ImageMetadata", 1, NewAPI)
 }
 
-// API implements the storage interface and is the concrete
-// implementation of the api end point.
+// API is the concrete implementation of the api end point
+// for loud image metadata manipulations.
 type API struct {
-	storage    access
+	metadata   metadataAcess
 	authorizer common.Authorizer
 }
 
 // createAPI returns a new image metadata API facade.
 func createAPI(
-	st access,
+	st metadataAcess,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -34,12 +35,12 @@ func createAPI(
 	}
 
 	return &API{
-		storage:    st,
+		metadata:   st,
 		authorizer: authorizer,
 	}, nil
 }
 
-// NewAPI returns a new storage API facade.
+// NewAPI returns a new cloud image metadata API facade.
 func NewAPI(
 	st *state.State,
 	resources *common.Resources,
@@ -52,7 +53,7 @@ func NewAPI(
 // given filter.
 // Returned list contains metadata for custom images first, then public.
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
-	found, err := api.storage.FindMetadata(cloudimagemetadata.MetadataFilter{
+	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
 		Series:          filter.Series,
 		Arches:          filter.Arches,
@@ -86,7 +87,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
 	for i, one := range metadata.Metadata {
-		err := api.storage.SaveMetadata(parseMetadataFromParams(one))
+		err := api.metadata.SaveMetadata(parseMetadataFromParams(one))
 		all[i] = params.ErrorResult{Error: common.ServerError(err)}
 	}
 	return params.ErrorResults{Results: all}, nil
@@ -113,8 +114,10 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 		switch cloudimagemetadata.SourceType(strings.ToLower(s)) {
 		case cloudimagemetadata.Public:
 			return cloudimagemetadata.Public
-		default:
+		case cloudimagemetadata.Custom:
 			return cloudimagemetadata.Custom
+		default:
+			panic(fmt.Sprintf("unknown cloud image metadata source %q", s))
 		}
 	}
 

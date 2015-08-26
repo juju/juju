@@ -53,7 +53,8 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 		Arch:            "arch",
 		VirtualType:     "virtType",
 		RootStorageType: "rootStorageType",
-		ImageId:         "1"}
+		ImageId:         "1",
+	}
 
 	errs, err := s.client.Save([]params.CloudImageMetadata{m})
 	c.Assert(err, jc.ErrorIsNil)
