@@ -11,13 +11,26 @@ from launchpadlib.launchpad import Launchpad
 
 
 def get_changes(package_dir):
-    file_name = [
+    file_names = [
         f for f in os.listdir(package_dir) if f.endswith('_source.changes')]
-    source_name, version, ignore = file_name.split('_')
+    file_name = file_names[0]
+    with open(os.path.join(package_dir, file_name)) as changes_file:
+        changes = changes_file.read()
+    version = source_name = None
+    for line in changes.splitlines():
+        if line.startswith('Version:'):
+            ignore, version = line.split(' ')
+        if line.startswith('Source:'):
+            ignore, source_name = line.split(' ')
+        if version and source_name:
+            break
+    else:
+        raise AssertionError(
+            'Version: and Source: not found in {}'.format(file_name))
     return source_name, version, file_name
 
 
-def upload_package(team, archive, package_dir, dry_run=False):
+def upload_package(ppa, team, archive, package_dir, dry_run=False):
     source_name, version, file_name = get_changes(package_dir)
     package_histories = archive.getPublishedSources(
         source_name=source_name, version=version)
@@ -25,33 +38,32 @@ def upload_package(team, archive, package_dir, dry_run=False):
         print('{} {} is uploaded'.format(source_name, version))
         return False
     print('uploading {} {}'.format(source_name, version))
-    uri = 'ppa:{}/{}'.format(team.name, archive.name)
     if not dry_run:
-        subprocess.call(['dput', uri, file_name], cwd=package_dir)
+        subprocess.call(['dput', ppa, file_name], cwd=package_dir)
     return True
 
 
-def upload_packages(lp, team_name, archive_name, package_dirs, dry_run=False):
+def upload_packages(lp, ppa, package_dirs, dry_run=False):
     """Upload new source packages to the archive."""
+    ignore, team_archive = ppa.split(':')
+    team_name, archive_name = team_archive.split('/')
     team = lp.people[team_name]
     archive = team.getPPAByName(name=archive_name)
     for package_dir in package_dirs:
-        upload_package(team, archive, package_dir, dry_run=dry_run)
+        upload_package(ppa, team, archive, package_dir, dry_run=dry_run)
 
 
 def get_args(argv=None):
     """Return the option parser for this program."""
     parser = ArgumentParser('Upload new source packages to Launchpad.')
     parser.add_argument(
-        '--dry-run', action="store_true", default=False,
+        '-d', '--dry-run', action="store_true", default=False,
         help='Explain what will happen without making changes')
     parser.add_argument(
         "-c", "--credentials", default=None, type=os.path.expanduser,
         help="Launchpad credentials file.")
     parser.add_argument(
-        'team_name', help='The team that owns the archive.')
-    parser.add_argument(
-        'archive_name', help='The archive to upload the source packages to.')
+        'ppa', help='The ppa to upload to: ppa:<person>/<archive>.')
     parser.add_argument(
         'package_dirs', nargs='+', type=os.path.expanduser,
         help='One or more source package directories.')
@@ -64,7 +76,7 @@ def main(argv=None):
         'upload-packages', service_root='https://api.launchpad.net',
         version='devel', credentials_file=args.credentials)
     ret_code = upload_packages(
-        lp, args.team_name, args.archive_name, args.package_dirs, args.dry_run)
+        lp, args.ppa, args.package_dirs, args.dry_run)
     return ret_code
 
 
