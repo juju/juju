@@ -57,7 +57,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 	// No metadata is stored yet.
 	// So when looking for all and none is found, err.
-	found, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{})
+	found, err := s.storage.FindMetadata(cloudimagemetadata.MetadataFilter{})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
 	c.Assert(found, gc.HasLen, 0)
@@ -74,13 +74,28 @@ func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 	s.assertRecordMetadata(c, m)
 
 	// ...but look for something else.
-	none, err := s.storage.FindMetadata(cloudimagemetadata.MetadataAttributes{
+	none, err := s.storage.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Stream: "something else",
 	})
 	// Make sure that we are explicit that we could not find what we wanted.
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
 	c.Assert(none, gc.HasLen, 0)
+}
+
+func buildAttributesFilter(attrs cloudimagemetadata.MetadataAttributes) cloudimagemetadata.MetadataFilter {
+	filter := cloudimagemetadata.MetadataFilter{
+		Stream:          attrs.Stream,
+		Region:          attrs.Region,
+		VirtualType:     attrs.VirtualType,
+		RootStorageType: attrs.RootStorageType}
+	if attrs.Series != "" {
+		filter.Series = []string{attrs.Series}
+	}
+	if attrs.Arch != "" {
+		filter.Arches = []string{attrs.Arch}
+	}
+	return filter
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
@@ -94,7 +109,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 
 	m := cloudimagemetadata.Metadata{attrs, "1"}
 
-	_, err := s.storage.FindMetadata(attrs)
+	_, err := s.storage.FindMetadata(buildAttributesFilter(attrs))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertRecordMetadata(c, m)
@@ -225,12 +240,12 @@ func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemeta
 }
 
 func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloudimagemetadata.MetadataAttributes, expected ...cloudimagemetadata.Metadata) {
-	metadata, err := s.storage.FindMetadata(criteria)
+	metadata, err := s.storage.FindMetadata(buildAttributesFilter(criteria))
 	c.Assert(err, jc.ErrorIsNil)
 
 	groups := make(map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata)
 	for _, one := range expected {
-		cloudimagemetadata.AddOneToGroup(one, groups)
+		groups[one.Source] = append(groups[one.Source], one)
 	}
 	c.Assert(metadata, jc.DeepEquals, groups)
 }
