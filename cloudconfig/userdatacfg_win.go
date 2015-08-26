@@ -55,11 +55,11 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		// Some providers create a baseDir before this step, but we need to
 		// make sure it exists before applying icacls
 		fmt.Sprintf(`mkdir -Force "%s"`, renderer.FromSlash(baseDir)),
-		fmt.Sprintf(`icacls "%s" /grant "jujud:(OI)(CI)(F)" /T`, renderer.FromSlash(baseDir)),
 		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(tmpDir)),
 		fmt.Sprintf(`mkdir "%s"`, binDir),
 		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
 	)
+	w.conf.AddScripts(setACLs(renderer.FromSlash(baseDir), fileSystem)...)
 	w.conf.AddScripts(`setx /m PATH "$env:PATH;C:\Juju\bin\"`)
 	noncefile := renderer.Join(dataDir, NonceFile)
 	w.conf.AddScripts(
