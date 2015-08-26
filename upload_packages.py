@@ -30,7 +30,7 @@ def get_changes(package_dir):
     return source_name, version, file_name
 
 
-def upload_package(ppa, team, archive, package_dir, dry_run=False):
+def upload_package(ppa, archive, package_dir, dry_run=False):
     source_name, version, file_name = get_changes(package_dir)
     package_histories = archive.getPublishedSources(
         source_name=source_name, version=version)
@@ -39,7 +39,7 @@ def upload_package(ppa, team, archive, package_dir, dry_run=False):
         return False
     print('uploading {} {}'.format(source_name, version))
     if not dry_run:
-        subprocess.call(['dput', ppa, file_name], cwd=package_dir)
+        subprocess.check_call(['dput', ppa, file_name], cwd=package_dir)
     return True
 
 
@@ -50,7 +50,7 @@ def upload_packages(lp, ppa, package_dirs, dry_run=False):
     team = lp.people[team_name]
     archive = team.getPPAByName(name=archive_name)
     for package_dir in package_dirs:
-        upload_package(ppa, team, archive, package_dir, dry_run=dry_run)
+        upload_package(ppa, archive, package_dir, dry_run=dry_run)
 
 
 def get_args(argv=None):
