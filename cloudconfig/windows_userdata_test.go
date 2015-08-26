@@ -846,9 +846,12 @@ Set-Content $binDir\downloaded-tools.txt '{"version":"1.2.3-win8-amd64","url":"h
 New-Item -Path 'HKLM:\SOFTWARE\juju-core'
 $acl = Get-Acl -Path 'HKLM:\SOFTWARE\juju-core'
 $acl.SetAccessRuleProtection($true, $false)
-$perm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
-$rule = New-Object System.Security.AccessControl.RegistryAccessRule $perm
-$acl.SetAccessRule($rule)
+$adminPerm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+$jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+$rule = New-Object System.Security.AccessControl.RegistryAccessRule $adminPerm
+$acl.AddAccessRule($rule)
+$rule = New-Object System.Security.AccessControl.RegistryAccessRule $jujudPerm
+$acl.AddAccessRule($rule)
 Set-Acl -Path 'HKLM:\SOFTWARE\juju-core' -AclObject $acl
 New-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS'
 Set-ItemProperty -Path 'HKLM:\SOFTWARE\juju-core' -Name 'JUJU_DEV_FEATURE_FLAGS' -Value ''
