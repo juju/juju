@@ -837,10 +837,19 @@ $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $
 
 
 mkdir -Force "C:\Juju"
-icacls "C:\Juju" /grant "jujud:(OI)(CI)(F)" /T
 mkdir C:\Juju\tmp
 mkdir "C:\Juju\bin"
 mkdir "C:\Juju\lib\juju\locks"
+$acl = Get-Acl -Path 'C:\Juju'
+$acl.SetAccessRuleProtection($true, $false)
+$adminPerm = "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+$jujudPerm = "jujud", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule $adminPerm
+$acl.AddAccessRule($rule)
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule $jujudPerm
+$acl.AddAccessRule($rule)
+Set-Acl -Path 'C:\Juju' -AclObject $acl
+setx /m PATH "$env:PATH;C:\Juju\bin\"
 Set-Content "C:\Juju\lib\juju\nonce.txt" "'FAKE_NONCE'"
 $binDir="C:\Juju\lib\juju\tools\1.2.3-win8-amd64"
 mkdir 'C:\Juju\log\juju'
