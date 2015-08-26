@@ -438,14 +438,13 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
-	c.Skip("maltese-falcon")
 	s.runUniterTests(c, []uniterTest{
 		// Reaction to entity deaths.
 		ut(
 			"steady state unit dying",
 			quickStart{},
 			unitDying,
-			waitHooks{"stop"},
+			waitHooks{"leader-settings-changed", "stop"},
 			waitUniterDead{},
 		), ut(
 			"steady state unit dead",
@@ -460,7 +459,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 			verifyWaiting{},
 			fixHook{"start"},
 			resolveError{state.ResolvedRetryHooks},
-			waitHooks{"start", "config-changed", "stop"},
+			waitHooks{"start", "leader-settings-changed", "stop"},
 			waitUniterDead{},
 		), ut(
 			"hook error unit dead",
