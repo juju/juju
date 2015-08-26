@@ -6,8 +6,10 @@ import os
 from unittest import TestCase
 
 from upload_packages import (
+    get_args,
     get_changes,
     upload_package,
+    upload_packages,
 )
 from utils import temp_dir
 
@@ -27,6 +29,13 @@ Distribution: trusty
 
 
 class UploadPackageTestCase(TestCase):
+
+    def test_get_args(self):
+        args = get_args(['-d', '-c', 'creds', 'ppa:team/archive', 'a', 'b'])
+        self.assertEqual('ppa:team/archive', args.ppa)
+        self.assertEqual(['a', 'b'], args.package_dirs)
+        self.assertEqual('creds', args.credentials)
+        self.assertTrue(args.dry_run)
 
     def test_get_changes(self):
         with temp_dir() as package_dir:
@@ -74,3 +83,20 @@ class UploadPackageTestCase(TestCase):
             ['dput', 'ppa:bar/baz', 'foo_source.changes'], cwd=package_dir)
         archive.getPublishedSources.assert_called_with(
             source_name='juju-core', version='1.24.5-0ubuntu1~14.04.1~juju1')
+
+    @patch('upload_packages.upload_package', autospec=True)
+    def test_upload_packages(self, up_mock):
+        up_mock.side_effect = iter([False, True])
+        team = Mock(name='bar', getPPAByName=Mock())
+        team.getPPAByName.return_value = 'baz'
+        lp = Mock(people={'bar': team})
+        with temp_dir() as package_dir1:
+            with temp_dir() as package_dir2:
+                upload_packages(
+                    lp, 'ppa:bar/baz', [package_dir1, package_dir2],
+                    dry_run=False)
+        up_mock.assert_called_with(
+            'ppa:bar/baz', 'baz', package_dir2, dry_run=False)
+        up_mock.assert_any_call(
+            'ppa:bar/baz', 'baz', package_dir2, dry_run=False)
+        team.getPPAByName.assert_called_with(name='baz')
