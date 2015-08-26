@@ -59,7 +59,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, err
 			}
-			return worker.NewPeriodicWorker(collector.Do, collector.period), nil
+			return worker.NewPeriodicWorker(collector.Do, collector.period, worker.NewTimer), nil
 		},
 	}
 }

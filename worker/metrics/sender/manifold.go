@@ -60,5 +60,5 @@ func start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 	client := newMetricAdderClient(apicaller)
 
 	s := newSender(client, factory)
-	return worker.NewPeriodicWorker(s.Do, period), nil
+	return worker.NewPeriodicWorker(s.Do, period, worker.NewTimer), nil
 }
