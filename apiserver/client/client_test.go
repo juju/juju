@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -1614,7 +1614,7 @@ func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `.* charm "cs:precise/wordpress-999999".* not found`,
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceDeploy(
@@ -1959,7 +1959,7 @@ func (s *clientRepoSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", charmUrl)
 		args := params.ServiceUpdate{
@@ -2247,7 +2247,7 @@ func (s *clientRepoSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceSetCharm(
@@ -3246,7 +3246,7 @@ func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
 func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	repo := &testModeCharmRepo{}
 	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-		p.URL = s.Srv.URL()
+		p.URL = s.Srv.URL
 		repo.CharmStore = charmrepo.NewCharmStore(p).(*charmrepo.CharmStore)
 		return repo
 	})

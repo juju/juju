@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&cacheFileInterfaceSuite{})

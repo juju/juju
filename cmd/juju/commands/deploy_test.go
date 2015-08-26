@@ -18,13 +18,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
-	"gopkg.in/juju/charmstore.v4"
-	"gopkg.in/juju/charmstore.v4/charmstoretesting"
-	"gopkg.in/juju/charmstore.v4/csclient"
-	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v0/bakerytest"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v1/csclient"
+	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -450,7 +449,7 @@ var deployAuthorizationTests = []struct {
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 	for i, test := range deployAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := s.uploadCharm(c, test.uploadURL, "wordpress")
+		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
@@ -480,7 +479,9 @@ const (
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	testing.JujuConnSuite
-	srv        *charmstoretesting.Server
+	handler    charmstore.HTTPCloseHandler
+	srv        *httptest.Server
+	client     *csclient.Client
 	discharger *bakerytest.Discharger
 }
 
@@ -491,7 +492,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
 		cookie, err := req.Cookie(clientUserCookie)
 		if err != nil {
-			return nil, errors.New("discharge denied to non-clients")
+			return nil, errors.Annotate(err, "discharge denied to non-clients")
 		}
 		return []checkers.Caveat{
 			checkers.DeclaredCaveat("username", cookie.Value),
@@ -499,9 +500,21 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	})
 
 	// Set up the charm store testing server.
-	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
+	db := s.Session.DB("juju-testing")
+	params := charmstore.ServerParams{
+		AuthUsername:     "test-user",
+		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
 		PublicKeyLocator: s.discharger,
+	}
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.handler = handler
+	s.srv = httptest.NewServer(handler)
+	s.client = csclient.New(csclient.Params{
+		URL:      s.srv.URL,
+		User:     params.AuthUsername,
+		Password: params.AuthPassword,
 	})
 
 	// Initialize the charm cache dir.
@@ -514,7 +527,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		if err != nil {
 			return nil, err
 		}
-		csclient.params.URL = s.srv.URL()
+		csclient.params.URL = s.srv.URL
 		// Add a cookie so that the discharger can detect whether the
 		// HTTP client is the juju environment or the juju client.
 		lurl, err := url.Parse(s.discharger.Location())
@@ -529,32 +542,20 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	})
 
 	// Point the Juju API server to the charm store testing server.
-	s.PatchValue(&csclient.ServerURL, s.srv.URL())
+	s.PatchValue(&csclient.ServerURL, s.srv.URL)
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
 	s.discharger.Close()
+	s.handler.Close()
 	s.srv.Close()
 	s.JujuConnSuite.TearDownTest(c)
-}
-
-// uploadCharm adds a charm with the given URL and name to the charm store.
-func (s *charmStoreSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	id := charm.MustParseReference(url)
-	promulgated := false
-	if id.User == "" {
-		id.User = "who"
-		promulgated = true
-	}
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	id = s.srv.UploadCharm(c, ch, id, promulgated)
-	return (*charm.URL)(id), ch
 }
 
 // changeReadPerm changes the read permission of the given charm URL.
 // The charm must be present in the testing charm store.
 func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
-	err := s.srv.NewClient().Put("/"+url.Path()+"/meta/perm/read", perms)
+	err := s.client.Put("/"+url.Path()+"/meta/perm/read", perms)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

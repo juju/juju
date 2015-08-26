@@ -6,15 +6,15 @@ package commands
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http/httptest"
 	"os"
 	"path"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
-	"gopkg.in/juju/charmstore.v4"
-	"gopkg.in/juju/charmstore.v4/charmstoretesting"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -25,23 +25,33 @@ import (
 
 type UpgradeCharmErrorsSuite struct {
 	jujutesting.RepoSuite
-	srv *charmstoretesting.Server
+	handler charmstore.HTTPCloseHandler
+	srv     *httptest.Server
 }
 
 func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
+	// Set up the charm store testing server.
+	handler, err := charmstore.NewServer(s.Session.DB("juju-testing"), nil, "", charmstore.ServerParams{
+		AuthUsername: "test-user",
+		AuthPassword: "test-password",
+	}, charmstore.V4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.handler = handler
+	s.srv = httptest.NewServer(handler)
+
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	original := newCharmStoreClient
 	s.PatchValue(&newCharmStoreClient, func() (*csClient, error) {
 		csclient, err := original()
 		c.Assert(err, jc.ErrorIsNil)
-		csclient.params.URL = s.srv.URL()
+		csclient.params.URL = s.srv.URL
 		return csclient, nil
 	})
 }
 
 func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
+	s.handler.Close()
 	s.srv.Close()
 	s.RepoSuite.TearDownTest(c)
 }
@@ -316,12 +326,12 @@ var upgradeCharmAuthorizationTests = []struct {
 }}
 
 func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {
-	s.uploadCharm(c, "cs:~other/trusty/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress")
 	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 	for i, test := range upgradeCharmAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := s.uploadCharm(c, test.uploadURL, "wordpress")
+		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
