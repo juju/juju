@@ -142,7 +142,7 @@ const (
 )
 
 func (m imagesMetadataDoc) metadata() Metadata {
-	return Metadata{
+	r := Metadata{
 		MetadataAttributes{
 			Source:          m.Source,
 			Stream:          m.Stream,
@@ -150,15 +150,18 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Series:          m.Series,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
-			RootStorageSize: &m.RootStorageSize,
 			VirtualType:     m.VirtualType,
 		},
 		m.ImageId,
 	}
+	if m.RootStorageSize != 0 {
+		r.RootStorageSize = &m.RootStorageSize
+	}
+	return r
 }
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
-	return imagesMetadataDoc{
+	r := imagesMetadataDoc{
 		EnvUUID:         s.envuuid,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
@@ -167,11 +170,14 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		Arch:            m.Arch,
 		VirtualType:     m.VirtualType,
 		RootStorageType: m.RootStorageType,
-		RootStorageSize: *m.RootStorageSize,
 		ImageId:         m.ImageId,
 		DateCreated:     time.Now().UnixNano(),
 		Source:          m.Source,
 	}
+	if m.RootStorageSize != nil {
+		r.RootStorageSize = *m.RootStorageSize
+	}
+	return r
 }
 
 func buildKey(m Metadata) string {
