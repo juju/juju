@@ -81,7 +81,7 @@ check_deps() {
 
 
 publish_to_aws() {
-    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    [[ $DESTINATIONS == 'cpc' || $DESTINATIONS == 'aws' ]] || return 0
     if [[ $PURPOSE == "released" ]]; then
         local destination="s3://juju-dist/"
     else
@@ -107,7 +107,7 @@ publish_to_aws() {
 
 
 publish_to_canonistack() {
-    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    [[ $DESTINATIONS == 'cpc' || $DESTINATIONS == 'canonistack' ]] || return 0
     [[ "${IGNORE_CANONISTACK-}" == 'true' ]] && return 0
     if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
@@ -139,7 +139,7 @@ publish_to_canonistack() {
 
 
 publish_to_hp() {
-    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    [[ $DESTINATIONS == 'cpc' || $DESTINATIONS == 'hp' ]] || return 0
     if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
     else
@@ -171,7 +171,7 @@ publish_to_hp() {
 
 
 publish_to_azure() {
-    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    [[ $DESTINATIONS == 'cpc' || $DESTINATIONS == 'azure' ]] || return 0
     echo "Phase 2: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
     if [[ ! $PURPOSE =~ ^(devel|proposed)$ ]]; then
@@ -190,7 +190,7 @@ publish_to_azure() {
 
 
 publish_to_joyent() {
-    [[ $DESTINATIONS == 'cpc' ]] || return 0
+    [[ $DESTINATIONS == 'cpc' || $DESTINATIONS == 'joyent' ]] || return 0
     [[ "${IGNORE_JOYENT-}" == 'true' ]] && return 0
     if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
@@ -265,7 +265,7 @@ if [[ ! -d $STREAM_PATH/releases && ! -d $STREAM_PATH/streams ]]; then
 fi
 
 DESTINATIONS=$3
-if [[ $DESTINATIONS != "cpc" && $DESTINATIONS != "streams" ]]; then
+if [[ ! $DESTINATIONS =~ ^(aws|azure|canonistack|hp|joyent|cpc|streams)$ ]]; then
     echo "Invalid DESTINATIONS."
     usage
 fi
@@ -283,4 +283,4 @@ publish_to_hp
 publish_to_canonistack
 publish_to_streams
 rm -r $WORK
-echo "Published $PURPOSE data to all CPCs."
+echo "Published $PURPOSE data to $DESTINATIONS."
