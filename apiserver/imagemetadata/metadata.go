@@ -4,6 +4,8 @@
 package imagemetadata
 
 import (
+	"strings"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -17,17 +19,17 @@ func init() {
 // API implements the storage interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	storage    storageAccess
+	storage    access
 	authorizer common.Authorizer
 }
 
 // createAPI returns a new image metadata API facade.
 func createAPI(
-	st storageAccess,
+	st access,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	if !authorizer.AuthClient() {
+	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 
@@ -108,10 +110,12 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Metadata {
 
 	parseSource := func(s string) cloudimagemetadata.SourceType {
-		if s == string(cloudimagemetadata.Public) {
+		switch cloudimagemetadata.SourceType(strings.ToLower(s)) {
+		case cloudimagemetadata.Public:
 			return cloudimagemetadata.Public
+		default:
+			return cloudimagemetadata.Custom
 		}
-		return cloudimagemetadata.Custom
 	}
 
 	result := cloudimagemetadata.Metadata{

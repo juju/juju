@@ -8,12 +8,12 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
-type storageAccess interface {
+type access interface {
 	FindMetadata(cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error)
 	SaveMetadata(cloudimagemetadata.Metadata) error
 }
 
-var getState = func(st *state.State) storageAccess {
+var getState = func(st *state.State) access {
 	return stateShim{st}
 }
 
