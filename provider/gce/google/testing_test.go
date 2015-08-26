@@ -143,28 +143,35 @@ func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 type fakeCall struct {
 	FuncName string
 
-	ProjectID string
-	Region    string
-	ZoneName  string
-	Name      string
-	ID        string
-	Prefix    string
-	Statuses  []string
-	Instance  *compute.Instance
-	InstValue compute.Instance
-	Firewall  *compute.Firewall
+	ProjectID    string
+	Region       string
+	ZoneName     string
+	Name         string
+	ID           string
+	Prefix       string
+	Statuses     []string
+	Instance     *compute.Instance
+	InstValue    compute.Instance
+	Firewall     *compute.Firewall
+	InstanceId   string
+	AttachedDisk *compute.AttachedDisk
+	DeviceName   string
+	ComputeDisk  *compute.Disk
 }
 
 type fakeConn struct {
 	Calls []fakeCall
 
-	Project    *compute.Project
-	Instance   *compute.Instance
-	Instances  []*compute.Instance
-	Firewall   *compute.Firewall
-	Zones      []*compute.Zone
-	Err        error
-	FailOnCall int
+	Project       *compute.Project
+	Instance      *compute.Instance
+	Instances     []*compute.Instance
+	Firewall      *compute.Firewall
+	Zones         []*compute.Zone
+	Err           error
+	FailOnCall    int
+	Disks         []*compute.Disk
+	Disk          *compute.Disk
+	AttachedDisks []*compute.AttachedDisk
 }
 
 func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
@@ -320,4 +327,117 @@ func (rc *fakeConn) ListAvailabilityZones(projectID, region string) ([]*compute.
 		err = nil
 	}
 	return rc.Zones, err
+}
+
+func (rc *fakeConn) CreateDisk(project, zone string, spec *compute.Disk) error {
+	call := fakeCall{
+		FuncName:    "CreateDisk",
+		ProjectID:   project,
+		ZoneName:    zone,
+		ComputeDisk: spec,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) ListDisks(project, zone string) ([]*compute.Disk, error) {
+	call := fakeCall{
+		FuncName:  "ListDisks",
+		ProjectID: project,
+		ZoneName:  zone,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.Disks, err
+}
+
+func (rc *fakeConn) RemoveDisk(project, zone, id string) error {
+	call := fakeCall{
+		FuncName:  "RemoveDisk",
+		ProjectID: project,
+		ZoneName:  zone,
+		ID:        id,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
+	call := fakeCall{
+		FuncName:  "GetDisk",
+		ProjectID: project,
+		ZoneName:  zone,
+		ID:        id,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.Disk, err
+}
+
+func (rc *fakeConn) AttachDisk(project, zone, instanceId string, attachedDisk *compute.AttachedDisk) error {
+	call := fakeCall{
+		FuncName:     "AttachDisk",
+		ProjectID:    project,
+		ZoneName:     zone,
+		InstanceId:   instanceId,
+		AttachedDisk: attachedDisk,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) DetachDisk(project, zone, instanceId, diskDeviceName string) error {
+	call := fakeCall{
+		FuncName:   "DetachDisk",
+		ProjectID:  project,
+		ZoneName:   zone,
+		InstanceId: instanceId,
+		DeviceName: diskDeviceName,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) InstanceDisks(project, zone, instanceId string) ([]*compute.AttachedDisk, error) {
+	call := fakeCall{
+		FuncName:   "InstanceDisks",
+		ProjectID:  project,
+		ZoneName:   zone,
+		InstanceId: instanceId,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.AttachedDisks, err
 }

@@ -436,3 +436,7 @@ func WriteLogWithOplog(
 	logs := session.DB("logs").C("logs")
 	return logs.Insert(doc)
 }
+
+func SpaceDoc(s *Space) spaceDoc {
+	return s.doc
+}

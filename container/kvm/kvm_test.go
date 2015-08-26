@@ -21,10 +21,10 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type KVMSuite struct {
@@ -67,7 +67,7 @@ func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 	network := container.BridgeNetworkConfig("testbr0", 0, nil)
 	c.Assert(kvmContainer.Start(kvm.StartParams{
 		Series:       "quantal",
-		Arch:         version.Current.Arch,
+		Arch:         arch.HostArch(),
 		UserDataFile: "userdata.txt",
 		Network:      network}), gc.IsNil)
 	return kvmContainer

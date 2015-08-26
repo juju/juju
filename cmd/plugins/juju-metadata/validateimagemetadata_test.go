@@ -109,6 +109,11 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+	// All of the following are recognized as fallbacks by goamz.
+	s.PatchEnvironment("AWS_ACCESS_KEY", "")
+	s.PatchEnvironment("AWS_SECRET_KEY", "")
+	s.PatchEnvironment("EC2_ACCESS_KEY", "")
+	s.PatchEnvironment("EC2_SECRET_KEY", "")
 }
 
 func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stream string) {

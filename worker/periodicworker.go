@@ -17,17 +17,57 @@ var ErrKilled = errors.New("worker killed")
 
 // periodicWorker implements the worker returned by NewPeriodicWorker.
 type periodicWorker struct {
-	tomb tomb.Tomb
+	tomb     tomb.Tomb
+	newTimer NewTimerFunc
 }
 
+// PeriodicWorkerCall represents the callable to be passed
+// to the periodic worker to be run every elapsed period.
 type PeriodicWorkerCall func(stop <-chan struct{}) error
+
+// PeriodicTimer is an interface for the timer that periodicworker
+// will use to handle the calls.
+type PeriodicTimer interface {
+	// Reset changes the timer to expire after duration d.
+	// It returns true if the timer had been active, false
+	// if the timer had expired or been stopped.
+	Reset(time.Duration) bool
+	// CountDown returns the channel used to signal expiration of
+	// the timer duration. The channel is called C in the base
+	// implementation of timer but the name is confusing.
+	CountDown() <-chan time.Time
+}
+
+// NewTimerFunc is a constructor used to obtain the instance
+// of PeriodicTimer periodicWorker uses on its loop.
+type NewTimerFunc func(time.Duration) PeriodicTimer
+
+// Timer implements PeriodicTimer.
+type Timer struct {
+	timer *time.Timer
+}
+
+// Reset implements PeriodicTimer.
+func (t *Timer) Reset(d time.Duration) bool {
+	return t.timer.Reset(d)
+}
+
+// CountDown implements PeriodicTimer.
+func (t *Timer) CountDown() <-chan time.Time {
+	return t.timer.C
+}
+
+// NewTimer is the default implementation of NewTimerFunc.
+func NewTimer(d time.Duration) PeriodicTimer {
+	return &Timer{time.NewTimer(d)}
+}
 
 // NewPeriodicWorker returns a worker that runs the given function continually
 // sleeping for sleepDuration in between each call, until Kill() is called
 // The stopCh argument will be closed when the worker is killed. The error returned
 // by the doWork function will be returned by the worker's Wait function.
-func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration) Worker {
-	w := &periodicWorker{}
+func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration, timerFunc NewTimerFunc) Worker {
+	w := &periodicWorker{newTimer: timerFunc}
 	go func() {
 		defer w.tomb.Done()
 		w.tomb.Kill(w.run(call, period))
@@ -36,13 +76,13 @@ func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration) Worker {
 }
 
 func (w *periodicWorker) run(call PeriodicWorkerCall, period time.Duration) error {
-	timer := time.NewTimer(0)
+	timer := w.newTimer(0)
 	stop := w.tomb.Dying()
 	for {
 		select {
 		case <-stop:
 			return tomb.ErrDying
-		case <-timer.C:
+		case <-timer.CountDown():
 			if err := call(stop); err != nil {
 				if err == ErrKilled {
 					return tomb.ErrDying

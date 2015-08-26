@@ -93,8 +93,14 @@ func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
 	s.metadataDir = c.MkDir()
+
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
+	// All of the following are recognized as fallbacks by goamz.
+	s.PatchEnvironment("AWS_ACCESS_KEY", "")
+	s.PatchEnvironment("AWS_SECRET_KEY", "")
+	s.PatchEnvironment("EC2_ACCESS_KEY", "")
+	s.PatchEnvironment("EC2_SECRET_KEY", "")
 }
 
 func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
@@ -119,6 +125,8 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingIncompleteEnvironment(c *gc.C) {
+	// We already unset the other fallbacks recognized by goamz in
+	// SetUpTest().
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	s.setupEc2LocalMetadata(c, "us-east-1")
