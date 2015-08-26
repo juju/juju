@@ -8,6 +8,7 @@ from unittest import TestCase
 from upload_packages import (
     get_args,
     get_changes,
+    main,
     upload_package,
     upload_packages,
 )
@@ -36,6 +37,21 @@ class UploadPackageTestCase(TestCase):
         self.assertEqual(['a', 'b'], args.package_dirs)
         self.assertEqual('creds', args.credentials)
         self.assertTrue(args.dry_run)
+
+    # Cannot autospec staticmethods.
+    @patch('upload_packages.Launchpad.login_with')
+    @patch('upload_packages.upload_packages', autospec=True)
+    def test_main(self, up_mock, lw_mock):
+        up_mock.return_value = 0
+        lp = object()
+        lw_mock.return_value = lp
+        return_code = main(['-d', '-c', 'creds', 'ppa:team/archive', 'a', 'b'])
+        self.assertEqual(0, return_code)
+        lw_mock.assert_called_with(
+            'upload-packages', service_root='https://api.launchpad.net',
+            version='devel', credentials_file='creds')
+        up_mock.assert_called_with(
+            lp, 'ppa:team/archive', ['a', 'b'], dry_run=True)
 
     def test_get_changes(self):
         with temp_dir() as package_dir:
@@ -92,9 +108,10 @@ class UploadPackageTestCase(TestCase):
         lp = Mock(people={'bar': team})
         with temp_dir() as package_dir1:
             with temp_dir() as package_dir2:
-                upload_packages(
+                return_code = upload_packages(
                     lp, 'ppa:bar/baz', [package_dir1, package_dir2],
                     dry_run=False)
+        self.assertEqual(0, return_code)
         up_mock.assert_called_with(
             'ppa:bar/baz', 'baz', package_dir2, dry_run=False)
         up_mock.assert_any_call(

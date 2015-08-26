@@ -51,6 +51,7 @@ def upload_packages(lp, ppa, package_dirs, dry_run=False):
     archive = team.getPPAByName(name=archive_name)
     for package_dir in package_dirs:
         upload_package(ppa, archive, package_dir, dry_run=dry_run)
+    return 0
 
 
 def get_args(argv=None):
@@ -76,7 +77,7 @@ def main(argv=None):
         'upload-packages', service_root='https://api.launchpad.net',
         version='devel', credentials_file=args.credentials)
     ret_code = upload_packages(
-        lp, args.ppa, args.package_dirs, args.dry_run)
+        lp, args.ppa, args.package_dirs, dry_run=args.dry_run)
     return ret_code
 
 
