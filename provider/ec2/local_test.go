@@ -8,6 +8,7 @@ import (
 	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -894,12 +895,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
 
-func (t *localServerSuite) TestSubnets(c *gc.C) {
-	env, _ := t.setUpInstanceWithDefaultVpc(c)
-
-	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
-	c.Assert(err, jc.ErrorIsNil)
-
+func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 	// These are defined in the test server for the testing default
 	// VPC.
 	defaultSubnets := []network.SubnetInfo{{
@@ -924,11 +920,32 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 		AllocatableIPHigh: net.ParseIP("10.10.2.254").To4(),
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
-	c.Assert(subnets, jc.DeepEquals, defaultSubnets[:1])
+
+	for _, subnet := range subnets {
+		// We can find the expected data by looking at the CIDR.
+		// subnets isn't in a predictable order due to the use of maps.
+		re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
+		c.Assert(re.Match([]byte(subnet.CIDR)), jc.IsTrue)
+		index, err := strconv.Atoi(re.FindStringSubmatch(subnet.CIDR)[1])
+		c.Assert(err, jc.ErrorIsNil)
+		// Don't know which AZ the subnet will end up in.
+		defaultSubnets[index].AvailabilityZones = subnet.AvailabilityZones
+		c.Assert(subnet, jc.DeepEquals, defaultSubnets[index])
+	}
+}
+
+func (t *localServerSuite) TestSubnets(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+
+	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, 1)
+	validateSubnets(c, subnets)
 
 	subnets, err = env.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
+	c.Assert(subnets, gc.HasLen, 3)
+	validateSubnets(c, subnets)
 }
 
 func (t *localServerSuite) TestSubnetsInstIdNotSupported(c *gc.C) {
