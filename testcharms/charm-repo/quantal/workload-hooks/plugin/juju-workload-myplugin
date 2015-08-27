@@ -186,7 +186,7 @@ class DataFile:
 
     def add(self, name, id, status):
         if id in self._data:
-            raise KeyError('proc {!r} already exists')
+            raise KeyError('workload {!r} already exists')
         row = Row(name, id, status, None, 'added')
         self._update(row)
 
@@ -198,7 +198,7 @@ class DataFile:
     def set_definition(self, name, definition):
         row = self.look_up(name)
         if row.definition is not None:
-            raise Exception('proc {!r} already launched'.format(name))
+            raise Exception('workload {!r} already launched'.format(name))
         row = row._replace(definition=definition, event='definition set')
         self._update(row)
         return row
@@ -246,19 +246,19 @@ def handle_launch(definition):
     name = json.loads(definition)['Name']
     with DataFile() as datafile:
         try:
-            proc = datafile.set_definition(name, definition)
+            workload = datafile.set_definition(name, definition)
         except KeyError:
-            raise Exception('not ready for proc {!r}'.format(name))
-    return proc.dump_details()
+            raise Exception('not ready for workload {!r}'.format(name))
+    return workload.dump_details()
 
 
 def handle_status(id):
     with DataFile() as datafile:
         try:
-            proc = datafile[id]
+            workload = datafile[id]
         except KeyError:
             raise Exception('{!r} not found'.format(id))
-    return proc.dump_status()
+    return workload.dump_status()
 
 
 def handle_destroy(id):

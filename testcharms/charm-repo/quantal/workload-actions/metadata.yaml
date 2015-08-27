@@ -14,7 +14,7 @@ provides:
 #    type: filesystem
 #    location: /var/some-server/data
 workloads:
-  myproc:
+  myworkload:
     type: myplugin
     type-options:
       critical: true
