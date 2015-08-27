@@ -13,21 +13,15 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/worker"
+	coreworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
-// Locker controls whether the chamrdir is available or not.
+// Locker controls whether the charmdir is available or not.
 type Locker interface {
 	// SetAvailable sets the availability of the charm directory for clients to
 	// access.
 	SetAvailable(bool)
-
-	// NotAvailable returns when all charmdir consumers are done with the
-	// workload, making it "not available". If there are consumers that are
-	// running functions under the premise that the charm directory is available,
-	// this call will block until all of them have returned.
-	NotAvailable()
 }
 
 // Consumer is used by workers that want to perform tasks on the condition that
@@ -36,7 +30,7 @@ type Consumer interface {
 	// Run performs the given function if the charm directory is available. It
 	// returns whether the charm directory was available to execute the function,
 	// and any error returned by that function.
-	Run(func() error) (bool, error)
+	Run(func() error) error
 }
 
 // Manifold returns a dependency.Manifold that coordinates availability of a
@@ -48,17 +42,19 @@ func Manifold() dependency.Manifold {
 	}
 }
 
-func startFunc(_ dependency.GetResourceFunc) (worker.Worker, error) {
-	w := &charmdirWorker{}
+func startFunc(_ dependency.GetResourceFunc) (coreworker.Worker, error) {
+	w := &worker{}
 	go func() {
-		defer w.tomb.Done()
 		<-w.tomb.Dying()
+		// Set unavailable so that the worker waits for any outstanding callers before it's dead.
+		w.SetAvailable(false)
+		w.tomb.Done()
 	}()
 	return w, nil
 }
 
-func outputFunc(in worker.Worker, out interface{}) error {
-	inWorker, _ := in.(*charmdirWorker)
+func outputFunc(in coreworker.Worker, out interface{}) error {
+	inWorker, _ := in.(*worker)
 	if inWorker == nil {
 		return errors.Errorf("expected %T; got %T", inWorker, in)
 	}
@@ -73,65 +69,44 @@ func outputFunc(in worker.Worker, out interface{}) error {
 	return nil
 }
 
-// charmdirWorker is a degenerate worker that manages charm directory availability.
+// worker is a degenerate worker that manages charm directory availability.
 // Initial state is "not available". The "Locker" role is intended to be filled
 // by the uniter, which will be responsible for setting charm directory
 // availability as part of its initialization (deserialization of state on
 // startup) as well as through state transitions.
-type charmdirWorker struct {
-	tomb tomb.Tomb
-
-	wg sync.WaitGroup
-
-	mu        sync.Mutex
+type worker struct {
+	tomb      tomb.Tomb
+	lock      sync.RWMutex
 	available bool
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *charmdirWorker) Kill() {
+func (w *worker) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *charmdirWorker) Wait() error {
+func (w *worker) Wait() error {
 	return w.tomb.Wait()
 }
 
 // SetAvailable implements Locker.
-func (u *charmdirWorker) SetAvailable(available bool) {
-	u.mu.Lock()
-	u.available = available
-	u.mu.Unlock()
+func (w *worker) SetAvailable(available bool) {
+	w.lock.Lock()
+	w.available = available
+	w.lock.Unlock()
 }
+
+// ErrNotAvailable indicates that the requested operation cannot be performed
+// on the charm directory because it is not available.
+var ErrNotAvailable = errors.New("charmdir not available")
 
 // Run implements Consumer.
-func (u *charmdirWorker) Run(f func() error) (bool, error) {
-	if u.enterAvailable() {
-		defer u.exitAvailable()
-		err := f()
-		return true, err
+func (w *worker) Run(f func() error) error {
+	w.lock.RLock()
+	defer w.lock.RUnlock()
+	if w.available {
+		return f()
 	}
-	return false, nil
-}
-
-func (u *charmdirWorker) enterAvailable() bool {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if u.available {
-		u.wg.Add(1)
-		return true
-	}
-	return false
-}
-
-func (u *charmdirWorker) exitAvailable() {
-	u.wg.Done()
-}
-
-// NotAvailable implements Locker.
-func (u *charmdirWorker) NotAvailable() {
-	u.mu.Lock()
-	u.wg.Wait()
-	u.available = false
-	u.mu.Unlock()
+	return ErrNotAvailable
 }
