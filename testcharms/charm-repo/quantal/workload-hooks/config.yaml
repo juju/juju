@@ -9,5 +9,5 @@ options:
         type: string
     plugin-status:
         default:
-        description: The status to set for the proc
+        description: The status to set for the workload
         type: string

@@ -138,7 +138,7 @@ func (s *workloadsSuite) TestHookLifecycle(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "",
+			Message: "myworkload/xyz123 is being tracked",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
@@ -217,7 +217,7 @@ func (s *workloadsSuite) TestHookContextRegister(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "",
+			Message: "myworkload/xyz123 is being tracked",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
@@ -275,7 +275,7 @@ func (s *workloadsSuite) TestHookContextLaunch(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "",
+			Message: "myworkload/xyz123 is being tracked",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
@@ -337,7 +337,7 @@ func (s *workloadsSuite) TestHookContextInfo(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "",
+			Message: "myworkload/xyz123 is being tracked",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
@@ -419,7 +419,7 @@ func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "",
+			Message: "myworkload/xyz123 is being tracked",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
