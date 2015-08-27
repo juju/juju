@@ -46,13 +46,13 @@ func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr net
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *environ) SupportsSpaces() bool {
-	return false
+func (env *environ) SupportsSpaces() (bool, error) {
+	return false, errors.NotSupportedf("spaces")
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	return true, nil
+	return false, errors.NotSupportedf("address allocation")
 }
 
 // Subnets implements environs.Environ.

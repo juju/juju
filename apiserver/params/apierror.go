@@ -55,7 +55,7 @@ const (
 	CodeActionNotAvailable        = "action no longer available"
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
-	CodeSpacesNotSupported        = "spaces not supported"
+	CodeNotSupported              = "not supported"
 )
 
 // ErrCode returns the error code associated with
@@ -175,6 +175,6 @@ func IsCodeLeadershipClaimDenied(err error) bool {
 	return ErrCode(err) == CodeLeadershipClaimDenied
 }
 
-func IsCodeSpacesNotSupported(err error) bool {
-	return ErrCode(err) == CodeSpacesNotSupported
+func IsCodeNotSupported(err error) bool {
+	return ErrCode(err) == CodeNotSupported
 }

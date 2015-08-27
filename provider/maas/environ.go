@@ -243,8 +243,8 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *maasEnviron) SupportsSpaces() bool {
-	return false
+func (env *maasEnviron) SupportsSpaces() (bool, error) {
+	return false, errors.NotSupportedf("spaces")
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.

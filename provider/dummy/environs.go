@@ -1059,11 +1059,11 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *environ) SupportsSpaces() bool {
-	if env.checkBroken("SupportsSpaces") != nil {
-		return false
+func (env *environ) SupportsSpaces() (bool, error) {
+	if err := env.checkBroken("SupportsSpaces"); err != nil {
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.

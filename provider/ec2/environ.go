@@ -226,8 +226,8 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (e *environ) SupportsSpaces() bool {
-	return true
+func (e *environ) SupportsSpaces() (bool, error) {
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.

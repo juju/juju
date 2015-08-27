@@ -70,15 +70,9 @@ func newAPIWithBacking(backing Backing, resources *common.Resources, authorizer 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	_, ok, err := api.getNetworkingEnviron()
+	err = api.supportsSpaces()
 	if err != nil {
-		return results, errors.Trace(err)
-	}
-	if !ok {
-		return results, &params.Error{
-			Message: "cannot create spaces",
-			Code:    params.CodeSpacesNotSupported,
-		}
+		return results, common.ServerError(errors.Trace(err))
 	}
 
 	results.Results = make([]params.ErrorResult, len(args.Spaces))
@@ -143,15 +137,9 @@ func backingSubnetToParamsSubnet(subnet common.BackingSubnet) params.Subnet {
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
-	_, ok, err := api.getNetworkingEnviron()
+	err = api.supportsSpaces()
 	if err != nil {
-		return results, errors.Trace(err)
-	}
-	if !ok {
-		return results, &params.Error{
-			Message: "cannot list spaces",
-			Code:    params.CodeSpacesNotSupported,
-		}
+		return results, common.ServerError(errors.Trace(err))
 	}
 
 	spaces, err := api.backing.AllSpaces()
@@ -181,21 +169,21 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 	return results, nil
 }
 
-// getNetworkingEnviron checks if the environment implements NetworkingEnviron
+// supportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func (api *spacesAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
+func (api *spacesAPI) supportsSpaces() error {
 	config, err := api.backing.EnvironConfig()
 	if err != nil {
-		return nil, false, errors.Annotate(err, "getting environment config")
+		return errors.Annotate(err, "getting environment config")
 	}
 	env, err := environs.New(config)
 	if err != nil {
-		return nil, false, errors.Annotate(err, "validating environment config")
+		return errors.Annotate(err, "validating environment config")
 	}
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
-		return nil, false, nil
+		return errors.NotSupportedf("networking")
 	}
-	ok = netEnv.SupportsSpaces()
-	return netEnv, ok, nil
+	ok, err = netEnv.SupportsSpaces()
+	return err
 }

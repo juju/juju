@@ -37,9 +37,8 @@ type Networking interface {
 	// (e.g. "subnetId must be set").
 	SupportsAddressAllocation(subnetId network.Id) (bool, error)
 
-	// SupportsSpaces returns whether the current environment supports
-	// the adding and management of spaces.
-	SupportsSpaces() bool
+	// SupportsSpaces returns whether the current environment supports spaces.
+	SupportsSpaces() (bool, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
