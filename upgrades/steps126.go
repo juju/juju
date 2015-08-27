@@ -4,9 +4,10 @@
 package upgrades
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/names"
 )
 
 // stepsFor126 returns upgrade steps for Juju 1.26.

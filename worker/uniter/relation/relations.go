@@ -43,9 +43,13 @@ type Relations interface {
 	// GetInfo returns information about current relation state.
 	GetInfo() map[int]*context.RelationInfo
 
+	// NextHook returns details on the next hook to execute, based on the local
+	// and remote states.
 	NextHook(resolver.LocalState, remotestate.Snapshot) (hook.Info, error)
 }
 
+// NewRelationsResolver returns a new Resolver that handles differences in
+// relation state.
 func NewRelationsResolver(r Relations) resolver.Resolver {
 	return &relationsResolver{r}
 }
@@ -54,6 +58,7 @@ type relationsResolver struct {
 	relations Relations
 }
 
+// NextOp implements resolver.Resolver.
 func (s *relationsResolver) NextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
@@ -76,6 +81,7 @@ type relations struct {
 	abort        <-chan struct{}
 }
 
+// NewRelations returns a new Relations instance.
 func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir string, abort <-chan struct{}) (Relations, error) {
 	unit, err := st.Unit(tag)
 	if err != nil {
@@ -139,6 +145,7 @@ func (r *relations) init() error {
 	return nil
 }
 
+// NextHook implements Relations.
 func (r *relations) NextHook(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
