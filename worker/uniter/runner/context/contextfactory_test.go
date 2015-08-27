@@ -161,7 +161,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 
 func (s *ContextFactorySuite) TestMetricsHookContext(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		s.SetCharm(c, "metered")
 		hi := hook.Info{Kind: hooks.CollectMetrics}

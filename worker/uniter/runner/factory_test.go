@@ -204,7 +204,7 @@ func (s *FactorySuite) TestNewHookRunnerWithBadRelation(c *gc.C) {
 
 func (s *FactorySuite) TestNewHookRunnerMetricsDisabledHook(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		s.SetCharm(c, "metered")
 		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.Install})
@@ -218,7 +218,7 @@ func (s *FactorySuite) TestNewHookRunnerMetricsDisabledHook(c *gc.C) {
 
 func (s *FactorySuite) TestNewHookRunnerMetricsDisabledUndeclared(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		s.SetCharm(c, "mysql")
 		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.CollectMetrics})
@@ -232,7 +232,7 @@ func (s *FactorySuite) TestNewHookRunnerMetricsDisabledUndeclared(c *gc.C) {
 
 func (s *FactorySuite) TestNewHookRunnerMetricsDeclarationError(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.CollectMetrics})
 		c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
@@ -242,7 +242,7 @@ func (s *FactorySuite) TestNewHookRunnerMetricsDeclarationError(c *gc.C) {
 
 func (s *FactorySuite) TestNewHookRunnerMetricsEnabled(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		s.SetCharm(c, "metered")
 

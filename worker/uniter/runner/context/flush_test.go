@@ -209,7 +209,7 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 
 func (s *FlushContextSuite) TestFlushClosesMetricsRecorder(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		uuid := utils.MustNewUUID()
 		ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), runnertesting.NewRealPaths(c))
@@ -234,7 +234,7 @@ func (s *HookContextSuite) context(c *gc.C) *context.HookContext {
 
 func (s *FlushContextSuite) TestBuiltinMetric(c *gc.C) {
 	// TODO (cmars): port test over to collect manifold.
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		uuid := utils.MustNewUUID()
 		paths := runnertesting.NewRealPaths(c)
@@ -271,7 +271,7 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 
 func (s *FlushContextSuite) TestRecorderIsClosedAfterBuiltIn(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		uuid := utils.MustNewUUID()
 		paths := runnertesting.NewRealPaths(c)
