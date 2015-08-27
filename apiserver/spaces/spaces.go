@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -73,7 +75,7 @@ func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (results para
 		return results, errors.Trace(err)
 	}
 	if !ok {
-		return results, params.Error{
+		return results, &params.Error{
 			Message: "cannot create spaces",
 			Code:    params.CodeSpacesNotSupported,
 		}
@@ -146,7 +148,7 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		return results, errors.Trace(err)
 	}
 	if !ok {
-		return results, params.Error{
+		return results, &params.Error{
 			Message: "cannot list spaces",
 			Code:    params.CodeSpacesNotSupported,
 		}
@@ -179,9 +181,9 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 	return results, nil
 }
 
-// getNetworingEnviron checks if the environment implements NetworkingEnviron
+// getNetworkingEnviron checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func (api *spacesAPI) getNetworingEnviron() (environs.NetworkingEnviron, bool, error) {
+func (api *spacesAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
 	config, err := api.backing.EnvironConfig()
 	if err != nil {
 		return nil, false, errors.Annotate(err, "getting environment config")

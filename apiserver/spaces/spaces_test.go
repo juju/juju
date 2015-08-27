@@ -38,12 +38,12 @@ func (s *SpacesSuite) TearDownSuite(c *gc.C) {
 
 func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedNetworkingEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:            names.NewUserTag("admin"),
-		EnvironManager: false,
+		EnvironManager: true,
 	}
 
 	var err error
@@ -118,10 +118,17 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 
 	if p.Error == "" || p.MakesCall {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+			apiservertesting.BackingCall("EnvironConfig"),
+			apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+			apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
 			apiservertesting.BackingCall("AddSpace", p.Name, p.Subnets, p.Public),
 		)
 	} else {
-		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub)
+		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
+			apiservertesting.BackingCall("EnvironConfig"),
+			apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+			apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
+		)
 	}
 }
 
@@ -151,7 +158,7 @@ func (s *SpacesSuite) TestAddSpacesManySubnets(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
-	apiservertesting.SharedStub.SetErrors(errors.AlreadyExistsf("space-foo"))
+	apiservertesting.SharedStub.SetErrors(nil, nil, errors.AlreadyExistsf("space-foo"))
 	p := checkAddSpacesParams{
 		Name:      "foo",
 		Subnets:   []string{"10.0.0.0/24"},
@@ -259,12 +266,12 @@ func (s *SpacesSuite) TestListSpacesAllSpacesError(c *gc.C) {
 	boom := errors.New("backing boom")
 	apiservertesting.BackingInstance.SetErrors(boom)
 	_, err := s.facade.ListSpaces()
-	c.Assert(err, gc.ErrorMatches, "backing boom")
+	c.Assert(err, gc.ErrorMatches, "getting environment config: backing boom")
 }
 
 func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
 	boom := errors.New("boom")
-	apiservertesting.SharedStub.SetErrors(nil, boom, boom, boom)
+	apiservertesting.SharedStub.SetErrors(nil, nil, nil, boom, boom, boom)
 	results, err := s.facade.ListSpaces()
 	for _, space := range results.Results {
 		c.Assert(space.Error, gc.ErrorMatches, "fetching subnets: boom")
@@ -274,7 +281,7 @@ func (s *SpacesSuite) TestListSpacesSubnetsError(c *gc.C) {
 
 func (s *SpacesSuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 	boom := errors.New("boom")
-	apiservertesting.SharedStub.SetErrors(nil, nil, boom)
+	apiservertesting.SharedStub.SetErrors(nil, nil, nil, nil, boom)
 
 	results, err := s.facade.ListSpaces()
 	for i, space := range results.Results {
@@ -285,4 +292,25 @@ func (s *SpacesSuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 		}
 	}
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
+	// Turn off support.
+	apiservertesting.SharedStub.SetFlags("not-supports-spaces")
+	defer apiservertesting.SharedStub.UnsetFlags("not-supports-spaces")
+
+	spaces := params.CreateSpacesParams{}
+	_, err := s.facade.CreateSpaces(spaces)
+	c.Assert(err, gc.ErrorMatches, "cannot create spaces")
+	c.Assert(params.IsCodeSpacesNotSupported(err), jc.IsTrue)
+}
+
+func (s *SpacesSuite) TestListSpacesNotSupportedError(c *gc.C) {
+	// Turn off support.
+	apiservertesting.SharedStub.SetFlags("not-supports-spaces")
+	defer apiservertesting.SharedStub.UnsetFlags("not-supports-spaces")
+
+	_, err := s.facade.ListSpaces()
+	c.Assert(err, gc.ErrorMatches, "cannot list spaces")
+	c.Assert(params.IsCodeSpacesNotSupported(err), jc.IsTrue)
 }

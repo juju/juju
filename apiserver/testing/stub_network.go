@@ -591,6 +591,14 @@ func (se *StubZonedNetworkingEnviron) GoString() string {
 	return "&StubZonedNetworkingEnviron{}"
 }
 
+func (se *StubZonedNetworkingEnviron) SupportsSpaces() bool {
+	se.MethodCall(se, "SupportsSpaces")
+	if se.HasFlag("not-supports-spaces") {
+		return false
+	}
+	return true
+}
+
 func (se *StubZonedNetworkingEnviron) Subnets(instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", instId, subIds)
 	if err := se.NextErr(); err != nil {
