@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniteravailability"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -159,19 +159,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName: AgentName,
 		}),
 
-		// The uniteravailability tracks whether the workload is started or not;
-		// after 'start' hook and before 'stop' hook executes.
-		UniterAvailabilityName: uniteravailability.Manifold(uniteravailability.ManifoldConfig{
-			AgentName: AgentName,
-		}),
+		// The charmdir resource tracks whether the charm directory is available or
+		// not; after 'start' hook and before 'stop' hook executes, and not during
+		// upgrades.
+		CharmDirName: charmdir.Manifold(),
 
 		// The metric collect worker executes the collect-metrics hook in a
 		// restricted context that can safely run concurrently with other hooks.
 		MetricCollectName: collect.Manifold(collect.ManifoldConfig{
-			AgentName:              AgentName,
-			APICallerName:          APICallerName,
-			MetricSpoolName:        MetricSpoolName,
-			UniterAvailabilityName: UniterAvailabilityName,
+			AgentName:       AgentName,
+			APICallerName:   APICallerName,
+			MetricSpoolName: MetricSpoolName,
+			CharmDirName:    CharmDirName,
 		}),
 	}
 }
@@ -190,6 +189,6 @@ const (
 	UniterName               = "uniter"
 	UpgraderName             = "upgrader"
 	MetricSpoolName          = "metric-spool"
-	UniterAvailabilityName   = "uniter-availability"
+	CharmDirName             = "charm-dir"
 	MetricCollectName        = "metric-collect"
 )
