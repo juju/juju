@@ -5,12 +5,14 @@ from mock import patch
 import os
 from StringIO import StringIO
 import subprocess
+import sys
 import unittest
 
 import winrm
 
 from jujupy import (
     EnvJujuClient,
+    get_timeout_path,
     SimpleEnvironment,
     Status,
 )
@@ -116,7 +118,8 @@ class TestRemote(unittest.TestCase):
             mock_cmd.return_value = "contents of /a/file"
             output = remote.run("cat /a/file")
             self.assertEqual(output, "contents of /a/file")
-        mock_cmd.assert_called_once_with("ssh", unit, "cat /a/file")
+        mock_cmd.assert_called_once_with("ssh", unit, "cat /a/file",
+                                         timeout=120)
 
     def test_run_with_unit_fallback(self):
         env = SimpleEnvironment("an-env", {"type": "nonlocal"})
@@ -131,7 +134,8 @@ class TestRemote(unittest.TestCase):
                     mock_run.return_value = "contents of /a/file"
                     output = remote.run("cat /a/file")
                     self.assertEqual(output, "contents of /a/file")
-        mock_cmd.assert_called_once_with("ssh", unit, "cat /a/file")
+        mock_cmd.assert_called_once_with("ssh", unit, "cat /a/file",
+                                         timeout=120)
         mock_run.assert_called_once_with([
             "ssh",
             "-o", "User ubuntu",
@@ -240,6 +244,24 @@ class TestRemote(unittest.TestCase):
         st.assert_called_once_with()
         mock_run.assert_called_once_with(
             '"C:\\Program Files\\bin.exe"', ['/IN "Bob\'s Stuff"'])
+
+    def test_run_subprocess_timeout(self):
+        remote = remote_from_address("10.55.60.1")
+        remote.timeout = 63
+        with patch("subprocess.check_output", autospec=True) as mock_co:
+            remote.cat("/a/file")
+        mock_co.assert_called_once_with((
+            sys.executable,
+            get_timeout_path(),
+            "63.00",
+            "--",
+            "ssh",
+            "-o", "User ubuntu",
+            "-o", "UserKnownHostsFile /dev/null",
+            "-o", "StrictHostKeyChecking no",
+            "10.55.60.1",
+            "cat /a/file",
+        ))
 
     def test_encoded_copy_to_dir_one(self):
         output = "testfile|K0ktLuECAA==\r\n"

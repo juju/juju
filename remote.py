@@ -11,6 +11,7 @@ import zlib
 
 import winrm
 
+import jujupy
 import utility
 
 
@@ -114,13 +115,15 @@ class SSHRemote(_Remote):
         "-o", "StrictHostKeyChecking no",
     ]
 
-    timeout = "5m"
+    # Limit each operation over SSH to 2 minutes by default
+    timeout = 120
 
     def run(self, command):
         """Run a command on the remote machine."""
         if self.use_juju_ssh:
             try:
-                return self.client.get_juju_output("ssh", self.unit, command)
+                return self.client.get_juju_output("ssh", self.unit, command,
+                                                   timeout=self.timeout)
             except subprocess.CalledProcessError as e:
                 logging.warning("juju ssh to %r failed: %s", self.unit, e)
                 self.use_juju_ssh = False
@@ -148,9 +151,8 @@ class SSHRemote(_Remote):
         return self.run("cat " + utility.quote(filename))
 
     def _run_subprocess(self, command):
-        # XXX implement this in a Windows-compatible way
-        if self.timeout and sys.platform != 'win32':
-            command = ["timeout", self.timeout] + command
+        if self.timeout:
+            command = jujupy.get_timeout_prefix(self.timeout) + tuple(command)
         return subprocess.check_output(command)
 
 
