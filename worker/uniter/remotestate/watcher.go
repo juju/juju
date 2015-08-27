@@ -62,7 +62,11 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
 		storageAttachmentChanges:  make(chan storageAttachmentChange),
 		leadershipTracker:         config.LeadershipTracker,
-		out:                       make(chan struct{}),
+		// Note: it is important that the out channel be buffered!
+		// The remote state watcher will perform a non-blocking send
+		// on the channel to wake up the observer. It is non-blocking
+		// so that we coalesce events while the observer is busy.
+		out: make(chan struct{}, 1),
 		current: Snapshot{
 			Relations: make(map[int]RelationSnapshot),
 			Storage:   make(map[names.StorageTag]StorageSnapshot),
@@ -346,7 +350,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 
 		case change := <-w.relationUnitsChanges:
-			logger.Debugf("got a relation units change")
+			logger.Debugf("got a relation units change: %v", change)
 			if err := w.relationUnitsChanged(change); err != nil {
 				return err
 			}
