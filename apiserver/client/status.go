@@ -234,7 +234,6 @@ func (c *Client) newToolsVersionAvailable() (string, error) {
 	if !ok {
 		return "", nil
 	}
-
 	if oldV.Compare(v) < 0 {
 		return latestVersion, nil
 	}

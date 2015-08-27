@@ -1,11 +1,14 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package toolsversionchecker
+package environment
 
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/loggo"
+
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
@@ -14,9 +17,16 @@ import (
 	"github.com/juju/juju/version"
 )
 
+var logger = loggo.GetLogger("juju.apiserver.environment")
+
 var (
 	findTools = tools.FindTools
 )
+
+// EnvironmentCapable represents a struct that can provide a state.Environment.
+type EnvironmentCapable interface {
+	Environment() (*state.Environment, error)
+}
 
 type toolsFinder func(environs.Environ, int, int, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Environment, version.Number) error
@@ -50,6 +60,7 @@ var envConfig = func(e *state.Environment) (*config.Config, error) {
 	return e.Config()
 }
 
+// Base implementation of envVersionUpdater
 func envVersionUpdate(env *state.Environment, ver version.Number) error {
 	return env.UpdateLatestToolsVersion(ver.String())
 }
@@ -72,4 +83,28 @@ func updateToolsAvailability(st EnvironmentCapable, finder toolsFinder, update e
 		return nil
 	}
 	return update(env, ver)
+}
+
+type EnvironTools struct {
+	st         EnvironmentCapable
+	authorizer common.Authorizer
+	// tools lookup
+	findTools        toolsFinder
+	envVersionUpdate envVersionUpdater
+}
+
+func NewEnvironTools(st EnvironmentCapable, authorizer common.Authorizer) *EnvironTools {
+	return &EnvironTools{
+		st:               st,
+		authorizer:       authorizer,
+		findTools:        findTools,
+		envVersionUpdate: envVersionUpdate,
+	}
+}
+
+func (e *EnvironTools) UpdateToolsAvailable() error {
+	if !e.authorizer.AuthEnvironManager() {
+		return common.ErrPerm
+	}
+	return updateToolsAvailability(e.st, e.findTools, e.envVersionUpdate)
 }

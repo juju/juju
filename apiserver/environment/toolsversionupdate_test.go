@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package toolsversionchecker
+package environment
 
 import (
 	"testing"
@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -22,18 +21,43 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-type UpdaterSuite struct {
+type updaterSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&UpdaterSuite{})
+var _ = gc.Suite(&updaterSuite{})
 
 type dummyEnviron struct {
 	environs.Environ
 }
 
-func (s *UpdaterSuite) TestCheckTools(c *gc.C) {
-	sConfig := dummy.SampleConfig()
+// SampleConfig() returns an environment configuration with all required
+// attributes set.
+func sampleConfig() coretesting.Attrs {
+	return coretesting.Attrs{
+		"type":                      "dummy",
+		"name":                      "only",
+		"uuid":                      coretesting.EnvironmentTag.Id(),
+		"authorized-keys":           coretesting.FakeAuthKeys,
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              coretesting.DefaultMongoPassword,
+		"ca-cert":                   coretesting.CACert,
+		"ca-private-key":            coretesting.CAKey,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"state-port":                1234,
+		"api-port":                  4321,
+		"syslog-port":               2345,
+		"default-series":            config.LatestLtsSeries(),
+
+		"secret":       "pork",
+		"state-server": true,
+		"prefer-ipv6":  true,
+	}
+}
+
+func (s *updaterSuite) TestCheckTools(c *gc.C) {
+	sConfig := sampleConfig()
 	sConfig["agent-version"] = "2.5.0"
 	cfg, err := config.New(config.NoDefaults, sConfig)
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,14 +95,14 @@ func (e *envCapable) Environment() (*state.Environment, error) {
 	return &state.Environment{}, nil
 }
 
-func (s *UpdaterSuite) TestUpdateToolsAvailability(c *gc.C) {
+func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	fakeNewEnvirons := func(*config.Config) (environs.Environ, error) {
 		return dummyEnviron{}, nil
 	}
 	s.PatchValue(&newEnvirons, fakeNewEnvirons)
 
 	fakeEnvConfig := func(_ *state.Environment) (*config.Config, error) {
-		sConfig := dummy.SampleConfig()
+		sConfig := sampleConfig()
 		sConfig["agent-version"] = "2.5.0"
 		return config.New(config.NoDefaults, sConfig)
 	}

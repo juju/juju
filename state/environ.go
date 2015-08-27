@@ -229,7 +229,7 @@ func (e *Environment) UpdateLatestToolsVersion(ver string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
 		Id:     e.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"latestavailabletools", ver}, {"latesttoolcheck", &now}}}},
+		Update: bson.D{{"$set", bson.D{{"available-tools", ver}, {"latest-tools-check", &now}}}},
 	}}
 	err := e.st.runTransaction(ops)
 	if err != nil {

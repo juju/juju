@@ -684,6 +684,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
+
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -821,6 +822,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return worker.NewSimpleWorker(inner), nil
 			})
+			runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
+				// 4 times a day seems a decent enough amount of checks.
+				checkerParams := toolsversionchecker.VersionCheckerParams{
+					CheckInterval: time.Second * 30,
+				}
+				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+			})
+
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -1047,14 +1056,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
-			})
-
-			a.startWorkerAfterUpgrade(singularRunner, "toolsversionchecker", func() (worker.Worker, error) {
-				// 4 times a day seems a decent enough amount of checks.
-				checkerParams := toolsversionchecker.VersionCheckerParams{
-					CheckInterval: time.Hour * 6,
-				}
-				return toolsversionchecker.New(st, &checkerParams), nil
 			})
 
 		case state.JobManageStateDeprecated:
