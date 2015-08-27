@@ -202,59 +202,6 @@ func (s *FactorySuite) TestNewHookRunnerWithBadRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown relation id: 12345`)
 }
 
-func (s *FactorySuite) TestNewHookRunnerMetricsDisabledHook(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		s.SetCharm(c, "metered")
-		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.Install})
-		c.Assert(err, jc.ErrorIsNil)
-		s.AssertPaths(c, rnr)
-		ctx := rnr.Context()
-		err = ctx.AddMetric("key", "value", time.Now())
-		c.Assert(err, gc.ErrorMatches, "metrics disabled")
-	*/
-}
-
-func (s *FactorySuite) TestNewHookRunnerMetricsDisabledUndeclared(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		s.SetCharm(c, "mysql")
-		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.CollectMetrics})
-		c.Assert(err, jc.ErrorIsNil)
-		s.AssertPaths(c, rnr)
-		ctx := rnr.Context()
-		err = ctx.AddMetric("key", "value", time.Now())
-		c.Assert(err, gc.ErrorMatches, "metrics disabled")
-	*/
-}
-
-func (s *FactorySuite) TestNewHookRunnerMetricsDeclarationError(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.CollectMetrics})
-		c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-		c.Assert(rnr, gc.IsNil)
-	*/
-}
-
-func (s *FactorySuite) TestNewHookRunnerMetricsEnabled(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		s.SetCharm(c, "metered")
-
-		rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.CollectMetrics})
-		c.Assert(err, jc.ErrorIsNil)
-		s.AssertPaths(c, rnr)
-		ctx := rnr.Context()
-		err = ctx.AddMetric("pings", "0.5", time.Now())
-		c.Assert(err, jc.ErrorIsNil)
-	*/
-}
-
 func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
