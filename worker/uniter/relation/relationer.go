@@ -29,7 +29,7 @@ func NewRelationer(ru *apiuniter.RelationUnit, dir *StateDir) *Relationer {
 	}
 }
 
-// ContextInfo returns a represention of r's current state.
+// ContextInfo returns a represention of the Relationer's current state.
 func (r *Relationer) ContextInfo() *context.RelationInfo {
 	members := r.dir.State().Members
 	memberNames := make([]string, 0, len(members))
