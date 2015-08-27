@@ -55,7 +55,13 @@ func (u *UniterAPIV2) AddMetricBatches(args params.MetricBatchParams) (params.Er
 				Time:  metric.Time,
 			}
 		}
-		_, err = u.unit.AddMetrics(batch.Batch.UUID, batch.Batch.Created, batch.Batch.CharmURL, metrics)
+		_, err = u.UniterAPIV1.st.AddMetrics(state.BatchParam{
+			UUID:     batch.Batch.UUID,
+			Created:  batch.Batch.Created,
+			CharmURL: batch.Batch.CharmURL,
+			Metrics:  metrics,
+			Unit:     tag,
+		})
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

@@ -89,7 +89,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           "/not/used/here",
+			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewMachineTag("1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",

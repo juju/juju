@@ -15,8 +15,8 @@ type OpenedPortsCommand struct {
 	out cmd.Output
 }
 
-func NewOpenedPortsCommand(ctx Context) cmd.Command {
-	return &OpenedPortsCommand{ctx: ctx}
+func NewOpenedPortsCommand(ctx Context) (cmd.Command, error) {
+	return &OpenedPortsCommand{ctx: ctx}, nil
 }
 
 func (c *OpenedPortsCommand) Info() *cmd.Info {

@@ -22,7 +22,7 @@ type mongoRestoreSuite struct {
 }
 
 func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
-	dir := filepath.Join(agent.DefaultDataDir, "db")
+	dir := filepath.Join(agent.DefaultPaths.DataDir, "db")
 	versionNumber := version.Number{}
 	versionNumber.Major = 1
 	versionNumber.Minor = 21

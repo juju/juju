@@ -20,13 +20,19 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/filter"
+	"github.com/juju/juju/worker/uniter/hook"
+	uniterleadership "github.com/juju/juju/worker/uniter/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
 )
@@ -53,9 +59,8 @@ type Uniter struct {
 	tomb      tomb.Tomb
 	st        *uniter.State
 	paths     Paths
-	f         filter.Filter
 	unit      *uniter.Unit
-	relations Relations
+	relations relation.Relations
 	cleanups  []cleanup
 	storage   *storage.Attachments
 
@@ -75,24 +80,11 @@ type Uniter struct {
 	hookLock    *fslock.Lock
 	runListener *RunListener
 
-	ranLeaderSettingsChanged bool
-	ranConfigChanged         bool
+	ranConfigChanged bool
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
-
-	// metricsTimerChooser is a struct that allows metrics to switch between
-	// active and inactive timers.
-	metricsTimerChooser *timerChooser
-
-	// collectMetricsAt defines a function that will be used to generate signals
-	// for the collect-metrics hook.
-	collectMetricsAt TimedSignal
-
-	// sendMetricsAt defines a function that will be used to generate signals
-	// to send metrics to the state server.
-	sendMetricsAt TimedSignal
 
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
@@ -106,9 +98,12 @@ type UniterParams struct {
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	MachineLock          *fslock.Lock
-	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
 	NewOperationExecutor NewExecutorFunc
+	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
+	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
+	// that write to files, and have the tests watch the output to know that hooks have finished.
+	Observer UniterExecutionObserver
 }
 
 type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
@@ -122,11 +117,9 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
-		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
-		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
-		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
+		observer:             uniterParams.Observer,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -157,45 +150,192 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	logger.Infof("unit %q started", u.unit)
 
-	// Start filtering state change events for consumption by modes.
-	u.f, err = filter.NewFilter(u.st, unitTag)
-	if err != nil {
-		return err
+	// Install is a special case, as it must run before there
+	// is any remote state, and before the remote state watcher
+	// is started.
+	var charmURL *corecharm.URL
+	opState := u.operationExecutor.State()
+	if opState.Kind == operation.Install {
+		logger.Infof("resuming charm install")
+		op, err := u.operationFactory.NewInstall(opState.CharmURL)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := u.operationExecutor.Run(op); err != nil {
+			return errors.Trace(err)
+		}
+		charmURL = opState.CharmURL
+	} else {
+		curl, err := u.unit.CharmURL()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmURL = curl
 	}
-	u.addCleanup(u.f.Stop)
 
-	// Stop the uniter if the filter fails.
-	go func() { u.tomb.Kill(u.f.Wait()) }()
+	var watcher *remotestate.RemoteStateWatcher
+	restartWatcher := func() error {
+		if watcher != nil {
+			if err := watcher.Stop(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		var err error
+		watcher, err = remotestate.NewWatcher(
+			remotestate.WatcherConfig{
+				State:             remotestate.NewAPIState(u.st),
+				LeadershipTracker: u.leadershipTracker,
+				UnitTag:           unitTag,
+			})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// Stop the uniter if the watcher fails. The watcher may be
+		// stopped cleanly, so only kill the tomb if the error is
+		// non-nil.
+		go func(w *remotestate.RemoteStateWatcher) {
+			if err := w.Wait(); err != nil {
+				u.tomb.Kill(err)
+			}
+		}(watcher)
+		return nil
+	}
 
-	// Start handling leader settings events, or not, as appropriate.
-	u.f.WantLeaderSettingsEvents(!u.operationState().Leader)
+	// watcher may be replaced, so use a closure.
+	u.addCleanup(func() error {
+		return watcher.Stop()
+	})
 
-	// Run modes until we encounter an error.
-	mode := ModeContinue
-	for err == nil {
+	onIdle := func() error {
+		opState := u.operationExecutor.State()
+		if opState.Kind != operation.Continue {
+			// We should only set idle status if we're in
+			// the "Continue" state, which indicates that
+			// there is nothing to do and we're not in an
+			// error state.
+			return nil
+		}
+		return setAgentStatus(u, params.StatusIdle, "", nil)
+	}
+
+	clearResolved := func() error {
+		if err := u.unit.ClearResolved(); err != nil {
+			return errors.Trace(err)
+		}
+		watcher.ClearResolvedMode()
+		return nil
+	}
+
+	for {
+		if err = restartWatcher(); err != nil {
+			err = errors.Annotate(err, "(re)starting watcher")
+			break
+		}
+
+		uniterResolver := &uniterResolver{
+			clearResolved:      clearResolved,
+			reportHookError:    u.reportHookError,
+			leadershipResolver: uniterleadership.NewResolver(),
+			relationsResolver:  relation.NewRelationsResolver(u.relations),
+			storageResolver:    storage.NewResolver(u.storage),
+		}
+
+		// We should not do anything until there has been a change
+		// to the remote state. The watcher will trigger at least
+		// once initially.
 		select {
 		case <-u.tomb.Dying():
-			err = tomb.ErrDying
-		default:
-			mode, err = mode(u)
+			return tomb.ErrDying
+		case <-watcher.RemoteStateChanged():
+		}
+
+		// TODO(axw) move the channel to remotestate.
+		updateStatusChannel := func() <-chan time.Time {
+			return u.updateStatusAt(
+				time.Now(),
+				time.Unix(u.operationState().UpdateStatusTime, 0),
+				statusPollInterval,
+			)
+		}
+
+		var conflicted bool
+		var localState resolver.LocalState
+		for err == nil {
+			localState, err = resolver.Loop(resolver.LoopConfig{
+				Resolver:            uniterResolver,
+				Watcher:             watcher,
+				Executor:            u.operationExecutor,
+				Factory:             u.operationFactory,
+				UpdateStatusChannel: updateStatusChannel,
+				CharmURL:            charmURL,
+				Conflicted:          conflicted,
+				Dying:               u.tomb.Dying(),
+				OnIdle:              onIdle,
+			})
 			switch cause := errors.Cause(err); cause {
+			case tomb.ErrDying:
+				err = tomb.ErrDying
 			case operation.ErrNeedsReboot:
 				err = worker.ErrRebootMachine
-			case tomb.ErrDying, worker.ErrTerminateAgent:
-				err = cause
 			case operation.ErrHookFailed:
-				mode, err = ModeHookError, nil
+				// Loop back around. The resolver can tell that it is in
+				// an error state by inspecting the operation state.
+				err = nil
+			case resolver.ErrTerminate:
+				err = u.terminate()
 			default:
-				charmURL, ok := operation.DeployConflictCharmURL(cause)
-				if ok {
-					mode, err = ModeConflicted(charmURL), nil
+				// We need to set conflicted from here, because error
+				// handling is outside of the resolver's control.
+				if operation.IsDeployConflictError(cause) {
+					conflicted = true
+					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
+				} else {
+					reportAgentError(u, "resolver loop error", err)
 				}
 			}
 		}
+
+		if errors.Cause(err) == resolver.ErrRestart {
+			charmURL = localState.CharmURL
+			continue
+		}
+		break
 	}
 
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
 	return err
+}
+
+func (u *Uniter) terminate() error {
+	w, err := u.unit.Watch()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer watcher.Stop(w, &u.tomb)
+	for {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		case _, ok := <-w.Changes():
+			if !ok {
+				return watcher.EnsureErr(w)
+			}
+			if err := u.unit.Refresh(); err != nil {
+				return errors.Trace(err)
+			}
+			if hasSubs, err := u.unit.HasSubordinates(); err != nil {
+				return errors.Trace(err)
+			} else if hasSubs {
+				continue
+			}
+			// The unit is known to be Dying; so if it didn't have subordinates
+			// just above, it can't acquire new ones before this call.
+			if err := u.unit.EnsureDead(); err != nil {
+				return errors.Trace(err)
+			}
+			return worker.ErrTerminateAgent
+		}
+	}
 }
 
 func (u *Uniter) setupLocks() (err error) {
@@ -234,7 +374,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
 		return errors.Trace(err)
 	}
-	relations, err := newRelations(u.st, unitTag, u.paths, u.tomb.Dying())
+	relations, err := relation.NewRelations(
+		u.st, unitTag, u.paths.State.CharmDir,
+		u.paths.State.RelationsDir, u.tomb.Dying(),
+	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create relations")
 	}
@@ -246,7 +389,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}
 	u.storage = storageAttachments
-	u.addCleanup(storageAttachments.Stop)
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -257,7 +399,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
-	contextFactory, err := runner.NewContextFactory(
+	contextFactory, err := context.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
 	)
 	if err != nil {
@@ -275,7 +417,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Callbacks:      &operationCallbacks{u},
 		StorageUpdater: u.storage,
 		Abort:          u.tomb.Dying(),
-		MetricSender:   u.unit,
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
@@ -333,18 +474,6 @@ func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
 }
 
-// initializeMetricsTimers enables the periodic collect-metrics hook
-// and periodic sending of collected metrics for charms that declare metrics.
-func (u *Uniter) initializeMetricsTimers() error {
-	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
-	if err != nil {
-		return err
-	}
-	u.collectMetricsAt = u.metricsTimerChooser.getCollectMetricsTimer(charm)
-	u.sendMetricsAt = u.metricsTimerChooser.getSendMetricsTimer(charm)
-	return nil
-}
-
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
@@ -372,7 +501,9 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		RemoteUnitName:  args.RemoteUnitName,
 		ForceRemoteUnit: args.ForceRemoteUnit,
 	}
-	err = u.runOperation(newCommandsOp(commandArgs, sendResponse))
+	err = u.runOperation(func(f operation.Factory) (operation.Operation, error) {
+		return f.NewCommands(commandArgs, sendResponse)
+	})
 	if err == nil {
 		select {
 		case response := <-responseChan:
@@ -390,6 +521,13 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	}
 	return results, err
 }
+
+// creator exists primarily to make the implementation of the Mode funcs more
+// readable -- the general pattern is to switch to get a creator func (which
+// doesn't allow for the possibility of error) and then to pass the chosen
+// creator down to runOperation (which can then consistently create and run
+// all the operations in the same way).
+type creator func(factory operation.Factory) (operation.Operation, error)
 
 // runOperation uses the uniter's operation factory to run the supplied creation
 // func, and then runs the resulting operation.
@@ -424,7 +562,8 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 		// or if we gain leadership we want to stop receiving those
 		// events.
 		if after := u.operationState(); before.Leader != after.Leader {
-			u.f.WantLeaderSettingsEvents(before.Leader)
+			// TODO(axw)
+			//u.f.WantLeaderSettingsEvents(before.Leader)
 		}
 	}()
 	return u.operationExecutor.Run(op)
@@ -434,6 +573,7 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 // returns a func that must be called to unlock it. It's used by operation.Executor
 // when running operations that execute external code.
 func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
+	logger.Debugf("lock: %v", message)
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's tomb into account.
 	checkTomb := func() error {
@@ -448,5 +588,30 @@ func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
 	if err := u.hookLock.LockWithFunc(message, checkTomb); err != nil {
 		return nil, err
 	}
-	return func() error { return u.hookLock.Unlock() }, nil
+	return func() error {
+		logger.Debugf("unlock: %v", message)
+		return u.hookLock.Unlock()
+	}, nil
+}
+
+func (u *Uniter) reportHookError(hookInfo hook.Info) error {
+	// Set the agent status to "error". We must do this here in case the
+	// hook is interrupted (e.g. unit agent crashes), rather than immediately
+	// after attempting a runHookOp.
+	hookName := string(hookInfo.Kind)
+	statusData := map[string]interface{}{}
+	if hookInfo.Kind.IsRelation() {
+		statusData["relation-id"] = hookInfo.RelationId
+		if hookInfo.RemoteUnit != "" {
+			statusData["remote-unit"] = hookInfo.RemoteUnit
+		}
+		relationName, err := u.relations.Name(hookInfo.RelationId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
+	}
+	statusData["hook"] = hookName
+	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
+	return setAgentStatus(u, params.StatusError, statusMessage, statusData)
 }

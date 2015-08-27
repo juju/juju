@@ -82,7 +82,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultLogDir
+		logDir = agent.DefaultPaths.LogDir
 	}
 	conf.WarnAboutUnused()
 	return &containerManager{name: name, logdir: logDir}, nil

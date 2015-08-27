@@ -16,38 +16,40 @@ import (
 
 type leaderGetSuite struct {
 	jujutesting.IsolationSuite
+	command cmd.Command
 }
 
 var _ = gc.Suite(&leaderGetSuite{})
 
+func (s *leaderGetSuite) SetUpTest(c *gc.C) {
+	var err error
+	s.command, err = jujuc.NewLeaderGetCommand(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *leaderGetSuite) TestInitError(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
-	err := command.Init([]string{"x=x"})
+	err := s.command.Init([]string{"x=x"})
 	c.Assert(err, gc.ErrorMatches, `invalid key "x=x"`)
 }
 
 func (s *leaderGetSuite) TestInitKey(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
-	err := command.Init([]string{"some-key"})
+	err := s.command.Init([]string{"some-key"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *leaderGetSuite) TestInitAll(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
-	err := command.Init([]string{"-"})
+	err := s.command.Init([]string{"-"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *leaderGetSuite) TestInitEmpty(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
-	err := command.Init(nil)
+	err := s.command.Init(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *leaderGetSuite) TestFormatError(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
 	runContext := testing.Context(c)
-	code := cmd.Main(command, runContext, []string{"--format", "bad"})
+	code := cmd.Main(s.command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
 	c.Check(bufferString(runContext.Stderr), gc.Equals, `error: invalid value "bad" for flag --format: unknown format "bad"`+"\n")
@@ -55,7 +57,8 @@ func (s *leaderGetSuite) TestFormatError(c *gc.C) {
 
 func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
 	jujucContext := newLeaderGetContext(errors.New("zap"))
-	command := jujuc.NewLeaderGetCommand(jujucContext)
+	command, err := jujuc.NewLeaderGetCommand(jujucContext)
+	c.Assert(err, jc.ErrorIsNil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 1)
@@ -134,7 +137,8 @@ func (s *leaderGetSuite) testOutput(c *gc.C, args []string, expect string) {
 
 func (s *leaderGetSuite) testParseOutput(c *gc.C, args []string, checker gc.Checker, expect interface{}) {
 	jujucContext := newLeaderGetContext(nil)
-	command := jujuc.NewLeaderGetCommand(jujucContext)
+	command, err := jujuc.NewLeaderGetCommand(jujucContext)
+	c.Assert(err, jc.ErrorIsNil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)

@@ -125,7 +125,7 @@ func NewContainerManager(
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultLogDir
+		logDir = agent.DefaultPaths.LogDir
 	}
 	var useClone bool
 	useCloneVal := conf.PopValue("use-clone")

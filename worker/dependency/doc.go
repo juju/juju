@@ -5,8 +5,9 @@
 
 The dependency package exists to address a general problem with shared resources
 and the management of their lifetimes. Many kinds of software handle these issues
-with more or less felicity, but it's particularly important the juju (a distributed
-system that needs to be very fault-tolerant) handle them clearly and sanely.
+with more or less felicity, but it's particularly important that juju (which is
+a distributed system that needs to be very fault-tolerant) handle them clearly
+and sanely.
 
 Background
 ----------
@@ -82,6 +83,10 @@ Problem
 
 The package is intended to implement the following developer stories:
 
+  * As a developer trying to understand the codebase, I want to know what workers
+    are running in an agent at any given time.
+  * As a developer, I want to be prevented from introducing dependency cycles
+    into my application.
   * As a developer, I want to provide a service provided by some worker to one or
     more client workers.
   * As a developer, I want to write a service that consumes one or more other
@@ -117,10 +122,6 @@ before they hit users.
 We'd also like to implement these stories, which go together, and should be
 added when their absence becomes inconvenient:
 
-  * As a developer, I want to be prevented from introducing dependency cycles
-    into my application. [NOT DONE]
-  * As a developer trying to understand the codebase, I want to know what workers
-    are running in an agent at any given time. [NOT DONE]
   * As a developer, I want to add and remove groups of workers atomically, e.g.
     when starting the set of state-server workers for a hosted environ; or when
     starting the set of workers used by a single unit. [NOT DONE]
@@ -169,6 +170,33 @@ accessed via those names. Don't hardcode anything, please.
 If you find yourself using the same manifold configuration in several places,
 consider adding helpers to worker/util, which includes mechanisms for simple
 definition of manifolds that depend on an API caller; on an agent; or on both.
+
+Special considerations
+----------------------
+
+The nodes in your *dependency* graph must be acyclic; this does not imply that
+the *information flow* must be acyclic. Indeed, it is common for separate
+components to need to synchronise their actions; but the implementation of
+Engine makes it inconvenient for either one to depend on the other (and
+impossible for both to do so).
+
+When a set of manifolds need to encode a set of services whose information flow
+is not acyclic, apparent A->B->A cycles can be broken by introducing a new
+shared dependency C to mediate the information flow. That is, A and B can then
+separately depend upon C; and C itself can start a degenerate worker that never
+errors of its own accord.
+
+For examples of this technique, search for usage of `worker/util.NewValueWorker`
+(which is generally used inside other manifolds to pass snippets of agent config
+down to workers that don't have a good reason to see, or write, the full agent
+config); and `worker/gate.Manifold`, which is for one-way coordination between
+workers which should not be started until some other worker has completed some
+task.
+
+Please be careful when coordinating workers like this; the gate manifold in
+particular is effectively just another lock, and it'd be trivial to construct
+a set of gate-users that can deadlock one another. All the usual considerations
+when working with locks still apply.
 
 
 Concerns and mitigations thereof

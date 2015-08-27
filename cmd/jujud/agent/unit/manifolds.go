@@ -16,9 +16,12 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machinelock"
+	"github.com/juju/juju/worker/metrics/collect"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniteravailability"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -150,6 +153,26 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
 		}),
+
+		// TODO (mattyw) should be added to machine agent.
+		MetricSpoolName: spool.Manifold(spool.ManifoldConfig{
+			AgentName: AgentName,
+		}),
+
+		// The uniteravailability tracks whether the workload is started or not;
+		// after 'start' hook and before 'stop' hook executes.
+		UniterAvailabilityName: uniteravailability.Manifold(uniteravailability.ManifoldConfig{
+			AgentName: AgentName,
+		}),
+
+		// The metric collect worker executes the collect-metrics hook in a
+		// restricted context that can safely run concurrently with other hooks.
+		MetricCollectName: collect.Manifold(collect.ManifoldConfig{
+			AgentName:              AgentName,
+			APICallerName:          APICallerName,
+			MetricSpoolName:        MetricSpoolName,
+			UniterAvailabilityName: UniterAvailabilityName,
+		}),
 	}
 }
 
@@ -166,4 +189,7 @@ const (
 	RsyslogConfigUpdaterName = "rsyslog-config-updater"
 	UniterName               = "uniter"
 	UpgraderName             = "upgrader"
+	MetricSpoolName          = "metric-spool"
+	UniterAvailabilityName   = "uniter-availability"
+	MetricCollectName        = "metric-collect"
 )
