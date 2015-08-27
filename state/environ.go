@@ -350,7 +350,6 @@ func (e *Environment) destroyOps() ([]txn.Op, error) {
 			{"time-of-dying", nowToTheSecond()},
 		}}},
 	}}
-
 	if uuid == e.doc.ServerUUID {
 		if count, err := hostedEnvironCount(e.st); err != nil {
 			return nil, errors.Trace(err)

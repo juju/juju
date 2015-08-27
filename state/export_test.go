@@ -340,7 +340,6 @@ func SetEnvLifeDying(st *State, envUUID string) error {
 		C:      environmentsC,
 		Id:     envUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-		Assert: isEnvAliveDoc,
 	}}
 	return st.runTransaction(ops)
 }
