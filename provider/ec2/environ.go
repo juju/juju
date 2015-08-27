@@ -52,8 +52,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-var AssignPrivateIPAddress = assignPrivateIPAddress
-
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -482,6 +480,37 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}
 
+	// If spaces= constraints is also set, then filter availabilityZones to only
+	// contain zones matching the space's subnets' zones
+	if len(args.SubnetsToZones) > 0 {
+		azs := make(map[string]bool, len(availabilityZones))
+
+		// find all the available zones that match the subnets that match our
+		// space/subnet constraints
+		for _, az := range availabilityZones {
+			for _, zones := range args.SubnetsToZones {
+				for _, zone := range zones {
+					if zone == az {
+						azs[zone] = true
+					}
+				}
+			}
+		}
+
+		if len(azs) == 0 {
+			return nil, errors.Errorf(
+				"unable to resolve constraints: space and/or subnet unavailable in zones %v",
+				availabilityZones)
+		}
+
+		// re-write availabilityZones to just contain the ones that match our
+		// space/subnet constraints
+		availabilityZones = []string{}
+		for zone := range azs {
+			availabilityZones = append(availabilityZones, zone)
+		}
+	}
+
 	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
@@ -845,7 +874,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		return errors.Trace(err)
 	}
 	for a := shortAttempt.Start(); a.Next(); {
-		err = AssignPrivateIPAddress(ec2Inst, nicId, addr)
+		err = assignPrivateIPAddress(ec2Inst, nicId, addr)
 		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, addr, err)
 		if err == nil {
 			logger.Tracef("allocated address %v for instance %v, NIC %v", addr, instId, nicId)
