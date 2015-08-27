@@ -895,7 +895,6 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
-	c.Skip("maltese-falcon")
 	coretesting.SkipIfPPC64EL(c, "lp:1448308")
 	//TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {
@@ -948,7 +947,7 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			verifyWaitingUpgradeError{revision: 1},
 			fixUpgradeError{},
 			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed", "stop"},
+			waitHooks{"upgrade-charm", "config-changed", "leader-settings-changed", "stop"},
 			waitUniterDead{},
 		), ut(
 			"upgrade conflict unit dead",

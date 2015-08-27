@@ -24,6 +24,7 @@ type LoopConfig struct {
 	Factory             operation.Factory
 	UpdateStatusChannel func() <-chan time.Time
 	CharmURL            *charm.URL
+	Conflicted          bool
 	Dying               <-chan struct{}
 	OnIdle              func() error
 }
@@ -53,8 +54,11 @@ type LoopConfig struct {
 // charm URL being upgraded to.
 func Loop(cfg LoopConfig) (LocalState, error) {
 	rf := &resolverOpFactory{
-		Factory:    cfg.Factory,
-		LocalState: LocalState{CharmURL: cfg.CharmURL},
+		Factory: cfg.Factory,
+		LocalState: LocalState{
+			CharmURL:   cfg.CharmURL,
+			Conflicted: cfg.Conflicted,
+		},
 	}
 	for {
 		// TODO(axw) move update status to the watcher.

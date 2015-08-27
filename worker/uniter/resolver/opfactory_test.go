@@ -106,12 +106,14 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 	c *gc.C, meth func(resolver.ResolverOpFactory, *charm.URL) (operation.Operation, error),
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.LocalState.Conflicted = true
 	curl := charm.MustParseURL("cs:trusty/mysql")
 	op, err := meth(f, curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CharmURL, jc.DeepEquals, curl)
+	c.Assert(f.LocalState.Conflicted, jc.IsFalse)
 }
 
 func (s *ResolverOpFactorySuite) TestNewUpgradeError(c *gc.C) {

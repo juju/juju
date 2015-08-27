@@ -76,6 +76,7 @@ func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *char
 	return onCommitWrapper{op, func() {
 		s.LocalState.CharmURL = charmURL
 		s.LocalState.Restart = true
+		s.LocalState.Conflicted = false
 	}}
 }
 

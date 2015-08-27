@@ -58,6 +58,10 @@ type LocalState struct {
 	// by the committing of deploy (install/upgrade) ops.
 	CharmURL *charm.URL
 
+	// Conflicted indicates that the uniter is in a conflicted state,
+	// and needs either resolution or a forced upgrade to continue.
+	Conflicted bool
+
 	// Restart indicates that the resolver should exit with ErrRestart
 	// at the earliest opportunity.
 	Restart bool

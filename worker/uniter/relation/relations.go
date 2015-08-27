@@ -173,7 +173,7 @@ func (r *relations) NextHook(
 		return hook.Info{}, errors.Trace(err)
 	}
 
-	if localState.Kind != operation.Continue || localState.Stopped {
+	if localState.Kind != operation.Continue {
 		return hook.Info{}, resolver.ErrNoOperation
 	}
 

@@ -258,6 +258,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			)
 		}
 
+		var conflicted bool
 		var localState resolver.LocalState
 		for err == nil {
 			localState, err = resolver.Loop(resolver.LoopConfig{
@@ -267,6 +268,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Factory:             u.operationFactory,
 				UpdateStatusChannel: updateStatusChannel,
 				CharmURL:            charmURL,
+				Conflicted:          conflicted,
 				Dying:               u.tomb.Dying(),
 				OnIdle:              onIdle,
 			})
@@ -282,12 +284,14 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			case resolver.ErrTerminate:
 				err = u.terminate()
 			default:
-				if ok := operation.IsDeployConflictError(cause); ok {
-					uniterResolver.conflicted = true
+				// We need to set conflicted from here, because error
+				// handling is outside of the resolver's control.
+				if operation.IsDeployConflictError(cause) {
+					conflicted = true
 					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
-					continue
+				} else {
+					reportAgentError(u, "resolver loop error", err)
 				}
-				reportAgentError(u, "resolver loop error", err)
 			}
 		}
 
