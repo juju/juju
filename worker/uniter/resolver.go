@@ -17,6 +17,7 @@ import (
 type uniterResolver struct {
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
+	fixDeployer     func() error
 
 	leadershipResolver resolver.Resolver
 	relationsResolver  resolver.Resolver
@@ -46,6 +47,12 @@ func (s *uniterResolver) NextOp(
 		// unit's charm URL. We need to restart the resolver
 		// loop so that we start watching the correct events.
 		return nil, resolver.ErrRestart
+	}
+
+	if localState.Kind == operation.Continue {
+		if err := s.fixDeployer(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	op, err := s.leadershipResolver.NextOp(localState, remoteState, opFactory)
