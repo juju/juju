@@ -4,8 +4,9 @@
 package workload_test
 
 import (
-	"github.com/juju/juju/workload"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/workload"
 )
 
 type workloadSuite struct{}
