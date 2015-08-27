@@ -34,7 +34,7 @@ type LoopConfig struct {
 //
 // The provided "onIdle" function will be called when the loop is waiting
 // for remote state changes due to a lack of work to perform. It will not
-// be called when a change is anticipated (i.executor. due to ErrWaiting).
+// be called when a change is anticipated (i.e. due to ErrWaiting).
 //
 // The resolver loop can be controlled in the following ways:
 //  - if the "dying" channel is signalled, then the loop will

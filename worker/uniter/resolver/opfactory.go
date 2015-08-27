@@ -17,7 +17,8 @@ import (
 var logger = loggo.GetLogger("juju.worker.uniter.resolver")
 
 // resolverOpFactory wraps an operation.Factory such that skips that affect
-// local state will, when committed, update the embedded LocalState struct.
+// local state will, when committed, update the embedded LocalState struct
+// to reflect the change made by the operation.
 //
 // The wrapped operations embed information specific to the remote state
 // snapshot that was used to create the operation. Thus, remote state changes
@@ -74,7 +75,7 @@ func (s *resolverOpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.O
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
 	return onCommitWrapper{op, func() {
 		s.LocalState.CharmURL = charmURL
-		s.LocalState.Upgraded = true
+		s.LocalState.Restart = true
 	}}
 }
 

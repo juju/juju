@@ -45,7 +45,7 @@ func (s *uniterResolver) NextOp(
 		return opFactory.NewUpgrade(localState.CharmURL)
 	}
 
-	if localState.Upgraded {
+	if localState.Restart {
 		// We've just run the upgrade op, which will change the
 		// unit's charm URL. We need to restart the resolver
 		// loop so that we start watching the correct events.

@@ -58,10 +58,9 @@ type LocalState struct {
 	// by the committing of deploy (install/upgrade) ops.
 	CharmURL *charm.URL
 
-	// Upgraded indicates that an upgrade op was just run, and the
-	// resolver loop should be restarted with a fresh remotestate
-	// watcher.
-	Upgraded bool
+	// Restart indicates that the resolver should exit with ErrRestart
+	// at the earliest opportunity.
+	Restart bool
 
 	// ConfigVersion is the version of config from remotestate.Snapshot
 	// for which a config-changed hook has been committed.

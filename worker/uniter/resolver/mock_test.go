@@ -64,7 +64,7 @@ type mockOpExecutor struct {
 }
 
 func (e *mockOpExecutor) State() operation.State {
-	e.MethodCall(e, "State", "State")
+	e.MethodCall(e, "State")
 	return e.st
 }
 

@@ -94,7 +94,6 @@ func (w *RemoteStateWatcher) Wait() error {
 }
 
 func (w *RemoteStateWatcher) Kill() {
-	logger.Debugf("RemoteStateWatcher.Kill()")
 	w.tomb.Kill(nil)
 }
 
