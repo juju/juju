@@ -84,27 +84,6 @@ func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
 }
 
-func (s *InterfaceSuite) TestAddingMetrics(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		uuid := utils.MustNewUUID()
-		ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), runnertesting.NewRealPaths(c))
-		cleanup := context.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
-		defer cleanup()
-
-		now := time.Now()
-		err := ctx.AddMetric("key", "123", now)
-		c.Assert(err, jc.ErrorIsNil)
-
-		s.stub.CheckCalls(c,
-			[]testing.StubCall{{
-				FuncName: "AddMetric",
-				Args:     []interface{}{"key", "123", now},
-			}})
-	*/
-}
-
 func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	zone, err := ctx.AvailabilityZone()

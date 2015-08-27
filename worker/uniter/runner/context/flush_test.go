@@ -207,51 +207,10 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 	c.Assert(all, gc.HasLen, 0)
 }
 
-func (s *FlushContextSuite) TestFlushClosesMetricsRecorder(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		uuid := utils.MustNewUUID()
-		ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), runnertesting.NewRealPaths(c))
-
-		context.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
-
-		err := ctx.AddMetric("key", "value", time.Now())
-
-		// Flush the context with a success.
-		err = ctx.Flush("success", nil)
-		c.Assert(err, jc.ErrorIsNil)
-
-		s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
-	*/
-}
-
 func (s *HookContextSuite) context(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(c, uuid.String(), -1, "", noProxies)
-}
-
-func (s *FlushContextSuite) TestBuiltinMetric(c *gc.C) {
-	// TODO (cmars): port test over to collect manifold.
-	c.Skip("maltese-falcon metrics")
-	/*
-		uuid := utils.MustNewUUID()
-		paths := runnertesting.NewRealPaths(c)
-		ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("juju-units"), paths)
-		reader, err := spool.NewJSONMetricReader(
-			paths.GetMetricsSpoolDir(),
-		)
-
-		err = ctx.Flush("some badge", nil)
-		c.Assert(err, jc.ErrorIsNil)
-		batches, err := reader.Read()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(batches, gc.HasLen, 1)
-		c.Assert(batches[0].Metrics, gc.HasLen, 1)
-		c.Assert(batches[0].Metrics[0].Key, gc.Equals, "juju-units")
-		c.Assert(batches[0].Metrics[0].Value, gc.Equals, "1")
-	*/
 }
 
 func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
@@ -267,19 +226,4 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 0)
-}
-
-func (s *FlushContextSuite) TestRecorderIsClosedAfterBuiltIn(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		uuid := utils.MustNewUUID()
-		paths := runnertesting.NewRealPaths(c)
-		ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("juju-units"), paths)
-		context.PatchMetricsRecorder(ctx, &StubMetricsRecorder{&s.stub})
-
-		err := ctx.Flush("some badge", nil)
-		c.Assert(err, jc.ErrorIsNil)
-		s.stub.CheckCallNames(c, "IsDeclaredMetric", "AddMetric", "Close")
-	*/
 }
