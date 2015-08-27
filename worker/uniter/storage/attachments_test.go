@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
 )
 
@@ -187,11 +188,15 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertStorageTags(c, att, storageTag)
 
-	resolver := storage.NewResolver(&mockOperations{}, att)
-	storage.SetStorageLife(resolver, map[names.StorageTag]params.Life{
+	storageResolver := storage.NewResolver(att)
+	storage.SetStorageLife(storageResolver, map[names.StorageTag]params.Life{
 		storageTag: params.Alive,
 	})
-	localState := operation.State{}
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
 	remoteState := remotestate.Snapshot{
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: remotestate.StorageSnapshot{
@@ -202,7 +207,7 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 			},
 		},
 	}
-	op, err := resolver.NextOp(localState, remoteState)
+	op, err := storageResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook storage-attached")
 

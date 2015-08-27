@@ -190,12 +190,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// Stop the uniter if the watcher fails.
-		go func() { u.tomb.Kill(watcher.Wait()) }()
+		// Stop the uniter if the watcher fails. The watcher may be
+		// stopped cleanly, so only kill the tomb if the error is
+		// non-nil.
+		go func(w *remotestate.RemoteStateWatcher) {
+			if err := w.Wait(); err != nil {
+				u.tomb.Kill(err)
+			}
+		}(watcher)
 		return nil
-	}
-	if err := restartWatcher(); err != nil {
-		return errors.Trace(err)
 	}
 
 	// watcher may be replaced, so use a closure.
@@ -224,20 +227,17 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	for {
+		if err = restartWatcher(); err != nil {
+			err = errors.Annotate(err, "(re)starting watcher")
+			break
+		}
+
 		uniterResolver := &uniterResolver{
-			opFactory:       u.operationFactory,
-			clearResolved:   clearResolved,
-			reportHookError: u.reportHookError,
-			charmURL:        charmURL,
-			leadershipResolver: uniterleadership.NewResolver(
-				u.operationFactory,
-			),
-			relationsResolver: relation.NewRelationsResolver(
-				u.relations, u.operationFactory,
-			),
-			storageResolver: storage.NewResolver(
-				u.operationFactory, u.storage,
-			),
+			clearResolved:      clearResolved,
+			reportHookError:    u.reportHookError,
+			leadershipResolver: uniterleadership.NewResolver(),
+			relationsResolver:  relation.NewRelationsResolver(u.relations),
+			storageResolver:    storage.NewResolver(u.storage),
 		}
 
 		// We should not do anything until there has been a change
@@ -248,6 +248,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return tomb.ErrDying
 		case <-watcher.RemoteStateChanged():
 		}
+
+		// TODO(axw) move the channel to remotestate.
 		updateStatusChannel := func() <-chan time.Time {
 			return u.updateStatusAt(
 				time.Now(),
@@ -255,15 +257,18 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				statusPollInterval,
 			)
 		}
+
+		var localState resolver.LocalState
 		for err == nil {
-			err = resolverLoop(resolverLoopConfig{
-				resolver:            uniterResolver,
-				remoteStateWatcher:  watcher,
-				executor:            u.operationExecutor,
-				factory:             u.operationFactory,
-				updateStatusChannel: updateStatusChannel,
-				dying:               u.tomb.Dying(),
-				onIdle:              onIdle,
+			localState, err = resolver.Loop(resolver.LoopConfig{
+				Resolver:            uniterResolver,
+				Watcher:             watcher,
+				Executor:            u.operationExecutor,
+				Factory:             u.operationFactory,
+				UpdateStatusChannel: updateStatusChannel,
+				CharmURL:            charmURL,
+				Dying:               u.tomb.Dying(),
+				OnIdle:              onIdle,
 			})
 			switch cause := errors.Cause(err); cause {
 			case tomb.ErrDying:
@@ -287,12 +292,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 
 		if errors.Cause(err) == resolver.ErrRestart {
-			restartErr := restartWatcher()
-			if restartErr == nil {
-				charmURL = uniterResolver.charmURL
-				continue
-			}
-			err = errors.Annotate(restartErr, "restarting resolver")
+			charmURL = localState.CharmURL
+			continue
 		}
 		break
 	}

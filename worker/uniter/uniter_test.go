@@ -343,7 +343,12 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 				statusGetter: unitStatusGetter,
 				status:       params.StatusUnknown,
 			},
-			waitHooks{"start", "config-changed"},
+			// TODO(axw) confirm with fwereade that this is correct.
+			// Previously we would see "start", "config-changed".
+			// I don't think we should see another config-changed,
+			// since config did not change since we resolved the
+			// failed one above.
+			waitHooks{"start"},
 			// If we'd accidentally retried that hook, somehow, we would get
 			// an extra config-changed as we entered started; see that we don't.
 			waitHooks{},
@@ -468,7 +473,6 @@ func (s *UniterSuite) TestUniterDyingReaction(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
-	c.Skip("maltese-falcon")
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from steady state.
 		ut(

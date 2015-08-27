@@ -24,25 +24,24 @@ type StorageResolverOperations interface {
 }
 
 type storageResolver struct {
-	opFactory StorageResolverOperations
-	storage   *Attachments
-	dying     bool
-	life      map[names.StorageTag]params.Life
+	storage *Attachments
+	dying   bool
+	life    map[names.StorageTag]params.Life
 }
 
 // NewResolver returns a new storage resolver.
-func NewResolver(opFactory StorageResolverOperations, storage *Attachments) resolver.Resolver {
+func NewResolver(storage *Attachments) resolver.Resolver {
 	return &storageResolver{
-		opFactory: opFactory,
-		storage:   storage,
-		life:      make(map[names.StorageTag]params.Life),
+		storage: storage,
+		life:    make(map[names.StorageTag]params.Life),
 	}
 }
 
 // NextOp is defined on the Resolver interface.
 func (s *storageResolver) NextOp(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
 	var changed []names.StorageTag
@@ -60,17 +59,18 @@ func (s *storageResolver) NextOp(
 		}
 	}
 	if len(changed) > 0 {
-		return s.opFactory.NewUpdateStorage(changed)
+		return opFactory.NewUpdateStorage(changed)
 	}
-	if !opState.Installed && s.storage.Pending() == 0 {
+	if !localState.Installed && s.storage.Pending() == 0 {
 		logger.Infof("initial storage attachments ready")
 	}
-	return s.nextOp(opState, remoteState)
+	return s.nextOp(localState, remoteState, opFactory)
 }
 
 func (s *storageResolver) nextOp(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	if remoteState.Life == params.Dying {
 		if !s.dying {
@@ -84,26 +84,45 @@ func (s *storageResolver) nextOp(
 			remoteState.Storage[tag] = snap
 		}
 	}
-	for tag, snap := range remoteState.Storage {
-		op, err := s.nextHookOp(tag, snap)
-		if errors.Cause(err) == resolver.ErrNoOperation {
-			continue
-		}
-		return op, err
+
+	var runStorageHooks bool
+	switch {
+	case localState.Kind == operation.Continue && !localState.Stopped:
+		// There's nothing in progress, and we've not stopped.
+		runStorageHooks = true
+	case !localState.Installed && localState.Kind == operation.RunHook && localState.Step == operation.Queued:
+		// The install operation completed, and there's an install
+		// hook queued. Run storage-attached hooks first.
+		runStorageHooks = true
 	}
-	if s.storage.Pending() > 0 {
-		logger.Debugf("still pending %v", s.storage.pending)
-		if !opState.Installed {
-			return nil, resolver.ErrWaiting
+
+	if runStorageHooks {
+		for tag, snap := range remoteState.Storage {
+			op, err := s.nextHookOp(tag, snap, opFactory)
+			if errors.Cause(err) == resolver.ErrNoOperation {
+				continue
+			}
+			return op, err
+		}
+		if s.storage.Pending() > 0 {
+			logger.Debugf("still pending %v", s.storage.pending)
+			if !localState.Installed {
+				return nil, resolver.ErrWaiting
+			}
 		}
 	}
 	return nil, resolver.ErrNoOperation
 }
 
 func (s *storageResolver) nextHookOp(
-	tag names.StorageTag, snap remotestate.StorageSnapshot,
+	tag names.StorageTag,
+	snap remotestate.StorageSnapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	logger.Debugf("next hook op for %v: %+v", tag, snap)
+	if !snap.Attached {
+		return nil, resolver.ErrNoOperation
+	}
 	storageAttachment, ok := s.storage.storageAttachments[tag]
 	if !ok {
 		return nil, resolver.ErrNoOperation
@@ -147,5 +166,5 @@ func (s *storageResolver) nextHookOp(
 	s.storage.storageAttachments[tag] = storageAttachment
 
 	logger.Debugf("queued hook: %v", hookInfo)
-	return s.opFactory.NewRunHook(hookInfo)
+	return opFactory.NewRunHook(hookInfo)
 }

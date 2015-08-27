@@ -65,6 +65,7 @@ func (m *mockStorageAccessor) RemoveStorageAttachment(s names.StorageTag, u name
 }
 
 type mockOperations struct {
+	operation.Factory
 }
 
 func (m *mockOperations) NewUpdateStorage(tags []names.StorageTag) (operation.Operation, error) {

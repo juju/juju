@@ -5,6 +5,7 @@ package resolver
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -33,12 +34,40 @@ var ErrTerminate = errors.New("terminate resolver")
 // the desired state.
 type Resolver interface {
 	// NextOp returns the next operation to run to reconcile
-	// the local state with the remote, desired state. This
-	// method must return ErrNoOperation if there are no
+	// the local state with the remote, desired state. The
+	// operations returned must be created using the given
+	// operation.Factory.
+	//
+	// This method must return ErrNoOperation if there are no
 	// operations to perform.
 	//
 	// By returning ErrTerminate, the resolver indicates that
 	// it will never have any more operations to perform,
 	// and the caller can cease calling.
-	NextOp(operation.State, remotestate.Snapshot) (operation.Operation, error)
+	NextOp(
+		LocalState,
+		remotestate.Snapshot,
+		operation.Factory,
+	) (operation.Operation, error)
+}
+
+type LocalState struct {
+	operation.State
+
+	// CharmURL reports the currently installed charm URL. This is set
+	// by the committing of deploy (install/upgrade) ops.
+	CharmURL *charm.URL
+
+	// Restart indicates that the resolver should exit with ErrRestart
+	// at the earliest opportunity.
+	Restart bool
+
+	// ConfigVersion is the version of config from remotestate.Snapshot
+	// for which a config-changed hook has been committed.
+	ConfigVersion int
+
+	// LeaderSettingsVersion is the version of leader settings from
+	// remotestate.Snapshot for which a leader-settings-changed hook has
+	// been committed.
+	LeaderSettingsVersion int
 }

@@ -43,27 +43,27 @@ type Relations interface {
 	// GetInfo returns information about current relation state.
 	GetInfo() map[int]*context.RelationInfo
 
-	NextHook(operation.State, remotestate.Snapshot) (hook.Info, error)
+	NextHook(resolver.LocalState, remotestate.Snapshot) (hook.Info, error)
 }
 
-func NewRelationsResolver(r Relations, f operation.Factory) resolver.Resolver {
-	return &relationsResolver{r, f}
+func NewRelationsResolver(r Relations) resolver.Resolver {
+	return &relationsResolver{r}
 }
 
 type relationsResolver struct {
 	relations Relations
-	opFactory operation.Factory
 }
 
 func (s *relationsResolver) NextOp(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
 ) (operation.Operation, error) {
-	hook, err := s.relations.NextHook(opState, remoteState)
+	hook, err := s.relations.NextHook(localState, remoteState)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.opFactory.NewRunHook(hook)
+	return opFactory.NewRunHook(hook)
 }
 
 // relations implements Relations.
@@ -140,7 +140,7 @@ func (r *relations) init() error {
 }
 
 func (r *relations) NextHook(
-	opState operation.State,
+	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 ) (hook.Info, error) {
 
@@ -171,6 +171,10 @@ func (r *relations) NextHook(
 	// Add/remove local relation state; enter and leave scope as necessary.
 	if err := r.update(remoteState.Relations); err != nil {
 		return hook.Info{}, errors.Trace(err)
+	}
+
+	if localState.Kind != operation.Continue || localState.Stopped {
+		return hook.Info{}, resolver.ErrNoOperation
 	}
 
 	// See if any of the relations have operations to perform.
