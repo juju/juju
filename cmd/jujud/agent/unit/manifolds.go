@@ -152,6 +152,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:         APICallerName,
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
+			CharmDirName:          CharmDirName,
 		}),
 
 		// TODO (mattyw) should be added to machine agent.
