@@ -6,6 +6,8 @@ package dependency_test
 import (
 	"time"
 
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
@@ -13,6 +15,45 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
+
+type engineFixture struct {
+	testing.IsolationSuite
+	engine dependency.Engine
+}
+
+func (s *engineFixture) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.startEngine(c, nothingFatal)
+}
+
+func (s *engineFixture) TearDownTest(c *gc.C) {
+	s.stopEngine(c)
+	s.IsolationSuite.TearDownTest(c)
+}
+
+func (s *engineFixture) startEngine(c *gc.C, isFatal dependency.IsFatalFunc) {
+	if s.engine != nil {
+		c.Fatalf("original engine not stopped")
+	}
+	config := dependency.EngineConfig{
+		IsFatal:       isFatal,
+		MoreImportant: func(err0, err1 error) error { return err0 },
+		ErrorDelay:    coretesting.ShortWait / 2,
+		BounceDelay:   coretesting.ShortWait / 10,
+	}
+
+	e, err := dependency.NewEngine(config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.engine = e
+}
+
+func (s *engineFixture) stopEngine(c *gc.C) {
+	if s.engine != nil {
+		err := worker.Stop(s.engine)
+		s.engine = nil
+		c.Check(err, jc.ErrorIsNil)
+	}
+}
 
 type manifoldHarness struct {
 	inputs             []string

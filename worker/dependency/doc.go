@@ -119,12 +119,14 @@ workers slightly more often than before, and thus exercises those code paths mor
 so, when there are bugs, we're more likely to shake them out in automated testing
 before they hit users.
 
-We'd also like to implement these stories, which go together, and should be
-added when their absence becomes inconvenient:
+We'd maybe also like to implement this story:
 
   * As a developer, I want to add and remove groups of workers atomically, e.g.
     when starting the set of state-server workers for a hosted environ; or when
     starting the set of workers used by a single unit. [NOT DONE]
+
+...but there's no urgent use case yet, and it's not certain to be superior to an
+engine-nesting approach.
 
 
 Solution
@@ -147,20 +149,68 @@ declaring and accessing their dependencies, and the ability to assume that they
 will be restarted whenever there is a material change to their accessible
 dependencies.
 
+When the weight of manifolds in a single engine becomes inconvenient, group them
+and run them inside nested dependency.Engines; the Report() method on the top-
+level engine will collect information from (directly-) contained engines, so at
+least there's still some observability; but there may also be call to pass
+actual dependencies down from one engine to another, and that'll demand careful
+thought.
+
 
 Usage
 -----
 
 In each worker package, write a `manifold.go` containing the following:
 
+    // ManifoldConfig holds the information necessary to configure the worker
+    // controlled by a Manifold.
     type ManifoldConfig struct {
+
         // The names of the various dependencies, e.g.
         APICallerName   string
         MachineLockName string
+
+        // Any other required top-level configuration, e.g.
+        Period time.Duration
     }
 
+    // Manifold returns a manifold that controls the operation of a worker
+    // responsible for <things>, configured as supplied.
     func Manifold(config ManifoldConfig) dependency.Manifold {
         // Your code here...
+        return dependency.Manifold{
+
+            // * certainly include each of your configured dependency names,
+            //   getResource will only expose them if you declare them here.
+            Inputs: []string{config.APICallerName, config.MachineLockName},
+
+            // * certainly include a start func, it will panic if you don't.
+            Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+                // You presumably want to get your dependencies, and you almost
+                // certainly want to be closed over `config`...
+                var apicaller base.APICaller
+                if err := getResource(config.APICallerName, &apicaller); err != nil {
+                    return nil, err
+                }
+                var machineLock *fslock.Lock
+                if err := getResource(config.MachineLockName, &machineLock); err != nil {
+                    return nil, err
+                }
+                return newSomethingWorker(apicaller, machineLock, config.Period)
+            },
+
+            // * output func is not obligatory, and should be skipped if you
+            //   don't know what you'll be exposing or to whom.
+            // * see `worker/machinelock`, `worker/gate`, `worker/util`, and
+            //   `worker/dependency/testing` for examples of output funcs.
+            // * if you do supply an output func, be sure to document it on the
+            //   Manifold func; for example:
+            //
+            //       // Manifold exposes Foo and Bar resources, which can be
+            //       // accessed by passing a *Foo or a *Bar in the output
+            //       // parameter of its dependencies' getResouce calls.
+            Output: nil,
+        }
     }
 
 ...and take care to construct your manifolds *only* via that function; *all*
@@ -170,6 +220,17 @@ accessed via those names. Don't hardcode anything, please.
 If you find yourself using the same manifold configuration in several places,
 consider adding helpers to worker/util, which includes mechanisms for simple
 definition of manifolds that depend on an API caller; on an agent; or on both.
+
+
+Testing
+-------
+
+The `worker/dependency/testing` package, commonly imported as "dt", exposes a
+`StubResource` that is helpful for testing `Start` funcs in decent isolation,
+with mocked dependencies. Tests for `Inputs` and `Output` are generally pretty
+specific to their precise context and don't seem to benefit much from
+generalisation.
+
 
 Special considerations
 ----------------------
