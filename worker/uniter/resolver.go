@@ -71,6 +71,11 @@ func (s *uniterResolver) NextOp(
 
 		case operation.Queued:
 			logger.Infof("found queued %q hook", localState.Hook.Kind)
+			if localState.Hook.Kind == hooks.Install {
+				// Special case: handle install in nextOp,
+				// so we do nothing when the unit is dying.
+				return s.nextOp(localState, remoteState, opFactory)
+			}
 			return opFactory.NewRunHook(*localState.Hook)
 
 		case operation.Done:

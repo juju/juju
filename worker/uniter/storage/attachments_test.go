@@ -17,6 +17,7 @@ import (
 	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
@@ -191,7 +192,11 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	storage.SetStorageLife(storageResolver, map[names.StorageTag]params.Life{
 		storageTag: params.Alive,
 	})
-	localState := resolver.LocalState{}
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
 	remoteState := remotestate.Snapshot{
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: remotestate.StorageSnapshot{

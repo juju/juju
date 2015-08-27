@@ -59,21 +59,12 @@ func (l *leadershipResolver) NextOp(
 		return opFactory.NewResignLeadership()
 	}
 
-	switch localState.Kind {
-	case operation.RunHook:
-		switch localState.Step {
-		case operation.Queued:
-			if localState.Hook.Kind == hook.LeaderElected {
-				logger.Infof("found queued %q hook", localState.Hook.Kind)
-				return opFactory.NewRunHook(*localState.Hook)
-			}
+	if localState.Kind == operation.Continue && !localState.Stopped {
+		// We want to run the leader settings hook if we're
+		// not the leader and the settings have changed.
+		if !localState.Leader && localState.LeaderSettingsVersion != remoteState.LeaderSettingsVersion {
+			return opFactory.NewRunHook(hook.Info{Kind: hook.LeaderSettingsChanged})
 		}
-	}
-
-	// We want to run the leader settings hook if we're not the leader
-	// and the settings have changed.
-	if !localState.Leader && localState.LeaderSettingsVersion != remoteState.LeaderSettingsVersion {
-		return opFactory.NewRunHook(hook.Info{Kind: hook.LeaderSettingsChanged})
 	}
 
 	logger.Infof("leadership status is up-to-date")

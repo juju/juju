@@ -173,6 +173,10 @@ func (r *relations) NextHook(
 		return hook.Info{}, errors.Trace(err)
 	}
 
+	if localState.Kind != operation.Continue || localState.Stopped {
+		return hook.Info{}, resolver.ErrNoOperation
+	}
+
 	// See if any of the relations have operations to perform.
 	for relationId, relationSnapshot := range remoteState.Relations {
 		relationer, ok := r.relationers[relationId]

@@ -84,17 +84,31 @@ func (s *storageResolver) nextOp(
 			remoteState.Storage[tag] = snap
 		}
 	}
-	for tag, snap := range remoteState.Storage {
-		op, err := s.nextHookOp(tag, snap, opFactory)
-		if errors.Cause(err) == resolver.ErrNoOperation {
-			continue
-		}
-		return op, err
+
+	var runStorageHooks bool
+	switch {
+	case localState.Kind == operation.Continue && !localState.Stopped:
+		// There's nothing in progress, and we've not stopped.
+		runStorageHooks = true
+	case !localState.Installed && localState.Kind == operation.RunHook && localState.Step == operation.Queued:
+		// The install operation completed, and there's an install
+		// hook queued. Run storage-attached hooks first.
+		runStorageHooks = true
 	}
-	if s.storage.Pending() > 0 {
-		logger.Debugf("still pending %v", s.storage.pending)
-		if !localState.Installed {
-			return nil, resolver.ErrWaiting
+
+	if runStorageHooks {
+		for tag, snap := range remoteState.Storage {
+			op, err := s.nextHookOp(tag, snap, opFactory)
+			if errors.Cause(err) == resolver.ErrNoOperation {
+				continue
+			}
+			return op, err
+		}
+		if s.storage.Pending() > 0 {
+			logger.Debugf("still pending %v", s.storage.pending)
+			if !localState.Installed {
+				return nil, resolver.ErrWaiting
+			}
 		}
 	}
 	return nil, resolver.ErrNoOperation
@@ -106,6 +120,9 @@ func (s *storageResolver) nextHookOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	logger.Debugf("next hook op for %v: %+v", tag, snap)
+	if !snap.Attached {
+		return nil, resolver.ErrNoOperation
+	}
 	storageAttachment, ok := s.storage.storageAttachments[tag]
 	if !ok {
 		return nil, resolver.ErrNoOperation

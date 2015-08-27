@@ -48,9 +48,6 @@ func (s *upgradeStateContextSuite) TestInstalledBooleanTrueIfInstalled(c *gc.C) 
 	oldState := &operation.State{
 		Kind: operation.Continue,
 		Step: operation.Pending,
-		Hook: &hook.Info{
-			Kind: hooks.Start,
-		},
 	}
 	err := s.statefile.Write(oldState)
 	c.Assert(err, jc.ErrorIsNil)
