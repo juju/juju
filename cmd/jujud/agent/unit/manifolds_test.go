@@ -63,7 +63,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		unit.UpgraderName,
 		unit.MetricSpoolName,
 		unit.MetricCollectName,
-		unit.UniterAvailabilityName,
+		unit.CharmDirName,
 	}
 	keys := make([]string, len(manifolds))
 	i := 0

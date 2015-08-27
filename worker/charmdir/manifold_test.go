@@ -1,9 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniteravailability_test
+package charmdir_test
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,9 +14,9 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/uniteravailability"
 )
 
 type ManifoldSuite struct {
@@ -33,7 +34,7 @@ func kill(w worker.Worker) error {
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.manifold = uniteravailability.Manifold()
+	s.manifold = charmdir.Manifold()
 	s.getResource = dt.StubGetResource(dt.StubResources{})
 }
 
@@ -60,46 +61,69 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	c.Check(worker, gc.NotNil)
 	defer kill(worker)
 
-	var consumer uniteravailability.UniterAvailabilityConsumer
+	var consumer charmdir.Consumer
 	err = s.manifold.Output(worker, &consumer)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(consumer.EnterAvailable(), gc.Equals, false)
 
-	var setter uniteravailability.UniterAvailabilitySetter
-	err = s.manifold.Output(worker, &setter)
+	// charmdir is not available, so function will not run
+	ok, err := consumer.Run(func() error { return fmt.Errorf("nope") })
+	c.Check(ok, jc.IsFalse)
 	c.Check(err, jc.ErrorIsNil)
-	setter.SetAvailable(true)
 
-	nConsumers := 10
-	for i := 0; i < nConsumers; i++ {
-		c.Check(consumer.EnterAvailable(), gc.Equals, true)
-	}
+	var locker charmdir.Locker
+	err = s.manifold.Output(worker, &locker)
+	c.Check(err, jc.ErrorIsNil)
+	locker.SetAvailable(true)
+
+	// charmdir is available, function will run
+	ok, err = consumer.Run(func() error { return fmt.Errorf("yep") })
+	c.Check(ok, jc.IsTrue)
+	c.Check(err, gc.ErrorMatches, "yep")
 
 	var g gate
 	g.set("consumers have availability")
 
-	beforeCS := make(chan struct{})
-	afterCS := make(chan struct{})
+	beforeNA := make(chan struct{})
+	afterNA := make(chan struct{})
 	go func() {
-		close(beforeCS)
-		setter.NotAvailable()
-		close(afterCS)
+		<-beforeNA
+		locker.NotAvailable()
+		close(afterNA)
 		g.set("no availability for you")
 	}()
-	<-beforeCS
-	time.Sleep(coretesting.ShortWait)
 
-	for i := 0; i < nConsumers; i++ {
+	// charmdir available, Consumer.Run without error, confirm shared state.
+	ok, err = consumer.Run(func() error {
 		c.Check(g.get(), gc.Equals, "consumers have availability")
-		consumer.ExitAvailable()
-	}
+		return nil
+	})
+	c.Check(ok, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
 
+	// Locker wants to make charmdir NotAvailable during Consumer.Run, has to
+	// wait, confirm shared state.
+	ok, err = consumer.Run(func() error {
+		close(beforeNA)
+		select {
+		case <-afterNA:
+			c.Fatalf("Locker failed to keep charmdir locked during a Consumer.Run")
+		case <-time.After(coretesting.ShortWait):
+		}
+		c.Check(g.get(), gc.Equals, "consumers have availability")
+		return nil
+	})
+	c.Check(ok, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
+
+	// charmdir should now be unavailable, confirm shared state.
 	select {
-	case <-afterCS:
+	case <-afterNA:
 		c.Check(g.get(), gc.Equals, "no availability for you")
-		c.Check(consumer.EnterAvailable(), jc.IsFalse)
+		ok, err = consumer.Run(func() error { return fmt.Errorf("nope") })
+		c.Check(ok, jc.IsFalse)
+		c.Check(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.ShortWait):
-		c.Fatal("timed out waiting for setter to revoke availability")
+		c.Fatal("timed out waiting for locker to revoke availability")
 	}
 }
 
@@ -111,6 +135,6 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 
 	var state interface{}
 	err = s.manifold.Output(worker, &state)
-	c.Check(err.Error(), gc.Equals, "out should be a pointer to a UniterAvailabilityConsumer or a UniterAvailabilitySetter; is *interface {}")
+	c.Check(err.Error(), gc.Equals, "out should be a pointer to a charmdir.Consumer or a charmdir.Locker; is *interface {}")
 	c.Check(state, gc.IsNil)
 }
