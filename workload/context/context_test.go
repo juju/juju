@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
 
 	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 	"github.com/juju/juju/workload"
@@ -303,23 +302,6 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 
 	c.Check(before, jc.DeepEquals, []workload.Info{other})
 	c.Check(after, jc.DeepEquals, []workload.Info{info})
-}
-
-func (s *contextSuite) TestDefinitions(c *gc.C) {
-	definition := charm.Workload{
-		Name: "wlA",
-		Type: "myplugin",
-	}
-	s.apiClient.definitions["wlA"] = definition
-	ctx := context.NewContext(s.apiClient, s.addEvents)
-
-	definitions, err := ctx.Definitions()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(definitions, gc.DeepEquals, []charm.Workload{
-		definition,
-	})
-	s.Stub.CheckCallNames(c, "Definitions")
 }
 
 func (s *contextSuite) TestFlushDirty(c *gc.C) {

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -36,6 +37,10 @@ func (s *commandSuite) SetUpTest(c *gc.C) {
 	s.cmdCtx = coretesting.Context(c)
 
 	s.setMetadata()
+}
+
+func (s *commandSuite) readDefinitions(ctx *cmd.Context) (map[string]charm.Workload, error) {
+	return s.compCtx.definitions, nil
 }
 
 func (s *commandSuite) setCommand(c *gc.C, name string, cmd cmd.Command) {
@@ -97,6 +102,6 @@ func (s *registeringCommandSuite) checkRunInfo(c *gc.C, orig, sent workload.Info
 	info := context.GetCmdInfo(s.cmd)
 	c.Check(info, jc.DeepEquals, &orig)
 
-	s.Stub.CheckCallNames(c, "List", "Definitions", "Track", "Flush")
-	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{sent})
+	s.Stub.CheckCallNames(c, "List", "Track", "Flush")
+	c.Check(s.Stub.Calls()[1].Args, jc.DeepEquals, []interface{}{sent})
 }

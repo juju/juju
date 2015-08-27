@@ -61,31 +61,6 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	st, err := s.State.UnitWorkloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	definitions, err := st.Definitions()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(definitions, jc.DeepEquals, []charm.Workload{{
-		Name:        "workloadA",
-		Type:        "docker",
-		TypeOptions: map[string]string{},
-		Command:     "do-something cool",
-		Image:       "spam/eggs",
-		Volumes: []charm.WorkloadVolume{{
-			ExternalMount: "/var/nginx/html",
-			InternalMount: "/usr/share/nginx/html",
-			Mode:          "ro",
-			Name:          "",
-		}},
-		Ports: []charm.WorkloadPort{{
-			External: 8080,
-			Internal: 80,
-			Endpoint: "",
-		}},
-		EnvVars: map[string]string{
-			// TODO(erisnow) YAML coerces YES into true...
-			"IMPORTANT": "true",
-		},
-	}})
-
 	workloads, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, gc.HasLen, 0)

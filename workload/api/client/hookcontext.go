@@ -6,7 +6,6 @@ package client
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api"
@@ -27,24 +26,6 @@ type HookContextClient struct {
 // NewHookContextClient builds a new workload API client.
 func NewHookContextClient(caller facadeCaller) HookContextClient {
 	return HookContextClient{caller}
-}
-
-// Definitions calls the Definitions API server method.
-func (c HookContextClient) Definitions() ([]charm.Workload, error) {
-	var results api.DefinitionsResults
-	if err := c.FacadeCall("Definitions", nil, &results); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if results.Error != nil {
-		return nil, errors.Errorf(results.Error.GoString())
-	}
-
-	var definitions []charm.Workload
-	for _, result := range results.Results {
-		definition := api.API2Definition(result)
-		definitions = append(definitions, definition)
-	}
-	return definitions, nil
 }
 
 // Track calls the Track API server method.

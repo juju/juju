@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/persistence"
@@ -35,17 +34,14 @@ type UnitWorkloads struct {
 	Persist workloadsPersistence
 	// Unit identifies the unit associated with the workloads.
 	Unit names.UnitTag
-	// Metadata is a function that returns the metadata for the unit's charm.
-	Metadata func() (*charm.Meta, error)
 }
 
 // NewUnitWorkloads builds a UnitWorkloads for a unit.
-func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) *UnitWorkloads {
+func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag) *UnitWorkloads {
 	persist := persistence.NewPersistence(st, unit)
 	return &UnitWorkloads{
-		Persist:  persist,
-		Unit:     unit,
-		Metadata: getMetadata,
+		Persist: persist,
+		Unit:    unit,
 	}
 }
 
@@ -104,20 +100,6 @@ func (ps UnitWorkloads) List(ids ...string) ([]workload.Info, error) {
 		return nil, errors.Trace(err)
 	}
 	return results, nil
-}
-
-// ListDefinitions builds the list of workload definitions found in the
-// unit's charm metadata.
-func (ps UnitWorkloads) Definitions() ([]charm.Workload, error) {
-	meta, err := ps.Metadata()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var definitions []charm.Workload
-	for _, definition := range meta.Workloads {
-		definitions = append(definitions, definition)
-	}
-	return definitions, nil
 }
 
 // Untrack removes the identified workload from state. It does not

@@ -153,19 +153,6 @@ func (c *baseCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *baseCommand) defsFromCharm() (map[string]charm.Workload, error) {
-	definitions, err := c.compCtx.Definitions()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defMap := make(map[string]charm.Workload)
-	for _, definition := range definitions {
-		// We expect no collisions.
-		defMap[definition.Name] = definition
-	}
-	return defMap, nil
-}
-
 func (c *baseCommand) trackedWorkloads(ids ...string) (map[string]*workload.Info, error) {
 	if len(ids) == 0 {
 		tracked, err := c.compCtx.List()
@@ -257,6 +244,9 @@ type trackingCommand struct {
 
 	// Definition is the file definition of the workload.
 	Definition cmd.FileVar
+
+	// ReadDefinitions extracts charm workloads from the given file.
+	ReadDefinitions func(ctx *cmd.Context) (map[string]charm.Workload, error)
 }
 
 func newTrackingCommand(ctx HookContext) (*trackingCommand, error) {
@@ -265,7 +255,8 @@ func newTrackingCommand(ctx HookContext) (*trackingCommand, error) {
 		return nil, errors.Trace(err)
 	}
 	c := &trackingCommand{
-		baseCommand: *base,
+		baseCommand:     *base,
+		ReadDefinitions: readDefinitions,
 	}
 	c.handleArgs = c.init
 	return c, nil
@@ -364,7 +355,7 @@ func (c *trackingCommand) findValidInfo(ctx *cmd.Context) (*workload.Info, error
 func (c *trackingCommand) findInfo(ctx *cmd.Context) (*workload.Info, error) {
 	var definition charm.Workload
 	if c.Definition.Path == "" {
-		defs, err := c.defsFromCharm()
+		defs, err := c.ReadDefinitions(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

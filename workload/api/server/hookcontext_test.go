@@ -291,65 +291,6 @@ func (suite) TestListAll(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
-func (suite) TestDefinitions(c *gc.C) {
-	definition := charm.Workload{
-		Name:        "foobar",
-		Description: "desc",
-		Type:        "type",
-		TypeOptions: map[string]string{"foo": "bar"},
-		Command:     "cmd",
-		Image:       "img",
-		Ports: []charm.WorkloadPort{
-			{
-				External: 8080,
-				Internal: 80,
-				Endpoint: "endpoint",
-			},
-		},
-		Volumes: []charm.WorkloadVolume{
-			{
-				ExternalMount: "/foo/bar",
-				InternalMount: "/baz/bat",
-				Mode:          "ro",
-				Name:          "volname",
-			},
-		},
-		EnvVars: map[string]string{"envfoo": "bar"},
-	}
-	st := &FakeState{defs: []charm.Workload{definition}}
-	a := HookContextAPI{st}
-
-	results, err := a.Definitions()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(results, jc.DeepEquals, api.DefinitionsResults{
-		Results: []api.WorkloadDefinition{{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []api.WorkloadPort{
-				{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				},
-			},
-			Volumes: []api.WorkloadVolume{
-				{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				},
-			},
-			EnvVars: map[string]string{"envfoo": "bar"},
-		}},
-	})
-}
-
 func (suite) TestSetStatus(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
@@ -462,10 +403,6 @@ func (f *FakeState) Track(info workload.Info) error {
 func (f *FakeState) List(ids ...string) ([]workload.Info, error) {
 	f.ids = ids
 	return f.workloads, f.err
-}
-
-func (f *FakeState) Definitions() ([]charm.Workload, error) {
-	return f.defs, f.err
 }
 
 func (f *FakeState) SetStatus(id string, status workload.CombinedStatus) error {
