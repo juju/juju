@@ -40,7 +40,7 @@ func (s *ManifoldsSuite) TestRegisterComponentManifoldFunc(c *gc.C) {
 	expected := dependency.Manifold{
 		Inputs: []string{"ham", "eggs"},
 	}
-	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+	newManifold := func(unit.ComponentManifoldConfig) (dependency.Manifold, error) {
 		return expected, nil
 	}
 	err := unit.RegisterComponentManifoldFunc("spam", newManifold)
@@ -49,7 +49,7 @@ func (s *ManifoldsSuite) TestRegisterComponentManifoldFunc(c *gc.C) {
 	// We can't compare functions (e.g. check unit.ComponentManifoldFuncs)
 	// so we jump through hoops instead.
 	c.Check(unit.ComponentManifoldFuncs, gc.HasLen, 1)
-	var config unit.ManifoldsConfig
+	var config unit.ComponentManifoldConfig
 	registered := unit.ComponentManifoldFuncs["spam"]
 	manifold, err := registered(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,12 +60,12 @@ func (s *ManifoldsSuite) TestComponentManifold(c *gc.C) {
 	manifold := dependency.Manifold{
 		Inputs: []string{"ham", "eggs"},
 	}
-	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+	newManifold := func(unit.ComponentManifoldConfig) (dependency.Manifold, error) {
 		return manifold, nil
 	}
 	unit.ComponentManifoldFuncs["spam"] = newManifold
 
-	manifolds, err := unit.ComponentManifolds(unit.ManifoldsConfig{})
+	manifolds, err := unit.ComponentManifolds(unit.ComponentManifoldConfig{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(manifolds, jc.DeepEquals, dependency.Manifolds{
@@ -74,7 +74,7 @@ func (s *ManifoldsSuite) TestComponentManifold(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestNames(c *gc.C) {
-	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+	newManifold := func(unit.ComponentManifoldConfig) (dependency.Manifold, error) {
 		return dependency.Manifold{}, nil
 	}
 	for _, name := range []string{"spam", "eggs"} {

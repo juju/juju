@@ -165,12 +165,12 @@ func (c workloads) registerUnitWorkers() func(...workload.Event) error {
 		unitHandlers.RegisterHandler(handlerFunc)
 	}
 
-	newManifold := func(unit.ManifoldsConfig) (dependency.Manifold, error) {
+	newManifold := func(config unit.ComponentManifoldConfig) (dependency.Manifold, error) {
 		// At this point no workload workers are running for the unit.
 		// TODO(ericsnow) Move this code to workers.Manifold
 		// (and ManifoldConfig)?
 		apiConfig := util.ApiManifoldConfig{
-			APICallerName: unit.APICallerName,
+			APICallerName: config.APICallerName,
 		}
 		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)

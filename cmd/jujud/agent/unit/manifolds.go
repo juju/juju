@@ -25,12 +25,21 @@ import (
 )
 
 var (
-	componentManifoldFuncs = make(map[string]func(ManifoldsConfig) (dependency.Manifold, error))
+	componentManifoldFuncs = make(map[string]func(ComponentManifoldConfig) (dependency.Manifold, error))
 )
+
+// ComponentManifoldConfig holds the manifold config provided to
+// registered components.
+type ComponentManifoldConfig struct {
+	// AgentName is the name of the agent.Agent resource.
+	AgentName string
+	// APICallerName is the name of the base.APICaller resource.
+	APICallerName string
+}
 
 // RegisterComponentManifoldFunc adds the given manifold factory func
 // to the list of component-registered manifest funcs.
-func RegisterComponentManifoldFunc(name string, newManifold func(ManifoldsConfig) (dependency.Manifold, error)) error {
+func RegisterComponentManifoldFunc(name string, newManifold func(ComponentManifoldConfig) (dependency.Manifold, error)) error {
 	if _, ok := componentManifoldFuncs[name]; ok {
 		return errors.Errorf("%q manifold func already registered", name)
 	}
@@ -40,7 +49,7 @@ func RegisterComponentManifoldFunc(name string, newManifold func(ManifoldsConfig
 
 // ComponentManifolds returns a manifold for each component-registered
 // manifold func.
-func ComponentManifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
+func ComponentManifolds(config ComponentManifoldConfig) (dependency.Manifolds, error) {
 	manifolds := make(dependency.Manifolds)
 	for name, newManifold := range componentManifoldFuncs {
 		manifold, err := newManifold(config)
@@ -183,7 +192,11 @@ func Manifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
 	}
 
 	// Add in the component-registered manifolds.
-	registered, err := ComponentManifolds(config)
+	componentConfig := ComponentManifoldConfig{
+		AgentName:     AgentName,
+		APICallerName: APICallerName,
+	}
+	registered, err := ComponentManifolds(componentConfig)
 	if err != nil {
 		return manifolds, errors.Trace(err)
 	}
