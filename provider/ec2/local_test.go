@@ -549,6 +549,30 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
+func (t *localServerSuite) TestSpaceConstraints(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	params := environs.StartInstanceParams{
+		Placement:   "zone=test-available",
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{"zone2"},
+			"subnet-3": []string{"zone3"},
+		},
+	}
+
+	// First test that we get an error if we can't resolve the constraints
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
+
+	// Now test that if we can fit into the constraints, the instance is created
+	params.SubnetsToZones["subnet-2"] = []string{"test-available"}
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
 }
