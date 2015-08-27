@@ -604,7 +604,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
-	c.Skip("maltese-falcon")
+	//c.Skip("maltese-falcon")
 	//TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: currently does not work on windows")
@@ -961,7 +961,7 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
-	c.Skip("maltese-falcon")
+	//c.Skip("maltese-falcon")
 	coretesting.SkipIfGitNotAvailable(c)
 
 	// These tests are copies of the old git-deployer-related tests, to test that
@@ -1085,7 +1085,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			unitDying,
 			verifyWaiting{},
 			resolveError{state.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed", "stop"},
+			waitHooks{"upgrade-charm", "config-changed", "leader-settings-changed", "stop"},
 			waitUniterDead{},
 		), ugt(
 			"upgrade conflict unit dead",
