@@ -1,0 +1,17 @@
+#!/bin/bash
+set -x
+
+export PATH=$PWD/plugin:$PATH
+
+name=$(action-get name)
+id=$(action-get id)
+status=$(action-get status)
+status-set maintenance "register: registering $name into Juju's state ($id, $status)"
+
+result=$(workload-register "$name" '{"id":"'"$id"'", "status":{"state":"'"$status"'"}}' 2>&1)
+rc=$?
+if [ "$rc" == "0" ]; then
+    action-set output="$result"
+else
+    status-set maintenance "register: [$name] failed ($rc - $result)"
+fi
