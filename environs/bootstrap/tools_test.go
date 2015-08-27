@@ -54,7 +54,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	// Host runs arm64, environment supports arm64.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	err := bootstrap.ValidateUploadAllowed(env, arch.ARCH64)
+	err := bootstrap.ValidateUploadAllowed(env, arch.ARM64)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
