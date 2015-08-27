@@ -15,13 +15,13 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/worker/uniteravailability"
 )
 
 type ManifoldSuite struct {
@@ -41,18 +41,18 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.manifoldConfig = collect.ManifoldConfig{
-		AgentName:              "agent-name",
-		APICallerName:          "apicaller-name",
-		MetricSpoolName:        "metric-spool-name",
-		UniterAvailabilityName: "uniteravailability-name",
+		AgentName:       "agent-name",
+		APICallerName:   "apicaller-name",
+		MetricSpoolName: "metric-spool-name",
+		CharmDirName:    "charmdir-name",
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
 	s.dummyResources = dt.StubResources{
-		"agent-name":              dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"apicaller-name":          dt.StubResource{Output: &dummyAPICaller{}},
-		"metric-spool-name":       dt.StubResource{Output: &dummyMetricFactory{}},
-		"uniteravailability-name": dt.StubResource{Output: &dummyUniterAvailability{available: true}},
+		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
+		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
+		"metric-spool-name": dt.StubResource{Output: &dummyMetricFactory{}},
+		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{available: true}},
 	}
 	s.getResource = dt.StubGetResource(s.dummyResources)
 }
@@ -60,7 +60,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 // TestInputs ensures the collect manifold has the expected defined inputs.
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "uniteravailability-name",
+		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
 	})
 }
 
@@ -68,7 +68,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 // resource dependency.
 func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 	for _, missingDep := range []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "uniteravailability-name",
+		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
 	} {
 		testResources := dt.StubResources{}
 		for k, v := range s.dummyResources {
@@ -121,7 +121,7 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 	c.Assert(recorder.batches[0].Metrics[0].Value, gc.Equals, "1")
 }
 
-// TestAvailability tests that the availability resource is properly checked.
+// TestAvailability tests that the charmdir resource is properly checked.
 func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 	recorder := &dummyRecorder{
 		charmURL:         "cs:wordpress-37",
@@ -132,15 +132,18 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
-	s.dummyResources["uniteravailability-name"] = dt.StubResource{Output: &dummyUniterAvailability{available: false}}
+	charmdir := &dummyCharmdir{available: false}
+	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
 	getResource := dt.StubGetResource(s.dummyResources)
 	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, getResource)
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.batches, gc.HasLen, 0)
+	c.Assert(availability.running, jc.IsFalse)
 
-	s.dummyResources["uniteravailability-name"] = dt.StubResource{Output: &dummyUniterAvailability{available: true}}
+	charmdir = &dummyCharmdir{available: true}
+	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
 	getResource = dt.StubGetResource(s.dummyResources)
 	collectEntity, err = (*collect.NewCollect)(s.manifoldConfig, getResource)
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,6 +151,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.closed, jc.IsTrue)
 	c.Assert(recorder.batches, gc.HasLen, 1)
+	c.Assert(availability.running, jc.IsFalse)
 }
 
 // TestNoMetricsDeclared tests that if metrics are not declared, none are
@@ -221,14 +225,18 @@ type dummyAPICaller struct {
 	base.APICaller
 }
 
-type dummyUniterAvailability struct {
-	uniteravailability.UniterAvailabilityGetter
+type dummyCharmdir struct {
+	charmdir.Consumer
 
 	available bool
+	running   bool
 }
 
-func (a *dummyUniterAvailability) Available() bool {
-	return a.available
+func (a *dummyCharmdir) Run(f func() error) (bool, error) {
+	if a.available {
+		return true, f()
+	}
+	return false, nil
 }
 
 type dummyMetricFactory struct {
