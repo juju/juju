@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type environSuite struct {
@@ -177,7 +176,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
 	s.PatchValue(&manualDetectSeriesAndHardwareCharacteristics, func(string) (instance.HardwareCharacteristics, string, error) {
-		arch := version.Current.Arch
+		arch := arch.HostArch()
 		return instance.HardwareCharacteristics{Arch: &arch}, "precise", nil
 	})
 	s.PatchValue(&manualCheckProvisioned, func(string) (bool, error) {

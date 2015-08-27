@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/leadership"
 	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
@@ -71,9 +72,14 @@ type State struct {
 	pwatcher          *presence.Watcher
 	leadershipManager leadership.ManagerWorker
 
-	// mu guards allManager.
-	mu         sync.Mutex
-	allManager *storeManager
+	// mu guards allManager, allEnvManager & allEnvWatcherBacking
+	mu                   sync.Mutex
+	allManager           *storeManager
+	allEnvManager        *storeManager
+	allEnvWatcherBacking Backing
+
+	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
+	CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
 // StateServingInfo holds information needed by a state server.
@@ -156,8 +162,8 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 	return newState, nil
 }
 
-// start starts the presence watcher and leadership manager, and fills in the
-// serverTag field with the supplied value.
+// start starts the presence watcher, leadership manager and images metadata storage,
+// and fills in the serverTag field with the supplied value.
 func (st *State) start(serverTag names.EnvironTag) error {
 	st.serverTag = serverTag
 
@@ -182,11 +188,12 @@ func (st *State) start(serverTag names.EnvironTag) error {
 
 	logger.Infof("creating lease client as %s", clientId)
 	clock := GetClock()
+	datastore := &environMongo{st}
 	leaseClient, err := lease.NewClient(lease.ClientConfig{
 		Id:         clientId,
 		Namespace:  serviceLeadershipNamespace,
 		Collection: leasesC,
-		Mongo:      &environMongo{st},
+		Mongo:      datastore,
 		Clock:      clock,
 	})
 	if err != nil {
@@ -201,6 +208,9 @@ func (st *State) start(serverTag names.EnvironTag) error {
 		return errors.Annotatef(err, "cannot create leadership manager")
 	}
 	st.leadershipManager = leadershipManager
+
+	logger.Infof("creating cloud image metadata storage")
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)
 
 	logger.Infof("starting presence watcher")
 	st.pwatcher = presence.NewWatcher(st.getPresence(), st.environTag)
@@ -296,6 +306,16 @@ func (st *State) Watch() *Multiwatcher {
 	}
 	st.mu.Unlock()
 	return NewMultiwatcher(st.allManager)
+}
+
+func (st *State) WatchAllEnvs() *Multiwatcher {
+	st.mu.Lock()
+	if st.allEnvManager == nil {
+		st.allEnvWatcherBacking = newAllEnvWatcherStateBacking(st)
+		st.allEnvManager = newStoreManager(st.allEnvWatcherBacking)
+	}
+	st.mu.Unlock()
+	return NewMultiwatcher(st.allEnvManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -1217,7 +1237,7 @@ func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
 
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add subnet %q", args.CIDR)
+	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
@@ -1230,6 +1250,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		AllocatableIPHigh: args.AllocatableIPHigh,
 		AllocatableIPLow:  args.AllocatableIPLow,
 		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
 	}
 	subnet = &Subnet{doc: subDoc, st: st}
 	err = subnet.Validate()
@@ -1282,6 +1303,22 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
 	}
 	return &Subnet{st, *doc}, nil
+}
+
+// AllSubnets returns all known subnets in the environment.
+func (st *State) AllSubnets() (subnets []*Subnet, err error) {
+	subnetsCollection, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	docs := []subnetDoc{}
+	err = subnetsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all subnets")
+	}
+	for _, doc := range docs {
+		subnets = append(subnets, &Subnet{st, doc})
+	}
+	return subnets, nil
 }
 
 // AddNetwork creates a new network with the given params. If a
@@ -1414,21 +1451,17 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	prefix := st.EnvironUUID() + ":"
-	if strings.HasPrefix(localID, prefix) {
-		return localID
-	}
-	return prefix + localID
+	return ensureEnvUUID(st.EnvironUUID(), localID)
 }
 
 // localID returns the local id value by stripping
 // off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
-	prefix := st.EnvironUUID() + ":"
-	if strings.HasPrefix(ID, prefix) {
-		return ID[len(prefix):]
+	envUUID, localID, ok := splitDocID(ID)
+	if !ok || envUUID != st.EnvironUUID() {
+		return ID
 	}
-	return ID
+	return localID
 }
 
 // strictLocalID returns the local id value by removing the
@@ -1437,11 +1470,32 @@ func (st *State) localID(ID string) string {
 // If there is no prefix matching the State's environment, an error is
 // returned.
 func (st *State) strictLocalID(ID string) (string, error) {
-	prefix := st.EnvironUUID() + ":"
-	if !strings.HasPrefix(ID, prefix) {
+	envUUID, localID, ok := splitDocID(ID)
+	if !ok || envUUID != st.EnvironUUID() {
 		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
-	return ID[len(prefix):], nil
+	return localID, nil
+}
+
+// ensureEnvUUID returns an environment UUID prefixed document ID. The
+// prefix is only added if it isn't already there.
+func ensureEnvUUID(envUUID, id string) string {
+	prefix := envUUID + ":"
+	if strings.HasPrefix(id, prefix) {
+		return id
+	}
+	return prefix + id
+}
+
+// splitDocID returns the 2 parts of environment UUID prefixed
+// document ID. If the id is not in the expected format the final
+// return value will be false.
+func splitDocID(id string) (string, string, bool) {
+	parts := strings.SplitN(id, ":", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.

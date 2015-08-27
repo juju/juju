@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
-// Note: This provider/environment does *not* implement storage.
-
 type gceConnection interface {
 	VerifyCredentials() error
 
@@ -33,6 +31,27 @@ type gceConnection interface {
 	ClosePorts(fwname string, ports ...network.PortRange) error
 
 	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
+
+	// Storage related methods.
+
+	// CreateDisks will attempt to create the disks described by <disks> spec and
+	// return a slice of Disk representing the created disks or error if one of them failed.
+	CreateDisks(zone string, disks []google.DiskSpec) ([]*google.Disk, error)
+	// Disks will return a list of Disk found the passed <zone>.
+	Disks(zone string) ([]*google.Disk, error)
+	// Disk will return a Disk representing the disk identified by the
+	// passed <name> or error.
+	Disk(zone, id string) (*google.Disk, error)
+	// RemoveDisk will destroy the disk identified by <name> in <zone>.
+	RemoveDisk(zone, id string) error
+	// AttachDisk will attach the volume identified by <volumeName> into the instance
+	// <instanceId> and return an AttachedDisk representing it or error.
+	AttachDisk(zone, volumeName, instanceId string, mode google.DiskMode) (*google.AttachedDisk, error)
+	// DetachDisk will detach <volumeName> disk from <instanceId> if possible
+	// and return error.
+	DetachDisk(zone, instanceId, volumeName string) error
+	// InstanceDisks returns a list of the disks attached to the passed instance.
+	InstanceDisks(zone, instanceId string) ([]*google.AttachedDisk, error)
 }
 
 type environ struct {

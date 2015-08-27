@@ -30,6 +30,7 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 		AllocatableIPLow:  "192.168.1.0",
 		AllocatableIPHigh: "192.168.1.1",
 		AvailabilityZone:  "Timbuktu",
+		SpaceName:         "foo",
 	}
 
 	assertSubnet := func(subnet *state.Subnet) {
@@ -41,6 +42,7 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 		c.Assert(subnet.AvailabilityZone(), gc.Equals, "Timbuktu")
 		c.Assert(subnet.String(), gc.Equals, "192.168.1.0/24")
 		c.Assert(subnet.GoString(), gc.Equals, "192.168.1.0/24")
+		c.Assert(subnet.SpaceName(), gc.Equals, "foo")
 	}
 
 	subnet, err := s.State.AddSubnet(subnetInfo)
@@ -56,15 +58,15 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo := state.SubnetInfo{}
 	_, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, `cannot add subnet "": missing CIDR`)
+	c.Assert(err, gc.ErrorMatches, `adding subnet "": missing CIDR`)
 
 	subnetInfo.CIDR = "foobar"
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add subnet "foobar": invalid CIDR address: foobar`,
+		`adding subnet "foobar": invalid CIDR address: foobar`,
 	)
 
-	errPrefix := `cannot add subnet "192.168.0.1/24": `
+	errPrefix := `adding subnet "192.168.0.1/24": `
 	subnetInfo.CIDR = "192.168.0.1/24"
 	subnetInfo.VLANTag = 4095
 	_, err = s.State.AddSubnet(subnetInfo)
@@ -118,7 +120,7 @@ func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo.CIDR = "192.0.0.0/0"
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add subnet "192.0.0.0/0": ProviderId "testing uniqueness" not unique`,
+		`adding subnet "192.0.0.0/0": ProviderId "testing uniqueness" not unique`,
 	)
 
 	// empty provider id should be allowed to be not unique
@@ -213,6 +215,31 @@ func (s *SubnetSuite) TestRefresh(c *gc.C) {
 	err = subnetCopy.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnetCopy.Life(), gc.Equals, state.Dead)
+}
+
+func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
+	subnetInfos := []state.SubnetInfo{
+		{CIDR: "192.168.1.0/24"},
+		{CIDR: "8.8.8.0/24", SpaceName: "bar"},
+		{CIDR: "10.0.2.0/24", ProviderId: "foo"},
+		{CIDR: "2001:db8::/64", AvailabilityZone: "zone1"},
+	}
+
+	for _, info := range subnetInfos {
+		_, err := s.State.AddSubnet(info)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, len(subnetInfos))
+
+	for i, subnet := range subnets {
+		c.Assert(subnet.CIDR(), gc.Equals, subnetInfos[i].CIDR)
+		c.Assert(subnet.ProviderId(), gc.Equals, subnetInfos[i].ProviderId)
+		c.Assert(subnet.SpaceName(), gc.Equals, subnetInfos[i].SpaceName)
+		c.Assert(subnet.AvailabilityZone(), gc.Equals, subnetInfos[i].AvailabilityZone)
+	}
 }
 
 func (s *SubnetSuite) TestPickNewAddressNoAddresses(c *gc.C) {

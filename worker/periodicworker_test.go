@@ -28,7 +28,7 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 		return testError
 	}
 
-	w := NewPeriodicWorker(doWork, defaultPeriod)
+	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
 	defer func() { c.Assert(Stop(w), gc.Equals, testError) }()
 	select {
 	case <-funcHasRun:
@@ -54,7 +54,7 @@ func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
 		return nil
 	}
 
-	w := NewPeriodicWorker(doWork, defaultPeriod)
+	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
 	defer func() { c.Assert(Stop(w), gc.IsNil) }()
 	select {
 	case <-funcHasRun:
@@ -94,7 +94,7 @@ func runKillTest(c *gc.C, returnValue, expected error) {
 		return returnValue
 	}
 
-	w := NewPeriodicWorker(doWork, defaultPeriod)
+	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
 	defer func() { c.Assert(Stop(w), gc.Equals, expected) }()
 
 	select {
@@ -126,7 +126,7 @@ func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
 
 	period := time.Millisecond * 500
 	unacceptableWait := time.Second * 10
-	w := NewPeriodicWorker(doWork, period)
+	w := NewPeriodicWorker(doWork, period, NewTimer)
 	defer func() { c.Assert(Stop(w), gc.IsNil) }()
 	for i := 0; i < 5; i++ {
 		select {
