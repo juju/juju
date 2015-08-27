@@ -172,7 +172,7 @@ func (w *collect) Do(stop <-chan struct{}) error {
 		return errors.Annotate(err, "failed to instantiate metric recorder")
 	}
 
-	ctx := &hookContext{unitName: unitTag.String(), recorder: recorder}
+	ctx := newHookContext(unitTag.String(), recorder)
 	err = ctx.addJujuUnitsMetric()
 	if err != nil {
 		return errors.Annotatef(err, "error adding 'juju-units' metric")
@@ -182,48 +182,6 @@ func (w *collect) Do(stop <-chan struct{}) error {
 	err = r.RunHook(string(hooks.CollectMetrics))
 	if err != nil {
 		return errors.Annotatef(err, "error running 'collect-metrics' hook")
-	}
-	return nil
-}
-
-type hookContext struct {
-	// TODO(cmars): deal with unimplemented methods in a better way than
-	// panicking. Need a proper restricted hook context.
-	runner.Context
-
-	unitName string
-	recorder spool.MetricRecorder
-}
-
-// HookVars implements jujuc.Context.
-func (ctx *hookContext) HookVars(paths context.Paths) ([]string, error) {
-	// TODO(cmars): Provide restricted hook context vars.
-	return nil, nil
-}
-
-// UnitName implements jujuc.Context.
-func (ctx *hookContext) UnitName() string {
-	return ctx.unitName
-}
-
-// Flush implements jujuc.Context.
-func (ctx *hookContext) Flush(process string, ctxErr error) (err error) {
-	return ctx.recorder.Close()
-}
-
-// AddMetric implements jujuc.
-func (ctx *hookContext) AddMetric(key string, value string, created time.Time) error {
-	return ctx.recorder.AddMetric(key, value, created)
-}
-
-// addJujuUnitsMetric adds the juju-units built in metric if it
-// is defined for this context.
-func (ctx *hookContext) addJujuUnitsMetric() error {
-	if ctx.recorder.IsDeclaredMetric("juju-units") {
-		err := ctx.recorder.AddMetric("juju-units", "1", time.Now().UTC())
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }
