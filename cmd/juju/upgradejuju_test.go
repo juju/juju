@@ -297,6 +297,12 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--upload-tools", "--version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
+}, {
+	about:          "latest supported stable release",
+	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
+	currentVersion: "1.22.1-quantal-amd64",
+	agentVersion:   "1.20.14",
+	expectVersion:  "1.21.3",
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
