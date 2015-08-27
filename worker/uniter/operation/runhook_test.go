@@ -111,7 +111,6 @@ func (s *RunHookSuite) TestPrepareHookError_Run(c *gc.C) {
 }
 
 func (s *RunHookSuite) TestPrepareHookError_Skip(c *gc.C) {
-	c.Skip("maltese-falcon")
 	s.testPrepareHookError(c, (operation.Factory).NewSkipHook, true, true)
 }
 

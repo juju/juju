@@ -86,7 +86,7 @@ func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
 
 func (s *InterfaceSuite) TestAddingMetrics(c *gc.C) {
 	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon")
+	c.Skip("maltese-falcon metrics")
 	/*
 		uuid := utils.MustNewUUID()
 		ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"), runnertesting.NewRealPaths(c))
