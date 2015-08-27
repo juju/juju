@@ -203,6 +203,16 @@ func deriveScope(addr Address) Scope {
 	return addr.Scope
 }
 
+func ExactMatchScopeAndType(addr Address, addrScope Scope) bool {
+	if addr.Scope != addrScope {
+		return false
+	}
+	if globalPreferIPv6 && addr.Type != IPv6Address {
+		return false
+	}
+	return true
+}
+
 // SelectPublicAddress picks one address from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, the empty string is returned.

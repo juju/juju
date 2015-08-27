@@ -115,6 +115,15 @@ type machineDoc struct {
 	Addresses []address
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
+
+	//DefaultPublicAddress, if set, is the default address to be used for
+	//the machine when a public address is requested.
+	DefaultPublicAddress address `bson:",omitempty"`
+
+	//DefaultPrivateAddress, if set, is the default address to be used for
+	//the machine when a private address is requested.
+	DefaultPrivateAddress address `bson:",omitempty"`
+
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
 	SupportedContainersKnown bool
@@ -1028,6 +1037,59 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 // addresses. Duplicates are removed.
 func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
+}
+
+func containsAddress(addresses []network.Address, address string) bool {
+	for _, addr := range addresses {
+		if addr.Value == address {
+			return true
+		}
+	}
+	return false
+}
+
+// PublicAddress returns a public address for the machine. The address returned
+// is stored as the default address on first use, and that address is always
+// returned unless it becomes unavilable (or a better match for scope and type
+// becomes avaialable).
+func (m *Machine) PublicAddress() string {
+	publicAddress := m.doc.DefaultPublicAddress.Value
+	// XXX handle the case where len(addresses) == 0
+	addresses := m.Addresses()
+	if publicAddress != "" {
+		if !network.ExactMatchScopeAndType(publicAddress, network.PublicScope) {
+			publicAddress = network.Address{}
+		} else if !containsAddress(addresses, publicAddress) {
+			publicAddress = network.Address{}
+		}
+	}
+	if publicAddress.Value == "" {
+		//XXX store and save updated address
+		publicAddress = network.SelectPublicAddress(addresses)
+	}
+	return publicAddress
+}
+
+// PrivateAddress returns a private address for the machine. The address returned
+// is stored as the default address on first use, and that address is always
+// returned unless it becomes unavilable (or a better match for scope and type
+// becomes avaialable).
+func (m *Machine) PrivateAddress() string {
+	privateAddress := m.doc.DefaultPrivateAddress.networkAddress()
+	// XXX handle the case where len(addresses) == 0
+	addresses := m.Addresses()
+	if privateAddress.Value != "" {
+		if !network.ExactMatchScopeAndType(privateAddress, network.PrivateScope) {
+			privateAddress = network.Address{}
+		} else if !containsAddress(addresses, privateAddress) {
+			privateAddress = network.Address{}
+		}
+	}
+	if privateAddress.Value == "" {
+		//XXX store and save updated address
+		privateAddress = network.SelectPrivateAddress(addresses)
+	}
+	return privateAddress
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
