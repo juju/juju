@@ -306,7 +306,44 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 0,
 		},
 		{
-			label: "Insert works",
+			label: "Insert adds env-uuid",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", state.DocID(s.State, "99")},
+					{"machineid", 99},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Count()
+			},
+			expectedCount: 3,
+		},
+		{
+			label: "Insert populates env-uuid if blank",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", state.DocID(s.State, "99")},
+					{"machineid", 99},
+					{"env-uuid", ""},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Count()
+			},
+			expectedCount: 3,
+		},
+		{
+			label: "Insert prefixes _id",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", "99"},
+					{"machineid", 99},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.FindId("99").Count()
+			},
+			expectedCount: 1,
+		},
+		{
+			label: "Insert tolerates prefixed _id and correct env-uuid if provided",
 			test: func() (int, error) {
 				err := machines0.Writeable().Insert(bson.D{
 					{"_id", state.DocID(s.State, "99")},
@@ -317,6 +354,18 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 				return machines0.Count()
 			},
 			expectedCount: 3,
+		},
+		{
+			label: "Insert fails if env-uuid doesn't match",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", "99"},
+					{"machineid", 99},
+					{"env-uuid", "something-else"},
+				})
+				return 0, err
+			},
+			expectedError: "insert env-uuid is not correct: .+",
 		},
 		{
 			label: "Remove adds env UUID prefix to _id",
