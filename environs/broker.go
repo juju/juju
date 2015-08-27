@@ -49,6 +49,12 @@ type StartInstanceParams struct {
 	// NetworkInfo is an optional list of network interface details,
 	// necessary to configure on the instance.
 	NetworkInfo []network.InterfaceInfo
+
+	// SubnetsToZones is an optional map of provider-specific subnet
+	// id to a list of availability zone names the subnet is available
+	// in. It is only populated when valid positive spaces constraints
+	// are present.
+	SubnetsToZones map[network.Id][]string
 }
 
 // StartInstanceResult holds the result of an

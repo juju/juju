@@ -36,24 +36,24 @@ func setPassword(e state.Authenticator, password string) error {
 }
 
 type validateArgs struct {
-	st      *state.State
-	envUUID string
+	statePool *state.StatePool
+	envUUID   string
 	// strict validation does not allow empty UUID values
 	strict bool
 	// stateServerEnvOnly only validates the state server environment
 	stateServerEnvOnly bool
 }
 
-// validateEnvironUUID is the common validator for the various apiserver
-// components that need to check for a valid environment UUID.
-// An empty envUUID means that the connection has come in at the root
-// of the URL space and refers to the state server environment.
-// The *state.State parameter is expected to be the state server State
-// connection.  The return *state.State is a connection for the specified
-// environment UUID if the UUID refers to an environment contained in the
-// database.  If the bool return value is true, the state connection must
-// be closed by the caller at the end of serving the client connection.
-func validateEnvironUUID(args validateArgs) (*state.State, bool, error) {
+// validateEnvironUUID is the common validator for the various
+// apiserver components that need to check for a valid environment
+// UUID.  An empty envUUID means that the connection has come in at
+// the root of the URL space and refers to the state server
+// environment. The returned *state.State is a connection for the
+// specified environment UUID if the UUID refers to an environment
+// contained in the database.
+func validateEnvironUUID(args validateArgs) (*state.State, error) {
+	ssState := args.statePool.SystemState()
+
 	if args.envUUID == "" {
 		// We allow the environUUID to be empty for 2 cases
 		// 1) Compatibility with older clients
@@ -62,31 +62,29 @@ func validateEnvironUUID(args validateArgs) (*state.State, bool, error) {
 		//    if the connection comes over a sufficiently up to date
 		//    login command.
 		if args.strict {
-			return nil, false, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
+			return nil, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 		}
 		logger.Debugf("validate env uuid: empty envUUID")
-		return args.st, false, nil
+		return ssState, nil
 	}
-	if args.envUUID == args.st.EnvironUUID() {
+	if args.envUUID == ssState.EnvironUUID() {
 		logger.Debugf("validate env uuid: state server environment - %s", args.envUUID)
-		return args.st, false, nil
+		return ssState, nil
 	}
 	if args.stateServerEnvOnly {
-		return nil, false, errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
+		return nil, errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
 	}
 	if !names.IsValidEnvironment(args.envUUID) {
-		return nil, false, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
+		return nil, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 	}
 	envTag := names.NewEnvironTag(args.envUUID)
-	if env, err := args.st.GetEnvironment(envTag); err != nil {
-		return nil, false, errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
-	} else if env.Life() != state.Alive {
-		return nil, false, errors.Errorf("environment %q is no longer live", args.envUUID)
+	if _, err := ssState.GetEnvironment(envTag); err != nil {
+		return nil, errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
 	}
 	logger.Debugf("validate env uuid: %s", args.envUUID)
-	result, err := args.st.ForEnviron(envTag)
+	st, err := args.statePool.Get(args.envUUID)
 	if err != nil {
-		return nil, false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return result, true, nil
+	return st, nil
 }

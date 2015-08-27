@@ -41,6 +41,11 @@ const LegacyUpstart = "legacy-upstart"
 // use statically allocated IP addresses.
 const AddressAllocation = "address-allocation"
 
+// PostNetCLIMVP is used to indicate that additional networking
+// commands will be available in addition to the networking MVP ones
+// (space list|create, subnet list|add).
+const PostNetCLIMVP = "post-net-cli-mvp"
+
 // dbLog indicates that Juju's logs go to MongoDB. It is not exported
 // because it should be checked for using IsDbLogEnabled.
 const dbLog = "db-log"

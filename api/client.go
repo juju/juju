@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -39,6 +40,139 @@ type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 	st     *State
+}
+
+// NetworksSpecification holds the enabled and disabled networks for a
+// service.
+// TODO(dimitern): Drop this in a follow-up.
+type NetworksSpecification struct {
+	Enabled  []string
+	Disabled []string
+}
+
+// AgentStatus holds status info about a machine or unit agent.
+type AgentStatus struct {
+	Status  params.Status
+	Info    string
+	Data    map[string]interface{}
+	Since   *time.Time
+	Kind    params.HistoryKind
+	Version string
+	Life    string
+	Err     error
+}
+
+// MachineStatus holds status info about a machine.
+type MachineStatus struct {
+	Agent AgentStatus
+
+	// The following fields mirror fields in AgentStatus (introduced
+	// in 1.19.x). The old fields below are being kept for
+	// compatibility with old clients.
+	// They can be removed once API versioning lands.
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	Life           string
+	Err            error
+
+	DNSName       string
+	InstanceId    instance.Id
+	InstanceState string
+	Series        string
+	Id            string
+	Containers    map[string]MachineStatus
+	Hardware      string
+	Jobs          []multiwatcher.MachineJob
+	HasVote       bool
+	WantsVote     bool
+}
+
+// ServiceStatus holds status info about a service.
+type ServiceStatus struct {
+	Err           error
+	Charm         string
+	Exposed       bool
+	Life          string
+	Relations     map[string][]string
+	Networks      NetworksSpecification
+	CanUpgradeTo  string
+	SubordinateTo []string
+	Units         map[string]UnitStatus
+	MeterStatuses map[string]MeterStatus
+	Status        AgentStatus
+}
+
+// UnitStatusHistory holds a slice of statuses.
+type UnitStatusHistory struct {
+	Statuses []AgentStatus
+}
+
+// MeterStatus represents the meter status of a unit.
+type MeterStatus struct {
+	Color   string
+	Message string
+}
+
+// UnitStatus holds status info about a unit.
+type UnitStatus struct {
+	// UnitAgent holds the status for a unit's agent.
+	UnitAgent AgentStatus
+
+	// Workload holds the status for a unit's workload
+	Workload AgentStatus
+
+	// Until Juju 2.0, we need to continue to return legacy agent state values
+	// as top level struct attributes when the "FullStatus" API is called.
+	AgentState     params.Status
+	AgentStateInfo string
+	AgentVersion   string
+	Life           string
+	Err            error
+
+	Machine       string
+	OpenedPorts   []string
+	PublicAddress string
+	Charm         string
+	Subordinates  map[string]UnitStatus
+}
+
+// RelationStatus holds status info about a relation.
+type RelationStatus struct {
+	Id        int
+	Key       string
+	Interface string
+	Scope     charm.RelationScope
+	Endpoints []EndpointStatus
+}
+
+// EndpointStatus holds status info about a single endpoint
+type EndpointStatus struct {
+	ServiceName string
+	Name        string
+	Role        charm.RelationRole
+	Subordinate bool
+}
+
+func (epStatus *EndpointStatus) String() string {
+	return epStatus.ServiceName + ":" + epStatus.Name
+}
+
+// NetworkStatus holds status info about a network.
+type NetworkStatus struct {
+	Err        error
+	ProviderId network.Id
+	CIDR       string
+	VLANTag    int
+}
+
+// Status holds information about the status of a juju environment.
+type Status struct {
+	EnvironmentName string
+	Machines        map[string]MachineStatus
+	Services        map[string]ServiceStatus
+	Networks        map[string]NetworkStatus
+	Relations       []RelationStatus
 }
 
 // Status returns the status of the juju environment.

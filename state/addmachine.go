@@ -57,6 +57,8 @@ type MachineTemplate struct {
 
 	// RequestedNetworks holds a list of network names the machine
 	// should be part of.
+	//
+	// TODO(dimitern): Drop this in favor of constraints in a follow-up.
 	RequestedNetworks []string
 
 	// Volumes holds the parameters for volumes that are to be created
@@ -212,6 +214,20 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
+func (st *State) resolveMachineConstraints(cons constraints.Value) (constraints.Value, error) {
+	mcons, err := st.resolveConstraints(cons)
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	// Machine constraints do not use a container constraint value.
+	// Both provisioning and deployment constraints use the same
+	// constraints.Value struct so here we clear the container
+	// value. Provisioning ignores the container value but clearing
+	// it avoids potential confusion.
+	mcons.Container = nil
+	return mcons, nil
+}
+
 // effectiveMachineTemplate verifies that the given template is
 // valid and combines it with values from the state
 // to produce a resulting template that more accurately
@@ -229,16 +245,10 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 		return tmpl, errors.New("cannot specify a nonce without an instance id")
 	}
 
-	p.Constraints, err = st.resolveConstraints(p.Constraints)
+	p.Constraints, err = st.resolveMachineConstraints(p.Constraints)
 	if err != nil {
 		return tmpl, err
 	}
-	// Machine constraints do not use a container constraint value.
-	// Both provisioning and deployment constraints use the same
-	// constraints.Value struct so here we clear the container
-	// value. Provisioning ignores the container value but clearing
-	// it avoids potential confusion.
-	p.Constraints.Container = nil
 
 	if len(p.Jobs) == 0 {
 		return tmpl, errors.New("no jobs specified")

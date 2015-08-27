@@ -40,6 +40,7 @@ type Server struct {
 	tomb              tomb.Tomb
 	wg                sync.WaitGroup
 	state             *state.State
+	statePool         *state.StatePool
 	addr              *net.TCPAddr
 	tag               names.Tag
 	dataDir           string
@@ -167,6 +168,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 	logger.Infof("listening on %q", lis.Addr())
 	srv := &Server{
 		state:     s,
+		statePool: state.NewStatePool(s),
 		addr:      lis.Addr().(*net.TCPAddr), // cannot fail
 		tag:       cfg.Tag,
 		dataDir:   cfg.DataDir,
@@ -298,15 +300,20 @@ func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
 }
 
 func (srv *Server) run(lis net.Listener) {
-	defer srv.tomb.Done()
-	defer srv.wg.Wait()              // wait for any outstanding requests to complete.
-	defer srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
+	defer func() {
+		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
+		srv.wg.Wait()              // wait for any outstanding requests to complete.
+		srv.tomb.Done()
+		srv.statePool.Close()
+	}()
+
 	srv.wg.Add(1)
 	go func() {
 		err := srv.mongoPinger()
 		srv.tomb.Kill(err)
 		srv.wg.Done()
 	}()
+
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
@@ -316,16 +323,16 @@ func (srv *Server) run(lis net.Listener) {
 
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpHandler{ssState: srv.state}, srv.logDir))
+			newLogSinkHandler(httpHandler{statePool: srv.statePool}, srv.logDir))
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(srv.state, srvDying))
+			newDebugLogDBHandler(srv.statePool, srvDying))
 	} else {
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
+			newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{ssState: srv.state},
+			httpHandler: httpHandler{statePool: srv.statePool},
 			dataDir:     srv.dataDir},
 	)
 	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
@@ -334,17 +341,17 @@ func (srv *Server) run(lis net.Listener) {
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{ssState: srv.state},
+			httpHandler{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{ssState: srv.state},
+			httpHandler{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/backups",
 		&backupHandler{httpHandler{
-			ssState:            srv.state,
+			statePool:          srv.statePool,
 			strictValidation:   true,
 			stateServerEnvOnly: true,
 		}},
@@ -352,30 +359,31 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
 		&imagesDownloadHandler{
-			httpHandler: httpHandler{ssState: srv.state},
+			httpHandler: httpHandler{statePool: srv.statePool},
 			dataDir:     srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
 
 	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(srv.state, srvDying))
+		handleAll(mux, "/log", newDebugLogDBHandler(srv.statePool, srvDying))
 	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(srv.state, srvDying, srv.logDir))
+		handleAll(mux, "/log", newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
 	}
 
 	handleAll(mux, "/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{ssState: srv.state},
-			dataDir:     srv.dataDir},
+			httpHandler: httpHandler{statePool: srv.statePool},
+			dataDir:     srv.dataDir,
+		},
 	)
 	handleAll(mux, "/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{ssState: srv.state},
+			httpHandler{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{ssState: srv.state},
+			httpHandler{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
@@ -433,7 +441,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	conn := rpc.NewConn(codec, notifier)
 
 	var h *apiHandler
-	st, _, err := validateEnvironUUID(validateArgs{st: srv.state, envUUID: envUUID})
+	st, err := validateEnvironUUID(validateArgs{statePool: srv.statePool, envUUID: envUUID})
 	if err == nil {
 		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
 	}
