@@ -16,6 +16,7 @@ var (
 	// NewHookContext returns a new hook context used to collect metrics.
 	// It is exported here for calling from tests, but not patching.
 	NewHookContext = newHookContext
-
-	_ runner.Context = (*hookContext)(nil)
 )
+
+// Ensure hookContext is a runner.Context.
+var _ runner.Context = (*hookContext)(nil)
