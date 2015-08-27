@@ -159,25 +159,6 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 }
 
-func (s *ContextFactorySuite) TestMetricsHookContext(c *gc.C) {
-	// TODO(cmars): port over to collect manifold
-	c.Skip("maltese-falcon metrics")
-	/*
-		s.SetCharm(c, "metered")
-		hi := hook.Info{Kind: hooks.CollectMetrics}
-		ctx, err := s.factory.HookContext(hi)
-		c.Assert(err, jc.ErrorIsNil)
-
-		err = ctx.AddMetric("pings", "1", time.Now())
-		c.Assert(err, jc.ErrorIsNil)
-
-		s.AssertCoreContext(c, ctx)
-		s.AssertNotActionContext(c, ctx)
-		s.AssertNotRelationContext(c, ctx)
-		s.AssertNotStorageContext(c, ctx)
-	*/
-}
-
 func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
 	ch := s.AddTestingCharm(c, "storage-block")
