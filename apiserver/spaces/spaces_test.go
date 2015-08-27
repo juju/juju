@@ -212,53 +212,42 @@ func (s *SpacesSuite) TestNoSubnets(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestListSpacesDefault(c *gc.C) {
+	expected := []params.Space{{
+		Name: "default",
+		Subnets: []params.Subnet{{
+			CIDR:       "192.168.0.0/24",
+			ProviderId: "provider-192.168.0.0/24",
+			Zones:      []string{"foo"},
+			Status:     "in-use",
+			SpaceTag:   "space-default",
+		}, {
+			CIDR:       "192.168.3.0/24",
+			ProviderId: "provider-192.168.3.0/24",
+			VLANTag:    23,
+			Zones:      []string{"bar", "bam"},
+			SpaceTag:   "space-default",
+		}},
+	}, {
+		Name: "dmz",
+		Subnets: []params.Subnet{{
+			CIDR:       "192.168.1.0/24",
+			ProviderId: "provider-192.168.1.0/24",
+			VLANTag:    23,
+			Zones:      []string{"bar", "bam"},
+			SpaceTag:   "space-dmz",
+		}},
+	}, {
+		Name: "private",
+		Subnets: []params.Subnet{{
+			CIDR:       "192.168.2.0/24",
+			ProviderId: "provider-192.168.2.0/24",
+			Zones:      []string{"foo"},
+			Status:     "in-use",
+			SpaceTag:   "space-private",
+		}},
+	}}
 	spaces, err := s.facade.ListSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []params.Space{
-		params.Space{
-			Name: "default",
-			Subnets: []params.Subnet{
-				params.Subnet{
-					CIDR:       "192.168.0.0/24",
-					ProviderId: "provider-192.168.0.0/24",
-					Zones:      []string{"foo"},
-					Status:     "in-use",
-					SpaceTag:   "space-default",
-				},
-				params.Subnet{
-					CIDR:       "192.168.3.0/24",
-					ProviderId: "provider-192.168.3.0/24",
-					VLANTag:    23,
-					Zones:      []string{"bar", "bam"},
-					SpaceTag:   "space-default",
-				},
-			},
-		},
-		params.Space{
-			Name: "dmz",
-			Subnets: []params.Subnet{
-				params.Subnet{
-					CIDR:       "192.168.1.0/24",
-					ProviderId: "provider-192.168.1.0/24",
-					VLANTag:    23,
-					Zones:      []string{"bar", "bam"},
-					SpaceTag:   "space-dmz",
-				},
-			},
-		},
-		params.Space{
-			Name: "private",
-			Subnets: []params.Subnet{
-				params.Subnet{
-					CIDR:       "192.168.2.0/24",
-					ProviderId: "provider-192.168.2.0/24",
-					Zones:      []string{"foo"},
-					Status:     "in-use",
-					SpaceTag:   "space-private",
-				},
-			},
-		},
-	}
 	c.Assert(spaces.Results, jc.DeepEquals, expected)
 }
 

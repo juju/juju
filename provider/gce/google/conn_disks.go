@@ -11,17 +11,18 @@ import (
 	"google.golang.org/api/compute/v1"
 )
 
-func (gce *Connection) CreateDisks(zone string, disks []DiskSpec) ([]*compute.Disk, error) {
-	results := make([]*compute.Disk, len(disks))
+// CreateDisks implements storage section of gceConnection.
+func (gce *Connection) CreateDisks(zone string, disks []DiskSpec) ([]*Disk, error) {
+	results := make([]*Disk, len(disks))
 	for i, disk := range disks {
 		d, err := disk.newDetached()
 		if err != nil {
-			return []*compute.Disk{}, errors.Annotate(err, "cannot create disk spec")
+			return []*Disk{}, errors.Annotate(err, "cannot create disk spec")
 		}
 		if err := gce.createDisk(zone, d); err != nil {
-			return []*compute.Disk{}, errors.Annotatef(err, "cannot create disk %q", disk.Name)
+			return []*Disk{}, errors.Annotatef(err, "cannot create disk %q", disk.Name)
 		}
-		results[i] = d
+		results[i] = NewDisk(d)
 	}
 	return results, nil
 }
@@ -30,23 +31,44 @@ func (gce *Connection) createDisk(zone string, disk *compute.Disk) error {
 	return gce.raw.CreateDisk(gce.projectID, zone, disk)
 }
 
-func (gce *Connection) Disks(zone string) ([]*compute.Disk, error) {
-	return gce.raw.ListDisks(gce.projectID, zone)
+// Disks implements storage section of gceConnection.
+func (gce *Connection) Disks(zone string) ([]*Disk, error) {
+	computeDisks, err := gce.raw.ListDisks(gce.projectID, zone)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot list disks for zone %q", zone)
+	}
+	disks := make([]*Disk, len(computeDisks))
+	for i, disk := range computeDisks {
+		disks[i] = NewDisk(disk)
+	}
+	return disks, nil
 }
 
-func (gce *Connection) RemoveDisk(zone, id string) error {
-	return gce.raw.RemoveDisk(gce.projectID, zone, id)
+// RemoveDisk implements storage section of gceConnection.
+// TODO(perrito666) handle non existing disk, perhaps catch 404.
+func (gce *Connection) RemoveDisk(zone, name string) error {
+	return gce.raw.RemoveDisk(gce.projectID, zone, name)
 }
 
-func (gce *Connection) Disk(zone, id string) (*compute.Disk, error) {
-	return gce.raw.GetDisk(gce.projectID, zone, id)
+// Disk implements storage section of gceConnection.
+func (gce *Connection) Disk(zone, name string) (*Disk, error) {
+	d, err := gce.raw.GetDisk(gce.projectID, zone, name)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get disk %q in zone %q", name, zone)
+	}
+	return NewDisk(d), nil
 }
 
+// deviceName will generate a device name from the passed
+// <zone> and <diskId>, the device name must not be confused
+// with the volume name, as it is used mainly to name the
+// disk when attached to a linux OS.
 func deviceName(zone string, diskId uint64) string {
 	return fmt.Sprintf("%s-%d", zone, diskId)
 }
 
-func (gce *Connection) AttachDisk(zone, volumeName, instanceId, mode string) (*AttachedDisk, error) {
+// AttachDisk implements storage section of gceConnection.
+func (gce *Connection) AttachDisk(zone, volumeName, instanceId string, mode DiskMode) (*AttachedDisk, error) {
 	disk, err := gce.raw.GetDisk(gce.projectID, zone, volumeName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot obtain disk %q to attach it", volumeName)
@@ -56,7 +78,7 @@ func (gce *Connection) AttachDisk(zone, volumeName, instanceId, mode string) (*A
 		// is reflected into the /dev/disk/by-id/google-*
 		DeviceName: deviceName(zone, disk.Id),
 		Source:     disk.SelfLink,
-		Mode:       mode,
+		Mode:       string(mode),
 	}
 	err = gce.raw.AttachDisk(gce.projectID, zone, instanceId, attachedDisk)
 	if err != nil {
@@ -65,10 +87,12 @@ func (gce *Connection) AttachDisk(zone, volumeName, instanceId, mode string) (*A
 	return &AttachedDisk{
 		VolumeName: volumeName,
 		DeviceName: attachedDisk.DeviceName,
-		Mode:       attachedDisk.Mode,
+		Mode:       mode,
 	}, nil
 }
 
+// DetachDisk implements storage section of gceConnection.
+// disk existence is checked but not instance nor is attachment.
 func (gce *Connection) DetachDisk(zone, instanceId, volumeName string) error {
 	disk, err := gce.raw.GetDisk(gce.projectID, zone, volumeName)
 	if err != nil {
@@ -100,9 +124,9 @@ func sourceToVolumeName(source string) string {
 	}
 	lastItem := len(parts) - 1
 	return parts[lastItem]
-
 }
 
+// InstanceDisks implements storage section of gceConnection.
 func (gce *Connection) InstanceDisks(zone, instanceId string) ([]*AttachedDisk, error) {
 	disks, err := gce.raw.InstanceDisks(gce.projectID, zone, instanceId)
 	if err != nil {
@@ -113,7 +137,7 @@ func (gce *Connection) InstanceDisks(zone, instanceId string) ([]*AttachedDisk, 
 		att[i] = &AttachedDisk{
 			VolumeName: sourceToVolumeName(disk.Source),
 			DeviceName: disk.DeviceName,
-			Mode:       disk.Mode,
+			Mode:       DiskMode(disk.Mode),
 		}
 	}
 	return att, nil

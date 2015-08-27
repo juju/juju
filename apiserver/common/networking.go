@@ -120,4 +120,7 @@ type NetworkBacking interface {
 
 	// AddSubnet creates a backing subnet for an existing subnet.
 	AddSubnet(BackingSubnetInfo) (BackingSubnet, error)
+
+	// AllSubnets returns all backing subnets.
+	AllSubnets() ([]BackingSubnet, error)
 }

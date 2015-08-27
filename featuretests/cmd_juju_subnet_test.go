@@ -143,3 +143,36 @@ func (s *cmdSubnetSuite) TestSubnetAddWithZonesWithNoProviderZones(c *gc.C) {
 	c.Assert(subnet.ProviderId(), gc.Equals, "dummy-public")
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
 }
+
+func (s *cmdSubnetSuite) TestSubnetListNoResults(c *gc.C) {
+	context := s.RunSuper(c, expectedSuccess, "list")
+	s.AssertOutput(c, context,
+		"", // no stdout output
+		"no subnets to display\n",
+	)
+}
+
+func (s *cmdSubnetSuite) TestSubnetListResultsWithFilters(c *gc.C) {
+	//	s.AddSpace(c, "myspace", nil, true)
+	s.AddSubnet(c, state.SubnetInfo{
+		CIDR: "10.0.0.0/8",
+	})
+	s.AddSubnet(c, state.SubnetInfo{
+		CIDR:             "10.10.0.0/16",
+		AvailabilityZone: "zone1",
+	})
+	s.AddSpace(c, "myspace", []string{"10.10.0.0/16"}, true)
+
+	context := s.RunSuper(c,
+		expectedSuccess,
+		"list", "--zone", "zone1", "--space", "myspace",
+	)
+	c.Assert(testing.Stderr(context), gc.Equals, "") // no stderr expected
+	stdout := testing.Stdout(context)
+	c.Assert(stdout, jc.Contains, "subnets:")
+	c.Assert(stdout, jc.Contains, "10.10.0.0/16:")
+	c.Assert(stdout, jc.Contains, "space: myspace")
+	c.Assert(stdout, jc.Contains, "zones:")
+	c.Assert(stdout, jc.Contains, "- zone1")
+	c.Assert(stdout, gc.Not(jc.Contains), "10.0.0.0/8:")
+}

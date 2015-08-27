@@ -78,10 +78,8 @@ func validateEnvironUUID(args validateArgs) (*state.State, error) {
 		return nil, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 	}
 	envTag := names.NewEnvironTag(args.envUUID)
-	if env, err := ssState.GetEnvironment(envTag); err != nil {
+	if _, err := ssState.GetEnvironment(envTag); err != nil {
 		return nil, errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
-	} else if env.Life() != state.Alive {
-		return nil, errors.Errorf("environment %q is no longer live", args.envUUID)
 	}
 	logger.Debugf("validate env uuid: %s", args.envUUID)
 	st, err := args.statePool.Get(args.envUUID)

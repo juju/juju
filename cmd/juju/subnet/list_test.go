@@ -228,9 +228,9 @@ func (s *ListSuite) TestRunWhenNoneMatchSucceeds(c *gc.C) {
 		"--space", "default",
 	)
 
-	s.api.CheckCallNames(c, "AllSpaces", "ListSubnets", "Close")
+	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	tag := names.NewSpaceTag("default")
-	s.api.CheckCall(c, 1, "ListSubnets", &tag, "")
+	s.api.CheckCall(c, 0, "ListSubnets", &tag, "")
 }
 
 func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *gc.C) {
@@ -268,9 +268,9 @@ subnets:
 		"--space", "public",
 	)
 
-	s.api.CheckCallNames(c, "AllSpaces", "ListSubnets", "Close")
+	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	tag := names.NewSpaceTag("public")
-	s.api.CheckCall(c, 1, "ListSubnets", &tag, "")
+	s.api.CheckCall(c, 0, "ListSubnets", &tag, "")
 	s.api.ResetCalls()
 
 	// Now filter by zone.
@@ -280,8 +280,8 @@ subnets:
 		"--zone", "zone1",
 	)
 
-	s.api.CheckCallNames(c, "AllZones", "ListSubnets", "Close")
-	s.api.CheckCall(c, 1, "ListSubnets", nil, "zone1")
+	s.api.CheckCallNames(c, "ListSubnets", "Close")
+	s.api.CheckCall(c, 0, "ListSubnets", nil, "zone1")
 	s.api.ResetCalls()
 
 	// Finally, filter by both space and zone.
@@ -291,55 +291,9 @@ subnets:
 		"--zone", "zone1", "--space", "public",
 	)
 
-	s.api.CheckCallNames(c, "AllSpaces", "AllZones", "ListSubnets", "Close")
+	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	tag = names.NewSpaceTag("public")
-	s.api.CheckCall(c, 2, "ListSubnets", &tag, "zone1")
-}
-
-func (s *ListSuite) TestRunWhenAllSpacesFails(c *gc.C) {
-	s.api.SetErrors(errors.NotValidf("foo"))
-
-	// Ensure the error cause is preserved.
-	err := s.AssertRunFails(c,
-		`cannot list spaces: foo not valid`,
-		"--space", "default",
-	)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-
-	s.api.CheckCallNames(c, "AllSpaces", "Close")
-}
-
-func (s *ListSuite) TestRunWithUnknownSpaceFails(c *gc.C) {
-	s.AssertRunFails(c,
-		// List of expected spaces is sorted.
-		`"foo" is not a known space; expected one of: default, dmz, public, vlan-42`,
-		"--space", "foo",
-	)
-
-	s.api.CheckCallNames(c, "AllSpaces", "Close")
-}
-
-func (s *ListSuite) TestRunWhenAllZonesFails(c *gc.C) {
-	s.api.SetErrors(errors.NotFoundf("bar"))
-
-	// Ensure the error cause is preserved.
-	err := s.AssertRunFails(c,
-		`cannot list zones: bar not found`,
-		"--zone", "zone1",
-	)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	s.api.CheckCallNames(c, "AllZones", "Close")
-}
-
-func (s *ListSuite) TestRunWithUnknownZoneFails(c *gc.C) {
-	s.AssertRunFails(c,
-		// List of expected zones is sorted.
-		`"bar" is not a known zone; expected one of: zone1, zone2`,
-		"--zone", "bar",
-	)
-
-	s.api.CheckCallNames(c, "AllZones", "Close")
+	s.api.CheckCall(c, 0, "ListSubnets", &tag, "zone1")
 }
 
 func (s *ListSuite) TestRunWhenListSubnetFails(c *gc.C) {

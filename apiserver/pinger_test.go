@@ -94,19 +94,80 @@ func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
 }
 
+func (s *pingerSuite) calculatePingTimeout(c *gc.C) time.Duration {
+	// Try opening an API connection a few times and take the max
+	// delay among the attempts.
+	attempt := utils.AttemptStrategy{
+		Delay: coretesting.ShortWait,
+		Min:   3,
+	}
+	var maxTimeout time.Duration
+	for a := attempt.Start(); a.Next(); {
+		openStart := time.Now()
+		st, _ := s.OpenAPIAsNewMachine(c)
+		err := st.Ping()
+		if c.Check(err, jc.ErrorIsNil) {
+			openDelay := time.Since(openStart)
+			c.Logf("API open and initial ping took %v", openDelay)
+			if maxTimeout < openDelay {
+				maxTimeout = openDelay
+			}
+		}
+		if st != nil {
+			c.Check(st.Close(), jc.ErrorIsNil)
+		}
+	}
+	if !c.Failed() && maxTimeout > 0 {
+		return maxTimeout
+	}
+	c.Fatalf("cannot calculate ping timeout")
+	return 0
+}
+
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
-	const shortTimeout = 20 * time.Millisecond
+	// To negate the effects of an underpowered or heavily loaded
+	// machine running this test, tune the shortTimeout based on the
+	// maximum duration it takes to open an API connection.
+	shortTimeout := s.calculatePingTimeout(c)
+	attemptDelay := shortTimeout / 4
+
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(shortTimeout))
 
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
 
 	// As long as we don't wait too long, the connection stays open
-	for i := 0; i < 10; i++ {
-		time.Sleep(shortTimeout / 4)
+	attempt := utils.AttemptStrategy{
+		Min:   10,
+		Delay: attemptDelay,
+	}
+	testStart := time.Now()
+	c.Logf(
+		"pinging %d times with %v delay, ping timeout %v, starting at %v",
+		attempt.Min, attempt.Delay, shortTimeout, testStart,
+	)
+	var lastLoop time.Time
+	for a := attempt.Start(); a.Next(); {
+		testNow := time.Now()
+		loopDelta := testNow.Sub(lastLoop)
+		if lastLoop.IsZero() {
+			loopDelta = 0
+		}
+		c.Logf("duration since last ping: %v", loopDelta)
 		err = st.Ping()
-		c.Assert(err, jc.ErrorIsNil)
+		if !c.Check(
+			err, jc.ErrorIsNil,
+			gc.Commentf(
+				"ping timeout exceeded at %v (%v since the test start)",
+				testNow, testNow.Sub(testStart),
+			),
+		) {
+			c.Check(err, gc.ErrorMatches, "connection is shut down")
+			return
+		}
+		lastLoop = time.Now()
 	}
 
 	// However, once we stop pinging for too long, the connection dies

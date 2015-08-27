@@ -454,6 +454,25 @@ func (sb *StubBacking) AllSpaces() ([]common.BackingSpace, error) {
 	return output, nil
 }
 
+func (sb *StubBacking) AllSubnets() ([]common.BackingSubnet, error) {
+	sb.MethodCall(sb, "AllSubnets")
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+
+	// Filter duplicates.
+	seen := set.Strings{}
+	output := []common.BackingSubnet{}
+	for _, subnet := range sb.Subnets {
+		if seen.Contains(subnet.CIDR()) {
+			continue
+		}
+		seen.Add(subnet.CIDR())
+		output = append(output, subnet)
+	}
+	return output, nil
+}
+
 func (sb *StubBacking) AddSubnet(subnetInfo common.BackingSubnetInfo) (common.BackingSubnet, error) {
 	sb.MethodCall(sb, "AddSubnet", subnetInfo)
 	if err := sb.NextErr(); err != nil {
