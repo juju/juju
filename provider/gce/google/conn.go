@@ -52,6 +52,24 @@ type rawConnectionWrapper interface {
 	// GCE region. If none are found the the list is empty. Any failure in
 	// the low-level request is returned as an error.
 	ListAvailabilityZones(projectID, region string) ([]*compute.Zone, error)
+	// CreateDisk will create a gce Persistent Block device that matches
+	// the specified in spec.
+	CreateDisk(project, zone string, spec *compute.Disk) error
+	// ListDisks returns a list of disks available for a given project.
+	ListDisks(project, zone string) ([]*compute.Disk, error)
+	// RemoveDisk will delete the disk identified by id.
+	RemoveDisk(project, zone, id string) error
+	// GetDisk will return the disk correspondent to the passed id.
+	GetDisk(project, zone, id string) (*compute.Disk, error)
+	// AttachDisk will attach the disk described in attachedDisks (if it exists) into
+	// the instance with id instanceId.
+	AttachDisk(project, zone, instanceId string, attachedDisk *compute.AttachedDisk) error
+	// Detach disk detaches device diskDeviceName (if it exists and its attached)
+	// form the machine with id instanceId.
+	DetachDisk(project, zone, instanceId, diskDeviceName string) error
+	// InstanceDisks returns the disks attached to the instance identified
+	// by instanceId
+	InstanceDisks(project, zone, instanceId string) ([]*compute.AttachedDisk, error)
 }
 
 // TODO(ericsnow) Add specific error types for common failures

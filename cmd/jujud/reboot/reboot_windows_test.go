@@ -16,6 +16,7 @@ const (
 
 func (s *RebootSuite) rebootCommandParams(c *gc.C) []string {
 	return []string{
+		"-f",
 		"-r",
 		"-t",
 		rebootTime,
@@ -24,6 +25,7 @@ func (s *RebootSuite) rebootCommandParams(c *gc.C) []string {
 
 func (s *RebootSuite) shutdownCommandParams(c *gc.C) []string {
 	return []string{
+		"-f",
 		"-s",
 		"-t",
 		rebootTime,

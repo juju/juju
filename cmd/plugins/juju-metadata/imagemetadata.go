@@ -28,7 +28,7 @@ type ImageMetadataCommandBase struct {
 }
 
 func (c *ImageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
-	cfg, err := c.Config(store)
+	cfg, err := c.Config(store, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get config from store")
 	}

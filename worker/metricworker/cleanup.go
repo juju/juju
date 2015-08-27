@@ -35,5 +35,5 @@ func NewCleanup(client metricsmanager.MetricsManagerClient) worker.Worker {
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, cleanupPeriod)
+	return worker.NewPeriodicWorker(f, cleanupPeriod, worker.NewTimer)
 }
