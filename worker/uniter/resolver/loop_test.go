@@ -48,7 +48,19 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LoopSuite) loop() (resolver.LocalState, error) {
-	return resolver.Loop(s.resolver, s.opFactory, s.watcher, s.executor, s.charmURL, s.dying, s.onIdle)
+	return resolver.Loop(resolver.LoopConfig{
+		Resolver: s.resolver,
+		Factory:  s.opFactory,
+		Watcher:  s.watcher,
+		Executor: s.executor,
+		UpdateStatusChannel: func() <-chan time.Time {
+			// TODO(axw) test update status channel
+			return nil
+		},
+		CharmURL: s.charmURL,
+		Dying:    s.dying,
+		OnIdle:   s.onIdle,
+	})
 }
 
 func (s *LoopSuite) TestDying(c *gc.C) {
