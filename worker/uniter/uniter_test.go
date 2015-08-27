@@ -772,7 +772,6 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
-	c.Skip("maltese-falcon")
 	coretesting.SkipIfGitNotAvailable(c)
 
 	deployerConversionTests := []uniterTest{

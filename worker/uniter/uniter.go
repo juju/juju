@@ -235,6 +235,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		uniterResolver := &uniterResolver{
 			clearResolved:      clearResolved,
 			reportHookError:    u.reportHookError,
+			fixDeployer:        u.deployer.Fix,
 			leadershipResolver: uniterleadership.NewResolver(),
 			relationsResolver:  relation.NewRelationsResolver(u.relations),
 			storageResolver:    storage.NewResolver(u.storage),
