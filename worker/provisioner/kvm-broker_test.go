@@ -82,7 +82,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           "/not/used/here",
+			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewUnitTag("ubuntu/1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",

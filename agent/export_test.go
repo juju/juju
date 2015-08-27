@@ -10,10 +10,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
-var (
-	DefaultUniterStateDir = defaultUniterStateDir
-)
-
 func Password(config Config) string {
 	c := config.(*configInternal)
 	if c.stateDetails == nil {
@@ -25,10 +21,14 @@ func Password(config Config) string {
 func PatchConfig(config Config, fieldName string, value interface{}) error {
 	conf := config.(*configInternal)
 	switch fieldName {
-	case "DataDir":
-		conf.dataDir = value.(string)
-	case "LogDir":
-		conf.logDir = value.(string)
+	case "Paths":
+		paths := value.(Paths)
+		if paths.DataDir != "" {
+			conf.paths.DataDir = paths.DataDir
+		}
+		if paths.LogDir != "" {
+			conf.paths.LogDir = paths.LogDir
+		}
 	case "Jobs":
 		conf.jobs = value.([]multiwatcher.MachineJob)[:]
 	case "DeleteValues":
@@ -45,7 +45,7 @@ func PatchConfig(config Config, fieldName string, value interface{}) error {
 	default:
 		return fmt.Errorf("unknown field %q", fieldName)
 	}
-	conf.configFilePath = ConfigPath(conf.dataDir, conf.tag)
+	conf.configFilePath = ConfigPath(conf.paths.DataDir, conf.tag)
 	return nil
 }
 
@@ -56,7 +56,6 @@ func ConfigFileExists(config Config) bool {
 }
 
 var (
-	MachineJobFromParams   = machineJobFromParams
-	IsLocalEnv             = &isLocalEnv
-	DefaultMetricsSpoolDir = metricsSpoolDir
+	MachineJobFromParams = machineJobFromParams
+	IsLocalEnv           = &isLocalEnv
 )

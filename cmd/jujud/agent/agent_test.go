@@ -140,7 +140,7 @@ func writeStateAgentConfig(
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
-			DataDir:           dataDir,
+			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: dataDir}),
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,

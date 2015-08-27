@@ -44,7 +44,12 @@ func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("SUDO_USER", "user")
 	s.PatchValue(upgrades.RootLogDir, c.MkDir())
 	s.PatchValue(upgrades.RootSpoolDir, c.MkDir())
-	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
+	s.PatchValue(&agent.DefaultPaths, agent.Paths{
+		DataDir:         c.MkDir(),
+		LogDir:          c.MkDir(),
+		MetricsSpoolDir: c.MkDir(),
+		UniterStateDir:  c.MkDir(),
+	})
 	s.PatchValue(upgrades.ChownPath, func(_, _ string) error { return nil })
 	s.PatchValue(upgrades.IsLocalEnviron, func(_ *config.Config) bool { return true })
 }
@@ -61,8 +66,7 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 		Password:          "blah",
 		CACert:            testing.CACert,
 		StateAddresses:    []string{"localhost:1111"},
-		DataDir:           agent.DefaultDataDir,
-		LogDir:            agent.DefaultLogDir,
+		Paths:             agent.DefaultPaths,
 		UpgradedToVersion: version.MustParse("1.16.0"),
 		Environment:       s.State.EnvironTag(),
 		Values: map[string]string{
@@ -104,6 +108,8 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	expectedLogDir := filepath.Join(*upgrades.RootLogDir, "juju-"+namespace)
+	expectedMetricsSpoolDir := filepath.Join(expectedDataDir, "metricspool")
+	expectedUniterStateDir := filepath.Join(expectedDataDir, "uniter", "state")
 	expectedJobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 	tag := s.ctx.AgentConfig().Tag()
 
@@ -121,6 +127,8 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	agentService := "juju-agent-user-dummyenv"
 	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
+	c.Assert(agentConfig.MetricsSpoolDir(), gc.Equals, expectedMetricsSpoolDir)
+	c.Assert(agentConfig.UniterStateDir(), gc.Equals, expectedUniterStateDir)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C) {
@@ -140,12 +148,14 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	tag := s.ctx.AgentConfig().Tag()
 
 	// We need to read the actual migrated agent config.
-	configFilePath := agent.ConfigPath(agent.DefaultDataDir, tag)
+	configFilePath := agent.ConfigPath(agent.DefaultPaths.DataDir, tag)
 	agentConfig, err := agent.ReadConfig(configFilePath)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(agentConfig.DataDir(), gc.Equals, agent.DefaultDataDir)
-	c.Assert(agentConfig.LogDir(), gc.Equals, agent.DefaultLogDir)
+	c.Assert(agentConfig.DataDir(), gc.Equals, agent.DefaultPaths.DataDir)
+	c.Assert(agentConfig.LogDir(), gc.Equals, agent.DefaultPaths.LogDir)
+	c.Assert(agentConfig.MetricsSpoolDir(), gc.DeepEquals, agent.DefaultPaths.MetricsSpoolDir)
+	c.Assert(agentConfig.UniterStateDir(), gc.Equals, agent.DefaultPaths.UniterStateDir)
 	c.Assert(agentConfig.Jobs(), gc.HasLen, 0)
 	c.Assert(agentConfig.Value("SHARED_STORAGE_ADDR"), gc.Equals, "blah")
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, expectedSharedStorageDir)
@@ -207,8 +217,8 @@ var _ = gc.Suite(&migrateAgentEnvUUIDSuite{})
 
 func (s *migrateAgentEnvUUIDSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(&agent.DefaultLogDir, c.MkDir())
-	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
+	s.PatchValue(&agent.DefaultPaths.LogDir, c.MkDir())
+	s.PatchValue(&agent.DefaultPaths.DataDir, c.MkDir())
 	s.primeConfig(c)
 }
 
@@ -221,8 +231,7 @@ func (s *migrateAgentEnvUUIDSuite) primeConfig(c *gc.C) {
 		Password:          s.password,
 		CACert:            testing.CACert,
 		StateAddresses:    []string{"localhost:1111"},
-		DataDir:           agent.DefaultDataDir,
-		LogDir:            agent.DefaultLogDir,
+		Paths:             agent.DefaultPaths,
 		UpgradedToVersion: version.MustParse("1.22.0"),
 		Environment:       s.State.EnvironTag(),
 	})
@@ -242,7 +251,7 @@ func (s *migrateAgentEnvUUIDSuite) removeEnvUUIDFromAgentConfig(c *gc.C) {
 	// the element, and write it back out again.
 
 	// First step, read the file contents.
-	filename := agent.ConfigPath(agent.DefaultDataDir, s.machine.Tag())
+	filename := agent.ConfigPath(agent.DefaultPaths.DataDir, s.machine.Tag())
 	data, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Data in:\n\n%s\n", data)

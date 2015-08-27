@@ -68,6 +68,8 @@ func migrateLocalProviderAgentConfig(context Context) error {
 
 	dataDir := rootDir
 	localLogDir := filepath.Join(rootDir, "log")
+	metricSpoolDir := filepath.Join(rootDir, "metricspool")
+	uniterStateDir := filepath.Join(rootDir, "uniter", "state")
 	// rsyslogd is restricted to write to /var/log
 	logDir := fmt.Sprintf("%s/juju-%s", rootLogDir, namespace)
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
@@ -98,6 +100,12 @@ func migrateLocalProviderAgentConfig(context Context) error {
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return fmt.Errorf("cannot create logDir %q: %v", logDir, err)
 	}
+	if err := os.MkdirAll(metricSpoolDir, 0755); err != nil {
+		return fmt.Errorf("cannot create metricSpoolDir %q: %v", metricSpoolDir, err)
+	}
+	if err := os.MkdirAll(uniterStateDir, 0755); err != nil {
+		return fmt.Errorf("cannot create uniterStateDir %q: %v", uniterStateDir, err)
+	}
 	// Reconfigure rsyslog as needed:
 	// 1. logDir must be owned by syslog:adm
 	// 2. Remove old rsyslog spool config
@@ -127,8 +135,12 @@ func migrateLocalProviderAgentConfig(context Context) error {
 	}
 
 	return context.AgentConfig().Migrate(agent.MigrateParams{
-		DataDir:      dataDir,
-		LogDir:       logDir,
+		Paths: agent.Paths{
+			DataDir:         dataDir,
+			LogDir:          logDir,
+			MetricsSpoolDir: metricSpoolDir,
+			UniterStateDir:  uniterStateDir,
+		},
 		Jobs:         jobs,
 		Values:       values,
 		DeleteValues: deprecatedValues,

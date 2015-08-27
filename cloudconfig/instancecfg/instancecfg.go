@@ -225,11 +225,13 @@ func (cfg *InstanceConfig) AgentConfig(
 		password = cfg.MongoInfo.Password
 	}
 	configParams := agent.AgentConfigParams{
-		DataDir:           cfg.DataDir,
-		LogDir:            cfg.LogDir,
-		UniterStateDir:    cfg.UniterStateDir,
+		Paths: agent.Paths{
+			DataDir:         cfg.DataDir,
+			LogDir:          cfg.LogDir,
+			MetricsSpoolDir: cfg.MetricsSpoolDir,
+			UniterStateDir:  cfg.UniterStateDir,
+		},
 		Jobs:              cfg.Jobs,
-		MetricsSpoolDir:   cfg.MetricsSpoolDir,
 		Tag:               tag,
 		UpgradedToVersion: toolsVersion,
 		Password:          password,
