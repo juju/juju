@@ -87,8 +87,8 @@ func (s *storageResolver) nextOp(
 
 	var runStorageHooks bool
 	switch {
-	case localState.Kind == operation.Continue && !localState.Stopped:
-		// There's nothing in progress, and we've not stopped.
+	case localState.Kind == operation.Continue:
+		// There's nothing in progress.
 		runStorageHooks = true
 	case !localState.Installed && localState.Kind == operation.RunHook && localState.Step == operation.Queued:
 		// The install operation completed, and there's an install

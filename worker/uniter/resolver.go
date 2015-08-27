@@ -15,9 +15,6 @@ type uniterResolver struct {
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
 
-	// TODO(axw) move this to LocalState
-	conflicted bool
-
 	leadershipResolver resolver.Resolver
 	relationsResolver  resolver.Resolver
 	storageResolver    resolver.Resolver
@@ -29,17 +26,13 @@ func (s *uniterResolver) NextOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
+	if remoteState.Life == params.Dead || localState.Stopped {
+		return nil, resolver.ErrTerminate
+	}
+
 	if localState.Kind == operation.Upgrade {
-		// TODO(axw) double check this. I think we should
-		// be calling NewRevertUpgrade or whatever?
-		if s.conflicted {
-			if remoteState.ResolvedMode == params.ResolvedNone {
-				return nil, resolver.ErrNoOperation
-			}
-			if err := s.clearResolved(); err != nil {
-				return nil, errors.Trace(err)
-			}
-			s.conflicted = false
+		if localState.Conflicted {
+			return s.nextOpConflicted(localState, remoteState, opFactory)
 		}
 		logger.Infof("resuming charm upgrade")
 		return opFactory.NewUpgrade(localState.CharmURL)
@@ -93,6 +86,27 @@ func (s *uniterResolver) NextOp(
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", localState.Kind)
 	}
+}
+
+// nextOpConflicted is called after an upgrade operation has failed, and hasn't
+// yet been resolved or reverted. When in this mode, the resolver will only
+// consider those two possibilities for progressing.
+func (s *uniterResolver) nextOpConflicted(
+	localState resolver.LocalState,
+	remoteState remotestate.Snapshot,
+	opFactory operation.Factory,
+) (operation.Operation, error) {
+	if remoteState.ResolvedMode != params.ResolvedNone {
+		if err := s.clearResolved(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return opFactory.NewResolvedUpgrade(localState.CharmURL)
+	}
+	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
+		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
+	}
+	return nil, resolver.ErrWaiting
 }
 
 func (s *uniterResolver) nextOpHookError(
@@ -153,7 +167,7 @@ func (s *uniterResolver) nextOp(
 		// TODO(axw) move logic for cascading destruction of
 		//           subordinates, relation units and storage
 		//           attachments into state, via cleanups.
-		if localState.Started && !localState.Stopped {
+		if localState.Started {
 			return opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
 		}
 		fallthrough

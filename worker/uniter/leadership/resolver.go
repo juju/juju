@@ -59,7 +59,7 @@ func (l *leadershipResolver) NextOp(
 		return opFactory.NewResignLeadership()
 	}
 
-	if localState.Kind == operation.Continue && !localState.Stopped {
+	if localState.Kind == operation.Continue {
 		// We want to run the leader settings hook if we're
 		// not the leader and the settings have changed.
 		if !localState.Leader && localState.LeaderSettingsVersion != remoteState.LeaderSettingsVersion {
