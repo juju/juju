@@ -31,18 +31,13 @@ type envUserDoc struct {
 	DisplayName string    `bson:"displayname"`
 	CreatedBy   string    `bson:"createdby"`
 	DateCreated time.Time `bson:"datecreated"`
-}
-
-// envUserLastConnectionDoc is updated by the apiserver whenever the user
-// connects over the API. This update is not done using mgo.txn so the values
-// could well change underneath a normal transaction and as such, it should
-// NEVER appear in any transaction asserts. It is really informational only as
-// far as everyone except the api server is concerned.
-type envUserLastConnectionDoc struct {
-	ID             string    `bson:"_id"`
-	EnvUUID        string    `bson:"env-uuid"`
-	UserName       string    `bson:"user"`
-	LastConnection time.Time `bson:"last-connection"`
+	// LastConnection is updated by the apiserver whenever the user
+	// connects over the API. This update is not done using mgo.txn
+	// so this value could well change underneath a normal transaction
+	// and as such, it should NEVER appear in any transaction asserts.
+	// It is really informational only as far as everyone except the
+	// api server is concerned.
+	LastConnection *time.Time `bson:"lastconnection"`
 }
 
 // ID returns the ID of the environment user.
@@ -80,61 +75,41 @@ func (e *EnvironmentUser) DateCreated() time.Time {
 	return e.doc.DateCreated.UTC()
 }
 
-// LastConnection returns when this EnvironmentUser last connected through the API
+// LastLogin returns when this EnvironmentUser last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
-func (e *EnvironmentUser) LastConnection() (time.Time, error) {
-	lastConnections, closer := e.st.getRawCollection(envUserLastConnectionC)
-	defer closer()
-
-	username := strings.ToLower(e.UserName())
-	var lastConn envUserLastConnectionDoc
-	err := lastConnections.FindId(e.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
-	if err != nil {
-		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, NeverConnectedError(e.UserName()))
-		}
-		return time.Time{}, errors.Trace(err)
+func (e *EnvironmentUser) LastConnection() *time.Time {
+	when := e.doc.LastConnection
+	if when == nil {
+		return nil
 	}
-
-	return lastConn.LastConnection.UTC(), nil
-}
-
-// NeverConnectedError is used to indicate that a user has never connected to
-// an environment.
-type NeverConnectedError string
-
-// Error returns the error string for a user who has never connected to an
-// environment.
-func (e NeverConnectedError) Error() string {
-	return `never connected: "` + string(e) + `"`
-}
-
-// IsNeverConnectedError returns true if err is of type NeverConnectedError.
-func IsNeverConnectedError(err error) bool {
-	_, ok := errors.Cause(err).(NeverConnectedError)
-	return ok
+	result := when.UTC()
+	return &result
 }
 
 // UpdateLastConnection updates the last connection time of the environment user.
 func (e *EnvironmentUser) UpdateLastConnection() error {
-	lastConnections, closer := e.st.getCollection(envUserLastConnectionC)
+	envUsers, closer := e.st.getCollection(envUsersC)
 	defer closer()
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	envUsersW := envUsers.Writeable()
 
-	lastConnectionsW := lastConnections.Writeable()
-
-	// Update the safe mode of the underlying session to not require
+	// Update the safe mode of the underlying session to be not require
 	// write majority, nor sync to disk.
-	session := lastConnectionsW.Underlying().Database.Session
+	session := envUsersW.Underlying().Database.Session
 	session.SetSafe(&mgo.Safe{})
 
-	lastConn := envUserLastConnectionDoc{
-		ID:             e.st.docID(strings.ToLower(e.UserName())),
-		EnvUUID:        e.EnvironmentTag().Id(),
-		UserName:       e.UserName(),
-		LastConnection: nowToTheSecond(),
+	timestamp := nowToTheSecond()
+	update := bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}}
+
+	id := strings.ToLower(e.UserName())
+	if err := envUsersW.UpdateId(id, update); err != nil {
+		return errors.Annotatef(err, "cannot update last connection timestamp for envuser %q", e.ID())
 	}
-	_, err := lastConnectionsW.UpsertId(lastConn.ID, lastConn)
-	return errors.Trace(err)
+
+	e.doc.LastConnection = &timestamp
+	return nil
 }
 
 // EnvironmentUser returns the environment user.
@@ -230,26 +205,11 @@ func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 }
 
 // UserEnvironment contains information about an environment that a
-// user has access to.
+// user has access to, along with the last time the user has connected
+// to the environment.
 type UserEnvironment struct {
 	*Environment
-	User names.UserTag
-}
-
-// LastConnection returns the last time the user has connected to the
-// environment.
-func (e *UserEnvironment) LastConnection() (time.Time, error) {
-	lastConnections, lastConnCloser := e.st.getRawCollection(envUserLastConnectionC)
-	defer lastConnCloser()
-
-	lastConnDoc := envUserLastConnectionDoc{}
-	id := ensureEnvUUID(e.EnvironTag().Id(), strings.ToLower(e.User.Username()))
-	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
-	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
-		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Username()))
-	}
-
-	return lastConnDoc.LastConnection, nil
+	LastConnection *time.Time
 }
 
 // EnvironmentsForUser returns a list of enviroments that the user
@@ -264,7 +224,7 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, er
 
 	// TODO: consider adding an index to the envUsers collection on the username.
 	var userSlice []envUserDoc
-	err := envUsers.Find(bson.D{{"user", user.Username()}}).Select(bson.D{{"env-uuid", 1}, {"_id", 1}}).All(&userSlice)
+	err := envUsers.Find(bson.D{{"user", user.Username()}}).All(&userSlice)
 	if err != nil {
 		return nil, err
 	}
@@ -276,8 +236,7 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		result = append(result, &UserEnvironment{Environment: env, User: user})
+		result = append(result, &UserEnvironment{Environment: env, LastConnection: doc.LastConnection})
 	}
 
 	return result, nil

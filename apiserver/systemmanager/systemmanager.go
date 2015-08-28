@@ -93,10 +93,6 @@ func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error)
 	}
 	visibleEnvironments := set.NewStrings()
 	for _, env := range environments {
-		lastConn, err := env.LastConnection()
-		if err != nil && !state.IsNeverConnectedError(err) {
-			return result, errors.Trace(err)
-		}
 		visibleEnvironments.Add(env.UUID())
 		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
 			Environment: params.Environment{
@@ -104,7 +100,7 @@ func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error)
 				UUID:     env.UUID(),
 				OwnerTag: env.Owner().String(),
 			},
-			LastConnection: &lastConn,
+			LastConnection: env.LastConnection,
 		})
 	}
 
