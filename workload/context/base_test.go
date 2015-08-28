@@ -164,11 +164,11 @@ func (c *stubContextComponent) Track(info workload.Info) error {
 func (c *stubContextComponent) Untrack(id string) error {
 	c.stub.AddCall("Untrack", id)
 
-	c.untracks[id] = struct{}{}
-
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
+
+	c.untracks[id] = struct{}{}
 	return nil
 }
 
@@ -212,7 +212,7 @@ func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 func (c *stubAPIClient) setNew(ids ...string) []workload.Info {
 	var workloads []workload.Info
 	for _, id := range ids {
-		name, pluginID := workload.ParseID(id)
+		name, pluginID := workload.SplitID(id)
 		if name == "" {
 			panic("missing name")
 		}
@@ -290,16 +290,16 @@ func (c *stubAPIClient) Track(workloads ...workload.Info) ([]string, error) {
 	return ids, nil
 }
 
-func (c *stubAPIClient) Untrack(ids []string) ([]workload.WorkloadError, error) {
+func (c *stubAPIClient) Untrack(ids []string) ([]workload.Result, error) {
 	c.stub.AddCall("Untrack", ids)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	errs := []workload.WorkloadError{}
+	errs := []workload.Result{}
 	for _, id := range ids {
 		delete(c.workloads, id)
-		errs = append(errs, workload.WorkloadError{ID: id})
+		errs = append(errs, workload.Result{ID: id})
 	}
 	return errs, nil
 }

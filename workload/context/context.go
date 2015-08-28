@@ -23,7 +23,7 @@ type APIClient interface {
 	// Register sends a request to update state with the provided workloads.
 	Track(workloads ...workload.Info) ([]string, error)
 	// Untrack removes the workloads from our list track.
-	Untrack(ids []string) ([]workload.WorkloadError, error)
+	Untrack(ids []string) ([]workload.Result, error)
 	// Definitions returns the workload definitions found in the unit's metadata.
 	Definitions() ([]charm.Workload, error)
 	// SetStatus sets the status for the given IDs.
@@ -262,5 +262,60 @@ func (c *Context) Flush() error {
 		}
 		c.updates = map[string]workload.Info{}
 	}
+	if len(events) > 0 {
+		c.addEvents(events...)
+	}
 	return nil
+}
+
+// EnsureID takes a string that is either a workload name or workload name + id,
+// and returns the verified combined name + id, or an error.
+func EnsureID(comp Component, s string) (string, error) {
+	if s == "" {
+		return "", errors.New("id cannot be empty")
+	}
+	name, id := workload.SplitID(s)
+
+	found, err := FindID(comp, name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if id != "" && s != found {
+		return "", errors.Errorf("specified id %q does not match stored id for %q, found id %q", id, name, found)
+	}
+	return found, nil
+}
+
+// FindID returns the id for the given name from the Component.
+func FindID(comp Component, name string) (string, error) {
+	ids, err := IDsForName(comp, name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(ids) == 0 {
+		return "", errors.NotFoundf("ID for %q", name)
+	}
+	// For now we only support a single workload for a given name.
+	if len(ids) > 1 {
+		return "", errors.Errorf("found more than one tracked workload for %q", name)
+	}
+
+	return ids[0], nil
+}
+
+// IDsForName returns the list of ids for the given name from the component.
+func IDsForName(comp Component, name string) ([]string, error) {
+	tracked, err := comp.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var ids []string
+	for _, id := range tracked {
+		trackedName, _ := workload.SplitID(id)
+		// For now we only support a single workload for a given name.
+		if name == trackedName {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }

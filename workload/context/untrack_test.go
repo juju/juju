@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"errors"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -39,16 +41,19 @@ usage: workload-untrack <name-or-id>
 purpose: stop tracking a workload
 
 "workload-untrack" is used while a hook is running to let Juju know
-that a workload has been manually stopped. The id 
+that a workload has been manually stopped. The id
 used to start tracking the workload must be provided.
 `[1:])
 }
 
 func (s *untrackSuite) TestInitAllArgs(c *gc.C) {
+	s.setMetadata(s.workload)
+	s.compCtx.workloads[s.workload.ID()] = s.workload
+
 	err := s.cmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(context.Name(s.cmd), gc.Equals, s.workload.Name)
+	c.Check(context.ID(s.cmd), gc.Equals, s.workload.ID())
 }
 
 func (s *untrackSuite) TestInitTooFewArgs(c *gc.C) {
@@ -67,15 +72,17 @@ func (s *untrackSuite) TestInitTooManyArgs(c *gc.C) {
 }
 
 func (s *untrackSuite) TestInitEmptyName(c *gc.C) {
+	s.Stub.SetErrors(errors.New("foo"))
 	err := s.cmd.Init([]string{""})
 
-	c.Check(err, gc.ErrorMatches, context.ArgNameOrId+" cannot be empty")
+	c.Check(err, gc.ErrorMatches, "id cannot be empty")
 }
 
 func (s *untrackSuite) TestRunOkay(c *gc.C) {
 	s.setMetadata(s.workload)
 	s.compCtx.workloads[s.workload.ID()] = s.workload
-	s.cmd.Init([]string{s.workload.Name})
+	err := s.cmd.Init([]string{s.workload.Name})
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkRun(c, "", "")
 }

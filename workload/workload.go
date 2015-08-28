@@ -9,8 +9,10 @@ package workload
 // ComponentName is the name of the Juju component for workload management.
 const ComponentName = "workloads"
 
-// WorkloadError is a struct that ties an error to a workload ID.
-type WorkloadError struct {
-	ID  string
+// Result is a struct that ties an error to a workload ID.
+type Result struct {
+	// ID is the ID of the workload that this result applies to.
+	ID string
+	// Err is the error associated with this result (if any).
 	Err error
 }

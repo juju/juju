@@ -333,7 +333,7 @@ func (s *contextSuite) TestFlushDirty(c *gc.C) {
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 
-	//s.Stub.CheckCallNames(c, "Track", "addEvents")
+	s.Stub.CheckCallNames(c, "Track", "addEvents")
 }
 
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
@@ -364,14 +364,14 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	ctx.FindPlugin = findPlugin
 	err := ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Flush()
-	c.Assert(err, jc.ErrorIsNil)
 	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(before, jc.DeepEquals, []workload.Info{info})
+	err = ctx.Flush()
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.Untrack(info.ID())
 	c.Assert(err, jc.ErrorIsNil)
-
+	s.apiClient.stub.CheckCallNames(c, "Track", "addEvents", "Untrack")
 	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -392,4 +392,20 @@ func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
 	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(after, gc.DeepEquals, before)
+}
+
+func (s *contextSuite) TestEnsureID(c *gc.C) {
+	w := s.newWorkload("workload XX", "docker", "pluginID", "Running")
+	context.AddWorkloads(s.compCtx, w)
+
+	id, err := context.EnsureID(s.compCtx, "workload XX")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, w.ID())
+
+	id, err = context.EnsureID(s.compCtx, w.ID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, w.ID())
+
+	_, err = context.EnsureID(s.compCtx, "wontbefound")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

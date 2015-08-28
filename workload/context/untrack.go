@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/workload"
 	"launchpad.net/gnuflag"
 )
 
 const UntrackCmdName = "workload-untrack"
 
+// NewUntrackCmd returns an UntrackCmd that uses the given hook context.
 func NewUntrackCmd(ctx HookContext) (*UntrackCmd, error) {
 	comp, err := ContextComponent(ctx)
 	if err != nil {
@@ -27,9 +27,11 @@ var _ cmd.Command = (*UntrackCmd)(nil)
 // UntrackCmd implements the untrack command.
 type UntrackCmd struct {
 	comp Component
-	name string
+	id   string
 }
 
+// Init parses the command args.  Untrack requires exactly one argument - the
+// name or name/id of the workload to untrack.
 func (c *UntrackCmd) Init(args []string) error {
 	if len(args) < 1 {
 		return errors.Errorf("missing arg %s", idArg)
@@ -39,32 +41,25 @@ func (c *UntrackCmd) Init(args []string) error {
 		return errors.Errorf("unexpected args: %q", args[1:])
 	}
 
-	c.name, _ = workload.ParseID(args[0])
-
-	if c.name == "" {
-		return errors.New(idArg + " cannot be empty")
+	id, err := EnsureID(c.comp, args[0])
+	if err != nil {
+		return errors.Trace(err)
 	}
+	c.id = id
 
 	return nil
 }
 
+// SetFlags implements cmd.Command.
 func (*UntrackCmd) SetFlags(*gnuflag.FlagSet) {
 	// noop
 }
 
+// Run runs the untrack command.
 func (c *UntrackCmd) Run(*cmd.Context) error {
-	logger.Tracef("Running untrack command with name %q", c.name)
+	logger.Tracef("Running untrack command with id %q", c.id)
 
-	ids, err := idsForName(c.comp, c.name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(ids) == 0 {
-		return errors.NotFoundf("Workload with the name %q", c.name)
-	}
-
-	err = c.comp.Untrack(ids[0])
-	return err
+	return c.comp.Untrack(c.id)
 }
 
 // Info implements cmd.Command.
@@ -75,16 +70,18 @@ func (*UntrackCmd) Info() *cmd.Info {
 		Purpose: "stop tracking a workload",
 		Doc: `
 "workload-untrack" is used while a hook is running to let Juju know
-that a workload has been manually stopped. The id 
+that a workload has been manually stopped. The id
 used to start tracking the workload must be provided.
 `,
 	}
 }
 
+// AllowInterspersedFlags implements cmd.Command.
 func (*UntrackCmd) AllowInterspersedFlags() bool {
 	return false
 }
 
+// IsSuperCommand implements cmd.Command.
 func (*UntrackCmd) IsSuperCommand() bool {
 	return false
 }

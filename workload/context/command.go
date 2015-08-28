@@ -132,7 +132,7 @@ func (c *baseCommand) init(args map[string]string) error {
 	if id == "" {
 		return errors.Errorf("got empty " + idArg)
 	}
-	name, _ := workload.ParseID(id)
+	name, _ := workload.SplitID(id)
 	c.Name = name
 	c.ID = id
 	return nil
@@ -195,45 +195,11 @@ func (c *baseCommand) findID() (string, error) {
 	if c.ID != c.Name {
 		return c.ID, nil
 	}
-	id, err := findID(c.compCtx, c.Name)
-	if err == nil {
-		c.ID = id
-	}
-	return id, err
-}
-
-// TODO(natefinch): move to findID API server side.
-
-func findID(compCtx Component, name string) (string, error) {
-	ids, err := idsForName(compCtx, name)
+	id, err := FindID(c.compCtx, c.Name)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if len(ids) == 0 {
-		return "", errors.NotFoundf("ID for %q", name)
-	}
-	// For now we only support a single workload for a given name.
-	if len(ids) > 1 {
-		return "", errors.Errorf("found more than one tracked workload for %q", name)
-	}
-
-	return ids[0], nil
-}
-
-func idsForName(compCtx Component, name string) ([]string, error) {
-	tracked, err := compCtx.List()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var ids []string
-	for _, id := range tracked {
-		trackedName, _ := workload.ParseID(id)
-		// For now we only support a single workload for a given name.
-		if name == trackedName {
-			ids = append(ids, id)
-		}
-	}
-	return ids, nil
+	return id, nil
 }
 
 // trackingCommand is the base for commands that track workloads
@@ -285,7 +251,7 @@ func (c *trackingCommand) Run(ctx *cmd.Context) error {
 
 	// TODO(ericsnow) Ensure that c.ID == c.Name?
 
-	ids, err := idsForName(c.compCtx, c.Name)
+	ids, err := IDsForName(c.compCtx, c.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}

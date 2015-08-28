@@ -83,7 +83,7 @@ func (s *BaseSuite) SetUnit(id string) {
 func (s *BaseSuite) NewWorkloads(pType string, ids ...string) []workload.Info {
 	var workloads []workload.Info
 	for _, id := range ids {
-		name, pluginID := workload.ParseID(id)
+		name, pluginID := workload.SplitID(id)
 		if pluginID == "" {
 			pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
 		}
