@@ -1018,11 +1018,12 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyWaitingSteps := []stepper{
 		stopUniter{},
 		custom{func(c *gc.C, ctx *context) {
-			// By setting status to Started, and waiting for the restarted uniter
+			// By setting status to Idle, and waiting for the restarted uniter
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			ctx.unit.SetAgentStatus(state.StatusActive, "", nil)
+			err := ctx.unit.SetAgentStatus(state.StatusIdle, "", nil)
+			c.Check(err, jc.ErrorIsNil)
 		}},
 		startUniter{},
 	}
