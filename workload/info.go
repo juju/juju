@@ -31,6 +31,8 @@ type Info struct {
 // ID composes a unique ID for the workload (relative to the unit/charm).
 func (info Info) ID() string {
 	if info.Details.ID == "" {
+		// TODO(natefinch) remove this special case when we can be sure the ID
+		// is never empty (and fix the tests).
 		return info.Workload.Name
 	}
 	return info.Workload.Name + "/" + info.Details.ID
