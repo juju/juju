@@ -4,8 +4,6 @@
 package actions_test
 
 import (
-	"fmt"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -39,7 +37,7 @@ func (s *actionsSuite) TestActionStateKindContinue(c *gc.C) {
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "action actionA")
+	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
 }
 
 func (s *actionsSuite) TestActionRunHook(c *gc.C) {
@@ -55,7 +53,7 @@ func (s *actionsSuite) TestActionRunHook(c *gc.C) {
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "action actionA")
+	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
 }
 
 func (s *actionsSuite) TestNextAction(c *gc.C) {
@@ -71,7 +69,7 @@ func (s *actionsSuite) TestNextAction(c *gc.C) {
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.String(), gc.Equals, "action actionB")
+	c.Assert(op, jc.DeepEquals, mockOp("actionB"))
 }
 
 type mockOperations struct {
@@ -79,29 +77,18 @@ type mockOperations struct {
 }
 
 func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
-	return &mockOperation{fmt.Sprintf("action %s", id)}, nil
+	return mockOp(id), nil
+}
+
+func mockOp(name string) operation.Operation {
+	return &mockOperation{name: name}
 }
 
 type mockOperation struct {
+	operation.Operation
 	name string
 }
 
-func (m *mockOperation) String() string {
-	return m.name
-}
-
-func (m *mockOperation) NeedsGlobalMachineLock() bool {
-	return false
-}
-
-func (m *mockOperation) Prepare(state operation.State) (*operation.State, error) {
-	return &state, nil
-}
-
-func (m *mockOperation) Execute(state operation.State) (*operation.State, error) {
-	return &state, nil
-}
-
-func (m *mockOperation) Commit(state operation.State) (*operation.State, error) {
-	return &state, nil
+func (op *mockOperation) String() string {
+	return op.name
 }

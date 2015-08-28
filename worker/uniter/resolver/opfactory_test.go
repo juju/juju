@@ -169,11 +169,12 @@ func (s *ResolverOpFactorySuite) TestActionsTrimming(c *gc.C) {
 		"b": struct{}{},
 		"c": struct{}{},
 	}
-	op, err := f.NewAction("c")
+	op, err := f.NewAction("d")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
 		"c": struct{}{},
+		"d": struct{}{},
 	})
 }
