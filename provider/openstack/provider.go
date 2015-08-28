@@ -46,8 +46,7 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.openstack")
 
-type environProvider struct {
-}
+type environProvider struct{}
 
 var _ environs.EnvironProvider = (*environProvider)(nil)
 
@@ -902,6 +901,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // resolveNetwork takes either a network id or label and returns a network id
 func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	if utils.IsValidUUIDString(networkName) {
@@ -915,6 +915,11 @@ var uuidRegexp = regexp.MustCompile(uuidPattern)
 func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	if uuidRegexp.MatchString(networkName) {
 >>>>>>> modifications to opestack provider applied
+=======
+// resolveNetwork takes either a network id or label and returns a network id
+func (e *Environ) resolveNetwork(networkName string) (string, error) {
+	if utils.IsValidUUIDString(networkName) {
+>>>>>>> review comments implemented
 		// Network id supplied, assume valid as boot will fail if not
 		return networkName, nil
 	}

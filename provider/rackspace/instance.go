@@ -15,6 +15,7 @@ import (
 
 type environInstance struct {
 	instance.Instance
+<<<<<<< HEAD
 }
 
 // OpenPorts implements instance.Instance.
@@ -96,6 +97,8 @@ func (i environInstance) Refresh() error {
 // Addresses implements instance.Instance.
 func (i environInstance) Addresses() ([]network.Address, error) {
 	return i.openstackInstance.Addresses()
+=======
+>>>>>>> review comments implemented
 }
 
 // OpenPorts implements instance.Instance.

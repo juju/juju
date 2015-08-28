@@ -6,9 +6,13 @@ package rackspace
 import (
 	"github.com/juju/juju/environs"
 <<<<<<< HEAD
+<<<<<<< HEAD
 	"github.com/juju/juju/provider/openstack"
 =======
 >>>>>>> modifications to opestack provider applied
+=======
+	"github.com/juju/juju/provider/openstack"
+>>>>>>> review comments implemented
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -24,6 +28,7 @@ func init() {
 	}
 	providerInstance = environProvider{
 <<<<<<< HEAD
+<<<<<<< HEAD
 		openstackProvider,
 	}
 	environs.RegisterProvider(providerType, providerInstance)
@@ -36,4 +41,11 @@ func init() {
 
 	registry.RegisterEnvironStorageProviders(providerType)
 >>>>>>> modifications to opestack provider applied
+=======
+		openstackProvider,
+	}
+	environs.RegisterProvider(providerType, providerInstance)
+
+	registry.RegisterEnvironStorageProviders(providerType, openstack.CinderProviderType)
+>>>>>>> review comments implemented
 }

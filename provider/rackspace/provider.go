@@ -16,10 +16,14 @@ var logger = loggo.GetLogger("juju.provider.rackspace")
 
 type environProvider struct {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	environs.EnvironProvider
 =======
 	openstackProvider environs.EnvironProvider
 >>>>>>> modifications to opestack provider applied
+=======
+	environs.EnvironProvider
+>>>>>>> review comments implemented
 }
 
 var providerInstance environProvider
@@ -30,8 +34,9 @@ var providerInstance environProvider
 >>>>>>> working version of rackspace provider
 func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
+<<<<<<< HEAD
 <<<<<<< HEAD
 	if osEnviron, ok := env.(*openstack.Environ); ok {
 		osEnviron.SetProviderConfigurator(new(rackspaceProviderConfigurator))
@@ -45,6 +50,11 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		os.SetProviderConfigurator(new(rackspaceProviderConfigurator))
 >>>>>>> modifications to opestack provider applied
 		return environ{env}, errors.Trace(err)
+=======
+	if osEnviron, ok := env.(*openstack.Environ); ok {
+		osEnviron.SetProviderConfigurator(new(rackspaceProviderConfigurator))
+		return environ{env}, err
+>>>>>>> review comments implemented
 	}
 	return nil, errors.Errorf("Expected openstack.Environ, but got: %T", env)
 }
@@ -60,6 +70,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 =======
 // Open implements environs.EnvironProvider.
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+<<<<<<< HEAD
 	env, err := p.openstackProvider.Open(cfg)
 	return p.setConfigurator(env, err)
 }
@@ -74,10 +85,16 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
 	return p.openstackProvider.PrepareForCreateEnvironment(cfg)
 >>>>>>> modifications to opestack provider applied
+=======
+	env, err := p.EnvironProvider.Open(cfg)
+	res, err := p.setConfigurator(env, err)
+	return res, errors.Trace(err)
+>>>>>>> review comments implemented
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 	env, err := p.EnvironProvider.PrepareForBootstrap(ctx, cfg)
@@ -90,10 +107,16 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 	env, err := p.openstackProvider.PrepareForBootstrap(ctx, cfg)
 	return p.setConfigurator(env, err)
 >>>>>>> working version of rackspace provider
+=======
+	env, err := p.EnvironProvider.PrepareForBootstrap(ctx, cfg)
+	res, err := p.setConfigurator(env, err)
+	return res, errors.Trace(err)
+>>>>>>> review comments implemented
 }
 
 // Validate implements environs.EnvironProvider.
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 	return p.openstackProvider.Validate(cfg, old)
@@ -111,12 +134,27 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 =======
 	return p.openstackProvider.Validate(cfg, old)
 >>>>>>> modifications to opestack provider applied
+=======
+	return p.openstackProvider.Validate(cfg, old)
+=======
+	cfg, err = cfg.Apply(map[string]interface{}{
+		"use-floating-ip":      false,
+		"use-default-secgroup": false,
+		"auth-url":             "https://identity.api.rackspacecloud.com/v2.0",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p.EnvironProvider.Validate(cfg, old)
+>>>>>>> review comments implemented
+>>>>>>> review comments implemented
 }
 
 // BoilerplateConfig implements environs.EnvironProvider.
 func (p environProvider) BoilerplateConfig() string {
 	return p.openstackProvider.BoilerplateConfig()
 }
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 
@@ -125,3 +163,5 @@ func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]string, err
 	return p.openstackProvider.SecretAttrs(cfg)
 }
 >>>>>>> modifications to opestack provider applied
+=======
+>>>>>>> review comments implemented
