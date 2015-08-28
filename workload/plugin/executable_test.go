@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package plugin
+package plugin_test
 
 import (
 	"fmt"
@@ -13,241 +13,290 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/plugin"
 )
 
 type executableSuite struct {
 	testing.BaseSuite
+
+	stub   *gitjujutesting.Stub
+	runner *fakeRunner
 }
 
 var _ = gc.Suite(&executableSuite{})
 
 const exitstatus1 = "exit status 1: "
 
-func (s *executableSuite) TestFindExecutablePluginOkay(c *gc.C) {
-	lookPath := func(name string) (string, error) {
-		return filepath.Join("some", "dir", "juju-workload-a-plugin"), nil
-	}
+func (s *executableSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 
-	plugin, err := findExecutablePlugin("a-plugin", lookPath)
+	s.stub = &gitjujutesting.Stub{}
+	s.runner = &fakeRunner{stub: s.stub}
+}
+
+func (s *executableSuite) TestFindExecutablePluginCached(c *gc.C) {
+	fops := &stubFops{stub: s.stub}
+	paths := &stubPaths{stub: s.stub}
+	paths.executable = filepath.Join("some", "dir", "juju-workload-a-plugin")
+
+	found, err := plugin.TestFindExecutablePlugin("a-plugin", paths, fops.LookPath)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected, err := filepath.Abs(filepath.Join("some", "dir", "juju-workload-a-plugin"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(plugin, jc.DeepEquals, &ExecutablePlugin{
+	found.RunCmd = nil
+	c.Check(found, jc.DeepEquals, &plugin.ExecutablePlugin{
 		Name:       "a-plugin",
-		Executable: expected,
+		Executable: filepath.Join("some", "dir", "juju-workload-a-plugin"),
 	})
+	s.stub.CheckCallNames(c, "Executable")
+}
+
+func (s *executableSuite) TestFindExecutablePluginLookedUp(c *gc.C) {
+	paths := &stubPaths{stub: s.stub}
+	fops := &stubFops{stub: s.stub}
+	fops.found = filepath.Join("some", "dir", "juju-workload-a-plugin")
+
+	found, err := plugin.TestFindExecutablePlugin("a-plugin", paths, fops.LookPath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	found.RunCmd = nil
+	c.Check(found, jc.DeepEquals, &plugin.ExecutablePlugin{
+		Name:       "a-plugin",
+		Executable: filepath.Join("some", "dir", "juju-workload-a-plugin"),
+	})
+	s.stub.CheckCallNames(c, "Executable", "LookPath", "Init")
 }
 
 func (s *executableSuite) TestFindExecutablePluginNotFound(c *gc.C) {
-	lookPath := func(name string) (string, error) {
-		return "", exec.ErrNotFound
-	}
+	fops := &stubFops{stub: s.stub}
+	paths := &stubPaths{stub: s.stub}
 
-	_, err := findExecutablePlugin("spam", lookPath)
+	_, err := plugin.TestFindExecutablePlugin("a-plugin", paths, fops.LookPath)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	s.stub.CheckCallNames(c, "Executable", "LookPath")
 }
 
 func (s *executableSuite) TestPluginInterface(c *gc.C) {
-	var _ workload.Plugin = (*ExecutablePlugin)(nil)
+	var _ workload.Plugin = (*plugin.ExecutablePlugin)(nil)
 }
 
 func (s *executableSuite) TestLaunch(c *gc.C) {
-	f := &fakeRunner{
-		out: []byte(`{ "id" : "foo", "status": { "state" : "bar" } }`),
-	}
-	s.PatchValue(&runCmd, f.runCmd)
+	s.runner.out = `{ "id" : "foo", "status": { "state" : "bar" } }`
 
-	p := ExecutablePlugin{"Name", "Path"}
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
+	}
 	proc := charm.Workload{Image: "img"}
 
 	pd, err := p.Launch(proc)
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(pd, gc.Equals, workload.Details{
 		ID: "foo",
 		Status: workload.PluginStatus{
 			State: "bar",
 		},
 	})
-
-	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.cmd.Path, gc.Equals, p.Executable)
-	c.Assert(f.cmd.Args[1], gc.Equals, "launch")
-	c.Assert(f.cmd.Args[2:], gc.HasLen, 1)
-	// fix this to be more stringent when we fix json serialization for charm.Workload
-	c.Assert(f.cmd.Args[2], gc.Matches, `.*"Image":"img".*`)
+	s.stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "runCmd",
+		Args: []interface{}{
+			p.Name,
+			exec.Command(p.Executable, "launch", `{"Name":"","Description":"","Type":"","TypeOptions":null,"Command":"","Image":"img","Ports":null,"Volumes":null,"EnvVars":null}`),
+		},
+	}})
 }
 
 func (s *executableSuite) TestLaunchBadOutput(c *gc.C) {
-	f := &fakeRunner{
-		out: []byte(`not json`),
+	s.runner.out = `not json`
+
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
 	}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
 	proc := charm.Workload{Image: "img"}
-
 	_, err := p.Launch(proc)
+
 	c.Assert(err, gc.ErrorMatches, `error parsing data for workload details.*`)
 }
 
 func (s *executableSuite) TestLaunchNoId(c *gc.C) {
-	f := &fakeRunner{
-		out: []byte(`{ "status" : { "status" : "bar" } }`),
+	s.runner.out = `{ "status" : { "status" : "bar" } }`
+
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
 	}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
 	proc := charm.Workload{Image: "img"}
-
 	_, err := p.Launch(proc)
+
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *executableSuite) TestLaunchNoStatus(c *gc.C) {
-	f := &fakeRunner{
-		out: []byte(`{ "id" : "foo" }`),
+	s.runner.out = `{ "id" : "foo" }`
+
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
 	}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
 	proc := charm.Workload{Image: "img"}
-
 	_, err := p.Launch(proc)
+
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *executableSuite) TestLaunchErr(c *gc.C) {
-	f := &fakeRunner{
-		err: errors.New("foo"),
+	failure := errors.New("foo")
+	s.stub.SetErrors(failure)
+
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
 	}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
 	proc := charm.Workload{Image: "img"}
-
 	_, err := p.Launch(proc)
-	c.Assert(errors.Cause(err), gc.Equals, f.err)
+
+	c.Assert(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *executableSuite) TestStatus(c *gc.C) {
-	f := &fakeRunner{
-		out: []byte(`{ "state" : "status!" }`),
+	s.runner.out = `{ "state" : "status!" }`
+
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
 	}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
-
 	status, err := p.Status("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, workload.PluginStatus{
+
+	c.Check(status, jc.DeepEquals, workload.PluginStatus{
 		State: "status!",
 	})
-	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.cmd.Path, gc.Equals, p.Executable)
-	c.Assert(f.cmd.Args[1], gc.Equals, "status")
-	c.Assert(f.cmd.Args[2:], gc.DeepEquals, []string{"id"})
+	s.stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "runCmd",
+		Args: []interface{}{
+			p.Name,
+			exec.Command(p.Executable, "status", "id"),
+		},
+	}})
 }
 
 func (s *executableSuite) TestStatusErr(c *gc.C) {
-	f := &fakeRunner{
-		err: errors.New("foo"),
+	failure := errors.New("foo")
+	s.stub.SetErrors(failure)
+
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
 	}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
-
 	_, err := p.Status("id")
-	c.Assert(errors.Cause(err), gc.Equals, f.err)
+
+	c.Assert(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *executableSuite) TestDestroy(c *gc.C) {
-	f := &fakeRunner{}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
-
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
+	}
 	err := p.Destroy("id")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.name, gc.DeepEquals, p.Name)
-	c.Assert(f.cmd.Path, gc.Equals, p.Executable)
-	c.Assert(f.cmd.Args[1], gc.Equals, "destroy")
-	c.Assert(f.cmd.Args[2:], gc.DeepEquals, []string{"id"})
+
+	s.stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "runCmd",
+		Args: []interface{}{
+			p.Name,
+			exec.Command(p.Executable, "destroy", "id"),
+		},
+	}})
 }
 
 func (s *executableSuite) TestDestroyErr(c *gc.C) {
-	f := &fakeRunner{
-		err: errors.New("foo"),
+	failure := errors.New("foo")
+	s.stub.SetErrors(failure)
+
+	p := plugin.ExecutablePlugin{
+		Name:       "Name",
+		Executable: "Path",
+		RunCmd:     s.runner.runCmd,
 	}
-	s.PatchValue(&runCmd, f.runCmd)
-
-	p := ExecutablePlugin{"Name", "Path"}
-
 	err := p.Destroy("id")
-	c.Assert(errors.Cause(err), gc.Equals, f.err)
+
+	c.Assert(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *executableSuite) TestRunCmd(c *gc.C) {
-	f := &fakeLogger{c: c}
-	s.PatchValue(&getLogger, f.getLogger)
+	c.Skip("this test is an integration test in disguise")
+
+	log := func(b []byte) {
+		s.stub.AddCall("log", b)
+		s.stub.NextErr() // ignored
+	}
 	m := maker{
 		stdout: "foo!",
 		stderr: "bar!\nbaz!",
 	}
 	cmd := m.make()
-	out, err := runCmd("name", cmd)
+	out, err := plugin.RunCmd("name", cmd, log)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.TrimSpace(string(out)), gc.DeepEquals, m.stdout)
-	c.Assert(f.name, gc.Equals, "juju.workload.plugin.name")
-	c.Assert(f.logs, gc.DeepEquals, []string{"bar!", "baz!"})
+
+	c.Check(strings.TrimSpace(string(out)), gc.DeepEquals, m.stdout)
+	s.stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "log",
+		Args:     []interface{}{[]byte("bar!")},
+	}, {
+		FuncName: "log",
+		Args:     []interface{}{[]byte("baz!")},
+	}})
 }
 
 func (s *executableSuite) TestRunCmdErr(c *gc.C) {
-	f := &fakeLogger{c: c}
-	s.PatchValue(&getLogger, f.getLogger)
+	c.Skip("this test is an integration test in disguise")
+
+	log := func(b []byte) {
+		s.stub.AddCall("log", b)
+		s.stub.NextErr() // ignored
+	}
 	m := maker{
 		exit:   1,
 		stdout: "foo!",
 	}
 	cmd := m.make()
-	_, err := runCmd("name", cmd)
-	c.Assert(err, gc.ErrorMatches, "exit status 1: foo!")
-}
+	_, err := plugin.RunCmd("name", cmd, log)
 
-type fakeLogger struct {
-	logs []string
-	name string
-	c    *gc.C
-}
-
-func (f *fakeLogger) getLogger(name string) infoLogger {
-	f.name = name
-	return f
-}
-
-func (f *fakeLogger) Infof(s string, args ...interface{}) {
-	f.logs = append(f.logs, s)
-	f.c.Assert(args, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "exit status 1: foo!")
+	s.stub.CheckCalls(c, nil)
 }
 
 type fakeRunner struct {
-	name string
-	cmd  *exec.Cmd
-	out  []byte
-	err  error
+	stub *gitjujutesting.Stub
+
+	out string
 }
 
 func (f *fakeRunner) runCmd(name string, cmd *exec.Cmd) ([]byte, error) {
-	f.name = name
-	f.cmd = cmd
-	return f.out, f.err
+	f.stub.AddCall("runCmd", name, cmd)
+	if err := f.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return []byte(f.out), nil
 }
 
 const (
@@ -292,4 +341,31 @@ func TestHelperWorkload(*stdtesting.T) {
 	if stdout := os.Getenv(helperStdout); stdout != "" {
 		fmt.Fprint(os.Stdout, stdout)
 	}
+}
+
+type stubPaths struct {
+	stub *gitjujutesting.Stub
+
+	executable string
+}
+
+func (s *stubPaths) Executable() (string, error) {
+	s.stub.AddCall("Executable")
+	if err := s.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if s.executable == "" {
+		return "", errors.NotFoundf("...")
+	}
+	return s.executable, nil
+}
+
+func (s *stubPaths) Init(executable string) error {
+	s.stub.AddCall("Init", executable)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
