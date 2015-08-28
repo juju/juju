@@ -4,8 +4,6 @@
 package context_test
 
 import (
-	"errors"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,7 +14,6 @@ import (
 type untrackSuite struct {
 	commandSuite
 
-	cmd     *context.UntrackCmd
 	details workload.Details
 }
 
@@ -25,10 +22,9 @@ var _ = gc.Suite(&untrackSuite{})
 func (s *untrackSuite) SetUpTest(c *gc.C) {
 	s.commandSuite.SetUpTest(c)
 
-	var err error
-	s.cmd, err = context.NewUntrackCmd(s.Ctx)
+	cmd, err := context.NewUntrackCmd(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setCommand(c, "workload-untrack", s.cmd)
+	s.setCommand(c, "workload-untrack", cmd)
 }
 
 func (s *untrackSuite) TestCommandRegistered(c *gc.C) {
@@ -46,43 +42,13 @@ used to start tracking the workload must be provided.
 `[1:])
 }
 
-func (s *untrackSuite) TestInitAllArgs(c *gc.C) {
-	s.setMetadata(s.workload)
-	s.compCtx.workloads[s.workload.ID()] = s.workload
-
-	err := s.cmd.Init([]string{s.workload.Name})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(context.ID(s.cmd), gc.Equals, s.workload.ID())
-}
-
-func (s *untrackSuite) TestInitTooFewArgs(c *gc.C) {
-	err := s.cmd.Init([]string{})
-	c.Check(err, gc.ErrorMatches, `missing arg .*`)
-}
-
-func (s *untrackSuite) TestInitTooManyArgs(c *gc.C) {
-	err := s.cmd.Init([]string{
-		s.workload.Name,
-		`{"id":"abc123", "status":{"state":"okay"}}`,
-		"other",
-	})
-
-	c.Check(err, gc.ErrorMatches, "unexpected args: .*")
-}
-
-func (s *untrackSuite) TestInitEmptyName(c *gc.C) {
-	s.Stub.SetErrors(errors.New("foo"))
-	err := s.cmd.Init([]string{""})
-
-	c.Check(err, gc.ErrorMatches, "id cannot be empty")
-}
-
 func (s *untrackSuite) TestRunOkay(c *gc.C) {
 	s.setMetadata(s.workload)
 	s.compCtx.workloads[s.workload.ID()] = s.workload
 	err := s.cmd.Init([]string{s.workload.Name})
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Logf("%#v", s.cmd)
 
 	s.checkRun(c, "", "")
 }

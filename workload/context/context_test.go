@@ -393,19 +393,3 @@ func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(after, gc.DeepEquals, before)
 }
-
-func (s *contextSuite) TestEnsureID(c *gc.C) {
-	w := s.newWorkload("workload XX", "docker", "pluginID", "Running")
-	context.AddWorkloads(s.compCtx, w)
-
-	id, err := context.EnsureID(s.compCtx, "workload XX")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, w.ID())
-
-	id, err = context.EnsureID(s.compCtx, w.ID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, w.ID())
-
-	_, err = context.EnsureID(s.compCtx, "wontbefound")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}

@@ -212,7 +212,7 @@ func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 func (c *stubAPIClient) setNew(ids ...string) []workload.Info {
 	var workloads []workload.Info
 	for _, id := range ids {
-		name, pluginID := workload.SplitID(id)
+		name, pluginID := workload.ParseID(id)
 		if name == "" {
 			panic("missing name")
 		}

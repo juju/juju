@@ -50,22 +50,22 @@ func (s *infoSuite) TestIDNameOnly(c *gc.C) {
 	c.Check(id, gc.Equals, "a-workload")
 }
 
-func (s *infoSuite) TestSplitIDFull(c *gc.C) {
-	name, id := workload.SplitID("a-workload/my-workload")
+func (s *infoSuite) TestParseIDFull(c *gc.C) {
+	name, id := workload.ParseID("a-workload/my-workload")
 
 	c.Check(name, gc.Equals, "a-workload")
 	c.Check(id, gc.Equals, "my-workload")
 }
 
-func (s *infoSuite) TestSplitIDNameOnly(c *gc.C) {
-	name, id := workload.SplitID("a-workload")
+func (s *infoSuite) TestParseIDNameOnly(c *gc.C) {
+	name, id := workload.ParseID("a-workload")
 
 	c.Check(name, gc.Equals, "a-workload")
 	c.Check(id, gc.Equals, "")
 }
 
-func (s *infoSuite) TestSplitIDExtras(c *gc.C) {
-	name, id := workload.SplitID("somecharm/0/a-workload/my-workload")
+func (s *infoSuite) TestParseIDExtras(c *gc.C) {
+	name, id := workload.ParseID("somecharm/0/a-workload/my-workload")
 
 	c.Check(name, gc.Equals, "somecharm")
 	c.Check(id, gc.Equals, "0/a-workload/my-workload")

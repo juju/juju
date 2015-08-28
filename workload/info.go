@@ -30,22 +30,16 @@ type Info struct {
 
 // ID composes a unique ID for the workload (relative to the unit/charm).
 func (info Info) ID() string {
-	return ComposeID(info.Workload.Name, info.Details.ID)
-}
-
-// ComposeID forms a canonical workload ID from the workload name and the workload's
-// plugin ID.
-func ComposeID(name, pluginID string) string {
-	if pluginID == "" {
-		return name
+	if info.Details.ID == "" {
+		return info.Workload.Name
 	}
-	return name + "/" + pluginID
+	return info.Workload.Name + "/" + info.Details.ID
 }
 
-// SplitID extracts the workload name and details ID from the provided string.
+// ParseID extracts the workload name and details ID from the provided string.
 // The format is expected to be name/pluginID. If no separator is found, the
 // whole string is assumed to be the name.
-func SplitID(id string) (name, pluginID string) {
+func ParseID(id string) (name, pluginID string) {
 	parts := strings.SplitN(id, "/", 2)
 	if len(parts) == 2 {
 		return parts[0], parts[1]
