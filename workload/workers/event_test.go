@@ -112,7 +112,7 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	c.Check(data.Engine, gc.IsNil)
 }
 
-func (s *eventHandlerSuite) TestReset(c *gc.C) {
+func (s *eventHandlerSuite) TestResetOkay(c *gc.C) {
 	eh := workers.NewEventHandlers()
 	c.Assert(eh, gc.NotNil)
 	err := eh.Reset(s.apiClient)
@@ -125,6 +125,17 @@ func (s *eventHandlerSuite) TestReset(c *gc.C) {
 	c.Check(data.APIClient, gc.Equals, s.apiClient)
 	c.Check(data.Engine, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
+}
+
+func (s *eventHandlerSuite) TestResetHandlersNotChanged(c *gc.C) {
+	eh := workers.NewEventHandlers()
+	c.Assert(eh, gc.NotNil)
+	eh.RegisterHandler(s.handler)
+	err := eh.Reset(s.apiClient)
+	c.Assert(err, jc.ErrorIsNil)
+	eh.Close()
+
+	s.checkRegistered(c, eh, "handler")
 }
 
 func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {

@@ -93,7 +93,9 @@ func (eh *EventHandlers) Reset(apiClient context.APIClient) error {
 	if err := eh.data.Close(); err != nil {
 		return errors.Trace(err)
 	}
+	handlers := eh.data.Handlers
 	eh.data = newEventHandlersData(apiClient)
+	eh.data.Handlers = handlers
 	return nil
 }
 
