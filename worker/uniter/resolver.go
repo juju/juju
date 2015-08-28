@@ -160,7 +160,6 @@ func (s *uniterResolver) nextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
 	switch remoteState.Life {
 	case params.Alive:
 	case params.Dying:
@@ -181,7 +180,6 @@ func (s *uniterResolver) nextOp(
 			return opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
 		}
 		fallthrough
-
 	case params.Dead:
 		// The unit is dying/dead and stopped, so tell the uniter
 		// to terminate.
