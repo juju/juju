@@ -13,13 +13,13 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type CollectionsSuite struct {
+type collectionSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&CollectionsSuite{})
+var _ = gc.Suite(&collectionSuite{})
 
-type collectionsTestCase struct {
+type collectionTestCase struct {
 	label         string
 	test          func() (int, error)
 	expectedCount int
@@ -27,7 +27,7 @@ type collectionsTestCase struct {
 	expectedError string
 }
 
-func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
+func (s *collectionSuite) TestGenericStateCollection(c *gc.C) {
 	// The users collection does not require filtering by env UUID.
 	coll, closer := state.GetCollection(s.State, state.UsersC)
 	defer closer()
@@ -39,7 +39,7 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 
 	collSnapshot := newCollectionSnapshot(c, coll.Writeable().Underlying())
 
-	for i, t := range []collectionsTestCase{
+	for i, t := range []collectionTestCase{
 		{
 			label: "Count",
 			test: func() (int, error) {
@@ -136,7 +136,7 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 	}
 }
 
-func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
+func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 	// The machines collection requires filtering by env UUID. Set up
 	// 2 environments with machines in each.
 	m0 := s.Factory.MakeMachine(c, nil)
@@ -198,7 +198,7 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 	c.Assert(machines0.Name(), gc.Equals, state.MachinesC)
 	c.Assert(networkInterfaces.Name(), gc.Equals, state.NetworkInterfacesC)
 
-	for i, t := range []collectionsTestCase{
+	for i, t := range []collectionTestCase{
 		{
 			label: "Count filters by env",
 			test: func() (int, error) {
@@ -306,7 +306,44 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 0,
 		},
 		{
-			label: "Insert works",
+			label: "Insert adds env-uuid",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", state.DocID(s.State, "99")},
+					{"machineid", 99},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Count()
+			},
+			expectedCount: 3,
+		},
+		{
+			label: "Insert populates env-uuid if blank",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", state.DocID(s.State, "99")},
+					{"machineid", 99},
+					{"env-uuid", ""},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.Count()
+			},
+			expectedCount: 3,
+		},
+		{
+			label: "Insert prefixes _id",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", "99"},
+					{"machineid", 99},
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return machines0.FindId("99").Count()
+			},
+			expectedCount: 1,
+		},
+		{
+			label: "Insert tolerates prefixed _id and correct env-uuid if provided",
 			test: func() (int, error) {
 				err := machines0.Writeable().Insert(bson.D{
 					{"_id", state.DocID(s.State, "99")},
@@ -317,6 +354,18 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 				return machines0.Count()
 			},
 			expectedCount: 3,
+		},
+		{
+			label: "Insert fails if env-uuid doesn't match",
+			test: func() (int, error) {
+				err := machines0.Writeable().Insert(bson.D{
+					{"_id", "99"},
+					{"machineid", 99},
+					{"env-uuid", "something-else"},
+				})
+				return 0, err
+			},
+			expectedError: "insert env-uuid is not correct: .+",
 		},
 		{
 			label: "Remove adds env UUID prefix to _id",
