@@ -72,6 +72,29 @@ func (s *resolverOpFactory) NewResolvedUpgrade(charmURL *charm.URL) (operation.O
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
+func (s *resolverOpFactory) NewAction(id string) (operation.Operation, error) {
+	op, err := s.Factory.NewAction(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	f := func() {
+		s.LocalState.CompletedActions[id] = struct{}{}
+		s.LocalState.CompletedActions = trimCompletedActions(s.RemoteState.Actions, s.LocalState.CompletedActions)
+	}
+	op = onCommitWrapper{op, f}
+	return op, nil
+}
+
+func trimCompletedActions(pendingActions []string, completedActions map[string]struct{}) map[string]struct{} {
+	newCompletedActions := map[string]struct{}{}
+	for _, pendingAction := range pendingActions {
+		if _, ok := completedActions[pendingAction]; ok {
+			newCompletedActions[pendingAction] = struct{}{}
+		}
+	}
+	return newCompletedActions
+}
+
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
 	return onCommitWrapper{op, func() {
 		s.LocalState.CharmURL = charmURL

@@ -47,6 +47,10 @@ type Snapshot struct {
 	// LeaderSettingsVersion is the last published
 	// version of the leader settings for the service.
 	LeaderSettingsVersion int
+
+	// Actions is the list of pending actions to
+	// be peformed by this unit.
+	Actions []string
 }
 
 type RelationSnapshot struct {

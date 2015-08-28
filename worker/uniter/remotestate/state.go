@@ -28,6 +28,7 @@ type Unit interface {
 	WatchAddresses() (watcher.NotifyWatcher, error)
 	WatchConfigSettings() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
+	WatchActionNotifications() (watcher.StringsWatcher, error)
 }
 
 type Service interface {

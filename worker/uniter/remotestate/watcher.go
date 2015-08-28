@@ -117,6 +117,10 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	for tag, storageSnapshot := range w.current.Storage {
 		snapshot.Storage[tag] = storageSnapshot
 	}
+	snapshot.Actions = make([]string, len(w.current.Actions))
+	for i, action := range w.current.Actions {
+		snapshot.Actions[i] = action
+	}
 	return snapshot
 }
 
@@ -203,6 +207,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	defer watcher.Stop(leaderSettingsw, &w.tomb)
 	requiredEvents++
 
+	var seenActionsChange bool
+	actionsw, err := w.unit.WatchActionNotifications()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(actionsw, &w.tomb)
+	requiredEvents++
+
 	var seenLeadershipChange bool
 	// There's no watcher for this per se; we wait on a channel
 	// returned by the leadership tracker.
@@ -278,7 +290,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenServiceChange)
 
 		case _, ok := <-configw.Changes():
-			logger.Debugf("got config change")
+			logger.Debugf("got config change: ok=%t", ok)
 			if !ok {
 				return watcher.EnsureErr(configw)
 			}
@@ -288,7 +300,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenConfigChange)
 
 		case _, ok := <-addressesw.Changes():
-			logger.Debugf("got address change")
+			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {
 				return watcher.EnsureErr(addressesw)
 			}
@@ -307,8 +319,18 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenLeaderSettingsChange)
 
+		case actions, ok := <-actionsw.Changes():
+			logger.Debugf("got action change: %v ok=%t", actions, ok)
+			if !ok {
+				return watcher.EnsureErr(actionsw)
+			}
+			if err := w.actionsChanged(actions); err != nil {
+				return err
+			}
+			observedEvent(&seenActionsChange)
+
 		case keys, ok := <-relationsw.Changes():
-			logger.Debugf("got relations change")
+			logger.Debugf("got relations change: ok=%t", ok)
 			if !ok {
 				return watcher.EnsureErr(relationsw)
 			}
@@ -318,7 +340,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenRelationsChange)
 
 		case keys, ok := <-storagew.Changes():
-			logger.Debugf("got storage change: %v", keys)
+			logger.Debugf("got storage change: %v ok=%t", keys, ok)
 			if !ok {
 				return watcher.EnsureErr(storagew)
 			}
@@ -510,6 +532,13 @@ func (w *RemoteStateWatcher) storageAttachmentChanged(change storageAttachmentCh
 	w.mu.Lock()
 	w.current.Storage[change.Tag] = change.Snapshot
 	w.mu.Unlock()
+	return nil
+}
+
+func (w *RemoteStateWatcher) actionsChanged(actions []string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.current.Actions = append(w.current.Actions, actions...)
 	return nil
 }
 
