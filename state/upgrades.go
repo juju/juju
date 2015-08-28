@@ -1542,6 +1542,117 @@ func SetHostedEnvironCount(st *State) error {
 	return st.runTransaction([]txn.Op{op})
 }
 
+type oldUserDoc struct {
+	DocID     string     `bson:"_id"`
+	EnvUUID   string     `bson:"env-uuid"`
+	LastLogin *time.Time `bson:"lastlogin"`
+}
+
+type oldEnvUserDoc struct {
+	DocID          string     `bson:"_id"`
+	EnvUUID        string     `bson:"env-uuid"`
+	UserName       string     `bson:"user"`
+	LastConnection *time.Time `bson:"lastconnection"`
+}
+
+// MigrateLastLoginAndLastConnection is an upgrade step that separates out
+// LastLogin from the userDoc into its own collection and removes the
+// lastlogin field from the userDoc. It does the same for LastConnection in
+// the envUserDoc.
+func MigrateLastLoginAndLastConnection(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return err
+	}
+
+	// 0. setup
+	users, closer := st.getRawCollection(usersC)
+	defer closer()
+	envUsers, closer := st.getRawCollection(envUsersC)
+	defer closer()
+	userLastLogins, closer := st.getRawCollection(userLastLoginC)
+	defer closer()
+	envUserLastConnections, closer := st.getRawCollection(envUserLastConnectionC)
+	defer closer()
+
+	var oldUserDocs []oldUserDoc
+	if err = users.Find(bson.D{{
+		"lastlogin", bson.D{{"$exists", true}}}}).All(&oldUserDocs); err != nil {
+		return err
+	}
+
+	var oldEnvUserDocs []oldEnvUserDoc
+	if err = envUsers.Find(bson.D{{
+		"lastconnection", bson.D{{"$exists", true}}}}).All(&oldEnvUserDocs); err != nil {
+		return err
+	}
+
+	// 1. collect data we need to move
+	var lastLoginDocs []interface{}
+	var lastConnectionDocs []interface{}
+
+	for _, oldUser := range oldUserDocs {
+		lastLoginDocs = append(lastLoginDocs, userLastLoginDoc{
+			oldUser.DocID,
+			oldUser.EnvUUID,
+			*oldUser.LastLogin,
+		})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		lastConnectionDocs = append(lastConnectionDocs, envUserLastConnectionDoc{
+			oldEnvUser.DocID,
+			oldEnvUser.EnvUUID,
+			oldEnvUser.UserName,
+			*oldEnvUser.LastConnection,
+		})
+	}
+
+	// 2. raw-write all that data to the new collections, overwriting everything
+	if len(lastLoginDocs) > 0 {
+		if err := userLastLogins.Insert(lastLoginDocs...); err != nil {
+			return err
+		}
+	}
+
+	if len(lastConnectionDocs) > 0 {
+		if err := envUserLastConnections.Insert(lastConnectionDocs...); err != nil {
+			return err
+		}
+	}
+
+	// 3. run txn operations to remove the old unwanted fields
+	ops := []txn.Op{}
+
+	for _, oldUser := range oldUserDocs {
+		upgradesLogger.Debugf("updating lastlogin for user %q", oldUser.DocID)
+		ops = append(ops,
+			txn.Op{
+				C:      usersC,
+				Id:     oldUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastlogin", nil}}},
+				},
+			})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		upgradesLogger.Debugf("updating lastconnection for environment user %q", oldEnvUser.DocID)
+
+		ops = append(ops,
+			txn.Op{
+				C:      envUsersC,
+				Id:     oldEnvUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastconnection", nil}}},
+				},
+			})
+	}
+	return st.runRawTransaction(ops)
+}
+
 // AddMissingEnvUUIDOnStatuses populates the env-uuid field where it
 // is missing due to LP #1474606.
 func AddMissingEnvUUIDOnStatuses(st *State) error {
