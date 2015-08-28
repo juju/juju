@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -88,6 +89,11 @@ type defaultVpc struct {
 	id            network.Id
 }
 
+// AssignPrivateIPAddress is a wrapper around ec2Inst.AssignPrivateIPAddresses.
+var AssignPrivateIPAddress = assignPrivateIPAddress
+
+// assignPrivateIPAddress should not be called directly so tests can patch it (use
+// AssignPrivateIPAddress).
 func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
 	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
 	return err
@@ -483,32 +489,24 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// If spaces= constraints is also set, then filter availabilityZones to only
 	// contain zones matching the space's subnets' zones
 	if len(args.SubnetsToZones) > 0 {
-		azs := make(map[string]bool, len(availabilityZones))
-
 		// find all the available zones that match the subnets that match our
 		// space/subnet constraints
-		for _, az := range availabilityZones {
-			for _, zones := range args.SubnetsToZones {
-				for _, zone := range zones {
-					if zone == az {
-						azs[zone] = true
-					}
-				}
+		zonesSet := set.NewStrings(availabilityZones...)
+		subnetZones := set.NewStrings()
+
+		for _, zones := range args.SubnetsToZones {
+			for _, zone := range zones {
+				subnetZones.Add(zone)
 			}
 		}
 
-		if len(azs) == 0 {
+		if len(zonesSet.Intersection(subnetZones).SortedValues()) == 0 {
 			return nil, errors.Errorf(
 				"unable to resolve constraints: space and/or subnet unavailable in zones %v",
 				availabilityZones)
 		}
 
-		// re-write availabilityZones to just contain the ones that match our
-		// space/subnet constraints
-		availabilityZones = []string{}
-		for zone := range azs {
-			availabilityZones = append(availabilityZones, zone)
-		}
+		availabilityZones = zonesSet.Intersection(subnetZones).SortedValues()
 	}
 
 	if args.InstanceConfig.HasNetworks() {
@@ -561,7 +559,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	for _, availZone := range availabilityZones {
 		instResp, err = runInstances(e.ec2(), &ec2.RunInstances{
-			AvailZone:           availZone,
+			AvailZone: availZone,
+			// TODO: SubnetId: <a subnet in the AZ that conforms to our constraints>
 			ImageId:             spec.Image.Id,
 			MinCount:            1,
 			MaxCount:            1,
@@ -874,7 +873,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		return errors.Trace(err)
 	}
 	for a := shortAttempt.Start(); a.Next(); {
-		err = assignPrivateIPAddress(ec2Inst, nicId, addr)
+		err = AssignPrivateIPAddress(ec2Inst, nicId, addr)
 		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, addr, err)
 		if err == nil {
 			logger.Tracef("allocated address %v for instance %v, NIC %v", addr, instId, nicId)
