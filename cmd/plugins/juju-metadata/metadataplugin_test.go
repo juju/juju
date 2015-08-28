@@ -65,16 +65,12 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
 	out := badrun(c, 0, "--help")
-	parts := strings.Split(out, "\ncommands:\n")
-	c.Assert(parts, gc.HasLen, 2)
-	lines := strings.Split(parts[1], "\n")
+	c.Log(out)
 	var names []string
-	for _, line := range lines {
-		f := strings.Fields(line)
-		if len(f) == 0 || !strings.HasPrefix(line, "    ") {
-			continue
-		}
-		names = append(names, f[0])
+	commandHelp := strings.SplitAfter(out, "commands:")[1]
+	commandHelp = strings.TrimSpace(commandHelp)
+	for _, line := range strings.Split(commandHelp, "\n") {
+		names = append(names, strings.TrimSpace(strings.Split(line, " - ")[0]))
 	}
 	// The names should be output in alphabetical order, so don't sort.
 	c.Assert(names, gc.DeepEquals, metadataCommandNames)

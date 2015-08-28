@@ -12,10 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -40,12 +42,39 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.apiInfo.Nonce = nonce
 }
 
+func (s *workerSuite) agent() agent.Agent {
+	return &mockAgent{apiInfo: s.apiInfo}
+}
+
+func (s *workerSuite) TestLockedGate(c *gc.C) {
+
+	// Set a bad password to induce an error if we connect.
+	s.apiInfo.Password = "lol-borken"
+
+	// Run a logsender worker.
+	logsCh := make(chan *logsender.LogRecord)
+	worker := logsender.New(logsCh, lockedGate{}, s.agent())
+
+	// At the end of the test, make sure we never tried to connect.
+	defer func() {
+		worker.Kill()
+		c.Check(worker.Wait(), jc.ErrorIsNil)
+	}()
+
+	// Give it a chance to ignore the gate and read the log channel.
+	select {
+	case <-time.After(testing.ShortWait):
+	case logsCh <- &logsender.LogRecord{}:
+		c.Fatalf("read log channel without waiting for gate")
+	}
+}
+
 func (s *workerSuite) TestLogSending(c *gc.C) {
 	const logCount = 5
 	logsCh := make(chan *logsender.LogRecord, logCount)
 
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, s.apiInfo)
+	worker := logsender.New(logsCh, gate.AlreadyUnlocked{}, s.agent())
 	defer func() {
 		worker.Kill()
 		c.Check(worker.Wait(), jc.ErrorIsNil)
@@ -102,7 +131,7 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 	logsCh := make(logsender.LogRecordCh)
 
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, s.apiInfo)
+	worker := logsender.New(logsCh, gate.AlreadyUnlocked{}, s.agent())
 	defer func() {
 		worker.Kill()
 		c.Check(worker.Wait(), jc.ErrorIsNil)
@@ -159,4 +188,24 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 		"x": "42 log messages dropped due to lack of API connectivity",
 	})
 	c.Assert(docs[2]["x"], gc.Equals, "message1")
+}
+
+type mockAgent struct {
+	agent.Agent
+	agent.Config
+	apiInfo *api.Info
+}
+
+func (a *mockAgent) CurrentConfig() agent.Config {
+	return a
+}
+
+func (a *mockAgent) APIInfo() *api.Info {
+	return a.apiInfo
+}
+
+type lockedGate struct{}
+
+func (lockedGate) Unlocked() <-chan struct{} {
+	return nil
 }

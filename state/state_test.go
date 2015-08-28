@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -175,6 +176,79 @@ func (s *StateSuite) TestMongoSession(c *gc.C) {
 	c.Assert(session.Ping(), gc.IsNil)
 }
 
+func (s *StateSuite) TestWatch(c *gc.C) {
+	// The allWatcher infrastructure is comprehensively tested
+	// elsewhere. This just ensures things are hooked up correctly in
+	// State.Watch()
+
+	w := s.State.Watch()
+	defer w.Stop()
+	deltasC := makeMultiwatcherOutput(w)
+
+	m := s.Factory.MakeMachine(c, nil) // Generate event
+	s.State.StartSync()
+
+	select {
+	case deltas := <-deltasC:
+		c.Assert(deltas, gc.HasLen, 1)
+		info := deltas[0].Entity.(*multiwatcher.MachineInfo)
+		c.Assert(info.EnvUUID, gc.Equals, s.State.EnvironUUID())
+		c.Assert(info.Id, gc.Equals, m.Id())
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
+}
+
+func makeMultiwatcherOutput(w *state.Multiwatcher) chan []multiwatcher.Delta {
+	deltasC := make(chan []multiwatcher.Delta)
+	go func() {
+		for {
+			deltas, err := w.Next()
+			if err != nil {
+				return
+			}
+			deltasC <- deltas
+		}
+	}()
+	return deltasC
+}
+
+func (s *StateSuite) TestWatchAllEnvs(c *gc.C) {
+	// The allEnvWatcher infrastructure is comprehensively tested
+	// elsewhere. This just ensures things are hooked up correctly in
+	// State.WatchAllEnvs()
+
+	w := s.State.WatchAllEnvs()
+	defer w.Stop()
+	deltasC := makeMultiwatcherOutput(w)
+
+	m := s.Factory.MakeMachine(c, nil)
+
+	envSeen := false
+	machineSeen := false
+	timeout := time.After(testing.LongWait)
+	for !envSeen || !machineSeen {
+		select {
+		case deltas := <-deltasC:
+			for _, delta := range deltas {
+				switch e := delta.Entity.(type) {
+				case *multiwatcher.EnvironmentInfo:
+					c.Assert(e.EnvUUID, gc.Equals, s.State.EnvironUUID())
+					envSeen = true
+				case *multiwatcher.MachineInfo:
+					c.Assert(e.EnvUUID, gc.Equals, s.State.EnvironUUID())
+					c.Assert(e.Id, gc.Equals, m.Id())
+					machineSeen = true
+				}
+			}
+		case <-timeout:
+			c.Fatal("timed out")
+		}
+	}
+	c.Assert(envSeen, jc.IsTrue)
+	c.Assert(machineSeen, jc.IsTrue)
+}
+
 type MultiEnvStateSuite struct {
 	ConnSuite
 	OtherState *state.State
@@ -188,7 +262,7 @@ func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
-	s.OtherState = s.factory.MakeEnvironment(c, nil)
+	s.OtherState = s.Factory.MakeEnvironment(c, nil)
 }
 
 func (s *MultiEnvStateSuite) TearDownTest(c *gc.C) {
@@ -2182,13 +2256,13 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dying environment...
-	st1 := s.factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeEnvironment(c, nil)
 	defer st1.Close()
 	dying, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	dying.Destroy()
 
-	st2 := s.factory.MakeEnvironment(c, nil)
+	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env2, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2219,7 +2293,7 @@ func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add an environment: reported.
-	st1 := s.factory.MakeEnvironment(c, nil)
+	st1 := s.Factory.MakeEnvironment(c, nil)
 	defer st1.Close()
 	env, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2673,7 +2747,7 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
-	st := s.factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeEnvironment(c, nil)
 	defer st.Close()
 
 	// insert one doc for each multiEnvCollection
@@ -2733,7 +2807,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllEnvironDocsAliveEnvFails(c *gc.C) {
-	st := s.factory.MakeEnvironment(c, nil)
+	st := s.Factory.MakeEnvironment(c, nil)
 	defer st.Close()
 
 	err := st.RemoveAllEnvironDocs()
@@ -3099,7 +3173,7 @@ var entityTypes = map[string]interface{}{
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
-	s.factory.MakeUser(c, &factory.UserParams{Name: "eric"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "eric"})
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
@@ -3107,7 +3181,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.factory.MakeUser(c, &factory.UserParams{Name: "arble"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "ser-vice2")
@@ -3207,7 +3281,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, nil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "users")

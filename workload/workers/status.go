@@ -76,7 +76,7 @@ func SetStatusWorkerUpdatePeriod(t time.Duration) {
 func NewStatusWorker(event workload.Event, api context.APIClient) worker.Worker {
 	workloadUpdateLogger.Debugf("starting status worker")
 	f := NewStatusWorkerFunc(event, api)
-	return worker.NewPeriodicWorker(f, workloadUpdatePeriod)
+	return worker.NewPeriodicWorker(f, workloadUpdatePeriod, worker.NewTimer)
 }
 
 func statusTracked(event workload.Event, api context.APIClient, runner Runner) error {

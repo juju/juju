@@ -23,6 +23,7 @@ import (
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/storage/looputil"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/utils"
@@ -139,10 +140,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud.Register(NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
-	// MachineAgent type has called out the seperate concerns; the
-	// AgentConf should be split up to follow suite.
+	// MachineAgent type has called out the separate concerns; the
+	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, agentConf, logCh)
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf, logCh, looputil.NewLoopDeviceManager(),
+	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
 	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))
@@ -151,9 +154,16 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	return code, nil
 }
 
+// This function exists to preserve test functionality.
+// On windows we need to catch the return code from main for
+// service functionality purposes, but on unix we can just os.Exit
+func MainWrapper(args []string) {
+	os.Exit(Main(args))
+}
+
 // Main is not redundant with main(), because it provides an entry point
 // for testing with arbitrary command line arguments.
-func Main(args []string) {
+func Main(args []string) int {
 	defer func() {
 		if r := recover(); r != nil {
 			buf := make([]byte, 4096)
@@ -183,7 +193,7 @@ func Main(args []string) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
-	os.Exit(code)
+	return code
 }
 
 type writerFactory struct{}

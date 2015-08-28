@@ -78,7 +78,7 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
-		Main(flag.Args())
+		MainWrapper(flag.Args())
 	}
 }
 

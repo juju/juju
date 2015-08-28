@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -118,6 +119,11 @@ func closeChannel(ch chan struct{}) {
 }
 
 func (u *Upgrader) loop() error {
+	// Start by reporting current tools (which includes arch/series, and is
+	// used by the state server in communicating the desired version below).
+	if err := u.st.SetVersion(u.tag.String(), version.Current); err != nil {
+		return errors.Annotate(err, "cannot set agent version")
+	}
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
 	if err != nil {
 		return err
@@ -125,6 +131,7 @@ func (u *Upgrader) loop() error {
 	changes := versionWatcher.Changes()
 	defer watcher.Stop(versionWatcher, &u.tomb)
 	var retry <-chan time.Time
+
 	// We don't read on the dying channel until we have received the
 	// initial event from the API version watcher, thus ensuring
 	// that we attempt an upgrade even if other workers are dying

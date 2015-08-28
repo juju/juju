@@ -232,7 +232,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := c.Config(store)
+	cfg, err := c.Config(store, nil)
 	if err != nil {
 		return err
 	}
@@ -241,7 +241,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot re-bootstrap environment")
 	}
 	progress("connecting to newly bootstrapped instance")
-	var apiState *api.State
+	var apiState api.Connection
 	// The state server backend may not be ready to accept logins so we retry.
 	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
 	// Typically we expect only 1 retry will be needed.
@@ -350,7 +350,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	return env, nil
 }
 
-func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentConfig) (addr string, err error) {
+func restoreBootstrapMachine(st api.Connection, backupFile string, agentConf agentConfig) (addr string, err error) {
 	client := st.Client()
 	addr, err = client.PublicAddress("0")
 	if err != nil {
@@ -550,7 +550,7 @@ type restoreResult struct {
 
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
-func updateAllMachines(apiState *api.State, stateAddr string) ([]restoreResult, error) {
+func updateAllMachines(apiState api.Connection, stateAddr string) ([]restoreResult, error) {
 	client := apiState.Client()
 	status, err := client.Status(nil)
 	if err != nil {

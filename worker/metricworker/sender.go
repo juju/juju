@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	senderPeriod = 15 * time.Minute
+	senderPeriod = 5 * time.Minute
 )
 
 // NewSender creates a new periodic worker that sends metrics
@@ -35,5 +35,5 @@ func NewSender(client metricsmanager.MetricsManagerClient) worker.Worker {
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, senderPeriod)
+	return worker.NewPeriodicWorker(f, senderPeriod, worker.NewTimer)
 }

@@ -23,15 +23,17 @@ func init() {
 	}
 	// Initialize all suites here.
 	gc.Suite(&cmdJujuSuite{})
-	gc.Suite(&leadershipSuite{})
-	gc.Suite(&uniterLeadershipSuite{})
 	gc.Suite(&annotationsSuite{})
 	gc.Suite(&apiEnvironmentSuite{})
 	gc.Suite(&blockSuite{})
 	gc.Suite(&apiCharmsSuite{})
 	gc.Suite(&cmdEnvironmentSuite{})
 	gc.Suite(&cmdStorageSuite{})
+	gc.Suite(&cmdSystemSuite{})
 	gc.Suite(&dblogSuite{})
+	gc.Suite(&cloudImageMetadataSuite{})
+	gc.Suite(&cmdSpaceSuite{})
+	gc.Suite(&cmdSubnetSuite{})
 	initWorkloadsSuites()
 }
 

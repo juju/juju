@@ -322,10 +322,11 @@ var bootstrapTests = []bootstrapTest{{
 	args:     []string{"--upload-tools"},
 	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "mips64"`,
 }, {
-	info:    "--upload-tools always bumps build number",
-	version: "1.2.3.4-raring-amd64",
-	args:    []string{"--upload-tools"},
-	upload:  "1.2.3.5-raring-amd64",
+	info:     "--upload-tools always bumps build number",
+	version:  "1.2.3.4-raring-amd64",
+	hostArch: "amd64",
+	args:     []string{"--upload-tools"},
+	upload:   "1.2.3.5-raring-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
@@ -613,7 +614,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Now check that there are no tools available.
 	_, err = envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
+		env, version.Current.Major, version.Current.Minor, "released", coretools.Filter{})
 	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
 }
 
@@ -731,7 +732,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+version.Current.Arch))
+	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+arch.HostArch()))
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -748,7 +749,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
-	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
+	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
@@ -782,7 +783,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 Bootstrapping environment "devenv"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
-`[1:], version.Current.Arch))
+`[1:], arch.HostArch()))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }
 
@@ -872,7 +873,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
+		env, version.Current.Major, version.Current.Minor, "released", coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()

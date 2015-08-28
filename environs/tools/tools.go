@@ -63,12 +63,12 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 // Define some boolean parameter values.
 const DoNotAllowRetry = false
 
-// FindTools returns a List containing all tools with a given
+// FindTools returns a List containing all tools in the given stream, with a given
 // major.minor version number available in the cloud instance, filtered by filter.
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(env environs.Environ, majorVersion, minorVersion int,
+func FindTools(env environs.Environ, majorVersion, minorVersion int, stream string,
 	filter coretools.Filter) (list coretools.List, err error) {
 
 	var cloudSpec simplestreams.CloudSpec
@@ -82,6 +82,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int,
 		return nil, fmt.Errorf("cannot find tools without a complete cloud configuration")
 	}
 
+	logger.Infof("findng tools in stream %q", stream)
 	if minorVersion >= 0 {
 		logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
 	} else {
@@ -102,11 +103,6 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int,
 	sources, err := GetMetadataSources(env)
 	if err != nil {
 		return nil, err
-	}
-	stream := env.Config().AgentStream()
-	// For backwards compatibility with the config "development" attribute.
-	if stream == "" || env.Config().Development() {
-		stream = TestingStream
 	}
 	return FindToolsForCloud(sources, cloudSpec, stream, majorVersion, minorVersion, filter)
 }
@@ -171,7 +167,9 @@ func FindExactTools(env environs.Environ, vers version.Number, series string, ar
 		Series: series,
 		Arch:   arch,
 	}
-	availableTools, err := FindTools(env, vers.Major, vers.Minor, filter)
+	stream := PreferredStream(&vers, env.Config().Development(), env.Config().AgentStream())
+	logger.Infof("looking for tools in stream %q", stream)
+	availableTools, err := FindTools(env, vers.Major, vers.Minor, stream, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -206,4 +204,24 @@ func convertToolsError(err *error) {
 	if isToolsError(*err) {
 		*err = errors.NewNotFound(*err, "")
 	}
+}
+
+// PreferredStream returns the tools stream used to search for tools, based
+// on the required version, whether devel mode is required, and any user specified stream.
+func PreferredStream(vers *version.Number, forceDevel bool, stream string) string {
+	// If the use has already nominated a specific stream, we'll use that.
+	if stream != "" && stream != ReleasedStream {
+		return stream
+	}
+	// If we're not upgrading from a known version, we use the
+	// currently running version.
+	if vers == nil {
+		vers = &version.Current.Number
+	}
+	// Devel versions are alpha or beta etc as defined by the version tag.
+	// The user can also force the use of devel streams via config.
+	if forceDevel || vers.IsDev() {
+		return DevelStream
+	}
+	return ReleasedStream
 }

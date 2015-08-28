@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
@@ -69,9 +68,8 @@ type Uniter struct {
 	deployer             *deployerProxy
 	operationFactory     operation.Factory
 	operationExecutor    operation.Executor
-	newOperationExecutor newExecutorFunc
+	newOperationExecutor NewExecutorFunc
 
-	leadershipManager coreleadership.LeadershipManager
 	leadershipTracker leadership.Tracker
 
 	hookLock    *fslock.Lock
@@ -103,35 +101,32 @@ type Uniter struct {
 
 // UniterParams hold all the necessary parameters for a new Uniter.
 type UniterParams struct {
-	St                   *uniter.State
+	UniterFacade         *uniter.State
 	UnitTag              names.UnitTag
-	LeadershipManager    coreleadership.LeadershipManager
+	LeadershipTracker    leadership.Tracker
 	DataDir              string
-	HookLock             *fslock.Lock
+	MachineLock          *fslock.Lock
 	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
-	NewOperationExecutor newExecutorFunc
+	NewOperationExecutor NewExecutorFunc
 }
 
-type newExecutorFunc func(*Uniter) (operation.Executor, error)
+type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
 func NewUniter(uniterParams *UniterParams) *Uniter {
 	u := &Uniter{
-		st:                   uniterParams.St,
+		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		hookLock:             uniterParams.HookLock,
-		leadershipManager:    uniterParams.LeadershipManager,
+		hookLock:             uniterParams.MachineLock,
+		leadershipTracker:    uniterParams.LeadershipTracker,
 		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
 		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
 		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
-	}
-	if u.newOperationExecutor == nil {
-		u.newOperationExecutor = newOperationExecutor
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -154,19 +149,6 @@ func (u *Uniter) runCleanups() {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-	// Start tracking leadership state.
-	// TODO(fwereade): ideally, this wouldn't be created here; as a worker it's
-	// clearly better off being managed by a Runner. However, we haven't come up
-	// with a clean way to reference one (lineage of a...) worker from another,
-	// so for now the tracker is accessible only to its unit.
-	leadershipTracker := leadership.NewTrackerWorker(
-		unitTag, u.leadershipManager, leadershipGuarantee,
-	)
-	u.addCleanup(func() error {
-		return worker.Stop(leadershipTracker)
-	})
-	u.leadershipTracker = leadershipTracker
-
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -182,8 +164,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	u.addCleanup(u.f.Stop)
 
-	// Stop the uniter if either of these components fails.
-	go func() { u.tomb.Kill(leadershipTracker.Wait()) }()
+	// Stop the uniter if the filter fails.
 	go func() { u.tomb.Kill(u.f.Wait()) }()
 
 	// Start handling leader settings events, or not, as appropriate.
@@ -232,12 +213,6 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
-func newOperationExecutor(u *Uniter) (operation.Executor, error) {
-	return operation.NewExecutor(
-		u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock,
-	)
-}
-
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -282,8 +257,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
-	runnerFactory, err := runner.NewFactory(
+	contextFactory, err := runner.NewContextFactory(
 		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
+	)
+	if err != nil {
+		return err
+	}
+	runnerFactory, err := runner.NewFactory(
+		u.st, u.paths, contextFactory,
 	)
 	if err != nil {
 		return err
@@ -298,7 +279,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
-	operationExecutor, err := u.newOperationExecutor(u)
+	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock)
 	if err != nil {
 		return err
 	}

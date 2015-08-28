@@ -56,7 +56,7 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"control-bucket": "test-bucket",
 	"access-key":     "x",
 	"secret-key":     "x",
-	"agent-version":  version.Current.Number.String(),
+	"agent-version":  coretesting.FakeVersionNumber.String(),
 })
 
 func registerLocalTests() {
@@ -85,6 +85,7 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
+	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 }
@@ -98,6 +99,11 @@ func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
+	// createRootDisks is used to decide whether or not
+	// the ec2test server will create root disks for
+	// instances.
+	createRootDisks bool
+
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
 	config *s3test.Config
@@ -109,6 +115,7 @@ func (srv *localServer) startServer(c *gc.C) {
 	if err != nil {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
+	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
 	srv.s3srv, err = s3test.NewServer(srv.config)
 	if err != nil {
 		c.Fatalf("cannot start s3 test server: %v", err)
@@ -132,6 +139,7 @@ func (srv *localServer) startServer(c *gc.C) {
 	zones[2].Name = "test-unavailable"
 	zones[2].State = "unavailable"
 	srv.ec2srv.SetAvailabilityZones(zones)
+	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
 }
 
 // addSpice adds some "spice" to the local server
@@ -175,6 +183,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.BaseSuite.SetUpSuite(c)
+	t.srv.createRootDisks = true
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
@@ -183,15 +192,15 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
+	t.PatchValue(&version.Current, version.Binary{
+		Number: coretesting.FakeVersionNumber,
+		Series: coretesting.FakeDefaultSeries,
+		Arch:   arch.AMD64,
+	})
 	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
-	t.PatchValue(&version.Current, version.Binary{
-		Number: version.Current.Number,
-		Series: coretesting.FakeDefaultSeries,
-		Arch:   arch.AMD64,
-	})
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -694,23 +703,10 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	assertSourcesContains(c, params.Sources, "cloud local storage")
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
-}
-
-func assertSourcesContains(c *gc.C, sources []simplestreams.DataSource, expected string) {
-	found := false
-	for i, s := range sources {
-		c.Logf("datasource %d: %+v", i, s)
-		if s.Description() == expected {
-			found = true
-			break
-		}
-	}
-	c.Assert(found, jc.IsTrue)
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -756,10 +752,9 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 }
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
-	// setting a default-vpc will create a network interface
-	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": {"vpc-xxxxxxx"},
-	})
+	// Simulate a default VPC exists.
+	t.srv.ec2srv.AddDefaultVPCAndSubnets()
+
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -845,18 +840,32 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	interfaces, err := env.NetworkInterfaces(instId)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// The CIDR isn't predictable, but it is in the 10.10.x.0/24 format
+	// The subnet ID is in the form "subnet-x", where x matches the same
+	// number from the CIDR. The interfaces address is part of the CIDR.
+	// For these reasons we check that the CIDR is in the expected format
+	// and derive the expected values for ProviderSubnetId and Address.
+	c.Assert(interfaces, gc.HasLen, 1)
+	cidr := interfaces[0].CIDR
+	re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
+	c.Assert(re.Match([]byte(cidr)), jc.IsTrue)
+	index := re.FindStringSubmatch(cidr)[1]
+	addr := fmt.Sprintf("10.10.%s.5", index)
+	subnetId := network.Id("subnet-" + index)
+
 	expectedInterfaces := []network.InterfaceInfo{{
 		DeviceIndex:      0,
 		MACAddress:       "20:01:60:cb:27:37",
-		CIDR:             "10.10.0.0/20",
+		CIDR:             cidr,
 		ProviderId:       "eni-0",
-		ProviderSubnetId: "subnet-0",
+		ProviderSubnetId: subnetId,
 		VLANTag:          0,
 		InterfaceName:    "unsupported0",
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewScopedAddress("10.10.0.5", network.ScopeCloudLocal),
+		Address:          network.NewScopedAddress(addr, network.ScopeCloudLocal),
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
@@ -867,22 +876,42 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// These are defined in the test server for the testing default
+	// VPC.
 	defaultSubnets := []network.SubnetInfo{{
-		// this is defined in the test server for the default-vpc
-		CIDR:              "10.10.0.0/20",
+		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
 		VLANTag:           0,
 		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
-		AllocatableIPHigh: net.ParseIP("10.10.15.254").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.0.254").To4(),
+		AvailabilityZones: []string{"test-available"},
+	}, {
+		CIDR:              "10.10.1.0/24",
+		ProviderId:        "subnet-1",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("10.10.1.4").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.1.254").To4(),
+		AvailabilityZones: []string{"test-impaired"},
+	}, {
+		CIDR:              "10.10.2.0/24",
+		ProviderId:        "subnet-2",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("10.10.2.4").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.2.254").To4(),
+		AvailabilityZones: []string{"test-unavailable"},
 	}}
+	c.Assert(subnets, jc.DeepEquals, defaultSubnets[:1])
+
+	subnets, err = env.Subnets(instance.UnknownId, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
 
-func (t *localServerSuite) TestSubnetsNoNetIds(c *gc.C) {
+func (t *localServerSuite) TestSubnetsInstIdNotSupported(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	_, err := env.Subnets("", []network.Id{})
-	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
+	_, err := env.Subnets("foo", []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "instId not supported")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
@@ -893,9 +922,7 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
-	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": {"vpc-xxxxxxx"},
-	})
+	t.srv.ec2srv.AddDefaultVPCAndSubnets()
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
@@ -928,7 +955,7 @@ func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
-	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
 		"default-vpc": {"none"},
 	})
 	env := t.prepareEnviron(c)
@@ -938,7 +965,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 
 	// this value won't change normally, the change here is to
 	// ensure that subsequent calls use the cached value
-	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
 		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	result, err = env.SupportsAddressAllocation("")
@@ -947,7 +974,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
-	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
 		"default-vpc": {"none"},
 	})
 	env := t.prepareEnviron(c)
@@ -970,6 +997,34 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		{"Name", "juju-sample-machine-0"},
 		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
 		{"juju-is-state", "true"},
+	})
+}
+
+func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instances, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 1)
+
+	ec2conn := ec2.EnvironEC2(env)
+	resp, err := ec2conn.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resp.Volumes, gc.Not(gc.HasLen), 0)
+
+	var found *amzec2.Volume
+	for _, vol := range resp.Volumes {
+		if len(vol.Tags) != 0 {
+			found = &vol
+			break
+		}
+	}
+	c.Assert(found, gc.NotNil)
+	c.Assert(found.Tags, jc.SameContents, []amzec2.Tag{
+		{"Name", "juju-sample-machine-0-root"},
+		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
 	})
 }
 

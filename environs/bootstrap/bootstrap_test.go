@@ -55,6 +55,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 }
 
@@ -124,11 +125,9 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
-	s.PatchValue(&version.Current.Arch, "arm64")
-	s.PatchValue(&arch.HostArch, func() string {
-		return "arm64"
-	})
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -143,11 +142,9 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
-	s.PatchValue(&version.Current.Arch, "arm64")
-	s.PatchValue(&arch.HostArch, func() string {
-		return "arm64"
-	})
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -293,7 +290,9 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	currentVersion.Minor = clientMinor
 	currentVersion.Series = "trusty"
 	currentVersion.Arch = "amd64"
+	currentVersion.Tag = ""
 	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -305,8 +304,14 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	toolsBinaries := []version.Binary{
 		version.MustParseBinary("10.11.12-trusty-amd64"),
 		version.MustParseBinary("10.11.13-trusty-amd64"),
+		version.MustParseBinary("10.11-beta1-trusty-amd64"),
 	}
-	_, err := envtesting.UploadFakeToolsVersions(env.storage, "released", "released", toolsBinaries...)
+	stream := "released"
+	if toolsVersion != nil && toolsVersion.Tag != "" {
+		stream = "devel"
+		currentVersion.Tag = toolsVersion.Tag
+	}
+	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, stream, toolsBinaries...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -325,6 +330,19 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersion(c *gc.C) {
 		Major: 10,
 		Minor: 11,
 		Patch: 12,
+	})
+}
+
+func (s *bootstrapSuite) TestBootstrapSpecificVersionWithTag(c *gc.C) {
+	toolsVersion := version.MustParse("10.11-beta1")
+	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, &toolsVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrapCount, gc.Equals, 1)
+	c.Assert(vers, gc.DeepEquals, version.Number{
+		Major: 10,
+		Minor: 11,
+		Patch: 1,
+		Tag:   "beta",
 	})
 }
 
@@ -399,7 +417,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
 	e.bootstrapCount++
 	e.args = args
 	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
@@ -407,7 +425,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 		e.instanceConfig = icfg
 		return nil
 	}
-	return version.Current.Arch, version.Current.Series, finalizer, nil
+	return arch.HostArch(), version.Current.Series, finalizer, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {
@@ -425,7 +443,7 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 
 func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 	e.supportedArchitecturesCount++
-	return []string{"amd64", "arm64"}, nil
+	return []string{arch.AMD64, arch.ARM64}, nil
 }
 
 func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {

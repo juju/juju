@@ -42,6 +42,8 @@ func (ua *unitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 
 // NewStatusAPI creates a new server-side Status setter API facade.
 func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
+	// TODO(fwereade): so *all* of these have exactly the same auth
+	// characteristics? I think not.
 	unitSetter := common.NewStatusSetter(st, getCanModify)
 	unitGetter := common.NewStatusGetter(st, getCanModify)
 	serviceSetter := common.NewServiceStatusSetter(st, getCanModify)

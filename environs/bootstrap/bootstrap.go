@@ -269,7 +269,7 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 	}
 
 	// Add an image metadata datasource for constraint validation, etc.
-	environs.RegisterImageDataSourceFunc("bootstrap metadata", func(environs.Environ) (simplestreams.DataSource, error) {
+	environs.RegisterUserImageDataSourceFunc("bootstrap metadata", func(environs.Environ) (simplestreams.DataSource, error) {
 		return datasource, nil
 	})
 	logger.Infof("custom image metadata added to search path")

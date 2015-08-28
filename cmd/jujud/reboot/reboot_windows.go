@@ -15,7 +15,7 @@ func scheduleAction(action params.RebootAction, after int) error {
 	if action == params.ShouldDoNothing {
 		return nil
 	}
-	args := []string{"shutdown.exe"}
+	args := []string{"shutdown.exe", "-f"}
 	switch action {
 	case params.ShouldReboot:
 		args = append(args, "-r")

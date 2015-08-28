@@ -39,7 +39,6 @@ func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	defer stateWrapper.cleanup()
 	switch r.Method {
 	case "GET":
 		err := h.processGet(r, w, stateWrapper.state)

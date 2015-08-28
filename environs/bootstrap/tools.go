@@ -74,14 +74,14 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch *string
 			vers = &agentVersion
 		}
 	}
-	logger.Debugf("looking for bootstrap tools: version=%v", vers)
+	logger.Infof("looking for bootstrap tools: version=%v", vers)
 	toolsList, findToolsErr := findBootstrapTools(env, vers, arch)
 	if findToolsErr != nil && !errors.IsNotFound(findToolsErr) {
 		return nil, findToolsErr
 	}
 
-	isDev := env.Config().AgentStream() != envtools.ReleasedStream || env.Config().Development()
-	if !isDev || vers != nil {
+	preferredStream := envtools.PreferredStream(vers, env.Config().Development(), env.Config().AgentStream())
+	if preferredStream == envtools.ReleasedStream || vers != nil {
 		// We are not running a development build, or agent-version
 		// was specified; the only tools available are the ones we've
 		// just found.
@@ -119,8 +119,12 @@ func locallyBuildableTools() (buildable coretools.List) {
 		if os, err := version.GetOSFromSeries(series); err != nil || os != version.Current.OS {
 			continue
 		}
-		binary := version.Current
-		binary.Series = series
+		binary := version.Binary{
+			Number: version.Current.Number,
+			Series: series,
+			Arch:   arch.HostArch(),
+			OS:     version.Current.OS,
+		}
 		// Increment the build number so we know it's a development build.
 		binary.Build++
 		buildable = append(buildable, &coretools.Tools{Version: binary})
@@ -140,9 +144,8 @@ func findBootstrapTools(env environs.Environ, vers *version.Number, arch *string
 		filter.Arch = *arch
 	}
 	if vers != nil {
-		// If we already have an explicit agent version set, we're done.
 		filter.Number = *vers
-		return findTools(env, cliVersion.Major, cliVersion.Minor, filter)
 	}
-	return findTools(env, cliVersion.Major, cliVersion.Minor, filter)
+	stream := envtools.PreferredStream(vers, env.Config().Development(), env.Config().AgentStream())
+	return findTools(env, cliVersion.Major, cliVersion.Minor, stream, filter)
 }

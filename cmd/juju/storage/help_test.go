@@ -10,14 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
 type HelpStorageSuite struct {
 	testing.FakeJujuHomeSuite
 
-	command *storage.Command
+	command cmd.Command
 }
 
 func (s *HelpStorageSuite) SetUpTest(c *gc.C) {
@@ -32,9 +31,11 @@ func (s *HelpStorageSuite) assertHelp(c *gc.C, expectedNames []string) {
 	ctx, err := testing.RunCommand(c, s.command, "--help")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := "(?sm).*^purpose: " + s.command.Purpose + "$.*"
+	super, ok := s.command.(*cmd.SuperCommand)
+	c.Assert(ok, jc.IsTrue)
+	expected := "(?sm).*^purpose: " + super.Purpose + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^" + s.command.Doc + "$.*"
+	expected = "(?sm).*^" + super.Doc + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 
 	s.checkHelpCommands(c, ctx, expectedNames)

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -37,7 +38,7 @@ type ToolsFixture struct {
 
 	// UploadArches holds the architectures of tools to
 	// upload in UploadFakeTools. If empty, it will default
-	// to just version.Current.Arch.
+	// to just arch.HostArch()
 	UploadArches []string
 }
 
@@ -63,7 +64,7 @@ func (s *ToolsFixture) UploadFakeToolsToDirectory(c *gc.C, dir, toolsDir, stream
 func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
 	arches := s.UploadArches
 	if len(arches) == 0 {
-		arches = []string{version.Current.Arch}
+		arches = []string{arch.HostArch()}
 	}
 	var versions []version.Binary
 	for _, arch := range arches {

@@ -30,7 +30,7 @@ func main() {
 
 	commandName := filepath.Base(os.Args[0])
 	if isInteractive || commandName != names.Jujud {
-		Main(os.Args)
+		os.Exit(Main(os.Args))
 	} else {
 		s := service.SystemService{
 			Name: "jujud",

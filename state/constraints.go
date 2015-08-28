@@ -25,8 +25,11 @@ type constraintsDoc struct {
 	RootDisk     *uint64
 	InstanceType *string
 	Container    *instance.ContainerType
-	Tags         *[]string `bson:",omitempty"`
-	Networks     *[]string `bson:",omitempty"`
+	Tags         *[]string
+	Spaces       *[]string
+	// TODO(dimitern): Drop this once it's not possible to specify
+	// networks= in constraints.
+	Networks *[]string
 }
 
 func (doc constraintsDoc) value() constraints.Value {
@@ -39,6 +42,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		InstanceType: doc.InstanceType,
 		Container:    doc.Container,
 		Tags:         doc.Tags,
+		Spaces:       doc.Spaces,
 		Networks:     doc.Networks,
 	}
 }
@@ -54,6 +58,7 @@ func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 		InstanceType: cons.InstanceType,
 		Container:    cons.Container,
 		Tags:         cons.Tags,
+		Spaces:       cons.Spaces,
 		Networks:     cons.Networks,
 	}
 }

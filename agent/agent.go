@@ -32,20 +32,69 @@ import (
 
 var logger = loggo.GetLogger("juju.agent")
 
-// logDir returns a filesystem path to the location where juju
-// may create a folder containing its logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+// These are base values used for the corresponding defaults.
+var (
+	logDir  = paths.MustSucceed(paths.LogDir(version.Current.Series))
+	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	confDir = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+)
 
-// dataDir returns the default data directory for this running system
-var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+// Agent exposes the agent's configuration to other components. This
+// interface should probably be segregated (agent.ConfigGetter and
+// agent.ConfigChanger?) but YAGNI *currently* advises against same.
+type Agent interface {
 
-// DefaultLogDir defines the default log directory for juju agents.
-// It's defined as a variable so it could be overridden in tests.
-var DefaultLogDir = path.Join(logDir, "juju")
+	// CurrentConfig returns a copy of the agent's configuration. No
+	// guarantees regarding ongoing correctness are made.
+	CurrentConfig() Config
 
-// DefaultDataDir defines the default data directory for juju agents.
-// It's defined as a variable so it could be overridden in tests.
-var DefaultDataDir = dataDir
+	// ChangeConfig allows clients to change the agent's configuration
+	// by supplying a callback that applies the changes.
+	ChangeConfig(ConfigMutator) error
+}
+
+// APIHostPortsSetter trivially wraps an Agent to implement
+// worker/apiaddressupdater/APIAddressSetter.
+type APIHostPortsSetter struct {
+	Agent
+}
+
+// SetAPIHostPorts is the APIAddressSetter interface.
+func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
+	return s.ChangeConfig(func(c ConfigSetter) error {
+		c.SetAPIHostPorts(servers)
+		return nil
+	})
+}
+
+// SetStateServingInfo trivially wraps an Agent to implement
+// worker/certupdater/SetStateServingInfo.
+type StateServingInfoSetter struct {
+	Agent
+}
+
+// SetStateServingInfo is the SetStateServingInfo interface.
+func (s StateServingInfoSetter) SetStateServingInfo(info params.StateServingInfo) error {
+	return s.ChangeConfig(func(c ConfigSetter) error {
+		c.SetStateServingInfo(info)
+		return nil
+	})
+}
+
+var (
+	// DefaultLogDir defines the default log directory for juju agents.
+	// It's defined as a variable so it could be overridden in tests.
+	DefaultLogDir = path.Join(logDir, "juju")
+
+	// DefaultDataDir defines the default data directory for juju agents.
+	// It's defined as a variable so it could be overridden in tests.
+	DefaultDataDir = dataDir
+
+	// DefaultConfDir defines the default config file directory for
+	// Juju agents.
+	// It's defined as a variable so it could be overridden in tests.
+	DefaultConfDir = confDir
+)
 
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"
@@ -145,7 +194,7 @@ type Config interface {
 	Environment() names.EnvironTag
 }
 
-type ConfigSetterOnly interface {
+type configSetterOnly interface {
 	// Clone returns a copy of the configuration that
 	// is unaffected by subsequent calls to the Set*
 	// methods
@@ -205,12 +254,12 @@ type ConfigWriter interface {
 
 type ConfigSetter interface {
 	Config
-	ConfigSetterOnly
+	configSetterOnly
 }
 
 type ConfigSetterWriter interface {
 	Config
-	ConfigSetterOnly
+	configSetterOnly
 	ConfigWriter
 }
 

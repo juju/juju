@@ -41,17 +41,23 @@ func (m *Machine) setFlag() error {
 	if m.Life() == Dead {
 		return mgo.ErrNotFound
 	}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-	}, {
-		C:      rebootC,
-		Id:     m.doc.DocID,
-		Insert: &rebootDoc{Id: m.Id()},
-	}}
+	ops := []txn.Op{
+		assertEnvAliveOp(m.st.EnvironUUID()),
+		{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: notDeadDoc,
+		}, {
+			C:      rebootC,
+			Id:     m.doc.DocID,
+			Insert: &rebootDoc{Id: m.Id()},
+		},
+	}
 	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {
+		if err := checkEnvLife(m.st); err != nil {
+			return errors.Trace(err)
+		}
 		return mgo.ErrNotFound
 	} else if err != nil {
 		return errors.Errorf("failed to set reboot flag: %v", err)

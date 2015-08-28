@@ -34,7 +34,16 @@ func (s *EngineSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *EngineSuite) startEngine(c *gc.C, isFatal dependency.IsFatalFunc) {
-	s.engine = dependency.NewEngine(isFatal, coretesting.ShortWait/2, coretesting.ShortWait/10)
+	config := dependency.EngineConfig{
+		IsFatal:       isFatal,
+		MoreImportant: func(err0, err1 error) error { return err0 },
+		ErrorDelay:    coretesting.ShortWait / 2,
+		BounceDelay:   coretesting.ShortWait / 10,
+	}
+
+	e, err := dependency.NewEngine(config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.engine = e
 }
 
 func (s *EngineSuite) stopEngine(c *gc.C) {
@@ -399,4 +408,86 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 	mh1.InjectError(c, nil)
 	mh1.AssertNoStart(c)
 	mh2.AssertOneStart(c)
+}
+
+// TestErrMoreImportant starts an engine with two
+// manifolds that always error with fatal errors. We test that the
+// most important error is the one returned by the engine
+// This test uses manifolds whose workers ignore fatal errors.
+// We want this behvaiour so that we don't race over which fatal
+// error is seen by the engine first.
+func (s *EngineSuite) TestErrMoreImportant(c *gc.C) {
+	// Setup the errors, their importance, and the function
+	// that decides.
+	importantError := errors.New("an important error")
+	moreImportant := func(_, _ error) error {
+		return importantError
+	}
+
+	allFatal := func(error) bool { return true }
+
+	// Start a new engine with moreImportant configured
+	config := dependency.EngineConfig{
+		IsFatal:       allFatal,
+		MoreImportant: moreImportant,
+		ErrorDelay:    coretesting.ShortWait / 2,
+		BounceDelay:   coretesting.ShortWait / 10,
+	}
+	engine, err := dependency.NewEngine(config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mh1 := newErrorIgnoringManifoldHarness()
+	err = engine.Install("task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertOneStart(c)
+
+	mh2 := newErrorIgnoringManifoldHarness()
+	err = engine.Install("another task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+
+	mh1.InjectError(c, errors.New("kerrang"))
+	mh2.InjectError(c, importantError)
+
+	err = engine.Wait()
+	c.Assert(err, gc.ErrorMatches, importantError.Error())
+}
+
+func (s *EngineSuite) TestConfigValidate(c *gc.C) {
+	validIsFatal := func(error) bool { return true }
+	validMoreImportant := func(err0, err1 error) error { return err0 }
+	validErrorDelay := time.Second
+	validBounceDelay := time.Second
+	tests := []struct {
+		about  string
+		config dependency.EngineConfig
+		err    string
+	}{
+		{
+			"IsFatal invalid",
+			dependency.EngineConfig{nil, validMoreImportant, validErrorDelay, validBounceDelay},
+			"engineconfig validation failed: IsFatal not specified",
+		},
+		{
+			"MoreImportant invalid",
+			dependency.EngineConfig{validIsFatal, nil, validErrorDelay, validBounceDelay},
+			"engineconfig validation failed: MoreImportant not specified",
+		},
+		{
+			"ErrorDelay invalid",
+			dependency.EngineConfig{validIsFatal, validMoreImportant, -time.Second, validBounceDelay},
+			"engineconfig validation failed: ErrorDelay needs to be >= 0",
+		},
+		{
+			"BounceDelay invalid",
+			dependency.EngineConfig{validIsFatal, validMoreImportant, validErrorDelay, -time.Second},
+			"engineconfig validation failed: BounceDelay needs to be >= 0",
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("running test %d: %v", i, test.about)
+		err := test.config.Validate()
+		c.Assert(err, gc.ErrorMatches, test.err)
+	}
 }

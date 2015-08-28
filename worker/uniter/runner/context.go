@@ -127,9 +127,6 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// serviceOwner contains the user tag of the service owner.
-	serviceOwner names.UserTag
-
 	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
 
@@ -360,6 +357,10 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
+func (ctx *HookContext) StorageTags() []names.StorageTag {
+	return ctx.storage.StorageTags()
+}
+
 func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, bool) {
 	return ctx.Storage(ctx.storageTag)
 }
@@ -410,10 +411,6 @@ func (ctx *HookContext) OpenedPorts() []network.PortRange {
 	return unitRanges
 }
 
-func (ctx *HookContext) OwnerTag() string {
-	return ctx.serviceOwner.String()
-}
-
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	if ctx.configSettings == nil {
 		var err error
@@ -434,7 +431,7 @@ func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
 		return "", errors.New("not running an action")
 	}
-	return ctx.actionData.ActionName, nil
+	return ctx.actionData.Name, nil
 }
 
 // ActionParams simply returns the arguments to the Action.
@@ -442,7 +439,7 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
-	return ctx.actionData.ActionParams, nil
+	return ctx.actionData.Params, nil
 }
 
 // SetActionMessage sets a message for the Action, usually an error message.
@@ -459,7 +456,7 @@ func (ctx *HookContext) SetActionFailed() error {
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
 	}
-	ctx.actionData.ActionFailed = true
+	ctx.actionData.Failed = true
 	return nil
 }
 
@@ -552,9 +549,9 @@ func (context *HookContext) HookVars(paths Paths) []string {
 	}
 	if context.actionData != nil {
 		vars = append(vars,
-			"JUJU_ACTION_NAME="+context.actionData.ActionName,
-			"JUJU_ACTION_UUID="+context.actionData.ActionTag.Id(),
-			"JUJU_ACTION_TAG="+context.actionData.ActionTag.String(),
+			"JUJU_ACTION_NAME="+context.actionData.Name,
+			"JUJU_ACTION_UUID="+context.actionData.Tag.Id(),
+			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
 		)
 	}
 	return append(vars, osDependentEnvVars(paths)...)
@@ -597,8 +594,19 @@ func (ctx *HookContext) addJujuUnitsMetric() error {
 	return nil
 }
 
-// FlushContext implements the Context interface.
-func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
+// Prepare implements the Context interface.
+func (ctx *HookContext) Prepare() error {
+	if ctx.actionData != nil {
+		err := ctx.state.ActionBegin(ctx.actionData.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// Flush implements the Context interface.
+func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	// A non-existant metricsRecorder simply means that metrics were disabled
 	// for this hook run.
 	if ctx.metricsRecorder != nil {
@@ -704,9 +712,9 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// TODO (binary132): synchronize with gsamfira's reboot logic
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
-	tag := ctx.actionData.ActionTag
+	tag := ctx.actionData.Tag
 	status := params.ActionCompleted
-	if ctx.actionData.ActionFailed {
+	if ctx.actionData.Failed {
 		status = params.ActionFailed
 	}
 

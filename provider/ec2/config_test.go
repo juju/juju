@@ -122,6 +122,14 @@ func (t configTest) check(c *gc.C) {
 	// check storage bucket is configured correctly
 	env := e.(*environ)
 	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
+
+	expectedStorage := "ebs"
+	if t.blockStorageSource != "" {
+		expectedStorage = t.blockStorageSource
+	}
+	storage, ok := ecfg.StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(storage, gc.Equals, expectedStorage)
 }
 
 var configTests = []configTest{
@@ -208,7 +216,7 @@ var configTests = []configTest{
 		blockStorageSource: "ebs",
 	}, {
 		config: attrs{
-			"default-block-storage-source": "ebs-fast",
+			"storage-default-block-source": "ebs-fast",
 		},
 		blockStorageSource: "ebs-fast",
 	}, {
@@ -294,7 +302,12 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	os.Setenv("AWS_ACCESS_KEY_ID", "")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
-	// Since r37 goamz uses these as fallbacks, so unset them too.
+
+	// Since PR #52 amz.v3 uses these AWS_ vars as fallbacks, if set.
+	os.Setenv("AWS_ACCESS_KEY", "")
+	os.Setenv("AWS_SECRET_KEY", "")
+
+	// Since LP r37 goamz uses also these EC2_ as fallbacks, so unset them too.
 	os.Setenv("EC2_ACCESS_KEY", "")
 	os.Setenv("EC2_SECRET_KEY", "")
 	test := configTests[0]

@@ -56,7 +56,7 @@ algorithm by using the "--to" flag. The value associated with "--to" is a
 "placement directive", which tells Juju how to identify the first machine to use.
 For more information on placement directives, see "juju help placement".
 
-Bootstrap initializes the cloud environment synchronously and displays information
+Bootstrap initialises the cloud environment synchronously and displays information
 about the current installation steps.  The time for bootstrap to complete varies
 across cloud providers from a few seconds to several minutes.  Once bootstrap has
 completed, you can run other juju commands against your environment. You can change
@@ -70,10 +70,11 @@ following settings in your environments.yaml (all values represent number of sec
     # How often to refresh state server addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
 
-Private clouds may need to specify their own custom image metadata, and possibly upload
-Juju tools to cloud storage if no outgoing Internet access is available. In this case,
-use the --metadata-source paramater to tell bootstrap a local directory from which to
-upload tools and/or image metadata.
+Private clouds may need to specify their own custom image metadata, and
+possibly upload Juju tools to cloud storage if no outgoing Internet access is
+available. In this case, use the --metadata-source parameter to point
+bootstrap to a local directory from which to upload tools and/or image
+metadata.
 
 If agent-version is specifed, this is the default tools version to use when running the Juju agents.
 Only the numeric version is relevant. To enable ease of scripting, the full binary version
@@ -358,7 +359,18 @@ func (c *BootstrapCommand) waitForAgentInitialisation(ctx *cmd.Context) (err err
 			ctx.Infof("Bootstrap complete")
 			return nil
 		}
-		if strings.Contains(err.Error(), apiserver.UpgradeInProgressError.Error()) {
+		// As the API server is coming up, it goes through a number of steps.
+		// Initially the upgrade steps run, but the api server allows some
+		// calls to be processed during the upgrade, but not the list blocks.
+		// It is also possible that the underlying database causes connections
+		// to be dropped as it is initialising, or reconfiguring. These can
+		// lead to EOF or "connection is shut down" error messages. We skip
+		// these too, hoping that things come back up before the end of the
+		// retry poll count.
+		errorMessage := err.Error()
+		if strings.Contains(errorMessage, apiserver.UpgradeInProgressError.Error()) ||
+			strings.HasSuffix(errorMessage, "EOF") ||
+			strings.HasSuffix(errorMessage, "connection is shut down") {
 			ctx.Infof("Waiting for API to become available")
 			continue
 		}

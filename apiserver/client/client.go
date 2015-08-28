@@ -264,6 +264,9 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 // allows specifying networks to include or exclude on the machine
 // where the charm gets deployed (either with args.Network or with
 // constraints).
+//
+// TODO(dimitern): Drop the special handling of networks in favor of
+// spaces constraints, once possible.
 func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
 }
@@ -1012,9 +1015,9 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	entityStatus := make([]params.EntityStatus, len(p.Entities))
+	entityStatus := make([]params.EntityStatusArgs, len(p.Entities))
 	for i, entity := range p.Entities {
-		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
+		entityStatus[i] = params.EntityStatusArgs{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
 	}
 	return c.api.statusSetter.UpdateStatus(params.SetStatus{
 		Entities: entityStatus,
@@ -1045,4 +1048,15 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
+}
+
+// DestroyEnvironment will try to destroy the current environment.
+// If there is a block on destruction, this method will return an error.
+func (c *Client) DestroyEnvironment() (err error) {
+	if err := c.check.DestroyAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+
+	environTag := c.api.state.EnvironTag()
+	return errors.Trace(common.DestroyEnvironment(c.api.state, environTag))
 }

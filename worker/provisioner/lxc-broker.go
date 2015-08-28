@@ -25,7 +25,9 @@ import (
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -53,7 +55,9 @@ func newLxcBroker(
 	enableNAT bool,
 	defaultMTU int,
 ) (environs.InstanceBroker, error) {
-	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
+	manager, err := lxc.NewContainerManager(
+		managerConfig, imageURLGetter, looputil.NewLoopDeviceManager(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -118,13 +122,14 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// (after applying explicitly specified constraints), which may
 	// include tools for architectures other than the host's. We
 	// must constrain to the host's architecture for LXC.
+	arch := arch.HostArch()
 	archTools, err := args.Tools.Match(tools.Filter{
-		Arch: version.Current.Arch,
+		Arch: arch,
 	})
 	if err == tools.ErrNoMatches {
 		return nil, errors.Errorf(
 			"need tools for arch %s, only found %s",
-			version.Current.Arch,
+			arch,
 			args.Tools.Arches(),
 		)
 	}
@@ -194,9 +199,10 @@ type hostArchToolsFinder struct {
 }
 
 // FindTools is defined on the ToolsFinder interface.
-func (h hostArchToolsFinder) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+func (h hostArchToolsFinder) FindTools(v version.Number, series string, _ *string) (tools.List, error) {
 	// Override the arch constraint with the arch of the host.
-	return h.f.FindTools(v, series, &version.Current.Arch)
+	arch := arch.HostArch()
+	return h.f.FindTools(v, series, &arch)
 }
 
 // resolvConf is the full path to the resolv.conf file on the local

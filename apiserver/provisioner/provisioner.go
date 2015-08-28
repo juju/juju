@@ -35,6 +35,13 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
+	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+
+	// Version 1 has the same set of methods as 0, with the same
+	// signatures, but its ProvisioningInfo returns additional
+	// information. Clients may require version 1 so that they
+	// receive this additional information; otherwise they are
+	// compatible.
 	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
 }
 
@@ -52,6 +59,7 @@ type ProvisionerAPI struct {
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
 	*common.ToolsFinder
+	*common.ToolsGetter
 
 	st          *state.State
 	resources   *common.Resources
@@ -93,6 +101,9 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 			}
 		}, nil
 	}
+	getAuthOwner := func() (common.AuthFunc, error) {
+		return authorizer.AuthOwner, nil
+	}
 	env, err := st.Environment()
 	if err != nil {
 		return nil, err
@@ -111,6 +122,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
 		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:            common.NewToolsFinder(st, st, urlGetter),
+		ToolsGetter:            common.NewToolsGetter(st, st, st, urlGetter, getAuthOwner),
 		st:                     st,
 		resources:              resources,
 		authorizer:             authorizer,
@@ -401,12 +413,8 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(dimitern) For now, since network names and
-	// provider ids are the same, we return what we got
-	// from state. In the future, when networks can be
-	// added before provisioning, we should convert both
-	// slices from juju network names to provider-specific
-	// ids before returning them.
+	// TODO(dimitern) Drop this once we only use spaces for
+	// deployments.
 	networks, err := m.RequestedNetworks()
 	if err != nil {
 		return nil, err
@@ -419,14 +427,19 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	subnetsToZones, err := p.machineSubnetsAndZones(m)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot match subnets to zones")
+	}
 	return &params.ProvisioningInfo{
-		Constraints: cons,
-		Series:      m.Series(),
-		Placement:   m.Placement(),
-		Networks:    networks,
-		Jobs:        jobs,
-		Volumes:     volumes,
-		Tags:        tags,
+		Constraints:    cons,
+		Series:         m.Series(),
+		Placement:      m.Placement(),
+		Networks:       networks,
+		Jobs:           jobs,
+		Volumes:        volumes,
+		Tags:           tags,
+		SubnetsToZones: subnetsToZones,
 	}, nil
 }
 
@@ -641,6 +654,7 @@ func volumeAttachmentsToState(in []params.VolumeAttachment) (map[names.VolumeTag
 		}
 		m[volumeTag] = state.VolumeAttachmentInfo{
 			v.Info.DeviceName,
+			v.Info.BusAddress,
 			v.Info.ReadOnly,
 		}
 	}
@@ -1336,4 +1350,60 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}
 	return machineTags, nil
+}
+
+// machineSubnetsAndZones returns a map of subnet provider-specific id
+// to list of availability zone names for that subnet. The result can
+// be empty if there are no spaces constraints specified for the
+// machine, or there's an error fetching them.
+func (p *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
+	mcons, err := m.Constraints()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get machine constraints")
+	}
+	includeSpaces := mcons.IncludeSpaces()
+	if len(includeSpaces) < 1 {
+		// Nothing to do.
+		return nil, nil
+	}
+	// TODO(dimitern): For the network model MVP we only use the first
+	// included space and ignore the rest.
+	spaceName := includeSpaces[0]
+	if len(includeSpaces) > 1 {
+		logger.Debugf(
+			"using space %q from constraints for machine %q (ignoring remaining: %v)",
+			spaceName, m.Id(), includeSpaces[1:],
+		)
+	}
+	space, err := p.st.Space(spaceName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnets, err := space.Subnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnetsToZones := make(map[string][]string, len(subnets))
+	for _, subnet := range subnets {
+		warningPrefix := fmt.Sprintf(
+			"not using subnet %q in space %q for machine %q provisioning: ",
+			subnet.CIDR(), spaceName, m.Id(),
+		)
+		// TODO(dimitern): state.Subnet.ProviderId needs to be of type
+		// network.Id.
+		providerId := subnet.ProviderId()
+		if providerId == "" {
+			logger.Warningf(warningPrefix + "no ProviderId set")
+			continue
+		}
+		// TODO(dimitern): Once state.Subnet supports multiple zones,
+		// use all of them below.
+		zone := subnet.AvailabilityZone()
+		if zone == "" {
+			logger.Warningf(warningPrefix + "no availability zone(s) set")
+			continue
+		}
+		subnetsToZones[providerId] = []string{zone}
+	}
+	return subnetsToZones, nil
 }

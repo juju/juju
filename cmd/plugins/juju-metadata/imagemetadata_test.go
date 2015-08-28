@@ -79,6 +79,8 @@ type expectedMetadata struct {
 	arch     string
 	region   string
 	endpoint string
+	virtType string
+	storage  string
 }
 
 func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetadata, errOut, indexFileName, imageFileName string) {
@@ -114,6 +116,12 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	c.Assert(images.(map[string]interface{})["format"], gc.Equals, "products:1.0")
 	c.Assert(content, jc.Contains, prodId)
 	c.Assert(content, jc.Contains, `"id": "1234"`)
+	if expected.virtType != "" {
+		c.Assert(content, jc.Contains, fmt.Sprintf(`"virt": %q`, expected.virtType))
+	}
+	if expected.storage != "" {
+		c.Assert(content, jc.Contains, fmt.Sprintf(`"root_store": %q`, expected.storage))
+	}
 }
 
 const (
@@ -125,12 +133,14 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{
-			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
+			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring", "--virt-type=pv", "--storage=root"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
-		series: "raring",
-		arch:   "arch",
+		series:   "raring",
+		arch:     "arch",
+		virtType: "pv",
+		storage:  "root",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }
@@ -168,7 +178,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234"})
+		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234", "--virt-type=pv", "--storage=root"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
@@ -176,6 +186,8 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 		arch:     "amd64",
 		region:   "us-east-1",
 		endpoint: "https://ec2.us-east-1.amazonaws.com",
+		virtType: "pv",
+		storage:  "root",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)
 }

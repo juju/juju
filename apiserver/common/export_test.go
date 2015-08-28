@@ -11,6 +11,7 @@ var (
 	WrapNewFacade        = wrapNewFacade
 	NilFacadeRecord      = facadeRecord{}
 	EnvtoolsFindTools    = &envtoolsFindTools
+	SendMetrics          = &sendMetrics
 )
 
 type Patcher interface {
@@ -35,8 +36,3 @@ func NewMultiNotifyWatcher(w ...state.NotifyWatcher) state.NotifyWatcher {
 	mw := newMultiNotifyWatcher(w...)
 	return mw
 }
-
-var (
-	ServiceStatus    = serviceStatus
-	ServiceSetStatus = serviceSetStatus
-)
