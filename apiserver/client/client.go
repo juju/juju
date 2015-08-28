@@ -6,7 +6,6 @@ package client
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -830,22 +829,13 @@ func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
 	}
 
 	for _, user := range users {
-		var lastConn *time.Time
-		userLastConn, err := user.LastConnection()
-		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return results, errors.Trace(err)
-			}
-		} else {
-			lastConn = &userLastConn
-		}
 		results.Results = append(results.Results, params.EnvUserInfoResult{
 			Result: &params.EnvUserInfo{
 				UserName:       user.UserName(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
-				LastConnection: lastConn,
+				LastConnection: user.LastConnection(),
 			},
 		})
 	}

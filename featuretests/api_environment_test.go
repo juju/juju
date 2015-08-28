@@ -5,7 +5,6 @@ package featuretests
 
 import (
 	"bytes"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/juju"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -51,9 +49,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentShare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
-	lastConn, err := envUser.LastConnection()
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-	c.Assert(lastConn.IsZero(), jc.IsTrue)
+	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
 func (s *apiEnvironmentSuite) TestEnvironmentUnshare(c *gc.C) {
@@ -90,26 +86,15 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 			DisplayName:    owner.DisplayName(),
 			CreatedBy:      owner.UserName(),
 			DateCreated:    owner.DateCreated(),
-			LastConnection: lastConnPointer(c, owner),
+			LastConnection: owner.LastConnection(),
 		}, {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
 			CreatedBy:      owner.UserName(),
 			DateCreated:    envUser.DateCreated(),
-			LastConnection: lastConnPointer(c, envUser),
+			LastConnection: envUser.LastConnection(),
 		},
 	})
-}
-
-func lastConnPointer(c *gc.C, envUser *state.EnvironmentUser) *time.Time {
-	lastConn, err := envUser.LastConnection()
-	if err != nil {
-		if state.IsNeverConnectedError(err) {
-			return nil
-		}
-		c.Fatal(err)
-	}
-	return &lastConn
 }
 
 func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {

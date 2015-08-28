@@ -76,9 +76,7 @@ func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) 
 	// The user now has last login updated.
 	err = user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	lastLogin, err := user.LastLogin()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lastLogin, gc.NotNil)
+	c.Assert(user.LastLogin(), gc.NotNil)
 }
 
 func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {

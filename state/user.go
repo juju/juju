@@ -152,9 +152,8 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 
 // User represents a local user in the database.
 type User struct {
-	st           *State
-	doc          userDoc
-	lastLoginDoc userLastLoginDoc
+	st  *State
+	doc userDoc
 }
 
 type userDoc struct {
@@ -167,18 +166,13 @@ type userDoc struct {
 	PasswordSalt string    `bson:"passwordsalt"`
 	CreatedBy    string    `bson:"createdby"`
 	DateCreated  time.Time `bson:"datecreated"`
-}
-
-type userLastLoginDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
 	// LastLogin is updated by the apiserver whenever the user
 	// connects over the API. This update is not done using mgo.txn
 	// so this value could well change underneath a normal transaction
 	// and as such, it should NEVER appear in any transaction asserts.
 	// It is really informational only as far as everyone except the
 	// api server is concerned.
-	LastLogin time.Time `bson:"last-login"`
+	LastLogin *time.Time `bson:"lastlogin"`
 }
 
 // String returns "<name>@local" where <name> is the Name of the user.
@@ -226,20 +220,13 @@ func (u *User) UserTag() names.UserTag {
 // The resulting time will be nil if the user has never logged in.  In the
 // normal case, the LastLogin is the last time that the user connected through
 // the API server.
-func (u *User) LastLogin() (time.Time, error) {
-	lastLogins, closer := u.st.getRawCollection(userLastLoginC)
-	defer closer()
-
-	var lastLogin userLastLoginDoc
-	err := lastLogins.FindId(u.doc.DocID).Select(bson.D{{"last-login", 1}}).One(&lastLogin)
-	if err != nil {
-		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, NeverLoggedInError(u.UserTag().Name()))
-		}
-		return time.Time{}, errors.Trace(err)
+func (u *User) LastLogin() *time.Time {
+	when := u.doc.LastLogin
+	if when == nil {
+		return nil
 	}
-
-	return lastLogin.LastLogin.UTC(), nil
+	result := when.UTC()
+	return &result
 }
 
 // nowToTheSecond returns the current time in UTC to the nearest second.
@@ -251,42 +238,30 @@ func (u *User) LastLogin() (time.Time, error) {
 // to package.
 var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC() }
 
-// NeverLoggedInError is used to indicate that a user has never logged in.
-type NeverLoggedInError string
-
-// Error returns the error string for a user who has never logged
-// in.
-func (e NeverLoggedInError) Error() string {
-	return `never logged in: "` + string(e) + `"`
-}
-
-// IsNeverLoggedInError returns true if err is of type NeverLoggedInError.
-func IsNeverLoggedInError(err error) bool {
-	_, ok := errors.Cause(err).(NeverLoggedInError)
-	return ok
-}
-
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
-func (u *User) UpdateLastLogin() (err error) {
-	lastLogins, closer := u.st.getCollection(userLastLoginC)
+func (u *User) UpdateLastLogin() error {
+	users, closer := u.st.getCollection(usersC)
 	defer closer()
+	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
+	// txn and non-txn operations in the same collection without clear and
+	// detailed reasoning for so doing.
+	usersW := users.Writeable()
 
-	lastLoginsW := lastLogins.Writeable()
-
-	// Update the safe mode of the underlying session to not require
+	// Update the safe mode of the underlying session to be not require
 	// write majority, nor sync to disk.
-	session := lastLoginsW.Underlying().Database.Session
+	session := usersW.Underlying().Database.Session
 	session.SetSafe(&mgo.Safe{})
 
-	lastLogin := userLastLoginDoc{
-		DocID:     u.doc.DocID,
-		EnvUUID:   u.st.EnvironUUID(),
-		LastLogin: nowToTheSecond(),
+	timestamp := nowToTheSecond()
+	update := bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}}
+
+	if err := usersW.UpdateId(u.Name(), update); err != nil {
+		return errors.Annotatef(err, "cannot update last login timestamp for user %q", u.Name())
 	}
 
-	_, err = lastLoginsW.UpsertId(lastLogin.DocID, lastLogin)
-	return errors.Trace(err)
+	u.doc.LastLogin = &timestamp
+	return nil
 }
 
 // SetPassword sets the password associated with the User.
