@@ -8,9 +8,9 @@ import (
 )
 
 func NewProvider(innerProvider environs.EnvironProvider) environs.EnvironProvider {
-	return environProvider{openstackProvider: innerProvider}
+	return environProvider{innerProvider}
 }
 
 func NewEnviron(innerEnviron environs.Environ) environs.Environ {
-	return environ{openstackEnviron: innerEnviron}
+	return environ{innerEnviron}
 }

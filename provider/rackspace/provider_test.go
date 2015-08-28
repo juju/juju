@@ -79,16 +79,6 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "Expected openstack.Environ, but got: <nil>")
 }
 
-func (s *providerSuite) TestRestrictedConfigAttributes(c *gc.C) {
-	s.provider.RestrictedConfigAttributes()
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "RestrictedConfigAttributes")
-}
-
-func (s *providerSuite) TestPrepareForCreateEnvironment(c *gc.C) {
-	s.provider.PrepareForCreateEnvironment(nil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "PrepareForCreateEnvironment")
-}
-
 func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
 	_, err := s.provider.PrepareForBootstrap(nil, nil)
 	c.Check(s.innerProvider.Pop().name, gc.Equals, "PrepareForBootstrap")
@@ -105,9 +95,4 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	_, err = s.provider.Validate(cfg, nil)
 	c.Check(err, gc.IsNil)
 	c.Check(s.innerProvider.Pop().name, gc.Equals, "Validate")
-}
-
-func (s *providerSuite) TestSecretAttrs(c *gc.C) {
-	s.provider.SecretAttrs(nil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "SecretAttrs")
 }

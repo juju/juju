@@ -12,27 +12,7 @@ import (
 )
 
 type environInstance struct {
-	openstackInstance instance.Instance
-}
-
-// Id implements instance.Instance.
-func (i environInstance) Id() instance.Id {
-	return i.openstackInstance.Id()
-}
-
-// Status implements instance.Instance.
-func (i environInstance) Status() string {
-	return i.openstackInstance.Status()
-}
-
-// Refresh implements instance.Instance.
-func (i environInstance) Refresh() error {
-	return i.openstackInstance.Refresh()
-}
-
-// Addresses implements instance.Instance.
-func (i environInstance) Addresses() ([]network.Address, error) {
-	return i.openstackInstance.Addresses()
+	instance.Instance
 }
 
 // OpenPorts implements instance.Instance.
