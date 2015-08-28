@@ -80,7 +80,7 @@ def jes_setup(args):
             args.agent_url,
             args.agent_stream,
             args.logs, args.keep_env,
-            args.upload_tools,
+            False,
             permanent=True,
             ):
         if args.machine is not None:
