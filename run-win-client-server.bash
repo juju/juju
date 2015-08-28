@@ -25,17 +25,15 @@ revision_build=$(grep revision_build $buildvars_path | grep  -Eo '[0-9]{1,}')
 # Windows installer package.
 package=juju-setup-$candidate_version.exe
 
-# Using revision build number, get the candidate juju from S3
-candidate_temp_dir=$(mktemp -d)
+# Get the candidate juju from S3 using the revision build number.
+temp_dir=$(mktemp -d)
 s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
     s3://juju-qa-data/juju-ci/products/version-$revision_build/build-win-client \
-    $candidate_temp_dir --exclude '*' --include $package
-installer=$(find $candidate_temp_dir -name $package)
-innoextract $installer -d $candidate_temp_dir/extract_dir
-# Zip candidate juju.
-candidate_juju=$(find $candidate_temp_dir/extract_dir -name juju.exe)
-zip -q $candidate_temp_dir/juju.exe.zip $candidate_juju
-candidate_juju=$candidate_temp_dir/juju.exe.zip
+    $temp_dir --exclude '*' --include $package
+installer=$(find $temp_dir -name $package)
+innoextract -e $installer -d $temp_dir
+zip -D $temp_dir/juju-$candidate_version-win.zip $temp_dir/app/juju.exe
+candidate_juju=$temp_dir/juju-$candidate_version-win.zip
 
 # Get the old juju from S3.
 old_package=juju-$old_version-win.zip
