@@ -203,14 +203,17 @@ func deriveScope(addr Address) Scope {
 	return addr.Scope
 }
 
-func ExactMatchScopeAndType(addr Address, addrScope Scope) bool {
-	if addr.Scope != addrScope {
-		return false
-	}
+// ExactMatchScope
+func ExactMatchScope(addr Address, addrScopes ...Scope) bool {
 	if globalPreferIPv6 && addr.Type != IPv6Address {
 		return false
 	}
-	return true
+	for _, scope := range addrScopes {
+		if addr.Scope == scope {
+			return true
+		}
+	}
+	return false
 }
 
 // SelectPublicAddress picks one address from a slice that would be

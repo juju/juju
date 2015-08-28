@@ -1039,9 +1039,9 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
-func containsAddress(addresses []network.Address, address string) bool {
+func containsAddress(addresses []network.Address, address network.Address) bool {
 	for _, addr := range addresses {
-		if addr.Value == address {
+		if addr.Value == address.Value {
 			return true
 		}
 	}
@@ -1052,12 +1052,12 @@ func containsAddress(addresses []network.Address, address string) bool {
 // is stored as the default address on first use, and that address is always
 // returned unless it becomes unavilable (or a better match for scope and type
 // becomes avaialable).
-func (m *Machine) PublicAddress() string {
-	publicAddress := m.doc.DefaultPublicAddress.Value
+func (m *Machine) PublicAddress() network.Address {
+	publicAddress := m.doc.DefaultPublicAddress.networkAddress()
 	// XXX handle the case where len(addresses) == 0
 	addresses := m.Addresses()
-	if publicAddress != "" {
-		if !network.ExactMatchScopeAndType(publicAddress, network.PublicScope) {
+	if publicAddress.Value != "" {
+		if !network.ExactMatchScope(publicAddress, network.ScopePublic) {
 			publicAddress = network.Address{}
 		} else if !containsAddress(addresses, publicAddress) {
 			publicAddress = network.Address{}
@@ -1065,7 +1065,7 @@ func (m *Machine) PublicAddress() string {
 	}
 	if publicAddress.Value == "" {
 		//XXX store and save updated address
-		publicAddress = network.SelectPublicAddress(addresses)
+		publicAddress = network.NewAddress(network.SelectPublicAddress(addresses))
 	}
 	return publicAddress
 }
@@ -1074,12 +1074,12 @@ func (m *Machine) PublicAddress() string {
 // is stored as the default address on first use, and that address is always
 // returned unless it becomes unavilable (or a better match for scope and type
 // becomes avaialable).
-func (m *Machine) PrivateAddress() string {
+func (m *Machine) PrivateAddress() network.Address {
 	privateAddress := m.doc.DefaultPrivateAddress.networkAddress()
 	// XXX handle the case where len(addresses) == 0
 	addresses := m.Addresses()
 	if privateAddress.Value != "" {
-		if !network.ExactMatchScopeAndType(privateAddress, network.PrivateScope) {
+		if !network.ExactMatchScope(privateAddress, network.ScopeMachineLocal, network.ScopeCloudLocal) {
 			privateAddress = network.Address{}
 		} else if !containsAddress(addresses, privateAddress) {
 			privateAddress = network.Address{}
@@ -1087,7 +1087,7 @@ func (m *Machine) PrivateAddress() string {
 	}
 	if privateAddress.Value == "" {
 		//XXX store and save updated address
-		privateAddress = network.SelectPrivateAddress(addresses)
+		privateAddress = network.NewAddress(network.SelectInternalAddress(addresses, false))
 	}
 	return privateAddress
 }
