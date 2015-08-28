@@ -4,6 +4,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 import json
 import os
+import re
 
 from jenkins import Jenkins
 from jujuci import (
@@ -31,10 +32,12 @@ def get_args(argv=None):
 
 def get_releases(root):
     release_path = os.path.join(root, 'old-juju')
+    released_pattern = re.compile('^\d+\.\d+\.\d+[^~]*$')
     for entry in os.listdir(release_path):
         if not os.path.isdir(os.path.join(release_path, entry)):
             continue
-        yield entry
+        if released_pattern.match(entry):
+            yield entry
 
 
 def get_candidate_version(candidate_path):

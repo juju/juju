@@ -16,12 +16,13 @@ from schedule_hetero_control import (
     calculate_jobs,
     get_args,
     get_candidate_version,
+    get_releases,
     )
 from utility import temp_dir
 from test_utility import write_config
 
 
-class TestGetArgs(TestCase):
+class TestScheduleHeteroControl(TestCase):
 
     def test_get_args_credentials(self):
         args, credentials = get_args(['root', '--user', 'jrandom',
@@ -29,6 +30,17 @@ class TestGetArgs(TestCase):
         self.assertEqual(args.user, 'jrandom')
         self.assertEqual(args.password, 'password')
         self.assertEqual(credentials, Credentials('jrandom', 'password'))
+
+    def test_get_releases(self):
+        with temp_dir() as root:
+            old_juju_dir = os.path.join(root, 'old-juju')
+            supported_juju = os.path.join(old_juju_dir, '1.24.5')
+            devel_juju = os.path.join(old_juju_dir, '1.25-alpha1')
+            test_juju = os.path.join(old_juju_dir, '1.24.5~')
+            for path in (old_juju_dir, supported_juju, devel_juju, test_juju):
+                os.mkdir(path)
+            found = get_releases(root)
+            self.assertEqual(['1.24.5'], list(found))
 
 
 class TestBuildJobs(TestCase):
