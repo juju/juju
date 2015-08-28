@@ -16,7 +16,8 @@ var builtinPlugins = map[string]workload.Plugin{
 }
 
 // Find returns the plugin for the given name.
-func Find(name string) (workload.Plugin, error) {
+func Find(name, agentDir string) (workload.Plugin, error) {
+	// We special-case a specific name for the sake of the feature tests.
 	plugin, ok := builtinPlugins[name]
 	if !ok {
 		return nil, errors.NotFoundf("plugin %q", name)

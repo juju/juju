@@ -24,7 +24,7 @@ func (s *pluginSuite) TestFindOkay(c *gc.C) {
 	}
 	for name, expected := range known {
 		c.Logf("trying %q", name)
-		plugin, err := plugin.Find(name)
+		plugin, err := plugin.Find(name, "")
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(plugin, gc.FitsTypeOf, expected)

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
@@ -178,12 +179,15 @@ func (c workloads) registerUnitWorkers() func(...workload.Event) error {
 		// At this point no workload workers are running for the unit.
 		// TODO(ericsnow) Move this code to workers.Manifold
 		// (and ManifoldConfig)?
-		apiConfig := util.ApiManifoldConfig{
+		apiConfig := util.AgentApiManifoldConfig{
 			APICallerName: config.APICallerName,
+			AgentName:     config.AgentName,
 		}
-		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
+		manifold := util.AgentApiManifold(apiConfig, func(unitAgent agent.Agent, caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)
-			unitHandlers.Reset(apiClient)
+			config := unitAgent.CurrentConfig()
+			dataDir := agent.Dir(config.DataDir(), config.Tag())
+			unitHandlers.Reset(apiClient, dataDir)
 			return unitHandlers.StartEngine()
 		})
 		return manifold, nil

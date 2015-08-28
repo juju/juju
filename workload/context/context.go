@@ -58,7 +58,7 @@ type Context struct {
 	addEvents func(...workload.Event) error
 	// FindPlugin is the function used to find the plugin for the given
 	// plugin name.
-	FindPlugin func(pluginName string) (workload.Plugin, error)
+	FindPlugin func(pluginName, agentDir string) (workload.Plugin, error)
 }
 
 // NewContext returns a new jujuc.ContextComponent for workloads.
@@ -114,7 +114,7 @@ func (c *Context) Plugin(info *workload.Info) (workload.Plugin, error) {
 		return c.plugin, nil
 	}
 
-	plugin, err := c.FindPlugin(info.Type)
+	plugin, err := c.FindPlugin(info.Type, "") // XXX
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

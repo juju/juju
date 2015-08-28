@@ -306,7 +306,7 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 
 func (s *contextSuite) TestFlushDirty(c *gc.C) {
 	info := s.newWorkload("A", "myplugin", "xyz123", "okay")
-	findPlugin := func(ptype string) (workload.Plugin, error) {
+	findPlugin := func(ptype, agentDir string) (workload.Plugin, error) {
 		return &stubPlugin{stub: s.Stub}, nil
 	}
 
@@ -340,7 +340,7 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 }
 
 func (s *contextSuite) TestUntrackOkay(c *gc.C) {
-	findPlugin := func(ptype string) (workload.Plugin, error) {
+	findPlugin := func(ptype, agentDir string) (workload.Plugin, error) {
 		return &stubPlugin{stub: s.Stub}, nil
 	}
 
