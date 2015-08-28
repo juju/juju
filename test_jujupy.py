@@ -35,6 +35,7 @@ from jujupy import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
+    EnvJujuClient26,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -118,9 +119,9 @@ class CloudSigmaTest:
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
-class TestEnvJujuClient25(ClientTest, CloudSigmaTest):
+class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
 
-    client_class = EnvJujuClient25
+    client_class = EnvJujuClient26
 
     def test_enable_jes_already_supported(self):
         client = self.client_class(
@@ -184,6 +185,11 @@ class TestEnvJujuClient25(ClientTest, CloudSigmaTest):
         env = client._shell_environ()
         flags = env[JUJU_DEV_FEATURE_FLAGS].split(",")
         self.assertItemsEqual(['cloudsigma', 'jes'], flags)
+
+
+class TestEnvJujuClient25(TestEnvJujuClient26):
+
+    client_class = EnvJujuClient25
 
 
 class TestEnvJujuClient22(ClientTest):
@@ -277,6 +283,7 @@ class TestEnvJujuClient(ClientTest):
             yield '1.24.7'
             yield '1.25.1'
             yield '1.26.1'
+            yield '1.27.1'
 
         context = patch.object(
             EnvJujuClient, 'get_version',
@@ -304,8 +311,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient25)
             self.assertEqual(client.version, '1.25.1')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient26)
             self.assertEqual(client.version, '1.26.1')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '1.27.1')
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:

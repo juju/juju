@@ -217,6 +217,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient24
         elif re.match('^1\.25[.-]', version):
             client_class = EnvJujuClient25
+        elif re.match('^1\.26[.-]', version):
+            client_class = EnvJujuClient26
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, get_juju_home(),
@@ -673,10 +675,11 @@ class EnvJujuClient22(EnvJujuClient):
         return env
 
 
-class EnvJujuClient25(EnvJujuClient):
+class EnvJujuClient26(EnvJujuClient):
+    """Drives Juju 2.6-series clients."""
 
     def __init__(self, *args, **kwargs):
-        super(EnvJujuClient25, self).__init__(*args, **kwargs)
+        super(EnvJujuClient26, self).__init__(*args, **kwargs)
         self._use_jes = False
 
     def enable_jes(self):
@@ -700,10 +703,14 @@ class EnvJujuClient25(EnvJujuClient):
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = super(EnvJujuClient25, self)._shell_environ()
+        env = super(EnvJujuClient26, self)._shell_environ()
         feature_flags = self._get_feature_flags()
         env[JUJU_DEV_FEATURE_FLAGS] = ','.join(feature_flags)
         return env
+
+
+class EnvJujuClient25(EnvJujuClient26):
+    """Drives Juju 2.5-series clients."""
 
 
 class EnvJujuClient24(EnvJujuClient25):
