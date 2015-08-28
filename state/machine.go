@@ -1070,6 +1070,25 @@ func (m *Machine) PublicAddress() network.Address {
 	return publicAddress
 }
 
+func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAddr func() network.Address, checkScope func(network.Address) bool) (network.Address, bool) {
+	newAddr := getAddr()
+	// The order of these checks is important. If the stored address is
+	// empty we *always* want to check for a new address so we do that
+	// first. If the stored address is unavilable we also *must* check for
+	// a new address so we do that next. Finally we check to see if a
+	// better match on scope is available.
+	if addr.Value == "" {
+		return newAddr, newAddr.Value != ""
+	}
+	if !containsAddress(addresses, addr) {
+		return newAddr, true
+	}
+	if !checkScope(addr) {
+		return newAddr, checkScope(newAddr)
+	}
+	return addr, false
+}
+
 // PrivateAddress returns a private address for the machine. The address returned
 // is stored as the default address on first use, and that address is always
 // returned unless it becomes unavilable (or a better match for scope and type
@@ -1078,16 +1097,17 @@ func (m *Machine) PrivateAddress() network.Address {
 	privateAddress := m.doc.DefaultPrivateAddress.networkAddress()
 	// XXX handle the case where len(addresses) == 0
 	addresses := m.Addresses()
-	if privateAddress.Value != "" {
-		if !network.ExactMatchScope(privateAddress, network.ScopeMachineLocal, network.ScopeCloudLocal) {
-			privateAddress = network.Address{}
-		} else if !containsAddress(addresses, privateAddress) {
-			privateAddress = network.Address{}
-		}
+	checkScope := func(addr network.Address) bool {
+		return network.ExactMatchScope(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
 	}
-	if privateAddress.Value == "" {
-		//XXX store and save updated address
-		privateAddress = network.NewAddress(network.SelectInternalAddress(addresses, false))
+	getAddr := func() network.Address {
+		return network.NewAddress(network.SelectInternalAddress(addresses, false))
+	}
+
+	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
+	if changed {
+		// XXX also need to save updated address
+		privateAddress = newAddr
 	}
 	return privateAddress
 }
