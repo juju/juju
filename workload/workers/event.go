@@ -83,18 +83,18 @@ type EventHandlers struct {
 func NewEventHandlers() *EventHandlers {
 	logger.Debugf("new event handler created")
 	eh := EventHandlers{
-		data: newEventHandlersData(nil),
+		data: newEventHandlersData(nil, ""),
 	}
 	return &eh
 }
 
 // Reset resets the event handlers.
-func (eh *EventHandlers) Reset(apiClient context.APIClient) error {
+func (eh *EventHandlers) Reset(apiClient context.APIClient, agentDir string) error {
 	if err := eh.data.Close(); err != nil {
 		return errors.Trace(err)
 	}
 	handlers := eh.data.Handlers
-	eh.data = newEventHandlersData(apiClient)
+	eh.data = newEventHandlersData(apiClient, agentDir)
 	eh.data.Handlers = handlers
 	return nil
 }
@@ -304,13 +304,15 @@ type eventHandlersData struct {
 	Events   *Events
 	Handlers []func([]workload.Event, context.APIClient, Runner) error
 
+	AgentDir  string
 	APIClient context.APIClient
 	Engine    *eventHandlersEngine
 }
 
-func newEventHandlersData(apiClient context.APIClient) eventHandlersData {
+func newEventHandlersData(apiClient context.APIClient, agentDir string) eventHandlersData {
 	data := eventHandlersData{
 		Events:    NewEvents(),
+		AgentDir:  agentDir,
 		APIClient: apiClient,
 	}
 	return data

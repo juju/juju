@@ -15,7 +15,7 @@ import (
 var logger = loggo.GetLogger("juju.workload.plugin")
 
 // Find returns the plugin for the given name.
-func Find(name string) (workload.Plugin, error) {
+func Find(name, agentDir string) (workload.Plugin, error) {
 	plugin, err := FindExecutablePlugin(name)
 	if err != nil {
 		return nil, errors.Trace(err)
