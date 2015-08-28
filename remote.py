@@ -6,7 +6,6 @@ import abc
 import logging
 import os
 import subprocess
-import sys
 import zlib
 
 import winrm
