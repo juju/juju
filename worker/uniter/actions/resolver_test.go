@@ -19,20 +19,12 @@ type actionsSuite struct{}
 
 var _ = gc.Suite(&actionsSuite{})
 
-func (s *actionsSuite) TestNotInstalled(c *gc.C) {
-	actionResolver := actions.NewResolver()
-	localState := resolver.LocalState{}
-	remoteState := remotestate.Snapshot{}
-	_, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.ErrorMatches, "no operations")
-}
-
 func (s *actionsSuite) TestNoActions(c *gc.C) {
 	actionResolver := actions.NewResolver()
 	localState := resolver.LocalState{}
 	remoteState := remotestate.Snapshot{}
 	_, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, gc.ErrorMatches, "no operations")
+	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
 }
 
 func (s *actionsSuite) TestActionStateKindContinue(c *gc.C) {

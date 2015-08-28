@@ -15,8 +15,8 @@ var logger = loggo.GetLogger("juju.worker.uniter.actions")
 
 type actionsResolver struct{}
 
-// NewResolver returns a new resolver with determins which action realted operation
-// shoukd be run based on local and remote uniter states.
+// NewResolver returns a new resolver with determines which action related operation
+// should be run based on local and remote uniter states.
 func NewResolver() resolver.Resolver {
 	return &actionsResolver{}
 }

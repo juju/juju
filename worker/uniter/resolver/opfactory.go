@@ -87,14 +87,9 @@ func (s *resolverOpFactory) NewAction(id string) (operation.Operation, error) {
 
 func trimCompletedActions(pendingActions []string, completedActions map[string]struct{}) map[string]struct{} {
 	newCompletedActions := map[string]struct{}{}
-	for a, _ := range completedActions {
-		for _, pendingAction := range pendingActions {
-			if a == pendingAction {
-				// This action is in our local completed list but the state server
-				// thinks it's still pending, so keep track of it.
-				// We only forget about the ones that the state server doesn't know about.
-				newCompletedActions[a] = struct{}{}
-			}
+	for _, pendingAction := range pendingActions {
+		if _, ok := completedActions[pendingAction]; ok {
+			newCompletedActions[pendingAction] = struct{}{}
 		}
 	}
 	return newCompletedActions
