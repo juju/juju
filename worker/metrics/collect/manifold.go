@@ -20,12 +20,12 @@ import (
 	"github.com/juju/juju/api/base"
 	uniterapi "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniteravailability"
 )
 
 const defaultPeriod = 5 * time.Minute
@@ -39,10 +39,10 @@ var (
 type ManifoldConfig struct {
 	Period *time.Duration
 
-	AgentName              string
-	APICallerName          string
-	MetricSpoolName        string
-	UniterAvailabilityName string
+	AgentName       string
+	APICallerName   string
+	MetricSpoolName string
+	CharmDirName    string
 }
 
 // Manifold returns a collect-metrics manifold.
@@ -52,7 +52,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.MetricSpoolName,
-			config.UniterAvailabilityName,
+			config.CharmDirName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 			collector, err := newCollect(config, getResource)
@@ -97,18 +97,18 @@ var newCollect = func(config ManifoldConfig, getResource dependency.GetResourceF
 		return nil, err
 	}
 
-	var uniterAvailability uniteravailability.UniterAvailabilityGetter
-	err = getResource(config.UniterAvailabilityName, &uniterAvailability)
+	var charmdir charmdir.Consumer
+	err = getResource(config.CharmDirName, &charmdir)
 	if err != nil {
 		return nil, err
 	}
 
 	collector := &collect{
-		period:             period,
-		agent:              agent,
-		unitCharmLookup:    &unitCharmLookup{uniterFacade},
-		metricFactory:      metricFactory,
-		uniterAvailability: uniterAvailability,
+		period:          period,
+		agent:           agent,
+		unitCharmLookup: &unitCharmLookup{uniterFacade},
+		metricFactory:   metricFactory,
+		charmdir:        charmdir,
 	}
 	return collector, nil
 }
@@ -127,11 +127,11 @@ func (r *unitCharmLookup) CharmURL(unitTag names.UnitTag) (*corecharm.URL, error
 }
 
 type collect struct {
-	period             time.Duration
-	agent              agent.Agent
-	unitCharmLookup    UnitCharmLookup
-	metricFactory      spool.MetricFactory
-	uniterAvailability uniteravailability.UniterAvailabilityGetter
+	period          time.Duration
+	agent           agent.Agent
+	unitCharmLookup UnitCharmLookup
+	metricFactory   spool.MetricFactory
+	charmdir        charmdir.Consumer
 }
 
 var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm UnitCharmLookup, metricFactory spool.MetricFactory) (spool.MetricRecorder, error) {
@@ -154,10 +154,15 @@ var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm Uni
 
 // Do satisfies the worker.PeriodWorkerCall function type.
 func (w *collect) Do(stop <-chan struct{}) error {
-	if !w.uniterAvailability.Available() {
-		logger.Tracef("uniter not available")
-		return nil
+	ok, err := w.charmdir.Run(w.do)
+	if !ok {
+		logger.Tracef("charmdir not available")
 	}
+	return err
+}
+
+func (w *collect) do() error {
+	logger.Tracef("recording metrics")
 
 	config := w.agent.CurrentConfig()
 	tag := config.Tag()
