@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import logging
 from textwrap import dedent
 from subprocess import CalledProcessError
+import sys
 
 from jujuconfig import get_juju_home
 from jujupy import (
@@ -111,9 +112,11 @@ def test_control_heterogeneous(initial, other, released, log_dir,
     with dumping_env(released, host, log_dir):
         token = prepare_dummy_env(initial)
         initial.wait_for_started()
-        check_token(initial, token)
-        check_series(other)
-        other.juju('run', ('--all', 'uname -a'))
+        if sys.platform != "win32":
+            # Currently, juju ssh is not working on Windows.
+            check_token(initial, token)
+            check_series(other)
+            other.juju('run', ('--all', 'uname -a'))
         other.get_juju_output('get', 'dummy-source')
         other.get_juju_output('get-env')
         other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
