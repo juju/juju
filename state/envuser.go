@@ -175,7 +175,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 	}
 
 	envuuid := st.EnvironUUID()
-	op, doc := createEnvUserOpAndDoc(envuuid, user, createdBy, displayName)
+	op := createEnvUserOp(envuuid, user, createdBy, displayName)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("environment user %q", user.Username())
@@ -183,7 +183,8 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &EnvironmentUser{st: st, doc: *doc}, nil
+	// Re-read from DB to get the multi-env updated values.
+	return st.EnvironmentUser(user)
 }
 
 // envUserID returns the document id of the environment user
@@ -192,7 +193,7 @@ func envUserID(user names.UserTag) string {
 	return strings.ToLower(username)
 }
 
-func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
+func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string) txn.Op {
 	creatorname := createdBy.Username()
 	doc := &envUserDoc{
 		ID:          envUserID(user),
@@ -202,13 +203,12 @@ func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displa
 		CreatedBy:   creatorname,
 		DateCreated: nowToTheSecond(),
 	}
-	op := txn.Op{
+	return txn.Op{
 		C:      envUsersC,
 		Id:     envUserID(user),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
-	return op, doc
 }
 
 // RemoveEnvironmentUser removes a user from the database.

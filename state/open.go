@@ -186,7 +186,7 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 	if serverUUID == "" {
 		serverUUID = envUUID
 	}
-	envUserOp, _ := createEnvUserOpAndDoc(envUUID, owner, owner, owner.Name())
+	envUserOp := createEnvUserOp(envUUID, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),

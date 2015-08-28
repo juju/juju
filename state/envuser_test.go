@@ -54,6 +54,16 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(when.IsZero(), jc.IsTrue)
 }
 
+func (s *EnvUserSuite) TestCaseUserNameVsId(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	user, err := s.State.AddEnvironmentUser(names.NewUserTag("Bob@RandomProvider"), env.Owner(), "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(user.UserName(), gc.Equals, "Bob@RandomProvider")
+	c.Assert(user.ID(), gc.Equals, state.DocID(s.State, "bob@randomprovider"))
+}
+
 func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
