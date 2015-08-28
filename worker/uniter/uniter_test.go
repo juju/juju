@@ -698,8 +698,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
-	c.Skip("maltese-falcon")
+func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios from error state.
 		ut(
@@ -730,10 +729,15 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 				info:         "installing charm software",
 				charm:        1,
 			},
-			waitHooks{"config-changed", "upgrade-charm", "config-changed"},
+			waitHooks{"upgrade-charm", "config-changed"},
 			verifyCharm{revision: 1},
 			verifyRunning{},
-		), ut(
+		)})
+}
+
+func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"error state forced upgrade",
 			startupError{"start"},
 			createCharm{revision: 1},
