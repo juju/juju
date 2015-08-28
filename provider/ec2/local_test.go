@@ -550,28 +550,66 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
-func (t *localServerSuite) TestSpaceConstraints(c *gc.C) {
+func (t *localServerSuite) bootstrapAndStartWithParams(c *gc.C, params environs.StartInstanceParams) error {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	return err
+}
 
-	params := environs.StartInstanceParams{
+func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
 		Placement:   "zone=test-available",
 		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
 			"subnet-2": []string{"zone2"},
 			"subnet-3": []string{"zone3"},
 		},
-	}
+	})
 
-	// First test that we get an error if we can't resolve the constraints
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	// Expect an error because zone test-available isn't in SubnetsToZones
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
+}
 
-	// Now test that if we can fit into the constraints, the instance is created
-	params.SubnetsToZones["subnet-2"] = []string{"test-available"}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
+		Placement:   "zone=test-available",
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{"test-available"},
+			"subnet-3": []string{"zone3"},
+		},
+	})
+
+	// Should work - test-available is in SubnetsToZones
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{"test-available"},
+			"subnet-3": []string{"zone3"},
+		},
+	})
+
+	// Shoule work because zone is not specified so we can resolve the constraints
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{""},
+		},
+	})
+
+	// We requested a space, but there are no subnets in SubnetsToZones, so we can't resolve
+	// the constraints
+	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
@@ -937,7 +975,7 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
+	subnets, err := env.Subnets(instance.UnknownId, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets)

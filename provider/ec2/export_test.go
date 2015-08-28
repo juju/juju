@@ -374,5 +374,3 @@ var TestRegions = map[string]aws.Region{
 		EC2Endpoint: "https://ec2.endpoint.com",
 	},
 }
-
-var AssignPrivateIPAddress = assignPrivateIPAddress
