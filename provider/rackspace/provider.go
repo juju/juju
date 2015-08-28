@@ -15,55 +15,54 @@ import (
 var logger = loggo.GetLogger("juju.provider.rackspace")
 
 type environProvider struct {
-	openstackProvider environs.EnvironProvider
+	environs.EnvironProvider
 }
 
 var providerInstance environProvider
 
 func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	if os, ok := env.(*openstack.Environ); ok {
-		os.SetProviderConfigurator(new(rackspaceProviderConfigurator))
-		return environ{env}, errors.Trace(err)
+	if osEnviron, ok := env.(*openstack.Environ); ok {
+		osEnviron.SetProviderConfigurator(new(rackspaceProviderConfigurator))
+		return environ{env}, err
 	}
 	return nil, errors.Errorf("Expected openstack.Environ, but got: %T", env)
 }
 
 // Open implements environs.EnvironProvider.
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := p.openstackProvider.Open(cfg)
-	return p.setConfigurator(env, err)
-}
-
-// RestrictedConfigAttributes implements environs.EnvironProvider.
-func (p environProvider) RestrictedConfigAttributes() []string {
-	return p.openstackProvider.RestrictedConfigAttributes()
-}
-
-// PrepareForCreateEnvironment implements environs.EnvironProvider.
-func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return p.openstackProvider.PrepareForCreateEnvironment(cfg)
+	env, err := p.EnvironProvider.Open(cfg)
+	res, err := p.setConfigurator(env, err)
+	return res, errors.Trace(err)
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := p.openstackProvider.PrepareForBootstrap(ctx, cfg)
-	return p.setConfigurator(env, err)
+	env, err := p.EnvironProvider.PrepareForBootstrap(ctx, cfg)
+	res, err := p.setConfigurator(env, err)
+	return res, errors.Trace(err)
 }
 
 // Validate implements environs.EnvironProvider.
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+<<<<<<< HEAD
 	return p.openstackProvider.Validate(cfg, old)
+=======
+	cfg, err = cfg.Apply(map[string]interface{}{
+		"use-floating-ip":      false,
+		"use-default-secgroup": false,
+		"auth-url":             "https://identity.api.rackspacecloud.com/v2.0",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p.EnvironProvider.Validate(cfg, old)
+>>>>>>> review comments implemented
 }
 
 // BoilerplateConfig implements environs.EnvironProvider.
 func (p environProvider) BoilerplateConfig() string {
 	return p.openstackProvider.BoilerplateConfig()
-}
-
-// SecretAttrs implements environs.EnvironProvider.
-func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	return p.openstackProvider.SecretAttrs(cfg)
 }
