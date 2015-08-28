@@ -64,7 +64,8 @@ sampling of techniques (and their various problems) follows:
 
   * The singleton is dangerous specifically because its dependency interactions are
     unclear. Absolute clarity of dependencies, as provided by the nesting approaches,
-    is in fact critical.
+    is in fact critical; but the sheer convenience of the singleton is alluring, and
+    reminds us that the approach we take must remain easy to use.
 
 The various nesting approaches give easy access to directly-available resources,
 which is great, but will fail as soon as you have a sufficiently sophisticated

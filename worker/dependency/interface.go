@@ -9,20 +9,15 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// Reporter defines an interface for extracting human-relevant information
-// from a worker.
-type Reporter interface {
-
-	// Report returns a map describing the state of the receiver. It is expected
-	// to be goroutine-safe.
-	Report() map[string]interface{}
-}
-
 // Engine is a mechanism for persistently running named workers and managing
 // dependencies between them.
 type Engine interface {
-	Reporter
+
+	// Engine is itself a Worker.
 	worker.Worker
+
+	// Engine exposes human-comprehensible status data to its clients.
+	Reporter
 
 	// Install causes the Engine to accept responsibility for maintaining a
 	// worker corresponding to the supplied manifold, restarting it when it
@@ -41,12 +36,47 @@ type Manifold struct {
 	// change. If a worker has no dependencies, it should declare empty inputs.
 	Inputs []string
 
-	// Start is used to create a worker for the manifold. It must not be nil.
+	// Start is used to create a worker for the manifold. It must not be nil,
+	// but doesn't *have* to *start* a worker (although it must return either
+	// a worker or an error).
+	//
+	// That is to say: in *some* circumstances, it's ok to wrap a worker under
+	// the management of a separate component (e.g. the `worker/agent` Manifold
+	// itself) but this approach should only be used:
+	//
+	//  * as a last resort; and
+	//  * with clear justification.
+	//
+	// ...because it's a deliberate, and surprising, subversion of the dependency
+	// model; and is thus much harder to reason about and implement correctly. In
+	// particular, if you write a surprising start func, you can't safely declare
+	// any inputs at all.
 	Start StartFunc
 
 	// Output is used to implement a GetResourceFunc for manifolds that declare
 	// a dependency on this one; it can be nil if your manifold is a leaf node,
 	// or if it exposes no services to its dependents.
+	//
+	// If you implement an Output func, be especially careful to expose sensible
+	// types. Your `out` param should almost always be a pointer to an interface;
+	// and, furthermore, to an interface that does *not* satisfy `worker.Worker`.
+	//
+	// (Consider the interface segregation principle: the *Engine* is reponsible
+	// for the lifetimes of the backing workers, and for handling their errors.
+	// Exposing those levers to your dependents as well can only encourage them
+	// to use them, and vastly complicate the possible interactions.)
+	//
+	// And if your various possible clients might use different sets of features,
+	// please keep those interfaces segregated as well: prefer to accept [a *Foo
+	// or a *Bar] rather than just [a *FooBar] -- unless all your clients really
+	// do want a FooBar resource.
+	//
+	// Even if the Engine itself never bothers to track the types exposed per
+	// dependency, it's still a useful prophylactic against complexity -- so
+	// that when reading manifold code, it should be immediately clear both what
+	// your dependencies *are* (by reading the names in the manifold config)
+	// and what they *do* for you (by reading the start func and observing the
+	// types in play).
 	Output OutputFunc
 }
 
@@ -86,5 +116,54 @@ type OutputFunc func(in worker.Worker, out interface{}) error
 // its workers, shut itself down, and return the original fatal error via Wait().
 type IsFatalFunc func(err error) bool
 
-// MoreImportantFunc is used to determine which of two errors is more important.
+// MoreImportantFunc is used to determine the most important error to report
+// when multiple fatal errors are encountered.
 type MoreImportantFunc func(err0, err1 error) error
+
+// Reporter defines an interface for extracting human-relevant information
+// from a worker.
+type Reporter interface {
+
+	// Report returns a map describing the state of the receiver. It is expected
+	// to be goroutine-safe.
+	//
+	// It is polite and helpful to use the Key* constants and conventions defined
+	// and described in this package, where appropriate, but that's for the
+	// convenience of the humans that read the reports; we don't and shouldn't
+	// have any code that depends on particular Report formats.
+	Report() map[string]interface{}
+}
+
+// The Key constants describe the constant features of an Engine's Report.
+const (
+
+	// KeyState might be "starting", "started", "stopping", or "stopped". Or
+	// it might be something else, in distant Reporter implementations; don't
+	// make assumptions.
+	KeyState = "state"
+
+	// KeyError holds the most important error encountered by a worker. In
+	// the case of an Engine, this will be:
+	//  * any internal error indicating incorrect operation; or
+	//  * the most important fatal error encountered by any worker; or
+	//  * nil, if none of the above apply;
+	// ...and the value should not be presumed to be stable until the engine
+	// state is "stopped".
+	//
+	// In the case of a manifold, it will always hold the most recent error
+	// returned by the associated worker (or its start func); and will be
+	// rewritten whenever a worker state is set to "started" or "stopped".
+	KeyError = "error"
+
+	// KeyManifolds holds a map of manifold name to further data (including
+	// dependency inputs; current worker state; and any relevant report/error
+	// for the associated current/recent worker.)
+	KeyManifolds = "manifolds"
+
+	// KeyInputs holds the names of the manifolds on which this one depends.
+	KeyInputs = "inputs"
+
+	// Report holds an arbitrary map of information returned by a manifold
+	// Worker that is also a Reporter.
+	KeyReport = "report"
+)

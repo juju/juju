@@ -180,9 +180,9 @@ func (engine *engine) Report() map[string]interface{} {
 		// process requests until the last possible moment. Only once
 		// loop has exited do we fall back to this report.
 		return map[string]interface{}{
-			"state":     "stopped",
-			"error":     engine.Wait(),
-			"manifolds": engine.manifoldsReport(),
+			KeyState:     "stopped",
+			KeyError:     engine.Wait(),
+			KeyManifolds: engine.manifoldsReport(),
 		}
 	}
 }
@@ -190,14 +190,20 @@ func (engine *engine) Report() map[string]interface{} {
 // liveReport collects and returns information about the engine, its manifolds,
 // and their workers. It must only be called from the loop goroutine.
 func (engine *engine) liveReport() map[string]interface{} {
+	var reportError error
 	state := "started"
 	if engine.isDying() {
 		state = "stopping"
+		if tombError := engine.tomb.Err(); tombError != nil {
+			reportError = tombError
+		} else {
+			reportError = engine.worstError
+		}
 	}
 	return map[string]interface{}{
-		"state":     state,
-		"error":     engine.worstError,
-		"manifolds": engine.manifoldsReport(),
+		KeyState:     state,
+		KeyError:     reportError,
+		KeyManifolds: engine.manifoldsReport(),
 	}
 }
 
@@ -208,10 +214,10 @@ func (engine *engine) manifoldsReport() map[string]interface{} {
 	manifolds := map[string]interface{}{}
 	for name, info := range engine.current {
 		manifolds[name] = map[string]interface{}{
-			"state":  info.state(),
-			"error":  info.err,
-			"inputs": engine.manifolds[name].Inputs,
-			"report": info.report(),
+			KeyState:  info.state(),
+			KeyError:  info.err,
+			KeyInputs: engine.manifolds[name].Inputs,
+			KeyReport: info.report(),
 		}
 	}
 	return manifolds
@@ -461,6 +467,7 @@ func (engine *engine) gotStopped(name string, err error) {
 			// anyway).
 		default:
 			// Something went wrong but we don't know what. Try again soon.
+			logger.Debugf("%q manifold worker returned unexpected error: %v", err)
 			engine.requestStart(name, engine.config.ErrorDelay)
 		}
 	}
@@ -546,6 +553,7 @@ func (info workerInfo) stopped() bool {
 	return true
 }
 
+// state returns the latest known state of the worker, for use in reports.
 func (info workerInfo) state() string {
 	switch {
 	case info.starting:
@@ -558,6 +566,8 @@ func (info workerInfo) state() string {
 	return "stopped"
 }
 
+// report returns any available report from the worker. If the worker is not
+// a Reporter, or is not present, this method will return nil.
 func (info workerInfo) report() map[string]interface{} {
 	if reporter, ok := info.worker.(Reporter); ok {
 		return reporter.Report()
