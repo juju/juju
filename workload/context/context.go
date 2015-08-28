@@ -23,7 +23,7 @@ type APIClient interface {
 	// Register sends a request to update state with the provided workloads.
 	Track(workloads ...workload.Info) ([]string, error)
 	// Untrack removes the workloads from our list track.
-	Untrack(ids []string) error
+	Untrack(ids []string) ([]workload.Result, error)
 	// Definitions returns the workload definitions found in the unit's metadata.
 	Definitions() ([]charm.Workload, error)
 	// SetStatus sets the status for the given IDs.
@@ -42,7 +42,7 @@ type Component interface {
 	// Track records the workload info in the hook context.
 	Track(info workload.Info) error
 	// Untrack removes the workload from our list of workloads to track.
-	Untrack(id string)
+	Untrack(id string) error
 	// List returns the list of registered workload IDs.
 	List() ([]string, error)
 	// Definitions returns the charm-defined workloads.
@@ -59,7 +59,6 @@ type Context struct {
 	plugin    workload.Plugin
 	workloads map[string]workload.Info
 	updates   map[string]workload.Info
-	removes   map[string]struct{}
 
 	addEvents func(...workload.Event) error
 	// FindPlugin is the function used to find the plugin for the given
@@ -73,7 +72,6 @@ func NewContext(api APIClient, addEvents func(...workload.Event) error) *Context
 		api:       api,
 		workloads: make(map[string]workload.Info),
 		updates:   make(map[string]workload.Info),
-		removes:   make(map[string]struct{}),
 		addEvents: addEvents,
 		FindPlugin: func(ptype string) (workload.Plugin, error) {
 			return plugin.Find(ptype)
@@ -206,10 +204,19 @@ func (c *Context) Track(info workload.Info) error {
 }
 
 // Untrack tells juju to stop tracking this workload.
-func (c *Context) Untrack(id string) {
-	// We assume that flush always gets called immediately after a set/untrack,
-	// so we don't have to worry about conflicting updates/deletes.
-	c.removes[id] = struct{}{}
+func (c *Context) Untrack(id string) error {
+	logger.Tracef("Calling untrack on workload context %q", id)
+
+	res, err := c.api.Untrack([]string{id})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(res) > 0 && res[0].Err != nil {
+		return errors.Trace(res[0].Err)
+	}
+	delete(c.workloads, id)
+
+	return nil
 }
 
 // Definitions returns the unit's charm-defined workloads.
@@ -228,8 +235,7 @@ func (c *Context) Definitions() ([]charm.Workload, error) {
 // Juju state via the API.
 func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
-
-	// TODO(natefinch): make this a noop and move this code into set/untrack.
+	// TODO(natefinch): make this a noop and move this code into set.
 
 	var events []workload.Event
 	if len(c.updates) > 0 {
@@ -256,27 +262,6 @@ func (c *Context) Flush() error {
 		}
 		c.updates = map[string]workload.Info{}
 	}
-	if len(c.removes) > 0 {
-		removes := make([]string, 0, len(c.removes))
-		for id := range c.removes {
-			info := c.workloads[id]
-			removes = append(removes, id)
-			delete(c.workloads, id)
-
-			plugin, err := c.Plugin(&info)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			events = append(events, workload.Event{
-				Kind:     workload.EventKindUntracked,
-				ID:       id,
-				Plugin:   plugin,
-				PluginID: info.Details.ID,
-			})
-		}
-		c.api.Untrack(removes)
-		c.removes = map[string]struct{}{}
-	}
 	if len(events) > 0 {
 		err := c.addEvents(events...)
 		if errors.Cause(err) == workload.EventsClosed {
@@ -285,6 +270,5 @@ func (c *Context) Flush() error {
 			return errors.Trace(err)
 		}
 	}
-
 	return nil
 }

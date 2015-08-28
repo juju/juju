@@ -370,10 +370,11 @@ func (s *contextSuite) TestUntrackOkay(c *gc.C) {
 	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(before, jc.DeepEquals, []workload.Info{info})
-	ctx.Untrack(info.ID())
 	err = ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiClient.stub.CheckCallNames(c, "Track", "Untrack", "addEvents")
+	err = ctx.Untrack(info.ID())
+	c.Assert(err, jc.ErrorIsNil)
+	s.apiClient.stub.CheckCallNames(c, "Track", "addEvents", "Untrack")
 	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 

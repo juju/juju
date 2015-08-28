@@ -118,7 +118,26 @@ func (c HookContextClient) SetStatus(status workload.Status, pluginStatus worklo
 }
 
 // Untrack calls the Untrack API server method.
-func (c HookContextClient) Untrack(ids []string) error {
+func (c HookContextClient) Untrack(ids []string) ([]workload.Result, error) {
+	logger.Tracef("Calling untrack API: %q", ids)
 	args := api.UntrackArgs{IDs: ids}
-	return c.FacadeCall("Untrack", &args, nil)
+	res := api.WorkloadResults{}
+	if err := c.FacadeCall("Untrack", &args, &res); err != nil {
+		return nil, err
+	}
+	if res.Error != nil {
+		return nil, errors.Errorf(res.Error.GoString())
+	}
+	var errs []workload.Result
+	if len(res.Results) > 0 {
+		errs = make([]workload.Result, len(res.Results))
+		for i, r := range res.Results {
+			p := workload.Result{ID: r.ID}
+			if r.Error != nil {
+				p.Err = r.Error
+			}
+			errs[i] = p
+		}
+	}
+	return errs, nil
 }

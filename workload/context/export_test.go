@@ -43,3 +43,5 @@ func GetCmdInfo(cmd cmd.Command) *workload.Info {
 		return nil
 	}
 }
+
+var ArgNameOrId = idArg

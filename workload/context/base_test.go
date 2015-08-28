@@ -161,10 +161,15 @@ func (c *stubContextComponent) Track(info workload.Info) error {
 	return nil
 }
 
-func (c *stubContextComponent) Untrack(id string) {
+func (c *stubContextComponent) Untrack(id string) error {
 	c.stub.AddCall("Untrack", id)
 
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
 	c.untracks[id] = struct{}{}
+	return nil
 }
 
 func (c *stubContextComponent) Definitions() ([]charm.Workload, error) {
@@ -284,16 +289,18 @@ func (c *stubAPIClient) Track(workloads ...workload.Info) ([]string, error) {
 	return ids, nil
 }
 
-func (c *stubAPIClient) Untrack(ids []string) error {
+func (c *stubAPIClient) Untrack(ids []string) ([]workload.Result, error) {
 	c.stub.AddCall("Untrack", ids)
 	if err := c.stub.NextErr(); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
+	errs := []workload.Result{}
 	for _, id := range ids {
 		delete(c.workloads, id)
+		errs = append(errs, workload.Result{ID: id})
 	}
-	return nil
+	return errs, nil
 }
 
 func (c *stubAPIClient) SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error {

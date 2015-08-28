@@ -210,7 +210,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	err := pclient.Untrack([]string{s.tag})
+	_, err := pclient.Untrack([]string{s.tag})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
