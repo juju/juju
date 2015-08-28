@@ -12,16 +12,13 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api/base"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -40,8 +37,6 @@ import (
 type UnitSuite struct {
 	coretesting.GitSuite
 	agenttesting.AgentSuite
-
-	stub *gitjujutesting.Stub
 }
 
 var _ = gc.Suite(&UnitSuite{})
@@ -59,14 +54,9 @@ func (s *UnitSuite) TearDownSuite(c *gc.C) {
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.AgentSuite.SetUpTest(c)
-
-	s.stub = &gitjujutesting.Stub{}
 }
 
 func (s *UnitSuite) TearDownTest(c *gc.C) {
-	unitAgentWorkerNames = nil
-	unitAgentWorkerFuncs = make(map[string]unitAgentWorkerFactory)
-
 	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
@@ -102,45 +92,6 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
-}
-
-func (s *UnitSuite) newWorkerFunc(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
-	s.stub.AddCall("newWorkerFunc", unit, caller, runner)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return func() (worker.Worker, error) {
-		s.stub.AddCall("newWorker")
-		if err := s.stub.NextErr(); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		loop := func(<-chan struct{}) error {
-			s.stub.AddCall("loop")
-			if err := s.stub.NextErr(); err != nil {
-				return errors.Trace(err)
-			}
-
-			return nil
-		}
-		return worker.NewSimpleWorker(loop), nil
-	}, nil
-}
-
-func (s *UnitSuite) TestRegisterUnitAgentWorker(c *gc.C) {
-	err := RegisterUnitAgentWorker("spam", s.newWorkerFunc)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(unitAgentWorkerNames, jc.DeepEquals, []string{"spam"})
-
-	// We can't compare functions so we jump through hoops instead.
-	c.Check(unitAgentWorkerFuncs, gc.HasLen, 1)
-	registered := unitAgentWorkerFuncs["spam"]
-	newWorker, err := registered("a-service/0", nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	newWorker()
-	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorker")
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
@@ -455,35 +406,6 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
 }
-
-// XXX Sort this out...
-//func (s *UnitSuite) TestUnitAgentAPIWorkers(c *gc.C) {
-//	err := RegisterUnitAgentWorker("spam", s.newWorkerFunc)
-//	c.Assert(err, jc.ErrorIsNil)
-//	err = RegisterUnitAgentWorker("eggs", s.newWorkerFunc)
-//	c.Assert(err, jc.ErrorIsNil)
-//
-//	a := NewUnitAgent(nil, nil)
-//	a.UnitName = "a-service/0"
-//	workers, err := a.apiWorkers(nil, nil, nil, nil)
-//	c.Assert(err, jc.ErrorIsNil)
-//	ids := workers.IDs()
-//
-//	expected := []string{
-//		"proxyupdater",
-//		"upgrader",
-//		"logger",
-//		"uniter",
-//		"apiaddressupdater",
-//		"rsyslog",
-//		"spam",
-//		"eggs",
-//	}
-//	c.Check(ids, jc.DeepEquals, expected)
-//	s.stub.CheckCallNames(c, "newWorkerFunc", "newWorkerFunc")
-//	c.Check(s.stub.Calls()[0].Args[0], gc.Equals, "a-service/0")
-//	c.Check(s.stub.Calls()[1].Args[0], gc.Equals, "a-service/0")
-//}
 
 func (s *UnitSuite) TestUseLumberjack(c *gc.C) {
 	ctx, err := cmd.DefaultContext()

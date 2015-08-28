@@ -61,14 +61,14 @@ type Context struct {
 	updates   map[string]workload.Info
 	removes   map[string]struct{}
 
-	addEvents func(...workload.Event)
+	addEvents func(...workload.Event) error
 	// FindPlugin is the function used to find the plugin for the given
 	// plugin name.
 	FindPlugin func(pluginName string) (workload.Plugin, error)
 }
 
 // NewContext returns a new jujuc.ContextComponent for workloads.
-func NewContext(api APIClient, addEvents func(...workload.Event)) *Context {
+func NewContext(api APIClient, addEvents func(...workload.Event) error) *Context {
 	return &Context{
 		api:       api,
 		workloads: make(map[string]workload.Info),
@@ -82,7 +82,7 @@ func NewContext(api APIClient, addEvents func(...workload.Event)) *Context {
 }
 
 // NewContextAPI returns a new jujuc.ContextComponent for workloads.
-func NewContextAPI(api APIClient, addEvents func(...workload.Event)) (*Context, error) {
+func NewContextAPI(api APIClient, addEvents func(...workload.Event) error) (*Context, error) {
 	workloads, err := api.List()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -278,7 +278,12 @@ func (c *Context) Flush() error {
 		c.removes = map[string]struct{}{}
 	}
 	if len(events) > 0 {
-		c.addEvents(events...)
+		err := c.addEvents(events...)
+		if errors.Cause(err) == workload.EventsClosed {
+			logger.Infof("ignoring closed workload events")
+		} else if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil

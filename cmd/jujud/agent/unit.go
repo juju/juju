@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"runtime"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
@@ -31,23 +29,6 @@ import (
 var (
 	agentLogger = loggo.GetLogger("juju.jujud")
 )
-
-type unitAgentWorkerFactory func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error)
-
-var (
-	unitAgentWorkerNames []string
-	unitAgentWorkerFuncs = make(map[string]unitAgentWorkerFactory)
-)
-
-// RegisterUnitAgentWorker adds the worker to the list of workers to start.
-func RegisterUnitAgentWorker(name string, newWorkerFunc unitAgentWorkerFactory) error {
-	if _, ok := unitAgentWorkerFuncs[name]; ok {
-		return errors.Errorf("worker %q already registered", name)
-	}
-	unitAgentWorkerFuncs[name] = newWorkerFunc
-	unitAgentWorkerNames = append(unitAgentWorkerNames, name)
-	return nil
-}
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
@@ -98,7 +79,7 @@ func (a *UnitAgent) Init(args []string) error {
 		return cmdutil.RequiredError("unit-name")
 	}
 	if !names.IsValidUnit(a.UnitName) {
-		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
+		return errors.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
@@ -151,11 +132,14 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
-	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+	manifolds, err := unit.Manifolds(unit.ManifoldsConfig{
 		Agent:               agent.APIHostPortsSetter{a},
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	config := dependency.EngineConfig{
 		IsFatal:       cmdutil.IsFatal,
@@ -171,19 +155,8 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		if err := worker.Stop(engine); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
-	// XXX sort this out...
-	//for _, name := range unitAgentWorkerNames {
-	//      newWorkerFunc := unitAgentWorkerFuncs[name]
-	//      newWorker, err := newWorkerFunc(a.UnitName, st, runner)
-	//      if err != nil {
-	//              return workers, errors.Trace(err)
-	//      }
-	//      workers.Add(name, newWorker)
-	//}
-
 	return engine, nil
 }
 

@@ -190,7 +190,6 @@ func (c *stubContextComponent) Flush() error {
 }
 
 type stubAPIClient struct {
-	context.APIClient
 	stub        *testing.Stub
 	workloads   map[string]workload.Info
 	definitions map[string]charm.Workload
@@ -293,6 +292,20 @@ func (c *stubAPIClient) Untrack(ids []string) error {
 
 	for _, id := range ids {
 		delete(c.workloads, id)
+	}
+	return nil
+}
+
+func (c *stubAPIClient) SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error {
+	c.stub.AddCall("SetStatus", status, pluginStatus, ids)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, id := range ids {
+		workload := c.workloads[id]
+		workload.Status = status
+		workload.Details.Status = pluginStatus
 	}
 	return nil
 }

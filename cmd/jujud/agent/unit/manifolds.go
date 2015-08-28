@@ -6,6 +6,8 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/errors"
+
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -21,6 +23,43 @@ import (
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
 )
+
+var (
+	componentManifoldFuncs = make(map[string]func(ComponentManifoldConfig) (dependency.Manifold, error))
+)
+
+// ComponentManifoldConfig holds the manifold config provided to
+// registered components.
+type ComponentManifoldConfig struct {
+	// AgentName is the name of the agent.Agent resource.
+	AgentName string
+	// APICallerName is the name of the base.APICaller resource.
+	APICallerName string
+}
+
+// RegisterComponentManifoldFunc adds the given manifold factory func
+// to the list of component-registered manifest funcs.
+func RegisterComponentManifoldFunc(name string, newManifold func(ComponentManifoldConfig) (dependency.Manifold, error)) error {
+	if _, ok := componentManifoldFuncs[name]; ok {
+		return errors.Errorf("%q manifold func already registered", name)
+	}
+	componentManifoldFuncs[name] = newManifold
+	return nil
+}
+
+// ComponentManifolds returns a manifold for each component-registered
+// manifold func.
+func ComponentManifolds(config ComponentManifoldConfig) (dependency.Manifolds, error) {
+	manifolds := make(dependency.Manifolds)
+	for name, newManifold := range componentManifoldFuncs {
+		manifold, err := newManifold(config)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		manifolds[name] = manifold
+	}
+	return manifolds, nil
+}
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
@@ -42,8 +81,8 @@ type ManifoldsConfig struct {
 // through a dependency engine yet.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func Manifolds(config ManifoldsConfig) dependency.Manifolds {
-	return dependency.Manifolds{
+func Manifolds(config ManifoldsConfig) (dependency.Manifolds, error) {
+	manifolds := dependency.Manifolds{
 
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -151,6 +190,24 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLockName:       MachineLockName,
 		}),
 	}
+
+	// Add in the component-registered manifolds.
+	componentConfig := ComponentManifoldConfig{
+		AgentName:     AgentName,
+		APICallerName: APICallerName,
+	}
+	registered, err := ComponentManifolds(componentConfig)
+	if err != nil {
+		return manifolds, errors.Trace(err)
+	}
+	for name, manifold := range registered {
+		if _, ok := manifolds[name]; ok {
+			return manifolds, errors.Errorf("%q manifold already added", name)
+		}
+		manifolds[name] = manifold
+	}
+
+	return manifolds, nil
 }
 
 const (

@@ -15,11 +15,13 @@ import (
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
-	"github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/util"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/client"
 	"github.com/juju/juju/workload/api/server"
@@ -33,8 +35,8 @@ type workloads struct{}
 
 func (c workloads) registerForServer() error {
 	c.registerState()
-	handlers := c.registerWorkers()
-	c.registerHookContext(handlers)
+	addEvents := c.registerUnitWorkers()
+	c.registerHookContext(addEvents)
 	c.registerUnitStatus()
 	return nil
 }
@@ -44,17 +46,13 @@ func (workloads) registerForClient() error {
 	return nil
 }
 
-func (c workloads) registerHookContext(handlers map[string]*workers.EventHandlers) {
+func (c workloads) registerHookContext(addEvents func(...workload.Event) error) {
 	if !markRegistered(workload.ComponentName, "hook-context") {
 		return
 	}
 
 	runner.RegisterComponentFunc(workload.ComponentName,
 		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
-			var addEvents func(...workload.Event)
-			if unitEventHandler, ok := handlers[unit]; ok {
-				addEvents = unitEventHandler.AddEvents
-			}
 			hctxClient := c.newHookContextAPIClient(caller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			component, err := context.NewContextAPI(hctxClient, addEvents)
@@ -150,89 +148,43 @@ func (workloads) registerHookContextCommands() {
 	})
 }
 
-func (c workloads) registerWorkers() map[string]*workers.EventHandlers {
+// TODO(ericsnow) Use a watcher instead of passing around the event handlers?
+
+func (c workloads) registerUnitWorkers() func(...workload.Event) error {
 	if !markRegistered(workload.ComponentName, "workers") {
 		return nil
 	}
-	unitEventHandlers := make(map[string]*workers.EventHandlers)
 
 	handlerFuncs := []func([]workload.Event, context.APIClient, workers.Runner) error{
+		workers.WorkloadHandler,
 		workers.StatusEventHandler,
 	}
 
-	newWorkerFunc := func(unit string, caller base.APICaller, runner worker.Runner) (func() (worker.Worker, error), error) {
-		// At this point no workload workload workers are running for the unit.
-		if unitHandler, ok := unitEventHandlers[unit]; ok {
-			// The worker must have restarted.
-			// TODO(ericsnow) Could cause panics?
-			unitHandler.Close()
-		}
-
-		apiClient := c.newHookContextAPIClient(caller)
-
-		unitHandler := workers.NewEventHandlers(apiClient, runner)
-		for _, handlerFunc := range handlerFuncs {
-			unitHandler.RegisterHandler(handlerFunc)
-		}
-		unitEventHandlers[unit] = unitHandler
-
-		// Pull all existing from State (via API) and add an event for each.
-		hctx, err := context.NewContextAPI(apiClient, unitHandler.AddEvents)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		events, err := c.initialEvents(hctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		newWorker := func() (worker.Worker, error) {
-			worker, err := unitHandler.NewWorker()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			unitHandler.AddEvents(events...)
-			return worker, nil
-		}
-
-		// TODO(ericsnow) Start a state watcher?
-
-		return newWorker, nil
+	unitHandlers := workers.NewEventHandlers()
+	for _, handlerFunc := range handlerFuncs {
+		unitHandlers.RegisterHandler(handlerFunc)
 	}
-	err := agent.RegisterUnitAgentWorker(workload.ComponentName, newWorkerFunc)
+
+	newManifold := func(config unit.ComponentManifoldConfig) (dependency.Manifold, error) {
+		// At this point no workload workers are running for the unit.
+		// TODO(ericsnow) Move this code to workers.Manifold
+		// (and ManifoldConfig)?
+		apiConfig := util.ApiManifoldConfig{
+			APICallerName: config.APICallerName,
+		}
+		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
+			apiClient := c.newHookContextAPIClient(caller)
+			unitHandlers.Reset(apiClient)
+			return unitHandlers.StartEngine()
+		})
+		return manifold, nil
+	}
+	err := unit.RegisterComponentManifoldFunc(workload.ComponentName, newManifold)
 	if err != nil {
 		panic(err)
 	}
 
-	return unitEventHandlers
-}
-
-func (workloads) initialEvents(hctx context.Component) ([]workload.Event, error) {
-	ids, err := hctx.List()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var events []workload.Event
-	for _, id := range ids {
-		wl, err := hctx.Get(id)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		//TODO(wwitzel3) (Upgrade/Restart broken) during a restart of the worker, the Plugin loses its absPath for the executable.
-		plugin, err := hctx.Plugin(wl)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		events = append(events, workload.Event{
-			Kind:     workload.EventKindTracked,
-			ID:       wl.ID(),
-			Plugin:   plugin,
-			PluginID: wl.Details.ID,
-		})
-	}
-	return events, nil
+	return unitHandlers.AddEvents
 }
 
 func (workloads) registerState() {
