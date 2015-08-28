@@ -324,21 +324,23 @@ class DumpEnvLogsTestCase(TestCase):
             with patch('subprocess.check_output') as cc_mock:
                 copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
         self.assertEqual(
-            (['timeout', '5m', 'ssh',
-              '-o', 'User ubuntu',
-              '-o', 'UserKnownHostsFile /dev/null',
-              '-o', 'StrictHostKeyChecking no',
-              '10.10.0.1',
-              'sudo chmod go+r /var/log/juju/*'], ),
+            (get_timeout_prefix(120) + (
+                'ssh',
+                '-o', 'User ubuntu',
+                '-o', 'UserKnownHostsFile /dev/null',
+                '-o', 'StrictHostKeyChecking no',
+                '10.10.0.1',
+                'sudo chmod go+r /var/log/juju/*'),),
             cc_mock.call_args_list[0][0])
         self.assertEqual(
-            (['timeout', '5m', 'scp', '-C',
-              '-o', 'User ubuntu',
-              '-o', 'UserKnownHostsFile /dev/null',
-              '-o', 'StrictHostKeyChecking no',
-              '10.10.0.1:/var/log/cloud-init*.log',
-              '10.10.0.1:/var/log/juju/*.log',
-              '/foo'],),
+            (get_timeout_prefix(120) + (
+                'scp', '-C',
+                '-o', 'User ubuntu',
+                '-o', 'UserKnownHostsFile /dev/null',
+                '-o', 'StrictHostKeyChecking no',
+                '10.10.0.1:/var/log/cloud-init*.log',
+                '10.10.0.1:/var/log/juju/*.log',
+                '/foo'),),
             cc_mock.call_args_list[1][0])
 
     def test_copy_remote_logs_windows(self):
@@ -510,8 +512,9 @@ class TestDeployDummyStack(TestCase):
         def output(args, **kwargs):
             output = {
                 ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
-                 GET_TOKEN_SCRIPT): 'fake-token',
+                get_timeout_prefix(120) + (
+                    'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
+                    GET_TOKEN_SCRIPT): 'fake-token',
             }
             return output[args]
 
@@ -542,7 +545,7 @@ class TestDeployDummyStack(TestCase):
         assert_juju_call(self, co_mock, client, (
             'juju', '--show-log', 'status', '-e', 'foo'), 1,
             assign_stderr=True)
-        assert_juju_call(self, co_mock, client, (
+        assert_juju_call(self, co_mock, client, get_timeout_prefix(120) + (
             'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
             GET_TOKEN_SCRIPT), 2, assign_stderr=True)
         self.assertEqual(co_mock.call_count, 3)
