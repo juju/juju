@@ -18,7 +18,7 @@ func fakeDiskAndSpec() (google.DiskSpec, *compute.Disk, error) {
 	spec := google.DiskSpec{
 		SizeHintGB:         1,
 		Name:               fakeVolName,
-		PersistentDiskType: google.DiskTypePersistentSSD,
+		PersistentDiskType: google.DiskPersistentSSD,
 	}
 	fakeDisk, err := google.NewDetached(spec)
 	return spec, fakeDisk, err
@@ -48,7 +48,8 @@ func (s *connSuite) TestConnectionDisks(c *gc.C) {
 	disks, err := s.Conn.Disks("home-zone")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(disks, gc.HasLen, 1)
-	c.Assert(disks[0], gc.DeepEquals, fakeDisk)
+	fakeGoogleDisk := google.NewDisk(fakeDisk)
+	c.Assert(disks[0], gc.DeepEquals, fakeGoogleDisk)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListDisks")
@@ -62,7 +63,8 @@ func (s *connSuite) TestConnectionDisk(c *gc.C) {
 	s.FakeConn.Disk = fakeDisk
 	disk, err := s.Conn.Disk("home-zone", fakeVolName)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(disk, gc.DeepEquals, fakeDisk)
+	fakeGoogleDisk := google.NewDisk(fakeDisk)
+	c.Assert(disk, gc.DeepEquals, fakeGoogleDisk)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetDisk")
@@ -74,7 +76,7 @@ func (s *connSuite) TestConnectionAttachDisk(c *gc.C) {
 	_, fakeDisk, err := fakeDiskAndSpec()
 	c.Check(err, jc.ErrorIsNil)
 	s.FakeConn.Disk = fakeDisk
-	att, err := s.Conn.AttachDisk("home-zone", fakeVolName, "a-fake-instance", "READ_WRITE")
+	att, err := s.Conn.AttachDisk("home-zone", fakeVolName, "a-fake-instance", google.ModeRW)
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -87,7 +89,7 @@ func (s *connSuite) TestConnectionAttachDisk(c *gc.C) {
 	c.Check(s.FakeConn.Calls[1].ZoneName, gc.Equals, "home-zone")
 	c.Check(s.FakeConn.Calls[1].InstanceId, gc.Equals, "a-fake-instance")
 	c.Check(s.FakeConn.Calls[1].AttachedDisk.DeviceName, gc.Equals, att.DeviceName)
-	c.Check(s.FakeConn.Calls[1].AttachedDisk.Mode, gc.Equals, att.Mode)
+	c.Check(s.FakeConn.Calls[1].AttachedDisk.Mode, gc.Equals, string(att.Mode))
 
 }
 
@@ -125,14 +127,14 @@ func (s *connSuite) TestConnectionInstanceDisks(c *gc.C) {
 	s.FakeConn.AttachedDisks = []*compute.AttachedDisk{{
 		Source:     "https://bogus/url/project/aproject/zone/azone/disk/" + fakeVolName,
 		DeviceName: "home-zone-0",
-		Mode:       "READ_WRITE",
+		Mode:       string(google.ModeRW),
 	}}
 	disks, err := s.Conn.InstanceDisks("home-zone", "a-fake-instance")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(disks, gc.HasLen, 1)
 	c.Assert(disks[0].VolumeName, gc.Equals, fakeVolName)
 	c.Assert(disks[0].DeviceName, gc.Equals, "home-zone-0")
-	c.Assert(disks[0].Mode, gc.Equals, "READ_WRITE")
+	c.Assert(disks[0].Mode, gc.Equals, google.ModeRW)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "InstanceDisks")

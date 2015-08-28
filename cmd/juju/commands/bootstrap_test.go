@@ -322,10 +322,11 @@ var bootstrapTests = []bootstrapTest{{
 	args:     []string{"--upload-tools"},
 	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "mips64"`,
 }, {
-	info:    "--upload-tools always bumps build number",
-	version: "1.2.3.4-raring-amd64",
-	args:    []string{"--upload-tools"},
-	upload:  "1.2.3.5-raring-amd64",
+	info:     "--upload-tools always bumps build number",
+	version:  "1.2.3.4-raring-amd64",
+	hostArch: "amd64",
+	args:     []string{"--upload-tools"},
+	upload:   "1.2.3.5-raring-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},

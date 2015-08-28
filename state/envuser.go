@@ -243,9 +243,9 @@ func (e *UserEnvironment) LastConnection() (time.Time, error) {
 	defer lastConnCloser()
 
 	lastConnDoc := envUserLastConnectionDoc{}
-	id := e.st.docID(strings.ToLower(e.User.Username()))
+	id := ensureEnvUUID(e.EnvironTag().Id(), strings.ToLower(e.User.Username()))
 	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
-	if err != nil && err != mgo.ErrNotFound {
+	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
 		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Username()))
 	}
 

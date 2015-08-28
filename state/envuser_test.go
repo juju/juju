@@ -207,8 +207,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
 	c.Assert(environments, gc.HasLen, 1)
 	c.Assert(environments[0].UUID(), gc.Equals, s.State.EnvironUUID())
 	when, err := environments[0].LastConnection()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(when, gc.NotNil)
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
 }
 

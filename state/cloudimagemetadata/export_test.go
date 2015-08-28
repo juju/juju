@@ -5,5 +5,4 @@ package cloudimagemetadata
 
 var (
 	BuildSearchClauses = buildSearchClauses
-	AddOneToGroup      = addOneToGroup
 )

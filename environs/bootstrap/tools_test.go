@@ -258,8 +258,12 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 
 	var allTools tools.List
 	for _, series := range version.SupportedSeries() {
-		binary := version.Current
-		binary.Series = series
+		binary := version.Binary{
+			Number: version.Current.Number,
+			Series: series,
+			Arch:   arch.HostArch(),
+			OS:     version.Current.OS,
+		}
 		allTools = append(allTools, &tools.Tools{
 			Version: binary,
 			URL:     "http://testing.invalid/tools.tar.gz",

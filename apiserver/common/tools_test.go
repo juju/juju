@@ -203,6 +203,8 @@ func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 			{Version: version.MustParseBinary("1.22.0-trusty-amd64")},
 		},
 	}
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22-beta1-trusty-amd64"))
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22.0-trusty-amd64"))

@@ -217,17 +217,18 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, true, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, true, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceNoSecureConnection(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, false, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, false, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	c *gc.C, m *state.Machine,
 	secret string, cons constraints.Value,
 	networks []string, networkInfo []network.InterfaceInfo,
+	subnetsToZones map[network.Id][]string,
 	volumes []storage.Volume,
 	secureServerConnection bool,
 	checkPossibleTools coretools.List,
@@ -253,6 +254,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(nonceParts[0], gc.Equals, names.NewMachineTag("0").String())
 				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
+				c.Assert(o.SubnetsToZones, jc.DeepEquals, subnetsToZones)
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
@@ -439,15 +441,14 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
-	return s.addMachineWithRequestedNetworks(nil, s.defaultConstraints)
+	return s.addMachineWithConstraints(s.defaultConstraints)
 }
 
-func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(networks []string, cons constraints.Value) (*state.Machine, error) {
+func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:            coretesting.FakeDefaultSeries,
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       cons,
-		RequestedNetworks: networks,
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
 	})
 }
 
@@ -494,7 +495,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, false, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, false, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -536,7 +537,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer stop(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, nil, false, expectedList, true,
+		nil, nil, nil, nil, false, expectedList, true,
 	)
 }
 
@@ -937,47 +938,33 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 	}
 }
 
-func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer p.Stop()
 
-	// Add and provision a machine with networks specified.
-	requestedNetworks := []string{"net1", "net2"}
-	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
-	expectNetworkInfo := []network.InterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:ee:f0",
-		InterfaceName: "eth0",
-		ProviderId:    "net1",
-		NetworkName:   "net1",
-		VLANTag:       0,
-		CIDR:          "0.1.2.0/24",
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1",
-		InterfaceName: "eth1",
-		ProviderId:    "net2",
-		NetworkName:   "net2",
-		VLANTag:       1,
-		CIDR:          "0.2.2.0/24",
-	}}
-	m, err := s.addMachineWithRequestedNetworks(requestedNetworks, cons)
+	// Add the spaces used in constraints.
+	_, err := s.State.AddSpace("space1", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space2", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add and provision a machine with spaces specified.
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=space2,^space1",
+	)
+	// The dummy provider simulates 2 subnets per included space.
+	expectedSubnetsToZones := map[network.Id][]string{
+		"subnet-0": []string{"zone0"},
+		"subnet-1": []string{"zone1"},
+	}
+	m, err := s.addMachineWithConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", cons,
-		requestedNetworks, expectNetworkInfo, nil, false,
-		nil, true,
+		nil, nil,
+		expectedSubnetsToZones,
+		nil, false, nil, true,
 	)
-
-	_, err = s.State.Network("net1")
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Network("net2")
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.Network("net3")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.Network("net4")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	ifaces, err := m.NetworkInterfaces()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaces, gc.HasLen, 2)
 
 	// Cleanup.
 	c.Assert(m.EnsureDead(), gc.IsNil)
@@ -985,23 +972,19 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	s.waitRemoved(c, m)
 }
 
-func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.C) {
+	cons := constraints.MustParse(
+		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
+	)
+	m, err := s.addMachineWithConstraints(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Start the PA.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
-	// "invalid-" prefix for networks causes the dummy provider to
-	// return network.InterfaceInfo with an invalid network name.
-	networks := []string{"invalid-net1"}
-	expectNetworkInfo := []network.InterfaceInfo{
-		{ProviderId: "invalid-net1", NetworkName: "$$invalid-net1", CIDR: "0.1.2.0/24"},
-	}
-	m, err := s.addMachineWithRequestedNetworks(networks, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceCustom(
-		c, m, "pork", constraints.Value{},
-		networks, expectNetworkInfo, nil, false,
-		nil, false,
-	)
+	// Expect StartInstance to fail.
+	s.checkNoOperations(c)
 
 	// Ensure machine error status was set.
 	t0 := time.Now()
@@ -1014,7 +997,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
 			continue
 		}
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfo.Message, gc.Matches, `invalid network name "\$\$invalid-net1"`)
+		c.Assert(statusInfo.Message, gc.Equals, `cannot match subnets to zones: space "missing" not found`)
 		break
 	}
 
@@ -1025,7 +1008,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithInvalidNetwork(c *gc.C) {
 	}()
 	select {
 	case <-time.After(coretesting.ShortWait):
-	case err = <-died:
+	case err := <-died:
 		c.Fatalf("provisioner task died unexpectedly with err: %v", err)
 	}
 
@@ -1066,7 +1049,6 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 		Volume:     state.VolumeParams{Pool: "persistent-pool", Size: 2048},
 		Attachment: state.VolumeAttachmentParams{},
 	}}
-	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
 	expectVolumeInfo := []storage.Volume{{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
@@ -1079,11 +1061,12 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 			Persistent: true,
 		},
 	}}
-	m, err := s.addMachineWithRequestedVolumes(requestedVolumes, cons)
+	m, err := s.addMachineWithRequestedVolumes(requestedVolumes, s.defaultConstraints)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
-		c, m, "pork", cons,
-		nil, nil, expectVolumeInfo, false,
+		c, m, "pork", s.defaultConstraints,
+		nil, nil, nil,
+		expectVolumeInfo, false,
 		nil, true,
 	)
 
@@ -1091,60 +1074,6 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
-}
-
-func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInstanceButKeepsGoing(c *gc.C) {
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// Add and provision a machine with networks specified.
-	networks := []string{"bad-net1"}
-	// "bad-" prefix for networks causes dummy provider to report
-	// invalid network.InterfaceInfo.
-	expectNetworkInfo := []network.InterfaceInfo{
-		{ProviderId: "bad-net1", NetworkName: "bad-net1", CIDR: "invalid"},
-	}
-	m, err := s.addMachineWithRequestedNetworks(networks, constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
-	inst := s.checkStartInstanceCustom(
-		c, m, "pork", constraints.Value{},
-		networks, expectNetworkInfo, nil, false,
-		nil, false,
-	)
-
-	// Ensure machine error status was set.
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfo.Message, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
-		break
-	}
-	s.checkStopInstances(c, inst)
-
-	// Make sure the task didn't stop with an error
-	died := make(chan error)
-	go func() {
-		died <- p.Wait()
-	}()
-	select {
-	case <-time.After(coretesting.LongWait):
-	case err = <-died:
-		c.Fatalf("provisioner task died unexpectedly with err: %v", err)
-	}
-
-	// Restart the PA to make sure the machine is not retried.
-	stop(c, p)
-	p = s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	s.checkNoOperations(c)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *gc.C) {
@@ -1306,7 +1235,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, false, nil, true)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, nil, false, nil, true)
 }
 
 type mockMachineGetter struct{}
