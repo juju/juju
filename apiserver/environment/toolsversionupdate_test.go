@@ -4,8 +4,6 @@
 package environment
 
 import (
-	"testing"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,15 +15,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
+var _ = gc.Suite(&updaterSuite{})
 
 type updaterSuite struct {
 	coretesting.BaseSuite
 }
-
-var _ = gc.Suite(&updaterSuite{})
 
 type dummyEnviron struct {
 	environs.Environ

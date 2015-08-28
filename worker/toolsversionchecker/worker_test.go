@@ -12,10 +12,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/toolsversionchecker"
 )
 
@@ -23,22 +20,6 @@ var _ = gc.Suite(&ToolsCheckerSuite{})
 
 type ToolsCheckerSuite struct {
 	coretesting.BaseSuite
-}
-
-func (s *ToolsCheckerSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *ToolsCheckerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *ToolsCheckerSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *ToolsCheckerSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
 }
 
 type dummyEnviron struct {
@@ -55,53 +36,33 @@ func (dummyEnviron) Config() *config.Config {
 	return c
 }
 
-type envCapable struct {
+//TODO(perrito666) make this an interface representing api.Facade for
+// all practical purposes of testing.
+type facade struct {
+	called chan string
 }
 
-func (e *envCapable) Environment() (*state.Environment, error) {
-	return &state.Environment{}, nil
+func (f *facade) UpdateToolsVersion() error {
+	f.called <- "UpdateToolsVersion"
+	return nil
+}
+
+func newFacade() *facade {
+	f := &facade{
+		called: make(chan string, 1),
+	}
+	return f
 }
 
 func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
-	fakeNewEnvirons := func(*config.Config) (environs.Environ, error) {
-		c.Log("entered fake new environ")
-		return &dummyEnviron{}, nil
-	}
-	s.PatchValue(toolsversionchecker.NewEnvirons, fakeNewEnvirons)
-
-	fakeEnvConfig := func(_ *state.Environment) (*config.Config, error) {
-		sConfig := dummy.SampleConfig()
-		sConfig["agent-version"] = "2.5.0"
-		return config.New(config.NoDefaults, sConfig)
-	}
-	s.PatchValue(toolsversionchecker.EnvConfig, fakeEnvConfig)
-
+	f := newFacade()
 	params := &toolsversionchecker.VersionCheckerParams{
 		CheckInterval: coretesting.ShortWait,
 	}
 
-	var sookMajor, sookMinor int
-	findTools := func(_ environs.Environ, maj int, min int, _ coretools.Filter) (coretools.List, error) {
-		sookMajor = maj
-		sookMinor = min
-		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
-		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
-		return coretools.List{&t}, nil
-	}
-
-	var foundVersion version.Number
-	ranUpdateVersion := make(chan bool, 1)
-	envVersionUpdate := func(_ *state.Environment, ver version.Number) error {
-		foundVersion = ver
-		defer func() { ranUpdateVersion <- true }()
-		return nil
-	}
-
 	checker := toolsversionchecker.NewPeriodicWorkerForTests(
-		&envCapable{},
+		f,
 		params,
-		findTools,
-		envVersionUpdate,
 	)
 	s.AddCleanup(func(*gc.C) {
 		checker.Kill()
@@ -109,11 +70,8 @@ func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
 	})
 
 	select {
-	case <-ranUpdateVersion:
-		c.Assert(sookMajor, gc.Equals, 2)
-		c.Assert(sookMinor, gc.Equals, 5)
-		ver := version.Number{Major: 2, Minor: 5}
-		c.Assert(foundVersion, gc.Equals, ver)
+	case called := <-f.called:
+		c.Assert(called, gc.Equals, "UpdateToolsVersion")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting worker to seek new tool versions")
 	}

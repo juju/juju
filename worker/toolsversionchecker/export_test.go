@@ -3,24 +3,15 @@
 
 package toolsversionchecker
 
-import (
-	"github.com/juju/juju/worker"
-)
+import "github.com/juju/juju/worker"
 
-func NewPeriodicWorkerForTests(st EnvironmentCapable, params *VersionCheckerParams, f toolsFinder, e envVersionUpdater) worker.Worker {
+func NewPeriodicWorkerForTests(api Facade, params *VersionCheckerParams) worker.Worker {
 	w := &toolsVersionWorker{
-		st:               st,
-		params:           params,
-		findTools:        f,
-		envVersionUpdate: e,
+		api:    api,
+		params: params,
 	}
 	periodicCall := func(stop <-chan struct{}) error {
 		return w.doCheck()
 	}
-	return worker.NewPeriodicWorker(periodicCall, params.CheckInterval)
+	return worker.NewPeriodicWorker(periodicCall, params.CheckInterval, worker.NewTimer)
 }
-
-var (
-	NewEnvirons = &newEnvirons
-	EnvConfig   = &envConfig
-)
