@@ -5,6 +5,7 @@ package plugin_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -91,6 +92,8 @@ type stubFops struct {
 	stub *testing.Stub
 
 	dataOut string
+	found   string
+	abs     string
 }
 
 func (s *stubFops) MkdirAll(path string, perm os.FileMode) error {
@@ -118,4 +121,28 @@ func (s *stubFops) WriteFile(filename string, data []byte, perm os.FileMode) err
 	}
 
 	return nil
+}
+
+func (s *stubFops) LookPath(name string) (string, error) {
+	s.stub.AddCall("LookPath", name)
+	if err := s.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if s.found == "" {
+		return "", exec.ErrNotFound
+	}
+	return s.found, nil
+}
+
+func (s *stubFops) Abs(path string) (string, error) {
+	s.stub.AddCall("Abs", path)
+	if err := s.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if s.abs == "" {
+		return path, nil
+	}
+	return s.abs, nil
 }

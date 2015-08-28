@@ -40,31 +40,55 @@ type ExecutablePlugin struct {
 	Name string
 	// Executable is the filename disk where the plugin executable resides.
 	Executable string
+
+	// RunCmd runs the provided command.
+	RunCmd func(name string, cmd *exec.Cmd) ([]byte, error)
+}
+
+func newExecutablePlugin(name, executable string) *ExecutablePlugin {
+	p := &ExecutablePlugin{
+		Name:       name,
+		Executable: executable,
+	}
+
+	logger := loggo.GetLogger("juju.workload.plugin." + name)
+	p.RunCmd = func(name string, cmd *exec.Cmd) ([]byte, error) {
+		return runCmd(name, cmd, func(b []byte) { logger.Infof(string(b)) })
+	}
+
+	return p
 }
 
 // FindExecutablePlugin returns the plugin for the given name.
-func FindExecutablePlugin(name string) (*ExecutablePlugin, error) {
-	return findExecutablePlugin(name, exec.LookPath)
+func FindExecutablePlugin(name, agentDir string) (*ExecutablePlugin, error) {
+	paths := NewPaths(agentDir, name)
+	return findExecutablePlugin(name, paths, lookPath)
 }
 
-func findExecutablePlugin(name string, lookPath func(string) (string, error)) (*ExecutablePlugin, error) {
-	path, err := lookPath(executablePrefix + name)
-	if err == exec.ErrNotFound {
-		return nil, errors.NotFoundf("plugin %q", name)
-	}
-	if err != nil {
+type pluginPaths interface {
+	Executable() (string, error)
+	Init(string) error
+}
+
+func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) (string, error)) (*ExecutablePlugin, error) {
+	absPath, err := paths.Executable()
+	if errors.IsNotFound(err) {
+		absPath, err = lookPath(executablePrefix + name)
+		if err == exec.ErrNotFound {
+			return nil, errors.NotFoundf("plugin %q", name)
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if err := paths.Init(absPath); err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &ExecutablePlugin{
-		Name:       name,
-		Executable: absPath,
-	}, nil
+	return newExecutablePlugin(name, absPath), nil
 }
 
 // Launch runs the given plugin, passing it the "launch" command, with the
@@ -152,30 +176,29 @@ func (p ExecutablePlugin) Status(id string) (workload.PluginStatus, error) {
 func (p ExecutablePlugin) run(subcommand string, args ...string) ([]byte, error) {
 	executableLogger.Debugf("running %s %s %s", p.Executable, subcommand, args)
 	cmd := exec.Command(p.Executable, append([]string{subcommand}, args...)...)
-	return runCmd(p.Name, cmd)
+	return p.RunCmd(p.Name, cmd)
+}
+
+func lookPath(name string) (string, error) {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return path, err
+	}
+	return filepath.Abs(path)
 }
 
 // runCmd runs the executable at path with the subcommand as the first argument
 // and any args in args as further arguments.  It logs to loggo using the name
 // as a namespace.
-var runCmd = func(name string, cmd *exec.Cmd) ([]byte, error) {
-	log := getLogger("juju.workload.plugin." + name)
+func runCmd(name string, cmd *exec.Cmd, logStderr func(b []byte)) ([]byte, error) {
 	stdout := &bytes.Buffer{}
 	cmd.Stdout = stdout
 	err := deputy.Deputy{
 		Errors:    deputy.FromStdout,
-		StderrLog: func(b []byte) { log.Infof(string(b)) },
+		StderrLog: logStderr,
 	}.Run(cmd)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return stdout.Bytes(), nil
-}
-
-type infoLogger interface {
-	Infof(s string, args ...interface{})
-}
-
-var getLogger = func(name string) infoLogger {
-	return loggo.GetLogger(name)
 }

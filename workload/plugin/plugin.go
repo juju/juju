@@ -11,13 +11,23 @@ import (
 	"github.com/juju/juju/workload"
 )
 
+// We special-case a specific name for the sake of the feature tests.
+const testingPluginName = "testing-plugin"
+
 var builtinPlugins = map[string]workload.Plugin{
 	"docker": NewDockerPlugin(),
 }
 
 // Find returns the plugin for the given name.
 func Find(name, agentDir string) (workload.Plugin, error) {
-	// We special-case a specific name for the sake of the feature tests.
+	if name == testingPluginName {
+		plugin, err := FindExecutablePlugin(name, agentDir)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return plugin, nil
+	}
+
 	plugin, ok := builtinPlugins[name]
 	if !ok {
 		return nil, errors.NotFoundf("plugin %q", name)
