@@ -5,6 +5,7 @@ package rackspace
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage/provider/registry"
 )
 
@@ -19,9 +20,9 @@ func init() {
 		return
 	}
 	providerInstance = environProvider{
-		openstackProvider: openstackProvider,
+		openstackProvider,
 	}
 	environs.RegisterProvider(providerType, providerInstance)
 
-	registry.RegisterEnvironStorageProviders(providerType)
+	registry.RegisterEnvironStorageProviders(providerType, openstack.CinderProviderType)
 }

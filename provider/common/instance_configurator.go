@@ -16,13 +16,46 @@ import (
 	"github.com/juju/juju/network"
 )
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 type SshInstanceConfigurator struct {
+=======
+// Implementations of this interface should provide a way to configure external IP allocation and add firewall functionality,
+// for  providers, that don't support those features natively in their API.
+type InstanceConfigurator interface {
+
+	// Close all ports.
+	DropAllPorts(exceptPorts []int, addr string) error
+
+	// Add network interface and allocate external IP address.
+	// Implementations should also configure this interface and initialise  ports state.
+	ConfigureExternalIpAddress(apiPort int) error
+
+	// Open or close ports.
+	ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error
+
+	// List all opened ports.
+	FindOpenPorts() ([]network.PortRange, error)
+
+	// Add Ip address.
+	AddIpAddress(nic string, addr string) error
+
+	// Release Ip address.
+	ReleaseIpAddress(addr string) error
+}
+
+type sshInstanceConfigurator struct {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	client  ssh.Client
 	host    string
 	options *ssh.Options
 }
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 func NewSshInstanceConfigurator(host string) *SshInstanceConfigurator {
+=======
+// NewSshInstanceConfigurator creates new sshInstanceConfigurator.
+func NewSshInstanceConfigurator(host string) InstanceConfigurator {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	options := ssh.Options{}
 	options.SetIdentities("/var/lib/juju/system-identity")
 	return &SshInstanceConfigurator{
@@ -32,7 +65,12 @@ func NewSshInstanceConfigurator(host string) *SshInstanceConfigurator {
 	}
 }
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 func (c *SshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) error {
+=======
+// DropAllPorts implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) error {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	cmd := fmt.Sprintf("sudo iptables -d %s -I INPUT -m state --state NEW -j DROP", addr)
 
 	for _, port := range exceptPorts {
@@ -49,7 +87,12 @@ func (c *SshInstanceConfigurator) DropAllPorts(exceptPorts []int, addr string) e
 	return nil
 }
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 func (c *SshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error {
+=======
+// ConfigureExternalIpAddress implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) ConfigureExternalIpAddress(apiPort int) error {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	cmd := `printf 'auto eth1\niface eth1 inet dhcp' | sudo tee -a /etc/network/interfaces.d/eth1.cfg
 sudo ifup eth1
 sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP`
@@ -68,7 +111,12 @@ sudo iptables -i eth1 -I INPUT -m state --state NEW -j DROP`
 	return nil
 }
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 func (c *SshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
+=======
+// ChangePorts implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, ports []network.PortRange) error {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	cmd := ""
 	insertArg := "-I"
 	if !insert {
@@ -93,7 +141,12 @@ func (c *SshInstanceConfigurator) ChangePorts(ipAddress string, insert bool, por
 	return nil
 }
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 func (c *SshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
+=======
+// FindOpenPorts implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	cmd := "sudo iptables -L INPUT -n"
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -162,7 +215,12 @@ func (c *SshInstanceConfigurator) FindOpenPorts() ([]network.PortRange, error) {
 	return res, nil
 }
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 func (c *SshInstanceConfigurator) AddIpAddress(nic string, addr string) error {
+=======
+// AddIpAddress implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) AddIpAddress(nic string, addr string) error {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	cmd := fmt.Sprintf("ls /etc/network/interfaces.d | grep %s: | sed 's/%s://' | sed 's/.cfg//' | tail -1", nic, nic)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
@@ -187,7 +245,12 @@ func (c *SshInstanceConfigurator) AddIpAddress(nic string, addr string) error {
 	return nil
 }
 
+<<<<<<< HEAD:provider/common/ssh_instance_configurator.go
 func (c *SshInstanceConfigurator) ReleaseIpAddress(_ string, addr string) error {
+=======
+// ReleaseIpAddress implements InstanceConfigurator interface.
+func (c *sshInstanceConfigurator) ReleaseIpAddress(addr string) error {
+>>>>>>> review comments implemented:provider/common/instance_configurator.go
 	cmd := fmt.Sprintf("ip addr show | grep %s | awk '{print $7}'", addr)
 	command := c.client.Command(c.host, []string{"/bin/bash"}, c.options)
 	command.Stdin = strings.NewReader(cmd)
