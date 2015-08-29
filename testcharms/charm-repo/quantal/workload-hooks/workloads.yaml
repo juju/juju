@@ -1,6 +1,6 @@
 workloads:
   myworkload:
-    type: myplugin
+    type: testing-plugin
     type-options:
       critical: true
     command: run-server

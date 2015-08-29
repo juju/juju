@@ -15,7 +15,7 @@ if [ -n "$name" ]; then
     status=$(config-get plugin-status)
 
     status-set maintenance "initializing plugin ($name, $id, $status)..."
-    output=$(juju-workload-myplugin init "$name" "$id" "$status" 2>&1)
+    output=$(juju-workload-testing-plugin init "$name" "$id" "$status" 2>&1)
     rc=$?
     if [ -z "$output" ]; then
         output='<no output>'
