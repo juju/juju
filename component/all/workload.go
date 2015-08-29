@@ -55,7 +55,7 @@ func (c workloads) registerHookContext(addEvents func(...workload.Event) error) 
 		func(config runner.ComponentConfig) (jujuc.ContextComponent, error) {
 			hctxClient := c.newHookContextAPIClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
-			component, err := context.NewContextAPI(hctxClient, addEvents)
+			component, err := context.NewContextAPI(hctxClient, config.DataDir, addEvents)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -186,7 +186,7 @@ func (c workloads) registerUnitWorkers() func(...workload.Event) error {
 		manifold := util.AgentApiManifold(apiConfig, func(unitAgent agent.Agent, caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)
 			config := unitAgent.CurrentConfig()
-			dataDir := agent.Dir(config.DataDir(), config.Tag())
+			dataDir := workload.DataDir(agent.Dir(config.DataDir(), config.Tag()))
 			unitHandlers.Reset(apiClient, dataDir)
 			return unitHandlers.StartEngine()
 		})
