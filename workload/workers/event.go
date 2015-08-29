@@ -283,8 +283,6 @@ func InitialEvents(apiClient context.APIClient, dataDir string) ([]workload.Even
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// TODO(wwitzel3) (Upgrade/Restart broken) during a restart of the
-		// worker, the Plugin loses its absPath for the executable.
 		plugin, err := hctx.Plugin(info)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/workload"
 )
 
 // FileOps exposes all the filesystem operations needed by plugins.
@@ -40,10 +38,9 @@ type Paths struct {
 // NewPaths returns a new Paths for the named plugin, relative to the
 // given data dir.
 func NewPaths(baseDataDir, name string) Paths {
-	baseDir := workload.DataDir(baseDataDir)
 	p := Paths{
 		Plugin:  name,
-		DataDir: filepath.Join(baseDir, "plugins", name),
+		DataDir: filepath.Join(baseDataDir, "plugins", name),
 		Fops:    &fileOps{},
 	}
 	p.ExecutablePathFile = p.resolve(".executable")

@@ -116,7 +116,7 @@ func (c *Context) Plugin(info *workload.Info) (workload.Plugin, error) {
 		return c.plugin, nil
 	}
 
-	plugin, err := c.FindPlugin(info.Type, "") // XXX
+	plugin, err := c.FindPlugin(info.Type, c.dataDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

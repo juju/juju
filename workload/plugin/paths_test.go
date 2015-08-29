@@ -35,14 +35,14 @@ func (s *pathsSuite) TestNewPaths(c *gc.C) {
 
 	c.Check(p, jc.DeepEquals, plugin.Paths{
 		Plugin:             "a-plugin",
-		DataDir:            filepath.Join("some-base-dir", "workloads", "plugins", "a-plugin"),
-		ExecutablePathFile: filepath.Join("some-base-dir", "workloads", "plugins", "a-plugin", ".executable"),
+		DataDir:            filepath.Join("some-base-dir", "plugins", "a-plugin"),
+		ExecutablePathFile: filepath.Join("some-base-dir", "plugins", "a-plugin", ".executable"),
 		Fops:               p.Fops,
 	})
 }
 
 func (s *pathsSuite) TestExecutable(c *gc.C) {
-	executablePathFile := filepath.Join("some-base-dir", "workloads", "plugins", "a-plugin", ".executable")
+	executablePathFile := filepath.Join("some-base-dir", "plugins", "a-plugin", ".executable")
 	expected := filepath.Join("some", "dir", "juju-workload-a-plugin")
 	fops := &stubFops{stub: s.stub}
 	fops.dataOut = expected
@@ -62,8 +62,8 @@ func (s *pathsSuite) TestExecutable(c *gc.C) {
 }
 
 func (s *pathsSuite) TestInit(c *gc.C) {
-	executablePathFile := filepath.Join("some-base-dir", "workloads", "plugins", "a-plugin", ".executable")
-	dataDir := filepath.Join("some-base-dir", "workloads", "plugins", "a-plugin")
+	executablePathFile := filepath.Join("some-base-dir", "plugins", "a-plugin", ".executable")
+	dataDir := filepath.Join("some-base-dir", "plugins", "a-plugin")
 	fops := &stubFops{stub: s.stub}
 
 	p := plugin.NewPaths("some-base-dir", "a-plugin")
