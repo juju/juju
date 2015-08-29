@@ -6,7 +6,7 @@ unitstatus=$(status-get)
 
 status-set $unitstatus "plugin-dump: dumping plugin logs"
 
-result=$(juju-workload-myplugin dump --no-header 2>&1)
+result=$(juju-workload-testing-plugin dump --no-header 2>&1)
 rc=$?
 if [ "$rc" == "0" ]; then
     action-set output="$result"

@@ -7,7 +7,7 @@ unitstatus=$(status-get)
 id=$(action-get id)
 status-set $unitstatus "plugin-remove: removing $id from plugin"
 
-result=$(juju-workload-myplugin destroy "$id" 2>&1)
+result=$(juju-workload-testing-plugin destroy "$id" 2>&1)
 rc=$?
 if [ "$rc" != "0" ]; then
     status-set $unitstatus "plugin-remove: [$id] failed ($rc - $result)"
