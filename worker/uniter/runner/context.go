@@ -28,8 +28,19 @@ var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
+// ComponentConfig holds all the information related to a hook context
+// needed by components.
+type ComponentConfig struct {
+	// UnitName is the name of the unit.
+	UnitName string
+	// DataDir is the component's data directory.
+	DataDir string
+	// APICaller is the API caller the component may use.
+	APICaller base.APICaller
+}
+
 // ComponentFunc is a factory function for Context components.
-type ComponentFunc func(unit string, caller base.APICaller) (jujuc.ContextComponent, error)
+type ComponentFunc func(ComponentConfig) (jujuc.ContextComponent, error)
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
@@ -179,6 +190,7 @@ type HookContext struct {
 	// hook run, so the actual add will happen in a flush.
 	storageAddConstraints map[string][]params.StorageConstraints
 
+	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
 }
 
@@ -188,8 +200,14 @@ func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	if !ok {
 		return nil, errors.NotFoundf("context component %q", name)
 	}
+
 	facade := ctx.state.Facade()
-	compCtx, err := compCtxFunc(ctx.unitName, facade.RawAPICaller())
+	config := ComponentConfig{
+		UnitName:  ctx.unit.Name(),
+		DataDir:   ctx.componentDir(name),
+		APICaller: facade.RawAPICaller(),
+	}
+	compCtx, err := compCtxFunc(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -52,8 +52,8 @@ func (c workloads) registerHookContext(addEvents func(...workload.Event) error) 
 	}
 
 	runner.RegisterComponentFunc(workload.ComponentName,
-		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
-			hctxClient := c.newHookContextAPIClient(caller)
+		func(config runner.ComponentConfig) (jujuc.ContextComponent, error) {
+			hctxClient := c.newHookContextAPIClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			component, err := context.NewContextAPI(hctxClient, addEvents)
 			if err != nil {
