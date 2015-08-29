@@ -89,12 +89,12 @@ func NewEventHandlers() *EventHandlers {
 }
 
 // Reset resets the event handlers.
-func (eh *EventHandlers) Reset(apiClient context.APIClient, agentDir string) error {
+func (eh *EventHandlers) Reset(apiClient context.APIClient, dataDir string) error {
 	if err := eh.data.Close(); err != nil {
 		return errors.Trace(err)
 	}
 	handlers := eh.data.Handlers
-	eh.data = newEventHandlersData(apiClient, agentDir)
+	eh.data = newEventHandlersData(apiClient, dataDir)
 	eh.data.Handlers = handlers
 	return nil
 }
@@ -248,7 +248,7 @@ func (ehe *eventHandlersEngine) eventsManifold() dependency.Manifold {
 		Inputs: []string{},
 		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
 			// Pull all existing from State (via API) and add an event for each.
-			events, err := InitialEvents(ehe.Handlers.data.APIClient)
+			events, err := InitialEvents(ehe.Handlers.data.APIClient, ehe.Handlers.data.DataDir)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -263,11 +263,11 @@ func (ehe *eventHandlersEngine) eventsManifold() dependency.Manifold {
 }
 
 // InitialEvents returns the events that correspond to the current Juju state.
-func InitialEvents(apiClient context.APIClient) ([]workload.Event, error) {
+func InitialEvents(apiClient context.APIClient, dataDir string) ([]workload.Event, error) {
 	// TODO(ericsnow) Use an API call that returns all of them at once,
 	// rather than using a Get call for each?
 
-	hctx, err := context.NewContextAPI(apiClient, nil)
+	hctx, err := context.NewContextAPI(apiClient, dataDir, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -304,15 +304,15 @@ type eventHandlersData struct {
 	Events   *Events
 	Handlers []func([]workload.Event, context.APIClient, Runner) error
 
-	AgentDir  string
+	DataDir   string
 	APIClient context.APIClient
 	Engine    *eventHandlersEngine
 }
 
-func newEventHandlersData(apiClient context.APIClient, agentDir string) eventHandlersData {
+func newEventHandlersData(apiClient context.APIClient, dataDir string) eventHandlersData {
 	data := eventHandlersData{
 		Events:    NewEvents(),
-		AgentDir:  agentDir,
+		DataDir:   dataDir,
 		APIClient: apiClient,
 	}
 	return data

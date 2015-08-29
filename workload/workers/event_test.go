@@ -111,7 +111,7 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
-	c.Check(data.AgentDir, gc.Equals, "")
+	c.Check(data.DataDir, gc.Equals, "")
 	c.Check(data.Engine, gc.IsNil)
 }
 
@@ -126,7 +126,7 @@ func (s *eventHandlerSuite) TestResetOkay(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.Equals, s.apiClient)
-	c.Check(data.AgentDir, gc.Equals, s.agentDir)
+	c.Check(data.DataDir, gc.Equals, s.agentDir)
 	c.Check(data.Engine, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
@@ -153,7 +153,7 @@ func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
-	c.Check(data.AgentDir, gc.Equals, "")
+	c.Check(data.DataDir, gc.Equals, "")
 	c.Check(data.Engine, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
@@ -171,7 +171,7 @@ func (s *eventHandlerSuite) TestCloseIdempotent(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
-	c.Check(data.AgentDir, gc.Equals, "")
+	c.Check(data.DataDir, gc.Equals, "")
 	c.Check(data.Engine, gc.IsNil)
 }
 
