@@ -60,8 +60,8 @@ func newExecutablePlugin(name, executable string) *ExecutablePlugin {
 }
 
 // FindExecutablePlugin returns the plugin for the given name.
-func FindExecutablePlugin(name, agentDir string) (*ExecutablePlugin, error) {
-	paths := NewPaths(agentDir, name)
+func FindExecutablePlugin(name, dataDir string) (*ExecutablePlugin, error) {
+	paths := NewPaths(dataDir, name)
 	return findExecutablePlugin(name, paths, lookPath)
 }
 
