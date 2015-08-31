@@ -11,45 +11,36 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-type resourceAccess struct {
-	name string
-	as   string
-	err  error
-}
-
-func (ra resourceAccess) report() map[string]interface{} {
-	return map[string]interface{}{
-		KeyName:  ra.name,
-		KeyType:  ra.as,
-		KeyError: ra.err,
-	}
-}
-
-func accessReport(accesses []resourceAccess) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(accesses))
-	for i, access := range accesses {
-		result[i] = access.report()
-	}
-	return result
-}
-
+// resourceGetter encapsulates a snapshot of workers and output funcs and exposes
+// a getResource method that can be used as a GetResourceFunc.
 type resourceGetter struct {
+
+	// clientName is the name of the manifold for whose convenience this exists.
 	clientName string
 
+	// expired is closed when the resourceGetter should no longer be used.
 	expired chan struct{}
 
+	// workers holds the snapshot of manifold workers.
 	workers map[string]worker.Worker
 
+	// outputs holds the snapshot of manifold output funcs.
 	outputs map[string]OutputFunc
 
+	// accesses holds the names and types of resource requests, and any error
+	// encountered. It does not include requests made after expiry.
 	accesses []resourceAccess
 }
 
+// expire closes the expired channel. Calling it more than once will panic.
 func (rg *resourceGetter) expire() {
 	close(rg.expired)
 }
 
+// getResource is intended for use as the GetResourceFunc passed into the Start
+// func of the client manifold.
 func (rg *resourceGetter) getResource(resourceName string, out interface{}) error {
+	logger.Debugf("%q manifold requested %q resource", rg.clientName, resourceName)
 	select {
 	case <-rg.expired:
 		return errors.New("expired resourceGetter: cannot be used outside Start func")
@@ -64,8 +55,8 @@ func (rg *resourceGetter) getResource(resourceName string, out interface{}) erro
 	}
 }
 
+// rawAccess is a GetResourceFunc that neither checks enpiry nor records access.
 func (rg *resourceGetter) rawAccess(resourceName string, out interface{}) error {
-	logger.Debugf("%q manifold requested %q resource", rg.clientName, resourceName)
 	input := rg.workers[resourceName]
 	if input == nil {
 		// No worker running (or not declared).
@@ -82,4 +73,35 @@ func (rg *resourceGetter) rawAccess(resourceName string, out interface{}) error 
 		return nil
 	}
 	return convert(input, out)
+}
+
+// resourceAccess describes a call made to (*resourceGetter).getResource.
+type resourceAccess struct {
+
+	// name is the name of the resource requested.
+	name string
+
+	// as is the string representation of the type of the out param.
+	as string
+
+	// err is any error returned from rawAccess.
+	err error
+}
+
+// report returns a convenient representation of ra.
+func (ra resourceAccess) report() map[string]interface{} {
+	return map[string]interface{}{
+		KeyName:  ra.name,
+		KeyType:  ra.as,
+		KeyError: ra.err,
+	}
+}
+
+// accessReport returns a convenient representation of accesses.
+func accessReport(accesses []resourceAccess) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(accesses))
+	for i, access := range accesses {
+		result[i] = access.report()
+	}
+	return result
 }

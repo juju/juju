@@ -36,13 +36,16 @@ type Manifold struct {
 	// change. If a worker has no dependencies, it should declare empty inputs.
 	Inputs []string
 
-	// Start is used to create a worker for the manifold. It must not be nil,
-	// but doesn't *have* to *start* a worker (although it must return either
-	// a worker or an error).
+	// Start is used to create a worker for the manifold. It must not be nil.
+	// The supplied GetResourceFunc will return ErrMissing for any dependency
+	// not named in Inputs, and will cease to function immediately after the
+	// StartFunc returns: do not store references to it.
 	//
-	// That is to say: in *some* circumstances, it's ok to wrap a worker under
-	// the management of a separate component (e.g. the `worker/agent` Manifold
-	// itself) but this approach should only be used:
+	// Note that, while Start must exist, it doesn't *have* to *start* a worker
+	// (although it must return either a worker or an error). That is to say: in
+	// *some* circumstances, it's ok to wrap a worker under the management of a
+	// separate component (e.g. the `worker/agent` Manifold itself) but this
+	// approach should only be used:
 	//
 	//  * as a last resort; and
 	//  * with clear justification.
@@ -137,13 +140,12 @@ type Reporter interface {
 // The Key constants describe the constant features of an Engine's Report.
 const (
 
-	// KeyState might be "starting", "started", "stopping", or "stopped". Or
-	// it might be something else, in distant Reporter implementations; don't
-	// make assumptions.
+	// KeyState applies to a worker; possible values are "starting", "started",
+	// "stopping", or "stopped". Or it might be something else, in distant
+	// Reporter implementations; don't make assumptions.
 	KeyState = "state"
 
-	// KeyError holds the most important error encountered by a worker. In
-	// the case of an Engine, this will be:
+	// KeyError holds some relevant error. In the case of an Engine, this will be:
 	//  * any internal error indicating incorrect operation; or
 	//  * the most important fatal error encountered by any worker; or
 	//  * nil, if none of the above apply;
@@ -153,12 +155,19 @@ const (
 	// In the case of a manifold, it will always hold the most recent error
 	// returned by the associated worker (or its start func); and will be
 	// rewritten whenever a worker state is set to "started" or "stopped".
+	//
+	// In the case of a resource access, it holds any error encountered when
+	// trying to find or convert the resource.
 	KeyError = "error"
 
 	// KeyManifolds holds a map of manifold name to further data (including
 	// dependency inputs; current worker state; and any relevant report/error
 	// for the associated current/recent worker.)
 	KeyManifolds = "manifolds"
+
+	// KeyReport holds an arbitrary map of information returned by a manifold
+	// Worker that is also a Reporter.
+	KeyReport = "report"
 
 	// KeyInputs holds the names of the manifolds on which this one depends.
 	KeyInputs = "inputs"
@@ -174,8 +183,4 @@ const (
 	// KeyType holds a string representation of the type by which a resource
 	// was accessed.
 	KeyType = "type"
-
-	// KeyReport holds an arbitrary map of information returned by a manifold
-	// Worker that is also a Reporter.
-	KeyReport = "report"
 )

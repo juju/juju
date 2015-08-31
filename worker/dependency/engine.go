@@ -295,7 +295,7 @@ func (engine *engine) requestStart(name string, delay time.Duration) {
 	go engine.runWorker(name, delay, manifold.Start, resourceGetter)
 }
 
-// resourceGetter returns a resoourceGetter backed by a snapshot of current
+// resourceGetter returns a resourceGetter backed by a snapshot of current
 // worker state, restricted to those workers declared in inputs. It must only
 // be called from the loop goroutine; see inside for a detailed dicsussion of
 // why we took this appproach.
@@ -327,7 +327,7 @@ func (engine *engine) resourceGetter(name string, inputs []string) *resourceGett
 	//  * Install manifold A; loop starts worker A
 	//  * Install manifold B; loop starts worker B with empty resource snapshot
 	//  * A communicates its worker back to loop; main thread bounces B
-	//  * B's StartFunc asks for A, gets nothing, returns ErrUnmetDependencies
+	//  * B's StartFunc asks for A, gets nothing, returns ErrMissing
 	//  * loop restarts worker B with an up-to-date snapshot, B works fine
 	//
 	// We assume that, in the common case, most workers run without error most
@@ -360,24 +360,38 @@ func (engine *engine) resourceGetter(name string, inputs []string) *resourceGett
 // loop goroutine; waits for worker completion; and communicates any error encountered
 // back to the loop goroutine. It must not be run on the loop goroutine.
 func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, resourceGetter *resourceGetter) {
-	startWorkerAndWait := func() error {
+
+	errAborted := errors.New("aborted before delay elapsed")
+
+	startAfterDelay := func() (worker.Worker, error) {
+		// NOTE: the resourceGetter will expire *after* the worker is started.
+		// This is tolerable because
+		//  1) we'll still correctly block access attempts most of the time
+		//  2) failing to block them won't cause data races anyway
+		//  3) it's not worth complicating the interface for every client just
+		//     to eliminate the possibility of one harmlessly dumb interaction.
+		defer resourceGetter.expire()
 		logger.Debugf("starting %q manifold worker in %s...", name, delay)
 		select {
 		case <-time.After(delay):
 		case <-engine.tomb.Dying():
-			logger.Debugf("not starting %q manifold worker (shutting down)", name)
-			return nil
+			return nil, errAborted
 		}
-
 		logger.Debugf("starting %q manifold worker", name)
-		worker, err := start(resourceGetter.getResource)
-		if err != nil {
+		return start(resourceGetter.getResource)
+	}
+
+	startWorkerAndWait := func() error {
+		worker, err := startAfterDelay()
+		switch err {
+		case errAborted:
+			return nil
+		case nil:
+			logger.Debugf("running %q manifold worker", name)
+		default:
 			logger.Warningf("failed to start %q manifold worker: %v", name, err)
 			return err
 		}
-		resourceGetter.expire()
-
-		logger.Debugf("running %q manifold worker", name)
 		select {
 		case <-engine.tomb.Dying():
 			logger.Debugf("stopping %q manifold worker (shutting down)", name)
