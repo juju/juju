@@ -62,9 +62,6 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 
 	err = MigrateUserLastConnectionToLastLogin(s.state)
 	c.Assert(err, jc.ErrorIsNil)
-	user, err := s.state.User(names.NewLocalUserTag(userId))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*user.LastLogin(), gc.Equals, now)
 
 	// check to see if _id_ field is removed
 	userMap := map[string]interface{}{}
@@ -74,6 +71,10 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
+
+	lastLogin, keyExists := userMap["lastlogin"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(now.Equal(lastLogin.(time.Time)), jc.IsTrue)
 }
 
 func (s *upgradesSuite) TestLowerCaseEnvUsersID(c *gc.C) {
@@ -3223,6 +3224,121 @@ func (s *upgradesSuite) removeEnvCountDoc(c *gc.C) {
 		Remove: true,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestMigrateLastLoginAndLastConnection(c *gc.C) {
+	t := time.Now().Round(time.Second)
+	user := names.NewUserTag("foobar")
+
+	s.addUsersForLastLoginAndConnection(c, t, user)
+
+	err := MigrateLastLoginAndLastConnection(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertLastLoginAndConnectionMigration(c, t, user)
+}
+
+func (s *upgradesSuite) TestMigrateLastLoginAndLastConnectionIdempotent(c *gc.C) {
+	t := time.Now().Round(time.Second)
+	user := names.NewUserTag("foobar")
+
+	s.addUsersForLastLoginAndConnection(c, t, user)
+
+	err := MigrateLastLoginAndLastConnection(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = MigrateLastLoginAndLastConnection(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertLastLoginAndConnectionMigration(c, t, user)
+}
+
+func (s *upgradesSuite) addUsersForLastLoginAndConnection(c *gc.C, t time.Time, user names.UserTag) {
+	userID := user.Id()
+	oldEnvUserID := envUserID(user)
+
+	oldUserDoc := bson.M{
+		"_id":          userID,
+		"env-uuid":     "envuuid456",
+		"displayname":  "foo bar",
+		"deactivated":  false,
+		"passwordhash": "hash",
+		"passwordsalt": "salt",
+		"createdby":    "creator",
+		"datecreated":  t,
+		"lastlogin":    t,
+	}
+
+	oldEnvUserDoc := bson.M{
+		"_id":            oldEnvUserID,
+		"env-uuid":       "envuuid123",
+		"user":           "username@local",
+		"displayname":    "ignored",
+		"createdby":      "ignored@local",
+		"datecreated":    t,
+		"lastconnection": t,
+	}
+
+	ops := []txn.Op{
+		{
+			C:      "users",
+			Id:     userID,
+			Assert: txn.DocMissing,
+			Insert: oldUserDoc,
+		},
+		{
+			C:      "envusers",
+			Id:     oldEnvUserID,
+			Assert: txn.DocMissing,
+			Insert: oldEnvUserDoc,
+		},
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) assertLastLoginAndConnectionMigration(c *gc.C, t time.Time, user names.UserTag) {
+	userID := user.Id()
+	oldEnvUserID := envUserID(user)
+
+	// check to see if lastlogin field is removed
+	userMap := s.getDocMap(c, userID, "users")
+	_, keyExists := userMap["lastlogin"]
+	c.Assert(keyExists, jc.IsFalse)
+
+	// check to see if lastconnection field is removed
+	envUserMap := s.getDocMap(c, oldEnvUserID, "envusers")
+	_, keyExists = envUserMap["lastconnection"]
+	c.Assert(keyExists, jc.IsFalse)
+
+	// check to see if lastlogin doc is added
+	lastLoginMap := s.getDocMap(c, userID, "userLastLogin")
+	lastLogin, keyExists := lastLoginMap["last-login"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(lastLogin.(time.Time).UTC(), gc.Equals, t.UTC())
+	envUUID, keyExists := lastLoginMap["env-uuid"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(envUUID, gc.Equals, "envuuid456")
+
+	// check to see if lastconnection doc is added
+	lastConnMap := s.getDocMap(c, oldEnvUserID, "envUserLastConnection")
+	lastConn, keyExists := lastConnMap["last-connection"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(lastConn.(time.Time).UTC(), gc.Equals, t.UTC())
+	envUUID, keyExists = lastConnMap["env-uuid"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(envUUID, gc.Equals, "envuuid123")
+	username, keyExists := lastConnMap["user"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(username, gc.Equals, "username@local")
+}
+
+func (s *upgradesSuite) getDocMap(c *gc.C, docID, collection string) map[string]interface{} {
+	docMap := map[string]interface{}{}
+	coll, closer := s.state.getRawCollection(collection)
+	defer closer()
+	err := coll.Find(bson.D{{"_id", docID}}).One(&docMap)
+	c.Assert(err, jc.ErrorIsNil)
+	return docMap
 }
 
 func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {

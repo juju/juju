@@ -82,6 +82,12 @@ func stateStepsFor125() []Step {
 			run: func(context Context) error {
 				return state.AddVolumeStatus(context.State())
 			}},
+		&upgradeStep{
+			description: "move lastlogin and last connection to their own collections",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateLastLoginAndLastConnection(context.State())
+			}},
 	}
 }
 

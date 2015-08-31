@@ -4,6 +4,8 @@
 package usermanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -166,20 +168,29 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
+	var results params.UserInfoResults
 	var infoForUser = func(user *state.User) params.UserInfoResult {
+		var lastLogin *time.Time
+		userLastLogin, err := user.LastLogin()
+		if err != nil {
+			if !state.IsNeverLoggedInError(err) {
+				logger.Debugf("error getting last login: %v", err)
+			}
+		} else {
+			lastLogin = &userLastLogin
+		}
 		return params.UserInfoResult{
 			Result: &params.UserInfo{
 				Username:       user.Name(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
-				LastConnection: user.LastLogin(),
+				LastConnection: lastLogin,
 				Disabled:       user.IsDisabled(),
 			},
 		}
 	}
 
-	var results params.UserInfoResults
 	argCount := len(request.Entities)
 	if argCount == 0 {
 		users, err := api.state.AllUsers(request.IncludeDisabled)

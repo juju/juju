@@ -138,11 +138,17 @@ func (st *State) RemoveAllEnvironDocs() error {
 			return errors.Trace(err)
 		}
 		for _, id := range ids {
-			ops = append(ops, txn.Op{
-				C:      name,
-				Id:     id["_id"],
-				Remove: true,
-			})
+			if info.rawAccess {
+				if err := coll.Writeable().RemoveId(id["_id"]); err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				ops = append(ops, txn.Op{
+					C:      name,
+					Id:     id["_id"],
+					Remove: true,
+				})
+			}
 		}
 	}
 
