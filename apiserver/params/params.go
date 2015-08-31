@@ -358,9 +358,10 @@ type Creds struct {
 // LoginRequest holds credentials for identifying an entity to the Login v1
 // facade.
 type LoginRequest struct {
-	AuthTag     string `json:"auth-tag"`
-	Credentials string `json:"credentials"`
-	Nonce       string `json:"nonce"`
+	AuthTag     string         `json:"auth-tag"`
+	Credentials string         `json:"credentials"`
+	Nonce       string         `json:"nonce"`
+	Macaroons   macaroon.Slice `json:"macaroons"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1

@@ -9,6 +9,7 @@ import (
 )
 
 // FindEntityAuthenticator looks up the authenticator for the entity identified tag.
+// TODO: replace "entity" with AuthTag string to dispatch to appropriate authenticator.
 func FindEntityAuthenticator(entity state.Entity) (EntityAuthenticator, error) {
 	switch entity.(type) {
 	case *state.Machine, *state.Unit:

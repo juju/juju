@@ -85,7 +85,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
-	if err != nil {
+	if IsDischargeReqErr(err) {
+		// TODO: return macaroon req resp
+	} else if err != nil {
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
 			// progress. It is possible for logins to fail until this
@@ -251,11 +253,14 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 		return nil, nil, errors.Trace(err)
 	}
 
+	// TODO: just pass in the tag here to dispatch to the right authenticator
 	authenticator, err := authentication.FindEntityAuthenticator(entity)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// TODO: return a "407 macaroon reqd"?
+	// TODO: pass in a thing that can look up the entity that's not necessarily state
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
 		return nil, nil, err

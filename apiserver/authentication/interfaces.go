@@ -11,5 +11,6 @@ import (
 // to authenticate juju entities.
 type EntityAuthenticator interface {
 	// Authenticate authenticates the given entity
+	// TODO: Authenticate(entity state.Entity, req params.LoginRequest) error
 	Authenticate(entity state.Entity, password, nonce string) error
 }
