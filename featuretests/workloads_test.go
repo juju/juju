@@ -366,7 +366,7 @@ func (s *workloadsSuite) TestHookContextDestroy(c *gc.C) {
 }
 
 func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
-	svc := s.env.addService(c, "workload-actions", "workerStatusSvc")
+	svc := s.env.addService(c, "workload-actions", "status-worker")
 	s.svc = svc
 
 	svc.dummy.prepPlugin(c, "myworkload", "xyz123", "running")
