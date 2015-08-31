@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/utils"
 	"github.com/juju/juju/workload"
 )
 
@@ -73,8 +74,9 @@ type pluginPaths interface {
 func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) (string, error)) (*ExecutablePlugin, error) {
 	absPath, err := paths.Executable()
 	if errors.IsNotFound(err) {
-		absPath, err = lookPath(executablePrefix + name)
-		if err == exec.ErrNotFound {
+		executableName := executablePrefix + name
+		absPath, err = lookPath(executableName)
+		if utils.IsNotFound(err) {
 			return nil, errors.NotFoundf("plugin %q", name)
 		}
 		if err != nil {
