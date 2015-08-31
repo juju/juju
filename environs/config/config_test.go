@@ -987,6 +987,45 @@ var configTests = []configTest{
 		},
 		err: `resource-tags: expected "key=value", got "a"`,
 	},
+	{
+		about:       "Invalid identity URL value",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"identity-url": "%",
+		},
+		err: `invalid identity URL: parse %: invalid URL escape "%"`,
+	}, {
+		about:       "Not using https in identity URL",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"identity-url": "http://test-identity",
+		},
+		err: `URL needs to be https`,
+	},
+	{
+		about:       "Invalid identity public key",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"identity-public-key": "_",
+		},
+		err: `invalid identity public key: cannot decode base64 key: illegal base64 data at input byte 0`,
+	},
+	{
+		about:       "Valid identity URL and public key values",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"identity-url":        "https://test-identity",
+			"identity-public-key": "o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=",
+		},
+	},
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -1203,6 +1242,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		got, exists := cfg.UUID()
 		c.Assert(exists, gc.Equals, ok)
 		c.Assert(got, gc.Equals, expected)
+	}
+	if identityURL, ok := test.attrs["identity-url"]; ok {
+		c.Assert(cfg.IdentityURL(), gc.Equals, identityURL)
+	}
+	if identityPublicKey, ok := test.attrs["identity-public-key"]; ok {
+		c.Assert(cfg.IdentityPublicKey(), gc.Equals, identityPublicKey)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
