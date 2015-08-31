@@ -92,6 +92,11 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	// Destroy only sets the environment to dying and RemoveAllEnvironDocs can
+	// only be called on a dead environment. Normally, the environ's lifecycle
+	// would be set to dead after machines and services have been cleaned up.
+	err = state.SetEnvLifeDying(st1, env1.EnvironTag().Id())
+	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -293,6 +298,80 @@ func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestProcessDyingServerEnvironTransitionDyingToDead(c *gc.C) {
+	s.assertDyingEnvironTransitionDyingToDead(c, s.State)
+}
+
+func (s *EnvironSuite) TestProcessDyingHostedEnvironTransitionDyingToDead(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, nil)
+	defer st.Close()
+	s.assertDyingEnvironTransitionDyingToDead(c, st)
+}
+
+func (s *EnvironSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.State) {
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// ProcessDyingEnviron is called by a worker after Destroy is called. To
+	// avoid a race, we jump the gun here and test immediately after the
+	// environement was set to dead.
+	defer state.SetAfterHooks(c, st, func() {
+		c.Assert(env.Refresh(), jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, state.Dying)
+
+		c.Assert(st.ProcessDyingEnviron(), jc.ErrorIsNil)
+
+		c.Assert(env.Refresh(), jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, state.Dead)
+	}).Check()
+
+	c.Assert(env.Destroy(), jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	// calling ProcessDyingEnviron on a live environ should fail.
+	err := st.ProcessDyingEnviron()
+	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+
+	// add some machines and services
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = st.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: env.Owner()})
+	ch, _, err := service.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	service, err = st.AddService(service.Name(), service.GetOwnerTag(), ch, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertEnv := func(life state.Life, expectedMachines, expectedServices int) {
+		c.Assert(env.Refresh(), jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, life)
+
+		machines, err := st.AllMachines()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(machines, gc.HasLen, expectedMachines)
+
+		services, err := st.AllServices()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(services, gc.HasLen, expectedServices)
+	}
+
+	// Simulate processing a dying envrionment after an envrionment is set to
+	// dying, but before the cleanup has removed machines and services.
+	defer state.SetAfterHooks(c, st, func() {
+		assertEnv(state.Dying, 1, 1)
+		err := st.ProcessDyingEnviron()
+		c.Assert(err, gc.ErrorMatches, `environment not empty, found 1 machine\(s\)`)
+		assertEnv(state.Dying, 1, 1)
+	}).Check()
+
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 }
 
