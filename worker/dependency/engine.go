@@ -142,9 +142,9 @@ func (engine *engine) loop() error {
 			// This is safe so long as the Install method reads the result.
 			ticket.result <- engine.gotInstall(ticket.name, ticket.manifold)
 		case ticket := <-engine.started:
-			engine.gotStarted(ticket.name, ticket.worker)
+			engine.gotStarted(ticket.name, ticket.worker, ticket.accesses)
 		case ticket := <-engine.stopped:
-			engine.gotStopped(ticket.name, ticket.error)
+			engine.gotStopped(ticket.name, ticket.error, ticket.accesses)
 		}
 		if engine.isDying() {
 			if engine.allStopped() {
@@ -214,10 +214,11 @@ func (engine *engine) manifoldsReport() map[string]interface{} {
 	manifolds := map[string]interface{}{}
 	for name, info := range engine.current {
 		manifolds[name] = map[string]interface{}{
-			KeyState:  info.state(),
-			KeyError:  info.err,
-			KeyInputs: engine.manifolds[name].Inputs,
-			KeyReport: info.report(),
+			KeyState:    info.state(),
+			KeyError:    info.err,
+			KeyInputs:   engine.manifolds[name].Inputs,
+			KeyReport:   info.report(),
+			KeyAccesses: accessReport(info.accesses),
 		}
 	}
 	return manifolds
@@ -290,15 +291,15 @@ func (engine *engine) requestStart(name string, delay time.Duration) {
 	// goroutine based on current known state.
 	info.starting = true
 	engine.current[name] = info
-	getResource := engine.getResourceFunc(name, manifold.Inputs)
-	go engine.runWorker(name, delay, manifold.Start, getResource)
+	resourceGetter := engine.resourceGetter(name, manifold.Inputs)
+	go engine.runWorker(name, delay, manifold.Start, resourceGetter)
 }
 
-// getResourceFunc returns a GetResourceFunc backed by a snapshot of current
+// resourceGetter returns a resoourceGetter backed by a snapshot of current
 // worker state, restricted to those workers declared in inputs. It must only
 // be called from the loop goroutine; see inside for a detailed dicsussion of
 // why we took this appproach.
-func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceFunc {
+func (engine *engine) resourceGetter(name string, inputs []string) *resourceGetter {
 	// We snapshot the resources available at invocation time, rather than adding an
 	// additional communicate-resource-request channel. The latter approach is not
 	// unreasonable... but is prone to inelegant scrambles when starting several
@@ -340,38 +341,25 @@ func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceF
 	// Those may indeed suffer the occasional extra bounce as the system comes
 	// to stability as it starts, or after a change; but workers *must* be
 	// written for resilience in the face of arbitrary bounces *anyway*, so it
-	// shouldn't be harmful
+	// shouldn't be harmful.
 	outputs := map[string]OutputFunc{}
 	workers := map[string]worker.Worker{}
 	for _, resourceName := range inputs {
 		outputs[resourceName] = engine.manifolds[resourceName].Output
 		workers[resourceName] = engine.current[resourceName].worker
 	}
-	return func(resourceName string, out interface{}) error {
-		logger.Debugf("%q manifold requested %q resource", name, resourceName)
-		input := workers[resourceName]
-		if input == nil {
-			// No worker running (or not declared).
-			return ErrMissing
-		}
-		convert := outputs[resourceName]
-		if convert == nil {
-			// No conversion func available...
-			if out != nil {
-				// ...and the caller wants a resource.
-				return ErrMissing
-			}
-			// ...but it's ok, because the caller depends on existence only.
-			return nil
-		}
-		return convert(input, out)
+	return &resourceGetter{
+		clientName: name,
+		expired:    make(chan struct{}),
+		workers:    workers,
+		outputs:    outputs,
 	}
 }
 
 // runWorker starts the supplied manifold's worker and communicates it back to the
 // loop goroutine; waits for worker completion; and communicates any error encountered
 // back to the loop goroutine. It must not be run on the loop goroutine.
-func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, getResource GetResourceFunc) {
+func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, resourceGetter *resourceGetter) {
 	startWorkerAndWait := func() error {
 		logger.Debugf("starting %q manifold worker in %s...", name, delay)
 		select {
@@ -382,30 +370,31 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 		}
 
 		logger.Debugf("starting %q manifold worker", name)
-		worker, err := start(getResource)
+		worker, err := start(resourceGetter.getResource)
 		if err != nil {
 			logger.Warningf("failed to start %q manifold worker: %v", name, err)
 			return err
 		}
+		resourceGetter.expire()
 
 		logger.Debugf("running %q manifold worker", name)
 		select {
 		case <-engine.tomb.Dying():
 			logger.Debugf("stopping %q manifold worker (shutting down)", name)
 			worker.Kill()
-		case engine.started <- startedTicket{name, worker}:
+		case engine.started <- startedTicket{name, worker, resourceGetter.accesses}:
 			logger.Debugf("registered %q manifold worker", name)
 		}
 		return worker.Wait()
 	}
 
 	// We may or may not send on started, but we *must* send on stopped.
-	engine.stopped <- stoppedTicket{name, startWorkerAndWait()}
+	engine.stopped <- stoppedTicket{name, startWorkerAndWait(), resourceGetter.accesses}
 }
 
 // gotStarted updates the engine to reflect the creation of a worker. It must
 // only be called from the loop goroutine.
-func (engine *engine) gotStarted(name string, worker worker.Worker) {
+func (engine *engine) gotStarted(name string, worker worker.Worker, accesses []resourceAccess) {
 	// Copy current info; check preconditions and abort the workers if we've
 	// already been asked to stop it.
 	info := engine.current[name]
@@ -419,10 +408,10 @@ func (engine *engine) gotStarted(name string, worker worker.Worker) {
 	default:
 		// It's fine to use this worker; update info and copy back.
 		logger.Debugf("%q manifold worker started", name)
-		info.starting = false
-		info.worker = worker
-		info.err = nil
-		engine.current[name] = info
+		engine.current[name] = workerInfo{
+			worker:   worker,
+			accesses: accesses,
+		}
 
 		// Any manifold that declares this one as an input needs to be restarted.
 		engine.bounceDependents(name)
@@ -431,7 +420,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker) {
 
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
-func (engine *engine) gotStopped(name string, err error) {
+func (engine *engine) gotStopped(name string, err error, accesses []resourceAccess) {
 	logger.Debugf("%q manifold worker stopped: %v", name, err)
 
 	// Copy current info and check for reasons to stop the engine.
@@ -444,7 +433,10 @@ func (engine *engine) gotStopped(name string, err error) {
 	}
 
 	// Reset engine info; and bail out if we can be sure there's no need to bounce.
-	engine.current[name] = workerInfo{err: err}
+	engine.current[name] = workerInfo{
+		err:      err,
+		accesses: accesses,
+	}
 	if engine.isDying() {
 		logger.Debugf("permanently stopped %q manifold worker (shutting down)", name)
 		return
@@ -540,6 +532,7 @@ type workerInfo struct {
 	stopping bool
 	worker   worker.Worker
 	err      error
+	accesses []resourceAccess
 }
 
 // stopped returns true unless the worker is either assigned or starting.
@@ -586,15 +579,17 @@ type installTicket struct {
 // startedTicket is used by engine to notify the loop of the creation of the
 // worker for a particular manifold.
 type startedTicket struct {
-	name   string
-	worker worker.Worker
+	name     string
+	worker   worker.Worker
+	accesses []resourceAccess
 }
 
 // stoppedTicket is used by engine to notify the loop of the demise of (or
 // failure to create) the worker for a particular manifold.
 type stoppedTicket struct {
-	name  string
-	error error
+	name     string
+	error    error
+	accesses []resourceAccess
 }
 
 // reportTicket is used by the engine to notify the loop that a status report

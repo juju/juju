@@ -163,7 +163,19 @@ const (
 	// KeyInputs holds the names of the manifolds on which this one depends.
 	KeyInputs = "inputs"
 
-	// Report holds an arbitrary map of information returned by a manifold
+	// KeyAccesses holds a slice representing the calls the current worker
+	// made to its getResource func; the type of the output param; and any
+	// error encountered.
+	KeyAccesses = "accesses"
+
+	// KeyName holds the name of some resource.
+	KeyName = "name"
+
+	// KeyType holds a string representation of the type by which a resource
+	// was accessed.
+	KeyType = "type"
+
+	// KeyReport holds an arbitrary map of information returned by a manifold
 	// Worker that is also a Reporter.
 	KeyReport = "report"
 )
