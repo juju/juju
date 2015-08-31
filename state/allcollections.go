@@ -101,6 +101,12 @@ func allCollections() collectionSchema {
 			}},
 		},
 
+		// This collection holds the last time the user connected to the API server.
+		userLastLoginC: {
+			global:    true,
+			rawAccess: true,
+		},
+
 		// This collection is used as a unique key restraint. The _id field is
 		// a concatenation of multiple fields that form a compound index,
 		// allowing us to ensure users cannot have the same name for two
@@ -133,6 +139,12 @@ func allCollections() collectionSchema {
 		// references the global records of the users allowed access to a
 		// given collection.
 		envUsersC: {},
+
+		// This collection holds the last time the environment user connected
+		// to the environment.
+		envUserLastConnectionC: {
+			rawAccess: true,
+		},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -372,6 +384,8 @@ const (
 	upgradeInfoC           = "upgradeInfo"
 	userenvnameC           = "userenvname"
 	usersC                 = "users"
+	userLastLoginC         = "userLastLogin"
+	envUserLastConnectionC = "envUserLastConnection"
 	volumeAttachmentsC     = "volumeattachments"
 	volumesC               = "volumes"
 )
