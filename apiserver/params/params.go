@@ -356,7 +356,10 @@ type Creds struct {
 }
 
 // LoginRequest holds credentials for identifying an entity to the Login v1
-// facade.
+// facade. AuthTag holds the tag of the user to connect as. If it is empty,
+// then the provided Macaroons will be used for authentication. These may be
+// empty, in which case LoginResponse will contain a macaroon that when
+// discharged, may allow access.
 type LoginRequest struct {
 	AuthTag     string         `json:"auth-tag"`
 	Credentials string         `json:"credentials"`
@@ -610,26 +613,27 @@ type AuthUserInfo struct {
 
 // LoginRequestV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
+	// DischargeRequired implies that the login request has failed, and none of
+	// the other fields are populated. It contains a macaroon which, when
+	// discharged, will grant access on a subsequent call to Login.
+	DischargeRequired *macaroon.Macaroon `json:"discharge-required,omitempty"`
+
 	// Servers is the list of API server addresses.
-	Servers [][]HostPort `json:"servers"`
+	Servers [][]HostPort `json:"servers,omitempty"`
 
 	// EnvironTag is the tag for the environment that is being connected to.
-	EnvironTag string `json:"environ-tag"`
+	EnvironTag string `json:"environ-tag,omitempty"`
 
 	// ServerTag is the tag for the environment that holds the API servers.
 	// This is the initial environment created when bootstrapping juju.
-	ServerTag string `json:"server-tag"`
-
-	// ReauthRequest can be used to relay any further authentication handshaking
-	// required on the part of the client to complete the Login, if any.
-	ReauthRequest *ReauthRequest `json:"reauth-request,omitempty"`
+	ServerTag string `json:"server-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
 	UserInfo *AuthUserInfo `json:"user-info,omitempty"`
 
 	// Facades describes all the available API facade versions to the
 	// authenticated client.
-	Facades []FacadeVersions `json:"facades"`
+	Facades []FacadeVersions `json:"facades,omitempty"`
 
 	// ServerVersion is the string representation of the server version
 	// if the server supports it.
