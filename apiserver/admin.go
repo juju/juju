@@ -267,7 +267,10 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 	// update the last connection times for the environment users there.
 	var lastLogin *time.Time
 	if user, ok := entity.(*state.User); ok {
-		lastLogin = user.LastLogin()
+		userLastLogin, err := user.LastLogin()
+		if err != nil && !state.IsNeverLoggedInError(err) {
+			return nil, nil, errors.Trace(err)
+		}
 		if lookForEnvUser {
 			envUser, err := st.EnvironmentUser(user.UserTag())
 			if err != nil {
@@ -275,7 +278,10 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 			}
 			// The last connection for the environment takes precedence over
 			// the local user last login time.
-			lastLogin = envUser.LastConnection()
+			userLastLogin, err = envUser.LastConnection()
+			if err != nil && !state.IsNeverConnectedError(err) {
+				return nil, nil, errors.Trace(err)
+			}
 			envUser.UpdateLastConnection()
 		}
 		// Only update the user's last login time if it is a successful
@@ -283,6 +289,7 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 		// sure that there is an environment user in that environment for
 		// this user.
 		user.UpdateLastLogin()
+		lastLogin = &userLastLogin
 	}
 
 	return entity, lastLogin, nil
