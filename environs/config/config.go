@@ -21,7 +21,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v0/bakery"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/tags"
@@ -1259,8 +1259,19 @@ func (c *Config) IdentityURL() string {
 }
 
 // IdentityPublicKey returns the public key of the identity manager.
-func (c *Config) IdentityPublicKey() string {
-	return c.asString(IdentityPublicKey)
+func (c *Config) IdentityPublicKey() *bakery.PublicKey {
+	key := c.asString(IdentityPublicKey)
+	if key == "" {
+		return nil
+	}
+	var pubKey bakery.PublicKey
+	err := pubKey.UnmarshalText([]byte(key))
+	if err != nil {
+		// We check if the key string can be unmarshalled into a PublicKey in the
+		// Validate function, so we really do not expect this to fail.
+		panic(err)
+	}
+	return &pubKey
 }
 
 // fields holds the validation schema fields derived from configSchema.

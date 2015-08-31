@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/macaroon-bakery.v0/bakery"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -1247,7 +1248,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.IdentityURL(), gc.Equals, identityURL)
 	}
 	if identityPublicKey, ok := test.attrs["identity-public-key"]; ok {
-		c.Assert(cfg.IdentityPublicKey(), gc.Equals, identityPublicKey)
+		var pk bakery.PublicKey
+		err := pk.UnmarshalText([]byte(identityPublicKey.(string)))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cfg.IdentityPublicKey(), gc.DeepEquals, &pk)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
