@@ -85,9 +85,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
-	if IsDischargeReqErr(err) {
-		// TODO: return macaroon req resp
-	} else if err != nil {
+	// TODO check for discharged-requirederror and return macaroon required response
+	// if found.
+	if err != nil {
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
 			// progress. It is possible for logins to fail until this
