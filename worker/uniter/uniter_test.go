@@ -1710,8 +1710,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestReboot(c *gc.C) {
-	c.Skip("maltese-falcon: implement actions")
+func (s *UniterSuite) TestRebootDisabledInActions(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"test that juju-reboot disabled in actions",
@@ -1742,7 +1741,12 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 				},
 				status: params.ActionCompleted,
 			}}},
-		), ut(
+		)})
+}
+
+func (s *UniterSuite) TestRebootFinishesHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"test that juju-reboot finishes hook, and reboots",
 			createCharm{
 				customize: func(c *gc.C, ctx *context, path string) {
@@ -1766,7 +1770,12 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 				status:       params.StatusUnknown,
 			},
 			waitHooks{"leader-elected", "config-changed", "start"},
-		), ut(
+		)})
+}
+
+func (s *UniterSuite) TestRebootNowKillsHook(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"test that juju-reboot --now kills hook and exits",
 			createCharm{
 				customize: func(c *gc.C, ctx *context, path string) {
@@ -1790,7 +1799,12 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 				status:       params.StatusUnknown,
 			},
 			waitHooks{"install", "leader-elected", "config-changed", "start"},
-		), ut(
+		)})
+}
+
+func (s *UniterSuite) TestRebootDisabledOnHookError(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
 			"test juju-reboot will not happen if hook errors out",
 			createCharm{
 				customize: func(c *gc.C, ctx *context, path string) {
