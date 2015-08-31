@@ -70,6 +70,7 @@ type eventHandlerSuite struct {
 
 	stub      *gitjujutesting.Stub
 	apiClient *stubAPIClient
+	agentDir  string
 }
 
 var _ = gc.Suite(&eventHandlerSuite{})
@@ -79,6 +80,7 @@ func (s *eventHandlerSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &gitjujutesting.Stub{}
 	s.apiClient = &stubAPIClient{stub: s.stub}
+	s.agentDir = "a-data-dir"
 }
 
 func (s *eventHandlerSuite) handler(events []workload.Event, apiClient context.APIClient, runner workers.Runner) error {
@@ -109,13 +111,14 @@ func (s *eventHandlerSuite) TestNewEventHandlers(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
+	c.Check(data.DataDir, gc.Equals, "")
 	c.Check(data.Engine, gc.IsNil)
 }
 
 func (s *eventHandlerSuite) TestResetOkay(c *gc.C) {
 	eh := workers.NewEventHandlers()
 	c.Assert(eh, gc.NotNil)
-	err := eh.Reset(s.apiClient)
+	err := eh.Reset(s.apiClient, s.agentDir)
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
@@ -123,6 +126,7 @@ func (s *eventHandlerSuite) TestResetOkay(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.Equals, s.apiClient)
+	c.Check(data.DataDir, gc.Equals, s.agentDir)
 	c.Check(data.Engine, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
@@ -131,7 +135,7 @@ func (s *eventHandlerSuite) TestResetHandlersNotChanged(c *gc.C) {
 	eh := workers.NewEventHandlers()
 	c.Assert(eh, gc.NotNil)
 	eh.RegisterHandler(s.handler)
-	err := eh.Reset(s.apiClient)
+	err := eh.Reset(s.apiClient, s.agentDir)
 	c.Assert(err, jc.ErrorIsNil)
 	eh.Close()
 
@@ -149,6 +153,7 @@ func (s *eventHandlerSuite) TestCloseFresh(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
+	c.Check(data.DataDir, gc.Equals, "")
 	c.Check(data.Engine, gc.IsNil)
 	s.stub.CheckCalls(c, nil)
 }
@@ -166,6 +171,7 @@ func (s *eventHandlerSuite) TestCloseIdempotent(c *gc.C) {
 	data := workers.ExposeEventHandlers(eh)
 	checkUnhandledEvents(c, data.Events)
 	c.Check(data.APIClient, gc.IsNil)
+	c.Check(data.DataDir, gc.Equals, "")
 	c.Check(data.Engine, gc.IsNil)
 }
 
@@ -184,7 +190,7 @@ func (s *eventHandlerSuite) TestStartEngine(c *gc.C) {
 	}}
 
 	eh := workers.NewEventHandlers()
-	eh.Reset(s.apiClient)
+	eh.Reset(s.apiClient, s.agentDir)
 	eh.RegisterHandler(s.handler)
 	engine, err := eh.StartEngine()
 	c.Assert(err, jc.ErrorIsNil)

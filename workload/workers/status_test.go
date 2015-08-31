@@ -13,7 +13,6 @@ import (
 	workertesting "github.com/juju/juju/worker/testing"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/context"
-	"github.com/juju/juju/workload/plugin"
 	"github.com/juju/juju/workload/workers"
 )
 
@@ -109,7 +108,7 @@ func (s statusWorkerAPIStub) SetStatus(status workload.Status, pluginStatus work
 }
 
 type statusPluginStub struct {
-	plugin.Plugin
+	workload.Plugin
 	stub *gitjujutesting.Stub
 
 	pluginStatus string

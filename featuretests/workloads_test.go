@@ -105,7 +105,7 @@ func (s *workloadsSuite) TestHookLifecycle(c *gc.C) {
 	unit.checkState(c, []workload.Info{{
 		Workload: charm.Workload{
 			Name: "myworkload",
-			Type: "myplugin",
+			Type: "testing-plugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
@@ -149,7 +149,7 @@ func (s *workloadsSuite) TestHookLifecycle(c *gc.C) {
 	}})
 	unit.checkPluginLog(c, []string{
 		`myworkload	xyz123	running		added`,
-		`myworkload	xyz123	running	{"Name":"myworkload","Description":"","Type":"myplugin","TypeOptions":{"critical":"true"},"Command":"run-server","Image":"web-server","Ports":[{"External":8080,"Internal":80,"Endpoint":""},{"External":8081,"Internal":443,"Endpoint":""}],"Volumes":[{"ExternalMount":"/var/some-server/html","InternalMount":"/usr/share/some-server/html","Mode":"ro","Name":""},{"ExternalMount":"/var/some-server/conf","InternalMount":"/etc/some-server","Mode":"ro","Name":""}],"EnvVars":{"IMPORTANT":"some value"}}	definition set`,
+		`myworkload	xyz123	running	{"Name":"myworkload","Description":"","Type":"testing-plugin","TypeOptions":{"critical":"true"},"Command":"run-server","Image":"web-server","Ports":[{"External":8080,"Internal":80,"Endpoint":""},{"External":8081,"Internal":443,"Endpoint":""}],"Volumes":[{"ExternalMount":"/var/some-server/html","InternalMount":"/usr/share/some-server/html","Mode":"ro","Name":""},{"ExternalMount":"/var/some-server/conf","InternalMount":"/etc/some-server","Mode":"ro","Name":""}],"EnvVars":{"IMPORTANT":"some value"}}	definition set`,
 	})
 
 	// Change the config.
@@ -184,7 +184,7 @@ func (s *workloadsSuite) TestHookContextRegister(c *gc.C) {
 	svc.dummy.checkState(c, []workload.Info{{
 		Workload: charm.Workload{
 			Name: "myworkload",
-			Type: "myplugin",
+			Type: "testing-plugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
@@ -242,7 +242,7 @@ func (s *workloadsSuite) TestHookContextLaunch(c *gc.C) {
 	svc.dummy.checkState(c, []workload.Info{{
 		Workload: charm.Workload{
 			Name: "myworkload",
-			Type: "myplugin",
+			Type: "testing-plugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
@@ -304,7 +304,7 @@ func (s *workloadsSuite) TestHookContextInfo(c *gc.C) {
 	unit.checkState(c, []workload.Info{{
 		Workload: charm.Workload{
 			Name: "myworkload",
-			Type: "myplugin",
+			Type: "testing-plugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},
@@ -386,7 +386,7 @@ func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
 	svc.dummy.checkState(c, []workload.Info{{
 		Workload: charm.Workload{
 			Name: "myworkload",
-			Type: "myplugin",
+			Type: "testing-plugin",
 			TypeOptions: map[string]string{
 				"critical": "true",
 			},

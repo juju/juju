@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
@@ -51,10 +52,10 @@ func (c workloads) registerHookContext(addEvents func(...workload.Event) error) 
 	}
 
 	runner.RegisterComponentFunc(workload.ComponentName,
-		func(unit string, caller base.APICaller) (jujuc.ContextComponent, error) {
-			hctxClient := c.newHookContextAPIClient(caller)
+		func(config runner.ComponentConfig) (jujuc.ContextComponent, error) {
+			hctxClient := c.newHookContextAPIClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
-			component, err := context.NewContextAPI(hctxClient, addEvents)
+			component, err := context.NewContextAPI(hctxClient, config.DataDir, addEvents)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -178,12 +179,15 @@ func (c workloads) registerUnitWorkers() func(...workload.Event) error {
 		// At this point no workload workers are running for the unit.
 		// TODO(ericsnow) Move this code to workers.Manifold
 		// (and ManifoldConfig)?
-		apiConfig := util.ApiManifoldConfig{
+		apiConfig := util.AgentApiManifoldConfig{
 			APICallerName: config.APICallerName,
+			AgentName:     config.AgentName,
 		}
-		manifold := util.ApiManifold(apiConfig, func(caller base.APICaller) (worker.Worker, error) {
+		manifold := util.AgentApiManifold(apiConfig, func(unitAgent agent.Agent, caller base.APICaller) (worker.Worker, error) {
 			apiClient := c.newHookContextAPIClient(caller)
-			unitHandlers.Reset(apiClient)
+			config := unitAgent.CurrentConfig()
+			dataDir := workload.DataDir(agent.Dir(config.DataDir(), config.Tag()))
+			unitHandlers.Reset(apiClient, dataDir)
 			return unitHandlers.StartEngine()
 		})
 		return manifold, nil
