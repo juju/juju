@@ -81,9 +81,10 @@ func (s *ReportSuite) TestReportStopping(c *gc.C) {
 		"error": nil,
 		"manifolds": map[string]interface{}{
 			"task": map[string]interface{}{
-				"state":  "stopping",
-				"error":  nil,
-				"inputs": ([]string)(nil),
+				"state":    "stopping",
+				"error":    nil,
+				"inputs":   ([]string)(nil),
+				"accesses": []map[string]interface{}{},
 				"report": map[string]interface{}{
 					"key1": "hello there",
 				},
@@ -110,9 +111,10 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 		"error": nil,
 		"manifolds": map[string]interface{}{
 			"task": map[string]interface{}{
-				"state":  "started",
-				"error":  nil,
-				"inputs": ([]string)(nil),
+				"state":    "started",
+				"error":    nil,
+				"inputs":   ([]string)(nil),
+				"accesses": []map[string]interface{}{},
 				"report": map[string]interface{}{
 					"key1": "hello there",
 				},
@@ -121,6 +123,11 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 				"state":  "started",
 				"error":  nil,
 				"inputs": []string{"task"},
+				"accesses": []map[string]interface{}{{
+					"name":  "task",
+					"type":  "<nil>",
+					"error": nil,
+				}},
 				"report": map[string]interface{}{
 					"key1": "hello there",
 				},
@@ -149,6 +156,11 @@ func (s *ReportSuite) TestReportError(c *gc.C) {
 				"state":  "stopped",
 				"error":  dependency.ErrMissing,
 				"inputs": []string{"missing"},
+				"accesses": []map[string]interface{}{{
+					"name":  "missing",
+					"type":  "<nil>",
+					"error": dependency.ErrMissing,
+				}},
 				"report": (map[string]interface{})(nil),
 			},
 		},
