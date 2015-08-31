@@ -4,6 +4,8 @@
 package context
 
 import (
+	"os"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 )
@@ -50,6 +52,13 @@ func (c *WorkloadLaunchCommand) Run(ctx *cmd.Context) error {
 
 	info, err := c.findValidInfo(ctx)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(ericsnow) Move OS env info into the plugin.
+	// TODO(ericsnow) Fix this to support Windows.
+	envPath := ctx.Getenv("PATH") + ":" + os.Getenv("PATH")
+	if err := os.Setenv("PATH", envPath); err != nil {
 		return errors.Trace(err)
 	}
 
