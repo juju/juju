@@ -24,7 +24,8 @@ func init() {
 
 type baseSuite struct {
 	jujuctesting.ContextSuite
-	workload workload.Info
+	workload    workload.Info
+	definitions map[string]charm.Workload
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -172,19 +173,6 @@ func (c *stubContextComponent) Untrack(id string) error {
 	return nil
 }
 
-func (c *stubContextComponent) Definitions() ([]charm.Workload, error) {
-	c.stub.AddCall("Definitions")
-	if err := c.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var definitions []charm.Workload
-	for _, definition := range c.definitions {
-		definitions = append(definitions, definition)
-	}
-	return definitions, nil
-}
-
 func (c *stubContextComponent) Flush() error {
 	c.stub.AddCall("Flush")
 	if err := c.stub.NextErr(); err != nil {
@@ -237,19 +225,6 @@ func (c *stubAPIClient) setNew(ids ...string) []workload.Info {
 		workloads = append(workloads, wl)
 	}
 	return workloads
-}
-
-func (c *stubAPIClient) Definitions() ([]charm.Workload, error) {
-	c.stub.AddCall("Definitions")
-	if err := c.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var definitions []charm.Workload
-	for _, definition := range c.definitions {
-		definitions = append(definitions, definition)
-	}
-	return definitions, nil
 }
 
 func (c *stubAPIClient) List(ids ...string) ([]workload.Info, error) {

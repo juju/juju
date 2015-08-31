@@ -29,6 +29,7 @@ func (s *trackSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.trackCmd = cmd
+	s.trackCmd.ReadDefinitions = s.readDefinitions
 	s.setCommand(c, "workload-track", s.trackCmd)
 }
 
@@ -297,7 +298,7 @@ func (s *trackSuite) TestRunOkay(c *gc.C) {
 	s.init(c, s.workload.Name, "abc123", "running")
 
 	s.checkRun(c, "", "")
-	s.Stub.CheckCallNames(c, "List", "Definitions", "Track", "Flush")
+	s.Stub.CheckCallNames(c, "List", "Track", "Flush")
 }
 
 func (s *trackSuite) TestRunAlreadyRegistered(c *gc.C) {
@@ -323,8 +324,6 @@ func (s *trackSuite) TestRunUpdatedWorkload(c *gc.C) {
 	s.workload.Details = s.details
 	s.Stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "List",
-	}, {
-		FuncName: "Definitions",
 	}, {
 		FuncName: "Track",
 		Args:     []interface{}{s.workload},

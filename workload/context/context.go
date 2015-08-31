@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/plugin"
@@ -24,8 +23,6 @@ type APIClient interface {
 	Track(workloads ...workload.Info) ([]string, error)
 	// Untrack removes the workloads from our list track.
 	Untrack(ids []string) ([]workload.Result, error)
-	// Definitions returns the workload definitions found in the unit's metadata.
-	Definitions() ([]charm.Workload, error)
 	// SetStatus sets the status for the given IDs.
 	SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error
 }
@@ -45,8 +42,6 @@ type Component interface {
 	Untrack(id string) error
 	// List returns the list of registered workload IDs.
 	List() ([]string, error)
-	// Definitions returns the charm-defined workloads.
-	Definitions() ([]charm.Workload, error)
 	// Flush pushes the hook context data out to state.
 	Flush() error
 }
@@ -217,15 +212,6 @@ func (c *Context) Untrack(id string) error {
 	delete(c.workloads, id)
 
 	return nil
-}
-
-// Definitions returns the unit's charm-defined workloads.
-func (c *Context) Definitions() ([]charm.Workload, error) {
-	definitions, err := c.api.Definitions()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return definitions, nil
 }
 
 // TODO(ericsnow) The context machinery is not actually using this yet.

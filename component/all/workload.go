@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/base"
 	apiserverclient "github.com/juju/juju/apiserver/client"
@@ -201,8 +200,8 @@ func (workloads) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
-	newUnitWorkloads := func(persist state.Persistence, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) (state.UnitWorkloads, error) {
-		return workloadstate.NewUnitWorkloads(persist, unit, getMetadata), nil
+	newUnitWorkloads := func(persist state.Persistence, unit names.UnitTag) (state.UnitWorkloads, error) {
+		return workloadstate.NewUnitWorkloads(persist, unit), nil
 	}
 	state.SetWorkloadsComponent(newUnitWorkloads)
 }

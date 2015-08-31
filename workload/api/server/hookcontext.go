@@ -8,7 +8,6 @@ package server
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
@@ -23,8 +22,6 @@ type UnitWorkloads interface {
 	Track(info workload.Info) error
 	// List returns information on the workload with the id on the unit.
 	List(ids ...string) ([]workload.Info, error)
-	// Definitions returns workload definitions found in the unit's metadata.
-	Definitions() ([]charm.Workload, error)
 	// Settatus sets the status for the workload with the given id on the unit.
 	SetStatus(id string, status workload.CombinedStatus) error
 	// Untrack removes the information for the workload with the given id.
@@ -40,24 +37,6 @@ type HookContextAPI struct {
 // NewHookContextAPI builds a new facade for the given State.
 func NewHookContextAPI(st UnitWorkloads) *HookContextAPI {
 	return &HookContextAPI{State: st}
-}
-
-// Definitions builds the list of workload definitions
-// found in the metadata of the unit's charm.
-func (a HookContextAPI) Definitions() (api.DefinitionsResults, error) {
-	var results api.DefinitionsResults
-
-	definitions, err := a.State.Definitions()
-	if err != nil {
-		results.Error = common.ServerError(err)
-		return results, nil
-	}
-
-	for _, definition := range definitions {
-		result := api.Definition2api(definition)
-		results.Results = append(results.Results, result)
-	}
-	return results, nil
 }
 
 // Track stores a workload to be tracked in state.

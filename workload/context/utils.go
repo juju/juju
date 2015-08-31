@@ -4,8 +4,11 @@
 package context
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
 	goyaml "gopkg.in/yaml.v1"
@@ -65,4 +68,41 @@ func parseUpdates(updates []string) ([]charm.WorkloadFieldValue, error) {
 		results = append(results, pfv)
 	}
 	return results, nil
+}
+
+func readMetadata(ctx *cmd.Context) (*charm.Meta, error) {
+	filename := filepath.Join(ctx.Dir, "metadata.yaml")
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	meta, err := charm.ReadMeta(file)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	file.Close()
+	return meta, nil
+}
+
+func readDefinitions(ctx *cmd.Context) (map[string]charm.Workload, error) {
+	filename := filepath.Join(ctx.Dir, "workloads.yaml")
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer file.Close()
+
+	meta, err := readMetadata(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	workloads, err := charm.ReadWorkloads(file, meta.Provides, meta.Storage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return workloads, nil
 }

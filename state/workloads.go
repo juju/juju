@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
 )
@@ -31,9 +30,6 @@ type UnitWorkloads interface {
 	// the found ones are returned. It is up to the caller to
 	// extrapolate the list of missing IDs.
 	List(ids ...string) ([]workload.Info, error)
-	// ListDefinitions builds the list of workload definitions found
-	// in the unit's charm metadata.
-	Definitions() ([]charm.Workload, error)
 	// Untrack removes the identified workload from state. If the
 	// given ID is not in state then the request will fail.
 	Untrack(id string) error
@@ -41,7 +37,7 @@ type UnitWorkloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newUnitWorkloadsFunc func(persist Persistence, unit names.UnitTag, getMetadata func() (*charm.Meta, error)) (UnitWorkloads, error)
+type newUnitWorkloadsFunc func(persist Persistence, unit names.UnitTag) (UnitWorkloads, error)
 
 var (
 	newUnitWorkloads newUnitWorkloadsFunc
@@ -60,18 +56,8 @@ func (st *State) UnitWorkloads(unit *Unit) (UnitWorkloads, error) {
 		return nil, errors.Errorf("workloads not supported")
 	}
 
-	getMetadata := func() (*charm.Meta, error) {
-		// TODO(ericsnow) Freeze the metadata at this moment?
-		// TODO(ericsnow) Worry about refreshing the unit?
-		ch, err := unit.charm()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ch.Meta(), nil
-	}
-
 	persist := st.newPersistence()
-	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag(), getMetadata)
+	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

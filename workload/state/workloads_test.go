@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/state"
@@ -173,34 +172,6 @@ func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
-}
-
-func (s *unitWorkloadsSuite) TestDefinitions(c *gc.C) {
-	expected := s.newWorkloads("docker", "workloadA", "workloadB")
-	getMetadata := func() (*charm.Meta, error) {
-		meta := &charm.Meta{
-			Workloads: map[string]charm.Workload{
-				"workloadA": expected[0].Workload,
-				"workloadB": expected[1].Workload,
-			},
-		}
-		return meta, nil
-	}
-	ps := state.UnitWorkloads{Persist: s.persist}
-	ps.Metadata = getMetadata
-
-	definitions, err := ps.Definitions()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCalls(c, nil)
-	c.Check(definitions, gc.HasLen, 2)
-	if definitions[0].Name == "workloadA" {
-		c.Check(definitions[0], jc.DeepEquals, expected[0].Workload)
-		c.Check(definitions[1], jc.DeepEquals, expected[1].Workload)
-	} else {
-		c.Check(definitions[0], jc.DeepEquals, expected[1].Workload)
-		c.Check(definitions[1], jc.DeepEquals, expected[0].Workload)
-	}
 }
 
 func (s *unitWorkloadsSuite) TestUntrackOkay(c *gc.C) {

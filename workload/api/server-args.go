@@ -63,14 +63,6 @@ type ListResult struct {
 	Error *params.Error
 }
 
-// DefinitionsResults contains the results for a call to Definitions.
-type DefinitionsResults struct {
-	// Results is the list of definition results.
-	Results []WorkloadDefinition
-	// Error is the error (if any) for the call as a whole.
-	Error *params.Error
-}
-
 // SetStatusArgs are the arguments for the SetStatus endpoint.
 type SetStatusArgs struct {
 	// Args is the list of arguments to pass to this function.
