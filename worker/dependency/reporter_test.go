@@ -4,61 +4,153 @@
 package dependency_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
 )
 
-func (s *EngineSuite) TestReport(c *gc.C) {
+type ReportSuite struct {
+	engineFixture
+}
+
+var _ = gc.Suite(&ReportSuite{})
+
+func (s *ReportSuite) TestReportStarted(c *gc.C) {
 	report := s.engine.Report()
 	c.Assert(report, jc.DeepEquals, map[string]interface{}{
-		"is-dying":       false,
-		"manifold-count": 0,
-		"workers":        map[string]interface{}{},
+		"state":     "started",
+		"error":     nil,
+		"manifolds": map[string]interface{}{},
 	})
 }
 
-func (s *EngineSuite) TestShuttingDownEngineReport(c *gc.C) {
+func (s *ReportSuite) TestReportStopped(c *gc.C) {
 	s.engine.Kill()
 	s.engine.Wait()
 	report := s.engine.Report()
 	c.Assert(report, jc.DeepEquals, map[string]interface{}{
-		"error": "engine is shutting down",
+		"state":     "stopped",
+		"error":     nil,
+		"manifolds": map[string]interface{}{},
 	})
 }
 
-func (s *EngineSuite) TestReportReachesManifolds(c *gc.C) {
-	mh1 := newManifoldHarness()
-	manifold := mh1.Manifold()
-	err := s.engine.Install("task", manifold)
+func (s *ReportSuite) TestReportStopping(c *gc.C) {
+	mh1 := newErrorIgnoringManifoldHarness()
+	err := s.engine.Install("task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		s.engine.Kill()
+		mh1.InjectError(c, nil)
+		err := s.engine.Wait()
+		c.Check(err, jc.ErrorIsNil)
+	}()
+	mh1.AssertOneStart(c)
 
-	mh2 := newManifoldHarness()
-	err = s.engine.Install("another task", mh2.Manifold())
-	c.Assert(err, jc.ErrorIsNil)
+	// It may take a short time for the main loop to notice
+	// the change and stop the "task" worker.
+	s.engine.Kill()
+	var isTaskStopping = func(report map[string]interface{}) bool {
+		manifolds := report["manifolds"].(map[string]interface{})
+		task := manifolds["task"].(map[string]interface{})
+		switch taskState := task["state"]; taskState {
+		case "started":
+			return false
+		case "stopping":
+			return true
+		default:
+			c.Fatalf("unexpected task state: %v", taskState)
+		}
+		panic("unreachable")
+	}
 
-	mh1.AssertStart(c)
-	mh2.AssertStart(c)
-
-	report := s.engine.Report()
-	expectedReport := map[string]interface{}{
-		"is-dying":       false,
-		"manifold-count": 2,
-		"workers": map[string]interface{}{
+	var report map[string]interface{}
+	for i := 0; i < 3; i++ {
+		report = s.engine.Report()
+		if isTaskStopping(report) {
+			break
+		}
+		time.Sleep(coretesting.ShortWait)
+	}
+	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+		"state": "stopping",
+		"error": nil,
+		"manifolds": map[string]interface{}{
 			"task": map[string]interface{}{
-				"starting": false,
-				"stopping": false,
-				"report": map[string]interface{}{
-					"key1": "hello there",
-				},
-			},
-			"another task": map[string]interface{}{
-				"starting": false,
-				"stopping": false,
+				"state":  "stopping",
+				"error":  nil,
+				"inputs": ([]string)(nil),
 				"report": map[string]interface{}{
 					"key1": "hello there",
 				},
 			},
 		},
-	}
-	c.Assert(report, jc.DeepEquals, expectedReport)
+	})
+}
+
+func (s *ReportSuite) TestReportInputs(c *gc.C) {
+	mh1 := newManifoldHarness()
+	manifold := mh1.Manifold()
+	err := s.engine.Install("task", manifold)
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertStart(c)
+
+	mh2 := newManifoldHarness("task")
+	err = s.engine.Install("another task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertStart(c)
+
+	report := s.engine.Report()
+	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+		"state": "started",
+		"error": nil,
+		"manifolds": map[string]interface{}{
+			"task": map[string]interface{}{
+				"state":  "started",
+				"error":  nil,
+				"inputs": ([]string)(nil),
+				"report": map[string]interface{}{
+					"key1": "hello there",
+				},
+			},
+			"another task": map[string]interface{}{
+				"state":  "started",
+				"error":  nil,
+				"inputs": []string{"task"},
+				"report": map[string]interface{}{
+					"key1": "hello there",
+				},
+			},
+		},
+	})
+}
+
+func (s *ReportSuite) TestReportError(c *gc.C) {
+	mh1 := newManifoldHarness("missing")
+	manifold := mh1.Manifold()
+	err := s.engine.Install("task", manifold)
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertNoStart(c)
+
+	s.engine.Kill()
+	err = s.engine.Wait()
+	c.Check(err, jc.ErrorIsNil)
+
+	report := s.engine.Report()
+	c.Check(report, jc.DeepEquals, map[string]interface{}{
+		"state": "stopped",
+		"error": nil,
+		"manifolds": map[string]interface{}{
+			"task": map[string]interface{}{
+				"state":  "stopped",
+				"error":  dependency.ErrMissing,
+				"inputs": []string{"missing"},
+				"report": (map[string]interface{})(nil),
+			},
+		},
+	})
 }

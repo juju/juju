@@ -9,19 +9,25 @@ import (
 	"github.com/juju/juju/worker"
 )
 
+// Reporter defines an interface for extracting human-relevant information
+// from a worker.
+type Reporter interface {
+
+	// Report returns a map describing the state of the receiver. It is expected
+	// to be goroutine-safe.
+	Report() map[string]interface{}
+}
+
 // Engine is a mechanism for persistently running named workers and managing
 // dependencies between them.
 type Engine interface {
+	Reporter
+	worker.Worker
 
 	// Install causes the Engine to accept responsibility for maintaining a
 	// worker corresponding to the supplied manifold, restarting it when it
 	// fails and when its inputs' workers change, until the Engine shuts down.
 	Install(name string, manifold Manifold) error
-
-	// Engine is just another Worker.
-	worker.Worker
-
-	Reporter
 }
 
 // Manifold defines the behaviour of a node in an Engine's dependency graph. It's

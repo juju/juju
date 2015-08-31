@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,42 +16,10 @@ import (
 )
 
 type EngineSuite struct {
-	testing.IsolationSuite
-	engine dependency.Engine
+	engineFixture
 }
 
 var _ = gc.Suite(&EngineSuite{})
-
-func (s *EngineSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.startEngine(c, nothingFatal)
-}
-
-func (s *EngineSuite) TearDownTest(c *gc.C) {
-	s.stopEngine(c)
-	s.IsolationSuite.TearDownTest(c)
-}
-
-func (s *EngineSuite) startEngine(c *gc.C, isFatal dependency.IsFatalFunc) {
-	config := dependency.EngineConfig{
-		IsFatal:       isFatal,
-		MoreImportant: func(err0, err1 error) error { return err0 },
-		ErrorDelay:    coretesting.ShortWait / 2,
-		BounceDelay:   coretesting.ShortWait / 10,
-	}
-
-	e, err := dependency.NewEngine(config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.engine = e
-}
-
-func (s *EngineSuite) stopEngine(c *gc.C) {
-	if s.engine != nil {
-		err := worker.Stop(s.engine)
-		s.engine = nil
-		c.Check(err, jc.ErrorIsNil)
-	}
-}
 
 func (s *EngineSuite) TestInstallConvenienceWrapper(c *gc.C) {
 	mh1 := newManifoldHarness()
@@ -465,7 +432,9 @@ func (s *EngineSuite) TestErrMoreImportant(c *gc.C) {
 	mh2.InjectError(c, importantError)
 
 	err = engine.Wait()
-	c.Assert(err, gc.ErrorMatches, importantError.Error())
+	c.Check(err, gc.ErrorMatches, importantError.Error())
+	report := engine.Report()
+	c.Check(report["error"], gc.ErrorMatches, importantError.Error())
 }
 
 func (s *EngineSuite) TestConfigValidate(c *gc.C) {
@@ -473,37 +442,40 @@ func (s *EngineSuite) TestConfigValidate(c *gc.C) {
 	validMoreImportant := func(err0, err1 error) error { return err0 }
 	validErrorDelay := time.Second
 	validBounceDelay := time.Second
+
 	tests := []struct {
 		about  string
 		config dependency.EngineConfig
 		err    string
-	}{
-		{
-			"IsFatal invalid",
-			dependency.EngineConfig{nil, validMoreImportant, validErrorDelay, validBounceDelay},
-			"engineconfig validation failed: IsFatal not specified",
-		},
-		{
-			"MoreImportant invalid",
-			dependency.EngineConfig{validIsFatal, nil, validErrorDelay, validBounceDelay},
-			"engineconfig validation failed: MoreImportant not specified",
-		},
-		{
-			"ErrorDelay invalid",
-			dependency.EngineConfig{validIsFatal, validMoreImportant, -time.Second, validBounceDelay},
-			"engineconfig validation failed: ErrorDelay needs to be >= 0",
-		},
-		{
-			"BounceDelay invalid",
-			dependency.EngineConfig{validIsFatal, validMoreImportant, validErrorDelay, -time.Second},
-			"engineconfig validation failed: BounceDelay needs to be >= 0",
-		},
-	}
+	}{{
+		"IsFatal invalid",
+		dependency.EngineConfig{nil, validMoreImportant, validErrorDelay, validBounceDelay},
+		"IsFatal not specified",
+	}, {
+		"MoreImportant invalid",
+		dependency.EngineConfig{validIsFatal, nil, validErrorDelay, validBounceDelay},
+		"MoreImportant not specified",
+	}, {
+		"ErrorDelay invalid",
+		dependency.EngineConfig{validIsFatal, validMoreImportant, -time.Second, validBounceDelay},
+		"ErrorDelay is negative",
+	}, {
+		"BounceDelay invalid",
+		dependency.EngineConfig{validIsFatal, validMoreImportant, validErrorDelay, -time.Second},
+		"BounceDelay is negative",
+	}}
 
 	for i, test := range tests {
-		c.Logf("running test %d: %v", i, test.about)
-		err := test.config.Validate()
-		c.Assert(err, gc.ErrorMatches, test.err)
+		c.Logf("test %d: %v", i, test.about)
+
+		c.Logf("config validation...")
+		validateErr := test.config.Validate()
+		c.Check(validateErr, gc.ErrorMatches, test.err)
+
+		c.Logf("engine creation...")
+		engine, createErr := dependency.NewEngine(test.config)
+		c.Check(engine, gc.IsNil)
+		c.Check(createErr, gc.ErrorMatches, "invalid config: "+test.err)
 	}
 }
 
