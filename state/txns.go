@@ -4,8 +4,6 @@
 package state
 
 import (
-	"reflect"
-
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
@@ -202,112 +200,64 @@ func (r *multiEnvRunner) mungeUpdate(updateDoc, docID interface{}) (interface{},
 	}
 }
 
-// mungeBsonDUpdate modifies Update field values expressed as a bson.D
-// and attempts to make them multi-environment safe.
+// mungeBsonDUpdate modifies a txn.Op's Update field values expressed
+// as a bson.D and attempts to make it multi-environment safe.
+//
+// Currently, only $set operations are munged.
 func (r *multiEnvRunner) mungeBsonDUpdate(updateDoc bson.D, docID interface{}) (bson.D, error) {
 	outDoc := make(bson.D, 0, len(updateDoc))
 	for _, elem := range updateDoc {
 		if elem.Name == "$set" {
-			// TODO(mjs) - only worry about structs for now. This is
-			// enough to fix LP #1474606 and a more extensive change
-			// to simplify the multi-env txn layer and correctly
-			// handle all cases is coming soon.
-			newSetDoc, err := r.mungeStructOnly(elem.Value, docID)
+			newSetDoc, err := r.mungeSetUpdate(elem.Value, docID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			outDoc = append(outDoc, bson.DocElem{elem.Name, newSetDoc})
-		} else {
-			outDoc = append(outDoc, elem)
+			elem = bson.DocElem{elem.Name, newSetDoc}
 		}
+		outDoc = append(outDoc, elem)
 	}
 	return outDoc, nil
 }
 
-// mungeBsonMUpdate modifies Update field values expressed as a bson.M
-// and attempts to make them multi-environment safe.
+// mungeBsonMUpdate modifies a txn.Op's Update field values expressed
+// as a bson.M and attempts to make it multi-environment safe.
+//
+// Currently, only $set operations are munged.
 func (r *multiEnvRunner) mungeBsonMUpdate(updateDoc bson.M, docID interface{}) (bson.M, error) {
 	outDoc := make(bson.M)
 	for name, elem := range updateDoc {
 		if name == "$set" {
-			// TODO(mjs) - as above.
-			newSetDoc, err := r.mungeStructOnly(elem, docID)
+			var err error
+			elem, err = r.mungeSetUpdate(elem, docID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			outDoc[name] = newSetDoc
-		} else {
-			outDoc[name] = elem
 		}
+		outDoc[name] = elem
 	}
 	return outDoc, nil
 }
 
-// mungeStructOnly modifies the input document to address
-// multi-environment concerns, but only if it's a struct.
-func (r *multiEnvRunner) mungeStructOnly(doc interface{}, docID interface{}) (interface{}, error) {
-	switch doc := doc.(type) {
-	case bson.D, bson.M, map[string]interface{}:
-		return doc, nil
-	default:
-		return doc, r.mungeStruct(doc, docID)
-	}
-}
-
-// mungeStruct takes the value of a txn.Op field expressed as some
-// struct and modifies it to be multi-environment safe. The struct is
-// modified in-place.
-func (r *multiEnvRunner) mungeStruct(doc, docID interface{}) error {
-	v := reflect.ValueOf(doc)
-	t := v.Type()
-
-	if t.Kind() == reflect.Ptr {
-		v = v.Elem()
-		t = v.Type()
+// mungeSetUpdate updates an arbitrary document provided to the $set
+// Update operator to make it multi-environment safe. The output is a
+// bson.D regardless of the input type.
+func (r *multiEnvRunner) mungeSetUpdate(doc interface{}, docID interface{}) (bson.D, error) {
+	bDoc, err := toBsonD(doc)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	if t.Kind() != reflect.Struct {
-		return errors.Errorf("unknown type %s", t)
-	}
-
-	envUUIDSeen := false
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		var err error
-		switch f.Tag.Get("bson") {
+	for i, elem := range bDoc {
+		switch elem.Name {
 		case "_id":
-			err = r.mungeStructField(v, f.Name, docID, overrideField)
+			bDoc[i].Value = docID
 		case "env-uuid":
-			err = r.mungeStructField(v, f.Name, r.envUUID, fieldMustMatch)
-			envUUIDSeen = true
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if !envUUIDSeen {
-		return errors.Errorf(`struct lacks field with bson:"env-uuid" tag`)
-	}
-	return nil
-}
-
-const overrideField = "override"
-const fieldMustMatch = "mustmatch"
-
-// mungeStructFIeld updates the field of a struct to a new value. If
-// updateType is overrideField == fieldMustMatch then the field must
-// match the value given, if present.
-func (r *multiEnvRunner) mungeStructField(v reflect.Value, name string, newValue interface{}, updateType string) error {
-	fv := v.FieldByName(name)
-	if fv.Interface() != newValue {
-		if updateType == fieldMustMatch && fv.String() != "" {
-			return errors.Errorf("bad %q field value: expected %s, got %s", name, newValue, fv.String())
-		}
-		if fv.CanSet() {
-			fv.Set(reflect.ValueOf(newValue))
-		} else {
-			return errors.Errorf("cannot set %q field: struct passed by value", name)
+			if elem.Value == "" {
+				bDoc[i].Value = r.envUUID
+			} else if elem.Value != r.envUUID {
+				return nil, errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, r.envUUID, elem.Value)
+			}
 		}
 	}
-	return nil
+	return bDoc, nil
 }
