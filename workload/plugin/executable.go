@@ -6,6 +6,7 @@ package plugin
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -71,10 +72,14 @@ type pluginPaths interface {
 }
 
 func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) (string, error)) (*ExecutablePlugin, error) {
+	executableLogger.Debugf("looking for plugin data for %q in %q", name, paths)
 	absPath, err := paths.Executable()
 	if errors.IsNotFound(err) {
-		absPath, err = lookPath(executablePrefix + name)
+		executableName := executablePrefix + name
+		executableLogger.Debugf("looking on $PATH for plugin executable %q", executableName)
+		absPath, err = lookPath(executableName)
 		if err == exec.ErrNotFound {
+			executableLogger.Debugf("plugin executable %q not found on $PATH (%s)", executableName, os.Getenv("PATH"))
 			return nil, errors.NotFoundf("plugin %q", name)
 		}
 		if err != nil {
@@ -82,8 +87,10 @@ func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) 
 		}
 
 		if err := paths.Init(absPath); err != nil {
+			executableLogger.Debugf("failed to initialize plugin data in %q to %q", paths, absPath)
 			return nil, errors.Trace(err)
 		}
+		executableLogger.Debugf("initialized plugin data in %q to %q", paths, absPath)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
