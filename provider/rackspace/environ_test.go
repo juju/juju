@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/rackspace"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 type environSuite struct {
@@ -258,8 +260,19 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	s.PatchValue(&rackspace.NewInstanceConfigurator, func(host string) common.InstanceConfigurator {
 		return configurator
 	})
-	_, err := s.environ.StartInstance(environs.StartInstanceParams{
-		InstanceConfig: &instancecfg.InstanceConfig{},
+	config, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":            "some-name",
+		"type":            "some-type",
+		"authorized-keys": "key",
+	})
+	c.Check(err, gc.IsNil)
+	_, err = s.environ.StartInstance(environs.StartInstanceParams{
+		InstanceConfig: &instancecfg.InstanceConfig{
+			Config: config,
+		},
+		Tools: tools.List{&tools.Tools{
+			Version: version.Binary{Series: "trusty"},
+		}},
 	})
 	c.Check(err, gc.IsNil)
 	c.Check(s.innerEnviron.Pop().name, gc.Equals, "StartInstance")

@@ -43,7 +43,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if os == version.Windows && args.InstanceConfig.Config.FirewallMode != config.FwNone {
+	if os == version.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
 		return nil, errors.Errorf("Rackspace provider don't support firawall mode other then none for windows instances.")
 
 	}
@@ -52,7 +52,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		return nil, errors.Trace(err)
 	}
 	r.Instance = environInstance{Instance: r.Instance}
-	if args.InstanceConfig.Config.FirewallMode != config.FwNone {
+	if args.InstanceConfig.Config.FirewallMode() != config.FwNone {
 		err = e.connectToSsh(args, r.Instance)
 	}
 	return r, errors.Trace(err)
