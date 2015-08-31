@@ -306,23 +306,6 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 	c.Check(after, jc.DeepEquals, []workload.Info{info})
 }
 
-func (s *contextSuite) TestDefinitions(c *gc.C) {
-	definition := charm.Workload{
-		Name: "wlA",
-		Type: "myplugin",
-	}
-	s.apiClient.definitions["wlA"] = definition
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
-
-	definitions, err := ctx.Definitions()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(definitions, gc.DeepEquals, []charm.Workload{
-		definition,
-	})
-	s.Stub.CheckCallNames(c, "Definitions")
-}
-
 func (s *contextSuite) TestFlushDirty(c *gc.C) {
 	info := s.newWorkload("A", "myplugin", "xyz123", "okay")
 	findPlugin := func(ptype, agentDir string) (workload.Plugin, error) {
