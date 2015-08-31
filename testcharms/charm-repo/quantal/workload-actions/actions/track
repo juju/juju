@@ -1,0 +1,17 @@
+#!/bin/bash
+set -x
+
+export PATH=$PWD/plugin:$PATH
+
+name=$(action-get name)
+id=$(action-get id)
+status=$(action-get status)
+status-set maintenance "track: tracking $name into Juju's state ($id, $status)"
+
+result=$(workload-track "$name" '{"id":"'"$id"'", "status":{"state":"'"$status"'"}}' 2>&1)
+rc=$?
+if [ "$rc" == "0" ]; then
+    action-set output="$result"
+else
+    status-set maintenance "track: [$name] failed ($rc - $result)"
+fi

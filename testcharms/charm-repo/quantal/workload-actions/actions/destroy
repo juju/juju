@@ -4,10 +4,10 @@ set -x
 export PATH=$PWD/plugin:$PATH
 
 name=$(action-get name)
-_unregister=$(action-get unregister)
+_untrack=$(action-get untrack)
 status-set maintenance "destroy: destroying $name and removing it from Juju's state"
 
-result=$(workload-destroy "$name" "$_unregister" 2>&1)
+result=$(workload-destroy "$name" "$_untrack" 2>&1)
 #result=$(juju-workload-myplugin destroy "$id" 2>&1)
 rc=$?
 if [ "$rc" != "0" ]; then
