@@ -217,7 +217,8 @@ func (s *workloadsSuite) TestHookContextTrack(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "myworkload/xyz123 is being tracked",
+			// TODO(ericsnow) Should Message be "myworkload/xyz123 is being tracked"?
+			Message: "",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
@@ -337,7 +338,8 @@ func (s *workloadsSuite) TestHookContextInfo(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "myworkload/xyz123 is being tracked",
+			// TODO(ericsnow) Should Message be "myworkload/xyz123 is being tracked"?
+			Message: "",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
