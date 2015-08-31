@@ -61,7 +61,7 @@ func (s *launchCmdSuite) TestRun(c *gc.C) {
 
 	s.checkRun(c, "", "")
 	s.Stub.CheckCallNames(c, "List", "Plugin", "Launch", "Track", "Flush")
-	c.Check(s.Stub.Calls()[1].Args, jc.DeepEquals, []interface{}{&s.workload})
+	c.Check(s.Stub.Calls()[1].Args, jc.DeepEquals, []interface{}{&s.workload, ""})
 	c.Check(s.Stub.Calls()[2].Args, jc.DeepEquals, []interface{}{s.workload.Workload})
 }
 
