@@ -83,6 +83,8 @@ type DialOpts struct {
 	// RetryDelay is the amount of time to wait between
 	// unsucssful connection attempts.
 	RetryDelay time.Duration
+
+	// TODO: add bakery client
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -112,6 +114,7 @@ type Connection interface {
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
 	Login(name, password, nonce string) error
+	// TODO: MacaroonLogin(client bakery.Client) error
 	ServerVersion() (version.Number, bool)
 
 	// These are either part of base.APICaller or look like they probably should
