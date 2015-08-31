@@ -1617,14 +1617,18 @@ func MigrateLastLoginAndLastConnection(st *State) error {
 	// we ignore. The insert becomes a no-op, keeping the new lastLoginDoc
 	// which will be more up-to-date than what's read in through the usersC
 	// collection.
-	if len(lastLoginDocs) > 0 {
-		if err := userLastLogins.Insert(lastLoginDocs...); err != nil && !mgo.IsDup(err) {
+	for _, lastLoginDoc := range lastLoginDocs {
+		if err := userLastLogins.Insert(lastLoginDoc); err != nil && !mgo.IsDup(err) {
+			id := lastLoginDoc.(userLastLoginDoc).DocID
+			logger.Debugf("failed to insert userLastLoginDoc with id %q. Got error: %v", id, err)
 			return err
 		}
 	}
 
-	if len(lastConnectionDocs) > 0 {
-		if err := envUserLastConnections.Insert(lastConnectionDocs...); err != nil && !mgo.IsDup(err) {
+	for _, lastConnectionDoc := range lastConnectionDocs {
+		if err := envUserLastConnections.Insert(lastConnectionDoc); err != nil && !mgo.IsDup(err) {
+			id := lastConnectionDoc.(envUserLastConnectionDoc).ID
+			logger.Debugf("failed to insert envUserLastConnectionDoc with id %q. Got error: %v", id, err)
 			return err
 		}
 	}
