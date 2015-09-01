@@ -375,6 +375,7 @@ func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
 		"name": "myworkload",
 	}
 	period := time.Second * 5
+	// TODO(ericsnow) This does not propagate out to other machines.
 	workers.SetStatusWorkerUpdatePeriod(period)
 	svc.dummy.runAction(c, "launch", args)
 
