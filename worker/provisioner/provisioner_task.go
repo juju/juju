@@ -52,7 +52,8 @@ type MachineGetter interface {
 // provisioned instances.
 type ToolsFinder interface {
 	// FindTools returns a list of tools matching the specified
-	// version, series, and architecture.
+	// version, series, and architecture. If arch is empty, the
+	// implementation is expected to use a well documented default.
 	FindTools(version version.Number, series string, arch string) (coretools.List, error)
 }
 
