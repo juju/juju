@@ -7,7 +7,9 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/names"
 )
 
 // AgentIdentityProvider performs authentication for machine and unit agents.
@@ -21,23 +23,30 @@ type taggedAuthenticator interface {
 }
 
 // Authenticate authenticates the provided entity and returns an error on authentication failure.
-func (*AgentAuthenticator) Authenticate(entity state.Entity, password, nonce string) error {
+func (*AgentAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
+	entity, err := entityFinder.FindEntity(tag)
+	if errors.IsNotFound(err) {
+		return nil, common.ErrBadCreds
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
-		return common.ErrBadRequest
+		return nil, common.ErrBadRequest
 	}
-	if !authenticator.PasswordValid(password) {
-		return common.ErrBadCreds
+	if !authenticator.PasswordValid(req.Credentials) {
+		return nil, common.ErrBadCreds
 	}
 
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
 	if machine, ok := authenticator.(*state.Machine); ok {
-		if !machine.CheckProvisioned(nonce) {
-			return errors.NotProvisionedf("machine %v", machine.Id())
+		if !machine.CheckProvisioned(req.Nonce) {
+			return nil, errors.NotProvisionedf("machine %v", machine.Id())
 		}
 	}
 
-	return nil
+	return entity, nil
 }

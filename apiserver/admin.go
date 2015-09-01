@@ -241,27 +241,16 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 	if err != nil {
 		return nil, nil, err
 	}
-	entity, err := st.FindEntity(tag)
-	if errors.IsNotFound(err) {
-		// We return the same error when an entity does not exist as for a bad
-		// password, so that we don't allow unauthenticated users to find
-		// information about existing entities.
-		logger.Debugf("entity %q not found", tag)
-		return nil, nil, common.ErrBadCreds
-	}
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	// TODO: just pass in the tag here to dispatch to the right authenticator
-	authenticator, err := authentication.FindEntityAuthenticator(entity)
+	authenticator, err := authentication.FindEntityAuthenticator(req.AuthTag)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// TODO: return a "407 macaroon reqd"?
 	// TODO: pass in a thing that can look up the entity that's not necessarily state
-	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
+	entity, err := authenticator.Authenticate(st, tag, req)
+	if err != nil {
 		logger.Debugf("bad credentials")
 		return nil, nil, err
 	}
@@ -289,7 +278,6 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 		// this user.
 		user.UpdateLastLogin()
 	}
-
 	return entity, lastLogin, nil
 }
 

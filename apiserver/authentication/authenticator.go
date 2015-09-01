@@ -5,16 +5,24 @@ package authentication
 
 import (
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/state"
+	"github.com/juju/names"
 )
 
 // FindEntityAuthenticator looks up the authenticator for the entity identified tag.
 // TODO: replace "entity" with AuthTag string to dispatch to appropriate authenticator.
-func FindEntityAuthenticator(entity state.Entity) (EntityAuthenticator, error) {
-	switch entity.(type) {
-	case *state.Machine, *state.Unit:
+func FindEntityAuthenticator(tag string) (EntityAuthenticator, error) {
+	kind, err := names.TagKind(tag)
+	if err != nil {
+		return nil, err
+	}
+	switch kind {
+	case names.MachineTagKind, names.UnitTagKind:
 		return &AgentAuthenticator{}, nil
-	case *state.User:
+	case names.UserTagKind:
+		if tag == "" {
+			// TODO need a bakery
+			return &MacaroonAuthenticator{}, nil
+		}
 		return &UserAuthenticator{}, nil
 	}
 
