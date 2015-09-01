@@ -616,6 +616,11 @@ type LoginResultV1 struct {
 	// DischargeRequired implies that the login request has failed, and none of
 	// the other fields are populated. It contains a macaroon which, when
 	// discharged, will grant access on a subsequent call to Login.
+	// Note: It is OK to use the Macaroon type here as it is explicitely
+	// designed to provide stable serialisation of macaroons.  It's good
+	// practice to only use primitives in types that will be serialised,
+	// however because of the above it is suitable to use the Macaroon type
+	// here.
 	DischargeRequired *macaroon.Macaroon `json:"discharge-required,omitempty"`
 
 	// Servers is the list of API server addresses.
