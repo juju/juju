@@ -4,8 +4,8 @@
 package imagemetadataworker
 
 var (
-	Interval      = &interval
 	VersionSeries = versionSeries
 	SeriesVersion = &seriesVersion
 	ProcessErrors = processErrors
+	DoWork        = doWork
 )

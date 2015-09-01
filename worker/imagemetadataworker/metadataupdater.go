@@ -4,13 +4,11 @@
 package imagemetadataworker
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
@@ -22,86 +20,47 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.imagemetadataworker")
 
-// interval sets how often the resuming is called.
-var interval = 24 * time.Hour
+// updatePublicImageMetadataPeriod is how frequently we check for
+// public image metadata updates.
+const updatePublicImageMetadataPeriod = time.Hour * 24
 
-var _ worker.Worker = (*MetadataUpdateWorker)(nil)
+// ListPublishedMetadataFunc is the type of a function that is supplied to
+// NewWorker for listing environment-specific published images metadata.
+type ListPublishedMetadataFunc func(env environs.Environ) ([]*environsmetadata.ImageMetadata, error)
 
-// MetadataUpdateWorker is responsible for a periodical retrieval of image metadata
-// according to the established image search paths, and recording metadata for new images.
-type MetadataUpdateWorker struct {
-	environ environs.Environ
-	client  *imagemetadata.Client
-	tomb    tomb.Tomb
+// DefaultListBlockDevices is the default function for listing block
+// devices for the operating system of the local host.
+var DefaultListPublishedMetadata ListPublishedMetadataFunc
+
+func init() {
+	DefaultListPublishedMetadata = list
 }
 
-// NewMetadataUpdateWorker periodically updates image metadata based on images search path.
-func NewMetadataUpdateWorker(env environs.Environ, cl *imagemetadata.Client) *MetadataUpdateWorker {
-	muw := &MetadataUpdateWorker{client: cl}
-	go func() {
-		defer muw.tomb.Done()
-		muw.tomb.Kill(muw.loop())
-	}()
-	return muw
+// NewWorker returns a worker that lists published cloud
+// images metadata, and records them in state.
+func NewWorker(cl *imagemetadata.Client, l ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+	f := func(stop <-chan struct{}) error {
+		return doWork(cl, l, env)
+	}
+	return worker.NewPeriodicWorker(f, updatePublicImageMetadataPeriod, worker.NewTimer)
 }
 
-func (muw *MetadataUpdateWorker) String() string {
-	return fmt.Sprintf("image metadata update worker")
-}
-
-// Stop stops the worker.
-func (muw *MetadataUpdateWorker) Stop() error {
-	muw.tomb.Kill(nil)
-	return muw.tomb.Wait()
-}
-
-// Kill is defined on the worker.Worker interface.
-func (muw *MetadataUpdateWorker) Kill() {
-	muw.tomb.Kill(nil)
-}
-
-// Wait is defined on the worker.Worker interface.
-func (muw *MetadataUpdateWorker) Wait() error {
-	return muw.tomb.Wait()
-}
-
-func (muw *MetadataUpdateWorker) loop() error {
-	err := muw.updateMetadata()
+func doWork(cl *imagemetadata.Client, listf ListPublishedMetadataFunc, env environs.Environ) error {
+	published, err := listf(env)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "getting published images metadata")
 	}
-	for {
-		select {
-		case <-muw.tomb.Dying():
-			return tomb.ErrDying
-		case <-time.After(interval):
-			err := muw.updateMetadata()
-			if err != nil {
-				return err
-			}
-		}
-	}
+	err = save(cl, published)
+	return errors.Annotatef(err, "saving published images metadata")
 }
 
-func (muw *MetadataUpdateWorker) updateMetadata() error {
-	return UpdateMetadata(muw)
-}
-
-var UpdateMetadata = func(muw *MetadataUpdateWorker) error {
-	if err := muw.saveMetadata(); err != nil {
-		logger.Errorf("cannot update image metadata: %v", err)
-		return errors.Annotatef(err, "failed updating image metadata")
-	}
-	return nil
-}
-
-func (muw *MetadataUpdateWorker) getAllPublishedMetadata() ([]*environsmetadata.ImageMetadata, error) {
-	sources, err := environs.ImageMetadataSources(muw.environ)
+func list(env environs.Environ) ([]*environsmetadata.ImageMetadata, error) {
+	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, err
 	}
 
-	// We want all metadata, hence empty contraints.
+	// We want all metadata, hence empty constraints.
 	cons := environsmetadata.ImageConstraint{}
 	metadata, _, err := environsmetadata.Fetch(sources, &cons, false)
 	if err != nil {
@@ -110,18 +69,20 @@ func (muw *MetadataUpdateWorker) getAllPublishedMetadata() ([]*environsmetadata.
 	return metadata, nil
 }
 
-func (muw *MetadataUpdateWorker) saveMetadata() error {
-
-	// 1. Get all current metadata from search path
-	published, err := muw.getAllPublishedMetadata()
+func save(client *imagemetadata.Client, published []*environsmetadata.ImageMetadata) error {
+	// Store converted metadata.Note that whether the metadata actually needs
+	// to be stored will be determined within this call.
+	errs, err := client.Save(convertToParams(published))
 	if err != nil {
-		return errors.Annotatef(err, "getting published images")
+		return errors.Annotatef(err, "saving published images metadata")
 	}
+	return processErrors(errs)
+}
 
-	// 2. Convert to structured metadata format.
+// convertToParams converts environment-specific images metadata to structured metadata format.
+var convertToParams = func(published []*environsmetadata.ImageMetadata) []params.CloudImageMetadata {
 	metadata := make([]params.CloudImageMetadata, len(published))
 	for i, p := range published {
-
 		metadata[i] = params.CloudImageMetadata{
 			Source:          "public",
 			ImageId:         p.Id,
@@ -135,13 +96,7 @@ func (muw *MetadataUpdateWorker) saveMetadata() error {
 		metadata[i].Series = versionSeries(p.Version)
 	}
 
-	// 3. Store converted metadata.Note that whether the metadata actually needs
-	// to be stored will be determined within this call.
-	errs, err := muw.client.Save(metadata)
-	if err != nil {
-		return errors.Annotatef(err, "saving published images")
-	}
-	return processErrors(errs)
+	return metadata
 }
 
 var seriesVersion = version.SeriesVersion
