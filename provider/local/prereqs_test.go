@@ -60,10 +60,14 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 
 	// symlink $temp/dpkg-query to /bin/true, to
 	// simulate package installation query responses.
-	err = symlink.New("/bin/true", filepath.Join(s.tmpdir, "dpkg-query"))
+	pm, err := testing.GetPackageManager()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = symlink.New("/bin/true", filepath.Join(s.tmpdir, pm.PackageQuery))
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&isPackageInstalled, func(pack string) bool {
-		pacman, _ := manager.NewPackageManager(version.Current.Series)
+		pacman, err := manager.NewPackageManager(version.Current.Series)
+		c.Assert(err, jc.ErrorIsNil)
 		return pacman.IsInstalled(pack)
 	})
 }
@@ -100,25 +104,27 @@ func (s *prereqsSuite) TestLxcPrereq(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-const jujuLocalInstalled = `#!/bin/sh
-if [ "$2" = "juju-local" ]; then return 0; else return 1; fi
-`
-
 func (s *prereqsSuite) TestCloudImageUtilsPrereq(c *gc.C) {
-	err := os.Remove(filepath.Join(s.tmpdir, "dpkg-query"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(s.tmpdir, "dpkg-query"), []byte(jujuLocalInstalled), 0777)
-	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&isPackageInstalled, func(pack string) bool {
+		if pack == "juju-local" {
+			return true
+		}
+		return false
+	})
 
-	err = VerifyPrerequisites(instance.LXC)
+	err := VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cloud-image-utils must be installed(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*apt-get install cloud-image-utils(.|\n)*")
 }
 
 func (s *prereqsSuite) TestJujuLocalPrereq(c *gc.C) {
-	err := os.Remove(filepath.Join(s.tmpdir, "dpkg-query"))
+
+	pm, err := testing.GetPackageManager()
 	c.Assert(err, jc.ErrorIsNil)
-	err = symlink.New("/bin/false", filepath.Join(s.tmpdir, "dpkg-query"))
+
+	err = os.Remove(filepath.Join(s.tmpdir, pm.PackageQuery))
+	c.Assert(err, jc.ErrorIsNil)
+	err = symlink.New("/bin/false", filepath.Join(s.tmpdir, pm.PackageQuery))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = VerifyPrerequisites(instance.LXC)

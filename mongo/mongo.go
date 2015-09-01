@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"gopkg.in/mgo.v2"
 
+	environs "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/version"
@@ -354,16 +356,16 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		logger.Infof("running %s %v", cmd[0], cmd[1:])
 		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
 		if err != nil {
-			logger.Infof("chcon error %s", err)
-			logger.Infof("chcon error %s", err.Error())
+			logger.Errorf("chcon failed to change file security context error %s", err)
 			return err
 		}
 
-		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", "37017"}
+		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(environs.DefaultStatePort)}
 		logger.Infof("running %s %v", cmd[0], cmd[1:])
 		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
 		if err != nil {
 			if !strings.Contains(err.Error(), "exit status 1") {
+				logger.Errorf("semanage failed to provide access on port %d error %s", environs.DefaultStatePort, err)
 				return err
 			}
 		}

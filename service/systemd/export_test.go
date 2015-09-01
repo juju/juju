@@ -9,6 +9,7 @@ import (
 
 var (
 	Serialize = serialize
+	SyslogUserGroup = syslogUserGroup
 )
 
 type patcher interface {
