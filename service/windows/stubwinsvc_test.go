@@ -10,7 +10,6 @@ import (
 	"github.com/gabriel-samfira/sys/windows"
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
-
 	"github.com/juju/testing"
 )
 

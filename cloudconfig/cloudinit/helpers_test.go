@@ -1,9 +1,8 @@
 package cloudinit
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/utils/proxy"
+	gc "gopkg.in/check.v1"
 )
 
 type HelperSuite struct{}

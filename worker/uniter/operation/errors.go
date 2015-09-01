@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 )
 
 var (

@@ -6,7 +6,7 @@ package charms_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charms"
@@ -97,14 +97,14 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid",
-			err:             "charm url series is not resolved",
+			err:             "entity url series is not resolved",
 		},
 		{
 			about:           "invalid schema",
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid:your-arguments",
-			err:             `charm URL has invalid schema: "not-valid:your-arguments"`,
+			err:             `entity URL has invalid schema: "not-valid:your-arguments"`,
 		},
 		{
 			about:           "unknown charm",

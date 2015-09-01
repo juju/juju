@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
