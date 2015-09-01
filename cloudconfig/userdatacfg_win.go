@@ -59,6 +59,9 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`mkdir "%s"`, binDir),
 		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
 	)
+
+	// This is necessary for setACLs to work
+	w.conf.AddScripts(`$adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])`)
 	w.conf.AddScripts(setACLs(renderer.FromSlash(baseDir), fileSystem)...)
 	w.conf.AddScripts(`setx /m PATH "$env:PATH;C:\Juju\bin\"`)
 	noncefile := renderer.Join(dataDir, NonceFile)
@@ -143,7 +146,9 @@ func setACLs(path string, permType aclType) []string {
 
 		// Reset the ACL's on it and add administrator access only.
 		`$acl.SetAccessRuleProtection($true, $false)`,
-		fmt.Sprintf(permModel, adminPermVar, `BUILTIN\Administrators`),
+
+		// $adminsGroup must be defined before calling setACLs
+		fmt.Sprintf(permModel, adminPermVar, `$adminsGroup`),
 		fmt.Sprintf(permModel, jujudPermVar, `jujud`),
 		fmt.Sprintf(ruleModel, permType, adminPermVar),
 		`$acl.AddAccessRule($rule)`,
