@@ -25,37 +25,37 @@ func init() {
 	//TODO(perrito666) Add explicit pools.
 }
 
-type gceStorageProvider struct{}
+type storageProvider struct{}
 
-var _ storage.Provider = (*gceStorageProvider)(nil)
+var _ storage.Provider = (*storageProvider)(nil)
 
-func (g *gceStorageProvider) ValidateConfig(cfg *storage.Config) error {
+func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
 	return nil
 }
 
-func (g *gceStorageProvider) Supports(k storage.StorageKind) bool {
+func (g *storageProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
-func (g *gceStorageProvider) Scope() storage.Scope {
+func (g *storageProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
-func (g *gceStorageProvider) Dynamic() bool {
+func (g *storageProvider) Dynamic() bool {
 	return true
 }
 
-func (g *gceStorageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (g *storageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
-type gceVolumeSource struct {
+type volumeSource struct {
 	gce     gceConnection
 	envName string // non-unique, informational only
 	envUUID string
 }
 
-func (g *gceStorageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
+func (g *storageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
 	uuid, ok := environConfig.UUID()
 	if !ok {
 		return nil, errors.NotFoundf("environment UUID")
@@ -67,7 +67,7 @@ func (g *gceStorageProvider) VolumeSource(environConfig *config.Config, cfg *sto
 		return nil, errors.Annotate(err, "cannot create an environ with this config")
 	}
 
-	source := &gceVolumeSource{
+	source := &volumeSource{
 		gce:     env.gce,
 		envName: environConfig.Name(),
 		envUUID: uuid,
@@ -108,7 +108,7 @@ func (c instanceCache) get(id string) (google.Instance, error) {
 	return inst, nil
 }
 
-func (v *gceVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+func (v *volumeSource) CreateVolumes(params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
 	results := make([]storage.CreateVolumesResult, len(params))
 	instanceIds := set.NewStrings()
 	for i, p := range params {
@@ -152,11 +152,6 @@ func mibToGib(m uint64) uint64 {
 	return (m + 1023) / 1024
 }
 
-// gibToMib converts gibibytes to mebibytes.
-func gibToMib(g uint64) uint64 {
-	return g * 1024
-}
-
 func nameVolume(zone string) (string, error) {
 	volumeUUID, err := utils.NewUUID()
 	if err != nil {
@@ -167,7 +162,7 @@ func nameVolume(zone string) (string, error) {
 	return volumeName, nil
 }
 
-func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances instanceCache) (volume *storage.Volume, volumeAttachment *storage.VolumeAttachment, err error) {
+func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanceCache) (volume *storage.Volume, volumeAttachment *storage.VolumeAttachment, err error) {
 	var volumeName, zone string
 	defer func() {
 		if err == nil || volumeName == "" {
@@ -188,9 +183,9 @@ func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances inst
 		// because we need to know what its AZ is.
 		return nil, nil, errors.Annotatef(err, "cannot obtain %q from instance cache", instId)
 	}
-	persistentType, ok := p.Attributes["type"].(string)
+	persistentType, ok := p.Attributes["type"].(google.DiskType)
 	if !ok {
-		persistentType = google.DiskTypePersistentStandard
+		persistentType = google.DiskPersistentStandard
 	}
 
 	zone = inst.ZoneName
@@ -221,23 +216,19 @@ func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances inst
 		p.Tag,
 		storage.VolumeInfo{
 			VolumeId:   gceDisk.Name,
-			Size:       gibToMib(uint64(gceDisk.SizeGb)),
+			Size:       gceDisk.Size,
 			Persistent: true,
 		},
 	}
 
 	// there is no attachment information
 	if p.Attachment == nil {
-		return
+		return volume, nil, nil
 	}
 
-	attachedDisk, err := v.attachOneVolume(gceDisk.Name, "READ_WRITE", inst.ID)
+	attachedDisk, err := v.attachOneVolume(gceDisk.Name, google.ModeRW, inst.ID)
 	if err != nil {
-		logger.Errorf("attaching %v to %v: %v", gceDisk.Id, instId, err)
-		return
-	}
-	if attachedDisk == nil {
-		return
+		return nil, nil, errors.Annotatef(err, "attaching %q to %q", gceDisk.Name, instId)
 	}
 
 	// volumeAttachment is a named return
@@ -249,10 +240,10 @@ func (v *gceVolumeSource) createOneVolume(p storage.VolumeParams, instances inst
 		},
 	}
 
-	return
+	return volume, volumeAttachment, nil
 }
 
-func (v *gceVolumeSource) DestroyVolumes(volNames []string) ([]error, error) {
+func (v *volumeSource) DestroyVolumes(volNames []string) ([]error, error) {
 	var wg sync.WaitGroup
 	wg.Add(len(volNames))
 	results := make([]error, len(volNames))
@@ -276,7 +267,7 @@ func parseVolumeId(volName string) (string, string, error) {
 	return zone, volumeUUID, nil
 
 }
-func (v *gceVolumeSource) destroyOneVolume(volName string) error {
+func (v *volumeSource) destroyOneVolume(volName string) error {
 	zone, _, err := parseVolumeId(volName)
 	if err != nil {
 		return errors.Annotatef(err, "invalid volume id %q", volName)
@@ -288,7 +279,7 @@ func (v *gceVolumeSource) destroyOneVolume(volName string) error {
 
 }
 
-func (v *gceVolumeSource) ListVolumes() ([]string, error) {
+func (v *volumeSource) ListVolumes() ([]string, error) {
 	azs, err := v.gce.AvailabilityZones("")
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot determine availability zones")
@@ -307,7 +298,7 @@ func (v *gceVolumeSource) ListVolumes() ([]string, error) {
 	}
 	return volumes, nil
 }
-func (v *gceVolumeSource) DescribeVolumes(volNames []string) ([]storage.DescribeVolumesResult, error) {
+func (v *volumeSource) DescribeVolumes(volNames []string) ([]storage.DescribeVolumesResult, error) {
 	results := make([]storage.DescribeVolumesResult, len(volNames))
 	for i, vol := range volNames {
 		res, err := v.describeOneVolume(vol)
@@ -319,7 +310,7 @@ func (v *gceVolumeSource) DescribeVolumes(volNames []string) ([]storage.Describe
 	return results, nil
 }
 
-func (v *gceVolumeSource) describeOneVolume(volName string) (storage.DescribeVolumesResult, error) {
+func (v *volumeSource) describeOneVolume(volName string) (storage.DescribeVolumesResult, error) {
 	zone, _, err := parseVolumeId(volName)
 	if err != nil {
 		return storage.DescribeVolumesResult{}, errors.Annotatef(err, "cannot describe %q", volName)
@@ -330,7 +321,7 @@ func (v *gceVolumeSource) describeOneVolume(volName string) (storage.DescribeVol
 	}
 	desc := storage.DescribeVolumesResult{
 		&storage.VolumeInfo{
-			Size:     gibToMib(uint64(disk.SizeGb)),
+			Size:     disk.Size,
 			VolumeId: disk.Name,
 		},
 		nil,
@@ -339,17 +330,17 @@ func (v *gceVolumeSource) describeOneVolume(volName string) (storage.DescribeVol
 }
 
 // TODO(perrito666) These rules are yet to be defined.
-func (v *gceVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	return nil
 }
 
-func (v *gceVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *volumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	for i, attachment := range attachParams {
 		volumeName := attachment.VolumeId
-		mode := "READ_WRITE"
+		mode := google.ModeRW
 		if attachment.ReadOnly {
-			mode = "READ_ONLY"
+			mode = google.ModeRW
 		}
 		instanceId := attachment.InstanceId
 		attached, err := v.attachOneVolume(volumeName, mode, string(instanceId))
@@ -369,7 +360,7 @@ func (v *gceVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	return results, nil
 }
 
-func (v *gceVolumeSource) attachOneVolume(volumeName, mode, instanceId string) (*google.AttachedDisk, error) {
+func (v *volumeSource) attachOneVolume(volumeName string, mode google.DiskMode, instanceId string) (*google.AttachedDisk, error) {
 	zone, _, err := parseVolumeId(volumeName)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid volume name")
@@ -392,7 +383,7 @@ func (v *gceVolumeSource) attachOneVolume(volumeName, mode, instanceId string) (
 	return attachment, nil
 }
 
-func (v *gceVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *volumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	result := make([]error, len(attachParams))
 	for i, volumeAttachment := range attachParams {
 		result[i] = v.detachOneVolume(volumeAttachment)
@@ -400,7 +391,7 @@ func (v *gceVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentP
 	return result, nil
 }
 
-func (v *gceVolumeSource) detachOneVolume(attachParam storage.VolumeAttachmentParams) error {
+func (v *volumeSource) detachOneVolume(attachParam storage.VolumeAttachmentParams) error {
 	instId := attachParam.InstanceId
 	volumeName := attachParam.VolumeId
 	zone, _, err := parseVolumeId(volumeName)

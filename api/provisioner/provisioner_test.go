@@ -471,13 +471,29 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
-	cons := constraints.MustParse("cpu-cores=12 mem=8G networks=^net3,^net4")
+	// Add a couple of spaces.
+	_, err := s.State.AddSpace("space1", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space2", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add 2 subnets into each space.
+	// Only the first subnet of space2 has AllocatableIPLow|High set.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 4, state.SubnetInfo{
+		CIDR:              "10.{{.}}.0.0/16",
+		ProviderId:        "subnet-{{.}}",
+		AllocatableIPLow:  "{{if (eq . 2)}}10.{{.}}.0.5{{end}}",
+		AllocatableIPHigh: "{{if (eq . 2)}}10.{{.}}.254.254{{end}}",
+		AvailabilityZone:  "zone{{.}}",
+		SpaceName:         "{{if (lt . 2)}}space1{{else}}space2{{end}}",
+	})
+
+	cons := constraints.MustParse("cpu-cores=12 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Placement:         "valid",
-		Constraints:       cons,
-		RequestedNetworks: []string{"net1", "net2"},
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Placement:   "valid",
+		Constraints: cons,
 	}
 	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,8 +503,12 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
-	c.Assert(provisioningInfo.Constraints, gc.DeepEquals, template.Constraints)
-	c.Assert(provisioningInfo.Networks, gc.DeepEquals, template.RequestedNetworks)
+	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
+	c.Assert(provisioningInfo.Networks, gc.HasLen, 0)
+	c.Assert(provisioningInfo.SubnetsToZones, jc.DeepEquals, map[string][]string{
+		"subnet-2": []string{"zone2"},
+		"subnet-3": []string{"zone3"},
+	})
 }
 
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {

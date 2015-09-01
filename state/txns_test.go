@@ -46,9 +46,15 @@ func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+type testDoc struct {
+	DocID   string `bson:"_id"`
+	Id      string `bson:"thingid"`
+	EnvUUID string `bson:"env-uuid"`
+}
+
 // An alternative machine document to test that fields are matched by
 // struct tag.
-type altMachineDoc struct {
+type altTestDoc struct {
 	Identifier  string `bson:"_id"`
 	Environment string `bson:"env-uuid"`
 }
@@ -81,31 +87,36 @@ func getTestCases() []multiEnvRunnerTestCase {
 			txn.Op{
 				C:  machinesC,
 				Id: "0",
-				Insert: &machineDoc{
+				Insert: &testDoc{
 					DocID: "0",
+					Id:    "0",
 				},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:0",
-				Insert: &machineDoc{
-					DocID:   "uuid:0",
-					EnvUUID: "uuid",
+				Insert: bson.D{
+					{"_id", "uuid:0"},
+					{"thingid", "0"},
+					{"env-uuid", "uuid"},
 				},
 			},
 		}, {
 			"_id added to doc if missing",
 			txn.Op{
-				C:      machinesC,
-				Id:     "1",
-				Insert: &machineDoc{},
+				C:  machinesC,
+				Id: "1",
+				Insert: &testDoc{
+					Id: "1",
+				},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:1",
-				Insert: &machineDoc{
-					DocID:   "uuid:1",
-					EnvUUID: "uuid",
+				Insert: bson.D{
+					{"_id", "uuid:1"},
+					{"thingid", "1"},
+					{"env-uuid", "uuid"},
 				},
 			},
 		}, {
@@ -113,7 +124,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 			txn.Op{
 				C:  machinesC,
 				Id: "2",
-				Insert: &altMachineDoc{
+				Insert: &altTestDoc{
 					Identifier:  "2",
 					Environment: "",
 				},
@@ -121,28 +132,29 @@ func getTestCases() []multiEnvRunnerTestCase {
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:2",
-				Insert: &altMachineDoc{
-					Identifier:  "uuid:2",
-					Environment: "uuid",
+				Insert: bson.D{
+					{"_id", "uuid:2"},
+					{"env-uuid", "uuid"},
 				},
 			},
 		}, {
-			"doc passed as struct value", // ok as long as no change to struct required
+			"doc passed as struct value",
 			txn.Op{
 				C:  machinesC,
 				Id: "3",
 				// Passed by value
-				Insert: machineDoc{
-					DocID:   "uuid:3",
-					EnvUUID: "uuid",
+				Insert: testDoc{
+					DocID: "3",
+					Id:    "3",
 				},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:3",
-				Insert: machineDoc{
-					DocID:   "uuid:3",
-					EnvUUID: "uuid",
+				Insert: bson.D{
+					{"_id", "uuid:3"},
+					{"thingid", "3"},
+					{"env-uuid", "uuid"},
 				},
 			},
 		}, {
@@ -170,9 +182,9 @@ func getTestCases() []multiEnvRunnerTestCase {
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:5",
-				Insert: bson.M{
-					"_id":      "uuid:5",
-					"env-uuid": "uuid",
+				Insert: bson.D{
+					{"_id", "uuid:5"},
+					{"env-uuid", "uuid"},
 				},
 			},
 		}, {
@@ -185,62 +197,75 @@ func getTestCases() []multiEnvRunnerTestCase {
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:5",
-				Insert: map[string]interface{}{
-					"_id":      "uuid:5",
-					"env-uuid": "uuid",
+				Insert: bson.D{
+					{"_id", "uuid:5"},
+					{"env-uuid", "uuid"},
 				},
 			},
 		}, {
 			"bson.D $set with struct update",
 			txn.Op{
-				C:      machinesC,
-				Id:     "1",
-				Update: bson.D{{"$set", &machineDoc{}}},
+				C:  machinesC,
+				Id: "1",
+				Update: bson.D{{"$set", &testDoc{
+					Id: "1",
+				}}},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:1",
-				Update: bson.D{{
-					"$set",
-					&machineDoc{
-						DocID:   "uuid:1",
-						EnvUUID: "uuid",
+				Update: bson.D{{"$set",
+					bson.D{
+						{"_id", "uuid:1"},
+						{"thingid", "1"},
+						{"env-uuid", "uuid"},
 					},
 				}},
 			},
 		}, {
 			"bson.D $set with bson.D update",
 			txn.Op{
-				C:      machinesC,
-				Id:     "1",
-				Update: bson.D{{"$set", bson.D{{"foo", "bar"}}}},
+				C:  machinesC,
+				Id: "1",
+				Update: bson.D{
+					{"$set", bson.D{
+						{"_id", "1"},
+						{"foo", "bar"},
+					}},
+					{"$other", "op"},
+				},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:1",
-				// Only structs get touched for $set updates.
-				Update: bson.D{{
-					"$set",
-					bson.D{
+				Update: bson.D{
+					{"$set", bson.D{
+						{"_id", "uuid:1"},
 						{"foo", "bar"},
-					},
-				}},
+					}},
+					{"$other", "op"},
+				},
 			},
 		}, {
 			"bson.M $set",
 			txn.Op{
-				C:      machinesC,
-				Id:     "1",
-				Update: bson.M{"$set": &machineDoc{}},
+				C:  machinesC,
+				Id: "1",
+				Update: bson.M{
+					"$set": &testDoc{Id: "1"},
+					"$foo": "bar",
+				},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:1",
 				Update: bson.M{
-					"$set": &machineDoc{
-						DocID:   "uuid:1",
-						EnvUUID: "uuid",
+					"$set": bson.D{
+						{"_id", "uuid:1"},
+						{"thingid", "1"},
+						{"env-uuid", "uuid"},
 					},
+					"$foo": "bar",
 				},
 			},
 		},
@@ -256,9 +281,6 @@ func (s *MultiEnvRunnerSuite) TestRunTransaction(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		expected := []txn.Op{t.expected}
-
-		// Input should have been modified in-place.
-		c.Check(inOps, gc.DeepEquals, expected)
 
 		// Check ops seen by underlying runner.
 		c.Check(s.testRunner.seenOps, gc.DeepEquals, expected)
@@ -276,8 +298,12 @@ func (s *MultiEnvRunnerSuite) TestMultipleOps(c *gc.C) {
 	err := s.multiEnvRunner.RunTransaction(inOps)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(inOps, gc.DeepEquals, expectedOps)
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
+}
+
+type objIdDoc struct {
+	Id      bson.ObjectId `bson:"_id"`
+	EnvUUID string        `bson:"env-uuid"`
 }
 
 func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
@@ -285,7 +311,7 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 	inOps := []txn.Op{{
 		C:      networkInterfacesC,
 		Id:     id,
-		Insert: &networkInterfaceDoc{},
+		Insert: &objIdDoc{Id: id},
 	}}
 
 	err := s.multiEnvRunner.RunTransaction(inOps)
@@ -294,26 +320,15 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 	expectedOps := []txn.Op{{
 		C:  networkInterfacesC,
 		Id: id,
-		Insert: &networkInterfaceDoc{
-			Id:      id,
-			EnvUUID: envUUID,
+		Insert: bson.D{
+			{"_id", id},
+			{"env-uuid", "uuid"},
 		},
 	}}
-	c.Assert(inOps, gc.DeepEquals, expectedOps)
-
-	updatedOps := []txn.Op{{
-		C:  networkInterfacesC,
-		Id: id,
-		Insert: &networkInterfaceDoc{
-			Id:      id,
-			EnvUUID: envUUID,
-		},
-	}}
-
-	c.Assert(s.testRunner.seenOps, gc.DeepEquals, updatedOps)
+	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
+func (s *MultiEnvRunnerSuite) TestRejectsAttemptToInsertWrongEnvUUID(c *gc.C) {
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     "1",
@@ -330,7 +345,27 @@ func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
 		},
 	}}
 	err = s.multiEnvRunner.RunTransaction(ops)
-	c.Assert(err, gc.ErrorMatches, `cannot insert into "machines": bad "EnvUUID" field value.+`)
+	c.Assert(err, gc.ErrorMatches, `cannot insert into "machines": bad "env-uuid" value.+`)
+}
+
+func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
+	// Setting to same env UUID is ok.
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     "1",
+		Update: bson.M{"$set": &machineDoc{EnvUUID: envUUID}},
+	}}
+	err := s.multiEnvRunner.RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Using the wrong env UUID isn't allowed.
+	ops = []txn.Op{{
+		C:      machinesC,
+		Id:     "1",
+		Update: bson.M{"$set": &machineDoc{EnvUUID: "wrong"}},
+	}}
+	err = s.multiEnvRunner.RunTransaction(ops)
+	c.Assert(err, gc.ErrorMatches, `cannot update "machines": bad "env-uuid" value.+`)
 }
 
 func (s *MultiEnvRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
@@ -367,36 +402,6 @@ func (s *MultiEnvRunnerSuite) TestRejectUnknownCollection(c *gc.C) {
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectStructPassedByValueAndNeedsChange(c *gc.C) {
-	// When a document struct is passed by reference it can't be
-	// changed in place, it's important that the caller sees any
-	// modifications made by multiEnvRunner in case the document
-	// struct is used to create an object after insertion into
-	// MongoDB (but see comments in multiEnvRunner.updateOps).
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
-		C:      machinesC,
-		Id:     "uuid:0",
-		Insert: machineDoc{},
-	}})
-	c.Check(err, gc.ErrorMatches,
-		`cannot insert into "machines": cannot set "DocID" field: struct passed by value`)
-	c.Check(s.testRunner.seenOps, gc.IsNil)
-}
-
-func (s *MultiEnvRunnerSuite) TestRejectStructMissingEnvUUIDField(c *gc.C) {
-	type someDoc struct {
-		DocID string `bson:"_id"`
-	}
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
-		C:      machinesC,
-		Id:     "uuid:0",
-		Insert: &someDoc{DocID: "uuid:0"},
-	}})
-	c.Check(err, gc.ErrorMatches,
-		`cannot insert into "machines": struct lacks field with bson:"env-uuid" tag`)
-	c.Check(s.testRunner.seenOps, gc.IsNil)
-}
-
 func (s *MultiEnvRunnerSuite) TestRejectStructEnvUUIDMismatch(c *gc.C) {
 	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
 		C:  machinesC,
@@ -407,7 +412,7 @@ func (s *MultiEnvRunnerSuite) TestRejectStructEnvUUIDMismatch(c *gc.C) {
 		},
 	}})
 	c.Check(err, gc.ErrorMatches,
-		`cannot insert into "machines": bad "EnvUUID" field value: expected uuid, got somethingelse`)
+		`cannot insert into "machines": bad "env-uuid" value: expected uuid, got somethingelse`)
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
@@ -430,16 +435,6 @@ func (s *MultiEnvRunnerSuite) TestRejectBsonMEnvUUIDMismatch(c *gc.C) {
 	}})
 	c.Check(err, gc.ErrorMatches,
 		`cannot insert into "machines": bad "env-uuid" value: expected uuid, got wtf`)
-	c.Check(s.testRunner.seenOps, gc.IsNil)
-}
-
-func (s *MultiEnvRunnerSuite) TestRejectUnsupportedDocType(c *gc.C) {
-	err := s.multiEnvRunner.RunTransaction([]txn.Op{{
-		C:      machinesC,
-		Id:     "uuid:0",
-		Insert: make(map[int]int),
-	}})
-	c.Check(err, gc.ErrorMatches, `cannot insert into "machines": unknown type map\[int\]int`)
 	c.Check(s.testRunner.seenOps, gc.IsNil)
 }
 
