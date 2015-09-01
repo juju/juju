@@ -1983,10 +1983,6 @@ func AddVolumeStatus(st *State) error {
 			if !errors.IsNotFound(err) {
 				return errors.Annotate(err, "getting status")
 			}
-			// If the volume has not been provisioned, then
-			// it should be Pending; if it has been provisioned,
-			// but there is an unprovisioned attachment, then
-			// it should be Attaching; otherwise it is Attached.
 			status, err := upgradingVolumeStatus(st, volume)
 			if err != nil {
 				return errors.Annotate(err, "deciding volume status")
@@ -2003,6 +1999,9 @@ func AddVolumeStatus(st *State) error {
 	})
 }
 
+// If the volume has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment,
+// then it should be Attaching; otherwise it is Attached.
 func upgradingVolumeStatus(st *State, volume Volume) (Status, error) {
 	if _, err := volume.Info(); errors.IsNotProvisioned(err) {
 		return StatusPending, nil
@@ -2036,10 +2035,6 @@ func AddFilesystemStatus(st *State) error {
 			if !errors.IsNotFound(err) {
 				return errors.Annotate(err, "getting status")
 			}
-			// If the filesystem has not been provisioned, then
-			// it should be Pending; if it has been provisioned,
-			// but there is an unprovisioned attachment, then
-			// it should be Attaching; otherwise it is Attached.
 			status, err := upgradingFilesystemStatus(st, filesystem)
 			if err != nil {
 				return errors.Annotate(err, "deciding filesystem status")
@@ -2056,6 +2051,9 @@ func AddFilesystemStatus(st *State) error {
 	})
 }
 
+// If the filesystem has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment, then
+// it should be Attaching; otherwise it is Attached.
 func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error) {
 	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
 		return StatusPending, nil
