@@ -550,6 +550,7 @@ func volumeAttachmentsFromStorage(in []storage.VolumeAttachment) []params.Volume
 			v.Machine.String(),
 			params.VolumeAttachmentInfo{
 				v.DeviceName,
+				v.BusAddress,
 				v.ReadOnly,
 			},
 		}
@@ -587,6 +588,7 @@ func volumeAttachmentFromParams(in params.VolumeAttachment) (storage.VolumeAttac
 		machineTag,
 		storage.VolumeAttachmentInfo{
 			in.Info.DeviceName,
+			in.Info.BusAddress,
 			in.Info.ReadOnly,
 		},
 	}, nil
