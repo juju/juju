@@ -3,7 +3,12 @@
 
 package state
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/juju/errors"
+	"gopkg.in/mgo.v2/bson"
+)
 
 // This file contains utility functions related to documents and
 // collections that contain data for multiple environments.
@@ -36,4 +41,59 @@ func splitDocID(id string) (string, string, bool) {
 		return "", "", false
 	}
 	return parts[0], parts[1], true
+}
+
+const envUUIDRequired = 1
+const noEnvUUIDInInput = 2
+
+// mungeDocForMultiEnv takes the value of an txn.Op Insert or $set
+// Update and modifies it to be multi-environment safe, returning the
+// modified document.
+func mungeDocForMultiEnv(doc interface{}, envUUID string, envUUIDFlags int) (bson.D, error) {
+	var bDoc bson.D
+	var err error
+	if doc != nil {
+		bDoc, err = toBsonD(doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	envUUIDSeen := false
+	for i, elem := range bDoc {
+		switch elem.Name {
+		case "_id":
+			bDoc[i].Value = ensureEnvUUIDIfString(envUUID, elem.Value)
+		case "env-uuid":
+			if envUUIDFlags&noEnvUUIDInInput > 0 {
+				return nil, errors.New("env-uuid is added automatically and should not be provided")
+			}
+			envUUIDSeen = true
+			if elem.Value == "" {
+				bDoc[i].Value = envUUID
+			} else if elem.Value != envUUID {
+				return nil, errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, envUUID, elem.Value)
+			}
+		}
+	}
+	if envUUIDFlags&envUUIDRequired > 0 && !envUUIDSeen {
+		bDoc = append(bDoc, bson.DocElem{"env-uuid", envUUID})
+	}
+	return bDoc, nil
+}
+
+// toBsonD converts an arbitrary value to a bson.D via marshaling
+// through BSON. This is still done even if the input is already a
+// bson.D so that we end up with a copy of the input.
+func toBsonD(doc interface{}) (bson.D, error) {
+	bytes, err := bson.Marshal(doc)
+	if err != nil {
+		return nil, errors.Annotate(err, "bson marshaling failed")
+	}
+	var out bson.D
+	err = bson.Unmarshal(bytes, &out)
+	if err != nil {
+		return nil, errors.Annotate(err, "bson unmarshaling failed")
+	}
+	return out, nil
 }

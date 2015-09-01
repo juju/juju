@@ -128,7 +128,7 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		if !collInfo.global {
 			outOp.Id = ensureEnvUUIDIfString(r.envUUID, op.Id)
 			if op.Insert != nil {
-				newInsert, err := r.mungeInsert(op.Insert)
+				newInsert, err := mungeDocForMultiEnv(op.Insert, r.envUUID, envUUIDRequired)
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
@@ -146,34 +146,6 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 	}
 	logger.Tracef("rewrote transaction: %#v", outOps)
 	return outOps, nil
-}
-
-// mungeInsert takes the value of an txn.Op Insert field and modifies
-// it to be multi-environment safe, returning the modified document.
-func (r *multiEnvRunner) mungeInsert(doc interface{}) (bson.D, error) {
-	bDoc, err := toBsonD(doc)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	envUUIDSeen := false
-	for i, elem := range bDoc {
-		switch elem.Name {
-		case "_id":
-			bDoc[i].Value = ensureEnvUUIDIfString(r.envUUID, elem.Value)
-		case "env-uuid":
-			envUUIDSeen = true
-			if elem.Value == "" {
-				bDoc[i].Value = r.envUUID
-			} else if elem.Value != r.envUUID {
-				return nil, errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, r.envUUID, elem.Value)
-			}
-		}
-	}
-	if !envUUIDSeen {
-		bDoc = append(bDoc, bson.DocElem{"env-uuid", r.envUUID})
-	}
-	return bDoc, nil
 }
 
 // mungeUpdate takes the value of an txn.Op Update field and modifies
@@ -197,7 +169,7 @@ func (r *multiEnvRunner) mungeBsonDUpdate(updateDoc bson.D) (bson.D, error) {
 	outDoc := make(bson.D, 0, len(updateDoc))
 	for _, elem := range updateDoc {
 		if elem.Name == "$set" {
-			newSetDoc, err := r.mungeSetUpdate(elem.Value)
+			newSetDoc, err := mungeDocForMultiEnv(elem.Value, r.envUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -217,7 +189,7 @@ func (r *multiEnvRunner) mungeBsonMUpdate(updateDoc bson.M) (bson.M, error) {
 	for name, elem := range updateDoc {
 		if name == "$set" {
 			var err error
-			elem, err = r.mungeSetUpdate(elem)
+			elem, err = mungeDocForMultiEnv(elem, r.envUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -225,28 +197,4 @@ func (r *multiEnvRunner) mungeBsonMUpdate(updateDoc bson.M) (bson.M, error) {
 		outDoc[name] = elem
 	}
 	return outDoc, nil
-}
-
-// mungeSetUpdate updates an arbitrary document provided to the $set
-// Update operator to make it multi-environment safe. The output is a
-// bson.D regardless of the input type.
-func (r *multiEnvRunner) mungeSetUpdate(doc interface{}) (bson.D, error) {
-	bDoc, err := toBsonD(doc)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	for i, elem := range bDoc {
-		switch elem.Name {
-		case "_id":
-			bDoc[i].Value = ensureEnvUUIDIfString(r.envUUID, elem.Value)
-		case "env-uuid":
-			if elem.Value == "" {
-				bDoc[i].Value = r.envUUID
-			} else if elem.Value != r.envUUID {
-				return nil, errors.Errorf(`bad "env-uuid" value: expected %s, got %s`, r.envUUID, elem.Value)
-			}
-		}
-	}
-	return bDoc, nil
 }
