@@ -4,6 +4,8 @@
 package envworkermanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -15,7 +17,17 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.envworkermanager")
+var (
+	logger = loggo.GetLogger("juju.worker.envworkermanager")
+
+	// ripTime is the time to wait after an environment has been set to dead
+	// before removing all environment docs.
+	ripTime time.Duration
+)
+
+func init() {
+	ripTime = 24 * time.Hour
+}
 
 // NewEnvWorkerManager returns a Worker which manages a worker which
 // needs to run on a per environment basis. It takes a function which will
@@ -34,6 +46,8 @@ func NewEnvWorkerManager(
 		defer m.tomb.Done()
 		m.tomb.Kill(m.loop())
 	}()
+
+	m.resumeUndertaker()
 	return m
 }
 
@@ -47,6 +61,7 @@ type InitialState interface {
 	EnvironUUID() string
 	Machine(string) (*state.Machine, error)
 	MongoSession() *mgo.Session
+	AllEnvironments() ([]*state.Environment, error)
 }
 
 type envWorkerManager struct {
@@ -64,6 +79,22 @@ func (m *envWorkerManager) Kill() {
 // Wait satisfies the Worker interface.
 func (m *envWorkerManager) Wait() error {
 	return m.tomb.Wait()
+}
+
+func (m *envWorkerManager) EnvironIDsFilteredByLife(life state.Life) ([]string, error) {
+	envs, err := m.st.AllEnvironments()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var uuids []string
+	for _, env := range envs {
+		if env.Life() == life {
+			uuids = append(uuids, env.UUID())
+		}
+	}
+
+	return uuids, nil
 }
 
 func (m *envWorkerManager) loop() error {
@@ -96,15 +127,26 @@ func (m *envWorkerManager) loop() error {
 
 func (m *envWorkerManager) envHasChanged(uuid string) error {
 	envTag := names.NewEnvironTag(uuid)
-	envAlive, err := m.isEnvAlive(envTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if envAlive {
-		err = m.envIsAlive(envTag)
+	var envLife state.Life
+
+	env, err := m.st.GetEnvironment(envTag)
+	if errors.IsNotFound(err) {
+		envLife = state.Dying
+	} else if err != nil {
+		return errors.Annotatef(err, "error loading environment %s", envTag.Id())
 	} else {
+		envLife = env.Life()
+	}
+
+	switch envLife {
+	case state.Alive:
+		err = m.envIsAlive(envTag)
+	case state.Dying:
+		err = m.envIsDying(envTag)
+	case state.Dead:
 		err = m.envIsDead(envTag)
 	}
+
 	return errors.Trace(err)
 }
 
@@ -137,9 +179,89 @@ func (m *envWorkerManager) envIsAlive(envTag names.EnvironTag) error {
 	})
 }
 
-func (m *envWorkerManager) envIsDead(envTag names.EnvironTag) error {
+// notify is patched in testing.
+var notify = func() {}
+
+func (m *envWorkerManager) envIsDying(envTag names.EnvironTag) error {
 	err := m.runner.StopWorker(envTag.Id())
+	// envIsDying needs to be idempotent, as it may be called by
+	// resumeUndertaker. As such, we need to ignore a stopped worker.
+	if err != nil && err != worker.ErrDead {
+		return errors.Trace(err)
+	}
+
+	err = m.runner.StartWorker("undertaker", func() (worker.Worker, error) {
+		st, err := m.st.ForEnviron(envTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to open state for environment %s", envTag.Id())
+		}
+		closeState := func() {
+			err := st.Close()
+			if err != nil {
+				logger.Errorf("error closing state for env %s: %v", envTag.Id(), err)
+			}
+		}
+
+		undertaker := NewUndertaker(st, notify)
+
+		// Close State when the undertaker is done.
+		go func() {
+			undertaker.Wait()
+			closeState()
+		}()
+
+		return undertaker, nil
+	})
+
 	return errors.Trace(err)
+}
+
+var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC() }
+
+func (m *envWorkerManager) envIsDead(envTag names.EnvironTag) error {
+	err := m.runner.StopWorker("undertaker")
+	// envIsDead needs to be idempotent, as it may be called by
+	// resumeUndertaker. As such we need to ignore a stopped worker.
+	if err != nil && err != worker.ErrDead {
+		return errors.Trace(err)
+	}
+
+	st, err := m.st.ForEnviron(envTag)
+	if err != nil {
+		return errors.Errorf("failed to open state for environment %s: %v", envTag.Id(), err)
+	}
+
+	if st.IsStateServer() {
+		// Nothing to do. We don't remove environment docs for a state server
+		// environment.
+		return st.Close()
+	}
+
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Errorf("could not find dead environment: %v", err)
+	}
+
+	// remove all documents for this environment 24hrs after it was destroyed.
+	go func() {
+		timeDead := nowToTheSecond().Sub(env.TimeOfDeath())
+		sleepTime := ripTime - timeDead
+		if sleepTime < 0 {
+			sleepTime = 0
+		}
+		time.Sleep(sleepTime)
+
+		if err = st.RemoveAllEnvironDocs(); err != nil {
+			logger.Errorf("could not remove all docs for environment %s: %v", envTag.Id(), err)
+		}
+		if err = st.Close(); err != nil {
+			logger.Errorf("error closing state: %v", err)
+		}
+		notify()
+		return
+	}()
+
+	return nil
 }
 
 func (m *envWorkerManager) isEnvAlive(tag names.EnvironTag) (bool, error) {
@@ -150,4 +272,31 @@ func (m *envWorkerManager) isEnvAlive(tag names.EnvironTag) (bool, error) {
 		return false, errors.Annotatef(err, "error loading environment %s", tag.Id())
 	}
 	return env.Life() == state.Alive, nil
+}
+
+// resumeUndertaker is a noOp for Alive environs. If the envworkermanager was
+// stopped after an environ was set to dying but before set to dead and all
+// environ docs removed, this func will resume the undertaker.
+func (m *envWorkerManager) resumeUndertaker() error {
+	dyingIDs, err := m.EnvironIDsFilteredByLife(state.Dying)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, uuid := range dyingIDs {
+		err := m.envIsDying(names.NewEnvironTag(uuid))
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	deadIDs, err := m.EnvironIDsFilteredByLife(state.Dead)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, uuid := range deadIDs {
+		err := m.envIsDead(names.NewEnvironTag(uuid))
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }

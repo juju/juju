@@ -6,8 +6,9 @@
 package systemmanager
 
 import (
-	"github.com/juju/utils/set"
 	"sort"
+
+	"github.com/juju/utils/set"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

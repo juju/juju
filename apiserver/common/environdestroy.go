@@ -8,8 +8,6 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -63,23 +61,22 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 		return errors.Trace(err)
 	}
 
-	// If this is not the state server environment, remove all documents from
-	// state associated with the environment.
-	if env.EnvironTag() != env.ServerTag() {
-		return errors.Trace(st.RemoveAllEnvironDocs())
+	if err := destroyAllServices(st); err != nil {
+		return errors.Trace(err)
 	}
 
-	// Return to the caller. If it's the CLI, it will finish up
-	// by calling the provider's Destroy method, which will
-	// destroy the state servers, any straggler instances, and
-	// other provider-specific resources.
+	// Return to the caller. If it's the CLI, it will finish up by calling the
+	// provider's Destroy method, which will destroy the state servers, any
+	// straggler instances, and other provider-specific resources. Once all
+	// resources are torn down, the envWorkerManager handles the removal of
+	// the environment.
 	return nil
 }
 
 // destroyNonManagerMachines directly destroys all non-manager, non-manual
 // machine instances.
 func destroyNonManagerMachines(st *state.State, machines []*state.Machine) error {
-	var ids []instance.Id
+	var ids []string
 	for _, m := range machines {
 		if m.IsManager() {
 			continue
@@ -93,24 +90,28 @@ func destroyNonManagerMachines(st *state.State, machines []*state.Machine) error
 		} else if manual {
 			continue
 		}
-		// There is a possible race here if a machine is being
-		// provisioned, but hasn't yet come up.
-		id, err := m.InstanceId()
-		if err != nil {
-			continue
-		}
-		ids = append(ids, id)
+		ids = append(ids, m.Id())
 	}
 	if len(ids) == 0 {
 		return nil
 	}
-	envcfg, err := st.EnvironConfig()
+
+	return DestroyMachines(st, true, ids...)
+}
+
+func destroyAllServices(st *state.State) error {
+	var errs []string
+	services, err := st.AllServices()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	env, err := environs.New(envcfg)
-	if err != nil {
-		return err
+	var ids []string
+	for _, service := range services {
+		ids = append(ids, service.Name())
+		if err := service.Destroy(); err != nil {
+			errs = append(errs, err.Error())
+		}
 	}
-	return env.StopInstances(ids...)
+
+	return DestroyErr("service", ids, errs)
 }

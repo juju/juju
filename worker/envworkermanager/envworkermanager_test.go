@@ -111,6 +111,57 @@ func (s *suite) TestStopsWorkersWhenEnvGoesAway(c *gc.C) {
 	}
 }
 
+func (s *suite) TestUndertakerStartsAndAllEnvironDocsRemoved(c *gc.C) {
+	cleanup := envworkermanager.PatchRIPTime(0)
+	defer cleanup()
+	notify := make(chan struct{}, 1)
+	cleanup = envworkermanager.PatchNotify(func() {
+		notify <- struct{}{}
+	})
+	defer cleanup()
+
+	st := newStateWithFakeWatcher(s.State)
+	defer st.Close()
+	otherSt := s.Factory.MakeEnvironment(c, nil)
+	defer otherSt.Close()
+	env, err := otherSt.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid := env.UUID()
+
+	m := envworkermanager.NewEnvWorkerManager(st, s.startEnvWorker)
+	defer func() {
+		m.Kill()
+		m.Wait()
+	}()
+
+	st.sendEnvChange(uuid)
+	s.seeRunnersStart(c, 1)
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	st.sendEnvChange(uuid)
+
+	select {
+	case <-notify:
+		env.Refresh()
+		c.Assert(c.GetTestLog(), gc.Not(jc.Contains), "failed to process dying environment")
+		c.Assert(env.Life(), gc.Equals, state.Dead)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("the undertaker function should have fired by now")
+	}
+
+	st.sendEnvChange(uuid)
+
+	select {
+	case <-notify:
+		c.Assert(c.GetTestLog(), gc.Not(jc.Contains), "could not remove all docs for environment")
+		c.Assert(otherSt.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("the envIsDead function should have fired by now")
+	}
+}
+
 func (s *suite) TestKillPropagates(c *gc.C) {
 	s.makeEnvironment(c)
 
@@ -275,6 +326,111 @@ func (s *suite) TestStateIsClosedIfStartEnvWorkersFails(c *gc.C) {
 	s.startErr = worker.ErrTerminateAgent // This will make envWorkerManager exit.
 	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
 	waitOrFatal(c, m.Wait)
+}
+
+func (s *suite) TestEnvironIDsFilteredByLife(c *gc.C) {
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorker)
+	defer m.Kill()
+
+	st1 := s.makeEnvironment(c)
+	st2 := s.makeEnvironment(c)
+	st3 := s.makeEnvironment(c)
+
+	s.assertFilterByLife(c, m,
+		// alive
+		[]string{
+			s.State.EnvironUUID(),
+			st1.EnvironUUID(),
+			st2.EnvironUUID(),
+			st3.EnvironUUID(),
+		},
+		// dying
+		[]string{},
+		// dead
+		[]string{},
+	)
+
+	env2, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env2.Destroy(), jc.ErrorIsNil)
+
+	s.assertFilterByLife(c, m,
+		// alive
+		[]string{
+			s.State.EnvironUUID(),
+			st1.EnvironUUID(),
+			st3.EnvironUUID(),
+		},
+		// dying
+		[]string{
+			st2.EnvironUUID(),
+		},
+		// dead
+		[]string{},
+	)
+
+	// set env 1 and 3 to dying by calling Destroy.
+	env1, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env1.Destroy(), jc.ErrorIsNil)
+	env3, err := st3.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env3.Destroy(), jc.ErrorIsNil)
+
+	s.assertFilterByLife(c, m,
+		// alive
+		[]string{
+			s.State.EnvironUUID(),
+		},
+		// dying
+		[]string{
+			st1.EnvironUUID(),
+			st2.EnvironUUID(),
+			st3.EnvironUUID(),
+		},
+		// dead
+		[]string{},
+	)
+
+	// set env 1 and 2 to dead by calling ProcessDyingEnviron.
+	err = st1.ProcessDyingEnviron()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st2.ProcessDyingEnviron()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertFilterByLife(c, m,
+		// alive
+		[]string{
+			s.State.EnvironUUID(),
+		},
+		// dying
+		[]string{
+			st3.EnvironUUID(),
+		},
+		// dead
+		[]string{
+			st1.EnvironUUID(),
+			st2.EnvironUUID(),
+		},
+	)
+}
+
+type envWorkerManager interface {
+	EnvironIDsFilteredByLife(life state.Life) ([]string, error)
+}
+
+func (s *suite) assertFilterByLife(c *gc.C, m worker.Worker, alive, dying, dead []string) {
+	lifeMap := map[state.Life][]string{
+		state.Alive: alive,
+		state.Dying: dying,
+		state.Dead:  dead,
+	}
+
+	for life, expectedIDs := range lifeMap {
+		obtainedIDs, err := m.(envWorkerManager).EnvironIDsFilteredByLife(life)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(obtainedIDs, jc.SameContents, expectedIDs)
+	}
 }
 
 func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
