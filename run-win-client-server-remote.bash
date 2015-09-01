@@ -11,7 +11,7 @@ agent_arg_value="$4"
 /cygdrive/c/progra~2/7-Zip/7z.exe e -y -oclient $client
 
 mkdir logs
-juju destroy-environment --force -y test-win-client-server || true
+juju destroy-environment --force -y compatibility-control || true
 python C:\\users\\Administrator\\juju-ci-tools\\assess_heterogeneous_control.py \
   server/juju.exe client/juju.exe test-win-client-server \
   compatibility-control logs $agent_arg $agent_arg_value

@@ -62,5 +62,3 @@ command: [remote/run-win-client-server-remote.bash,
           "$agent_arg"]
 EOT
 workspace-run $old_temp_dir/temp-config.yaml Administrator@win-slave.vapour.ws
-
-
