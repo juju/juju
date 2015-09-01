@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	environsmetadata "github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -99,8 +100,6 @@ func (muw *MetadataUpdateWorker) getAllPublishedMetadata() ([]*environsmetadata.
 	if err != nil {
 		return nil, err
 	}
-	// TODO(anastasiamac 2015-08-31) Once it is added to search path,
-	// remove state ? (structured metadta) so that we do not repeat ourselves...
 
 	// We want all metadata, hence empty contraints.
 	cons := environsmetadata.ImageConstraint{}
@@ -122,16 +121,18 @@ func (muw *MetadataUpdateWorker) saveMetadata() error {
 	// 2. Convert to structured metadata format.
 	metadata := make([]params.CloudImageMetadata, len(published))
 	for i, p := range published {
+
 		metadata[i] = params.CloudImageMetadata{
-			Source:          "public", // what happens when this is a custom image that is returned from search path?
-			ImageId:         p.Id,     // Is This image id?
+			Source:          "public",
+			ImageId:         p.Id,
 			Stream:          p.Stream,
 			Region:          p.RegionName,
-			Series:          p.Version, // Is this series?
 			Arch:            p.Arch,
 			VirtualType:     p.VirtType,
 			RootStorageType: p.Storage,
 		}
+		// Translate version (eg.14.04) to a series (eg. "trusty")
+		metadata[i].Series = versionSeries(p.Version)
 	}
 
 	// 3. Store converted metadata.Note that whether the metadata actually needs
@@ -140,10 +141,28 @@ func (muw *MetadataUpdateWorker) saveMetadata() error {
 	if err != nil {
 		return errors.Annotatef(err, "saving published images")
 	}
-	return processErrorsFromSave(errs)
+	return processErrors(errs)
 }
 
-func processErrorsFromSave(errs []params.ErrorResult) error {
+var seriesVersion = version.SeriesVersion
+
+func versionSeries(v string) string {
+	if v == "" {
+		return v
+	}
+	for _, s := range version.SupportedSeries() {
+		sv, err := seriesVersion(s)
+		if err != nil {
+			logger.Errorf("cannot determine version for series %v: %v", s, err)
+		}
+		if v == sv {
+			return s
+		}
+	}
+	return v
+}
+
+func processErrors(errs []params.ErrorResult) error {
 	msgs := []string{}
 	for _, e := range errs {
 		if e.Error != nil && e.Error.Message != "" {
