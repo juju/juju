@@ -1100,12 +1100,12 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 	}
 
 	detached := make(chan interface{})
-	s.provider.detachFilesystemsFunc = func(args []storage.FilesystemAttachmentParams) error {
+	s.provider.detachFilesystemsFunc = func(args []storage.FilesystemAttachmentParams) ([]error, error) {
 		c.Assert(args, gc.HasLen, 1)
 		c.Assert(args[0].Machine.String(), gc.Equals, expectedAttachmentIds[0].MachineTag)
 		c.Assert(args[0].Filesystem.String(), gc.Equals, expectedAttachmentIds[0].AttachmentTag)
 		defer close(detached)
-		return nil
+		return make([]error, len(args)), nil
 	}
 
 	removed := make(chan interface{})
