@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -244,25 +245,16 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	assertMembers(map[string]int64{"u/1": 7, "u/2": 3})
 }
 
-/*
 func (s *RelationerSuite) TestSetDying(c *gc.C) {
-	ru1, _ := s.AddRelationUnit(c, "u/1")
+	ru1, u := s.AddRelationUnit(c, "u/1")
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	r := uniter.NewRelationer(s.apiRelUnit, s.dir)
+	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
-	r.StartHooks()
-	defer stopHooks(c, r)
-	s.assertHook(c, hook.Info{
-		Kind:       hooks.RelationJoined,
-		RemoteUnit: "u/1",
-	})
 
-	// While a changed hook is still pending, the relation (or possibly the unit,
-	// pending lifecycle work), changes Life to Dying, and the relationer is
-	// informed.
+	// Change Life to Dying check the results.
 	err = r.SetDying()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -270,41 +262,22 @@ func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	f := func() { r.Join() }
 	c.Assert(f, gc.PanicMatches, "dying relationer must not join!")
 
-	// ...but the hook stream continues, sending the required changed hook for
-	// u/1 before moving on to a departed, despite the fact that its pinger is
-	// still running, and closing with a broken.
-	s.assertHook(c, hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "u/1"})
-	s.assertHook(c, hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "u/1"})
-	s.assertHook(c, hook.Info{Kind: hooks.RelationBroken})
+	// Simulate a RelationBroken hook.
+	err = r.CommitHook(hook.Info{Kind: hooks.RelationBroken})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the relation state has been broken.
 	err = s.dir.State().Validate(hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, gc.ErrorMatches, ".*: relation is broken and cannot be changed further")
-}
-*/
 
-func (s *RelationerSuite) assertNoHook(c *gc.C) {
-	s.BackingState.StartSync()
-	select {
-	case hi, ok := <-s.hooks:
-		c.Fatalf("got unexpected hook info %#v (%t)", hi, ok)
-	case <-time.After(coretesting.ShortWait):
-	}
-}
-
-func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
-	s.BackingState.StartSync()
-	// We must ensure the local state dir exists first.
-	c.Assert(s.dir.Ensure(), gc.IsNil)
-	select {
-	case hi, ok := <-s.hooks:
-		c.Assert(ok, jc.IsTrue)
-		expect.ChangeVersion = hi.ChangeVersion
-		c.Assert(hi, gc.DeepEquals, expect)
-		c.Assert(s.dir.Write(hi), gc.Equals, nil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for %#v", expect)
-	}
+	// Check that it left scope, by leaving scope on the other side and destroying
+	// the relation.
+	err = ru1.LeaveScope()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 type stopper interface {
@@ -321,7 +294,6 @@ type RelationerImplicitSuite struct {
 
 var _ = gc.Suite(&RelationerImplicitSuite{})
 
-/*
 func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -341,7 +313,6 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	relsDir := c.MkDir()
 	dir, err := relation.ReadStateDir(relsDir, rel.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	hooks := make(chan hook.Info)
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -359,28 +330,14 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	r := uniter.NewRelationer(apiRelUnit, dir, hooks)
-	c.Assert(r, jc.Satisfies, (*uniter.Relationer).IsImplicit)
+	r := relation.NewRelationer(apiRelUnit, dir)
+	c.Assert(r, jc.Satisfies, (*relation.Relationer).IsImplicit)
 
-	// Join the relation.
-	err = r.Join()
-	c.Assert(err, jc.ErrorIsNil)
-	sub, err := s.State.Unit("logging/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Join the other side; check no hooks are sent.
-	r.StartHooks()
-	defer func() { c.Assert(r.StopHooks(), gc.IsNil) }()
-	subru, err := rel.Unit(sub)
-	c.Assert(err, jc.ErrorIsNil)
-	err = subru.EnterScope(map[string]interface{}{"some": "data"})
-	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
-	select {
-	case <-time.After(coretesting.ShortWait):
-	case <-hooks:
-		c.Fatalf("unexpected hook generated")
-	}
+	// Hooks are not allowed.
+	f := func() { r.PrepareHook(hook.Info{}) }
+	c.Assert(f, gc.PanicMatches, "implicit relations must not run hooks")
+	f = func() { r.CommitHook(hook.Info{}) }
+	c.Assert(f, gc.PanicMatches, "implicit relations must not run hooks")
 
 	// Set it to Dying; check that the dir is removed immediately.
 	err = r.SetDying()
@@ -388,20 +345,8 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	path := strconv.Itoa(rel.Id())
 	ft.Removed{path}.Check(c, relsDir)
 
-	// Check that it left scope, by leaving scope on the other side and destroying
-	// the relation.
-	err = subru.LeaveScope()
-	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Verify that no other hooks were sent at any stage.
-	select {
-	case <-hooks:
-		c.Fatalf("unexpected hook generated")
-	default:
-	}
 }
-*/
