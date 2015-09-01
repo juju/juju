@@ -2106,10 +2106,6 @@ func AddVolumeStatus(st *State) error {
 			if !errors.IsNotFound(err) {
 				return errors.Annotate(err, "getting status")
 			}
-			// If the volume has not been provisioned, then
-			// it should be Pending; if it has been provisioned,
-			// but there is an unprovisioned attachment, then
-			// it should be Attaching; otherwise it is Attached.
 			status, err := upgradingVolumeStatus(st, volume)
 			if err != nil {
 				return errors.Annotate(err, "deciding volume status")
@@ -2126,11 +2122,66 @@ func AddVolumeStatus(st *State) error {
 	})
 }
 
+// If the volume has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment,
+// then it should be Attaching; otherwise it is Attached.
 func upgradingVolumeStatus(st *State, volume Volume) (Status, error) {
 	if _, err := volume.Info(); errors.IsNotProvisioned(err) {
 		return StatusPending, nil
 	}
 	attachments, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, attachment := range attachments {
+		_, err := attachment.Info()
+		if errors.IsNotProvisioned(err) {
+			return StatusAttaching, nil
+		}
+	}
+	return StatusAttached, nil
+}
+
+// AddFilesystemStatus ensures each filesystem has a status doc.
+func AddFilesystemStatus(st *State) error {
+	return runForAllEnvStates(st, func(st *State) error {
+		filesystems, err := st.AllFilesystems()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ops []txn.Op
+		for _, filesystem := range filesystems {
+			_, err := filesystem.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Annotate(err, "getting status")
+			}
+			status, err := upgradingFilesystemStatus(st, filesystem)
+			if err != nil {
+				return errors.Annotate(err, "deciding filesystem status")
+			}
+			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
+				Status:  status,
+				Updated: time.Now().UnixNano(),
+			}))
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runTransaction(ops))
+		}
+		return nil
+	})
+}
+
+// If the filesystem has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment, then
+// it should be Attaching; otherwise it is Attached.
+func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error) {
+	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
+		return StatusPending, nil
+	}
+	attachments, err := st.FilesystemAttachments(filesystem.FilesystemTag())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
