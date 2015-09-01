@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/juju/environschema.v1"
-	"gopkg.in/macaroon-bakery.v0/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
