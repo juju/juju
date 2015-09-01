@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	stdtesting "testing"
 	"time"
 
@@ -23,13 +24,19 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -47,14 +54,7 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	srv := s.newServer(c)
 	defer srv.Stop()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -101,14 +101,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	srv := s.newServer(c)
 	defer srv.Stop()
 
 	port := srv.Addr().Port
@@ -272,14 +265,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(coretesting.ServerCert),
-		Key:  []byte(coretesting.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	srv := s.newServer(c)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -300,6 +286,83 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// Server Error, 200 OK, etc.)
 	c.Assert(err, gc.ErrorMatches, `websocket.Dial wss://localhost:\d+/randompath: bad status`)
 	c.Assert(conn, gc.IsNil)
+}
+
+func (s *serverSuite) TestServerBakery(c *gc.C) {
+	srv := s.newServer(c)
+	defer srv.Stop()
+	// By default, when there is no identity location, no
+	// bakery service or macaroon is created.
+	c.Assert(apiserver.ServerMacaroon(srv), gc.IsNil)
+	c.Assert(apiserver.ServerBakeryService(srv), gc.IsNil)
+
+	discharger := bakerytest.NewDischarger(nil, noCheck)
+
+	environTag := names.NewEnvironTag(s.State.EnvironUUID())
+	// Make a new version of the state that doesn't object to us
+	// changing the identity URL, so we can create a state server
+	// that will see that.
+	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.UpdateEnvironConfig(map[string]interface{}{
+		config.IdentityURL: discharger.Location(),
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Try again. The macaroon should have been created this time.
+	srv = s.newServer(c)
+	defer srv.Stop()
+	m := apiserver.ServerMacaroon(srv)
+	c.Assert(m, gc.NotNil)
+	bsvc := apiserver.ServerBakeryService(srv)
+	c.Assert(bsvc, gc.NotNil)
+
+	// Check that we can add a third party caveat addressed to the
+	// discharger, which indirectly ensures that the discharger's public
+	// key has been added to the bakery service's locator
+	m = m.Clone()
+	err = bsvc.AddCaveat(m, checkers.Caveat{
+		Location:  discharger.Location(),
+		Condition: "true",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we can discharge the macaroon and check it with
+	// the service.
+	client := httpbakery.NewClient()
+	ms, err := client.DischargeAll(m)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bsvc.Check(ms, checkers.New())
+	c.Assert(err, gc.IsNil)
+
+	wrongKey, err := bakery.GenerateKey()
+	c.Assert(err, gc.IsNil)
+
+	// Change the public key in the config, create another
+	// server and check that the discharge fails.
+	err = st.UpdateEnvironConfig(map[string]interface{}{
+		config.IdentityPublicKey: wrongKey.Public.String(),
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	srv = s.newServer(c)
+	defer srv.Stop()
+	m = apiserver.ServerMacaroon(srv).Clone()
+	err = apiserver.ServerBakeryService(srv).AddCaveat(m, checkers.Caveat{
+		Location:  discharger.Location(),
+		Condition: "true",
+	})
+	c.Assert(err, gc.IsNil)
+
+	_, err = client.DischargeAll(m)
+	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
+}
+
+func noCheck(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+	return nil, nil
 }
 
 type fakeResource struct {
@@ -362,6 +425,19 @@ func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	} else {
 		assertStateIsClosed(c, st)
 	}
+}
+
+// newServer returns a new running API server.
+func (s *serverSuite) newServer(c *gc.C) *apiserver.Server {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+		Tag:  names.NewMachineTag("0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return srv
 }
 
 func assertStateIsOpen(c *gc.C, st *state.State) {
