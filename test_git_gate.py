@@ -45,6 +45,7 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(args.project_url, "https://git.testing/project")
         self.assertEqual(args.dependencies, ["git.testing/a", "git.testing/b"])
         self.assertEqual(args.go_get_all, False)
+        self.assertEqual(args.tsv_path, None)
 
     def test_project_with_go_deps(self):
         args = git_gate.parse_args(
@@ -52,6 +53,18 @@ class TestParseArgs(unittest.TestCase):
         self.assertEqual(args.project, "git.testing/project")
         self.assertEqual(args.dependencies, None)
         self.assertEqual(args.go_get_all, True)
+        self.assertEqual(args.tsv_path, None)
+
+    def test_project_with_tsv_path(self):
+        args = git_gate.parse_args(
+            ["--project", "git.testing/project",
+             "--project-url", "https://git.testing/project",
+             "--tsv-path", "/a/file.tsv"])
+        self.assertEqual(args.project, "git.testing/project")
+        self.assertEqual(args.project_url, "https://git.testing/project")
+        self.assertEqual(args.dependencies, None)
+        self.assertEqual(args.go_get_all, False)
+        self.assertEqual(args.tsv_path, "/a/file.tsv")
 
 
 class TestSubcommandError(unittest.TestCase):

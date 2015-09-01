@@ -51,6 +51,10 @@ def go_test(args, gopath):
     git = SubcommandRunner("git")
     project_ellipsis = args.project + "/..."
     directory = os.path.join(gopath, "src", args.project)
+    if args.tsv_path:
+        print_now("Getting and installing godeps")
+        go("get", "-v", "-d", "launchpad.net/godeps/...")
+        go("install", "launchpad.net/godeps/...")
     if args.project_url:
         print_now("Cloning {} from {}".format(args.project, args.project_url))
         git("clone", args.project_url, directory)
@@ -69,6 +73,11 @@ def go_test(args, gopath):
         for dep in args.dependencies:
             print_now("Getting {} and dependencies using go".format(dep))
             go("get", "-v", "-d", dep)
+    if args.tsv_path:
+        tsv_path = os.path.join(gopath, "src", args.tsv_path)
+        print_now("Getting dependencies using godeps from {}".format(tsv_path))
+        godeps = SubcommandRunner(os.path.join(gopath, "bin", "godeps"), goenv)
+        godeps("-u", tsv_path)
     go("build", project_ellipsis)
     go("test", project_ellipsis)
 
@@ -96,7 +105,9 @@ def parse_args(args=None):
     dep_group.add_argument(
         "--go-get-all", action="store_true",
         help="Go import path of package needed to for build or testing.")
-    # GZ: Add dependencies.tsv argument option
+    dep_group.add_argument(
+        "--tsv-path",
+        help="Path to dependencies.tsv file for project relative to src dir.")
     args = parser.parse_args(args)
     if args.project_url is None and not args.go_get_all:
         parser.error("Must supply either --project-url or --go-get-all")
