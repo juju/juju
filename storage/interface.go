@@ -117,11 +117,11 @@ type FilesystemSource interface {
 	ValidateFilesystemParams(params FilesystemParams) error
 
 	// CreateFilesystems creates filesystems with the specified size, in MiB.
-	CreateFilesystems(params []FilesystemParams) ([]Filesystem, error)
+	CreateFilesystems(params []FilesystemParams) ([]CreateFilesystemsResult, error)
 
 	// DestroyFilesystems destroys the filesystems with the specified
 	// providerd filesystem IDs.
-	DestroyFilesystems(fsIds []string) []error
+	DestroyFilesystems(fsIds []string) ([]error, error)
 
 	// AttachFilesystems attaches filesystems to machines.
 	//
@@ -133,12 +133,12 @@ type FilesystemSource interface {
 	// recording in state. For example, the ec2 provider must reject
 	// an attempt to attach a volume to an instance if they are in
 	// different availability zones.
-	AttachFilesystems(params []FilesystemAttachmentParams) ([]FilesystemAttachment, error)
+	AttachFilesystems(params []FilesystemAttachmentParams) ([]AttachFilesystemsResult, error)
 
 	// DetachFilesystems detaches the filesystems with the specified
 	// provider filesystem IDs from the instances with the corresponding
 	// index.
-	DetachFilesystems(params []FilesystemAttachmentParams) error
+	DetachFilesystems(params []FilesystemAttachmentParams) ([]error, error)
 }
 
 // VolumeParams is a fully specified set of parameters for volume creation,
@@ -284,4 +284,25 @@ type DescribeVolumesResult struct {
 type AttachVolumesResult struct {
 	VolumeAttachment *VolumeAttachment
 	Error            error
+}
+
+// CreateFilesystemsResult contains the result of a FilesystemSource.CreateFilesystems call
+// for one filesystem. Filesystem should only be used if Error is nil.
+type CreateFilesystemsResult struct {
+	Filesystem *Filesystem
+	Error      error
+}
+
+// DescribeFilesystemsResult contains the result of a FilesystemSource.DescribeFilesystems call
+// for one filesystem. Filesystem should only be used if Error is nil.
+type DescribeFilesystemsResult struct {
+	FilesystemInfo *FilesystemInfo
+	Error          error
+}
+
+// AttachFilesystemsResult contains the result of a FilesystemSource.AttachFilesystems call
+// for one filesystem. FilesystemAttachment should only be used if Error is nil.
+type AttachFilesystemsResult struct {
+	FilesystemAttachment *FilesystemAttachment
+	Error                error
 }
