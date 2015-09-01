@@ -76,15 +76,21 @@ func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	s.checkGetSetStatus(c)
+	s.checkGetSetStatus(c, state.StatusAttaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusAlive(c *gc.C) {
-	s.checkGetSetStatus(c)
+	validStatuses := []state.Status{
+		state.StatusAttaching, state.StatusAttached, state.StatusDetaching,
+		state.StatusDetached, state.StatusDestroying,
+	}
+	for _, status := range validStatuses {
+		s.checkGetSetStatus(c, status)
+	}
 }
 
-func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.volume.SetStatus(state.StatusAttaching, "blah", map[string]interface{}{
+func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, status state.Status) {
+	err := s.volume.SetStatus(status, "blah", map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
 			"pew.pew": "zap",
 		},
@@ -96,7 +102,7 @@ func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := volume.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, state.StatusAttaching)
+	c.Check(statusInfo.Status, gc.Equals, status)
 	c.Check(statusInfo.Message, gc.Equals, "blah")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
@@ -110,7 +116,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	err := s.State.DestroyVolume(s.volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkGetSetStatus(c)
+	s.checkGetSetStatus(c, state.StatusAttaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
@@ -128,7 +134,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	// NOTE: it would be more technically correct to reject status updates
 	// while Dead, but it's easier and clearer, not to mention more efficient,
 	// to just depend on status doc existence.
-	s.checkGetSetStatus(c)
+	s.checkGetSetStatus(c, state.StatusAttaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
