@@ -55,10 +55,12 @@ cat > $old_temp_dir/temp-config.yaml <<EOT
 install:
     remote:
         - $SCRIPTS/run-win-client-server-remote.bash
-        - "$candidate_juju"
-        - "$old_juju"
+        - "$server"
+        - "$client"
 command: [remote/run-win-client-server-remote.bash,
           "remote/$(basename $server)", "remote/$(basename $client)",
-          $agent_arg]
+          "$agent_arg"]
 EOT
 workspace-run $old_temp_dir/temp-config.yaml Administrator@win-slave.vapour.ws
+
+
