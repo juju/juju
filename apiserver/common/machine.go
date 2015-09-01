@@ -4,6 +4,8 @@
 package common
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/state"
@@ -38,4 +40,26 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}
+}
+
+func DestroyMachines(st *state.State, force bool, ids ...string) error {
+	var errs []string
+	for _, id := range ids {
+		machine, err := st.Machine(id)
+		switch {
+		case errors.IsNotFound(err):
+			err = fmt.Errorf("machine %s does not exist", id)
+		case err != nil:
+		case force:
+			err = machine.ForceDestroy()
+		case machine.Life() != state.Alive:
+			continue
+		default:
+			err = machine.Destroy()
+		}
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	return DestroyErr("machines", ids, errs)
 }
