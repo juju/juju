@@ -137,6 +137,9 @@ func (st *State) FindTools(v version.Number, series string, arch string) (tools.
 		MajorVersion: -1,
 		MinorVersion: -1,
 	}
+	if arch != "" {
+		args.Arch = arch
+	}
 	var result params.FindToolsResult
 	if err := st.facade.FacadeCall("FindTools", args, &result); err != nil {
 		return nil, err
