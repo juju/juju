@@ -22,7 +22,8 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
-// Authenticate authenticates the provided entity and returns an error on authentication failure.
+// Authenticate authenticates the provided entity.
+// It takes an entityfinder and the tag used to find the entity that requires authentication.
 func (*AgentAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {

@@ -106,10 +106,8 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})
-		c.Check(err, jc.ErrorIsNil)
-		if err == nil {
-			c.Check(entity.Tag(), gc.DeepEquals, t.entity.Tag())
-		}
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(entity.Tag(), gc.DeepEquals, t.entity.Tag())
 	}
 }
 
@@ -144,9 +142,7 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})
-		c.Check(err, gc.ErrorMatches, t.errorMessage)
-		if err == nil {
-			c.Check(entity.Tag(), gc.DeepEquals, t.entity.Tag())
-		}
+		c.Assert(err, gc.ErrorMatches, t.errorMessage)
+		c.Assert(entity, gc.IsNil)
 	}
 }

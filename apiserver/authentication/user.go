@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// UserAuthenticator performs authentication for users.
+// UserAuthenticator performs password based authentication for users.
 type UserAuthenticator struct {
 	AgentAuthenticator
 }
@@ -25,17 +25,6 @@ type UserAuthenticator struct {
 const usernameKey = "username"
 
 var _ EntityAuthenticator = (*UserAuthenticator)(nil)
-
-// TODO: MacaroonAuthenticator
-// TODO: Issue a macaroon or return pre-generated macaroon -> return ErrDischareReq
-//       - where should macaroons be stored? they shouldn't, except in mem (default bakery).
-//       - when should they be created?
-//         - root key generated on server startup. not reused among replica servers.
-//         - macaroon issued on demand, reuse same root key
-//       - how do we choose user tag coming in?
-//         - special username? placeholder? empty username. need to return with
-//           resolved entity in state so some refactoring of authenticators reqd?
-// TODO: Verify macaroons -> logged in
 
 // Authenticate authenticates the provided entity and returns an error on authentication failure.
 func (u *UserAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
@@ -52,38 +41,54 @@ type DischargeRequiredError struct {
 }
 
 // Error implements the error interface.
-func (e DischargeRequiredError) Error() string {
+func (e *DischargeRequiredError) Error() string {
 	return "discharge required"
 }
 
 // MacaroonAuthenticator performs authentication for users using macaroons.
+// Issue a macaroon or return pre-generated macaroon -> return ErrDischareReq
+//       TODO (mattyw, mhilton) - where should macaroons be stored? they shouldn't, except in mem (default bakery).
+//       - when should they be created?
+//       - root key generated on server startup. not reused among replica servers.
+//       - macaroon issued on demand, reuse same root key
+//       - how do we choose user tag coming in?
+//       - special username? placeholder? empty username. need to return with
+//         resolved entity in state so some refactoring of authenticators reqd?
 type MacaroonAuthenticator struct {
-	Service  *bakery.Service
-	Macaroon *macaroon.Macaroon
-	Location string
+	Service          *bakery.Service
+	Macaroon         *macaroon.Macaroon
+	IdentityLocation string
 }
 
 var _ EntityAuthenticator = (*MacaroonAuthenticator)(nil)
 
-// Authenticate authenticates the provided entity and returns an error on authentication failure.
+func (m *MacaroonAuthenticator) newDischargeRequiredError() error {
+	if m.Service == nil || m.Macaroon == nil {
+		return errors.New("macaroon authentication not configured")
+	}
+	mac := m.Macaroon.Clone()
+	err := m.Service.AddCaveat(mac, checkers.TimeBeforeCaveat(time.Now().Add(time.Hour)))
+	if err != nil {
+		return errors.Annotatef(err, "cannot create macaroon")
+	}
+	err = m.Service.AddCaveat(mac, checkers.NeedDeclaredCaveat(
+		checkers.Caveat{
+			Location:  m.IdentityLocation,
+			Condition: "is-authenticated-user",
+		},
+		usernameKey,
+	))
+	if err != nil {
+		return errors.Annotatef(err, "cannot create macaroon")
+	}
+	return &DischargeRequiredError{mac}
+}
+
+// Authenticate authenticates the provided entity. If there is no macaroon provided, it will
+// return a *DischargeRequiredError containing a macaroon that can be used to grant access.
 func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
 	if len(req.Macaroons) == 0 {
-		mac := m.Macaroon.Clone()
-		err := m.Service.AddCaveat(mac, checkers.TimeBeforeCaveat(time.Now().Add(time.Hour)))
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot create macaroon")
-		}
-		err = m.Service.AddCaveat(mac, checkers.NeedDeclaredCaveat(
-			checkers.Caveat{
-				Location:  m.Location,
-				Condition: "is-authenticated-user",
-			},
-			usernameKey,
-		))
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot create macaroon")
-		}
-		return nil, &DischargeRequiredError{mac}
+		return nil, m.newDischargeRequiredError()
 	}
 
 	declared := checkers.InferDeclared(req.Macaroons)
@@ -101,6 +106,8 @@ func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, tag name
 	if errors.IsNotFound(err) {
 		return nil, common.ErrBadCreds
 
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return entity, nil
 }

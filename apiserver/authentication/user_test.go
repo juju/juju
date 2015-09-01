@@ -170,15 +170,11 @@ func (s *macaroonAuthenticatorSuite) TestReturnDischargeRequiredErrorIfNoMacaroo
 	mac, err := svc.NewMacaroon("", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authenticator := &authentication.MacaroonAuthenticator{
-		Service:  svc,
-		Location: s.discharger.Location(),
-		Macaroon: mac,
+		Service:          svc,
+		IdentityLocation: s.discharger.Location(),
+		Macaroon:         mac,
 	}
-	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{
-		Credentials: "",
-		Nonce:       "",
-		Macaroons:   nil,
-	})
+	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{})
 	c.Assert(err, gc.ErrorMatches, "discharge required")
 	dischargeErr, ok := err.(*authentication.DischargeRequiredError)
 	if !ok {
@@ -203,9 +199,9 @@ func (s *macaroonAuthenticatorSuite) TestAuthenticateSuccess(c *gc.C) {
 	mac, err := svc.NewMacaroon("", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authenticator := &authentication.MacaroonAuthenticator{
-		Service:  svc,
-		Location: s.discharger.Location(),
-		Macaroon: mac,
+		Service:          svc,
+		IdentityLocation: s.discharger.Location(),
+		Macaroon:         mac,
 	}
 	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{
 		Credentials: "",
@@ -225,7 +221,7 @@ func (s *macaroonAuthenticatorSuite) TestAuthenticateSuccess(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, user.Tag())
 }
 
-func (s *macaroonAuthenticatorSuite) TestAutenticateFailsWithNonExistentUser(c *gc.C) {
+func (s *macaroonAuthenticatorSuite) TestAuthenticateFailsWithNonExistentUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
@@ -241,15 +237,11 @@ func (s *macaroonAuthenticatorSuite) TestAutenticateFailsWithNonExistentUser(c *
 	mac, err := svc.NewMacaroon("", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authenticator := &authentication.MacaroonAuthenticator{
-		Service:  svc,
-		Location: s.discharger.Location(),
-		Macaroon: mac,
+		Service:          svc,
+		IdentityLocation: s.discharger.Location(),
+		Macaroon:         mac,
 	}
-	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{
-		Credentials: "",
-		Nonce:       "",
-		Macaroons:   nil,
-	})
+	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{})
 	dischargeErr := err.(*authentication.DischargeRequiredError)
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(dischargeErr.Macaroon)
@@ -278,9 +270,9 @@ func (s *macaroonAuthenticatorSuite) TestInvalidUserName(c *gc.C) {
 	mac, err := svc.NewMacaroon("", nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	authenticator := &authentication.MacaroonAuthenticator{
-		Service:  svc,
-		Location: s.discharger.Location(),
-		Macaroon: mac,
+		Service:          svc,
+		IdentityLocation: s.discharger.Location(),
+		Macaroon:         mac,
 	}
 	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{
 		Credentials: "",

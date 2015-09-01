@@ -4,25 +4,28 @@
 package authentication
 
 import (
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/errors"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/apiserver/common"
 )
 
-// FindEntityAuthenticator looks up the authenticator for the entity identified tag.
-// TODO: replace "entity" with AuthTag string to dispatch to appropriate authenticator.
-func FindEntityAuthenticator(tag string) (EntityAuthenticator, error) {
+// AuthenticatorForTag looks up the authenticator for the given tag.
+func AuthenticatorForTag(tag string) (EntityAuthenticator, error) {
+	if tag == "" {
+		// If no tag is supplied we rely on macaroon authentication to provide
+		// the name of the entity to be authenticated.
+		// TODO (mattyw, mhilton) need a bakery
+		return &MacaroonAuthenticator{}, nil
+	}
 	kind, err := names.TagKind(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "failed to determine the tag kind")
 	}
 	switch kind {
 	case names.MachineTagKind, names.UnitTagKind:
 		return &AgentAuthenticator{}, nil
 	case names.UserTagKind:
-		if tag == "" {
-			// TODO need a bakery
-			return &MacaroonAuthenticator{}, nil
-		}
 		return &UserAuthenticator{}, nil
 	}
 

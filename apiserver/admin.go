@@ -85,9 +85,13 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
-	// TODO check for discharged-requirederror and return macaroon required response
-	// if found.
 	if err != nil {
+		if err, ok := err.(*authentication.DischargeRequiredError); ok {
+			loginResult := params.LoginResultV1{
+				DischargeRequired: err.Macaroon,
+			}
+			return loginResult, nil
+		}
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
 			// progress. It is possible for logins to fail until this
@@ -241,18 +245,15 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO: just pass in the tag here to dispatch to the right authenticator
-	authenticator, err := authentication.FindEntityAuthenticator(req.AuthTag)
+	authenticator, err := authentication.AuthenticatorForTag(req.AuthTag)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO: return a "407 macaroon reqd"?
-	// TODO: pass in a thing that can look up the entity that's not necessarily state
 	entity, err := authenticator.Authenticate(st, tag, req)
 	if err != nil {
 		logger.Debugf("bad credentials")
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 
 	// For user logins, update the last login time.
