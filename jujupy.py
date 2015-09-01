@@ -240,6 +240,9 @@ class EnvJujuClient:
         # <env> flag goes.  Everything in the command string is put before the
         # -e flag.
         command = command.split()
+        if sys.platform == 'win32':
+            return (prefix + (self.full_path, logging,) + tuple(command) +
+                    e_arg + args)
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False):
