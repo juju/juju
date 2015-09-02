@@ -264,6 +264,8 @@ class EnvJujuClient:
         with tempfile.TemporaryFile() as stderr:
             try:
                 logging.debug(args)
+                # Mutate os.environ instead of supplying env parameter so
+                # Windows can search env['PATH']
                 with scoped_environ(env):
                     sub_output = subprocess.check_output(args, stderr=stderr)
                 logging.debug(sub_output)
@@ -329,6 +331,8 @@ class EnvJujuClient:
         else:
             call_func = subprocess.call
         start_time = time.time()
+        # Mutate os.environ instead of supplying env parameter so Windows can
+        # search env['PATH']
         with scoped_environ(env):
             rval = call_func(args)
         self.juju_timings.setdefault(args, []).append(
@@ -347,6 +351,8 @@ class EnvJujuClient:
                                     timeout=timeout)
         print_now(' '.join(args))
         env = self._shell_environ()
+        # Mutate os.environ instead of supplying env parameter so Windows can
+        # search env['PATH']
         with scoped_environ(env):
             proc = subprocess.Popen(full_args)
         yield proc
@@ -536,6 +542,8 @@ class EnvJujuClient:
         # juju-backup does not support the -e flag.
         environ['JUJU_ENV'] = self.env.environment
         try:
+            # Mutate os.environ instead of supplying env parameter so Windows
+            # can search env['PATH']
             with scoped_environ(environ):
                 output = subprocess.check_output(['juju', 'backup'])
         except subprocess.CalledProcessError as e:
