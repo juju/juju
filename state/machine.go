@@ -1052,22 +1052,34 @@ func containsAddress(addresses []network.Address, address network.Address) bool 
 // is stored as the default address on first use, and that address is always
 // returned unless it becomes unavilable (or a better match for scope and type
 // becomes avaialable).
-func (m *Machine) PublicAddress() network.Address {
+func (m *Machine) PublicAddress() (network.Address, error) {
 	publicAddress := m.doc.DefaultPublicAddress.networkAddress()
-	// XXX handle the case where len(addresses) == 0
 	addresses := m.Addresses()
-	if publicAddress.Value != "" {
-		if !network.ExactMatchScope(publicAddress, network.ScopePublic) {
-			publicAddress = network.Address{}
-		} else if !containsAddress(addresses, publicAddress) {
-			publicAddress = network.Address{}
+	if len(addresses) == 0 {
+		// No addresses to return.
+		logger.Warningf("getting PublicAddress: no addresses for machine %q", m.Id())
+		return network.Address{}, nil
+	}
+	checkScope := func(addr network.Address) bool {
+		return network.ExactMatchScope(addr, network.ScopePublic)
+	}
+	getAddr := func() network.Address {
+		return network.NewAddress(network.SelectPublicAddress(addresses))
+	}
+
+	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
+	if changed {
+		err := m.setDefaultAddress(newAddr, true)
+		if err != errNotAlive {
+			return network.Address{}, errors.Trace(err)
+		} else if err == errNotAlive {
+			// Dead machines cannot change address, report the last
+			// known address.
+			return publicAddress, nil
 		}
+		return newAddr, nil
 	}
-	if publicAddress.Value == "" {
-		//XXX store and save updated address
-		publicAddress = network.NewAddress(network.SelectPublicAddress(addresses))
-	}
-	return publicAddress
+	return publicAddress, nil
 }
 
 // maybeGetNewAddress determines if the current address is the most appropriate
@@ -1102,7 +1114,7 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 	addresses := m.Addresses()
 	if len(addresses) == 0 {
 		// No addresses to return.
-		logger.Warningf("no addresses to return for machine %q", m.Id())
+		logger.Warningf("getting PrivateAddress: no addresses for machine %q", m.Id())
 		return network.Address{}, nil
 	}
 	checkScope := func(addr network.Address) bool {
@@ -1114,18 +1126,22 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 
 	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
 	if changed {
-		privateAddress = newAddr
-		err := m.setDefaultAddress(privateAddress, false)
+		err := m.setDefaultAddress(newAddr, false)
 		if err != errNotAlive {
-			return privateAddress, errors.Trace(err)
+			return network.Address{}, errors.Trace(err)
+		} else if err == errNotAlive {
+			// Dead machines cannot change address, report the last
+			// known address.
+			return privateAddress, nil
 		}
-		return privateAddress, nil
+		return newAddr, nil
 	}
 	return privateAddress, nil
 }
 
 func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) error {
 	if m.doc.Life == Dead {
+		// Don't allow changing the address of dead machines.
 		return errNotAlive
 	}
 	addr := fromNetworkAddress(netAddr)
@@ -1150,11 +1166,20 @@ func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) erro
 			if m.doc.Life == Dead {
 				return nil, errNotAlive
 			}
+			// Address has already been set.
 			return nil, jujutxn.ErrNoOperations
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	err := m.st.run(buildTxn)
+	if err == nil {
+		if isPublic {
+			m.doc.DefaultPublicAddress = addr
+		} else {
+			m.doc.DefaultPrivateAddress = addr
+		}
+	}
+	return err
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
