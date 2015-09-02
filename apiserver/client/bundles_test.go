@@ -64,7 +64,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 		Method: "addCharm",
 		Args:   []interface{}{"django"},
 	}, {
-		Id:       "addService-1",
+		Id:       "deploy-1",
 		Method:   "deploy",
 		Args:     []interface{}{"django", "django", map[string]interface{}{"debug": true}},
 		Requires: []string{"addCharm-0"},
@@ -73,15 +73,15 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 		Method: "addCharm",
 		Args:   []interface{}{"cs:trusty/haproxy-42"},
 	}, {
-		Id:       "addService-3",
+		Id:       "deploy-3",
 		Method:   "deploy",
 		Args:     []interface{}{"cs:trusty/haproxy-42", "haproxy", map[string]interface{}{}},
 		Requires: []string{"addCharm-2"},
 	}, {
 		Id:       "addRelation-4",
 		Method:   "addRelation",
-		Args:     []interface{}{"$addService-1:web", "$addService-3:web"},
-		Requires: []string{"addService-1", "addService-3"},
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
 	}})
 	c.Assert(r.Errors, gc.IsNil)
 }
