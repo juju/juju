@@ -17,7 +17,6 @@ from unittest import TestCase
 
 from mock import (
     call,
-    MagicMock,
     patch,
 )
 import yaml
@@ -1151,6 +1150,115 @@ class TestEnvJujuClient(ClientTest):
         flattened_timings = client.get_juju_timings()
         expected = {"juju op1": [1], "juju op2": [2]}
         self.assertEqual(flattened_timings, expected)
+
+    def test_deployer(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.deployer('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'deployer', ('--debug', '--deploy-delay', '10', '--config',
+                         'bundle:~juju-qa/some-bundle'), True
+        )
+
+    def test_deployer_with_bundle_name(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.deployer('bundle:~juju-qa/some-bundle', 'name')
+        mock.assert_called_with(
+            'deployer', ('--debug', '--deploy-delay', '10', '--config',
+                         'bundle:~juju-qa/some-bundle', 'name'), True
+        )
+
+    def test_quickstart_maas(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'maas'}),
+                               '1.23-series-arch', '/juju')
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G arch=amd64', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
+        )
+
+    def test_quickstart_local(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', '/juju')
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), True, extra_env={'JUJU': '/juju'}
+        )
+
+    def test_quickstart_nonlocal(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'nonlocal'}),
+                               '1.23-series-arch', '/juju')
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
+        )
+
+    def test_action_do(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            mock.return_value = \
+                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9"
+            id = client.action_do("foo/0", "myaction", "param=5")
+            self.assertEqual(id, "5a92ec93-d4be-4399-82dc-7431dbfd08f9")
+        mock.assert_called_once_with(
+            'action do', 'foo/0', 'myaction', "param=5"
+        )
+
+    def test_action_do_error(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            mock.return_value = "some bad text"
+            with self.assertRaisesRegexp(Exception,
+                                         "Action id not found in output"):
+                client.action_do("foo/0", "myaction", "param=5")
+
+    def test_action_fetch(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            ret = "status: completed\nfoo: bar"
+            mock.return_value = ret
+            out = client.action_fetch("123")
+            self.assertEqual(out, ret)
+        mock.assert_called_once_with(
+            'action fetch', '123', "--wait", "1m"
+        )
+
+    def test_action_fetch_timeout(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        ret = "status: pending\nfoo: bar"
+        with patch.object(EnvJujuClient,
+                          'get_juju_output', return_value=ret):
+            with self.assertRaisesRegexp(Exception,
+                                         "timed out waiting for action"):
+                client.action_fetch("123")
+
+    def test_action_do_fetch(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'get_juju_output') as mock:
+            ret = "status: completed\nfoo: bar"
+            # setting side_effect to an iterable will return the next value
+            # from the list each time the function is called.
+            mock.side_effect = [
+                "Action queued with id: 5a92ec93-d4be-4399-82dc-7431dbfd08f9",
+                ret]
+            out = client.action_do_fetch("foo/0", "myaction", "param=5")
+            self.assertEqual(out, ret)
 
 
 class TestUniquifyLocal(TestCase):
