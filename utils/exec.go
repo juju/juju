@@ -28,9 +28,9 @@ func RunCommand(cmd string, args ...string) error {
 	return errors.Annotatef(err, "error executing %q", cmd)
 }
 
-// IsNotFound returns true if the provided error indicates that the
+// IsCmdNotFoundErr returns true if the provided error indicates that the
 // command passed to exec.LookPath or exec.Command was not found.
-func IsNotFound(err error) bool {
+func IsCmdNotFoundErr(err error) bool {
 	err = errors.Cause(err)
 	if os.IsNotExist(err) {
 		// Executable could not be found, go 1.3 and later

@@ -76,7 +76,7 @@ func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) 
 	if errors.IsNotFound(err) {
 		executableName := executablePrefix + name
 		absPath, err = lookPath(executableName)
-		if utils.IsNotFound(err) {
+		if utils.IsCmdNotFoundErr(err) {
 			return nil, errors.NotFoundf("plugin %q", name)
 		}
 		if err != nil {

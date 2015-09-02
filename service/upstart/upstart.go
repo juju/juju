@@ -50,7 +50,7 @@ func IsRunning() (bool, error) {
 	}
 
 	msg := fmt.Sprintf("exec %q failed", initctlPath)
-	if utils.IsNotFound(err) {
+	if utils.IsCmdNotFoundErr(err) {
 		return false, nil
 	}
 	// Note: initctl will fail if upstart is installed but not running.
