@@ -14,6 +14,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
@@ -55,9 +56,9 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool) (state.Entity, *time.Time, error) {
+	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool, authenticators map[string]authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 		<-nextChan
-		return checkCreds(st, c, lookForEnvUser)
+		return checkCreds(st, c, lookForEnvUser, authenticators)
 	}
 	doCheckCreds = delayedCheckCreds
 	return

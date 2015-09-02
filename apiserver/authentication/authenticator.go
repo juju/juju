@@ -11,23 +11,20 @@ import (
 )
 
 // AuthenticatorForTag looks up the authenticator for the given tag.
-func AuthenticatorForTag(tag string) (EntityAuthenticator, error) {
-	if tag == "" {
-		// If no tag is supplied we rely on macaroon authentication to provide
-		// the name of the entity to be authenticated.
-		// TODO (mattyw, mhilton) need a bakery
-		return &MacaroonAuthenticator{}, nil
+func AuthenticatorForTag(s string, authenticators map[string]EntityAuthenticator) (EntityAuthenticator, names.Tag, error) {
+	key := ""
+	tag := names.Tag(nil)
+	if s != "" {
+		var err error
+		tag, err = names.ParseTag(s)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "failed to determine the tag kind")
+		}
+		key = tag.Kind()
 	}
-	kind, err := names.TagKind(tag)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to determine the tag kind")
+	authenticator, ok := authenticators[key]
+	if !ok {
+		return nil, nil, common.ErrBadRequest
 	}
-	switch kind {
-	case names.MachineTagKind, names.UnitTagKind:
-		return &AgentAuthenticator{}, nil
-	case names.UserTagKind:
-		return &UserAuthenticator{}, nil
-	}
-
-	return nil, common.ErrBadRequest
+	return authenticator, tag, nil
 }
