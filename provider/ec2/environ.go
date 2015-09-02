@@ -490,14 +490,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, err
 	}
 
-	series := args.Tools.OneSeries()
-	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
-		Series:      series,
-		Arches:      arches,
-		Constraints: args.Constraints,
-		Storage:     []string{ssdStorage, ebsStorage},
-	})
+	spec, err := findInstanceSpec(
+		imagemetadata.Fetch,
+		sources,
+		e.Config().ImageStream(),
+		&instances.InstanceConstraint{
+			Region:      e.ecfg().region(),
+			Series:      args.Tools.OneSeries(),
+			Arches:      arches,
+			Constraints: args.Constraints,
+			Storage:     []string{ssdStorage, ebsStorage},
+		},
+	)
 	if err != nil {
 		return nil, err
 	}

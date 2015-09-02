@@ -377,3 +377,67 @@ func (s *instanceTypeSuite) TestSortByCost(c *gc.C) {
 		c.Check(names, gc.DeepEquals, t.expectedItypes)
 	}
 }
+
+func (s *instanceTypeSuite) TestAndPredicateLogicalTrue(c *gc.C) {
+	andPred := InstanceTypePredicateFn.And(
+		func(InstanceType) bool { return true },
+		func(InstanceType) bool { return true },
+	)
+	c.Check(andPred(InstanceType{}), jc.IsTrue)
+}
+
+func (s *instanceTypeSuite) TestAndPredicateLogicalFalse(c *gc.C) {
+	andPred := InstanceTypePredicateFn.And(
+		func(InstanceType) bool { return false },
+		func(InstanceType) bool { return true },
+	)
+	c.Check(andPred(InstanceType{}), jc.IsFalse)
+}
+
+func (s *instanceTypeSuite) TestMatchesConstraintsOnAllFields(c *gc.C) {
+	const constraintStr = `instance-type=m1.small` +
+		` arch=amd64` +
+		` cpu-cores=2` +
+		` cpu-power=` +
+		` mem=2G` +
+		` root-disk=2` +
+		` tags=a,^b`
+	pred := MatchesConstraint(constraints.MustParse(constraintStr))
+	matches := pred(InstanceType{
+		Name:     "m1.small",
+		Arches:   []string{"amd64", "i386"},
+		CpuCores: 2,
+		Mem:      2 * 1024 * 1024,
+		RootDisk: 2,
+		Tags:     []string{"a", "c"},
+	})
+
+	c.Check(matches, jc.IsTrue)
+}
+
+func (s *instanceTypeSuite) TestMatchesConstraintsExpectedFailure(c *gc.C) {
+	pred := MatchesConstraint(constraints.MustParse("arch=amd64"))
+	c.Check(pred(InstanceType{}), jc.IsFalse)
+}
+
+func (s *instanceTypeSuite) TestMatchesConstraintsOrMinMem(c *gc.C) {
+	pred := MatchesConstraintsOrMinMem(constraints.MustParse("arch=amd64"), minMemoryHeuristic)
+	c.Check(pred(InstanceType{Arches: []string{"amd64"}, Mem: 0}), jc.IsTrue)
+}
+
+func (s *instanceTypeSuite) TestCountMatches(c *gc.C) {
+	counter := 0
+	pred := func(InstanceType) bool { return true }
+	counterPred := CountMatches(pred, &counter)
+
+	for i := 1; i <= 5; i++ {
+		c.Assert(counterPred(InstanceType{}), jc.IsTrue)
+		c.Check(counter, gc.Equals, i)
+	}
+}
+
+func (s *instanceTypeSuite) TestLessThanNumMatches(c *gc.C) {
+	counter := 5
+	pred := LessThan(&counter, 1)
+	c.Check(pred(InstanceType{}), jc.IsFalse)
+}

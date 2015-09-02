@@ -29,6 +29,198 @@ func CpuPower(power uint64) *uint64 {
 	return &power
 }
 
+type InstanceTypePredicateFn func(InstanceType) bool
+
+func (p InstanceTypePredicateFn) Not() InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		return p(i) == false
+	}
+}
+
+func (p InstanceTypePredicateFn) And(preds ...InstanceTypePredicateFn) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		for _, p := range append([]InstanceTypePredicateFn{p}, preds...) {
+			if p == nil {
+				continue
+			} else if p(i) == false {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+func (p InstanceTypePredicateFn) Or(preds ...InstanceTypePredicateFn) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		for _, p := range append([]InstanceTypePredicateFn{p}, preds...) {
+			if p == nil {
+				continue
+			} else if p(i) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func FilterInstanceTypes(possible []InstanceType, matches InstanceTypePredicateFn) []InstanceType {
+
+	good := make([]InstanceType, 0, len(possible))
+	for _, instanceType := range possible {
+		if matches(instanceType) == false {
+			continue
+		}
+		good = append(good, instanceType)
+	}
+
+	return good
+}
+
+func HasInstanceType(instanceType *string) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		return instanceType == nil || *instanceType == "" || i.Name == *instanceType
+	}
+}
+
+func HasAtLeastCPUCores(numRequired *uint64) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		return numRequired == nil || i.CpuCores >= *numRequired
+	}
+}
+
+func HasAtLeastCpuPower(cpuPower *uint64) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		return cpuPower == nil || i.CpuPower == nil || *cpuPower <= *i.CpuPower
+	}
+}
+
+func HasAtLeastMemOfSize(size *uint64) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		return size == nil || i.Mem >= *size
+	}
+}
+
+func HasArch(arch *string) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		if arch == nil {
+			return true
+		}
+		for _, supportedArch := range i.Arches {
+			if supportedArch == *arch {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func HasAtLeastRootDiskOfSize(size *uint64) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		return size == nil || i.RootDisk >= *size || i.RootDisk == 0 // TODO(katco): This seems wrong; if it's not set, is it 0?
+	}
+}
+
+func HasTag(tag string) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		for _, t := range i.Tags {
+			if tag == t {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func TagsMatchConstraint(cons constraints.Value) InstanceTypePredicateFn {
+	if cons.Tags == nil {
+		return nil
+	}
+	var tagsMatch InstanceTypePredicateFn
+	for _, tag := range *cons.Tags {
+		if tag[0] == '^' {
+			tagsMatch = InstanceTypePredicateFn.And(
+				InstanceTypePredicateFn.Not(HasTag(tag[1:])),
+			)
+		} else {
+			tagsMatch = InstanceTypePredicateFn.And(HasTag(tag))
+		}
+	}
+
+	return tagsMatch
+}
+
+func MatchesConstraint(cons constraints.Value) InstanceTypePredicateFn {
+	fmt.Fprintf(&DebugBuffer, "Constraint: %+v\n", cons)
+	return InstanceTypePredicateFn.And(
+		HasInstanceType(cons.InstanceType),
+		HasArch(cons.Arch),
+		HasAtLeastCPUCores(cons.CpuCores),
+		HasAtLeastCpuPower(cons.CpuPower),
+		HasAtLeastMemOfSize(cons.Mem),
+		HasAtLeastRootDiskOfSize(cons.RootDisk),
+		TagsMatchConstraint(cons),
+	)
+}
+
+func HasGreatestMem(greatestMem *uint64) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		if i.Mem < *greatestMem {
+			return false
+		}
+
+		*greatestMem = i.Mem
+		return true
+	}
+}
+
+func CountMatches(p InstanceTypePredicateFn, numMatches *int) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		if p(i) == false {
+			return false
+		}
+		*numMatches++
+		return true
+	}
+}
+
+func LessThan(numMatches *int, desired int) InstanceTypePredicateFn {
+	return func(i InstanceType) bool {
+		return *numMatches < desired
+	}
+}
+
+func MatchesConstraintsOrMinMem(constraints constraints.Value, minMem uint64) InstanceTypePredicateFn {
+	matches := MatchesConstraint(constraints)
+
+	fmt.Fprintf(&DebugBuffer, "hasInstanceType: %+v\n", constraints.HasInstanceType())
+	if constraints.Mem == nil {
+		fmt.Fprintf(&DebugBuffer, "mem: (nil)\n")
+	} else {
+		fmt.Fprintf(&DebugBuffer, "mem: %v\n", *constraints.Mem)
+	}
+
+	if constraints.HasInstanceType() == false && (constraints.Mem == nil || *constraints.Mem == 0) {
+
+		mem := minMem
+		minMemConstraint := constraints
+		minMemConstraint.Mem = &mem
+		fmt.Fprintf(&DebugBuffer, "minMemConstraint: %+v\n", minMemConstraint)
+
+		greatestMem := uint64(0)
+		numPerfectMatches := 0
+		matches = InstanceTypePredicateFn.Or(
+			CountMatches(MatchesConstraint(minMemConstraint), &numPerfectMatches),
+			InstanceTypePredicateFn.And(
+				LessThan(&numPerfectMatches, 1),
+				HasGreatestMem(&greatestMem),
+				matches,
+			),
+		)
+	}
+
+	return matches
+}
+
 // match returns true if itype can satisfy the supplied constraints. If so,
 // it also returns a copy of itype with any arches that do not match the
 // constraints filtered out.

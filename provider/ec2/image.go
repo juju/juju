@@ -43,13 +43,29 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 	return nil
 }
 
+type fetchImagesFn func(
+	_ []simplestreams.DataSource,
+	_ *imagemetadata.ImageConstraint,
+	onlySigned bool,
+) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error)
+
+type findInstanceSpecFn func(
+	[]instances.Image,
+	*instances.InstanceConstraint,
+	[]instances.InstanceType,
+) (*instances.InstanceSpec, error)
+
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func findInstanceSpec(
-	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	fetchImages fetchImagesFn,
+	sources []simplestreams.DataSource,
+	stream string,
+	ic *instances.InstanceConstraint,
+) (*instances.InstanceSpec, error) {
 
 	// If the instance type is set, don't also set a default CPU power
 	// as this is implied.
-	if ic.Constraints.CpuPower == nil && ic.Constraints.InstanceType == nil {
+	if ic.Constraints.CpuPower == nil /*&& ic.Constraints.InstanceType == nil*/ {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	ec2Region := allRegions[ic.Region]
@@ -59,7 +75,8 @@ func findInstanceSpec(
 		Arches:    ic.Arches,
 		Stream:    stream,
 	})
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
+	//matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := fetchImages(sources, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}
