@@ -7,6 +7,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/mongo"
 )
 
@@ -32,10 +33,9 @@ func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
 
 // envStateCollection wraps a mongo.Collection, preserving the
 // mongo.Collection interface and its Writeable behaviour. It will
-// automatically modify query selectors so that so that the query only
-// interacts with data for a single environment (where possible).
-//
-// In particular, Inserts are not trapped at all. Be careful.
+// automatically modify query selectors and documents so that queries
+// and inserts only interact with data for a single environment (where
+// possible).
 type envStateCollection struct {
 	mongo.WriteCollection
 	envUUID string
@@ -71,13 +71,30 @@ func (c *envStateCollection) Find(query interface{}) *mgo.Query {
 }
 
 // FindId looks up a single document by _id. If the id is a string the
-// relevant environment UUID prefix will be added on to it. Otherwise, the
+// relevant environment UUID prefix will be added to it. Otherwise, the
 // query will be handled as per Find().
 func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 	if sid, ok := id.(string); ok {
 		return c.WriteCollection.FindId(ensureEnvUUID(c.envUUID, sid))
 	}
 	return c.Find(bson.D{{"_id", id}})
+}
+
+// Insert adds one or more documents to a collection. If the document
+// id is a string the environment UUID prefix will be automatically
+// added to it. The env-uuid field will also be automatically added if
+// it is missing. An error will be returned if an env-uuid field is
+// provided but is the wrong value.
+func (c *envStateCollection) Insert(docs ...interface{}) error {
+	var mungedDocs []interface{}
+	for _, doc := range docs {
+		mungedDoc, err := c.mungeInsert(doc)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		mungedDocs = append(mungedDocs, mungedDoc)
+	}
+	return c.WriteCollection.Insert(mungedDocs...)
 }
 
 // Update finds a single document matching the provided query document and
@@ -123,10 +140,42 @@ func (c *envStateCollection) RemoveId(id interface{}) error {
 	return c.Remove(bson.D{{"_id", id}})
 }
 
-// RemoveAll deletes all docuemnts that match a query. The query will
+// RemoveAll deletes all documents that match a query. The query will
 // be handled as per Find().
 func (c *envStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, error) {
 	return c.WriteCollection.RemoveAll(c.mungeQuery(query))
+}
+
+func (c *envStateCollection) mungeInsert(inDoc interface{}) (bson.D, error) {
+	outDoc, err := toBsonD(inDoc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	uuidSeen := false
+	for i, item := range outDoc {
+		switch item.Name {
+		case "_id":
+			docId, ok := item.Value.(string)
+			if ok { // tolerate non-string ids
+				outDoc[i].Value = ensureEnvUUID(c.envUUID, docId)
+			}
+		case "env-uuid":
+			docEnvUUID, ok := outDoc[i].Value.(string)
+			if !ok {
+				return nil, errors.Errorf("env-uuid is not a string: %v", outDoc[i].Value)
+			}
+			if docEnvUUID == "" {
+				outDoc[i].Value = c.envUUID
+			} else if docEnvUUID != c.envUUID {
+				return nil, errors.Errorf("insert env-uuid is not correct: %q != %q", docEnvUUID, c.envUUID)
+			}
+			uuidSeen = true
+		}
+	}
+	if !uuidSeen {
+		outDoc = append(outDoc, bson.DocElem{"env-uuid", c.envUUID})
+	}
+	return outDoc, nil
 }
 
 func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
@@ -157,4 +206,20 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 		panic("query must be bson.D, bson.M, or nil")
 	}
 	return outq
+}
+
+// toBsonD converts an arbitrary value to a bson.D via marshaling
+// through BSON. This is still done even if the input is already a
+// bson.D so that we end up with a copy of the input.
+func toBsonD(doc interface{}) (bson.D, error) {
+	bytes, err := bson.Marshal(doc)
+	if err != nil {
+		return nil, errors.Annotate(err, "bson marshaling failed")
+	}
+	var out bson.D
+	err = bson.Unmarshal(bytes, &out)
+	if err != nil {
+		return nil, errors.Annotate(err, "bson unmarshaling failed")
+	}
+	return out, nil
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type backupsSuite struct {
@@ -76,4 +77,11 @@ func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	_, err := backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
 
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
+}
+
+func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
+	otherState := factory.NewFactory(s.State).MakeEnvironment(c, nil)
+	defer otherState.Close()
+	_, err := backupsAPI.NewAPI(otherState, s.resources, s.authorizer)
+	c.Check(err, gc.ErrorMatches, "backups are not supported for hosted environments")
 }

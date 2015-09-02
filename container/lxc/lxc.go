@@ -384,8 +384,9 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
+	arch := arch.HostArch()
 	hardware := &instance.HardwareCharacteristics{
-		Arch: &version.Current.Arch,
+		Arch: &arch,
 	}
 
 	return &lxcInstance{lxcContainer, name}, hardware, nil

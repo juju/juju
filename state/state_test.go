@@ -2758,10 +2758,21 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		if collName == "constraints" || collName == "envusers" || collName == "settings" {
 			continue
 		}
-		ops = append(ops, mgotxn.Op{
-			C:      collName,
-			Id:     state.DocID(st, "arbitraryid"),
-			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+		if state.HasRawAccess(collName) {
+			coll, closer := state.GetRawCollection(st, collName)
+			defer closer()
+
+			err := coll.Insert(bson.M{
+				"_id":      state.DocID(st, "arbitraryid"),
+				"env-uuid": st.EnvironUUID(),
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			ops = append(ops, mgotxn.Op{
+				C:      collName,
+				Id:     state.DocID(st, "arbitraryid"),
+				Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+		}
 	}
 	err := state.RunTransaction(st, ops)
 	c.Assert(err, jc.ErrorIsNil)

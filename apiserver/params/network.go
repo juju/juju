@@ -4,12 +4,52 @@
 package params
 
 import (
+	"net"
+
 	"github.com/juju/juju/network"
 )
 
 // -----
 // Parameters field types.
 // -----
+
+// Subnet describes a single subnet within a network.
+type Subnet struct {
+	// CIDR of the subnet in IPv4 or IPv6 notation.
+	CIDR string `json:"CIDR"`
+
+	// ProviderId is the provider-specific subnet ID (if applicable).
+	ProviderId string `json:"ProviderId,omitempty`
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
+	// normal networks. It's defined by IEEE 802.1Q standard.
+	VLANTag int `json:"VLANTag"`
+
+	// Life is the subnet's life cycle value - Alive means the subnet
+	// is in use by one or more machines, Dying or Dead means the
+	// subnet is about to be removed.
+	Life Life `json:"Life"`
+
+	// SpaceTag is the Juju network space this subnet is associated
+	// with.
+	SpaceTag string `json:"SpaceTag"`
+
+	// Zones contain one or more availability zones this subnet is
+	// associated with.
+	Zones []string `json:"Zones"`
+
+	// StaticRangeLowIP (if available) is the lower bound of the
+	// subnet's static IP allocation range.
+	StaticRangeLowIP net.IP `json:"StaticRangeLowIP,omitempty"`
+
+	// StaticRangeHighIP (if available) is the higher bound of the
+	// subnet's static IP allocation range.
+	StaticRangeHighIP net.IP `json:"StaticRangeHighIP,omitempty"`
+
+	// Status returns the status of the subnet, whether it is in use, not
+	// in use or terminating.
+	Status string `json:"Status,omitempty"`
+}
 
 // Network describes a single network available on an instance.
 type Network struct {
@@ -430,4 +470,97 @@ type APIHostPortsResult struct {
 // result servers as network type.
 func (r APIHostPortsResult) NetworkHostsPorts() [][]network.HostPort {
 	return NetworkHostsPorts(r.Servers)
+}
+
+// ZoneResult holds the result of an API call that returns an
+// availability zone name and whether it's available for use.
+type ZoneResult struct {
+	Error     *Error `json:"Error"`
+	Name      string `json:"Name"`
+	Available bool   `json:"Available"`
+}
+
+// ZoneResults holds multiple ZoneResult results
+type ZoneResults struct {
+	Results []ZoneResult `json:"Results"`
+}
+
+// SpaceResult holds a single space tag or an error.
+type SpaceResult struct {
+	Error *Error `json:"Error"`
+	Tag   string `json:"Tag"`
+}
+
+// SpaceResults holds the bulk operation result of an API call
+// that returns space tags or an errors.
+type SpaceResults struct {
+	Results []SpaceResult `json:"Results"`
+}
+
+// ListSubnetsResults holds the result of a ListSubnets API call.
+type ListSubnetsResults struct {
+	Results []Subnet `json:"Results"`
+}
+
+// SubnetsFilters holds an optional SpaceTag and Zone for filtering
+// the subnets returned by a ListSubnets call.
+type SubnetsFilters struct {
+	SpaceTag string `json:"SpaceTag,omitempty"`
+	Zone     string `json:"Zone,omitempty"`
+}
+
+// AddSubnetsParams holds the arguments of AddSubnets API call.
+type AddSubnetsParams struct {
+	Subnets []AddSubnetParams `json:"Subnets"`
+}
+
+// AddSubnetParams holds a subnet and space tags, subnet provider ID,
+// and a list of zones to associate the subnet to. Either SubnetTag or
+// SubnetProviderId must be set, but not both. Zones can be empty if
+// they can be discovered
+type AddSubnetParams struct {
+	SubnetTag        string   `json:"SubnetTag,omitempty"`
+	SubnetProviderId string   `json:"SubnetProviderId,omitempty"`
+	SpaceTag         string   `json:"SpaceTag"`
+	Zones            []string `json:"Zones,omitempty"`
+}
+
+// CreateSubnetsParams holds the arguments of CreateSubnets API call.
+type CreateSubnetsParams struct {
+	Subnets []CreateSubnetParams `json:"Subnets"`
+}
+
+// CreateSubnetParams holds a subnet and space tags, vlan tag,
+// and a list of zones to associate the subnet to.
+type CreateSubnetParams struct {
+	SubnetTag string   `json:"SubnetTag,omitempty"`
+	SpaceTag  string   `json:"SpaceTag"`
+	Zones     []string `json:"Zones,omitempty"`
+	VLANTag   int      `json:"VLANTag,omitempty"`
+	IsPublic  bool     `json:"IsPublic"`
+}
+
+// CreateSpacesParams olds the arguments of the AddSpaces API call.
+type CreateSpacesParams struct {
+	Spaces []CreateSpaceParams `json:"Spaces"`
+}
+
+// CreateSpaceParams holds the space tag and at least one subnet
+// tag required to create a new space.
+type CreateSpaceParams struct {
+	SubnetTags []string `json:"SubnetTags"`
+	SpaceTag   string   `json:"SpaceTag"`
+	Public     bool     `json:"Public"`
+}
+
+// ListSpacesResults holds the list of all available spaces.
+type ListSpacesResults struct {
+	Results []Space `json:"Results"`
+}
+
+// Space holds the information about a single space and its associated subnets.
+type Space struct {
+	Name    string   `json:"Name"`
+	Subnets []Subnet `json:"Subnets"`
+	Error   *Error   `json:"Error,omitempty"`
 }

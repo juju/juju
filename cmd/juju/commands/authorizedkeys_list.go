@@ -30,7 +30,7 @@ func (c *ListKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Doc:     listKeysDoc,
-		Purpose: "list authorized ssh keys for a specified user",
+		Purpose: "list authorised ssh keys for a specified user",
 	}
 }
 

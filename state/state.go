@@ -138,11 +138,17 @@ func (st *State) RemoveAllEnvironDocs() error {
 			return errors.Trace(err)
 		}
 		for _, id := range ids {
-			ops = append(ops, txn.Op{
-				C:      name,
-				Id:     id["_id"],
-				Remove: true,
-			})
+			if info.rawAccess {
+				if err := coll.Writeable().RemoveId(id["_id"]); err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				ops = append(ops, txn.Op{
+					C:      name,
+					Id:     id["_id"],
+					Remove: true,
+				})
+			}
 		}
 	}
 
@@ -1237,7 +1243,7 @@ func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
 
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add subnet %q", args.CIDR)
+	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
@@ -1250,6 +1256,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		AllocatableIPHigh: args.AllocatableIPHigh,
 		AllocatableIPLow:  args.AllocatableIPLow,
 		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
 	}
 	subnet = &Subnet{doc: subDoc, st: st}
 	err = subnet.Validate()
@@ -1302,6 +1309,22 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
 	}
 	return &Subnet{st, *doc}, nil
+}
+
+// AllSubnets returns all known subnets in the environment.
+func (st *State) AllSubnets() (subnets []*Subnet, err error) {
+	subnetsCollection, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	docs := []subnetDoc{}
+	err = subnetsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all subnets")
+	}
+	for _, doc := range docs {
+		subnets = append(subnets, &Subnet{st, doc})
+	}
+	return subnets, nil
 }
 
 // AddNetwork creates a new network with the given params. If a

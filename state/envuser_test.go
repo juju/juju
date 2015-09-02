@@ -37,7 +37,9 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
-	c.Assert(envUser.LastConnection(), gc.IsNil)
+	when, err := envUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(when.IsZero(), jc.IsTrue)
 
 	envUser, err = s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -47,7 +49,19 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
-	c.Assert(envUser.LastConnection(), gc.IsNil)
+	when, err = envUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(when.IsZero(), jc.IsTrue)
+}
+
+func (s *EnvUserSuite) TestCaseUserNameVsId(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	user, err := s.State.AddEnvironmentUser(names.NewUserTag("Bob@RandomProvider"), env.Owner(), "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(user.UserName(), gc.Equals, "Bob@RandomProvider")
+	c.Assert(user.ID(), gc.Equals, state.DocID(s.State, "bob@randomprovider"))
 }
 
 func (s *EnvUserSuite) TestCaseSensitiveEnvUserErrors(c *gc.C) {
@@ -137,10 +151,49 @@ func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = envUser.UpdateLastConnection()
 	c.Assert(err, jc.ErrorIsNil)
+	when, err := envUser.LastConnection()
+	c.Assert(err, jc.ErrorIsNil)
 	// It is possible that the update is done over a second boundary, so we need
 	// to check for after now as well as equal.
-	c.Assert(envUser.LastConnection().After(now) ||
-		envUser.LastConnection().Equal(now), jc.IsTrue)
+	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
+}
+
+func (s *EnvUserSuite) TestUpdateLastConnectionTwoEnvUsers(c *gc.C) {
+	now := state.NowToTheSecond()
+
+	// Create a user and add them to the inital environment.
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a second environment and add the same user to this.
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	envUser2, err := st2.AddEnvironmentUser(user.UserTag(), createdBy.UserTag(), "ignored")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now we have two environment users with the same username. Ensure we get
+	// separate last connections.
+
+	// Connect envUser and get last connection.
+	err = envUser.UpdateLastConnection()
+	c.Assert(err, jc.ErrorIsNil)
+	when, err := envUser.LastConnection()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
+
+	// Try to get last connection for envUser2. As they have never connected,
+	// we expect to get an error.
+	_, err = envUser2.LastConnection()
+	c.Assert(err, gc.ErrorMatches, `never connected: "validusername@local"`)
+
+	// Connect envUser2 and get last connection.
+	err = envUser2.UpdateLastConnection()
+	c.Assert(err, jc.ErrorIsNil)
+	when, err = envUser2.LastConnection()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(when.After(now) || when.Equal(now), jc.IsTrue)
 }
 
 func (s *EnvUserSuite) TestEnvironmentsForUserNone(c *gc.C) {
@@ -163,6 +216,9 @@ func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
 	c.Assert(environments[0].UUID(), gc.Equals, s.State.EnvironUUID())
+	when, err := environments[0].LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(when.IsZero(), jc.IsTrue)
 }
 
 func (s *EnvUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag) *state.Environment {

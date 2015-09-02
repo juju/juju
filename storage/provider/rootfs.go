@@ -134,81 +134,81 @@ func (s *rootfsFilesystemSource) ValidateFilesystemParams(params storage.Filesys
 }
 
 // CreateFilesystems is defined on the FilesystemSource interface.
-func (s *rootfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.Filesystem, error) {
-	filesystems := make([]storage.Filesystem, len(args))
+func (s *rootfsFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
 		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
-			return nil, errors.Annotate(err, "creating filesystem")
+			results[i].Error = err
+			continue
 		}
-		filesystems[i] = filesystem
+		results[i].Filesystem = filesystem
 	}
-	return filesystems, nil
+	return results, nil
 }
 
-func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (storage.Filesystem, error) {
-	var filesystem storage.Filesystem
+func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParams) (*storage.Filesystem, error) {
 	if err := s.ValidateFilesystemParams(params); err != nil {
-		return filesystem, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	path := filepath.Join(s.storageDir, params.Tag.Id())
 	if err := ensureDir(s.dirFuncs, path); err != nil {
-		return filesystem, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if err := ensureEmptyDir(s.dirFuncs, path); err != nil {
-		return filesystem, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	sizeInMiB, err := s.dirFuncs.calculateSize(s.storageDir)
 	if err != nil {
 		os.Remove(path)
-		return filesystem, errors.Annotate(err, "getting size")
+		return nil, errors.Trace(err)
 	}
 	if sizeInMiB < params.Size {
 		os.Remove(path)
-		return filesystem, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
+		return nil, errors.Errorf("filesystem is not big enough (%dM < %dM)", sizeInMiB, params.Size)
 	}
-	filesystem = storage.Filesystem{
+	return &storage.Filesystem{
 		params.Tag,
 		names.VolumeTag{},
 		storage.FilesystemInfo{
 			FilesystemId: params.Tag.Id(),
 			Size:         sizeInMiB,
 		},
-	}
-	return filesystem, nil
+	}, nil
 }
 
 // DestroyFilesystems is defined on the FilesystemSource interface.
-func (s *rootfsFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+func (s *rootfsFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
 	// DestroyFilesystems is a no-op; we leave the storage directory
 	// in tact for post-mortems and such.
-	return make([]error, len(filesystemIds))
+	return make([]error, len(filesystemIds)), nil
 }
 
 // AttachFilesystems is defined on the FilesystemSource interface.
-func (s *rootfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
-	attachments := make([]storage.FilesystemAttachment, len(args))
+func (s *rootfsFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
 		attachment, err := s.attachFilesystem(arg)
 		if err != nil {
-			return nil, errors.Annotatef(err, "attaching %s", names.ReadableString(arg.Filesystem))
+			results[i].Error = err
+			continue
 		}
-		attachments[i] = attachment
+		results[i].FilesystemAttachment = attachment
 	}
-	return attachments, nil
+	return results, nil
 }
 
-func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (storage.FilesystemAttachment, error) {
+func (s *rootfsFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (*storage.FilesystemAttachment, error) {
 	mountPoint := arg.Path
 	if mountPoint == "" {
-		return storage.FilesystemAttachment{}, errNoMountPoint
+		return nil, errNoMountPoint
 	}
 	// The filesystem is created at <storage-dir>/<storage-id>.
 	// If it is different to the attachment path, bind mount.
 	if err := s.mount(arg.Filesystem, mountPoint); err != nil {
-		return storage.FilesystemAttachment{}, err
+		return nil, err
 	}
-	return storage.FilesystemAttachment{
+	return &storage.FilesystemAttachment{
 		arg.Filesystem,
 		arg.Machine,
 		storage.FilesystemAttachmentInfo{
@@ -299,11 +299,12 @@ func (s *rootfsFilesystemSource) validateSameMountPoints(source, target string) 
 }
 
 // DetachFilesystems is defined on the FilesystemSource interface.
-func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
-	for _, arg := range args {
+func (s *rootfsFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) ([]error, error) {
+	results := make([]error, len(args))
+	for i, arg := range args {
 		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
-			return errors.Annotatef(err, "detaching filesystem %s", arg.Filesystem.Id())
+			results[i] = err
 		}
 	}
-	return nil
+	return results, nil
 }

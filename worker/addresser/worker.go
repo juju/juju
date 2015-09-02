@@ -19,9 +19,19 @@ type addresserHandler struct {
 	api *apiaddresser.API
 }
 
-// NewWorker returns a worker that keeps track of
-// IP address lifecycles, releaseing and removing Dead addresses.
+// NewWorker returns a worker that keeps track of IP address
+// lifecycles, releaseing and removing dead addresses.
 func NewWorker(api *apiaddresser.API) (worker.Worker, error) {
+	ok, err := api.CanDeallocateAddresses()
+	if err != nil {
+		return nil, errors.Annotate(err, "checking address deallocation")
+	}
+	if !ok {
+		// Environment does not support IP address
+		// deallocation.
+		logger.Debugf("address deallocation not supported; not starting worker")
+		return worker.FinishedWorker{}, nil
+	}
 	ah := &addresserHandler{
 		api: api,
 	}
