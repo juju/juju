@@ -35,6 +35,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/imagemetadata"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
@@ -46,7 +47,9 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cmd/jujud/util/password"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envimagemetadata "github.com/juju/juju/environs/imagemetadata"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -57,6 +60,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -72,6 +76,7 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
@@ -1474,6 +1479,94 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for block devices to be recorded")
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForHostUnits(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobHostUnits, "can host units")
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageNetworking(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageNetworking, "can manage networking")
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDeprecated(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageStateDeprecated, "can manage state (deprecated)")
+}
+
+func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
+	// Patch out the worker func before starting the agent.
+	started := make(chan struct{})
+	newWorker := func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newMetadataUpdater, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, job)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+		c.Fatalf("metadata update worker unexpectedly started for non-state server machine that %v", suffix)
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
+	// Patch out the worker func before starting the agent.
+	started := make(chan struct{})
+	newWorker := func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newMetadataUpdater, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for metadata update worker to start")
+	}
+}
+
+func (s *MachineSuite) TestMetadataWorkerUpdatesState(c *gc.C) {
+	expected := []*envimagemetadata.ImageMetadata{{Id: "whatever"}}
+	s.PatchValue(&imagemetadataworker.DefaultListPublishedMetadata, func(env environs.Environ) ([]*envimagemetadata.ImageMetadata, error) {
+		return expected, nil
+	})
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for state to be updated.
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		metadata, err := s.BackingState.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		if len(metadata) > 0 {
+			c.Assert(metadata, gc.HasLen, 1)
+			c.Assert(metadata[cloudimagemetadata.Public], gc.HasLen, 1)
+			c.Assert(metadata[cloudimagemetadata.Public][0].ImageId, gc.Equals, expected[0].Id)
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for public image metadata to be recorded")
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
