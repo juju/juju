@@ -12,8 +12,10 @@ type Plugin interface {
 	// Launch runs the plugin's "launch" command, passing the provided
 	// workload definition. The output is converted to a Details.
 	Launch(definition charm.Workload) (Details, error)
+
 	// Destroy runs the plugin's "destroy" command for the given ID.
 	Destroy(id string) error
+
 	// Status runs the plugin's "status" command. The output is
 	// converted to a PluginStatus.
 	Status(id string) (PluginStatus, error)
