@@ -82,10 +82,10 @@ func (s *updaterSuite) TestCheckTools(c *gc.C) {
 	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
 }
 
-type envCapable struct {
+type envGetter struct {
 }
 
-func (e *envCapable) Environment() (*state.Environment, error) {
+func (e *envGetter) Environment() (*state.Environment, error) {
 	return &state.Environment{}, nil
 }
 
@@ -116,7 +116,7 @@ func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 		return nil
 	}
 
-	err := updateToolsAvailability(&envCapable{}, fakeToolFinder, fakeUpdate)
+	err := updateToolsAvailability(&envGetter{}, fakeToolFinder, fakeUpdate)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -218,14 +217,7 @@ func (c *Client) newToolsVersionAvailable() (string, error) {
 	}
 
 	latestVersion := env.LatestToolsVersion()
-	if latestVersion == "" {
-		return "", nil
-	}
 
-	v, err := version.Parse(env.LatestToolsVersion())
-	if err != nil {
-		return "", errors.Annotatef(err, "the stored newest available version for juju tools %q is invalid", latestVersion)
-	}
 	envConfig, err := c.api.state.EnvironConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot obtain current environ config")
@@ -234,8 +226,8 @@ func (c *Client) newToolsVersionAvailable() (string, error) {
 	if !ok {
 		return "", nil
 	}
-	if oldV.Compare(v) < 0 {
-		return latestVersion, nil
+	if oldV.Compare(latestVersion) < 0 {
+		return latestVersion.String(), nil
 	}
 	return "", nil
 }

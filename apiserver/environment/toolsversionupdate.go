@@ -23,8 +23,8 @@ var (
 	findTools = tools.FindTools
 )
 
-// EnvironmentCapable represents a struct that can provide a state.Environment.
-type EnvironmentCapable interface {
+// EnvironGetter represents a struct that can provide a state.Environment.
+type EnvironGetter interface {
 	Environment() (*state.Environment, error)
 }
 
@@ -45,7 +45,7 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 	}
 
 	// finder receives major and minor as parameters as it uses them to filter versions and
-	// only return patches for the passed major.minor.
+	// only return patches for the passed major.minor (from major.minor.patch).
 	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, coretools.Filter{})
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "canot find available tools")
@@ -62,10 +62,10 @@ var envConfig = func(e *state.Environment) (*config.Config, error) {
 
 // Base implementation of envVersionUpdater
 func envVersionUpdate(env *state.Environment, ver version.Number) error {
-	return env.UpdateLatestToolsVersion(ver.String())
+	return env.UpdateLatestToolsVersion(ver)
 }
 
-func updateToolsAvailability(st EnvironmentCapable, finder toolsFinder, update envVersionUpdater) error {
+func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVersionUpdater) error {
 	env, err := st.Environment()
 	if err != nil {
 		return errors.Annotate(err, "cannot get environment")
@@ -85,15 +85,18 @@ func updateToolsAvailability(st EnvironmentCapable, finder toolsFinder, update e
 	return update(env, ver)
 }
 
+// EnvironTools holds the required tools for an environ facade.
 type EnvironTools struct {
-	st         EnvironmentCapable
+	st         EnvironGetter
 	authorizer common.Authorizer
 	// tools lookup
 	findTools        toolsFinder
 	envVersionUpdate envVersionUpdater
 }
 
-func NewEnvironTools(st EnvironmentCapable, authorizer common.Authorizer) *EnvironTools {
+// NewEnvironTools returns a new environ tools pointer with the passed attributes
+// and some defaults that are only for changed during tests.
+func NewEnvironTools(st EnvironGetter, authorizer common.Authorizer) *EnvironTools {
 	return &EnvironTools{
 		st:               st,
 		authorizer:       authorizer,
@@ -102,6 +105,8 @@ func NewEnvironTools(st EnvironmentCapable, authorizer common.Authorizer) *Envir
 	}
 }
 
+// UpdateToolsAvailable invokes a lookup and further update in environ
+// for new patches of the current tool versions.
 func (e *EnvironTools) UpdateToolsAvailable() error {
 	if !e.authorizer.AuthEnvironManager() {
 		return common.ErrPerm

@@ -36,8 +36,6 @@ func (dummyEnviron) Config() *config.Config {
 	return c
 }
 
-//TODO(perrito666) make this an interface representing api.Facade for
-// all practical purposes of testing.
 type facade struct {
 	called chan string
 }

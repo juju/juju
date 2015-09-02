@@ -5,7 +5,6 @@ package state
 
 import (
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -14,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/version"
 )
 
 // environGlobalKey is the key for the environment, its
@@ -37,8 +37,6 @@ type environmentDoc struct {
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
-	// LatestToolCheck holds the time when the last check was performed.
-	LatestToolCheck *time.Time `bson:"latest-tools-check,omitempty"`
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.
@@ -222,14 +220,14 @@ func (e *Environment) Config() (*config.Config, error) {
 
 // UpdateLatestToolsVersion looks up for the latest available version of
 // juju tools and updates environementDoc with it.
-func (e *Environment) UpdateLatestToolsVersion(ver string) error {
-	now := time.Now()
+func (e *Environment) UpdateLatestToolsVersion(ver version.Number) error {
+	v := ver.String()
 	// TODO(perrito666): I need to assert here that there isn't a newer
 	// version in place.
 	ops := []txn.Op{{
 		C:      environmentsC,
 		Id:     e.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"available-tools", ver}, {"latest-tools-check", &now}}}},
+		Update: bson.D{{"$set", bson.D{{"available-tools", v}}}},
 	}}
 	err := e.st.runTransaction(ops)
 	if err != nil {
@@ -241,9 +239,20 @@ func (e *Environment) UpdateLatestToolsVersion(ver string) error {
 // LatestToolsVersion returns the newest version found in the last
 // check in the streams.
 // Bear in mind that the check was performed filtering only
-// new patches for the current major.minor.
-func (e *Environment) LatestToolsVersion() string {
-	return e.doc.LatestAvailableTools
+// new patches for the current major.minor. (major.minor.patch)
+func (e *Environment) LatestToolsVersion() version.Number {
+	ver := e.doc.LatestAvailableTools
+	if ver == "" {
+		return version.Zero
+	}
+	v, err := version.Parse(ver)
+	if err != nil {
+		// This is being stored from a valid version but
+		// in case this data would beacame corrupt It is not
+		// worth to fail because of it.
+		return version.Zero
+	}
+	return v
 }
 
 // globalKey returns the global database key for the environment.

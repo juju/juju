@@ -825,7 +825,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
 				// 4 times a day seems a decent enough amount of checks.
 				checkerParams := toolsversionchecker.VersionCheckerParams{
-					CheckInterval: time.Second * 30,
+					CheckInterval: time.Hour * 6,
 				}
 				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
 			})
