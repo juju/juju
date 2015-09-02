@@ -2,12 +2,14 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package password
+package renderers_test
 
 import (
-	"github.com/juju/loggo"
+	"testing"
+
+	gc "gopkg.in/check.v1"
 )
 
-var (
-	logger = loggo.GetLogger("juju.cmd.jujud.util.password")
-)
+func Test(t *testing.T) {
+	gc.TestingT(t)
+}

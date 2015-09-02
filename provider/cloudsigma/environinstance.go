@@ -84,7 +84,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, CloudSigmaRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
