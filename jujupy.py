@@ -267,8 +267,9 @@ class EnvJujuClient:
         with tempfile.TemporaryFile() as stderr:
             try:
                 logging.debug(args)
-                sub_output = subprocess.check_output(args, stderr=stderr,
-                                                     env=env)
+                with scoped_environ(env):
+                    sub_output = subprocess.check_output(args, stderr=stderr,
+                                                         env=env)
                 logging.debug(sub_output)
                 return sub_output
             except subprocess.CalledProcessError as e:
@@ -332,7 +333,8 @@ class EnvJujuClient:
         else:
             call_func = subprocess.call
         start_time = time.time()
-        rval = call_func(args, env=env)
+        with scoped_environ(env):
+            rval = call_func(args, env=env)
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
@@ -349,7 +351,8 @@ class EnvJujuClient:
                                     timeout=timeout)
         print_now(' '.join(args))
         env = self._shell_environ()
-        proc = subprocess.Popen(full_args, env=env)
+        with scoped_environ(env):
+            proc = subprocess.Popen(full_args, env=env)
         yield proc
         retcode = proc.wait()
         if retcode != 0:
@@ -537,7 +540,9 @@ class EnvJujuClient:
         # juju-backup does not support the -e flag.
         environ['JUJU_ENV'] = self.env.environment
         try:
-            output = subprocess.check_output(['juju', 'backup'], env=environ)
+            with scoped_environ(environ):
+                output = subprocess.check_output(['juju', 'backup'],
+                                                 env=environ)
         except subprocess.CalledProcessError as e:
             print_now(e.output)
             raise

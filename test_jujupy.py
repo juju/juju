@@ -17,6 +17,7 @@ from unittest import TestCase
 
 from mock import (
     call,
+    Mock,
     patch,
 )
 import yaml
@@ -516,7 +517,10 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_output_supplies_path(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, '/foobar/bar')
-        with patch('subprocess.check_output') as sco_mock:
+        def check_path(*args, **kwargs):
+            self.assertRegexpMatches(os.environ['PATH'], r'/foobar\:')
+        with patch('subprocess.check_output',
+                   side_effect=check_path) as sco_mock:
             client.get_juju_output('cmd', 'baz')
         self.assertRegexpMatches(sco_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
@@ -1003,7 +1007,9 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_env(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_call') as cc_mock:
+        def check_path(*args, **kwargs):
+            self.assertRegexpMatches(os.environ['PATH'], r'/foobar\:')
+        with patch('subprocess.check_call', side_effect=check_path) as cc_mock:
             client.juju('foo', ('bar', 'baz'))
         self.assertRegexpMatches(cc_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
@@ -1105,6 +1111,19 @@ class TestEnvJujuClient(ClientTest):
                 with patch('sys.stdout'):
                     client.backup()
 
+    def test_juju_backup_environ(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        environ = client._shell_environ()
+        environ['JUJU_ENV'] = client.env.environment
+        def side_effect(*args, **kwargs):
+            self.assertEqual(environ, os.environ)
+            return 'foojuju-backup-123-456.tar.gzbar'
+        with patch('subprocess.check_output', side_effect=side_effect):
+            with patch('sys.stdout'):
+                client.backup()
+            self.assertNotEqual(environ, os.environ)
+
     def test_juju_async(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
@@ -1128,6 +1147,21 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(err_cxt.exception.returncode, 23)
         self.assertEqual(err_cxt.exception.cmd, (
             'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
+
+    def test_juju_async_environ(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        environ = client._shell_environ()
+        proc_mock = Mock()
+        with patch('subprocess.Popen') as popen_class_mock:
+            def check_environ(*args, **kwargs):
+                self.assertEqual(environ, os.environ)
+                return proc_mock
+            popen_class_mock.side_effect = check_environ
+            proc_mock.wait.return_value = 0
+            with client.juju_async('foo', ('bar', 'baz')) as proc:
+                pass
+            self.assertNotEqual(environ, os.environ)
 
     def test_is_jes_enabled(self):
         env = SimpleEnvironment('qux')
