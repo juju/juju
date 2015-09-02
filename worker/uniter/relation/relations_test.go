@@ -29,6 +29,19 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
+/*
+TODO(wallyworld)
+DO NOT COPY THE METHODOLOGY USED IN THESE TESTS.
+We want to write unit tests without resorting to JujuConnSuite.
+However, the current api/uniter code uses structs instead of
+interfaces for its component model, and it's not possible to
+implement a stub uniter api at the model level due to the way
+the domain objects reference each other.
+
+The best we can do for now is to stub out the facade caller and
+return curated values for each API call.
+*/
+
 type relationsSuite struct {
 	coretesting.BaseSuite
 
@@ -110,11 +123,11 @@ func (s *relationsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
-	unitTag := names.NewUnitTag("mysql/0")
+	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
 	numCalls := 0
-	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-mysql-0"}}}
+	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterApiCall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
 		uniterApiCall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
@@ -133,13 +146,13 @@ func (s *relationsSuite) TestNewRelationsNoRelations(c *gc.C) {
 }
 
 func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
-	unitTag := names.NewUnitTag("mysql/0")
+	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
 	numCalls := 0
-	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-mysql-0"}}}
+	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-mysql-0"},
+		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
 	}}
 	relationResults := params.RelationResults{
 		Results: []params.RelationResult{
@@ -149,7 +162,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 				Life: params.Alive,
 				Endpoint: multiwatcher.Endpoint{
 					ServiceName: "wordpress",
-					Relation:    charm.Relation{Name: "mysql", Role: charm.RoleRequirer, Interface: "db"},
+					Relation:    charm.Relation{Name: "mysql", Role: charm.RoleProvider, Interface: "db"},
 				}},
 		},
 	}
@@ -174,17 +187,17 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 	oneInfo := info[1]
 	c.Assert(oneInfo.RelationUnit.Relation().Tag(), gc.Equals, names.NewRelationTag("wordpress:db mysql:db"))
 	c.Assert(oneInfo.RelationUnit.Endpoint(), jc.DeepEquals, uniter.Endpoint{
-		Relation: charm.Relation{Name: "mysql", Role: "requirer", Interface: "db", Optional: false, Limit: 0, Scope: ""},
+		Relation: charm.Relation{Name: "mysql", Role: "provider", Interface: "db", Optional: false, Limit: 0, Scope: ""},
 	})
 	c.Assert(oneInfo.MemberNames, gc.HasLen, 0)
 }
 
 func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
-	unitTag := names.NewUnitTag("mysql/0")
+	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
 	numCalls := 0
-	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-mysql-0"}}}
+	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterApiCall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
 		uniterApiCall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
@@ -207,7 +220,7 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 }
 
 func relationJoinedApiCalls() []apiCall {
-	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-mysql-0"}}}
+	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	relationResults := params.RelationResults{
 		Results: []params.RelationResult{
 			{
@@ -221,7 +234,7 @@ func relationJoinedApiCalls() []apiCall {
 		},
 	}
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-mysql-0"},
+		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
 	}}
 	apiCalls := []apiCall{
 		uniterApiCall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
@@ -239,7 +252,7 @@ func relationJoinedApiCalls() []apiCall {
 }
 
 func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int, apiCalls ...apiCall) relation.Relations {
-	unitTag := names.NewUnitTag("mysql/0")
+	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
 	apiCaller := mockAPICaller(c, numCalls, apiCalls...)
@@ -312,7 +325,7 @@ func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int, apiCa
 }
 
 func getPrincipalApiCalls(numCalls int) []apiCall {
-	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-mysql-0"}}}
+	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	result := make([]apiCall, numCalls)
 	for i := 0; i < numCalls; i++ {
 		result[i] = uniterApiCall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil)
@@ -398,7 +411,7 @@ func (s *relationsSuite) TestCommitHook(c *gc.C) {
 	numCalls := 0
 	apiCalls := relationJoinedApiCalls()
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
-		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-mysql-0"},
+		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
 	}}
 	apiCalls = append(apiCalls,
 		uniterApiCall("LeaveScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
@@ -429,4 +442,63 @@ func (s *relationsSuite) TestCommitHook(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateFile, jc.DoesNotExist)
+}
+
+func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
+	unitTag := names.NewUnitTag("wordpress/0")
+	abort := make(chan struct{})
+
+	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
+	relationResults := params.RelationResults{
+		Results: []params.RelationResult{
+			{
+				Id:   1,
+				Key:  "wordpress:juju-info juju-info:juju-info",
+				Life: params.Alive,
+				Endpoint: multiwatcher.Endpoint{
+					ServiceName: "wordpress",
+					Relation:    charm.Relation{Name: "juju-info", Role: charm.RoleProvider, Interface: "juju-info", Scope: "global"},
+				}},
+		},
+	}
+	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-wordpress.juju-info#juju-info.juju-info", Unit: "unit-wordpress-0"},
+	}}
+	apiCalls := []apiCall{
+		uniterApiCall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
+		uniterApiCall("JoinedRelations", unitEntity, params.StringsResults{Results: []params.StringsResult{{Result: []string{}}}}, nil),
+		uniterApiCall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
+		uniterApiCall("Relation", relationUnits, relationResults, nil),
+		uniterApiCall("Relation", relationUnits, relationResults, nil),
+		uniterApiCall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
+		uniterApiCall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
+		watcherApiCall("Stop", nil, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
+		watcherApiCall("Next", nil, nil, errors.NewNotFound(nil, "watcher")),
+		uniterApiCall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
+	}
+
+	numCalls := 0
+	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
+	st := uniter.NewState(apiCaller, unitTag)
+	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
+	c.Assert(err, jc.ErrorIsNil)
+
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		Relations: map[int]remotestate.RelationSnapshot{
+			1: remotestate.RelationSnapshot{
+				Life: params.Alive,
+				Members: map[string]int64{
+					"wordpress": 1,
+				},
+			},
+		},
+	}
+	relationsResolver := relation.NewRelationsResolver(r)
+	_, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(errors.Cause(err), gc.Equals, resolver.ErrNoOperation)
 }
