@@ -1,22 +1,29 @@
 #!/bin/bash
-set -eu
+set -eux
 SCRIPTS=$(readlink -f $(dirname $0))
+export PATH=$HOME/workspace-runner:$PATH
 
 usage() {
-    echo "usage: $0 user@host old-version candidate-version new-to-old"
+    echo "usage: $0 user@host server client agent-arg remote-script"
     exit 1
 }
-test $# -eq 4 || usage
+test $# -eq 5 || usage
 
 user_at_host="$1"
-old_version="$2"
-candidate_version="$3"
-new_to_old="$4"
+server="$2"
+client="$3"
+agent_arg="$4"
+remote_script="$5"
 
-set -x
 cat > temp-config.yaml <<EOT
 install:
-  remote: [$SCRIPTS/run-client-server-test-remote.bash]
-command: [remote/run-client-server-test-remote.bash $old_version $candidate_version $new_to_old]
+    remote:
+        - $SCRIPTS/$remote_script
+        - "$server"
+        - "$client"
+command: [remote/$remote_script,
+          "remote/$(basename $server)", "remote/$(basename $client)",
+          "$agent_arg"]
 EOT
+
 workspace-run temp-config.yaml $user_at_host
