@@ -31,9 +31,12 @@ quote
 
 
 @contextmanager
-def scoped_environ():
+def scoped_environ(new_environ=None):
     old_environ = dict(os.environ)
     try:
+        if new_environ is not None:
+            os.environ.clear()
+            os.environ.update(new_environ)
         yield
     finally:
         os.environ.clear()

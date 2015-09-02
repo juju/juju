@@ -31,6 +31,7 @@ from utility import (
     get_winrm_certs,
     quote,
     run_command,
+    scoped_environ,
     temp_dir,
     until_timeout,
     wait_for_port,
@@ -400,3 +401,20 @@ class TestGetWinRmCerts(TestCase):
             "/fake/home/cloud-city/winrm_client_cert.key",
             "/fake/home/cloud-city/winrm_client_cert.pem",
         ))
+
+
+class TestScopedEnviron(TestCase):
+
+    def test_scoped_environ(self):
+        old_environ = dict(os.environ)
+        with scoped_environ():
+            os.environ.clear()
+            os.environ['foo'] = 'bar'
+            self.assertNotEqual(old_environ, os.environ)
+        self.assertEqual(old_environ, os.environ)
+
+    def test_new_environ(self):
+        new_environ = {'foo': 'bar'}
+        with scoped_environ(new_environ):
+            self.assertEqual(os.environ, new_environ)
+        self.assertNotEqual(os.environ, new_environ)
