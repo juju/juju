@@ -1035,68 +1035,6 @@ class SimpleEnvironment:
         return self.local
 
 
-class Environment(SimpleEnvironment):
-
-    def __init__(self, environment, client=None, config=None):
-        super(Environment, self).__init__(environment, config)
-        self.client = client
-
-    @classmethod
-    def from_config(cls, name):
-        client = JujuClientDevel.by_version()
-        return cls(name, client, get_selected_environment(name)[0])
-
-    def bootstrap(self):
-        return self.client.bootstrap(self)
-
-    def upgrade_juju(self):
-        self.client.get_env_client(self).upgrade_juju()
-
-    def destroy_environment(self):
-        return self.client.destroy_environment(self)
-
-    def deploy(self, charm):
-        args = (charm,)
-        return self.juju('deploy', *args)
-
-    def quickstart(self, bundle):
-        return self.client.quickstart(self, bundle)
-
-    def juju(self, command, *args):
-        return self.client.juju(self, command, args)
-
-    def get_status(self, timeout=60, raw=False, *args):
-        return self.client.get_status(self, timeout, raw, *args)
-
-    def wait_for_deploy_started(self, service_count=1, timeout=1200):
-        """Wait until service_count services are 'started'.
-
-        :param service_count: The number of services for which to wait.
-        :param timeout: The number of seconds to wait.
-        """
-        return self.client.get_env_client(self).wait_for_deploy_started(
-            service_count, timeout)
-
-    def wait_for_started(self, timeout=1200):
-        """Wait until all unit/machine agents are 'started'."""
-        return self.client.get_env_client(self).wait_for_started(timeout)
-
-    def wait_for_version(self, version, timeout=300):
-        env_client = self.client.get_env_client(self)
-        return env_client.wait_for_version(version, timeout)
-
-    def get_matching_agent_version(self, no_build=False):
-        env_client = self.client.get_env_client(self)
-        return env_client.get_matching_agent_version(no_build)
-
-    def set_testing_tools_metadata_url(self):
-        url = self.client.get_env_option(self, 'tools-metadata-url')
-        if 'testing' not in url:
-            testing_url = url.replace('/tools', '/testing/tools')
-            self.client.set_env_option(self, 'tools-metadata-url',
-                                       testing_url)
-
-
 class GroupReporter:
 
     def __init__(self, stream, expected):
