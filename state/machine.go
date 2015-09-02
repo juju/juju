@@ -1070,6 +1070,10 @@ func (m *Machine) PublicAddress() network.Address {
 	return publicAddress
 }
 
+// maybeGetNewAddress determines if the current address is the most appropriate
+// match, and if not it selects the best from the slice of all available
+// addresses. It returns the new address and a bool indicating if a different
+// one was picked.
 func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAddr func() network.Address, checkScope func(network.Address) bool) (network.Address, bool) {
 	newAddr := getAddr()
 	// The order of these checks is important. If the stored address is
@@ -1093,10 +1097,14 @@ func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAd
 // is stored as the default address on first use, and that address is always
 // returned unless it becomes unavilable (or a better match for scope and type
 // becomes avaialable).
-func (m *Machine) PrivateAddress() network.Address {
+func (m *Machine) PrivateAddress() (network.Address, error) {
 	privateAddress := m.doc.DefaultPrivateAddress.networkAddress()
-	// XXX handle the case where len(addresses) == 0
 	addresses := m.Addresses()
+	if len(addresses) == 0 {
+		// No addresses to return.
+		logger.Warningf("no addresses to return for machine %q", m.Id())
+		return network.Address{}, nil
+	}
 	checkScope := func(addr network.Address) bool {
 		return network.ExactMatchScope(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
 	}
@@ -1106,10 +1114,47 @@ func (m *Machine) PrivateAddress() network.Address {
 
 	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
 	if changed {
-		// XXX also need to save updated address
 		privateAddress = newAddr
+		err := m.setDefaultAddress(privateAddress, false)
+		if err != errNotAlive {
+			return privateAddress, errors.Trace(err)
+		}
+		return privateAddress, nil
 	}
-	return privateAddress
+	return privateAddress, nil
+}
+
+func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) error {
+	if m.doc.Life == Dead {
+		return errNotAlive
+	}
+	addr := fromNetworkAddress(netAddr)
+	fieldName := "defaultprivateaddress"
+	if isPublic {
+		fieldName = "defaultpublicaddress"
+	}
+
+	differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: append(notDeadDoc, differentAddress...),
+		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
+	}}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, err
+			}
+
+			if m.doc.Life == Dead {
+				return nil, errNotAlive
+			}
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ops, nil
+	}
+	return m.st.run(buildTxn)
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
