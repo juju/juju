@@ -268,8 +268,7 @@ class EnvJujuClient:
             try:
                 logging.debug(args)
                 with scoped_environ(env):
-                    sub_output = subprocess.check_output(args, stderr=stderr,
-                                                         env=env)
+                    sub_output = subprocess.check_output(args, stderr=stderr)
                 logging.debug(sub_output)
                 return sub_output
             except subprocess.CalledProcessError as e:
@@ -334,7 +333,7 @@ class EnvJujuClient:
             call_func = subprocess.call
         start_time = time.time()
         with scoped_environ(env):
-            rval = call_func(args, env=env)
+            rval = call_func(args)
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
@@ -352,7 +351,7 @@ class EnvJujuClient:
         print_now(' '.join(args))
         env = self._shell_environ()
         with scoped_environ(env):
-            proc = subprocess.Popen(full_args, env=env)
+            proc = subprocess.Popen(full_args)
         yield proc
         retcode = proc.wait()
         if retcode != 0:
@@ -541,8 +540,7 @@ class EnvJujuClient:
         environ['JUJU_ENV'] = self.env.environment
         try:
             with scoped_environ(environ):
-                output = subprocess.check_output(['juju', 'backup'],
-                                                 env=environ)
+                output = subprocess.check_output(['juju', 'backup'])
         except subprocess.CalledProcessError as e:
             print_now(e.output)
             raise
