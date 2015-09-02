@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package plugin_test
+package docker_test
 
 import (
 	"github.com/juju/errors"
@@ -11,26 +11,25 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/plugin"
 	"github.com/juju/juju/workload/plugin/docker"
 )
 
-var _ = gc.Suite(&dockerSuite{})
+var _ = gc.Suite(&pluginSuite{})
 
-type dockerSuite struct {
+type pluginSuite struct {
 	stub *testing.Stub
 }
 
-func (s *dockerSuite) SetUpTest(c *gc.C) {
+func (s *pluginSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 }
 
-func (dockerSuite) TestPluginInterface(c *gc.C) {
-	var _ workload.Plugin = (*plugin.DockerPlugin)(nil)
+func (pluginSuite) TestPluginInterface(c *gc.C) {
+	var _ workload.Plugin = (*docker.Plugin)(nil)
 }
 
-func (s *dockerSuite) TestRunArgs(c *gc.C) {
-	runArgs := plugin.RunArgs(fakeProc)
+func (s *pluginSuite) TestNewRunArgs(c *gc.C) {
+	runArgs := docker.NewRunArgs(fakeProc)
 	args := runArgs.CommandlineArgs()
 
 	c.Check(args, gc.DeepEquals, []string{
@@ -47,12 +46,12 @@ func (s *dockerSuite) TestRunArgs(c *gc.C) {
 	})
 }
 
-func (s *dockerSuite) TestLaunch(c *gc.C) {
-	stub := &stubDockerClient{stub: s.stub}
+func (s *pluginSuite) TestLaunch(c *gc.C) {
+	stub := &stubClient{stub: s.stub}
 	stub.id = "/sad_perlman"
 	stub.info, _ = docker.ParseInfoJSON(stub.id, []byte(dockerInspectOutput))
 
-	p := plugin.NewDockerPlugin()
+	p := docker.NewPlugin()
 	p.Client = stub
 	pd, err := p.Launch(fakeProc)
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,11 +65,11 @@ func (s *dockerSuite) TestLaunch(c *gc.C) {
 	})
 }
 
-func (s *dockerSuite) TestStatus(c *gc.C) {
-	stub := &stubDockerClient{stub: s.stub}
+func (s *pluginSuite) TestStatus(c *gc.C) {
+	stub := &stubClient{stub: s.stub}
 	stub.info, _ = docker.ParseInfoJSON(stub.id, []byte(dockerInspectOutput))
 
-	p := plugin.NewDockerPlugin()
+	p := docker.NewPlugin()
 	p.Client = stub
 	ps, err := p.Status("sad_perlman")
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,10 +80,10 @@ func (s *dockerSuite) TestStatus(c *gc.C) {
 	})
 }
 
-func (s *dockerSuite) TestDestroy(c *gc.C) {
-	stub := &stubDockerClient{stub: s.stub}
+func (s *pluginSuite) TestDestroy(c *gc.C) {
+	stub := &stubClient{stub: s.stub}
 
-	p := plugin.NewDockerPlugin()
+	p := docker.NewPlugin()
 	p.Client = stub
 	err := p.Destroy("someid")
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,14 +123,14 @@ var fakeProc = charm.Workload{
 	EnvVars: map[string]string{"foo": "bar", "baz": "bat"},
 }
 
-type stubDockerClient struct {
+type stubClient struct {
 	stub *testing.Stub
 
 	id   string
 	info *docker.Info
 }
 
-func (s *stubDockerClient) Run(args docker.RunArgs) (string, error) {
+func (s *stubClient) Run(args docker.RunArgs) (string, error) {
 	s.stub.AddCall("Run", args)
 	if err := s.stub.NextErr(); err != nil {
 		return "", errors.Trace(err)
@@ -140,7 +139,7 @@ func (s *stubDockerClient) Run(args docker.RunArgs) (string, error) {
 	return s.id, nil
 }
 
-func (s *stubDockerClient) Inspect(id string) (*docker.Info, error) {
+func (s *stubClient) Inspect(id string) (*docker.Info, error) {
 	s.stub.AddCall("Inspect", id)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -149,7 +148,7 @@ func (s *stubDockerClient) Inspect(id string) (*docker.Info, error) {
 	return s.info, nil
 }
 
-func (s *stubDockerClient) Stop(id string) error {
+func (s *stubClient) Stop(id string) error {
 	s.stub.AddCall("Stop", id)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -158,7 +157,7 @@ func (s *stubDockerClient) Stop(id string) error {
 	return nil
 }
 
-func (s *stubDockerClient) Remove(id string) error {
+func (s *stubClient) Remove(id string) error {
 	s.stub.AddCall("Remove", id)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)

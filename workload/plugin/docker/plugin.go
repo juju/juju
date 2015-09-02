@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package plugin
+package docker
 
 import (
 	"strings"
@@ -11,27 +11,26 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/plugin/docker"
 )
 
 var dockerLogger = loggo.GetLogger("juju.workload.plugin.docker")
 
-// DockerPlugin is an implementation of workload.Plugin for docker.
-type DockerPlugin struct {
+// Plugin is an implementation of workload.Plugin for docker.
+type Plugin struct {
 	// Client is the docker client to use for the plugin.
-	Client docker.Client
+	Client Client
 }
 
-// NewDockerPlugin returns a DockerPlugin.
-func NewDockerPlugin() *DockerPlugin {
-	p := &DockerPlugin{
-		Client: docker.NewCLIClient(),
+// NewPlugin returns a Plugin.
+func NewPlugin() *Plugin {
+	p := &Plugin{
+		Client: NewCLIClient(),
 	}
 	return p
 }
 
 // Launch runs a new docker container with the given workload data.
-func (p DockerPlugin) Launch(definition charm.Workload) (workload.Details, error) {
+func (p Plugin) Launch(definition charm.Workload) (workload.Details, error) {
 	dockerLogger.Debugf("launching %q", definition.Name)
 
 	var details workload.Details
@@ -39,7 +38,7 @@ func (p DockerPlugin) Launch(definition charm.Workload) (workload.Details, error
 		return details, errors.Annotatef(err, "invalid proc-info")
 	}
 
-	args := runArgs(definition)
+	args := newRunArgs(definition)
 	id, err := p.Client.Run(args)
 	if err != nil {
 		return details, errors.Trace(err)
@@ -56,7 +55,7 @@ func (p DockerPlugin) Launch(definition charm.Workload) (workload.Details, error
 }
 
 // Status returns the ProcStatus for the docker container with the given id.
-func (p DockerPlugin) Status(id string) (workload.PluginStatus, error) {
+func (p Plugin) Status(id string) (workload.PluginStatus, error) {
 	dockerLogger.Debugf("getting status for %q", id)
 
 	var status workload.PluginStatus
@@ -69,7 +68,7 @@ func (p DockerPlugin) Status(id string) (workload.PluginStatus, error) {
 }
 
 // Destroy stops and removes the docker container with the given id.
-func (p DockerPlugin) Destroy(id string) error {
+func (p Plugin) Destroy(id string) error {
 	dockerLogger.Debugf("destroying %q", id)
 
 	if err := p.Client.Stop(id); err != nil {
@@ -81,10 +80,10 @@ func (p DockerPlugin) Destroy(id string) error {
 	return nil
 }
 
-// runArgs converts the Workload struct into arguments for the
+// newRunArgs converts the Workload struct into arguments for the
 // docker run command.
-func runArgs(definition charm.Workload) docker.RunArgs {
-	args := docker.RunArgs{
+func newRunArgs(definition charm.Workload) RunArgs {
+	args := RunArgs{
 		Name:  definition.Name,
 		Image: definition.Image,
 	}
@@ -98,7 +97,7 @@ func runArgs(definition charm.Workload) docker.RunArgs {
 
 	for _, port := range definition.Ports {
 		// TODO(natefinch): update this when we use portranges
-		args.Ports = append(args.Ports, docker.PortAssignment{
+		args.Ports = append(args.Ports, PortAssignment{
 			External: port.External,
 			Internal: port.Internal,
 			Protocol: "tcp",
@@ -107,7 +106,7 @@ func runArgs(definition charm.Workload) docker.RunArgs {
 
 	for _, vol := range definition.Volumes {
 		// TODO(natefinch): update this when we use portranges
-		args.Mounts = append(args.Mounts, docker.MountAssignment{
+		args.Mounts = append(args.Mounts, MountAssignment{
 			External: vol.ExternalMount,
 			Internal: vol.InternalMount,
 			Mode:     vol.Mode,

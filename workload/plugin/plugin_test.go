@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/plugin"
+	"github.com/juju/juju/workload/plugin/docker"
 )
 
 type pluginSuite struct {
@@ -20,7 +21,7 @@ var _ = gc.Suite(&pluginSuite{})
 
 func (s *pluginSuite) TestFindOkay(c *gc.C) {
 	known := map[string]workload.Plugin{
-		"docker": &plugin.DockerPlugin{},
+		"docker": &docker.Plugin{},
 	}
 	for name, expected := range known {
 		c.Logf("trying %q", name)

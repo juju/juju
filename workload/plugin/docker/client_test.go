@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju-process-docker/docker"
 )
 
-var _ = gc.Suite(&dockerSuite{})
+var _ = gc.Suite(&clientSuite{})
 
-type dockerSuite struct {
+type clientSuite struct {
 	testing.CleanupSuite
 }
 
@@ -30,7 +30,7 @@ func newClient(out string) (*docker.CLIClient, *fakeRunDocker) {
 	return client, fake
 }
 
-func (dockerSuite) TestRunOkay(c *gc.C) {
+func (clientSuite) TestRunOkay(c *gc.C) {
 	client, fake := newClient("eggs")
 
 	args := docker.RunArgs{
@@ -56,7 +56,7 @@ func (dockerSuite) TestRunOkay(c *gc.C) {
 	})
 }
 
-func (dockerSuite) TestRunMinimal(c *gc.C) {
+func (clientSuite) TestRunMinimal(c *gc.C) {
 	client, fake := newClient("eggs")
 
 	args := docker.RunArgs{
@@ -74,7 +74,7 @@ func (dockerSuite) TestRunMinimal(c *gc.C) {
 	})
 }
 
-func (dockerSuite) TestInspectOkay(c *gc.C) {
+func (clientSuite) TestInspectOkay(c *gc.C) {
 	client, fake := newClient(fakeInspectOutput)
 
 	info, err := client.Inspect("sad_perlman")
@@ -88,7 +88,7 @@ func (dockerSuite) TestInspectOkay(c *gc.C) {
 	})
 }
 
-func (dockerSuite) TestStopOkay(c *gc.C) {
+func (clientSuite) TestStopOkay(c *gc.C) {
 	client, fake := newClient("")
 
 	err := client.Stop("sad_perlman")
@@ -101,7 +101,7 @@ func (dockerSuite) TestStopOkay(c *gc.C) {
 	})
 }
 
-func (dockerSuite) TestRemoveOkay(c *gc.C) {
+func (clientSuite) TestRemoveOkay(c *gc.C) {
 	client, fake := newClient("")
 
 	err := client.Remove("sad_perlman")
