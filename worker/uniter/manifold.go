@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -24,6 +25,7 @@ type ManifoldConfig struct {
 	APICallerName         string
 	MachineLockName       string
 	LeadershipTrackerName string
+	CharmDirName          string
 }
 
 // Manifold returns a dependency manifold that runs a uniter worker,
@@ -35,6 +37,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.LeadershipTrackerName,
 			config.MachineLockName,
+			config.CharmDirName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 
@@ -58,6 +61,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getResource(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}
+			var charmDirLocker charmdir.Locker
+			if err := getResource(config.CharmDirName, &charmDirLocker); err != nil {
+				return nil, err
+			}
 
 			// Configure and start the uniter.
 			config := agent.CurrentConfig()
@@ -73,6 +80,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				LeadershipTracker:    leadershipTracker,
 				DataDir:              config.DataDir(),
 				MachineLock:          machineLock,
+				CharmDirLocker:       charmDirLocker,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
 			}), nil

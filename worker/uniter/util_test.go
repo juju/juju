@@ -84,6 +84,7 @@ type context struct {
 	api                    *apiuniter.State
 	leaderClaimer          coreleadership.Claimer
 	leaderTracker          *mockLeaderTracker
+	charmDirLocker         *mockCharmDirLocker
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
@@ -477,6 +478,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		UniterFacade:         ctx.api,
 		UnitTag:              tag,
 		LeadershipTracker:    ctx.leaderTracker,
+		CharmDirLocker:       ctx.charmDirLocker,
 		DataDir:              ctx.dataDir,
 		MachineLock:          lock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
@@ -1633,6 +1635,11 @@ func (verify verifyNoFile) step(c *gc.C, ctx *context) {
 	time.Sleep(coretesting.ShortWait)
 	c.Assert(verify.filename, jc.DoesNotExist)
 }
+
+type mockCharmDirLocker struct{}
+
+// SetAvailable implements charmdir.Locker.
+func (*mockCharmDirLocker) SetAvailable(_ bool) {}
 
 // prepareGitUniter runs a sequence of uniter tests with the manifest deployer
 // replacement logic patched out, simulating the effect of running an older
