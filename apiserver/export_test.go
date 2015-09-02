@@ -11,6 +11,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -28,6 +30,14 @@ var (
 	AgentMatchesFilter    = agentMatchesFilter
 	NewLogTailer          = &newLogTailer
 )
+
+func ServerMacaroon(srv *Server) *macaroon.Macaroon {
+	return srv.macaroon
+}
+
+func ServerBakeryService(srv *Server) *bakery.Service {
+	return srv.bakeryService
+}
 
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}

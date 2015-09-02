@@ -6,7 +6,7 @@ package storage
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"launchpad.net/tomb"
 
 	apiwatcher "github.com/juju/juju/api/watcher"

@@ -7,10 +7,9 @@ import (
 	"errors"
 	"strings"
 
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/testing"

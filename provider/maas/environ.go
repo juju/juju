@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/names"
 )
 
 const (

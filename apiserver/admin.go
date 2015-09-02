@@ -86,6 +86,12 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
 	if err != nil {
+		if err, ok := err.(*authentication.DischargeRequiredError); ok {
+			loginResult := params.LoginResultV1{
+				DischargeRequired: err.Macaroon,
+			}
+			return loginResult, nil
+		}
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
 			// progress. It is possible for logins to fail until this
@@ -239,26 +245,15 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 	if err != nil {
 		return nil, nil, err
 	}
-	entity, err := st.FindEntity(tag)
-	if errors.IsNotFound(err) {
-		// We return the same error when an entity does not exist as for a bad
-		// password, so that we don't allow unauthenticated users to find
-		// information about existing entities.
-		logger.Debugf("entity %q not found", tag)
-		return nil, nil, common.ErrBadCreds
-	}
+	authenticator, err := authentication.AuthenticatorForTag(req.AuthTag)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	authenticator, err := authentication.FindEntityAuthenticator(entity)
+	entity, err := authenticator.Authenticate(st, tag, req)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 
 	// For user logins, update the last login time.
@@ -291,7 +286,6 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 		user.UpdateLastLogin()
 		lastLogin = &userLastLogin
 	}
-
 	return entity, lastLogin, nil
 }
 

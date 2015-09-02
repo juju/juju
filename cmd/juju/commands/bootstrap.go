@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
 	apiblock "github.com/juju/juju/api/block"

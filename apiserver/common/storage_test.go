@@ -4,8 +4,9 @@
 package common_test
 
 import (
-	"github.com/juju/juju/state"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/state"
 )
 
 type fakeStorageInstance struct {

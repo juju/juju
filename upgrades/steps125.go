@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/exec"
+
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils/exec"
 )
 
 // stateStepsFor125 returns upgrade steps for Juju 1.25 that manipulate state directly.

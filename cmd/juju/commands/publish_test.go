@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmrepo.v1"
 
 	"github.com/juju/juju/bzr"
 	"github.com/juju/juju/cmd/envcmd"
@@ -114,7 +114,7 @@ func (s *PublishSuite) TestFrom(c *gc.C) {
 
 func (s *PublishSuite) TestMissingSeries(c *gc.C) {
 	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `cannot infer charm URL for "cs:wordpress": charm url series is not resolved`)
+	c.Assert(err, gc.ErrorMatches, `cannot infer entity URL for "cs:wordpress": entity url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {

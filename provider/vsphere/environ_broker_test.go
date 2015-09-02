@@ -6,13 +6,12 @@
 package vsphere_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/govmomi/vim25/methods"
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
