@@ -8,6 +8,7 @@ import (
 	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -549,6 +550,68 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
+func (t *localServerSuite) bootstrapAndStartWithParams(c *gc.C, params environs.StartInstanceParams) error {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	return err
+}
+
+func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
+		Placement:   "zone=test-available",
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{"zone2"},
+			"subnet-3": []string{"zone3"},
+		},
+	})
+
+	// Expect an error because zone test-available isn't in SubnetsToZones
+	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
+}
+
+func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
+		Placement:   "zone=test-available",
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{"test-available"},
+			"subnet-3": []string{"zone3"},
+		},
+	})
+
+	// Should work - test-available is in SubnetsToZones
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{"test-available"},
+			"subnet-3": []string{"zone3"},
+		},
+	})
+
+	// Shoule work because zone is not specified so we can resolve the constraints
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
+	err := t.bootstrapAndStartWithParams(c, environs.StartInstanceParams{
+		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		SubnetsToZones: map[network.Id][]string{
+			"subnet-2": []string{""},
+		},
+	})
+
+	// We requested a space, but there are no subnets in SubnetsToZones, so we can't resolve
+	// the constraints
+	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
 }
@@ -870,12 +933,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
 
-func (t *localServerSuite) TestSubnets(c *gc.C) {
-	env, _ := t.setUpInstanceWithDefaultVpc(c)
-
-	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
-	c.Assert(err, jc.ErrorIsNil)
-
+func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 	// These are defined in the test server for the testing default
 	// VPC.
 	defaultSubnets := []network.SubnetInfo{{
@@ -900,11 +958,32 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 		AllocatableIPHigh: net.ParseIP("10.10.2.254").To4(),
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
-	c.Assert(subnets, jc.DeepEquals, defaultSubnets[:1])
+
+	for _, subnet := range subnets {
+		// We can find the expected data by looking at the CIDR.
+		// subnets isn't in a predictable order due to the use of maps.
+		re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
+		c.Assert(re.Match([]byte(subnet.CIDR)), jc.IsTrue)
+		index, err := strconv.Atoi(re.FindStringSubmatch(subnet.CIDR)[1])
+		c.Assert(err, jc.ErrorIsNil)
+		// Don't know which AZ the subnet will end up in.
+		defaultSubnets[index].AvailabilityZones = subnet.AvailabilityZones
+		c.Assert(subnet, jc.DeepEquals, defaultSubnets[index])
+	}
+}
+
+func (t *localServerSuite) TestSubnets(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+
+	subnets, err := env.Subnets(instance.UnknownId, []network.Id{"subnet-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, 1)
+	validateSubnets(c, subnets)
 
 	subnets, err = env.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
+	c.Assert(subnets, gc.HasLen, 3)
+	validateSubnets(c, subnets)
 }
 
 func (t *localServerSuite) TestSubnetsInstIdNotSupported(c *gc.C) {
