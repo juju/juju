@@ -4,6 +4,7 @@
 package plugin_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,6 +40,16 @@ func (s *pathsSuite) TestNewPaths(c *gc.C) {
 		ExecutablePathFile: filepath.Join("some-base-dir", "plugins", "a-plugin", ".executable"),
 		Fops:               p.Fops,
 	})
+}
+
+func (s *pathsSuite) TestString(c *gc.C) {
+	p := plugin.NewPaths("some-base-dir", "a-plugin")
+	str := p.String()
+	quoted := fmt.Sprintf("%q", p)
+
+	expected := filepath.Join("some-base-dir", "plugins", "a-plugin")
+	c.Check(str, gc.Equals, expected)
+	c.Check(quoted, gc.Equals, `"`+expected+`"`)
 }
 
 func (s *pathsSuite) TestExecutable(c *gc.C) {

@@ -28,14 +28,14 @@ plugin-reset:
   description: clear the plugin's data
 
 list:
-  description: print out the registered workloads 
+  description: print out the tracked workloads 
 
 launch:
   description: call the hook command
   params:
     name:
       type: string
-register:
+track:
   description: call the hook command
   params:
     name:
@@ -61,7 +61,7 @@ destroy:
   params:
     name:
       type: string
-    unregister:
+    untrack:
       type: string
 untrack:
   description: call the hook command

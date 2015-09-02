@@ -28,4 +28,4 @@ plugin-reset:
   description: clear the plugin's data
 
 list:
-  description: print out the registered workloads 
+  description: print out the tracked workloads 

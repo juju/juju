@@ -4,6 +4,8 @@
 package context
 
 import (
+	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/juju/errors"
@@ -33,7 +35,7 @@ type APIClient interface {
 // Component provides the hook context data specific to workloads.
 type Component interface {
 	// Plugin returns the plugin to use for the given workload.
-	Plugin(info *workload.Info) (workload.Plugin, error)
+	Plugin(info *workload.Info, path string) (workload.Plugin, error)
 	// Get returns the workload info corresponding to the given ID.
 	Get(id string) (*workload.Info, error)
 	// Track records the workload info in the hook context.
@@ -111,9 +113,16 @@ func ContextComponent(ctx HookContext) (Component, error) {
 }
 
 // Plugin returns the plugin to use in this context.
-func (c *Context) Plugin(info *workload.Info) (workload.Plugin, error) {
+func (c *Context) Plugin(info *workload.Info, envPath string) (workload.Plugin, error) {
 	if c.plugin != nil {
 		return c.plugin, nil
+	}
+
+	if envPath != "" {
+		envPath += string(filepath.ListSeparator) + os.Getenv("PATH")
+		if err := os.Setenv("PATH", envPath); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	plugin, err := c.FindPlugin(info.Type, c.dataDir)
@@ -229,7 +238,7 @@ func (c *Context) Flush() error {
 		for _, info := range c.updates {
 			updates = append(updates, info)
 
-			plugin, err := c.Plugin(&info)
+			plugin, err := c.Plugin(&info, "")
 			if err != nil {
 				return errors.Trace(err)
 			}

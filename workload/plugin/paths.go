@@ -47,6 +47,11 @@ func NewPaths(baseDataDir, name string) Paths {
 	return p
 }
 
+// String returns the string representation of the Paths.
+func (p Paths) String() string {
+	return p.DataDir
+}
+
 // resolve returns the path composed of the provided parts, relative
 // to the plugin's data dir.
 func (p Paths) resolve(parts ...string) string {

@@ -283,7 +283,7 @@ func InitialEvents(apiClient context.APIClient, dataDir string) ([]workload.Even
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		plugin, err := hctx.Plugin(info)
+		plugin, err := hctx.Plugin(info, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

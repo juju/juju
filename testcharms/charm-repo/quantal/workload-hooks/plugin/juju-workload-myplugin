@@ -216,35 +216,35 @@ class DataFile:
         self._updates = []
 
 
-def handle_init(name, id, status):
-    with DataFile() as datafile:
+def handle_init(name, id, status, **datafile_kwargs):
+    with DataFile(**datafile_kwargs) as datafile:
         datafile.add(name, id, status)
 
 
-def handle_setstatus(id, status):
-    with DataFile() as datafile:
+def handle_setstatus(id, status, **datafile_kwargs):
+    with DataFile(**datafile_kwargs) as datafile:
         datafile.set_status(id, status)
 
 
-def handle_reset():
-    with DataFile() as datafile:
+def handle_reset(**datafile_kwargs):
+    with DataFile(**datafile_kwargs) as datafile:
         datafile.clear()
         datafile.flush(force=True)
 
 
-def handle_datafile():
-    with DataFile() as datafile:
+def handle_datafile(**datafile_kwargs):
+    with DataFile(**datafile_kwargs) as datafile:
         return datafile.filename
 
 
-def handle_dump(showheader=True):
-    with DataFile() as datafile:
+def handle_dump(showheader=True, **datafile_kwargs):
+    with DataFile(**datafile_kwargs) as datafile:
         return datafile.dump(showheader=showheader)
 
 
-def handle_launch(definition):
+def handle_launch(definition, **datafile_kwargs):
     name = json.loads(definition)['Name']
-    with DataFile() as datafile:
+    with DataFile(**datafile_kwargs) as datafile:
         try:
             workload = datafile.set_definition(name, definition)
         except KeyError:
@@ -252,8 +252,8 @@ def handle_launch(definition):
     return workload.dump_details()
 
 
-def handle_status(id):
-    with DataFile() as datafile:
+def handle_status(id, **datafile_kwargs):
+    with DataFile(**datafile_kwargs) as datafile:
         try:
             workload = datafile[id]
         except KeyError:
@@ -261,8 +261,8 @@ def handle_status(id):
     return workload.dump_status()
 
 
-def handle_destroy(id):
-    with DataFile() as datafile:
+def handle_destroy(id, **datafile_kwargs):
+    with DataFile(**datafile_kwargs) as datafile:
         try:
             datafile.remove(id)
         except KeyError:
@@ -271,40 +271,44 @@ def handle_destroy(id):
 
 def parse_args():
     import argparse
+
+    base = argparse.ArgumentParser(add_help=False)
+    base.add_argument('--datafile', dest='filename', default=DATAFILE)
+
     parser = argparse.ArgumentParser()
     subs = parser.add_subparsers()
 
-    init = subs.add_parser('init')
+    init = subs.add_parser('init', parents=[base])
     init.add_argument('name')
     init.add_argument('id')
     init.add_argument('status')
     init.set_defaults(command='init')
 
-    setstatus = subs.add_parser('setstatus')
+    setstatus = subs.add_parser('setstatus', parents=[base])
     setstatus.add_argument('id')
     setstatus.add_argument('status')
     setstatus.set_defaults(command='setstatus')
 
-    reset = subs.add_parser('reset')
+    reset = subs.add_parser('reset', parents=[base])
     reset.set_defaults(command='reset')
 
-    datafile = subs.add_parser('datafile')
+    datafile = subs.add_parser('datafile', parents=[base])
     datafile.set_defaults(command='datafile')
 
-    dump = subs.add_parser('dump')
+    dump = subs.add_parser('dump', parents=[base])
     dump.add_argument('--no-header', dest='showheader', action='store_false',
                       default=True)
     dump.set_defaults(command='dump')
 
-    launch = subs.add_parser('launch')
+    launch = subs.add_parser('launch', parents=[base])
     launch.add_argument('definition')
     launch.set_defaults(command='launch')
 
-    status = subs.add_parser('status')
+    status = subs.add_parser('status', parents=[base])
     status.add_argument('id')
     status.set_defaults(command='status')
 
-    destroy = subs.add_parser('destroy')
+    destroy = subs.add_parser('destroy', parents=[base])
     destroy.add_argument('id')
     destroy.set_defaults(command='destroy')
 

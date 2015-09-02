@@ -170,8 +170,8 @@ func (s *workloadsSuite) TestHookLifecycle(c *gc.C) {
 // TODO(ericsnow) Add a test specifically for each supported plugin
 // (e.g. docker)?
 
-func (s *workloadsSuite) TestHookContextRegister(c *gc.C) {
-	svc := s.env.addService(c, "workload-actions", "register-service")
+func (s *workloadsSuite) TestHookContextTrack(c *gc.C) {
+	svc := s.env.addService(c, "workload-actions", "track-service")
 	s.svc = svc
 
 	args := map[string]interface{}{
@@ -179,7 +179,7 @@ func (s *workloadsSuite) TestHookContextRegister(c *gc.C) {
 		"id":     "xyz123",
 		"status": "running",
 	}
-	svc.dummy.runAction(c, "register", args)
+	svc.dummy.runAction(c, "track", args)
 
 	svc.dummy.checkState(c, []workload.Info{{
 		Workload: charm.Workload{
@@ -217,7 +217,8 @@ func (s *workloadsSuite) TestHookContextRegister(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "myworkload/xyz123 is being tracked",
+			// TODO(ericsnow) Should Message be "myworkload/xyz123 is being tracked"?
+			Message: "",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
@@ -298,7 +299,7 @@ func (s *workloadsSuite) TestHookContextInfo(c *gc.C) {
 		"id":     "xyz123",
 		"status": "running",
 	}
-	unit.runAction(c, "register", args)
+	unit.runAction(c, "track", args)
 
 	// checkState calls the "list" action, which wraps "info".
 	unit.checkState(c, []workload.Info{{
@@ -337,7 +338,8 @@ func (s *workloadsSuite) TestHookContextInfo(c *gc.C) {
 		Status: workload.Status{
 			State:   workload.StateRunning,
 			Blocker: "",
-			Message: "myworkload/xyz123 is being tracked",
+			// TODO(ericsnow) Should Message be "myworkload/xyz123 is being tracked"?
+			Message: "",
 		},
 		Details: workload.Details{
 			ID: "xyz123",
@@ -353,7 +355,7 @@ func (s *workloadsSuite) TestHookContextSetStatus(c *gc.C) {
 	c.Skip("not finished")
 }
 
-func (s *workloadsSuite) TestHookContextUnregister(c *gc.C) {
+func (s *workloadsSuite) TestHookContextUntrack(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
 }
@@ -364,7 +366,7 @@ func (s *workloadsSuite) TestHookContextDestroy(c *gc.C) {
 }
 
 func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
-	svc := s.env.addService(c, "workload-actions", "workerStatusSvc")
+	svc := s.env.addService(c, "workload-actions", "status-worker")
 	s.svc = svc
 
 	svc.dummy.prepPlugin(c, "myworkload", "xyz123", "running")
@@ -373,6 +375,7 @@ func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
 		"name": "myworkload",
 	}
 	period := time.Second * 5
+	// TODO(ericsnow) This does not propagate out to other machines.
 	workers.SetStatusWorkerUpdatePeriod(period)
 	svc.dummy.runAction(c, "launch", args)
 
@@ -802,7 +805,7 @@ func (u *workloadsUnit) checkState(c *gc.C, expected []workload.Info) {
 	results := u.runAction(c, "list", nil)
 	out, ok := results["output"]
 	c.Assert(ok, jc.IsTrue)
-	if strings.TrimSpace(out) != "[no workloads registered]" {
+	if strings.TrimSpace(out) != "[no workloads tracked]" {
 		workloadsMap := make(map[string]workload.Info)
 		err := goyaml.Unmarshal([]byte(out), &workloadsMap)
 		c.Assert(err, jc.ErrorIsNil)

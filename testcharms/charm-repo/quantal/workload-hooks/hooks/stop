@@ -11,7 +11,7 @@ if [ -e $ACTIVE_FILE ]; then
 
     status-set waiting "destroy ${name} not supported yet"
     #status-set active "cleaning up workload ${name}..."
-    #result=$(workload-destroy "$name" --unregister 2>&1)
+    #result=$(workload-destroy "$name" --untrack 2>&1)
     #rc=$?
     #if [ "$rc" = "0" ]; then
     #    status-set waiting "workload ${name} cleaned up ($result)"
