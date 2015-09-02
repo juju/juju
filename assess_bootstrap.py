@@ -5,7 +5,8 @@ from argparse import ArgumentParser
 import os.path
 
 from jujupy import (
-    Environment,
+    EnvJujuClient,
+    SimpleEnvironment,
     until_timeout,
     )
 from utility import scoped_environ
@@ -15,16 +16,16 @@ def assess_bootstrap(juju, env, debug):
     with scoped_environ():
         juju_bin = os.path.dirname(os.path.abspath(juju))
         os.environ['PATH'] = '{}:{}'.format(juju_bin, os.environ['PATH'])
-        environment = Environment.from_config(env)
-    environment.client.debug = debug
-    environment.destroy_environment()
+        client = EnvJujuClient.by_version(SimpleEnvironment.from_config(env),
+                                          juju, debug)
+    client.destroy_environment()
     try:
-        environment.bootstrap()
+        client.bootstrap()
         for ignored in until_timeout(30):
-            environment.get_status(1)
+            client.get_status(1)
         print('Environment successfully bootstrapped.')
     finally:
-        environment.destroy_environment()
+        client.destroy_environment()
 
 
 def parse_args(argv=None):

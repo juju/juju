@@ -11,7 +11,8 @@ from time import sleep
 
 from jujupy import (
     CannotConnectEnv,
-    Environment,
+    EnvJujuClient,
+    SimpleEnvironment,
 )
 from substrate import (
     LIBVIRT_DOMAIN_RUNNING,
@@ -26,10 +27,10 @@ def deploy_stack(environment, debug, machines, deploy_charm):
 
     :param environment: The name of the desired environment.
     """
-    env = Environment.from_config(environment)
-    env.client.debug = debug
+    client = EnvJujuClient.by_version(
+        SimpleEnvironment.from_config(environment), debug=debug)
     running_domains = dict()
-    if env.config['type'] == 'maas':
+    if client.env.config['type'] == 'maas':
         # Split the hypervisor_URI and machine name
         for machine in machines:
             name, URI = machine.split('@')
@@ -44,28 +45,28 @@ def deploy_stack(environment, debug, machines, deploy_charm):
                 status_msg = start_libvirt_domain(URI, name)
                 print("%s" % status_msg)
     # Clean up any leftover junk
-    env.destroy_environment()
-    env.bootstrap()
+    client.destroy_environment()
+    client.bootstrap()
     try:
         # wait for status info....
         try:
             try:
-                env.get_status()
+                client.get_status()
             except CannotConnectEnv:
                 print("Status got Unable to connect to env.  Retrying...")
-                env.get_status()
-            env.wait_for_started()
+                client.get_status()
+            client.wait_for_started()
             if deploy_charm:
-                env.deploy('local:{}/dummy-source'.format(env.config.get(
-                    'default-series', 'trusty')))
-                env.wait_for_started()
+                client.deploy('local:{}/dummy-source'.format(
+                    client.env.config.get('default-series', 'trusty')))
+                client.wait_for_started()
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:
                 sys.stderr.write(e.stderr)
             raise
     finally:
-        env.destroy_environment()
-        if env.config['type'] == 'maas':
+        client.destroy_environment()
+        if client.env.config['type'] == 'maas':
             sleep(90)
             for machine, running in running_domains.items():
                 name, URI = machine.split('@')

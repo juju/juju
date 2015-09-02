@@ -109,70 +109,6 @@ class CannotConnectEnv(subprocess.CalledProcessError):
         super(CannotConnectEnv, self).__init__(e.returncode, e.cmd, e.output)
 
 
-class JujuClientDevel:
-    # This client is meant to work with the latest version of juju.
-    # Subclasses will retain support for older versions of juju, so that the
-    # latest version is easy to read, and older versions can be trivially
-    # deleted.
-
-    def __init__(self, version, full_path):
-        self.version = version
-        self.full_path = full_path
-        self.debug = False
-
-    @classmethod
-    def get_version(cls):
-        return EnvJujuClient.get_version()
-
-    @classmethod
-    def get_full_path(cls):
-        return EnvJujuClient.get_full_path()
-
-    @classmethod
-    def by_version(cls):
-        version = cls.get_version()
-        full_path = cls.get_full_path()
-        if version.startswith('1.16'):
-            raise Exception('Unsupported juju: %s' % version)
-        else:
-            return JujuClientDevel(version, full_path)
-
-    def get_env_client(self, environment):
-        return EnvJujuClient(environment, self.version, self.full_path, None,
-                             self.debug)
-
-    def bootstrap(self, environment):
-        """Bootstrap, using sudo if necessary."""
-        return self.get_env_client(environment).bootstrap()
-
-    def destroy_environment(self, environment):
-        return self.get_env_client(environment).destroy_environment()
-
-    def get_juju_output(self, environment, command, *args, **kwargs):
-        return self.get_env_client(environment).get_juju_output(
-            command, *args, **kwargs)
-
-    def get_status(self, environment, timeout=60, raw=False, *args):
-        """Get the current status as a dict."""
-        return self.get_env_client(environment).get_status(timeout, raw, *args)
-
-    def get_env_option(self, environment, option):
-        """Return the value of the environment's configured option."""
-        return self.get_env_client(environment).get_env_option(option)
-
-    def quickstart(self, environment, bundle):
-        return self.get_env_client(environment).quickstart(bundle)
-
-    def set_env_option(self, environment, option, value):
-        """Set the value of the option in the environment."""
-        return self.get_env_client(environment).set_env_option(option, value)
-
-    def juju(self, environment, command, args, sudo=False, check=True):
-        """Run a command under juju for the current environment."""
-        return self.get_env_client(environment).juju(
-            command, args, sudo, check)
-
-
 class AgentsNotStarted(Exception):
 
     def __init__(self, environment, status):
@@ -1033,68 +969,6 @@ class SimpleEnvironment:
 
     def needs_sudo(self):
         return self.local
-
-
-class Environment(SimpleEnvironment):
-
-    def __init__(self, environment, client=None, config=None):
-        super(Environment, self).__init__(environment, config)
-        self.client = client
-
-    @classmethod
-    def from_config(cls, name):
-        client = JujuClientDevel.by_version()
-        return cls(name, client, get_selected_environment(name)[0])
-
-    def bootstrap(self):
-        return self.client.bootstrap(self)
-
-    def upgrade_juju(self):
-        self.client.get_env_client(self).upgrade_juju()
-
-    def destroy_environment(self):
-        return self.client.destroy_environment(self)
-
-    def deploy(self, charm):
-        args = (charm,)
-        return self.juju('deploy', *args)
-
-    def quickstart(self, bundle):
-        return self.client.quickstart(self, bundle)
-
-    def juju(self, command, *args):
-        return self.client.juju(self, command, args)
-
-    def get_status(self, timeout=60, raw=False, *args):
-        return self.client.get_status(self, timeout, raw, *args)
-
-    def wait_for_deploy_started(self, service_count=1, timeout=1200):
-        """Wait until service_count services are 'started'.
-
-        :param service_count: The number of services for which to wait.
-        :param timeout: The number of seconds to wait.
-        """
-        return self.client.get_env_client(self).wait_for_deploy_started(
-            service_count, timeout)
-
-    def wait_for_started(self, timeout=1200):
-        """Wait until all unit/machine agents are 'started'."""
-        return self.client.get_env_client(self).wait_for_started(timeout)
-
-    def wait_for_version(self, version, timeout=300):
-        env_client = self.client.get_env_client(self)
-        return env_client.wait_for_version(version, timeout)
-
-    def get_matching_agent_version(self, no_build=False):
-        env_client = self.client.get_env_client(self)
-        return env_client.get_matching_agent_version(no_build)
-
-    def set_testing_tools_metadata_url(self):
-        url = self.client.get_env_option(self, 'tools-metadata-url')
-        if 'testing' not in url:
-            testing_url = url.replace('/tools', '/testing/tools')
-            self.client.set_env_option(self, 'tools-metadata-url',
-                                       testing_url)
 
 
 class GroupReporter:
