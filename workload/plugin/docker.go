@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju-process-docker/docker"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/plugin/docker"
 )
 
 var dockerLogger = loggo.GetLogger("juju.workload.plugin.docker")

@@ -5,7 +5,6 @@ package plugin_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju-process-docker/docker"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/plugin"
+	"github.com/juju/juju/workload/plugin/docker"
 )
 
 var _ = gc.Suite(&dockerSuite{})
