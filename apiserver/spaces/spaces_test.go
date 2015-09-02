@@ -45,7 +45,7 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:            names.NewUserTag("admin"),
-		EnvironManager: true,
+		EnvironManager: false,
 	}
 
 	var err error
@@ -118,19 +118,17 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		c.Assert(results.Results[0].Error, gc.ErrorMatches, p.Error)
 	}
 
+	baseCalls := []apiservertesting.StubMethodCall{
+		apiservertesting.BackingCall("EnvironConfig"),
+		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
+		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
+	}
+	addSpaceCalls := append(baseCalls, apiservertesting.BackingCall("AddSpace", p.Name, p.Subnets, p.Public))
+
 	if p.Error == "" || p.MakesCall {
-		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-			apiservertesting.BackingCall("EnvironConfig"),
-			apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-			apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
-			apiservertesting.BackingCall("AddSpace", p.Name, p.Subnets, p.Public),
-		)
+		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, addSpaceCalls...)
 	} else {
-		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-			apiservertesting.BackingCall("EnvironConfig"),
-			apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-			apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces"),
-		)
+		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, baseCalls...)
 	}
 }
 
@@ -162,7 +160,7 @@ func (s *SpacesSuite) TestAddSpacesManySubnets(c *gc.C) {
 func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
 		nil, // Backing.EnvironConfig()
-		nil, // Provider.Open
+		nil, // Provider.Open()
 		nil, // ZonedNetworkingEnviron.SupportsSpaces()
 		errors.AlreadyExistsf("space-foo"), // Backing.AddSpace()
 	)

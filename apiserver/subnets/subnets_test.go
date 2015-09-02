@@ -733,6 +733,8 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 			continue
 		}
 		c.Check(result.Error, gc.ErrorMatches, expectedError)
+		// c.Check(result.Error, jc.Satisfies, params.IsCodeNotSupported)
+		// TODO(mue) Talk to James about it.
 		c.Check(result.Error.Code, gc.Equals, "")
 	}
 
