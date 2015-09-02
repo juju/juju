@@ -17,6 +17,7 @@ from unittest import TestCase
 
 from mock import (
     call,
+    Mock,
     patch,
 )
 import yaml
@@ -64,16 +65,13 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
         call_index = 0
     empty, args, kwargs = mock_method.mock_calls[call_index]
     test_case.assertEqual(args, (expected_args,))
-    kwarg_keys = ['env']
+    kwarg_keys = []
     if assign_stderr:
         with tempfile.TemporaryFile() as example:
             # 'example' is a pragmatic way of checking file types in py2 and 3.
             kwarg_keys = ['stderr'] + kwarg_keys
             test_case.assertIsInstance(kwargs['stderr'], type(example))
     test_case.assertItemsEqual(kwargs.keys(), kwarg_keys)
-    bin_dir = os.path.dirname(client.full_path)
-    test_case.assertRegexpMatches(kwargs['env']['PATH'],
-                                  r'^{}\:'.format(bin_dir))
 
 
 class TestErroredUnit(TestCase):
@@ -467,7 +465,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_juju_output(self):
         env = SimpleEnvironment('foo')
-        asdf = lambda x, stderr, env: 'asdf'
+        asdf = lambda x, stderr: 'asdf'
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output('bar')
@@ -477,7 +475,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_juju_output_accepts_varargs(self):
         env = SimpleEnvironment('foo')
-        asdf = lambda x, stderr, env: 'asdf'
+        asdf = lambda x, stderr: 'asdf'
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')
@@ -486,7 +484,7 @@ class TestEnvJujuClient(ClientTest):
                            '--qux'),), mock.call_args[0])
 
     def test_get_juju_output_stderr(self):
-        def raise_without_stderr(args, stderr, env):
+        def raise_without_stderr(args, stderr):
             stderr.write('Hello!')
             raise subprocess.CalledProcessError('a', 'b')
         env = SimpleEnvironment('foo')
@@ -516,10 +514,11 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_output_supplies_path(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, '/foobar/bar')
-        with patch('subprocess.check_output') as sco_mock:
+
+        def check_path(*args, **kwargs):
+            self.assertRegexpMatches(os.environ['PATH'], r'/foobar\:')
+        with patch('subprocess.check_output', side_effect=check_path):
             client.get_juju_output('cmd', 'baz')
-        self.assertRegexpMatches(sco_mock.call_args[1]['env']['PATH'],
-                                 r'/foobar\:')
 
     def test_get_status(self):
         output_text = yield dedent("""\
@@ -963,8 +962,7 @@ class TestEnvJujuClient(ClientTest):
         environ['JUJU_HOME'] = client.juju_home
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url=https://example.org/juju/tools'),
-            env=environ)
+             'tools-metadata-url=https://example.org/juju/tools'))
 
     def test_set_testing_tools_metadata_url(self):
         env = SimpleEnvironment(None, {'type': 'foo'})
@@ -997,16 +995,17 @@ class TestEnvJujuClient(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'), env=environ)
+                                 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
     def test_juju_env(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_call') as cc_mock:
+
+        def check_path(*args, **kwargs):
+            self.assertRegexpMatches(os.environ['PATH'], r'/foobar\:')
+        with patch('subprocess.check_call', side_effect=check_path):
             client.juju('foo', ('bar', 'baz'))
-        self.assertRegexpMatches(cc_mock.call_args[1]['env']['PATH'],
-                                 r'/foobar\:')
 
     def test_juju_no_check(self):
         env = SimpleEnvironment('qux')
@@ -1017,16 +1016,17 @@ class TestEnvJujuClient(ClientTest):
             with patch('subprocess.call') as mock:
                 client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'), env=environ)
+                                 'bar', 'baz'))
         stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check_env(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.call') as call_mock:
+
+        def check_path(*args, **kwargs):
+            self.assertRegexpMatches(os.environ['PATH'], r'/foobar\:')
+        with patch('subprocess.call', side_effect=check_path):
             client.juju('foo', ('bar', 'baz'), check=False)
-        self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
-                                 r'/foobar\:')
 
     def test_juju_timeout(self):
         env = SimpleEnvironment('qux')
@@ -1042,39 +1042,46 @@ class TestEnvJujuClient(ClientTest):
         with scoped_environ():
             os.environ['JUJU_HOME'] = 'foo'
             client = EnvJujuClient(env, None, '/foobar/baz')
-            with patch('subprocess.check_call') as cc_mock:
+
+            def check_home(*args, **kwargs):
+                self.assertEqual(os.environ['JUJU_HOME'], 'foo')
+                yield
+                self.assertEqual(os.environ['JUJU_HOME'], 'asdf')
+                yield
+
+            with patch('subprocess.check_call', side_effect=check_home):
                 client.juju('foo', ('bar', 'baz'))
-                self.assertEqual(cc_mock.mock_calls[0][2]['env']['JUJU_HOME'],
-                                 'foo')
                 client.juju_home = 'asdf'
                 client.juju('foo', ('bar', 'baz'))
-                self.assertEqual(cc_mock.mock_calls[1][2]['env']['JUJU_HOME'],
-                                 'asdf')
 
     def test_juju_extra_env(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, None)
         extra_env = {'JUJU': '/juju', 'JUJU_HOME': client.juju_home}
+
+        def check_env(*args, **kwargs):
+            self.assertEqual('/juju', os.environ['JUJU'])
         with patch('sys.stdout'):
-            with patch('subprocess.check_call') as mock:
+            with patch('subprocess.check_call', side_effect=check_env) as mock:
                 client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         env = dict(os.environ)
         env.update(extra_env)
         mock.assert_called_with(
-            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'),
-            env=env)
-        self.assertEqual('/juju', mock.call_args[1]['env']['JUJU'])
+            ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'))
 
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
+
+        def check_env(*args, **kwargs):
+            self.assertEqual(os.environ['JUJU_ENV'], 'qux')
+            return 'foojuju-backup-24.tgzz'
         with patch('subprocess.check_output',
-                   return_value='foojuju-backup-24.tgzz') as co_mock:
+                   side_effect=check_env) as co_mock:
             with patch('sys.stdout'):
                 backup_file = client.backup()
         self.assertEqual(backup_file, os.path.abspath('juju-backup-24.tgz'))
         assert_juju_call(self, co_mock, client, ['juju', 'backup'])
-        self.assertEqual(co_mock.mock_calls[0][2]['env']['JUJU_ENV'], 'qux')
 
     def test_juju_backup_with_tar_gz(self):
         env = SimpleEnvironment('qux')
@@ -1105,6 +1112,20 @@ class TestEnvJujuClient(ClientTest):
                 with patch('sys.stdout'):
                     client.backup()
 
+    def test_juju_backup_environ(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        environ = client._shell_environ()
+        environ['JUJU_ENV'] = client.env.environment
+
+        def side_effect(*args, **kwargs):
+            self.assertEqual(environ, os.environ)
+            return 'foojuju-backup-123-456.tar.gzbar'
+        with patch('subprocess.check_output', side_effect=side_effect):
+            with patch('sys.stdout'):
+                client.backup()
+            self.assertNotEqual(environ, os.environ)
+
     def test_juju_async(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
@@ -1128,6 +1149,22 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(err_cxt.exception.returncode, 23)
         self.assertEqual(err_cxt.exception.cmd, (
             'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
+
+    def test_juju_async_environ(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        environ = client._shell_environ()
+        proc_mock = Mock()
+        with patch('subprocess.Popen') as popen_class_mock:
+
+            def check_environ(*args, **kwargs):
+                self.assertEqual(environ, os.environ)
+                return proc_mock
+            popen_class_mock.side_effect = check_environ
+            proc_mock.wait.return_value = 0
+            with client.juju_async('foo', ('bar', 'baz')):
+                pass
+            self.assertNotEqual(environ, os.environ)
 
     def test_is_jes_enabled(self):
         env = SimpleEnvironment('qux')
@@ -1257,6 +1294,12 @@ class TestEnvJujuClient(ClientTest):
                 ret]
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
+
+    def test__shell_environ_uses_pathsep(self):
+        client = EnvJujuClient(None, None, 'foo/bar/juju')
+        with patch('os.pathsep', '!'):
+            environ = client._shell_environ()
+        self.assertRegexpMatches(environ['PATH'], r'foo/bar\!')
 
 
 class TestUniquifyLocal(TestCase):
