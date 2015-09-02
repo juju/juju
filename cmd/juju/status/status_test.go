@@ -3751,3 +3751,39 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 		ctx.run(c, t.steps)
 	}(statusTimeTest)
 }
+
+func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
+	status := &params.FullStatus{
+		Machines: map[string]params.MachineStatus{
+			"1": params.MachineStatus{
+				Agent: params.AgentStatus{
+					Status: "error",
+					Info:   "<error while provisioning>",
+				},
+				AgentState:     "",
+				AgentStateInfo: "<error while provisioning>",
+				InstanceId:     "pending",
+				InstanceState:  "",
+				Series:         "trusty",
+				Id:             "1",
+				Jobs:           []multiwatcher.MachineJob{"JobHostUnits"},
+			},
+		},
+	}
+	formatter := newStatusFormatter(status, 0, true)
+	formatted := formatter.format()
+
+	c.Check(formatted, jc.DeepEquals, formattedStatus{
+		Machines: map[string]machineStatus{
+			"1": machineStatus{
+				AgentState:     "error",
+				AgentStateInfo: "<error while provisioning>",
+				InstanceId:     "pending",
+				Series:         "trusty",
+				Id:             "1",
+				Containers:     map[string]machineStatus{},
+			},
+		},
+		Services: map[string]serviceStatus{},
+	})
+}
