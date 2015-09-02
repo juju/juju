@@ -1070,12 +1070,14 @@ func (m *Machine) PublicAddress() (network.Address, error) {
 	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
 	if changed {
 		err := m.setDefaultAddress(newAddr, true)
-		if err != errNotAlive {
-			return network.Address{}, errors.Trace(err)
-		} else if err == errNotAlive {
-			// Dead machines cannot change address, report the last
-			// known address.
-			return publicAddress, nil
+		if err != nil {
+			if err != errNotAlive {
+				return network.Address{}, errors.Trace(err)
+			} else {
+				// Dead machines cannot change address, report the last
+				// known address.
+				return publicAddress, nil
+			}
 		}
 		return newAddr, nil
 	}
@@ -1127,12 +1129,14 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
 	if changed {
 		err := m.setDefaultAddress(newAddr, false)
-		if err != errNotAlive {
-			return network.Address{}, errors.Trace(err)
-		} else if err == errNotAlive {
-			// Dead machines cannot change address, report the last
-			// known address.
-			return privateAddress, nil
+		if err != nil {
+			if err != errNotAlive {
+				return network.Address{}, errors.Trace(err)
+			} else {
+				// Dead machines cannot change address, report the last
+				// known address.
+				return privateAddress, nil
+			}
 		}
 		return newAddr, nil
 	}
