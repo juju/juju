@@ -54,7 +54,7 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv := s.newServer(c)
+	_, srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -101,7 +101,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	srv := s.newServer(c)
+	_, srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	port := srv.Addr().Port
@@ -265,7 +265,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	srv := s.newServer(c)
+	_, srv := newServer(c, s.State)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -289,7 +289,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 }
 
 func (s *serverSuite) TestServerBakery(c *gc.C) {
-	srv := s.newServer(c)
+	_, srv := newServer(c, s.State)
 	defer srv.Stop()
 	// By default, when there is no identity location, no
 	// bakery service or macaroon is created.
@@ -312,7 +312,7 @@ func (s *serverSuite) TestServerBakery(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try again. The macaroon should have been created this time.
-	srv = s.newServer(c)
+	_, srv = newServer(c, s.State)
 	defer srv.Stop()
 	m := apiserver.ServerMacaroon(srv)
 	c.Assert(m, gc.NotNil)
@@ -348,7 +348,7 @@ func (s *serverSuite) TestServerBakery(c *gc.C) {
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	srv = s.newServer(c)
+	_, srv = newServer(c, s.State)
 	defer srv.Stop()
 	m = apiserver.ServerMacaroon(srv).Clone()
 	err = apiserver.ServerBakeryService(srv).AddCaveat(m, checkers.Caveat{
@@ -428,16 +428,23 @@ func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 }
 
 // newServer returns a new running API server.
-func (s *serverSuite) newServer(c *gc.C) *apiserver.Server {
+func newServer(c *gc.C, st *state.State) (api.Connection, *apiserver.Server) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 		Tag:  names.NewMachineTag("0"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return srv
+
+	client, err := api.Open(&api.Info{
+		Addrs:  []string{srv.Addr().String()},
+		CACert: coretesting.CACert,
+	}, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return client, srv
 }
 
 func assertStateIsOpen(c *gc.C, st *state.State) {

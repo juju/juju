@@ -5,7 +5,6 @@ package api_test
 
 import (
 	stdtesting "testing"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

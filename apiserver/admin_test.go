@@ -6,16 +6,21 @@ package apiserver_test
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -970,4 +975,77 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.LastConnection(), gc.NotNil)
 	c.Assert(envUser.LastConnection().After(startTime), jc.IsTrue)
+}
+
+var _ = gc.Suite(&macaroonLoginSuite{})
+
+type macaroonLoginSuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+	checker    func(string, string) ([]checkers.Caveat, error)
+	srv        *apiserver.Server
+	client     api.Connection
+}
+
+func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+		return s.checker(cond, arg)
+	})
+
+	environTag := names.NewEnvironTag(s.State.EnvironUUID())
+
+	// Make a new version of the state that doesn't object to us
+	// changing the identity URL, so we can create a state server
+	// that will see that.
+	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.UpdateEnvironConfig(map[string]interface{}{
+		config.IdentityURL: s.discharger.Location(),
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.client, s.srv = newServer(c, s.State)
+
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "test",
+	})
+}
+
+func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
+	s.srv.Stop()
+	s.discharger.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *macaroonLoginSuite) TestSuccessfulLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		if cond == "is-authenticated-user" {
+			return []checkers.Caveat{checkers.DeclaredCaveat("username", "test")}, nil
+		}
+		return nil, errors.New("unknown caveat")
+	}
+	err := s.client.Login(nil, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		return nil, errors.New("unknown caveat")
+	}
+	err := s.client.Login(nil, "", "")
+	c.Assert(err, gc.ErrorMatches, "failed to obtain the macaroon discharge.*cannot discharge: unknown caveat")
+}
+
+func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		if cond == "is-authenticated-user" {
+			return []checkers.Caveat{checkers.DeclaredCaveat("username", "testUnknown")}, nil
+		}
+		return nil, errors.New("unknown caveat")
+	}
+	err := s.client.Login(nil, "", "")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 }
