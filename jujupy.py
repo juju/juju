@@ -202,8 +202,8 @@ class EnvJujuClient:
         """
         env = dict(os.environ)
         if self.full_path is not None:
-            env['PATH'] = '{}:{}'.format(os.path.dirname(self.full_path),
-                                         env['PATH'])
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
         env['JUJU_HOME'] = self.juju_home
         return env
 

@@ -1295,6 +1295,12 @@ class TestEnvJujuClient(ClientTest):
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
 
+    def test__shell_environ_uses_pathsep(self):
+        client = EnvJujuClient(None, None, 'foo/bar/juju')
+        with patch('os.pathsep', '!'):
+            environ = client._shell_environ()
+        self.assertRegexpMatches(environ['PATH'], r'foo/bar\!')
+
 
 class TestUniquifyLocal(TestCase):
 
