@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -29,8 +30,8 @@ var statusSetInitTests = []struct {
 	{[]string{"maintenance"}, ""},
 	{[]string{"maintenance", ""}, ""},
 	{[]string{"maintenance", "hello"}, ""},
-	{[]string{}, `invalid args, require <status> \[message\]`},
-	{[]string{"maintenance", "hello", "extra"}, `unrecognized args: \["extra"\]`},
+	{[]string{}, `invalid args, require <status> \[message\] \[data\]`},
+	{[]string{"maintenance", "hello", "", "extra"}, `unrecognized args: \["extra"\]`},
 	{[]string{"foo", "hello"}, `invalid status "foo", expected one of \[maintenance blocked waiting active\]`},
 }
 
@@ -52,7 +53,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
-		"usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
+		"usage: status-set [options] <maintenance | blocked | waiting | active> [message] [data]\n" +
 		"purpose: set status information\n" +
 		"\n" +
 		"options:\n" +
@@ -71,6 +72,12 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 	for i, args := range [][]string{
 		[]string{"maintenance", "doing some work"},
 		[]string{"active", ""},
+		[]string{"maintenance", "valid data", `Information:
+  number: 22
+  string: Something
+OtherInformation:
+  number: 24
+  string: SomethingElse`},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -85,6 +92,11 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Status, gc.Equals, args[0])
 		c.Assert(status.Info, gc.Equals, args[1])
+		if len(args) == 3 {
+			text, err := goyaml.Marshal(status.Data)
+			c.Check(err, jc.ErrorIsNil)
+			c.Assert(string(text), gc.Equals, args[2]+"\n")
+		}
 	}
 }
 
@@ -92,6 +104,12 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	for i, args := range [][]string{
 		[]string{"--service", "maintenance", "doing some work"},
 		[]string{"--service", "active", ""},
+		[]string{"--service", "maintenance", "valid data", `Information:
+  number: 22
+  string: Something
+OtherInformation:
+  number: 24
+  string: SomethingElse`},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -106,7 +124,33 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Service.Status, gc.Equals, args[1])
 		c.Assert(status.Service.Info, gc.Equals, args[2])
+		if len(args) == 4 {
+			text, err := goyaml.Marshal(status.Service.Data)
+			c.Check(err, jc.ErrorIsNil)
+			c.Assert(string(text), gc.Equals, args[3]+"\n")
+		}
 		c.Assert(status.Units, jc.DeepEquals, []jujuc.StatusInfo{})
 
+	}
+}
+
+func (s *statusSetSuite) TestStatusInvalidData(c *gc.C) {
+	for i, args := range [][]string{
+		[]string{"maintenance", "valid data", `InvalidInformation:
+  22: number
+  string: Something
+OtherInformation:
+  23: 24
+  string: SomethingElse`},
+	} {
+		c.Logf("test %d: %#v", i, args)
+		hctx := s.GetStatusHookContext(c)
+		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		c.Assert(err, jc.ErrorIsNil)
+		ctx := testing.Context(c)
+		code := cmd.Main(com, ctx, args)
+		c.Assert(code, gc.Equals, 2)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "error: cannot parse data to set status: cannot process data: keys must be strings\n")
+		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	}
 }
