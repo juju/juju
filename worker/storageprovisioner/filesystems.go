@@ -582,11 +582,16 @@ func createFilesystems(ctx *context, params []storage.FilesystemParams) ([]stora
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("creating filesystems: %v", params)
 		filesystemSource := filesystemSources[sourceName]
-		filesystems, err := filesystemSource.CreateFilesystems(params)
+		results, err := filesystemSource.CreateFilesystems(params)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating filesystems from source %q", sourceName)
 		}
-		allFilesystems = append(allFilesystems, filesystems...)
+		for i, result := range results {
+			if result.Error != nil {
+				return nil, errors.Annotatef(result.Error, "creating %s", names.ReadableString(params[i].Tag))
+			}
+			allFilesystems = append(allFilesystems, *result.Filesystem)
+		}
 	}
 	return allFilesystems, nil
 }
@@ -604,11 +609,20 @@ func createFilesystemAttachments(
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("attaching filesystems: %v", params)
 		filesystemSource := filesystemSources[sourceName]
-		filesystemAttachments, err := filesystemSource.AttachFilesystems(params)
+		results, err := filesystemSource.AttachFilesystems(params)
 		if err != nil {
 			return nil, errors.Annotatef(err, "attaching filesystems from source %q", sourceName)
 		}
-		allFilesystemAttachments = append(allFilesystemAttachments, filesystemAttachments...)
+		for i, result := range results {
+			if result.Error != nil {
+				return nil, errors.Annotatef(
+					err, "attaching %s to %s",
+					names.ReadableString(params[i].Filesystem),
+					names.ReadableString(params[i].Machine),
+				)
+			}
+			allFilesystemAttachments = append(allFilesystemAttachments, *result.FilesystemAttachment)
+		}
 	}
 	return allFilesystemAttachments, nil
 }
@@ -626,8 +640,19 @@ func detachFilesystems(ctx *context, attachments []storage.FilesystemAttachmentP
 	for sourceName, params := range paramsBySource {
 		logger.Debugf("detaching filesystems: %v", params)
 		filesystemSource := filesystemSources[sourceName]
-		if err := filesystemSource.DetachFilesystems(params); err != nil {
+		results, err := filesystemSource.DetachFilesystems(params)
+		if err != nil {
 			return errors.Annotatef(err, "detaching filesystems from source %q", sourceName)
+		}
+		for i, err := range results {
+			if err == nil {
+				continue
+			}
+			return errors.Annotatef(
+				err, "detaching %s from %s",
+				names.ReadableString(params[i].Filesystem),
+				names.ReadableString(params[i].Machine),
+			)
 		}
 	}
 	return nil

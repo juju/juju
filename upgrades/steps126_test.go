@@ -22,3 +22,10 @@ func (s *steps126Suite) TestStepsFor126(c *gc.C) {
 	}
 	assertSteps(c, version.MustParse("1.26.0"), expected)
 }
+
+func (s *steps126Suite) TestStateStepsFor126(c *gc.C) {
+	expected := []string{
+		"add status to filesystem",
+	}
+	assertStateSteps(c, version.MustParse("1.26.0"), expected)
+}

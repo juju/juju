@@ -150,7 +150,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 }
 
 var helpDoc = `
-image metadata files have been written to:
+Image metadata files have been written to:
 %s.
 For Juju to use this metadata, the files need to be put into the
 image metadata search path. There are 2 options:
@@ -162,9 +162,6 @@ image metadata search path. There are 2 options:
 Configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.
-
-"
-
 `
 
 func (c *ImageMetadataCommand) Run(context *cmd.Context) error {

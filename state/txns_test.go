@@ -205,54 +205,67 @@ func getTestCases() []multiEnvRunnerTestCase {
 		}, {
 			"bson.D $set with struct update",
 			txn.Op{
-				C:      machinesC,
-				Id:     "1",
-				Update: bson.D{{"$set", &testDoc{}}},
+				C:  machinesC,
+				Id: "1",
+				Update: bson.D{{"$set", &testDoc{
+					Id: "1",
+				}}},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:1",
-				Update: bson.D{{
-					"$set",
-					&testDoc{
-						DocID:   "uuid:1",
-						EnvUUID: "uuid",
+				Update: bson.D{{"$set",
+					bson.D{
+						{"_id", "uuid:1"},
+						{"thingid", "1"},
+						{"env-uuid", "uuid"},
 					},
 				}},
 			},
 		}, {
 			"bson.D $set with bson.D update",
 			txn.Op{
-				C:      machinesC,
-				Id:     "1",
-				Update: bson.D{{"$set", bson.D{{"foo", "bar"}}}},
+				C:  machinesC,
+				Id: "1",
+				Update: bson.D{
+					{"$set", bson.D{
+						{"_id", "1"},
+						{"foo", "bar"},
+					}},
+					{"$other", "op"},
+				},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:1",
-				// Only structs get touched for $set updates.
-				Update: bson.D{{
-					"$set",
-					bson.D{
+				Update: bson.D{
+					{"$set", bson.D{
+						{"_id", "uuid:1"},
 						{"foo", "bar"},
-					},
-				}},
+					}},
+					{"$other", "op"},
+				},
 			},
 		}, {
 			"bson.M $set",
 			txn.Op{
-				C:      machinesC,
-				Id:     "1",
-				Update: bson.M{"$set": &machineDoc{}},
+				C:  machinesC,
+				Id: "1",
+				Update: bson.M{
+					"$set": &testDoc{Id: "1"},
+					"$foo": "bar",
+				},
 			},
 			txn.Op{
 				C:  machinesC,
 				Id: "uuid:1",
 				Update: bson.M{
-					"$set": &machineDoc{
-						DocID:   "uuid:1",
-						EnvUUID: "uuid",
+					"$set": bson.D{
+						{"_id", "uuid:1"},
+						{"thingid", "1"},
+						{"env-uuid", "uuid"},
 					},
+					"$foo": "bar",
 				},
 			},
 		},
@@ -315,7 +328,7 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
 }
 
-func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
+func (s *MultiEnvRunnerSuite) TestRejectsAttemptToInsertWrongEnvUUID(c *gc.C) {
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     "1",
@@ -333,6 +346,26 @@ func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
 	}}
 	err = s.multiEnvRunner.RunTransaction(ops)
 	c.Assert(err, gc.ErrorMatches, `cannot insert into "machines": bad "env-uuid" value.+`)
+}
+
+func (s *MultiEnvRunnerSuite) TestRejectsAttemptToChangeEnvUUID(c *gc.C) {
+	// Setting to same env UUID is ok.
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     "1",
+		Update: bson.M{"$set": &machineDoc{EnvUUID: envUUID}},
+	}}
+	err := s.multiEnvRunner.RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Using the wrong env UUID isn't allowed.
+	ops = []txn.Op{{
+		C:      machinesC,
+		Id:     "1",
+		Update: bson.M{"$set": &machineDoc{EnvUUID: "wrong"}},
+	}}
+	err = s.multiEnvRunner.RunTransaction(ops)
+	c.Assert(err, gc.ErrorMatches, `cannot update "machines": bad "env-uuid" value.+`)
 }
 
 func (s *MultiEnvRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
