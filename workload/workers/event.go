@@ -83,18 +83,18 @@ type EventHandlers struct {
 func NewEventHandlers() *EventHandlers {
 	logger.Debugf("new event handler created")
 	eh := EventHandlers{
-		data: newEventHandlersData(nil),
+		data: newEventHandlersData(nil, ""),
 	}
 	return &eh
 }
 
 // Reset resets the event handlers.
-func (eh *EventHandlers) Reset(apiClient context.APIClient) error {
+func (eh *EventHandlers) Reset(apiClient context.APIClient, dataDir string) error {
 	if err := eh.data.Close(); err != nil {
 		return errors.Trace(err)
 	}
 	handlers := eh.data.Handlers
-	eh.data = newEventHandlersData(apiClient)
+	eh.data = newEventHandlersData(apiClient, dataDir)
 	eh.data.Handlers = handlers
 	return nil
 }
@@ -248,7 +248,7 @@ func (ehe *eventHandlersEngine) eventsManifold() dependency.Manifold {
 		Inputs: []string{},
 		Start: func(dependency.GetResourceFunc) (worker.Worker, error) {
 			// Pull all existing from State (via API) and add an event for each.
-			events, err := InitialEvents(ehe.Handlers.data.APIClient)
+			events, err := InitialEvents(ehe.Handlers.data.APIClient, ehe.Handlers.data.DataDir)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -263,11 +263,11 @@ func (ehe *eventHandlersEngine) eventsManifold() dependency.Manifold {
 }
 
 // InitialEvents returns the events that correspond to the current Juju state.
-func InitialEvents(apiClient context.APIClient) ([]workload.Event, error) {
+func InitialEvents(apiClient context.APIClient, dataDir string) ([]workload.Event, error) {
 	// TODO(ericsnow) Use an API call that returns all of them at once,
 	// rather than using a Get call for each?
 
-	hctx, err := context.NewContextAPI(apiClient, nil)
+	hctx, err := context.NewContextAPI(apiClient, dataDir, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -283,8 +283,6 @@ func InitialEvents(apiClient context.APIClient) ([]workload.Event, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// TODO(wwitzel3) (Upgrade/Restart broken) during a restart of the
-		// worker, the Plugin loses its absPath for the executable.
 		plugin, err := hctx.Plugin(info)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -304,13 +302,15 @@ type eventHandlersData struct {
 	Events   *Events
 	Handlers []func([]workload.Event, context.APIClient, Runner) error
 
+	DataDir   string
 	APIClient context.APIClient
 	Engine    *eventHandlersEngine
 }
 
-func newEventHandlersData(apiClient context.APIClient) eventHandlersData {
+func newEventHandlersData(apiClient context.APIClient, dataDir string) eventHandlersData {
 	data := eventHandlersData{
 		Events:    NewEvents(),
+		DataDir:   dataDir,
 		APIClient: apiClient,
 	}
 	return data

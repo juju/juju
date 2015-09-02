@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/utils"
 )
 
 var (
@@ -49,15 +50,8 @@ func IsRunning() (bool, error) {
 	}
 
 	msg := fmt.Sprintf("exec %q failed", initctlPath)
-	if os.IsNotExist(err) {
-		// Executable could not be found, go 1.3 and later
+	if utils.IsCmdNotFoundErr(err) {
 		return false, nil
-	}
-	if execErr, ok := err.(*exec.Error); ok {
-		// Executable could not be found, go 1.2
-		if os.IsNotExist(execErr.Err) || execErr.Err == exec.ErrNotFound {
-			return false, nil
-		}
 	}
 	// Note: initctl will fail if upstart is installed but not running.
 	// The error message will be:

@@ -68,6 +68,10 @@ type Paths interface {
 	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
 	// to store metrics recorded during a single hook run.
 	GetMetricsSpoolDir() string
+
+	// ComponentDir returns the filesystem path to the directory
+	// containing all data files for a component.
+	ComponentDir(name string) string
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.
