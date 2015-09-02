@@ -325,7 +325,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
 
     def test_full_args(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
         full = client._full_args('bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
@@ -339,7 +339,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
 
     def test_full_args_debug(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
         client.debug = True
         full = client._full_args('bar', False, ('baz', 'qux'))
@@ -347,7 +347,7 @@ class TestEnvJujuClient(ClientTest):
             'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
     def test_full_args_action(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
         full = client._full_args('action bar', False, ('baz', 'qux'))
         self.assertEqual((
@@ -355,7 +355,7 @@ class TestEnvJujuClient(ClientTest):
             full)
 
     def test_bootstrap_hpcloud(self):
-        env = Environment('hp', '')
+        env = SimpleEnvironment('hp')
         with patch.object(env, 'hpcloud', lambda: True):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 EnvJujuClient(env, None, None).bootstrap()
@@ -363,7 +363,7 @@ class TestEnvJujuClient(ClientTest):
                 'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_maas(self):
-        env = Environment('maas', '')
+        env = SimpleEnvironment('maas')
         with patch.object(EnvJujuClient, 'juju') as mock:
             client = EnvJujuClient(env, None, None)
             with patch.object(client.env, 'maas', lambda: True):
@@ -372,7 +372,7 @@ class TestEnvJujuClient(ClientTest):
                 'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
 
     def test_bootstrap_joyent(self):
-        env = Environment('joyent', '')
+        env = SimpleEnvironment('joyent')
         with patch.object(EnvJujuClient, 'juju', autospec=True) as mock:
             client = EnvJujuClient(env, None, None)
             with patch.object(client.env, 'joyent', lambda: True):
@@ -382,7 +382,7 @@ class TestEnvJujuClient(ClientTest):
                 False)
 
     def test_bootstrap_non_sudo(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju') as mock:
             client = EnvJujuClient(env, None, None)
             with patch.object(client.env, 'needs_sudo', lambda: False):
@@ -391,7 +391,7 @@ class TestEnvJujuClient(ClientTest):
                 'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_sudo(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
@@ -400,7 +400,7 @@ class TestEnvJujuClient(ClientTest):
                 'bootstrap', ('--constraints', 'mem=2G'), True)
 
     def test_bootstrap_upload_tools(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
@@ -410,7 +410,7 @@ class TestEnvJujuClient(ClientTest):
                 True)
 
     def test_bootstrap_async(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, None, None)
             client.juju_home = 'foo'
@@ -419,7 +419,7 @@ class TestEnvJujuClient(ClientTest):
                     client, 'bootstrap', ('--constraints', 'mem=2G'))
 
     def test_bootstrap_async_upload_tools(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, None, None)
             with client.bootstrap_async(upload_tools=True):
@@ -428,7 +428,7 @@ class TestEnvJujuClient(ClientTest):
                                           'mem=2G'))
 
     def test_destroy_environment_non_sudo(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client.env, 'needs_sudo', lambda: False):
             with patch.object(client, 'juju') as mock:
@@ -438,7 +438,7 @@ class TestEnvJujuClient(ClientTest):
                 False, check=False, include_e=False, timeout=600.0)
 
     def test_destroy_environment_sudo(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
@@ -448,7 +448,7 @@ class TestEnvJujuClient(ClientTest):
                 True, check=False, include_e=False, timeout=600.0)
 
     def test_destroy_environment_no_force(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju') as mock:
             client.destroy_environment(force=False)
@@ -457,7 +457,7 @@ class TestEnvJujuClient(ClientTest):
                 False, check=False, include_e=False, timeout=600.0)
 
     def test_destroy_environment_delete_jenv(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'juju'):
             with temp_env({}) as juju_home:
@@ -470,7 +470,7 @@ class TestEnvJujuClient(ClientTest):
                 self.assertFalse(os.path.exists(jenv_path))
 
     def test_get_juju_output(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         asdf = lambda x, stderr, env: 'asdf'
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
@@ -480,7 +480,7 @@ class TestEnvJujuClient(ClientTest):
                          mock.call_args[0])
 
     def test_get_juju_output_accepts_varargs(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         asdf = lambda x, stderr, env: 'asdf'
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
@@ -493,7 +493,7 @@ class TestEnvJujuClient(ClientTest):
         def raise_without_stderr(args, stderr, env):
             stderr.write('Hello!')
             raise subprocess.CalledProcessError('a', 'b')
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with self.assertRaises(subprocess.CalledProcessError) as exc:
             with patch('subprocess.check_output', raise_without_stderr):
@@ -501,7 +501,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(exc.exception.stderr, 'Hello!')
 
     def test_get_juju_output_accepts_timeout(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output') as sco_mock:
             client.get_juju_output('bar', timeout=5)
@@ -518,7 +518,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
 
     def test_juju_output_supplies_path(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, '/foobar/bar')
         with patch('subprocess.check_output') as sco_mock:
             client.get_juju_output('cmd', 'baz')
@@ -531,7 +531,7 @@ class TestEnvJujuClient(ClientTest):
                 - b
                 - c
                 """)
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=output_text):
@@ -1653,7 +1653,7 @@ class TestJujuClientDevel(TestCase):
         stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check_env(self):
-        env = Environment('qux', '')
+        env = SimpleEnvironment('qux')
         client = JujuClientDevel(None, '/foobar/baz')
         with patch('subprocess.call') as call_mock:
             client.juju(env, 'foo', ('bar', 'baz'), check=False)
