@@ -85,9 +85,13 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
-	// TODO check for discharged-requirederror and return macaroon required response
-	// if found.
 	if err != nil {
+		if err, ok := err.(*authentication.DischargeRequiredError); ok {
+			loginResult := params.LoginResultV1{
+				DischargeRequired: err.Macaroon,
+			}
+			return loginResult, nil
+		}
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
 			// progress. It is possible for logins to fail until this
@@ -241,29 +245,15 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 	if err != nil {
 		return nil, nil, err
 	}
-	entity, err := st.FindEntity(tag)
-	if errors.IsNotFound(err) {
-		// We return the same error when an entity does not exist as for a bad
-		// password, so that we don't allow unauthenticated users to find
-		// information about existing entities.
-		logger.Debugf("entity %q not found", tag)
-		return nil, nil, common.ErrBadCreds
-	}
+	authenticator, err := authentication.AuthenticatorForTag(req.AuthTag)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO: just pass in the tag here to dispatch to the right authenticator
-	authenticator, err := authentication.FindEntityAuthenticator(entity)
+	entity, err := authenticator.Authenticate(st, tag, req)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	// TODO: return a "407 macaroon reqd"?
-	// TODO: pass in a thing that can look up the entity that's not necessarily state
-	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 
 	// For user logins, update the last login time.
@@ -289,7 +279,6 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 		// this user.
 		user.UpdateLastLogin()
 	}
-
 	return entity, lastLogin, nil
 }
 
