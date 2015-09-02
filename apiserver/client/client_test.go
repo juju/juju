@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -134,54 +135,63 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 
 	results, err := s.client.EnvUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	expected := params.EnvUserInfoResults{
-		Results: []params.EnvUserInfoResult{
-			{
-				Result: &params.EnvUserInfo{
-					UserName:       owner.UserName(),
-					DisplayName:    owner.DisplayName(),
-					CreatedBy:      owner.UserName(),
-					DateCreated:    owner.DateCreated(),
-					LastConnection: owner.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "ralphdoe@local",
-					DisplayName:    "Ralph Doe",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    localUser1.DateCreated(),
-					LastConnection: localUser1.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "samsmith@local",
-					DisplayName:    "Sam Smith",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    localUser2.DateCreated(),
-					LastConnection: localUser2.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "bobjohns@ubuntuone",
-					DisplayName:    "Bob Johns",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    remoteUser1.DateCreated(),
-					LastConnection: remoteUser1.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "nicshaw@idprovider",
-					DisplayName:    "Nic Shaw",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    remoteUser2.DateCreated(),
-					LastConnection: remoteUser2.LastConnection(),
-				},
-			}},
+	var expected params.EnvUserInfoResults
+	for _, r := range []struct {
+		user *state.EnvironmentUser
+		info *params.EnvUserInfo
+	}{
+		{
+			owner,
+			&params.EnvUserInfo{
+				UserName:    owner.UserName(),
+				DisplayName: owner.DisplayName(),
+			},
+		}, {
+			localUser1,
+			&params.EnvUserInfo{
+				UserName:    "ralphdoe@local",
+				DisplayName: "Ralph Doe",
+			},
+		}, {
+			localUser2,
+			&params.EnvUserInfo{
+				UserName:    "samsmith@local",
+				DisplayName: "Sam Smith",
+			},
+		}, {
+			remoteUser1,
+			&params.EnvUserInfo{
+				UserName:    "bobjohns@ubuntuone",
+				DisplayName: "Bob Johns",
+			},
+		}, {
+			remoteUser2,
+			&params.EnvUserInfo{
+				UserName:    "nicshaw@idprovider",
+				DisplayName: "Nic Shaw",
+			},
+		},
+	} {
+		r.info.CreatedBy = owner.UserName()
+		r.info.DateCreated = r.user.DateCreated()
+		r.info.LastConnection = lastConnPointer(c, r.user)
+		expected.Results = append(expected.Results, params.EnvUserInfoResult{Result: r.info})
 	}
 
 	sort.Sort(ByUserName(expected.Results))
 	sort.Sort(ByUserName(results.Results))
 	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func lastConnPointer(c *gc.C, envUser *state.EnvironmentUser) *time.Time {
+	lastConn, err := envUser.LastConnection()
+	if err != nil {
+		if state.IsNeverConnectedError(err) {
+			return nil
+		}
+		c.Fatal(err)
+	}
+	return &lastConn
 }
 
 // ByUserName implements sort.Interface for []params.EnvUserInfoResult based on
@@ -273,7 +283,9 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
-	c.Assert(envUser.LastConnection(), gc.IsNil)
+	lastConn, err := envUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(lastConn, gc.Equals, time.Time{})
 }
 
 func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
@@ -294,7 +306,9 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
-	c.Assert(envUser.LastConnection(), gc.IsNil)
+	lastConn, err := envUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
 func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
