@@ -42,10 +42,6 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
-// leadershipGuarantee defines the period of time for which a successful call
-// to the is-leader hook tool guarantees continued leadership.
-var leadershipGuarantee = 30 * time.Second
-
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
 // in this way.
