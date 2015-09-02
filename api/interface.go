@@ -55,6 +55,10 @@ type Info struct {
 	// ...but this block of fields is all about the authentication mechanism
 	// to use after connecting -- if any -- and should probably be extracted.
 
+	// UseMacaroons, when true, enables macaroon-based login and ignores
+	// the provided username and password.
+	UseMacaroons bool `yaml:",omitempty"`
+
 	// Tag holds the name of the entity that is connecting.
 	// If this is nil, and the password is empty, no login attempt will be made.
 	// (this is to allow tests to access the API to check that operations
@@ -111,7 +115,7 @@ type Connection interface {
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
-	Login(name, password, nonce string) error
+	Login(name names.Tag, password, nonce string) error
 	ServerVersion() (version.Number, bool)
 
 	// These are either part of base.APICaller or look like they probably should

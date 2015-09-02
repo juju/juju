@@ -12,15 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -127,43 +122,6 @@ func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	client := apiState.Client()
 	_, err = client.GetEnvironmentConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *loginV2MacaroonSuite) TestLoginWithMacaroon(c *gc.C) {
-	discharger := bakerytest.NewDischarger(nil, noCheck)
-	environTag := names.NewEnvironTag(s.State.EnvironUUID())
-	// Make a new version of the state that doesn't object to us
-	// changing the identity URL, so we can create a state server
-	// that will see that.
-	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	err = st.UpdateEnvironConfig(map[string]interface{}{
-		config.IdentityURL: discharger.Location(),
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	srv := s.newServer(c)
-	defer srv.Stop()
-	info := s.APIInfo(c)
-	info.Addrs[0] = srv.Addr().String()
-	info.Tag = nil
-	info.Password = ""
-	apiState, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer apiState.Close()
-
-	err = apiState.Login("", "", "")
-	disChargeErr := err.(*authentication.DischargeRequiredError)
-	ms, err := httpbakery.DischargeAll(disChargeErr.Macaroon)
-	c.Assert(err, jc.ErrorIsNil)
-	info.Macaroons = ms
-	newApiState, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer newApiState.Close()
-
-	err = newApiState.Login("", "", "")
-	c.Assert(err, gc.ErrorIsNil)
 }
 
 func (s *loginV2MacaroonSuite) newServer(c *gc.C) *apiserver.Server {

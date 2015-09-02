@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -35,5 +37,9 @@ func (r *adminApiV2) Admin(id string) (*adminApiV2, error) {
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *adminApiV2) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	return a.doLogin(req, 2)
+	result, err := a.doLogin(req, 2)
+	if err != nil {
+		logger.Errorf("ERROR STACK: %v", errors.ErrorStack(err))
+	}
+	return result, err
 }

@@ -64,7 +64,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 	}
 
@@ -86,7 +86,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.Authenticators())
 	if err != nil {
-		if err, ok := err.(*authentication.DischargeRequiredError); ok {
+		if err, ok := errors.Cause(err).(*authentication.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
 				DischargeRequired: err.Macaroon,
 			}
@@ -110,11 +110,11 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		// can then check the credentials against the state server environment
 		// machine.
 		if kind != names.MachineTagKind {
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 		entity, err = a.checkCredsOfStateServerMachine(req)
 		if err != nil {
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 		// If we are here, then the entity will refer to a state server
 		// machine in the state server environment, and we don't need a pinger
@@ -134,7 +134,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	if agentPingerNeeded {
 		if err := startPingerIfAgent(a.root, entity); err != nil {
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 	}
 
@@ -150,13 +150,13 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
 	environ, err := a.root.state.Environment()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	loginResult := params.LoginResultV1{

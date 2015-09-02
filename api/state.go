@@ -40,7 +40,7 @@ import (
 // Subsequent requests on the state will act as that entity.  This
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *State) Login(tag, password, nonce string) error {
+func (st *State) Login(tag names.Tag, password, nonce string) error {
 	err := st.loginV2(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {
 		err = st.loginV1(tag, password, nonce)
@@ -52,10 +52,10 @@ func (st *State) Login(tag, password, nonce string) error {
 	return err
 }
 
-func (st *State) loginV2(tag, password, nonce string) error {
+func (st *State) loginV2(tag names.Tag, password, nonce string) error {
 	var result params.LoginResultV1
 	request := &params.LoginRequest{
-		AuthTag:     tag,
+		AuthTag:     tagToString(tag),
 		Credentials: password,
 		Nonce:       nonce,
 	}
@@ -77,6 +77,21 @@ func (st *State) loginV2(tag, password, nonce string) error {
 		}
 		return errors.Trace(err)
 	}
+	if result.DischargeRequired != nil {
+		if st.macaroonClient == nil {
+			return errors.New("macaroon-based authentication not configured")
+		}
+		discharge, err := st.macaroonClient.DischargeAll(result.DischargeRequired)
+		if err != nil {
+			return errors.Annotate(err, "failed to obtain the macaroon discharge")
+		}
+		request.Macaroons = discharge
+		err = st.APICall("Admin", 2, "", "Login", request, &result)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	servers := params.NetworkHostsPorts(result.Servers)
 	err = st.setLoginResult(tag, result.EnvironTag, result.ServerTag, servers, result.Facades)
 	if err != nil {
@@ -89,7 +104,7 @@ func (st *State) loginV2(tag, password, nonce string) error {
 	return nil
 }
 
-func (st *State) loginV1(tag, password, nonce string) error {
+func (st *State) loginV1(tag names.Tag, password, nonce string) error {
 	var result struct {
 		// TODO (cmars): remove once we can drop 1.18 login compatibility
 		params.LoginResult
@@ -98,13 +113,13 @@ func (st *State) loginV1(tag, password, nonce string) error {
 	}
 	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequestCompat{
 		LoginRequest: params.LoginRequest{
-			AuthTag:     tag,
+			AuthTag:     tagToString(tag),
 			Credentials: password,
 			Nonce:       nonce,
 		},
 		// TODO (cmars): remove once we can drop 1.18 login compatibility
 		Creds: params.Creds{
-			AuthTag:  tag,
+			AuthTag:  tagToString(tag),
 			Password: password,
 			Nonce:    nonce,
 		},
@@ -143,12 +158,8 @@ func (st *State) loginV1(tag, password, nonce string) error {
 	return nil
 }
 
-func (st *State) setLoginResult(tag, environTag, serverTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
-	authtag, err := names.ParseTag(tag)
-	if err != nil {
-		return err
-	}
-	st.authTag = authtag
+func (st *State) setLoginResult(tag names.Tag, environTag, serverTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+	st.authTag = tag
 	st.environTag = environTag
 	st.serverTag = serverTag
 
@@ -168,10 +179,10 @@ func (st *State) setLoginResult(tag, environTag, serverTag string, servers [][]n
 	return nil
 }
 
-func (st *State) loginV0(tag, password, nonce string) error {
+func (st *State) loginV0(tag names.Tag, password, nonce string) error {
 	var result params.LoginResult
 	err := st.APICall("Admin", 0, "", "Login", &params.Creds{
-		AuthTag:  tag,
+		AuthTag:  tagToString(tag),
 		Password: password,
 		Nonce:    nonce,
 	}, &result)

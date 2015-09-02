@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"golang.org/x/net/websocket"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -83,6 +84,10 @@ type State struct {
 	// certPool holds the cert pool that is used to authenticate the tls
 	// connections to the API.
 	certPool *x509.CertPool
+
+	// macaroonClient holds the client that would be used to
+	// authorize macaroon-based login requests.
+	macaroonClient *httpbakery.Client
 }
 
 // Open establishes a connection to the API server using the Info
@@ -97,7 +102,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 // This unexported open method is used both directly above in the Open
 // function, and also the OpenWithVersion function below to explicitly cause
 // the API server to think that the client is older than it really is.
-func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (Connection, error) {
+func open(info *Info, opts DialOpts, loginFunc func(st *State, tag names.Tag, pwd, nonce string) error) (Connection, error) {
 	conn, err := Connect(info, "", nil, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -113,12 +118,14 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce s
 		serverRootAddress: conn.Config().Location.Host,
 		// why are the contents of the tag (username and password) written into the
 		// state structure BEFORE login ?!?
-		tag:      toString(info.Tag),
+		tag:      tagToString(info.Tag),
 		password: info.Password,
 		certPool: conn.Config().TlsConfig.RootCAs,
+		// TODO (alesstimec) We really should persist cookies.
+		macaroonClient: httpbakery.NewClient(),
 	}
-	if info.Tag != nil || info.Password != "" {
-		if err := loginFunc(st, info.Tag.String(), info.Password, info.Nonce); err != nil {
+	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
+		if err := loginFunc(st, info.Tag, info.Password, info.Nonce); err != nil {
 			conn.Close()
 			return nil, err
 		}
@@ -133,7 +140,7 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce s
 // on. This allows the caller to pretend to be an older client, and is used
 // only in testing.
 func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
-	var loginFunc func(st *State, tag, pwd, nonce string) error
+	var loginFunc func(st *State, tag names.Tag, pwd, nonce string) error
 	switch loginVersion {
 	case 0:
 		loginFunc = (*State).loginV0
@@ -210,8 +217,8 @@ func makeAPIPath(envUUID, tail string) string {
 	return "/environment/" + envUUID + tail
 }
 
-// toString returns the value of a tag's String method, or "" if the tag is nil.
-func toString(tag names.Tag) string {
+// tagToString returns the value of a tag's String method, or "" if the tag is nil.
+func tagToString(tag names.Tag) string {
 	if tag == nil {
 		return ""
 	}
