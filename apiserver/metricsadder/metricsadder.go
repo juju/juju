@@ -40,7 +40,9 @@ func NewMetricsAdderAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*MetricsAdderAPI, error) {
-	if !authorizer.AuthMachineAgent() {
+	// TODO(cmars): remove unit agent auth, once worker/metrics/sender manifold
+	// can be righteously relocated to machine agent.
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 	return &MetricsAdderAPI{

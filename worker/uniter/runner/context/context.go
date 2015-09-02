@@ -529,7 +529,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
 		)
 	}
-	return append(vars, osDependentEnvVars(paths)...), nil
+	return append(vars, OSDependentEnvVars(paths)...), nil
 }
 
 func (ctx *HookContext) handleReboot(err *error) {

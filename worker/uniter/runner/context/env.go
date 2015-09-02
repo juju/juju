@@ -10,7 +10,9 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func osDependentEnvVars(paths Paths) []string {
+// OSDependentEnvVars returns the OS-dependent environment variables that
+// should be set for a hook context.
+func OSDependentEnvVars(paths Paths) []string {
 	switch version.Current.OS {
 	case version.Windows:
 		return windowsEnv(paths)

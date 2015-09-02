@@ -16,7 +16,6 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -41,10 +40,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
-
-// leadershipGuarantee defines the period of time for which a successful call
-// to the is-leader hook tool guarantees continued leadership.
-var leadershipGuarantee = 30 * time.Second
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
@@ -148,6 +143,10 @@ func (u *Uniter) runCleanups() {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
+	defer func() {
+		u.charmDirLocker.SetAvailable(false)
+	}()
+
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -279,6 +278,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Conflicted:          conflicted,
 				Dying:               u.tomb.Dying(),
 				OnIdle:              onIdle,
+				CharmDirLocker:      u.charmDirLocker,
 			})
 			switch cause := errors.Cause(err); cause {
 			case tomb.ErrDying:
@@ -294,6 +294,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			case resolver.ErrRestart:
 				charmURL = localState.CharmURL
 				// leave err assigned, causing loop to break
+			// TODO(cmars): move nil case here rather than hide in
+			// reportAgentError; that's really weird.
 			default:
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
@@ -304,6 +306,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 					reportAgentError(u, "resolver loop error", err)
 				}
 			}
+
+			resolver.UpdateCharmDir(localState.State, u.charmDirLocker)
 		}
 
 		if errors.Cause(err) != resolver.ErrRestart {
@@ -568,9 +572,7 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 
 	// If we're about to execute an upgrade operation, ensure that
 	// the charmdir is not available for concurrent workers.
-	if before.Kind == operation.Upgrade {
-		u.charmDirLocker.SetAvailable(false)
-	}
+	resolver.UpdateCharmDir(before, u.charmDirLocker)
 
 	defer func() {
 		after := u.operationState()
@@ -584,9 +586,7 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 			//u.f.WantLeaderSettingsEvents(before.Leader)
 		}
 
-		// Update availability based on started state & not upgrading.
-		upgrading := after.Kind == operation.RunHook && after.Hook != nil && after.Hook.Kind == hooks.UpgradeCharm
-		u.charmDirLocker.SetAvailable(after.Started && !after.Stopped && !upgrading)
+		resolver.UpdateCharmDir(after, u.charmDirLocker)
 	}()
 	return u.operationExecutor.Run(op)
 }

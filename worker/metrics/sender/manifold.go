@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/metricsadder"
-	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/metrics/spool"
@@ -30,8 +29,8 @@ const (
 
 // ManifoldConfig defines configuration of a metric sender manifold.
 type ManifoldConfig struct {
-	APICallerName    string
-	MetricsSpoolName string
+	APICallerName   string
+	MetricSpoolName string
 }
 
 // Manifold creates a metric sender manifold.
@@ -39,26 +38,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
-			config.MetricsSpoolName,
+			config.MetricSpoolName,
 		},
-		Start: start,
-	}
-}
+		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+			var apicaller base.APICaller
+			var factory spool.MetricFactory
+			err := getResource(config.APICallerName, &apicaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			err = getResource(config.MetricSpoolName, &factory)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 
-func start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-	var apicaller base.APICaller
-	var factory spool.MetricFactory
-	err := getResource(unit.APICallerName, &apicaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	err = getResource(unit.MetricSpoolName, &factory)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+			client := newMetricAdderClient(apicaller)
 
-	client := newMetricAdderClient(apicaller)
-
-	s := newSender(client, factory)
-	return worker.NewPeriodicWorker(s.Do, period, worker.NewTimer), nil
+			s := newSender(client, factory)
+			return worker.NewPeriodicWorker(s.Do, period, worker.NewTimer), nil
+		},
+	}
 }

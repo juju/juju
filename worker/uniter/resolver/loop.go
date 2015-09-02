@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -27,6 +28,7 @@ type LoopConfig struct {
 	Conflicted          bool
 	Dying               <-chan struct{}
 	OnIdle              func() error
+	CharmDirLocker      charmdir.Locker
 }
 
 // Loop repeatedly waits for remote state changes, feeding the local and
@@ -80,6 +82,8 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			op, err = cfg.Resolver.NextOp(rf.LocalState, rf.RemoteState, rf)
 		}
 
+		UpdateCharmDir(rf.LocalState.State, cfg.CharmDirLocker)
+
 		switch errors.Cause(err) {
 		case nil:
 		case ErrWaiting:
@@ -110,4 +114,23 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			}
 		}
 	}
+}
+
+// UpdateCharmDir sets charm directory availability for sharing among
+// concurrent workers according to local operation state.
+func UpdateCharmDir(opState operation.State, locker charmdir.Locker) {
+	var upgrading bool
+
+	// If we're about to execute an upgrade operation, ensure that
+	// the charmdir is not available for concurrent workers.
+	if opState.Kind == operation.Upgrade {
+		upgrading = true
+	} else if opState.Kind == operation.RunHook && opState.Hook != nil && opState.Hook.Kind == hooks.UpgradeCharm {
+		upgrading = true
+	}
+
+	available := opState.Started && !opState.Stopped && !upgrading
+	logger.Tracef("charmdir: available=%v opState: started=%v stopped=%v upgrading=%v",
+		available, opState.Started, opState.Stopped, upgrading)
+	locker.SetAvailable(available)
 }

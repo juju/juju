@@ -47,7 +47,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	}
 
 	manifolds := unit.Manifolds(config)
-	c.Assert(manifolds, gc.HasLen, 15)
+	c.Assert(manifolds, gc.HasLen, 16)
 	expectedKeys := []string{
 		unit.AgentName,
 		unit.APIAdddressUpdaterName,
@@ -63,6 +63,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		unit.UpgraderName,
 		unit.MetricSpoolName,
 		unit.MetricCollectName,
+		unit.MetricSenderName,
 		unit.CharmDirName,
 	}
 	keys := make([]string, len(manifolds))

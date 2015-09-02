@@ -42,8 +42,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&sender.NewMetricAdderClient, testAPIClient)
 
 	s.manifold = sender.Manifold(sender.ManifoldConfig{
-		APICallerName:    "api-caller",
-		MetricsSpoolName: "metric-spool",
+		APICallerName:   "api-caller",
+		MetricSpoolName: "metric-spool",
 	})
 	s.getResource = dt.StubGetResource(dt.StubResources{
 		"api-caller":   dt.StubResource{Output: &stubAPICaller{&testing.Stub{}}},
