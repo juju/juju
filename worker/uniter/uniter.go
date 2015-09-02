@@ -286,6 +286,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				err = nil
 			case resolver.ErrTerminate:
 				err = u.terminate()
+			case resolver.ErrRestart:
+				charmURL = localState.CharmURL
+				// leave err assigned, causing loop to break
 			default:
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
@@ -298,11 +301,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 		}
 
-		if errors.Cause(err) == resolver.ErrRestart {
-			charmURL = localState.CharmURL
-			continue
+		if errors.Cause(err) != resolver.ErrRestart {
+			break
 		}
-		break
 	}
 
 	logger.Infof("unit %q shutting down: %s", u.unit, err)
