@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package plugin_test
+package executable_test
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/workload/plugin"
+	"github.com/juju/juju/workload/plugin/executable"
 )
 
 type pathsSuite struct {
@@ -32,9 +32,9 @@ func (s *pathsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *pathsSuite) TestNewPaths(c *gc.C) {
-	p := plugin.NewPaths("some-base-dir", "a-plugin")
+	p := executable.NewPaths("some-base-dir", "a-plugin")
 
-	c.Check(p, jc.DeepEquals, plugin.Paths{
+	c.Check(p, jc.DeepEquals, executable.Paths{
 		Plugin:             "a-plugin",
 		DataDir:            filepath.Join("some-base-dir", "plugins", "a-plugin"),
 		ExecutablePathFile: filepath.Join("some-base-dir", "plugins", "a-plugin", ".executable"),
@@ -43,7 +43,7 @@ func (s *pathsSuite) TestNewPaths(c *gc.C) {
 }
 
 func (s *pathsSuite) TestString(c *gc.C) {
-	p := plugin.NewPaths("some-base-dir", "a-plugin")
+	p := executable.NewPaths("some-base-dir", "a-plugin")
 	str := p.String()
 	quoted := fmt.Sprintf("%q", p)
 
@@ -58,7 +58,7 @@ func (s *pathsSuite) TestExecutable(c *gc.C) {
 	fops := &stubFops{stub: s.stub}
 	fops.dataOut = expected
 
-	p := plugin.NewPaths("some-base-dir", "a-plugin")
+	p := executable.NewPaths("some-base-dir", "a-plugin")
 	p.Fops = fops
 	exePath, err := p.Executable()
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,7 +77,7 @@ func (s *pathsSuite) TestInit(c *gc.C) {
 	dataDir := filepath.Join("some-base-dir", "plugins", "a-plugin")
 	fops := &stubFops{stub: s.stub}
 
-	p := plugin.NewPaths("some-base-dir", "a-plugin")
+	p := executable.NewPaths("some-base-dir", "a-plugin")
 	p.Fops = fops
 	exePath := filepath.Join("some", "dir", "juju-workload-a-plugin")
 	err := p.Init(exePath)

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package plugin_test
+package executable_test
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/plugin"
+	"github.com/juju/juju/workload/plugin/executable"
 )
 
 type executableSuite struct {
@@ -41,56 +41,56 @@ func (s *executableSuite) SetUpTest(c *gc.C) {
 	s.runner = &fakeRunner{stub: s.stub}
 }
 
-func (s *executableSuite) TestFindExecutablePluginCached(c *gc.C) {
+func (s *executableSuite) TestFindPluginCached(c *gc.C) {
 	fops := &stubFops{stub: s.stub}
 	paths := &stubPaths{stub: s.stub}
 	paths.executable = filepath.Join("some", "dir", "juju-workload-a-plugin")
 
-	found, err := plugin.TestFindExecutablePlugin("a-plugin", paths, fops.LookPath)
+	found, err := executable.TestFindPlugin("a-plugin", paths, fops.LookPath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	found.RunCmd = nil
-	c.Check(found, jc.DeepEquals, &plugin.ExecutablePlugin{
+	c.Check(found, jc.DeepEquals, &executable.Plugin{
 		Name:       "a-plugin",
 		Executable: filepath.Join("some", "dir", "juju-workload-a-plugin"),
 	})
 	s.stub.CheckCallNames(c, "Executable")
 }
 
-func (s *executableSuite) TestFindExecutablePluginLookedUp(c *gc.C) {
+func (s *executableSuite) TestFindPluginLookedUp(c *gc.C) {
 	paths := &stubPaths{stub: s.stub}
 	fops := &stubFops{stub: s.stub}
 	fops.found = filepath.Join("some", "dir", "juju-workload-a-plugin")
 
-	found, err := plugin.TestFindExecutablePlugin("a-plugin", paths, fops.LookPath)
+	found, err := executable.TestFindPlugin("a-plugin", paths, fops.LookPath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	found.RunCmd = nil
-	c.Check(found, jc.DeepEquals, &plugin.ExecutablePlugin{
+	c.Check(found, jc.DeepEquals, &executable.Plugin{
 		Name:       "a-plugin",
 		Executable: filepath.Join("some", "dir", "juju-workload-a-plugin"),
 	})
 	s.stub.CheckCallNames(c, "Executable", "LookPath", "Init")
 }
 
-func (s *executableSuite) TestFindExecutablePluginNotFound(c *gc.C) {
+func (s *executableSuite) TestFindPluginNotFound(c *gc.C) {
 	fops := &stubFops{stub: s.stub}
 	paths := &stubPaths{stub: s.stub}
 
-	_, err := plugin.TestFindExecutablePlugin("a-plugin", paths, fops.LookPath)
+	_, err := executable.TestFindPlugin("a-plugin", paths, fops.LookPath)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	s.stub.CheckCallNames(c, "Executable", "LookPath")
 }
 
 func (s *executableSuite) TestPluginInterface(c *gc.C) {
-	var _ workload.Plugin = (*plugin.ExecutablePlugin)(nil)
+	var _ workload.Plugin = (*executable.Plugin)(nil)
 }
 
 func (s *executableSuite) TestLaunch(c *gc.C) {
 	s.runner.out = `{ "id" : "foo", "status": { "state" : "bar" } }`
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -118,7 +118,7 @@ func (s *executableSuite) TestLaunch(c *gc.C) {
 func (s *executableSuite) TestLaunchBadOutput(c *gc.C) {
 	s.runner.out = `not json`
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -132,7 +132,7 @@ func (s *executableSuite) TestLaunchBadOutput(c *gc.C) {
 func (s *executableSuite) TestLaunchNoId(c *gc.C) {
 	s.runner.out = `{ "status" : { "status" : "bar" } }`
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -146,7 +146,7 @@ func (s *executableSuite) TestLaunchNoId(c *gc.C) {
 func (s *executableSuite) TestLaunchNoStatus(c *gc.C) {
 	s.runner.out = `{ "id" : "foo" }`
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -161,7 +161,7 @@ func (s *executableSuite) TestLaunchErr(c *gc.C) {
 	failure := errors.New("foo")
 	s.stub.SetErrors(failure)
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -175,7 +175,7 @@ func (s *executableSuite) TestLaunchErr(c *gc.C) {
 func (s *executableSuite) TestStatus(c *gc.C) {
 	s.runner.out = `{ "state" : "status!" }`
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -199,7 +199,7 @@ func (s *executableSuite) TestStatusErr(c *gc.C) {
 	failure := errors.New("foo")
 	s.stub.SetErrors(failure)
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -210,7 +210,7 @@ func (s *executableSuite) TestStatusErr(c *gc.C) {
 }
 
 func (s *executableSuite) TestDestroy(c *gc.C) {
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -231,7 +231,7 @@ func (s *executableSuite) TestDestroyErr(c *gc.C) {
 	failure := errors.New("foo")
 	s.stub.SetErrors(failure)
 
-	p := plugin.ExecutablePlugin{
+	p := executable.Plugin{
 		Name:       "Name",
 		Executable: "Path",
 		RunCmd:     s.runner.runCmd,
@@ -253,7 +253,7 @@ func (s *executableSuite) TestRunCmd(c *gc.C) {
 		stderr: "bar!\nbaz!",
 	}
 	cmd := m.make()
-	out, err := plugin.RunCmd("name", cmd, log)
+	out, err := executable.RunCmd("name", cmd, log)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(strings.TrimSpace(string(out)), gc.DeepEquals, m.stdout)
@@ -278,7 +278,7 @@ func (s *executableSuite) TestRunCmdErr(c *gc.C) {
 		stdout: "foo!",
 	}
 	cmd := m.make()
-	_, err := plugin.RunCmd("name", cmd, log)
+	_, err := executable.RunCmd("name", cmd, log)
 
 	c.Check(err, gc.ErrorMatches, "exit status 1: foo!")
 	s.stub.CheckCalls(c, nil)

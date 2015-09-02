@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/plugin/docker"
+	"github.com/juju/juju/workload/plugin/executable"
 )
 
 var logger = loggo.GetLogger("juju.workload.plugin")
@@ -21,7 +22,7 @@ var builtinPlugins = map[string]workload.Plugin{
 
 // Find returns the plugin for the given name.
 func Find(name, dataDir string) (workload.Plugin, error) {
-	plugin, err := FindExecutablePlugin(name, dataDir)
+	plugin, err := executable.FindPlugin(name, dataDir)
 	if errors.IsNotFound(err) {
 		plugin, ok := builtinPlugins[name]
 		if !ok {

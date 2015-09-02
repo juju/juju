@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package plugin
+package executable
 
 import (
 	"bytes"
@@ -21,9 +21,9 @@ import (
 
 const executablePrefix = "juju-workload-"
 
-var executableLogger = loggo.GetLogger("juju.workload.plugin.executable")
+var logger = loggo.GetLogger("juju.workload.plugin.executable")
 
-// ExecutablePlugin represents a provider for launching, destroying, and
+// Plugin represents a provider for launching, destroying, and
 // introspecting workloads via a specific technology such as
 // Docker or systemd.
 //
@@ -37,7 +37,7 @@ var executableLogger = loggo.GetLogger("juju.workload.plugin.executable")
 // exit code.
 //
 // Any information written to stderr will be piped to the unit log.
-type ExecutablePlugin struct {
+type Plugin struct {
 	// Name is the name of the plugin.
 	Name string
 	// Executable is the filename disk where the plugin executable resides.
@@ -47,8 +47,8 @@ type ExecutablePlugin struct {
 	RunCmd func(name string, cmd *exec.Cmd) ([]byte, error)
 }
 
-func newExecutablePlugin(name, executable string) *ExecutablePlugin {
-	p := &ExecutablePlugin{
+func newPlugin(name, executable string) *Plugin {
+	p := &Plugin{
 		Name:       name,
 		Executable: executable,
 	}
@@ -61,10 +61,10 @@ func newExecutablePlugin(name, executable string) *ExecutablePlugin {
 	return p
 }
 
-// FindExecutablePlugin returns the plugin for the given name.
-func FindExecutablePlugin(name, dataDir string) (*ExecutablePlugin, error) {
+// FindPlugin returns the plugin for the given name.
+func FindPlugin(name, dataDir string) (*Plugin, error) {
 	paths := NewPaths(dataDir, name)
-	return findExecutablePlugin(name, paths, lookPath)
+	return findPlugin(name, paths, lookPath)
 }
 
 type pluginPaths interface {
@@ -72,15 +72,15 @@ type pluginPaths interface {
 	Init(string) error
 }
 
-func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) (string, error)) (*ExecutablePlugin, error) {
-	executableLogger.Debugf("looking for plugin data for %q in %q", name, paths)
+func findPlugin(name string, paths pluginPaths, lookPath func(string) (string, error)) (*Plugin, error) {
+	logger.Debugf("looking for plugin data for %q in %q", name, paths)
 	absPath, err := paths.Executable()
 	if errors.IsNotFound(err) {
 		executableName := executablePrefix + name
-		executableLogger.Debugf("looking on $PATH for plugin executable %q", executableName)
+		logger.Debugf("looking on $PATH for plugin executable %q", executableName)
 		absPath, err = lookPath(executableName)
 		if utils.IsCmdNotFoundErr(err) {
-			executableLogger.Debugf("plugin executable %q not found on $PATH (%s)", executableName, os.Getenv("PATH"))
+			logger.Debugf("plugin executable %q not found on $PATH (%s)", executableName, os.Getenv("PATH"))
 			return nil, errors.NotFoundf("plugin %q", name)
 		}
 		if err != nil {
@@ -88,15 +88,15 @@ func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) 
 		}
 
 		if err := paths.Init(absPath); err != nil {
-			executableLogger.Debugf("failed to initialize plugin data in %q to %q", paths, absPath)
+			logger.Debugf("failed to initialize plugin data in %q to %q", paths, absPath)
 			return nil, errors.Trace(err)
 		}
-		executableLogger.Debugf("initialized plugin data in %q to %q", paths, absPath)
+		logger.Debugf("initialized plugin data in %q to %q", paths, absPath)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return newExecutablePlugin(name, absPath), nil
+	return newPlugin(name, absPath), nil
 }
 
 // Launch runs the given plugin, passing it the "launch" command, with the
@@ -136,7 +136,7 @@ func findExecutablePlugin(name string, paths pluginPaths, lookPath func(string) 
 // later to introspect the workload and/or stop it. The contents of status can
 // be whatever information the plugin thinks might be relevant to see in the
 // service's status output.
-func (p ExecutablePlugin) Launch(proc charm.Workload) (workload.Details, error) {
+func (p Plugin) Launch(proc charm.Workload) (workload.Details, error) {
 	var details workload.Details
 	b, err := json.Marshal(proc)
 	if err != nil {
@@ -153,7 +153,7 @@ func (p ExecutablePlugin) Launch(proc charm.Workload) (workload.Details, error) 
 // workload to destroy as an argument.
 //
 //		<plugin> destroy <id>
-func (p ExecutablePlugin) Destroy(id string) error {
+func (p Plugin) Destroy(id string) error {
 	_, err := p.run("destroy", id)
 	return errors.Trace(err)
 }
@@ -165,7 +165,7 @@ func (p ExecutablePlugin) Destroy(id string) error {
 //
 // The plugin is expected to write raw-string status output to stdout if
 // successful.
-func (p ExecutablePlugin) Status(id string) (workload.PluginStatus, error) {
+func (p Plugin) Status(id string) (workload.PluginStatus, error) {
 	out, err := p.run("status", id)
 	var status workload.PluginStatus
 	if err != nil {
@@ -181,8 +181,8 @@ func (p ExecutablePlugin) Status(id string) (workload.PluginStatus, error) {
 }
 
 // run runs the given subcommand of the plugin with the given args.
-func (p ExecutablePlugin) run(subcommand string, args ...string) ([]byte, error) {
-	executableLogger.Debugf("running %s %s %s", p.Executable, subcommand, args)
+func (p Plugin) run(subcommand string, args ...string) ([]byte, error) {
+	logger.Debugf("running %s %s %s", p.Executable, subcommand, args)
 	cmd := exec.Command(p.Executable, append([]string{subcommand}, args...)...)
 	return p.RunCmd(p.Name, cmd)
 }
