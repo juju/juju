@@ -12,3 +12,6 @@ func ReleaseVersion() string {
 	// TODO(ericsnow) Panic?
 	return ""
 }
+
+func updateSeriesVersions() {
+}
