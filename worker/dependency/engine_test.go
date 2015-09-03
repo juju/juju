@@ -392,13 +392,14 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 	mh2.AssertOneStart(c)
 }
 
-// TestErrMoreImportant starts an engine with two
-// manifolds that always error with fatal errors. We test that the
-// most important error is the one returned by the engine
-// This test uses manifolds whose workers ignore fatal errors.
-// We want this behvaiour so that we don't race over which fatal
+// TestWorstError starts an engine with two manifolds that always error
+// with fatal errors. We test that the most important error is the one
+// returned by the engine.
+//
+// This test uses manifolds whose workers ignore kill requests. We want
+// this (dangerous!) behaviour so that we don't race over which fatal
 // error is seen by the engine first.
-func (s *EngineSuite) TestErrMoreImportant(c *gc.C) {
+func (s *EngineSuite) TestWorstError(c *gc.C) {
 	// Setup the errors, their importance, and the function
 	// that decides.
 	importantError := errors.New("an important error")
@@ -410,10 +411,10 @@ func (s *EngineSuite) TestErrMoreImportant(c *gc.C) {
 
 	// Start a new engine with moreImportant configured
 	config := dependency.EngineConfig{
-		IsFatal:       allFatal,
-		MoreImportant: moreImportant,
-		ErrorDelay:    coretesting.ShortWait / 2,
-		BounceDelay:   coretesting.ShortWait / 10,
+		IsFatal:     allFatal,
+		WorstError:  moreImportant,
+		ErrorDelay:  coretesting.ShortWait / 2,
+		BounceDelay: coretesting.ShortWait / 10,
 	}
 	engine, err := dependency.NewEngine(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -439,7 +440,7 @@ func (s *EngineSuite) TestErrMoreImportant(c *gc.C) {
 
 func (s *EngineSuite) TestConfigValidate(c *gc.C) {
 	validIsFatal := func(error) bool { return true }
-	validMoreImportant := func(err0, err1 error) error { return err0 }
+	validWorstError := func(err0, err1 error) error { return err0 }
 	validErrorDelay := time.Second
 	validBounceDelay := time.Second
 
@@ -449,19 +450,19 @@ func (s *EngineSuite) TestConfigValidate(c *gc.C) {
 		err    string
 	}{{
 		"IsFatal invalid",
-		dependency.EngineConfig{nil, validMoreImportant, validErrorDelay, validBounceDelay},
+		dependency.EngineConfig{nil, validWorstError, validErrorDelay, validBounceDelay},
 		"IsFatal not specified",
 	}, {
-		"MoreImportant invalid",
+		"WorstError invalid",
 		dependency.EngineConfig{validIsFatal, nil, validErrorDelay, validBounceDelay},
-		"MoreImportant not specified",
+		"WorstError not specified",
 	}, {
 		"ErrorDelay invalid",
-		dependency.EngineConfig{validIsFatal, validMoreImportant, -time.Second, validBounceDelay},
+		dependency.EngineConfig{validIsFatal, validWorstError, -time.Second, validBounceDelay},
 		"ErrorDelay is negative",
 	}, {
 		"BounceDelay invalid",
-		dependency.EngineConfig{validIsFatal, validMoreImportant, validErrorDelay, -time.Second},
+		dependency.EngineConfig{validIsFatal, validWorstError, validErrorDelay, -time.Second},
 		"BounceDelay is negative",
 	}}
 

@@ -22,10 +22,10 @@ type EngineConfig struct {
 	// It must not be nil.
 	IsFatal IsFatalFunc
 
-	// MoreImportant returns the more important of two fatal errors passed to it,
+	// WorstError returns the more important of two fatal errors passed to it,
 	// and is used to determine which fatal error to report when there's more
 	// than one. It must not be nil.
-	MoreImportant MoreImportantFunc
+	WorstError WorstErrorFunc
 
 	// ErrorDelay controls how long the engine waits before restarting a worker
 	// that encountered an unknown error. It must not be negative.
@@ -42,8 +42,8 @@ func (config *EngineConfig) Validate() error {
 	if config.IsFatal == nil {
 		return errors.New("IsFatal not specified")
 	}
-	if config.MoreImportant == nil {
-		return errors.New("MoreImportant not specified")
+	if config.WorstError == nil {
+		return errors.New("WorstError not specified")
 	}
 	if config.ErrorDelay < 0 {
 		return errors.New("ErrorDelay is negative")
@@ -142,9 +142,9 @@ func (engine *engine) loop() error {
 			// This is safe so long as the Install method reads the result.
 			ticket.result <- engine.gotInstall(ticket.name, ticket.manifold)
 		case ticket := <-engine.started:
-			engine.gotStarted(ticket.name, ticket.worker, ticket.accesses)
+			engine.gotStarted(ticket.name, ticket.worker, ticket.resourceLog)
 		case ticket := <-engine.stopped:
-			engine.gotStopped(ticket.name, ticket.error, ticket.accesses)
+			engine.gotStopped(ticket.name, ticket.error, ticket.resourceLog)
 		}
 		if engine.isDying() {
 			if engine.allStopped() {
@@ -214,11 +214,11 @@ func (engine *engine) manifoldsReport() map[string]interface{} {
 	manifolds := map[string]interface{}{}
 	for name, info := range engine.current {
 		manifolds[name] = map[string]interface{}{
-			KeyState:    info.state(),
-			KeyError:    info.err,
-			KeyInputs:   engine.manifolds[name].Inputs,
-			KeyReport:   info.report(),
-			KeyAccesses: accessReport(info.accesses),
+			KeyState:       info.state(),
+			KeyError:       info.err,
+			KeyInputs:      engine.manifolds[name].Inputs,
+			KeyReport:      info.report(),
+			KeyResourceLog: resourceLogReport(info.resourceLog),
 		}
 	}
 	return manifolds
@@ -396,19 +396,19 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 		case <-engine.tomb.Dying():
 			logger.Debugf("stopping %q manifold worker (shutting down)", name)
 			worker.Kill()
-		case engine.started <- startedTicket{name, worker, resourceGetter.accesses}:
+		case engine.started <- startedTicket{name, worker, resourceGetter.accessLog}:
 			logger.Debugf("registered %q manifold worker", name)
 		}
 		return worker.Wait()
 	}
 
 	// We may or may not send on started, but we *must* send on stopped.
-	engine.stopped <- stoppedTicket{name, startWorkerAndWait(), resourceGetter.accesses}
+	engine.stopped <- stoppedTicket{name, startWorkerAndWait(), resourceGetter.accessLog}
 }
 
 // gotStarted updates the engine to reflect the creation of a worker. It must
 // only be called from the loop goroutine.
-func (engine *engine) gotStarted(name string, worker worker.Worker, accesses []resourceAccess) {
+func (engine *engine) gotStarted(name string, worker worker.Worker, resourceLog []resourceAccess) {
 	// Copy current info; check preconditions and abort the workers if we've
 	// already been asked to stop it.
 	info := engine.current[name]
@@ -423,8 +423,8 @@ func (engine *engine) gotStarted(name string, worker worker.Worker, accesses []r
 		// It's fine to use this worker; update info and copy back.
 		logger.Debugf("%q manifold worker started", name)
 		engine.current[name] = workerInfo{
-			worker:   worker,
-			accesses: accesses,
+			worker:      worker,
+			resourceLog: resourceLog,
 		}
 
 		// Any manifold that declares this one as an input needs to be restarted.
@@ -434,7 +434,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker, accesses []r
 
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
-func (engine *engine) gotStopped(name string, err error, accesses []resourceAccess) {
+func (engine *engine) gotStopped(name string, err error, resourceLog []resourceAccess) {
 	logger.Debugf("%q manifold worker stopped: %v", name, err)
 
 	// Copy current info and check for reasons to stop the engine.
@@ -442,14 +442,14 @@ func (engine *engine) gotStopped(name string, err error, accesses []resourceAcce
 	if info.stopped() {
 		engine.tomb.Kill(errors.Errorf("fatal: unexpected %q manifold worker stop", name))
 	} else if engine.config.IsFatal(err) {
-		engine.worstError = engine.config.MoreImportant(err, engine.worstError)
+		engine.worstError = engine.config.WorstError(err, engine.worstError)
 		engine.tomb.Kill(nil)
 	}
 
 	// Reset engine info; and bail out if we can be sure there's no need to bounce.
 	engine.current[name] = workerInfo{
-		err:      err,
-		accesses: accesses,
+		err:         err,
+		resourceLog: resourceLog,
 	}
 	if engine.isDying() {
 		logger.Debugf("permanently stopped %q manifold worker (shutting down)", name)
@@ -542,11 +542,11 @@ func (engine *engine) bounceDependents(name string) {
 // workerInfo stores what an engine's loop goroutine needs to know about the
 // worker for a given Manifold.
 type workerInfo struct {
-	starting bool
-	stopping bool
-	worker   worker.Worker
-	err      error
-	accesses []resourceAccess
+	starting    bool
+	stopping    bool
+	worker      worker.Worker
+	err         error
+	resourceLog []resourceAccess
 }
 
 // stopped returns true unless the worker is either assigned or starting.
@@ -593,17 +593,17 @@ type installTicket struct {
 // startedTicket is used by engine to notify the loop of the creation of the
 // worker for a particular manifold.
 type startedTicket struct {
-	name     string
-	worker   worker.Worker
-	accesses []resourceAccess
+	name        string
+	worker      worker.Worker
+	resourceLog []resourceAccess
 }
 
 // stoppedTicket is used by engine to notify the loop of the demise of (or
 // failure to create) the worker for a particular manifold.
 type stoppedTicket struct {
-	name     string
-	error    error
-	accesses []resourceAccess
+	name        string
+	error       error
+	resourceLog []resourceAccess
 }
 
 // reportTicket is used by the engine to notify the loop that a status report
