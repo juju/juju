@@ -6,6 +6,7 @@ package juju_test
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -1299,10 +1302,6 @@ type EnvironInfoTest struct {
 
 var _ = gc.Suite(&EnvironInfoTest{})
 
-func (*EnvironInfoTest) TestNullInfo(c *gc.C) {
-	c.Assert(juju.EnvironInfoUserTag(nil), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
-}
-
 type fakeEnvironInfo struct {
 	configstore.EnvironInfo
 	user string
@@ -1310,11 +1309,6 @@ type fakeEnvironInfo struct {
 
 func (fake *fakeEnvironInfo) APICredentials() configstore.APICredentials {
 	return configstore.APICredentials{User: fake.user}
-}
-
-func (*EnvironInfoTest) TestEmptyUser(c *gc.C) {
-	info := &fakeEnvironInfo{}
-	c.Assert(juju.EnvironInfoUserTag(info), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
 }
 
 func (*EnvironInfoTest) TestRealUser(c *gc.C) {

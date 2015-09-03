@@ -1,6 +1,8 @@
 package juju
 
 import (
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -20,5 +22,5 @@ func NewAPIFromStore(envName string, store configstore.Storage, f api.OpenFunc) 
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		return f(info, opts)
 	}
-	return newAPIFromStore(envName, store, apiOpen)
+	return newAPIFromStore(envName, store, apiOpen, httpbakery.NewClient())
 }

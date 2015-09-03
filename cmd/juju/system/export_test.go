@@ -95,7 +95,10 @@ func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr 
 
 // NewKillCommand returns a killCommand with the systemmanager and client
 // endpoints mocked out.
-func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error, dialFunc func(string) (api.Connection, error)) cmd.Command {
+func NewKillCommand(api destroySystemAPI,
+	clientapi destroyClientAPI,
+	apierr error,
+	dialFunc func(string) (api.Connection, error)) cmd.Command {
 	return envcmd.WrapSystem(&killCommand{
 		destroyCommandBase{
 			api:       api,

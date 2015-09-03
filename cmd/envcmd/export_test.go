@@ -12,10 +12,15 @@ var (
 
 // NewEnvCommandBase returns a new EnvCommandBase with the environment name, client,
 // and error as specified for testing purposes.
-func NewEnvCommandBase(name string, client EnvironmentGetter, err error) *EnvCommandBase {
+func NewEnvCommandBase(name string, client EnvironmentGetter, getterErr error) *EnvCommandBase {
+	ctx, err := newAPIContext()
+	if err != nil {
+		panic(err.Error())
+	}
 	return &EnvCommandBase{
+		apiContext:      ctx,
 		envName:         name,
 		envGetterClient: client,
-		envGetterErr:    err,
+		envGetterErr:    getterErr,
 	}
 }

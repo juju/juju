@@ -91,7 +91,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 		debugHooksCmd.proxy = true
 		err := envcmd.Wrap(debugHooksCmd).Init(t.args)
 		if err == nil {
-			err = debugHooksCmd.Run(ctx)
+			err = envcmd.Wrap(debugHooksCmd).Run(ctx)
 		}
 		if t.error != "" {
 			c.Assert(err, gc.ErrorMatches, t.error)

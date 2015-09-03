@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 func newDestroyCommand() cmd.Command {
@@ -82,7 +81,7 @@ func (c *destroyCommand) getSystemAPI() (destroySystemAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
-	root, err := juju.NewAPIFromName(c.systemName)
+	root, err := c.NewAPIRoot(c.systemName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -255,7 +254,7 @@ func (c *destroyCommandBase) getClientAPI() (destroyClientAPI, error) {
 	if c.clientapi != nil {
 		return c.clientapi, nil
 	}
-	root, err := juju.NewAPIFromName(c.systemName)
+	root, err := c.NewAPIRoot(c.systemName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
