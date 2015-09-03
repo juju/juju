@@ -84,17 +84,25 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	if err != nil {
 		return nil, common.ErrBadCreds
 	}
-	authenticators := map[string]authentication.EntityAuthenticator{
-		"machine": &authentication.AgentAuthenticator{},
-		"unit":    &authentication.AgentAuthenticator{},
-		"user":    &authentication.UserAuthenticator{},
-	}
 	_, _, err = checkCreds(h.state, params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
 		Nonce:       r.Header.Get("X-Juju-Nonce"),
-	}, true, authenticators)
+	}, true, authenticatorForTag)
 	return tag, err
+}
+
+func authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
+	if tag == nil {
+		return nil, common.ErrBadRequest
+	}
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return &authentication.UserAuthenticator{}, nil
+	case names.MachineTagKind, names.UnitTagKind:
+		return &authentication.AgentAuthenticator{}, nil
+	}
+	return nil, common.ErrBadRequest
 }
 
 func (h *httpStateWrapper) authenticateUser(r *http.Request) error {

@@ -84,7 +84,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.Authenticators())
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.AuthenticatorForTag)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*authentication.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
@@ -195,7 +195,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 // run API workers for that environment to do things like provisioning
 // machines.
 func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
-	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.Authenticators())
+	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.AuthenticatorForTag)
 	if err != nil {
 		return nil, err
 	}
@@ -239,8 +239,19 @@ var doCheckCreds = checkCreds
 // for the environment.  In the case of a user logging in to the server, but
 // not an environment, there is no env user needed.  While we have the env
 // user, if we do have it, update the last login time.
-func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, authenticators map[string]authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
-	authenticator, tag, err := authentication.AuthenticatorForTag(req.AuthTag, authenticators)
+func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, authenticatorForTag func(names.Tag) (authentication.EntityAuthenticator, error)) (state.Entity, *time.Time, error) {
+	var tag names.Tag
+	if req.AuthTag != "" {
+		var err error
+		tag, err = names.ParseTag(req.AuthTag)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+	if authenticatorForTag == nil {
+		return nil, nil, errors.New("no authenticatorForTag provided")
+	}
+	authenticator, err := authenticatorForTag(tag)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
