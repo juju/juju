@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
@@ -87,7 +88,13 @@ type DialOpts struct {
 	// RetryDelay is the amount of time to wait between
 	// unsucssful connection attempts.
 	RetryDelay time.Duration
+
+	// BakeryClient is the httpbakery Client, which
+	// is used to do the macaroon-based authorization.
+	BakeryClient *httpbakery.Client
 }
+
+var defaultBakeryClient = httpbakery.NewClient()
 
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
@@ -96,6 +103,7 @@ func DefaultDialOpts() DialOpts {
 		DialAddressInterval: 50 * time.Millisecond,
 		Timeout:             10 * time.Minute,
 		RetryDelay:          2 * time.Second,
+		BakeryClient:        defaultBakeryClient,
 	}
 }
 

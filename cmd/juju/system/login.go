@@ -4,10 +4,15 @@
 package system
 
 import (
+	"os"
+	"path"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
@@ -104,6 +109,16 @@ func (c *LoginCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// cookieFile returns the path to the cookie used to store authorization
+// macaroons. The returned value can be overridden by setting the
+// JUJU_COOKIEFILE environment variable.
+func cookieFile() string {
+	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
+		return file
+	}
+	return path.Join(utils.Home(), ".go-cookies")
+}
+
 // Run implements Command.Run
 func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	// TODO(thumper): as we support the user and address
@@ -122,27 +137,60 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Construct the api.Info struct from the provided values
-	// and attempt to connect to the remote server before we do anything else.
-	if !names.IsValidUser(serverDetails.Username) {
-		return errors.Errorf("%q is not a valid username", serverDetails.Username)
-	}
-
-	userTag := names.NewUserTag(serverDetails.Username)
-	if userTag.Provider() != names.LocalProvider {
-		// Remove users do not have their passwords stored in Juju
-		// so we never attempt to change them.
-		c.KeepPassword = true
-	}
-
 	info := api.Info{
-		Addrs:    serverDetails.Addresses,
-		CACert:   serverDetails.CACert,
-		Tag:      userTag,
-		Password: serverDetails.Password,
+		Addrs:  serverDetails.Addresses,
+		CACert: serverDetails.CACert,
+	}
+	var userTag names.UserTag
+	if serverDetails.Username != "" {
+		// Construct the api.Info struct from the provided values
+		// and attempt to connect to the remote server before we do anything else.
+		if !names.IsValidUser(serverDetails.Username) {
+			return errors.Errorf("%q is not a valid username", serverDetails.Username)
+		}
+
+		userTag = names.NewUserTag(serverDetails.Username)
+		if userTag.Provider() != names.LocalProvider {
+			// Remove users do not have their passwords stored in Juju
+			// so we never attempt to change them.
+			c.KeepPassword = true
+		}
+		info.Tag = userTag
 	}
 
-	apiState, err := c.apiOpen(&info, api.DefaultDialOpts())
+	if serverDetails.Password != "" {
+		info.Password = serverDetails.Password
+	}
+
+	if serverDetails.Password == "" || serverDetails.Username == "" {
+		info.UseMacaroons = true
+	}
+
+	dialOpts := api.DefaultDialOpts()
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		// Failure to create a cookiejar is not a catastrophic failure
+		// because we can still run the command, but the user might be asked
+		// to log in multiple times - we log the error, so that the user can
+		// fix whatever is causing it, before running the command again.
+		logger.Infof("failed to create a new cookiejar: %v", err)
+	} else {
+		err := jar.Load(cookieFile())
+		if err != nil {
+			// If we fail to load cookies, we can still run the command, but
+			// the user will most likely be asked to log in again -  we do
+			// log the error enabling the user to fix whatever is causing it.
+			logger.Infof("cannot load cookies: %v", err)
+		}
+		defer jar.Save()
+		client := httpbakery.NewClient()
+		client.Jar = jar
+		client.VisitWebPage = httpbakery.OpenWebBrowser
+		dialOpts.BakeryClient = client
+	}
+
+	apiState, err := c.apiOpen(&info, dialOpts)
 	if err != nil {
 		return errors.Trace(err)
 	}
