@@ -213,7 +213,7 @@ func (s *uniterResolver) nextOp(
 	}
 
 	// UpdateStatus hook runs if nothing else needs to.
-	if remoteState.UpdateStatusRequired {
+	if localState.UpdateStatusVersion != remoteState.UpdateStatusVersion {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.UpdateStatus})
 	}
 

@@ -26,6 +26,10 @@ type WatcherSuite struct {
 	clock      *testing.Clock
 }
 
+// Duration is arbitrary, we'll trigger the ticker
+// by advancing the clock past the duration.
+var statusTickDuration = 10 * time.Second
+
 var _ = gc.Suite(&WatcherSuite{})
 
 func (s *WatcherSuite) SetUpTest(c *gc.C) {
@@ -66,9 +70,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 
 	s.clock = testing.NewClock(time.Now())
 	statusTicker := func() <-chan time.Time {
-		// Duration is arbitrary, we'll trigger the ticker
-		// by advancing the clock past the duration.
-		return s.clock.After(10 * time.Second)
+		return s.clock.After(statusTickDuration)
 	}
 
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
@@ -179,7 +181,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.service.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
-	s.clock.Advance(15 * time.Second)
+	s.clock.Advance(statusTickDuration + 1)
 	assertOneChange()
 }
 
@@ -187,7 +189,7 @@ func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
 	statusTicker := func() <-chan time.Time {
 		// Duration is arbitrary, we'll trigger the ticker
 		// by advancing the clock past the duration.
-		return s.clock.After(10 * time.Second)
+		return s.clock.After(statusTickDuration)
 	}
 	config := remotestate.WatcherConfig{
 		State:               &s.st,
@@ -492,24 +494,21 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 
 func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
 	signalAll(&s.st, &s.leadership)
+	initial := s.watcher.Snapshot()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().UpdateStatusRequired, jc.IsFalse)
 
-	// Advance the clock past the triiger time.
+	// Advance the clock past the trigger time.
 	s.clock.Advance(11 * time.Second)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().UpdateStatusRequired, jc.IsTrue)
-	// Flag is reset after snapshot is first read.
-	c.Assert(s.watcher.Snapshot().UpdateStatusRequired, jc.IsFalse)
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
 
 	// Advance again but not past the trigger time.
 	s.clock.Advance(6 * time.Second)
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "unexpected remote state change")
-	c.Assert(s.watcher.Snapshot().UpdateStatusRequired, jc.IsFalse)
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
 
-	// And we ht the trigger time.
+	// And we hit the trigger time.
 	s.clock.Advance(5 * time.Second)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().UpdateStatusRequired, jc.IsTrue)
-	c.Assert(s.watcher.Snapshot().UpdateStatusRequired, jc.IsFalse)
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+2)
 }

@@ -104,13 +104,24 @@ func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *char
 }
 
 func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) operation.Operation {
+	// No matter what has finished running, we reset the UpdateStatusVersion so that
+	// the update-status hook only fires after the next timer.
+	updateStatusVersion := s.RemoteState.UpdateStatusVersion
 	switch info.Kind {
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
-		op = onCommitWrapper{op, func() { s.LocalState.ConfigVersion = v }}
+		op = onCommitWrapper{op, func() {
+			s.LocalState.ConfigVersion = v
+			s.LocalState.UpdateStatusVersion = updateStatusVersion
+		}}
 	case hooks.LeaderSettingsChanged:
 		v := s.RemoteState.LeaderSettingsVersion
-		op = onCommitWrapper{op, func() { s.LocalState.LeaderSettingsVersion = v }}
+		op = onCommitWrapper{op, func() {
+			s.LocalState.LeaderSettingsVersion = v
+			s.LocalState.UpdateStatusVersion = updateStatusVersion
+		}}
+	default:
+		op = onCommitWrapper{op, func() { s.LocalState.UpdateStatusVersion = updateStatusVersion }}
 	}
 	return op
 }

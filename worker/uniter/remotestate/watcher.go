@@ -125,10 +125,6 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	for i, action := range w.current.Actions {
 		snapshot.Actions[i] = action
 	}
-	// We return a snapshot with the current UpdateStatusRequired value.
-	// We reset it so that subsequent snapshots wait until the timer is
-	// triggered again before setting the value again.
-	w.current.UpdateStatusRequired = false
 	return snapshot
 }
 
@@ -400,7 +396,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 // updateStatusChanged is called when the update status timer expires.
 func (w *RemoteStateWatcher) updateStatusChanged() error {
 	w.mu.Lock()
-	w.current.UpdateStatusRequired = true
+	w.current.UpdateStatusVersion++
 	w.mu.Unlock()
 	return nil
 }
