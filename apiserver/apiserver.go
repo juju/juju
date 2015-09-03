@@ -225,7 +225,6 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 			// No public key supplied - retrieve it from the identity manager.
 			idPK, err = httpbakery.PublicKeyForLocation(http.DefaultClient, idURL)
 			if err != nil {
-				logger.Errorf("cannot get identity public key: %v", err)
 				return nil, errors.Annotate(err, "cannot get identity public key")
 			}
 		}

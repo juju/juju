@@ -1005,7 +1005,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client, s.srv = newServerAndClient(c, s.State)
+	s.client, s.srv = newClientAndServer(c, s.State)
 
 	s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "test",

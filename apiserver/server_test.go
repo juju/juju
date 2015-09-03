@@ -427,8 +427,8 @@ func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	}
 }
 
-// newServerAndClient returns a new running API server with client.
-func newServerAndClient(c *gc.C, st *state.State) (api.Connection, *apiserver.Server) {
+// newClientAndServer returns a new running API server with client.
+func newClientAndServer(c *gc.C, st *state.State) (api.Connection, *apiserver.Server) {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
@@ -449,7 +449,7 @@ func newServerAndClient(c *gc.C, st *state.State) (api.Connection, *apiserver.Se
 
 // newServer returns a new running API server.
 func newServer(c *gc.C, st *state.State) *apiserver.Server {
-	client, server := newServerAndClient(c, st)
+	client, server := newClientAndServer(c, st)
 	client.Close()
 	return server
 }

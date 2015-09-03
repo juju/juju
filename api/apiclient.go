@@ -103,6 +103,11 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 // function, and also the OpenWithVersion function below to explicitly cause
 // the API server to think that the client is older than it really is.
 func open(info *Info, opts DialOpts, loginFunc func(st *State, tag names.Tag, pwd, nonce string) error) (Connection, error) {
+	if info.UseMacaroons {
+		if info.Tag != nil || info.Password != "" {
+			return nil, errors.New("open should specifiy UseMacaroons or a username & password. Not both")
+		}
+	}
 	conn, err := Connect(info, "", nil, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -123,12 +128,6 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag names.Tag, pw
 		certPool: conn.Config().TlsConfig.RootCAs,
 		// TODO (alesstimec) We really should persist cookies.
 		bakeryClient: httpbakery.NewClient(),
-	}
-	if info.UseMacaroons {
-		if info.Tag != nil || info.Password != "" {
-			conn.Close()
-			return nil, errors.New("open should specifiy UseMacaroons or a username & password. Not both")
-		}
 	}
 	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
 		if err := loginFunc(st, info.Tag, info.Password, info.Nonce); err != nil {
