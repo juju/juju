@@ -564,10 +564,6 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 	errorMessage = op.String()
 	before := u.operationState()
 
-	// If we're about to execute an upgrade operation, ensure that
-	// the charmdir is not available for concurrent workers.
-	resolver.UpdateCharmDir(before, u.charmDirLocker)
-
 	defer func() {
 		after := u.operationState()
 
@@ -579,8 +575,6 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 			// TODO(axw)
 			//u.f.WantLeaderSettingsEvents(before.Leader)
 		}
-
-		resolver.UpdateCharmDir(after, u.charmDirLocker)
 	}()
 	return u.operationExecutor.Run(op)
 }
