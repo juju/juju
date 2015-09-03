@@ -51,7 +51,9 @@ func FormatOneline(value interface{}) ([]byte, error) {
 			recurseUnits(unit, 1, pprint)
 		}
 	}
-
+	if fs.AvailableVersion != "" {
+		fmt.Fprintf(&out, "\n- new available version: %q", fs.AvailableVersion)
+	}
 	return out.Bytes(), nil
 }
 
