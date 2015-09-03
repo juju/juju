@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envimagemetadata "github.com/juju/juju/environs/imagemetadata"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -451,9 +449,6 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 		envtesting.AssertUploadFakeToolsVersions(
 			c, stor, "releases", s.Environ.Config().AgentStream(), s.oldVersion)
 	}
-	s.PatchValue(&imagemetadataworker.DefaultListPublishedMetadata, func(env environs.Environ) ([]*envimagemetadata.ImageMetadata, error) {
-		return nil, nil
-	})
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
 	s.assertStateServerUpgrades(c)
 }
