@@ -207,5 +207,15 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	return s.relationsResolver.NextOp(localState, remoteState, opFactory)
+	op, err := s.relationsResolver.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		return op, err
+	}
+
+	// UpdateStatus hook runs if nothing else needs to.
+	if remoteState.UpdateStatusRequired {
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.UpdateStatus})
+	}
+
+	return nil, resolver.ErrNoOperation
 }

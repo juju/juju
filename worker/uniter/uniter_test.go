@@ -233,6 +233,28 @@ func (s *UniterSuite) TestUniterUpdateStatusHook(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update status hook doesn't run if in error",
+			startupError{"start"},
+			waitHooks{},
+			updateStatusHookTick{},
+			waitHooks{},
+
+			// Resolve and hook should run.
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"config-changed"},
+			waitUnitAgent{
+				status: params.StatusIdle,
+			},
+			waitHooks{},
+			updateStatusHookTick{},
+			waitHooks{"update-status"},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(

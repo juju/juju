@@ -48,6 +48,9 @@ type Snapshot struct {
 	// version of the leader settings for the service.
 	LeaderSettingsVersion int
 
+	// UpdateStatusRequired indicates if an UpdateStatus hook should run.
+	UpdateStatusRequired bool
+
 	// Actions is the list of pending actions to
 	// be peformed by this unit.
 	Actions []string

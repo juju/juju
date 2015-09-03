@@ -53,10 +53,6 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 		Factory:  s.opFactory,
 		Watcher:  s.watcher,
 		Executor: s.executor,
-		UpdateStatusChannel: func() <-chan time.Time {
-			// TODO(axw) test update status channel
-			return nil
-		},
 		CharmURL:       s.charmURL,
 		Dying:          s.dying,
 		OnIdle:         s.onIdle,
