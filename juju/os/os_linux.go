@@ -50,6 +50,9 @@ func updateOS(f string) (OSType, error) {
 	}
 }
 
+// ReadOSRelease parsed the information in the os-release file.
+//
+// See http://www.freedesktop.org/software/systemd/man/os-release.html.
 func ReadOSRelease(f string) (map[string]string, error) {
 	contents, err := ioutil.ReadFile(f)
 	if err != nil {
