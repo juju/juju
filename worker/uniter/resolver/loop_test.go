@@ -57,9 +57,10 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 			// TODO(axw) test update status channel
 			return nil
 		},
-		CharmURL: s.charmURL,
-		Dying:    s.dying,
-		OnIdle:   s.onIdle,
+		CharmURL:       s.charmURL,
+		Dying:          s.dying,
+		OnIdle:         s.onIdle,
+		CharmDirLocker: &mockCharmDirLocker{},
 	})
 }
 

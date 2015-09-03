@@ -12,3 +12,5 @@ type ResolverOpFactory struct {
 func NewResolverOpFactory(f operation.Factory) ResolverOpFactory {
 	return ResolverOpFactory{&resolverOpFactory{Factory: f}}
 }
+
+var UpdateCharmDir = updateCharmDir

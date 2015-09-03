@@ -65,7 +65,7 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 	}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
-	UpdateCharmDir(cfg.Executor.State(), cfg.CharmDirLocker)
+	updateCharmDir(cfg.Executor.State(), cfg.CharmDirLocker)
 
 	for {
 		// TODO(axw) move update status to the watcher.
@@ -86,7 +86,7 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			op, err = cfg.Resolver.NextOp(rf.LocalState, rf.RemoteState, rf)
 		}
 
-		UpdateCharmDir(rf.LocalState.State, cfg.CharmDirLocker)
+		updateCharmDir(rf.LocalState.State, cfg.CharmDirLocker)
 
 		switch errors.Cause(err) {
 		case nil:
@@ -120,21 +120,20 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 	}
 }
 
-// UpdateCharmDir sets charm directory availability for sharing among
+// updateCharmDir sets charm directory availability for sharing among
 // concurrent workers according to local operation state.
-func UpdateCharmDir(opState operation.State, locker charmdir.Locker) {
-	var upgrading bool
+func updateCharmDir(opState operation.State, locker charmdir.Locker) {
+	var changing bool
 
-	// If we're about to execute an upgrade operation, ensure that
-	// the charmdir is not available for concurrent workers.
-	if opState.Kind == operation.Upgrade {
-		upgrading = true
+	// Determine if the charm content is changing.
+	if opState.Kind == operation.Install || opState.Kind == operation.Upgrade {
+		changing = true
 	} else if opState.Kind == operation.RunHook && opState.Hook != nil && opState.Hook.Kind == hooks.UpgradeCharm {
-		upgrading = true
+		changing = true
 	}
 
-	available := opState.Started && !opState.Stopped && !upgrading
-	logger.Tracef("charmdir: available=%v opState: started=%v stopped=%v upgrading=%v",
-		available, opState.Started, opState.Stopped, upgrading)
+	available := opState.Started && !opState.Stopped && !changing
+	logger.Tracef("charmdir: available=%v opState: started=%v stopped=%v changing=%v",
+		available, opState.Started, opState.Stopped, changing)
 	locker.SetAvailable(available)
 }
