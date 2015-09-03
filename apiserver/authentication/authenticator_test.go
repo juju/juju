@@ -27,6 +27,13 @@ func (u userFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	return u.user, nil
 }
 
+var defaultAuthenticators = map[string]authentication.EntityAuthenticator{
+	"machine": &authentication.AgentAuthenticator{},
+	"unit":    &authentication.AgentAuthenticator{},
+	"user":    &authentication.UserAuthenticator{},
+	"":        &authentication.MacaroonAuthenticator{},
+}
+
 func (s *AgentAuthenticatorSuite) TestAuthenticatorForTagFails(c *gc.C) {
 	// add relation
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -38,16 +45,17 @@ func (s *AgentAuthenticatorSuite) TestAuthenticatorForTagFails(c *gc.C) {
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = authentication.AuthenticatorForTag(relation.String())
+	_, _, err = authentication.AuthenticatorForTag(relation.String(), defaultAuthenticators)
 	c.Assert(err, gc.ErrorMatches, `failed to determine the tag kind: "wordpress:db mysql:server" is not a valid tag`)
 }
 
 func (s *AgentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	fact := factory.NewFactory(s.State)
 	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
-	authenticator, err := authentication.AuthenticatorForTag(user.Tag().String())
+	authenticator, tag, err := authentication.AuthenticatorForTag(user.Tag().String(), defaultAuthenticators)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authenticator, gc.NotNil)
+	c.Assert(tag, gc.DeepEquals, user.Tag())
 	userFinder := userFinder{user}
 
 	entity, err := authenticator.Authenticate(userFinder, user.Tag(), params.LoginRequest{
@@ -59,26 +67,30 @@ func (s *AgentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 }
 
 func (s *AgentAuthenticatorSuite) TestAuthenticatorForTagGetsMacaroonAuthenticator(c *gc.C) {
-	authenticator, err := authentication.AuthenticatorForTag("")
+	authenticator, tag, err := authentication.AuthenticatorForTag("", defaultAuthenticators)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag, gc.IsNil)
 	_, ok := authenticator.(*authentication.MacaroonAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *AgentAuthenticatorSuite) TestMachineGetsAgentAuthentictor(c *gc.C) {
-	authenticator, err := authentication.AuthenticatorForTag("machine-0")
+	authenticator, tag, err := authentication.AuthenticatorForTag("machine-0", defaultAuthenticators)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag.Kind(), gc.Equals, "machine")
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 func (s *AgentAuthenticatorSuite) TestUnitGetsAgentAuthentictor(c *gc.C) {
-	authenticator, err := authentication.AuthenticatorForTag("unit-wordpress")
+	authenticator, tag, err := authentication.AuthenticatorForTag("unit-wordpress/0", defaultAuthenticators)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag.Kind(), gc.Equals, "unit")
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 func (s *AgentAuthenticatorSuite) TestInvalidTag(c *gc.C) {
-	authenticator, err := authentication.AuthenticatorForTag("service-foobar")
+	authenticator, tag, err := authentication.AuthenticatorForTag("service-foobar", defaultAuthenticators)
 	c.Assert(err, gc.ErrorMatches, "invalid request")
+	c.Assert(tag, gc.IsNil)
 	c.Assert(authenticator, gc.IsNil)
 }

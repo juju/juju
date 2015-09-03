@@ -4,17 +4,46 @@
 package apiserver_test
 
 import (
+	"net"
+	"net/http"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	jujutesting "github.com/juju/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type loginV2Suite struct {
 	loginSuite
+}
+
+type loginV2MacaroonSuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+	username   string
+}
+
+func (s *loginV2MacaroonSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.discharger = bakerytest.NewDischarger(nil, s.Checker)
+}
+
+func (s *loginV2MacaroonSuite) TearDownTest(c *gc.C) {
+	if s.discharger != nil {
+		s.discharger.Close()
+	}
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *loginV2MacaroonSuite) Checker(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+	return []checkers.Caveat{checkers.DeclaredCaveat("username", s.username)}, nil
 }
 
 var _ = gc.Suite(&loginV2Suite{
@@ -26,6 +55,7 @@ var _ = gc.Suite(&loginV2Suite{
 		},
 	},
 })
+var _ = gc.Suite(&loginV2MacaroonSuite{})
 
 func (s *loginV2Suite) TestClientLoginToEnvironment(c *gc.C) {
 	_, cleanup := s.setupServerWithValidator(c, nil)
@@ -94,4 +124,16 @@ func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	client := apiState.Client()
 	_, err = client.GetEnvironmentConstraints()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginV2MacaroonSuite) newServer(c *gc.C) *apiserver.Server {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+		Tag:  names.NewMachineTag("0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return srv
 }

@@ -24,6 +24,7 @@ import (
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
@@ -63,7 +64,26 @@ type Server struct {
 	// to the APIs.
 	macaroon *macaroon.Macaroon
 
+	// identityURL to address discharge macaroons to.
+	identityURL string
+
 	environUUID string
+}
+
+// Authenticators creates and returns EntityAuthenticators for this apiserver
+// keyed off the tagKind If the tagKind is "" we assume that macaroon
+// authentication is required.
+func (s *Server) Authenticators() map[string]authentication.EntityAuthenticator {
+	return map[string]authentication.EntityAuthenticator{
+		"machine": &authentication.AgentAuthenticator{},
+		"unit":    &authentication.AgentAuthenticator{},
+		"user":    &authentication.UserAuthenticator{},
+		"": &authentication.MacaroonAuthenticator{
+			Service:          s.bakeryService,
+			Macaroon:         s.macaroon,
+			IdentityLocation: s.identityURL,
+		},
+	}
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -226,6 +246,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot make macaroon")
 		}
+		srv.identityURL = idURL
 	}
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {

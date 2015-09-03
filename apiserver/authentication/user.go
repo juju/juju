@@ -86,7 +86,7 @@ func (m *MacaroonAuthenticator) newDischargeRequiredError() error {
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
-func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
+func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
 	if len(req.Macaroons) == 0 {
 		return nil, m.newDischargeRequiredError()
 	}

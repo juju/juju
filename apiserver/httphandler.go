@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -83,11 +84,16 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	if err != nil {
 		return nil, common.ErrBadCreds
 	}
+	authenticators := map[string]authentication.EntityAuthenticator{
+		"machine": &authentication.AgentAuthenticator{},
+		"unit":    &authentication.AgentAuthenticator{},
+		"user":    &authentication.UserAuthenticator{},
+	}
 	_, _, err = checkCreds(h.state, params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
 		Nonce:       r.Header.Get("X-Juju-Nonce"),
-	}, true)
+	}, true, authenticators)
 	return tag, err
 }
 

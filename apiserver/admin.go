@@ -64,7 +64,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 	}
 
@@ -84,9 +84,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin)
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.Authenticators())
 	if err != nil {
-		if err, ok := err.(*authentication.DischargeRequiredError); ok {
+		if err, ok := errors.Cause(err).(*authentication.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
 				DischargeRequired: err.Macaroon,
 			}
@@ -110,11 +110,11 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		// can then check the credentials against the state server environment
 		// machine.
 		if kind != names.MachineTagKind {
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 		entity, err = a.checkCredsOfStateServerMachine(req)
 		if err != nil {
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 		// If we are here, then the entity will refer to a state server
 		// machine in the state server environment, and we don't need a pinger
@@ -134,7 +134,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	if agentPingerNeeded {
 		if err := startPingerIfAgent(a.root, entity); err != nil {
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 	}
 
@@ -150,13 +150,13 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
 	environ, err := a.root.state.Environment()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	loginResult := params.LoginResultV1{
@@ -195,8 +195,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 // run API workers for that environment to do things like provisioning
 // machines.
 func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
-	// Check the credentials against the state server environment.
-	entity, _, err := doCheckCreds(a.srv.state, req, false)
+	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.Authenticators())
 	if err != nil {
 		return nil, err
 	}
@@ -240,16 +239,11 @@ var doCheckCreds = checkCreds
 // for the environment.  In the case of a user logging in to the server, but
 // not an environment, there is no env user needed.  While we have the env
 // user, if we do have it, update the last login time.
-func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (state.Entity, *time.Time, error) {
-	tag, err := names.ParseTag(req.AuthTag)
-	if err != nil {
-		return nil, nil, err
-	}
-	authenticator, err := authentication.AuthenticatorForTag(req.AuthTag)
+func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, authenticators map[string]authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
+	authenticator, tag, err := authentication.AuthenticatorForTag(req.AuthTag, authenticators)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-
 	entity, err := authenticator.Authenticate(st, tag, req)
 	if err != nil {
 		logger.Debugf("bad credentials")

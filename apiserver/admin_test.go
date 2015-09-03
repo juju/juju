@@ -6,16 +6,21 @@ package apiserver_test
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -113,6 +118,23 @@ func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	return info, cleanup
 }
 
+func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
+	info := s.APIInfo(c)
+	info.Tag = nil
+	info.Password = ""
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	request := &params.LoginRequest{
+		AuthTag:     "bar",
+		Credentials: "password",
+	}
+
+	var response params.LoginResult
+	err = st.APICall("Admin", 2, "", "Login", request, &response)
+	c.Assert(err, gc.ErrorMatches, `.*"bar" is not a valid tag.*`)
+}
+
 func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// Start our own server so we can control when the first login
 	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
@@ -123,24 +145,20 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	adminUser := s.AdminUserTag(c)
 
 	for i, t := range []struct {
-		tag      string
+		tag      names.Tag
 		password string
 		err      string
 		code     string
 	}{{
-		tag:      adminUser.String(),
+		tag:      adminUser,
 		password: "wrong password",
 		err:      "invalid entity name or password",
 		code:     params.CodeUnauthorized,
 	}, {
-		tag:      "user-unknown",
+		tag:      names.NewUserTag("unknown"),
 		password: "password",
 		err:      "invalid entity name or password",
 		code:     params.CodeUnauthorized,
-	}, {
-		tag:      "bar",
-		password: "password",
-		err:      `"bar" is not a valid tag`,
 	}} {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
 		// Note that Open does not log in if the tag and password
@@ -184,7 +202,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*unknown object type "Client"`)
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(u.Tag().String(), password, "")
+	err = st.Login(u.Tag(), password, "")
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
 	_, err = st.Client().Status([]string{})
@@ -617,7 +635,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 	checkLogin := func(tag names.Tag) {
 		st := s.openAPIWithoutLogin(c, info)
 		defer st.Close()
-		err := st.Login(tag.String(), "dummy-secret", "nonce")
+		err := st.Login(tag, "dummy-secret", "nonce")
 		c.Assert(err, gc.ErrorMatches, "something")
 	}
 	checkLogin(names.NewUserTag("definitelywontexist"))
@@ -639,7 +657,7 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 
 	adminUser := s.AdminUserTag(c)
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(adminUser.String(), "dummy-secret", "")
+	err = st.Login(adminUser, "dummy-secret", "")
 
 	checker(c, err, st)
 }
@@ -752,7 +770,7 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	st, cleanup := s.setupServer(c)
 	defer cleanup()
 	adminUser := s.AdminUserTag(c)
-	err := st.Login(adminUser.String(), "dummy-secret", "")
+	err := st.Login(adminUser, "dummy-secret", "")
 	c.Assert(err, jc.ErrorIsNil)
 	envTag, err := st.EnvironTag()
 	c.Assert(err, jc.ErrorIsNil)
@@ -769,7 +787,7 @@ func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser.String(), "dummy-secret", "")
+	err = st.Login(adminUser, "dummy-secret", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertRemoteEnvironment(c, st, s.State.EnvironTag())
@@ -785,7 +803,7 @@ func (s *loginSuite) TestStateServerEnvironmentBadCreds(c *gc.C) {
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser.String(), "bad-password", "")
+	err = st.Login(adminUser, "bad-password", "")
 	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
 }
 
@@ -801,7 +819,7 @@ func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser.String(), "dummy-secret", "")
+	err = st.Login(adminUser, "dummy-secret", "")
 	expectedError := fmt.Sprintf("unknown environment: %q", uuid)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -816,7 +834,7 @@ func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
 	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser.String(), "dummy-secret", "")
+	err = st.Login(adminUser, "dummy-secret", "")
 	c.Assert(err, gc.ErrorMatches, `unknown environment: "rubbish"`)
 }
 
@@ -834,7 +852,7 @@ func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	err = st.Login(envOwner.UserTag().String(), "password", "")
+	err = st.Login(envOwner.UserTag(), "password", "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRemoteEnvironment(c, st, envState.EnvironTag())
 }
@@ -867,7 +885,7 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	err = st.Login(machine.Tag().String(), password, "nonce")
+	err = st.Login(machine.Tag(), password, "nonce")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -886,7 +904,7 @@ func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	err = st.Login(machine.Tag().String(), password, "nonce")
+	err = st.Login(machine.Tag(), password, "nonce")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -903,7 +921,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	err = st.Login(machine.Tag().String(), password, "nonce")
+	err = st.Login(machine.Tag(), password, "nonce")
 	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
 }
 
@@ -959,4 +977,77 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, gc.NotNil)
 	c.Assert(when.After(startTime), jc.IsTrue)
+}
+
+var _ = gc.Suite(&macaroonLoginSuite{})
+
+type macaroonLoginSuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+	checker    func(string, string) ([]checkers.Caveat, error)
+	srv        *apiserver.Server
+	client     api.Connection
+}
+
+func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+		return s.checker(cond, arg)
+	})
+
+	environTag := names.NewEnvironTag(s.State.EnvironUUID())
+
+	// Make a new version of the state that doesn't object to us
+	// changing the identity URL, so we can create a state server
+	// that will see that.
+	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.UpdateEnvironConfig(map[string]interface{}{
+		config.IdentityURL: s.discharger.Location(),
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.client, s.srv = newClientAndServer(c, s.State)
+
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "test",
+	})
+}
+
+func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
+	s.srv.Stop()
+	s.discharger.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *macaroonLoginSuite) TestSuccessfulLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		if cond == "is-authenticated-user" {
+			return []checkers.Caveat{checkers.DeclaredCaveat("username", "test")}, nil
+		}
+		return nil, errors.New("unknown caveat")
+	}
+	err := s.client.Login(nil, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		return nil, errors.New("unknown caveat")
+	}
+	err := s.client.Login(nil, "", "")
+	c.Assert(err, gc.ErrorMatches, "failed to obtain the macaroon discharge.*cannot discharge: unknown caveat")
+}
+
+func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		if cond == "is-authenticated-user" {
+			return []checkers.Caveat{checkers.DeclaredCaveat("username", "testUnknown")}, nil
+		}
+		return nil, errors.New("unknown caveat")
+	}
+	err := s.client.Login(nil, "", "")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 }
