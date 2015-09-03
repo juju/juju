@@ -21,7 +21,7 @@ func machineBlockDevicesChanged(ctx *context) error {
 	volumeTags := make([]names.VolumeTag, 0, len(ctx.incompleteFilesystemParams))
 	// We only need to query volumes for incomplete filesystems,
 	// and not incomplete filesystem attachments, because a
-	// filesystem attachment cannot exist with a filesystem.
+	// filesystem attachment cannot exist without a filesystem.
 	// Therefore, the block device must have existed before
 	// the filesystem attachment. Upon restarting the worker,
 	// witnessing an already-provisioned filesystem will trigger
