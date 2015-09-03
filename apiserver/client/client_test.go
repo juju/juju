@@ -1627,7 +1627,7 @@ func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G networks=^net3")
@@ -1643,15 +1643,7 @@ func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
-
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
+	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces")
 }
 
 func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -1660,47 +1652,6 @@ func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, 
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
-}
-
-func (s *clientRepoSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, ch charm.Charm, cons constraints.Value) {
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", cons, "",
-		[]string{"network-net1", "network-net2"},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
-}
-
-func (s *clientRepoSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string, curl *charm.URL, cons constraints.Value) {
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", cons, "",
-		[]string{"network-net1", "network-net2"},
-	)
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *clientRepoSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
-	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
-}
-
-func (s *clientRepoSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
-	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
-}
-
-func (s *clientRepoSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
-	curl, _, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockAllChanges(c, "TestBlockChangeServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworksBlocked(c, "TestBlockChangeServiceDeployWithNetworks", curl, cons)
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployPrincipal(c *gc.C) {

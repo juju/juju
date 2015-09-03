@@ -241,6 +241,11 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, nil
 }
 
+// SupportsSpaces is specified on environs.Networking.
+func (env *maasEnviron) SupportsSpaces() (bool, error) {
+	return false, errors.NotSupportedf("spaces")
+}
+
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *maasEnviron) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled() {
@@ -898,6 +903,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	// Networking.
+	//
+	// TODO(dimitern): Once we can get from spaces constraints to MAAS
+	// networks (or even directly to spaces), include them in the
+	// instance selection.
 	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()

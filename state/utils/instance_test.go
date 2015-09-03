@@ -34,6 +34,9 @@ func (s *instanceSuite) TestAvailabilityZone(c *gc.C) {
 }
 
 func (s *instanceSuite) TestAvailabilityZoneUnsupported(c *gc.C) {
+	// Trigger a not supported error.
+	s.AssertConfigParameterUpdated(c, "broken", "InstanceAvailabilityZoneNames")
+
 	_, err := utils.AvailabilityZone(s.State, "id-1")
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 }

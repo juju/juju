@@ -31,7 +31,7 @@ type MetadataAttributes struct {
 	RootStorageType string
 
 	// RootStorageSize contains size of root storage in gigabytes (GB).
-	RootStorageSize uint64
+	RootStorageSize *uint64
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source SourceType
@@ -55,7 +55,7 @@ type Storage interface {
 	// criteria or a "not found" error if none match.
 	// Empty criteria will return all cloud image metadata.
 	// Returned result is grouped by source type and ordered by date created.
-	FindMetadata(criteria MetadataAttributes) (map[SourceType][]Metadata, error)
+	FindMetadata(criteria MetadataFilter) (map[SourceType][]Metadata, error)
 }
 
 // DataStore exposes data store operations for use by the cloud image metadata package.

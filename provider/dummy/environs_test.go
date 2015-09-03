@@ -172,6 +172,33 @@ func (s *suite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsFalse)
 }
 
+func (s *suite) TestSupportsSpaces(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	// Without change spaces are supported.
+	ok, err := e.SupportsSpaces()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now turn it off.
+	current := e.(testing.SpacesEnabler).SetSupportsSpaces(false)
+	c.Assert(current, jc.IsTrue)
+	ok, err = e.SupportsSpaces()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+
+	// And finally turn it on again.
+	current = e.(testing.SpacesEnabler).SetSupportsSpaces(current)
+	c.Assert(current, jc.IsFalse)
+	ok, err = e.SupportsSpaces()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...string) {
 	cfg := e.Config()
 	brokenCfg, err := cfg.Apply(map[string]interface{}{
@@ -395,6 +422,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		ProviderId:        "dummy-private",
 		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
 		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
 		CIDR:              "0.20.0.0/24",
 		ProviderId:        "dummy-public",
@@ -410,6 +438,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		noallocInfo[i].ProviderId = network.Id("noalloc-" + pid)
 		noallocInfo[i].AllocatableIPLow = nil
 		noallocInfo[i].AllocatableIPHigh = nil
+		noallocInfo[i].AvailabilityZones = exp.AvailabilityZones
 		noallocInfo[i].CIDR = exp.CIDR
 	}
 

@@ -50,7 +50,6 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.sendExistingError(w, http.StatusNotFound, err)
 		return
 	}
-	defer stateWrapper.cleanup()
 
 	switch r.Method {
 	case "GET":
@@ -74,7 +73,6 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.sendExistingError(w, http.StatusNotFound, err)
 		return
 	}
-	defer stateWrapper.cleanup()
 
 	if err := stateWrapper.authenticateUser(r); err != nil {
 		h.authError(w, h)

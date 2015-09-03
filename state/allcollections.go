@@ -302,6 +302,7 @@ func allCollections() collectionSchema {
 				Key: []string{"env-uuid", "globalkey"},
 			}},
 		},
+		spacesC: {},
 
 		// This collection holds information about cloud image metadata.
 		cloudimagemetadataC: {},
@@ -363,6 +364,7 @@ const (
 	storageConstraintsC    = "storageconstraints"
 	storageInstancesC      = "storageinstances"
 	subnetsC               = "subnets"
+	spacesC                = "spaces"
 	toolsmetadataC         = "toolsmetadata"
 	txnLogC                = "txns.log"
 	txnsC                  = "txns"

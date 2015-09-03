@@ -6,7 +6,6 @@ package state
 import (
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +27,7 @@ type allWatcherStateBacking struct {
 // for all environments from the State.
 type allEnvWatcherStateBacking struct {
 	st               *State
-	stPool           *statePool
+	stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -1081,7 +1080,7 @@ func newAllEnvWatcherStateBacking(st *State) Backing {
 	)
 	return &allEnvWatcherStateBacking{
 		st:               st,
-		stPool:           newStatePool(st),
+		stPool:           NewStatePool(st),
 		collectionByName: collections,
 	}
 }
@@ -1181,7 +1180,7 @@ func (b *allEnvWatcherStateBacking) getState(collName, envUUID string) (*State, 
 		return b.st, nil
 	}
 
-	st, err := b.stPool.get(envUUID)
+	st, err := b.stPool.Get(envUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1190,7 +1189,7 @@ func (b *allEnvWatcherStateBacking) getState(collName, envUUID string) (*State, 
 
 // Release implements the Backing interface.
 func (b *allEnvWatcherStateBacking) Release() error {
-	err := b.stPool.closeAll()
+	err := b.stPool.Close()
 	return errors.Trace(err)
 }
 
@@ -1229,55 +1228,4 @@ func normaliseStatusData(data map[string]interface{}) map[string]interface{} {
 		return make(map[string]interface{})
 	}
 	return data
-}
-
-// newStatePool returns a new statePool instance.
-func newStatePool(ssSt *State) *statePool {
-	return &statePool{
-		ssSt: ssSt,
-		pool: make(map[string]*State),
-	}
-}
-
-// statePool is a simple cache of State instances for multiple environments.
-type statePool struct {
-	ssSt *State
-	// mu protects pool
-	mu   sync.Mutex
-	pool map[string]*State
-}
-
-// get returns a State for a given environment from the pool, creating
-// one if required.
-func (p *statePool) get(envUUID string) (*State, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	st, ok := p.pool[envUUID]
-	if ok {
-		return st, nil
-	}
-
-	st, err := p.ssSt.ForEnviron(names.NewEnvironTag(envUUID))
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to create state for environment %v", envUUID)
-	}
-	p.pool[envUUID] = st
-	return st, nil
-}
-
-// closeAll closes all State instances in the pool.
-func (p *statePool) closeAll() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	var lastErr error
-	for _, st := range p.pool {
-		err := st.Close()
-		if err != nil {
-			lastErr = err
-		}
-	}
-	p.pool = make(map[string]*State)
-	return errors.Annotate(lastErr, "at least one error closing a state")
 }
