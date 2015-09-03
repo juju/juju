@@ -57,7 +57,7 @@ type Info struct {
 
 	// UseMacaroons, when true, enables macaroon-based login and ignores
 	// the provided username and password.
-	UseMacaroons bool `yaml:",omitempty"`
+	UseMacaroons bool `yaml:"use-macaroons,omitempty"`
 
 	// Tag holds the name of the entity that is connecting.
 	// If this is nil, and the password is empty, no login attempt will be made.
