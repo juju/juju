@@ -21,8 +21,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -303,8 +303,8 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	var socketPath string
-	switch version.Current.OS {
-	case version.Windows:
+	switch jujuos.HostOS() {
+	case jujuos.Windows:
 		socketPath = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
 	default:
 		socketPath = fmt.Sprintf("%s/run.socket", agentDir)

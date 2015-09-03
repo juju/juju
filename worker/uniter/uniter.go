@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -296,7 +296,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return nil
 	})
 	// The socket needs to have permissions 777 in order for other users to use it.
-	if version.Current.OS != version.Windows {
+	if jujuos.HostOS() != jujuos.Windows {
 		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)
 	}
 	return nil

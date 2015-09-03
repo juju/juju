@@ -9,6 +9,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/version"
 )
 
@@ -36,7 +37,7 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			if s != "n/a" {
 				// There is no lsb_release command on CentOS.
-				if current_os == version.CentOS {
+				if current_os == os.CentOS {
 					c.Check(s, gc.Matches, `centos7`)
 				}
 			}

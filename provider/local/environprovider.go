@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )
@@ -145,7 +146,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		setIfNotBlank(config.FtpProxyKey, proxySettings.Ftp)
 		setIfNotBlank(config.NoProxyKey, proxySettings.NoProxy)
 	}
-	if version.Current.OS == version.Ubuntu {
+	if jujuos.HostOS() == jujuos.Ubuntu {
 		if cfg.AptHttpProxy() == "" &&
 			cfg.AptHttpsProxy() == "" &&
 			cfg.AptFtpProxy() == "" {
