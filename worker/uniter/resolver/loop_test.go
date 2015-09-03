@@ -178,8 +178,8 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 	_, err := s.loop()
 	c.Assert(err, gc.Equals, tomb.ErrDying)
 	c.Assert(resolverCalls, gc.Equals, 3)
-	s.executor.CheckCallNames(c, "State", "Run", "State", "State")
-	c.Assert(s.executor.Calls()[1].Args, jc.SameContents, []interface{}{theOp})
+	s.executor.CheckCallNames(c, "State", "State", "Run", "State", "State")
+	c.Assert(s.executor.Calls()[2].Args, jc.SameContents, []interface{}{theOp})
 }
 
 func (s *LoopSuite) TestRunFails(c *gc.C) {
