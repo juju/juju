@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
@@ -90,6 +91,14 @@ func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
 		"JUJU_RELATION_ID=an-endpoint:22",
 		"JUJU_REMOTE_UNIT=that-unit/456",
 	}
+}
+
+func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
+	paths := context.OSDependentEnvVars(MockEnvPaths{})
+	c.Assert(paths, gc.Not(gc.HasLen), 0)
+	vars, err := keyvalues.Parse(paths, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vars["PATH"], gc.Not(gc.Equals), "")
 }
 
 func (s *EnvSuite) TestEnvWindows(c *gc.C) {
