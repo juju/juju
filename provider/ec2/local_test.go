@@ -959,10 +959,10 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
 
+	re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
 	for _, subnet := range subnets {
 		// We can find the expected data by looking at the CIDR.
 		// subnets isn't in a predictable order due to the use of maps.
-		re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
 		c.Assert(re.Match([]byte(subnet.CIDR)), jc.IsTrue)
 		index, err := strconv.Atoi(re.FindStringSubmatch(subnet.CIDR)[1])
 		c.Assert(err, jc.ErrorIsNil)
