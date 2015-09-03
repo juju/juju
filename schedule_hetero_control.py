@@ -40,9 +40,11 @@ def get_releases(root):
             yield entry
 
 
-def get_candidate_version(candidate_path):
+def get_candidate_info(candidate_path):
+    """ Return candidate version and revision build number. """
     with open(os.path.join(candidate_path, 'buildvars.json')) as fp:
-        return json.load(fp)['version']
+        build_vars = json.load(fp)
+    return build_vars['version'], build_vars['revision_build']
 
 
 def calculate_jobs(root, schedule_all=False):
@@ -52,31 +54,25 @@ def calculate_jobs(root, schedule_all=False):
         parent, candidate = os.path.split(candidate_path)
         if parent != candidates_path:
             raise ValueError('Wrong path')
-        candidate_version = get_candidate_version(candidate_path)
+        candidate_version, revision_build = get_candidate_info(candidate_path)
         for release in releases:
-            if is_osx_client(candidate) is not is_osx_client(release):
-                continue
-            client_os = 'ubuntu'
-            if is_osx_client(release):
-                client_os = 'osx'
-            yield {
-                'old_version': release,  # Client
-                'candidate': candidate_version,  # Server
-                'new_to_old': 'true',
-                'candidate_path': candidate,
-                'client_os': client_os,
-            }
-            yield {
-                'old_version': release,  # Server
-                'candidate': candidate_version,  # Client
-                'new_to_old': 'false',
-                'candidate_path': candidate,
-                'client_os': client_os,
-            }
-
-
-def is_osx_client(path):
-    return path.endswith('-osx')
+            for client_os in ('ubuntu',  'osx', 'windows'):
+                yield {
+                    'old_version': release,  # Client
+                    'candidate': candidate_version,  # Server
+                    'new_to_old': 'true',
+                    'candidate_path': candidate,
+                    'client_os': client_os,
+                    'revision_build': revision_build,
+                }
+                yield {
+                    'old_version': release,  # Server
+                    'candidate': candidate_version,  # Client
+                    'new_to_old': 'false',
+                    'candidate_path': candidate,
+                    'client_os': client_os,
+                    'revision_build': revision_build,
+                }
 
 
 def build_jobs(credentials, root, jobs):
