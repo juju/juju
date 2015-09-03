@@ -48,7 +48,6 @@ func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
 		DataDir:         c.MkDir(),
 		LogDir:          c.MkDir(),
 		MetricsSpoolDir: c.MkDir(),
-		UniterStateDir:  c.MkDir(),
 	})
 	s.PatchValue(upgrades.ChownPath, func(_, _ string) error { return nil })
 	s.PatchValue(upgrades.IsLocalEnviron, func(_ *config.Config) bool { return true })
@@ -109,7 +108,6 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	expectedLogDir := filepath.Join(*upgrades.RootLogDir, "juju-"+namespace)
 	expectedMetricsSpoolDir := filepath.Join(expectedDataDir, "metricspool")
-	expectedUniterStateDir := filepath.Join(expectedDataDir, "uniter", "state")
 	expectedJobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 	tag := s.ctx.AgentConfig().Tag()
 
@@ -128,7 +126,6 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(agentConfig.Value(agent.AgentServiceName), gc.Equals, agentService)
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
 	c.Assert(agentConfig.MetricsSpoolDir(), gc.Equals, expectedMetricsSpoolDir)
-	c.Assert(agentConfig.UniterStateDir(), gc.Equals, expectedUniterStateDir)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C) {
@@ -155,7 +152,6 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	c.Assert(agentConfig.DataDir(), gc.Equals, agent.DefaultPaths.DataDir)
 	c.Assert(agentConfig.LogDir(), gc.Equals, agent.DefaultPaths.LogDir)
 	c.Assert(agentConfig.MetricsSpoolDir(), gc.DeepEquals, agent.DefaultPaths.MetricsSpoolDir)
-	c.Assert(agentConfig.UniterStateDir(), gc.Equals, agent.DefaultPaths.UniterStateDir)
 	c.Assert(agentConfig.Jobs(), gc.HasLen, 0)
 	c.Assert(agentConfig.Value("SHARED_STORAGE_ADDR"), gc.Equals, "blah")
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, expectedSharedStorageDir)
