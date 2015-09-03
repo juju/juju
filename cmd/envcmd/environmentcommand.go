@@ -6,11 +6,13 @@ package envcmd
 import (
 	"io"
 	"os"
+	"path"
 	"strconv"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -71,7 +73,7 @@ type EnvironCommand interface {
 	// EnvName returns the name of the environment.
 	EnvName() string
 
-	setAPIContext(ctx *apiContext)
+	setAPIContext(*apiContext)
 }
 
 // EnvCommandBase is a convenience type for embedding in commands
@@ -130,6 +132,7 @@ func (c *EnvCommandBase) NewEnvironmentGetter() (EnvironmentGetter, error) {
 	return c.NewAPIClient()
 }
 
+// NewAPIRoot returns a new connection to the API server for the environment.
 func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the EnvName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
@@ -341,6 +344,7 @@ func Wrap(c EnvironCommand, options ...WrapEnvOption) cmd.Command {
 
 type environCommandWrapper struct {
 	EnvironCommand
+	*apiContext
 	skipFlags             bool
 	useDefaultEnvironment bool
 	allowEmptyEnv         bool
@@ -378,7 +382,14 @@ func (w *environCommandWrapper) Init(args []string) error {
 }
 
 func (w *environCommandWrapper) Run(ctx *cmd.Context) error {
-	w.EnvironCommand.setAPIContext(&apiContext{})
+	apiCtx, err := newAPIContext()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.apiContext = apiCtx
+	w.EnvironCommand.setAPIContext(w.apiContext)
+	defer w.apiContext.Close()
+
 	return w.EnvironCommand.Run(ctx)
 }
 
@@ -435,4 +446,14 @@ func GetEnvironmentVersion(client EnvironmentGetter) (version.Number, error) {
 		return noVersion, errors.Annotate(err, "unable to parse environment version")
 	}
 	return v, nil
+}
+
+// cookieFile returns the path to the cookie used to store authorization
+// macaroons. The returned value can be overridden by setting the
+// JUJU_COOKIEFILE environment variable.
+func cookieFile() string {
+	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
+		return file
+	}
+	return path.Join(utils.Home(), ".go-cookies")
 }

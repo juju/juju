@@ -62,13 +62,18 @@ func NewEnvironmentsCommand(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI
 	})
 }
 
+type LoginCommand struct {
+	*loginCommand
+}
+
 // NewLoginCommand returns a LoginCommand with the function used to open
 // the API connection mocked out.
-func NewLoginCommand(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) *loginCommand {
-	return &loginCommand{
+func NewLoginCommand(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) (cmd.Command, *LoginCommand) {
+	cmd := &loginCommand{
 		loginAPIOpen:   apiOpen,
 		GetUserManager: getUserManager,
 	}
+	return envcmd.WrapBase(cmd), &LoginCommand{cmd}
 }
 
 type UseEnvironmentCommand struct {
@@ -97,32 +102,26 @@ func NewRemoveBlocksCommand(api removeBlocksAPI) cmd.Command {
 // NewDestroyCommand returns a DestroyCommand with the systemmanager and client
 // endpoints mocked out.
 func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
-	return envcmd.WrapSystem(&destroyCommand{
+	return envcmd.WrapBase(&destroyCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
 		},
-	},
-		envcmd.SystemSkipFlags,
-		envcmd.SystemSkipDefault,
-	)
+	})
 }
 
 // NewKillCommand returns a killCommand with the systemmanager and client
 // endpoints mocked out.
 func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error, dialFunc func(string) (api.Connection, error)) cmd.Command {
-	return envcmd.WrapSystem(&killCommand{
+	return envcmd.WrapBase(&killCommand{
 		destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
 		},
 		dialFunc,
-	},
-		envcmd.SystemSkipFlags,
-		envcmd.SystemSkipDefault,
-	)
+	})
 }
 
 // NewListBlocksCommand returns a ListBlocksCommand with the systemmanager

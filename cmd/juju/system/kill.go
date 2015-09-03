@@ -37,10 +37,7 @@ destroyed.
 `
 
 func newKillCommand() cmd.Command {
-	return envcmd.WrapSystem(
-		&killCommand{},
-		envcmd.SystemSkipFlags,
-		envcmd.SystemSkipDefault)
+	return envcmd.WrapBase(&killCommand{})
 }
 
 // killCommand kills the specified system.

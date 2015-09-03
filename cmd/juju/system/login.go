@@ -98,7 +98,7 @@ func (c *loginCommand) SetFlags(f *gnuflag.FlagSet) {
 // SetFlags implements Command.Init.
 func (c *loginCommand) Init(args []string) error {
 	if c.loginAPIOpen == nil {
-		c.loginAPIOpen = c.JujuCommandBase.APIOpen
+		c.loginAPIOpen = c.APIOpen
 	}
 	if c.GetUserManager == nil {
 		c.GetUserManager = getUserManager
@@ -168,7 +168,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 		info.UseMacaroons = true
 	}
 
-	apiState, err := c.loginAPIOpen(&info, api.DefaultDialOpts())
+	apiState, err := c.loginAPIOpen(&info, c.DialOpts())
 	if err != nil {
 		return errors.Trace(err)
 	}

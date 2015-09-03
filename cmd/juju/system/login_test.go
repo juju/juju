@@ -62,7 +62,7 @@ func (s *LoginSuite) getUserManager(conn api.Connection) (system.UserManager, er
 }
 
 func (s *LoginSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := system.NewLoginCommand(s.apiOpen, s.getUserManager)
+	command, _ := system.NewLoginCommand(s.apiOpen, s.getUserManager)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -82,16 +82,16 @@ password: ` + s.password + `
 }
 
 func (s *LoginSuite) TestInit(c *gc.C) {
-	loginCommand := system.NewLoginCommand(nil, nil)
+	wrappedCommand, loginCommand := system.NewLoginCommand(nil, nil)
 
-	err := testing.InitCommand(loginCommand, []string{})
+	err := testing.InitCommand(wrappedCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "no name specified")
 
-	err = testing.InitCommand(loginCommand, []string{"foo"})
+	err = testing.InitCommand(wrappedCommand, []string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(loginCommand.Name, gc.Equals, "foo")
 
-	err = testing.InitCommand(loginCommand, []string{"foo", "bar"})
+	err = testing.InitCommand(wrappedCommand, []string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
@@ -131,20 +131,6 @@ func (s *LoginSuite) TestAPIOpenError(c *gc.C) {
 	s.openError = errors.New("open failed")
 	_, err := s.runServerFile(c)
 	c.Assert(err, gc.ErrorMatches, `open failed`)
-}
-
-func (s *LoginSuite) TestMacaroonLogin(c *gc.C) {
-	s.username, s.password = "", ""
-	_, err := s.runServerFile(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	info := s.apiConnection.info
-	opts := s.apiConnection.opts
-	c.Assert(info, gc.NotNil)
-	c.Assert(info.UseMacaroons, gc.Equals, true)
-	c.Assert(info.Tag, gc.Equals, nil)
-	c.Assert(info.Password, gc.Equals, "")
-	c.Assert(opts.BakeryClient, gc.NotNil)
 }
 
 func (s *LoginSuite) TestOldServerNoServerUUID(c *gc.C) {
