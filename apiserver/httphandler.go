@@ -103,7 +103,6 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 		Credentials: tagPass[1],
 		Nonce:       r.Header.Get("X-Juju-Nonce"),
 	}, true, authenticators)
-	// TODO this could be a problem
 	return tag, err
 }
 

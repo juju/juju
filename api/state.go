@@ -78,10 +78,14 @@ func (st *State) loginV2(tag names.Tag, password, nonce string) error {
 		return errors.Trace(err)
 	}
 	if result.DischargeRequired != nil {
-		if st.macaroonClient == nil {
-			return errors.New("macaroon-based authentication not configured")
+		// The result contains a discharge-required
+		// macaroon. We discharge it and retry
+		// the login request with the original macaroon
+		// and its discharges.
+		if st.bakeryClient == nil {
+			return errors.New("macaroon based authentication not configured")
 		}
-		discharge, err := st.macaroonClient.DischargeAll(result.DischargeRequired)
+		discharge, err := st.bakeryClient.DischargeAll(result.DischargeRequired)
 		if err != nil {
 			return errors.Annotate(err, "failed to obtain the macaroon discharge")
 		}

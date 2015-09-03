@@ -69,7 +69,9 @@ type Server struct {
 	environUUID string
 }
 
-// TODO godoc
+// Authenticators creates and returns EntityAuthenticators for this apiserver
+// keyed off the tagKind If the tagKind is "" we assume that macaroon
+// authentication is required.
 func (s *Server) Authenticators() map[string]authentication.EntityAuthenticator {
 	return map[string]authentication.EntityAuthenticator{
 		"machine": &authentication.AgentAuthenticator{},
@@ -223,7 +225,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 			// No public key supplied - retrieve it from the identity manager.
 			idPK, err = httpbakery.PublicKeyForLocation(http.DefaultClient, idURL)
 			if err != nil {
-				logger.Errorf("cannot get indentity public key: %v", err)
+				logger.Errorf("cannot get identity public key: %v", err)
 				return nil, errors.Annotate(err, "cannot get identity public key")
 			}
 		}

@@ -85,9 +85,9 @@ type State struct {
 	// connections to the API.
 	certPool *x509.CertPool
 
-	// macaroonClient holds the client that would be used to
-	// authorize macaroon-based login requests.
-	macaroonClient *httpbakery.Client
+	// bakeryClient holds the client that will be used to
+	// authorize macaroon based login requests.
+	bakeryClient *httpbakery.Client
 }
 
 // Open establishes a connection to the API server using the Info
@@ -122,7 +122,13 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag names.Tag, pw
 		password: info.Password,
 		certPool: conn.Config().TlsConfig.RootCAs,
 		// TODO (alesstimec) We really should persist cookies.
-		macaroonClient: httpbakery.NewClient(),
+		bakeryClient: httpbakery.NewClient(),
+	}
+	if info.UseMacaroons {
+		if info.Tag != nil || info.Password != "" {
+			conn.Close()
+			return nil, errors.New("open should specifiy UseMacaroons or a username & password. Not both")
+		}
 	}
 	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
 		if err := loginFunc(st, info.Tag, info.Password, info.Nonce); err != nil {

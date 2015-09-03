@@ -145,17 +145,17 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	adminUser := s.AdminUserTag(c)
 
 	for i, t := range []struct {
-		tag      string
+		tag      names.Tag
 		password string
 		err      string
 		code     string
 	}{{
-		tag:      adminUser.String(),
+		tag:      adminUser,
 		password: "wrong password",
 		err:      "invalid entity name or password",
 		code:     params.CodeUnauthorized,
 	}, {
-		tag:      "user-unknown",
+		tag:      names.NewUserTag("unknown"),
 		password: "password",
 		err:      "invalid entity name or password",
 		code:     params.CodeUnauthorized,
@@ -175,10 +175,8 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
 			c.Assert(err, gc.ErrorMatches, `.*unknown object type "Machiner"`)
 
-			tag, err := names.ParseTag(t.tag)
-			c.Assert(err, jc.ErrorIsNil)
 			// Since these are user login tests, the nonce is empty.
-			err = st.Login(tag, t.password, "")
+			err = st.Login(t.tag, t.password, "")
 			c.Assert(err, gc.ErrorMatches, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
@@ -1007,7 +1005,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.client, s.srv = newServer(c, s.State)
+	s.client, s.srv = newServerAndClient(c, s.State)
 
 	s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "test",

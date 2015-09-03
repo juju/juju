@@ -29,6 +29,14 @@ type apiclientSuite struct {
 
 var _ = gc.Suite(&apiclientSuite{})
 
+func (s *apiclientSuite) TestOpenFailsIfUsernameAndUseMacaroon(c *gc.C) {
+	info := s.APIInfo(c)
+	info.Tag = names.NewUserTag("foobar")
+	info.UseMacaroons = true
+	_, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.ErrorMatches, "open should specifiy UseMacaroons or a username & password. Not both")
+}
+
 func (s *apiclientSuite) TestConnectToEnv(c *gc.C) {
 	info := s.APIInfo(c)
 	conn, err := api.Connect(info, "", nil, api.DialOpts{})

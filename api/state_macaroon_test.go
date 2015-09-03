@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package api_test
@@ -62,8 +62,8 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
-	//s.srv.Stop()
-	//s.discharger.Close()
+	s.srv.Stop()
+	s.discharger.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
