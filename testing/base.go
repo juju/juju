@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/arch"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
@@ -227,17 +228,16 @@ type PackageManagerStruct struct {
 
 func GetPackageManager() (s PackageManagerStruct, err error) {
 	os, err := version.GetOSFromSeries(version.Current.Series)
-
 	if err != nil {
 		return s, err
 	}
 
 	switch os {
-	case version.CentOS:
+	case jujuos.CentOS:
 		s.PackageManager = "yum"
 		s.PackageQuery = "yum"
 		s.RepositoryManager = "yum-config-manager --add-repo"
-	case version.Ubuntu:
+	case jujuos.Ubuntu:
 		s.PackageManager = "apt-get"
 		s.PackageQuery = "dpkg-query"
 		s.RepositoryManager = "add-apt-repository"
@@ -246,6 +246,5 @@ func GetPackageManager() (s PackageManagerStruct, err error) {
 		s.PackageQuery = "dpkg-query"
 		s.RepositoryManager = "add-apt-repository"
 	}
-
 	return s, nil
 }

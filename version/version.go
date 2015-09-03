@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/juju/arch"
+	jujuos "github.com/juju/juju/juju/os"
 )
 
 // The presence and format of this constant is very important.
@@ -85,7 +86,7 @@ type Binary struct {
 	Number
 	Series string
 	Arch   string
-	OS     OSType
+	OS     jujuos.OSType
 }
 
 func (v Binary) String() string {
@@ -347,7 +348,7 @@ func (v Number) IsDev() bool {
 // the os-release.  If the value is not found, the file is not found, or
 // an error occurs reading the file, an empty string is returned.
 func ReleaseVersion() string {
-	release, err := readOSRelease()
+	release, err := jujuos.ReadOSRelease(osReleaseFile)
 	if err != nil {
 		return ""
 	}

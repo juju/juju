@@ -11,12 +11,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/version"
 )
 
 func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
 	// There is no distro-info on Windows or CentOS.
-	if version.Current.OS != version.Ubuntu {
+	if os.HostOS() != os.Ubuntu {
 		c.Skip("This test is only relevant on Ubuntu.")
 	}
 	vers, err := version.SeriesVersion("precise")

@@ -8,16 +8,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/juju/juju/os"
 )
 
 func osDependentEnvVars(paths Paths) []string {
-	switch version.Current.OS {
-	case version.Windows:
+	switch jujuos.HostOS() {
+	case jujuos.Windows:
 		return windowsEnv(paths)
-	case version.Ubuntu:
+	case jujuos.Ubuntu:
 		return ubuntuEnv(paths)
-	case version.CentOS:
+	case jujuos.CentOS:
 		return centosEnv(paths)
 	}
 	return nil
