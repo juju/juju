@@ -9,7 +9,6 @@ package version
 
 // ReleaseVersion is a function that has no meaning except on linux.
 func ReleaseVersion() string {
-	// TODO(ericsnow) Panic?
 	return ""
 }
 
