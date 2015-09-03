@@ -516,21 +516,6 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 
 	c.Check(s.data.Installed(), gc.HasLen, 0)
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running")
-
-	if pm.PackageManager == "yum" {
-		expectedEpelRelease := append(expectedArgs.YumBase, "epel-release")
-		testing.AssertEchoArgs(c, "yum", expectedEpelRelease...)
-
-		expectedMongodbServer := append(expectedArgs.YumBase, "mongodb-server")
-		testing.AssertEchoArgs(c, "yum", expectedMongodbServer...)
-
-		testing.AssertEchoArgs(c, "chcon", expectedArgs.Chcon...)
-
-		testing.AssertEchoArgs(c, "semanage", expectedArgs.Semanage...)
-	} else {
-		expectedJujuMongodb := append(expectedArgs.AptGetBase, "juju-mongodb")
-		testing.AssertEchoArgs(c, "apt-get", expectedJujuMongodb...)
-	}
 }
 
 func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
