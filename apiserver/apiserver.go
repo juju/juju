@@ -69,20 +69,26 @@ type Server struct {
 	environUUID string
 }
 
-// Authenticators creates and returns EntityAuthenticators for this apiserver
-// keyed off the tagKind If the tagKind is "" we assume that macaroon
-// authentication is required.
-func (s *Server) Authenticators() map[string]authentication.EntityAuthenticator {
-	return map[string]authentication.EntityAuthenticator{
-		"machine": &authentication.AgentAuthenticator{},
-		"unit":    &authentication.AgentAuthenticator{},
-		"user":    &authentication.UserAuthenticator{},
-		"": &authentication.MacaroonAuthenticator{
+// AuthenticatorForTag returns the authenticator appropriate
+// to use for a login with the given tag, which may be nil.
+// If no appropriate authenticator is found, it returns nil.
+func (s *Server) AuthenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
+	if tag == nil {
+		return &authentication.MacaroonAuthenticator{
 			Service:          s.bakeryService,
 			Macaroon:         s.macaroon,
 			IdentityLocation: s.identityURL,
-		},
+		}, nil
 	}
+
+	switch tag.Kind() {
+	case names.UnitTagKind, names.MachineTagKind:
+		return &authentication.AgentAuthenticator{}, nil
+	case names.UserTagKind:
+		return &authentication.UserAuthenticator{}, nil
+	}
+	return nil, common.ErrBadRequest
+
 }
 
 // LoginValidator functions are used to decide whether login requests
