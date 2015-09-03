@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -1542,6 +1543,128 @@ func SetHostedEnvironCount(st *State) error {
 	return st.runTransaction([]txn.Op{op})
 }
 
+type oldUserDoc struct {
+	DocID     string     `bson:"_id"`
+	EnvUUID   string     `bson:"env-uuid"`
+	LastLogin *time.Time `bson:"lastlogin"`
+}
+
+type oldEnvUserDoc struct {
+	DocID          string     `bson:"_id"`
+	EnvUUID        string     `bson:"env-uuid"`
+	UserName       string     `bson:"user"`
+	LastConnection *time.Time `bson:"lastconnection"`
+}
+
+// MigrateLastLoginAndLastConnection is an upgrade step that separates out
+// LastLogin from the userDoc into its own collection and removes the
+// lastlogin field from the userDoc. It does the same for LastConnection in
+// the envUserDoc.
+func MigrateLastLoginAndLastConnection(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return err
+	}
+
+	// 0. setup
+	users, closer := st.getRawCollection(usersC)
+	defer closer()
+	envUsers, closer := st.getRawCollection(envUsersC)
+	defer closer()
+	userLastLogins, closer := st.getRawCollection(userLastLoginC)
+	defer closer()
+	envUserLastConnections, closer := st.getRawCollection(envUserLastConnectionC)
+	defer closer()
+
+	var oldUserDocs []oldUserDoc
+	if err = users.Find(bson.D{{
+		"lastlogin", bson.D{{"$exists", true}}}}).All(&oldUserDocs); err != nil {
+		return err
+	}
+
+	var oldEnvUserDocs []oldEnvUserDoc
+	if err = envUsers.Find(bson.D{{
+		"lastconnection", bson.D{{"$exists", true}}}}).All(&oldEnvUserDocs); err != nil {
+		return err
+	}
+
+	// 1. collect data we need to move
+	var lastLoginDocs []interface{}
+	var lastConnectionDocs []interface{}
+
+	for _, oldUser := range oldUserDocs {
+		lastLoginDocs = append(lastLoginDocs, userLastLoginDoc{
+			oldUser.DocID,
+			oldUser.EnvUUID,
+			*oldUser.LastLogin,
+		})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		lastConnectionDocs = append(lastConnectionDocs, envUserLastConnectionDoc{
+			oldEnvUser.DocID,
+			oldEnvUser.EnvUUID,
+			oldEnvUser.UserName,
+			*oldEnvUser.LastConnection,
+		})
+	}
+
+	// 2. raw-write all that data to the new collections, overwriting
+	// everything.
+	//
+	// If a user accesses the API during the upgrade, a lastLoginDoc could
+	// already exist. In this is the case, we hit a duplicate key error, which
+	// we ignore. The insert becomes a no-op, keeping the new lastLoginDoc
+	// which will be more up-to-date than what's read in through the usersC
+	// collection.
+	for _, lastLoginDoc := range lastLoginDocs {
+		if err := userLastLogins.Insert(lastLoginDoc); err != nil && !mgo.IsDup(err) {
+			id := lastLoginDoc.(userLastLoginDoc).DocID
+			logger.Debugf("failed to insert userLastLoginDoc with id %q. Got error: %v", id, err)
+			return err
+		}
+	}
+
+	for _, lastConnectionDoc := range lastConnectionDocs {
+		if err := envUserLastConnections.Insert(lastConnectionDoc); err != nil && !mgo.IsDup(err) {
+			id := lastConnectionDoc.(envUserLastConnectionDoc).ID
+			logger.Debugf("failed to insert envUserLastConnectionDoc with id %q. Got error: %v", id, err)
+			return err
+		}
+	}
+
+	// 3. run txn operations to remove the old unwanted fields
+	ops := []txn.Op{}
+
+	for _, oldUser := range oldUserDocs {
+		upgradesLogger.Debugf("updating lastlogin for user %q", oldUser.DocID)
+		ops = append(ops,
+			txn.Op{
+				C:      usersC,
+				Id:     oldUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastlogin", nil}}},
+				},
+			})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		upgradesLogger.Debugf("updating lastconnection for environment user %q", oldEnvUser.DocID)
+
+		ops = append(ops,
+			txn.Op{
+				C:      envUsersC,
+				Id:     oldEnvUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastconnection", nil}}},
+				},
+			})
+	}
+	return st.runRawTransaction(ops)
+}
+
 // AddMissingEnvUUIDOnStatuses populates the env-uuid field where it
 // is missing due to LP #1474606.
 func AddMissingEnvUUIDOnStatuses(st *State) error {
@@ -1983,10 +2106,6 @@ func AddVolumeStatus(st *State) error {
 			if !errors.IsNotFound(err) {
 				return errors.Annotate(err, "getting status")
 			}
-			// If the volume has not been provisioned, then
-			// it should be Pending; if it has been provisioned,
-			// but there is an unprovisioned attachment, then
-			// it should be Attaching; otherwise it is Attached.
 			status, err := upgradingVolumeStatus(st, volume)
 			if err != nil {
 				return errors.Annotate(err, "deciding volume status")
@@ -2003,11 +2122,66 @@ func AddVolumeStatus(st *State) error {
 	})
 }
 
+// If the volume has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment,
+// then it should be Attaching; otherwise it is Attached.
 func upgradingVolumeStatus(st *State, volume Volume) (Status, error) {
 	if _, err := volume.Info(); errors.IsNotProvisioned(err) {
 		return StatusPending, nil
 	}
 	attachments, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, attachment := range attachments {
+		_, err := attachment.Info()
+		if errors.IsNotProvisioned(err) {
+			return StatusAttaching, nil
+		}
+	}
+	return StatusAttached, nil
+}
+
+// AddFilesystemStatus ensures each filesystem has a status doc.
+func AddFilesystemStatus(st *State) error {
+	return runForAllEnvStates(st, func(st *State) error {
+		filesystems, err := st.AllFilesystems()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ops []txn.Op
+		for _, filesystem := range filesystems {
+			_, err := filesystem.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Annotate(err, "getting status")
+			}
+			status, err := upgradingFilesystemStatus(st, filesystem)
+			if err != nil {
+				return errors.Annotate(err, "deciding filesystem status")
+			}
+			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
+				Status:  status,
+				Updated: time.Now().UnixNano(),
+			}))
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runTransaction(ops))
+		}
+		return nil
+	})
+}
+
+// If the filesystem has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment, then
+// it should be Attaching; otherwise it is Attached.
+func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error) {
+	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
+		return StatusPending, nil
+	}
+	attachments, err := st.FilesystemAttachments(filesystem.FilesystemTag())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

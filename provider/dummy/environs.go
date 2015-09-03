@@ -197,6 +197,7 @@ type OpStartInstance struct {
 	PossibleTools    coretools.List
 	Instance         instance.Instance
 	Constraints      constraints.Value
+	SubnetsToZones   map[network.Id][]string
 	Networks         []string
 	NetworkInfo      []network.InterfaceInfo
 	Volumes          []storage.Volume
@@ -956,43 +957,26 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			hc.CpuCores = &cores
 		}
 	}
-	// Simulate networks added when requested.
-	networks := append(args.Constraints.IncludeNetworks(), args.InstanceConfig.Networks...)
-	networkInfo := make([]network.InterfaceInfo, len(networks))
-	for i, netName := range networks {
-		if strings.HasPrefix(netName, "bad-") {
-			// Simulate we didn't get correct information for the network.
-			networkInfo[i] = network.InterfaceInfo{
-				ProviderId:  network.Id(netName),
-				NetworkName: netName,
-				CIDR:        "invalid",
-			}
-		} else if strings.HasPrefix(netName, "invalid-") {
-			// Simulate we got invalid information for the network.
-			networkInfo[i] = network.InterfaceInfo{
-				ProviderId:  network.Id(netName),
-				NetworkName: "$$" + netName,
-				CIDR:        fmt.Sprintf("0.%d.2.0/24", i+1),
-			}
-		} else {
-			networkInfo[i] = network.InterfaceInfo{
-				ProviderId:    network.Id(netName),
-				NetworkName:   netName,
-				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
-				InterfaceName: fmt.Sprintf("eth%d", i),
-				VLANTag:       i,
-				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-			}
+	// Simulate subnetsToZones gets populated when spaces given in constraints.
+	spaces := args.Constraints.IncludeSpaces()
+	var subnetsToZones map[network.Id][]string
+	for isp := range spaces {
+		// Simulate 2 subnets per space.
+		if subnetsToZones == nil {
+			subnetsToZones = make(map[network.Id][]string)
 		}
-		// TODO(dimitern) Add the rest of the network.InterfaceInfo
-		// fields when we can use them.
+		for isn := 0; isn < 2; isn++ {
+			providerId := fmt.Sprintf("subnet-%d", isp+isn)
+			zone := fmt.Sprintf("zone%d", isp+isn)
+			subnetsToZones[network.Id(providerId)] = []string{zone}
+		}
 	}
 	// Simulate creating volumes when requested.
 	volumes := make([]storage.Volume, len(args.Volumes))
-	for i, v := range args.Volumes {
+	for iv, v := range args.Volumes {
 		persistent, _ := v.Attributes[storage.Persistent].(bool)
-		volumes[i] = storage.Volume{
-			Tag: names.NewVolumeTag(strconv.Itoa(i + 1)),
+		volumes[iv] = storage.Volume{
+			Tag: names.NewVolumeTag(strconv.Itoa(iv + 1)),
 			VolumeInfo: storage.VolumeInfo{
 				Size:       v.Size,
 				Persistent: persistent,
@@ -1007,8 +991,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		MachineNonce:     args.InstanceConfig.MachineNonce,
 		PossibleTools:    args.Tools,
 		Constraints:      args.Constraints,
-		Networks:         args.InstanceConfig.Networks,
-		NetworkInfo:      networkInfo,
+		SubnetsToZones:   subnetsToZones,
 		Volumes:          volumes,
 		Instance:         i,
 		Jobs:             args.InstanceConfig.Jobs,
@@ -1018,9 +1001,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Secret:           e.ecfg().secret(),
 	}
 	return &environs.StartInstanceResult{
-		Instance:    i,
-		Hardware:    hc,
-		NetworkInfo: networkInfo,
+		Instance: i,
+		Hardware: hc,
 	}, nil
 }
 
@@ -1217,6 +1199,37 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	return info, nil
 }
 
+type azShim struct {
+	name      string
+	available bool
+}
+
+func (az azShim) Name() string {
+	return az.name
+}
+
+func (az azShim) Available() bool {
+	return az.available
+}
+
+// AvailabilityZones implements environs.ZonedEnviron.
+func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	// TODO(dimitern): Fix this properly.
+	return []common.AvailabilityZone{
+		azShim{"zone1", true},
+		azShim{"zone2", false},
+	}, nil
+}
+
+// InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
+func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	// TODO(dimitern): Fix this properly.
+	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
+		return nil, errors.NotSupportedf("instance availability zones")
+	}
+	return []string{"zone1"}, nil
+}
+
 // Subnets implements environs.Environ.Subnets.
 func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
@@ -1235,6 +1248,7 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 		ProviderId:        "dummy-private",
 		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
 		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
 		CIDR:              "0.20.0.0/24",
 		ProviderId:        "dummy-public",

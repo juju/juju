@@ -1032,7 +1032,7 @@ func (st *State) VolumeStatus(tag names.VolumeTag) (StatusInfo, error) {
 // SetVolumeStatus sets the status of the specified volume.
 func (st *State) SetVolumeStatus(tag names.VolumeTag, status Status, info string, data map[string]interface{}) error {
 	switch status {
-	case StatusAttaching, StatusAttached, StatusDetaching, StatusDestroying:
+	case StatusAttaching, StatusAttached, StatusDetaching, StatusDetached, StatusDestroying:
 	case StatusError:
 		if info == "" {
 			return errors.Errorf("cannot set status %q without info", status)

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/juju/juju/os"
 )
 
 var windowsSuffixOrder = []string{
@@ -37,7 +37,7 @@ func lookPath(hook string) (string, error) {
 // being default.
 func searchHook(charmDir, hook string) (string, error) {
 	hookFile := filepath.Join(charmDir, hook)
-	if version.Current.OS != version.Windows {
+	if jujuos.HostOS() != jujuos.Windows {
 		// we are not running on windows,
 		// there is no need to look for suffixed hooks
 		return lookPath(hookFile)
@@ -64,7 +64,7 @@ func searchHook(charmDir, hook string) (string, error) {
 // and propagate error levels (-File). .cmd and .bat files can be run
 // directly.
 func hookCommand(hook string) []string {
-	if version.Current.OS != version.Windows {
+	if jujuos.HostOS() != jujuos.Windows {
 		// we are not running on windows,
 		// just return the hook name
 		return []string{hook}

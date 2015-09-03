@@ -308,6 +308,10 @@ func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 	return st.getRawCollection(name)
 }
 
+func HasRawAccess(collectionName string) bool {
+	return allCollections()[collectionName].rawAccess
+}
+
 func MultiEnvCollections() []string {
 	var result []string
 	for name, info := range allCollections() {
@@ -435,4 +439,8 @@ func WriteLogWithOplog(
 	session := oplog.Database.Session
 	logs := session.DB("logs").C("logs")
 	return logs.Insert(doc)
+}
+
+func SpaceDoc(s *Space) spaceDoc {
+	return s.doc
 }

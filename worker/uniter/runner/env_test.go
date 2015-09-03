@@ -9,13 +9,13 @@ import (
 	"sort"
 	"strings"
 
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -140,7 +140,7 @@ func (s *EnvSuite) setRelation(ctx *runner.HookContext) (expectVars []string) {
 }
 
 func (s *EnvSuite) TestEnvWindows(c *gc.C) {
-	s.PatchValue(&version.Current.OS, version.Windows)
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
 	os.Setenv("Path", "foo;bar")
 	os.Setenv("PSModulePath", "ping;pong")
 	windowsVars := []string{
@@ -159,7 +159,7 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
-	s.PatchValue(&version.Current.OS, version.Ubuntu)
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	os.Setenv("PATH", "foo:bar")
 	ubuntuVars := []string{
 		"PATH=path-to-tools:foo:bar",

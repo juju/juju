@@ -35,5 +35,5 @@ func NewSender(client metricsmanager.MetricsManagerClient) worker.Worker {
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, senderPeriod)
+	return worker.NewPeriodicWorker(f, senderPeriod, worker.NewTimer)
 }

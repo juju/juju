@@ -34,6 +34,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -199,7 +200,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// Create node 0: it will be used as the bootstrap node.
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
 		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
-		version.Current.Arch),
+		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -225,7 +226,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
 		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
-		version.Current.Arch),
+		arch.HostArch()),
 	)
 	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,7 +235,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
-	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M", version.Current.Arch))
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M", arch.HostArch()))
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
@@ -691,7 +692,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
-		version.Current.Arch),
+		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -705,7 +706,7 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
-		version.Current.Arch),
+		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -721,7 +722,7 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
-		version.Current.Arch),
+		arch.HostArch()),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1684,7 +1685,7 @@ func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[str
 	allAttrs := map[string]interface{}{
 		"system_id":    nodename,
 		"hostname":     hostname,
-		"architecture": fmt.Sprintf("%s/generic", version.Current.Arch),
+		"architecture": fmt.Sprintf("%s/generic", arch.HostArch()),
 		"memory":       1024,
 		"cpu_count":    1,
 	}
