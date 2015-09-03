@@ -27,9 +27,9 @@ type resourceGetter struct {
 	// outputs holds the snapshot of manifold output funcs.
 	outputs map[string]OutputFunc
 
-	// accesses holds the names and types of resource requests, and any error
+	// accessLog holds the names and types of resource requests, and any error
 	// encountered. It does not include requests made after expiry.
-	accesses []resourceAccess
+	accessLog []resourceAccess
 }
 
 // expire closes the expired channel. Calling it more than once will panic.
@@ -46,7 +46,7 @@ func (rg *resourceGetter) getResource(resourceName string, out interface{}) erro
 		return errors.New("expired resourceGetter: cannot be used outside Start func")
 	default:
 		err := rg.rawAccess(resourceName, out)
-		rg.accesses = append(rg.accesses, resourceAccess{
+		rg.accessLog = append(rg.accessLog, resourceAccess{
 			name: resourceName,
 			as:   fmt.Sprintf("%T", out),
 			err:  err,
@@ -97,10 +97,10 @@ func (ra resourceAccess) report() map[string]interface{} {
 	}
 }
 
-// accessReport returns a convenient representation of accesses.
-func accessReport(accesses []resourceAccess) []map[string]interface{} {
-	result := make([]map[string]interface{}, len(accesses))
-	for i, access := range accesses {
+// resourceLogReport returns a convenient representation of accessLog.
+func resourceLogReport(accessLog []resourceAccess) []map[string]interface{} {
+	result := make([]map[string]interface{}, len(accessLog))
+	for i, access := range accessLog {
 		result[i] = access.report()
 	}
 	return result

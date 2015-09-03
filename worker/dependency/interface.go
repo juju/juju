@@ -74,7 +74,7 @@ type Manifold struct {
 	// or a *Bar] rather than just [a *FooBar] -- unless all your clients really
 	// do want a FooBar resource.
 	//
-	// Even if the Engine itself never bothers to track the types exposed per
+	// Even if the Engine itself didn't bother to track the types exposed per
 	// dependency, it's still a useful prophylactic against complexity -- so
 	// that when reading manifold code, it should be immediately clear both what
 	// your dependencies *are* (by reading the names in the manifold config)
@@ -119,9 +119,9 @@ type OutputFunc func(in worker.Worker, out interface{}) error
 // its workers, shut itself down, and return the original fatal error via Wait().
 type IsFatalFunc func(err error) bool
 
-// MoreImportantFunc is used to determine the most important error to report
-// when multiple fatal errors are encountered.
-type MoreImportantFunc func(err0, err1 error) error
+// WorstErrorFunc is used to rank fatal errors, to allow an Engine to return the
+// single most important error it's encountered.
+type WorstErrorFunc func(err0, err1 error) error
 
 // Reporter defines an interface for extracting human-relevant information
 // from a worker.
@@ -172,10 +172,10 @@ const (
 	// KeyInputs holds the names of the manifolds on which this one depends.
 	KeyInputs = "inputs"
 
-	// KeyAccesses holds a slice representing the calls the current worker
+	// KeyResourceLog holds a slice representing the calls the current worker
 	// made to its getResource func; the type of the output param; and any
 	// error encountered.
-	KeyAccesses = "accesses"
+	KeyResourceLog = "resource-log"
 
 	// KeyName holds the name of some resource.
 	KeyName = "name"
