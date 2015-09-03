@@ -139,10 +139,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	})
 
 	config := dependency.EngineConfig{
-		IsFatal:       cmdutil.IsFatal,
-		MoreImportant: cmdutil.MoreImportantError,
-		ErrorDelay:    3 * time.Second,
-		BounceDelay:   10 * time.Millisecond,
+		IsFatal:     cmdutil.IsFatal,
+		WorstError:  cmdutil.MoreImportantError,
+		ErrorDelay:  3 * time.Second,
+		BounceDelay: 10 * time.Millisecond,
 	}
 	engine, err := dependency.NewEngine(config)
 	if err != nil {

@@ -36,10 +36,10 @@ func (s *engineFixture) startEngine(c *gc.C, isFatal dependency.IsFatalFunc) {
 		c.Fatalf("original engine not stopped")
 	}
 	config := dependency.EngineConfig{
-		IsFatal:       isFatal,
-		MoreImportant: func(err0, err1 error) error { return err0 },
-		ErrorDelay:    coretesting.ShortWait / 2,
-		BounceDelay:   coretesting.ShortWait / 10,
+		IsFatal:     isFatal,
+		WorstError:  func(err0, err1 error) error { return err0 },
+		ErrorDelay:  coretesting.ShortWait / 2,
+		BounceDelay: coretesting.ShortWait / 10,
 	}
 
 	e, err := dependency.NewEngine(config)

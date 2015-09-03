@@ -21,7 +21,7 @@ var _ = gc.Suite(&ReportSuite{})
 
 func (s *ReportSuite) TestReportStarted(c *gc.C) {
 	report := s.engine.Report()
-	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+	c.Check(report, jc.DeepEquals, map[string]interface{}{
 		"state":     "started",
 		"error":     nil,
 		"manifolds": map[string]interface{}{},
@@ -30,9 +30,10 @@ func (s *ReportSuite) TestReportStarted(c *gc.C) {
 
 func (s *ReportSuite) TestReportStopped(c *gc.C) {
 	s.engine.Kill()
-	s.engine.Wait()
+	err := s.engine.Wait()
+	c.Check(err, jc.ErrorIsNil)
 	report := s.engine.Report()
-	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+	c.Check(report, jc.DeepEquals, map[string]interface{}{
 		"state":     "stopped",
 		"error":     nil,
 		"manifolds": map[string]interface{}{},
@@ -76,14 +77,15 @@ func (s *ReportSuite) TestReportStopping(c *gc.C) {
 		}
 		time.Sleep(coretesting.ShortWait)
 	}
-	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+	c.Check(report, jc.DeepEquals, map[string]interface{}{
 		"state": "stopping",
 		"error": nil,
 		"manifolds": map[string]interface{}{
 			"task": map[string]interface{}{
-				"state":  "stopping",
-				"error":  nil,
-				"inputs": ([]string)(nil),
+				"state":        "stopping",
+				"error":        nil,
+				"inputs":       ([]string)(nil),
+				"resource-log": []map[string]interface{}{},
 				"report": map[string]interface{}{
 					"key1": "hello there",
 				},
@@ -94,8 +96,7 @@ func (s *ReportSuite) TestReportStopping(c *gc.C) {
 
 func (s *ReportSuite) TestReportInputs(c *gc.C) {
 	mh1 := newManifoldHarness()
-	manifold := mh1.Manifold()
-	err := s.engine.Install("task", manifold)
+	err := s.engine.Install("task", mh1.Manifold())
 	c.Assert(err, jc.ErrorIsNil)
 	mh1.AssertStart(c)
 
@@ -105,14 +106,15 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 	mh2.AssertStart(c)
 
 	report := s.engine.Report()
-	c.Assert(report, jc.DeepEquals, map[string]interface{}{
+	c.Check(report, jc.DeepEquals, map[string]interface{}{
 		"state": "started",
 		"error": nil,
 		"manifolds": map[string]interface{}{
 			"task": map[string]interface{}{
-				"state":  "started",
-				"error":  nil,
-				"inputs": ([]string)(nil),
+				"state":        "started",
+				"error":        nil,
+				"inputs":       ([]string)(nil),
+				"resource-log": []map[string]interface{}{},
 				"report": map[string]interface{}{
 					"key1": "hello there",
 				},
@@ -121,6 +123,11 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 				"state":  "started",
 				"error":  nil,
 				"inputs": []string{"task"},
+				"resource-log": []map[string]interface{}{{
+					"name":  "task",
+					"type":  "<nil>",
+					"error": nil,
+				}},
 				"report": map[string]interface{}{
 					"key1": "hello there",
 				},
@@ -128,7 +135,6 @@ func (s *ReportSuite) TestReportInputs(c *gc.C) {
 		},
 	})
 }
-
 func (s *ReportSuite) TestReportError(c *gc.C) {
 	mh1 := newManifoldHarness("missing")
 	manifold := mh1.Manifold()
@@ -149,6 +155,11 @@ func (s *ReportSuite) TestReportError(c *gc.C) {
 				"state":  "stopped",
 				"error":  dependency.ErrMissing,
 				"inputs": []string{"missing"},
+				"resource-log": []map[string]interface{}{{
+					"name":  "missing",
+					"type":  "<nil>",
+					"error": dependency.ErrMissing,
+				}},
 				"report": (map[string]interface{})(nil),
 			},
 		},

@@ -22,10 +22,10 @@ type EngineConfig struct {
 	// It must not be nil.
 	IsFatal IsFatalFunc
 
-	// MoreImportant returns the more important of two fatal errors passed to it,
+	// WorstError returns the more important of two fatal errors passed to it,
 	// and is used to determine which fatal error to report when there's more
 	// than one. It must not be nil.
-	MoreImportant MoreImportantFunc
+	WorstError WorstErrorFunc
 
 	// ErrorDelay controls how long the engine waits before restarting a worker
 	// that encountered an unknown error. It must not be negative.
@@ -42,8 +42,8 @@ func (config *EngineConfig) Validate() error {
 	if config.IsFatal == nil {
 		return errors.New("IsFatal not specified")
 	}
-	if config.MoreImportant == nil {
-		return errors.New("MoreImportant not specified")
+	if config.WorstError == nil {
+		return errors.New("WorstError not specified")
 	}
 	if config.ErrorDelay < 0 {
 		return errors.New("ErrorDelay is negative")
@@ -142,9 +142,9 @@ func (engine *engine) loop() error {
 			// This is safe so long as the Install method reads the result.
 			ticket.result <- engine.gotInstall(ticket.name, ticket.manifold)
 		case ticket := <-engine.started:
-			engine.gotStarted(ticket.name, ticket.worker)
+			engine.gotStarted(ticket.name, ticket.worker, ticket.resourceLog)
 		case ticket := <-engine.stopped:
-			engine.gotStopped(ticket.name, ticket.error)
+			engine.gotStopped(ticket.name, ticket.error, ticket.resourceLog)
 		}
 		if engine.isDying() {
 			if engine.allStopped() {
@@ -180,9 +180,9 @@ func (engine *engine) Report() map[string]interface{} {
 		// process requests until the last possible moment. Only once
 		// loop has exited do we fall back to this report.
 		return map[string]interface{}{
-			"state":     "stopped",
-			"error":     engine.Wait(),
-			"manifolds": engine.manifoldsReport(),
+			KeyState:     "stopped",
+			KeyError:     engine.Wait(),
+			KeyManifolds: engine.manifoldsReport(),
 		}
 	}
 }
@@ -190,14 +190,20 @@ func (engine *engine) Report() map[string]interface{} {
 // liveReport collects and returns information about the engine, its manifolds,
 // and their workers. It must only be called from the loop goroutine.
 func (engine *engine) liveReport() map[string]interface{} {
+	var reportError error
 	state := "started"
 	if engine.isDying() {
 		state = "stopping"
+		if tombError := engine.tomb.Err(); tombError != nil {
+			reportError = tombError
+		} else {
+			reportError = engine.worstError
+		}
 	}
 	return map[string]interface{}{
-		"state":     state,
-		"error":     engine.worstError,
-		"manifolds": engine.manifoldsReport(),
+		KeyState:     state,
+		KeyError:     reportError,
+		KeyManifolds: engine.manifoldsReport(),
 	}
 }
 
@@ -208,10 +214,11 @@ func (engine *engine) manifoldsReport() map[string]interface{} {
 	manifolds := map[string]interface{}{}
 	for name, info := range engine.current {
 		manifolds[name] = map[string]interface{}{
-			"state":  info.state(),
-			"error":  info.err,
-			"inputs": engine.manifolds[name].Inputs,
-			"report": info.report(),
+			KeyState:       info.state(),
+			KeyError:       info.err,
+			KeyInputs:      engine.manifolds[name].Inputs,
+			KeyReport:      info.report(),
+			KeyResourceLog: resourceLogReport(info.resourceLog),
 		}
 	}
 	return manifolds
@@ -284,15 +291,15 @@ func (engine *engine) requestStart(name string, delay time.Duration) {
 	// goroutine based on current known state.
 	info.starting = true
 	engine.current[name] = info
-	getResource := engine.getResourceFunc(name, manifold.Inputs)
-	go engine.runWorker(name, delay, manifold.Start, getResource)
+	resourceGetter := engine.resourceGetter(name, manifold.Inputs)
+	go engine.runWorker(name, delay, manifold.Start, resourceGetter)
 }
 
-// getResourceFunc returns a GetResourceFunc backed by a snapshot of current
+// resourceGetter returns a resourceGetter backed by a snapshot of current
 // worker state, restricted to those workers declared in inputs. It must only
 // be called from the loop goroutine; see inside for a detailed dicsussion of
 // why we took this appproach.
-func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceFunc {
+func (engine *engine) resourceGetter(name string, inputs []string) *resourceGetter {
 	// We snapshot the resources available at invocation time, rather than adding an
 	// additional communicate-resource-request channel. The latter approach is not
 	// unreasonable... but is prone to inelegant scrambles when starting several
@@ -320,7 +327,7 @@ func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceF
 	//  * Install manifold A; loop starts worker A
 	//  * Install manifold B; loop starts worker B with empty resource snapshot
 	//  * A communicates its worker back to loop; main thread bounces B
-	//  * B's StartFunc asks for A, gets nothing, returns ErrUnmetDependencies
+	//  * B's StartFunc asks for A, gets nothing, returns ErrMissing
 	//  * loop restarts worker B with an up-to-date snapshot, B works fine
 	//
 	// We assume that, in the common case, most workers run without error most
@@ -334,72 +341,74 @@ func (engine *engine) getResourceFunc(name string, inputs []string) GetResourceF
 	// Those may indeed suffer the occasional extra bounce as the system comes
 	// to stability as it starts, or after a change; but workers *must* be
 	// written for resilience in the face of arbitrary bounces *anyway*, so it
-	// shouldn't be harmful
+	// shouldn't be harmful.
 	outputs := map[string]OutputFunc{}
 	workers := map[string]worker.Worker{}
 	for _, resourceName := range inputs {
 		outputs[resourceName] = engine.manifolds[resourceName].Output
 		workers[resourceName] = engine.current[resourceName].worker
 	}
-	return func(resourceName string, out interface{}) error {
-		logger.Debugf("%q manifold requested %q resource", name, resourceName)
-		input := workers[resourceName]
-		if input == nil {
-			// No worker running (or not declared).
-			return ErrMissing
-		}
-		convert := outputs[resourceName]
-		if convert == nil {
-			// No conversion func available...
-			if out != nil {
-				// ...and the caller wants a resource.
-				return ErrMissing
-			}
-			// ...but it's ok, because the caller depends on existence only.
-			return nil
-		}
-		return convert(input, out)
+	return &resourceGetter{
+		clientName: name,
+		expired:    make(chan struct{}),
+		workers:    workers,
+		outputs:    outputs,
 	}
 }
 
 // runWorker starts the supplied manifold's worker and communicates it back to the
 // loop goroutine; waits for worker completion; and communicates any error encountered
 // back to the loop goroutine. It must not be run on the loop goroutine.
-func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, getResource GetResourceFunc) {
-	startWorkerAndWait := func() error {
+func (engine *engine) runWorker(name string, delay time.Duration, start StartFunc, resourceGetter *resourceGetter) {
+
+	errAborted := errors.New("aborted before delay elapsed")
+
+	startAfterDelay := func() (worker.Worker, error) {
+		// NOTE: the resourceGetter will expire *after* the worker is started.
+		// This is tolerable because
+		//  1) we'll still correctly block access attempts most of the time
+		//  2) failing to block them won't cause data races anyway
+		//  3) it's not worth complicating the interface for every client just
+		//     to eliminate the possibility of one harmlessly dumb interaction.
+		defer resourceGetter.expire()
 		logger.Debugf("starting %q manifold worker in %s...", name, delay)
 		select {
 		case <-time.After(delay):
 		case <-engine.tomb.Dying():
-			logger.Debugf("not starting %q manifold worker (shutting down)", name)
-			return nil
+			return nil, errAborted
 		}
-
 		logger.Debugf("starting %q manifold worker", name)
-		worker, err := start(getResource)
-		if err != nil {
+		return start(resourceGetter.getResource)
+	}
+
+	startWorkerAndWait := func() error {
+		worker, err := startAfterDelay()
+		switch err {
+		case errAborted:
+			return nil
+		case nil:
+			logger.Debugf("running %q manifold worker", name)
+		default:
 			logger.Warningf("failed to start %q manifold worker: %v", name, err)
 			return err
 		}
-
-		logger.Debugf("running %q manifold worker", name)
 		select {
 		case <-engine.tomb.Dying():
 			logger.Debugf("stopping %q manifold worker (shutting down)", name)
 			worker.Kill()
-		case engine.started <- startedTicket{name, worker}:
+		case engine.started <- startedTicket{name, worker, resourceGetter.accessLog}:
 			logger.Debugf("registered %q manifold worker", name)
 		}
 		return worker.Wait()
 	}
 
 	// We may or may not send on started, but we *must* send on stopped.
-	engine.stopped <- stoppedTicket{name, startWorkerAndWait()}
+	engine.stopped <- stoppedTicket{name, startWorkerAndWait(), resourceGetter.accessLog}
 }
 
 // gotStarted updates the engine to reflect the creation of a worker. It must
 // only be called from the loop goroutine.
-func (engine *engine) gotStarted(name string, worker worker.Worker) {
+func (engine *engine) gotStarted(name string, worker worker.Worker, resourceLog []resourceAccess) {
 	// Copy current info; check preconditions and abort the workers if we've
 	// already been asked to stop it.
 	info := engine.current[name]
@@ -413,10 +422,10 @@ func (engine *engine) gotStarted(name string, worker worker.Worker) {
 	default:
 		// It's fine to use this worker; update info and copy back.
 		logger.Debugf("%q manifold worker started", name)
-		info.starting = false
-		info.worker = worker
-		info.err = nil
-		engine.current[name] = info
+		engine.current[name] = workerInfo{
+			worker:      worker,
+			resourceLog: resourceLog,
+		}
 
 		// Any manifold that declares this one as an input needs to be restarted.
 		engine.bounceDependents(name)
@@ -425,7 +434,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker) {
 
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
-func (engine *engine) gotStopped(name string, err error) {
+func (engine *engine) gotStopped(name string, err error, resourceLog []resourceAccess) {
 	logger.Debugf("%q manifold worker stopped: %v", name, err)
 
 	// Copy current info and check for reasons to stop the engine.
@@ -433,12 +442,15 @@ func (engine *engine) gotStopped(name string, err error) {
 	if info.stopped() {
 		engine.tomb.Kill(errors.Errorf("fatal: unexpected %q manifold worker stop", name))
 	} else if engine.config.IsFatal(err) {
-		engine.worstError = engine.config.MoreImportant(err, engine.worstError)
+		engine.worstError = engine.config.WorstError(err, engine.worstError)
 		engine.tomb.Kill(nil)
 	}
 
 	// Reset engine info; and bail out if we can be sure there's no need to bounce.
-	engine.current[name] = workerInfo{err: err}
+	engine.current[name] = workerInfo{
+		err:         err,
+		resourceLog: resourceLog,
+	}
 	if engine.isDying() {
 		logger.Debugf("permanently stopped %q manifold worker (shutting down)", name)
 		return
@@ -461,6 +473,7 @@ func (engine *engine) gotStopped(name string, err error) {
 			// anyway).
 		default:
 			// Something went wrong but we don't know what. Try again soon.
+			logger.Debugf("%q manifold worker returned unexpected error: %v", err)
 			engine.requestStart(name, engine.config.ErrorDelay)
 		}
 	}
@@ -529,10 +542,11 @@ func (engine *engine) bounceDependents(name string) {
 // workerInfo stores what an engine's loop goroutine needs to know about the
 // worker for a given Manifold.
 type workerInfo struct {
-	starting bool
-	stopping bool
-	worker   worker.Worker
-	err      error
+	starting    bool
+	stopping    bool
+	worker      worker.Worker
+	err         error
+	resourceLog []resourceAccess
 }
 
 // stopped returns true unless the worker is either assigned or starting.
@@ -546,6 +560,7 @@ func (info workerInfo) stopped() bool {
 	return true
 }
 
+// state returns the latest known state of the worker, for use in reports.
 func (info workerInfo) state() string {
 	switch {
 	case info.starting:
@@ -558,6 +573,8 @@ func (info workerInfo) state() string {
 	return "stopped"
 }
 
+// report returns any available report from the worker. If the worker is not
+// a Reporter, or is not present, this method will return nil.
 func (info workerInfo) report() map[string]interface{} {
 	if reporter, ok := info.worker.(Reporter); ok {
 		return reporter.Report()
@@ -576,15 +593,17 @@ type installTicket struct {
 // startedTicket is used by engine to notify the loop of the creation of the
 // worker for a particular manifold.
 type startedTicket struct {
-	name   string
-	worker worker.Worker
+	name        string
+	worker      worker.Worker
+	resourceLog []resourceAccess
 }
 
 // stoppedTicket is used by engine to notify the loop of the demise of (or
 // failure to create) the worker for a particular manifold.
 type stoppedTicket struct {
-	name  string
-	error error
+	name        string
+	error       error
+	resourceLog []resourceAccess
 }
 
 // reportTicket is used by the engine to notify the loop that a status report

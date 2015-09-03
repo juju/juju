@@ -37,6 +37,7 @@ func stateStepsFor126() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.AddFilesystemStatus(context.State())
-			}},
+			},
+		},
 	}
 }
