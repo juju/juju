@@ -6,6 +6,8 @@
 package environmentmanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -354,13 +356,22 @@ func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.Us
 	}
 
 	for _, env := range environments {
+		var lastConn *time.Time
+		userLastConn, err := env.LastConnection()
+		if err != nil {
+			if !state.IsNeverConnectedError(err) {
+				return result, errors.Trace(err)
+			}
+		} else {
+			lastConn = &userLastConn
+		}
 		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
 			Environment: params.Environment{
 				Name:     env.Name(),
 				UUID:     env.UUID(),
 				OwnerTag: env.Owner().String(),
 			},
-			LastConnection: env.LastConnection,
+			LastConnection: lastConn,
 		})
 		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
 	}

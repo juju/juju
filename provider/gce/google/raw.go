@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +15,8 @@ import (
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
 )
+
+const diskTypesBase = "https://www.googleapis.com/compute/v1/projects/%s/zones/%s/diskTypes/%s"
 
 // These are attempt strategies used in waitOperation.
 var (
@@ -185,6 +188,95 @@ func (rc *rawConn) ListAvailabilityZones(projectID, region string) ([]*compute.Z
 		call = call.PageToken(zoneList.NextPageToken)
 	}
 	return results, nil
+}
+
+func formatDiskType(project, zone string, spec *compute.Disk) {
+	// empty will default in pd-standard
+	if spec.Type == "" {
+		return
+	}
+	// see https://cloud.google.com/compute/docs/reference/latest/disks#resource
+	if strings.HasPrefix(spec.Type, "http") || strings.HasPrefix(spec.Type, "projects") || strings.HasPrefix(spec.Type, "global") {
+		return
+	}
+	spec.Type = fmt.Sprintf(diskTypesBase, project, zone, spec.Type)
+}
+
+func (rc *rawConn) CreateDisk(project, zone string, spec *compute.Disk) error {
+	ds := rc.Service.Disks
+	formatDiskType(project, zone, spec)
+	call := ds.Insert(project, zone, spec)
+	op, err := call.Do()
+	if err != nil {
+		return errors.Annotate(err, "could not create a new disk")
+	}
+	return errors.Trace(rc.waitOperation(project, op, attemptsLong))
+}
+
+func (rc *rawConn) ListDisks(project, zone string) ([]*compute.Disk, error) {
+	ds := rc.Service.Disks
+	call := ds.List(project, zone)
+	var results []*compute.Disk
+	for {
+		diskList, err := call.Do()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, disk := range diskList.Items {
+			results = append(results, disk)
+		}
+		if diskList.NextPageToken == "" {
+			break
+		}
+		call = call.PageToken(diskList.NextPageToken)
+	}
+	return results, nil
+}
+
+func (rc *rawConn) RemoveDisk(project, zone, id string) error {
+	ds := rc.Disks
+	call := ds.Delete(project, zone, id)
+	op, err := call.Do()
+	if err != nil {
+		return errors.Annotatef(err, "could not delete disk %q", id)
+	}
+	return errors.Trace(rc.waitOperation(project, op, attemptsLong))
+}
+
+func (rc *rawConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
+	ds := rc.Disks
+	call := ds.Get(project, zone, id)
+	disk, err := call.Do()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get disk %q at zone %q in project %q", id, zone, project)
+	}
+	return disk, nil
+}
+
+func (rc *rawConn) AttachDisk(project, zone, instanceId string, disk *compute.AttachedDisk) error {
+	call := rc.Instances.AttachDisk(project, zone, instanceId, disk)
+	_, err := call.Do() // Perhaps return something from the Op
+	if err != nil {
+		return errors.Annotatef(err, "cannot attach volume into %q", instanceId)
+	}
+	return nil
+}
+
+func (rc *rawConn) DetachDisk(project, zone, instanceId, diskDeviceName string) error {
+	call := rc.Instances.DetachDisk(project, zone, instanceId, diskDeviceName)
+	_, err := call.Do()
+	if err != nil {
+		return errors.Annotatef(err, "cannot detach volume from %q", instanceId)
+	}
+	return nil
+}
+
+func (rc *rawConn) InstanceDisks(project, zone, instanceId string) ([]*compute.AttachedDisk, error) {
+	instance, err := rc.GetInstance(project, zone, instanceId)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get instance %q to list its disks", instanceId)
+	}
+	return instance.Disks, nil
 }
 
 type waitError struct {

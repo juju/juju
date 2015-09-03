@@ -47,7 +47,7 @@ func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.Fil
 		cmd.respond("headers\n/same/as/rootfs", nil)
 	}
 
-	err := source.DetachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems([]storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{
@@ -57,4 +57,6 @@ func testDetachFilesystems(c *gc.C, commands *mockRunCommand, source storage.Fil
 		Path: testMountPoint,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0], jc.ErrorIsNil)
 }

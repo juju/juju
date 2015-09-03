@@ -1086,20 +1086,21 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Life != Alive {
 		return errNotAlive
 	}
-	ops := []txn.Op{
-		{
-			C:      servicesC,
-			Id:     s.doc.DocID,
-			Assert: isAliveDoc,
-		},
-		setConstraintsOp(s.st, s.globalKey(), cons),
-	}
+	ops := []txn.Op{{
+		C:      servicesC,
+		Id:     s.doc.DocID,
+		Assert: isAliveDoc,
+	}}
+	ops = append(ops, setConstraintsOp(s.st, s.globalKey(), cons))
 	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
 // Networks returns the networks a service is associated with. Unlike
 // networks specified with constraints, these networks are required to
 // be present on machines hosting this service's units.
+//
+// TODO(dimitern): Convert this to use spaces from constraints or drop
+// it entirely.
 func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
 }

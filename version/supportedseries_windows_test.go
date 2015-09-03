@@ -42,6 +42,7 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"trusty",
 		"utopic",
 		"vivid",
+		"win10",
 		"win2012",
 		"win2012hv",
 		"win2012hvr2",
@@ -49,7 +50,6 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"win7",
 		"win8",
 		"win81",
-		"win10",
 	}
 	series := version.SupportedSeries()
 	sort.Strings(series)
