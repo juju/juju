@@ -10,27 +10,22 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/plugin/docker"
 	"github.com/juju/juju/workload/plugin/executable"
 )
 
 var logger = loggo.GetLogger("juju.workload.plugin")
 
-var builtinPlugins = map[string]workload.Plugin{
-	"docker": docker.NewPlugin(),
-}
-
 // Find returns the plugin for the given name.
 func Find(name, dataDir string) (workload.Plugin, error) {
 	plugin, err := executable.FindPlugin(name, dataDir)
 	if errors.IsNotFound(err) {
-		plugin, ok := builtinPlugins[name]
-		if !ok {
-			return nil, errors.NotFoundf("plugin %q", name)
+		plugin, err := findBuiltin(name)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+
 		return plugin, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
