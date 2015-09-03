@@ -63,6 +63,10 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			CompletedActions: map[string]struct{}{},
 		},
 	}
+
+	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
+	UpdateCharmDir(cfg.Executor.State(), cfg.CharmDirLocker)
+
 	for {
 		// TODO(axw) move update status to the watcher.
 		updateStatus := cfg.UpdateStatusChannel()

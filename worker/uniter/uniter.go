@@ -143,10 +143,6 @@ func (u *Uniter) runCleanups() {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
-	defer func() {
-		u.charmDirLocker.SetAvailable(false)
-	}()
-
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -281,6 +277,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				CharmDirLocker:      u.charmDirLocker,
 			})
 			switch cause := errors.Cause(err); cause {
+			case nil:
+				// Loop back around.
 			case tomb.ErrDying:
 				err = tomb.ErrDying
 			case operation.ErrNeedsReboot:
@@ -294,8 +292,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			case resolver.ErrRestart:
 				charmURL = localState.CharmURL
 				// leave err assigned, causing loop to break
-			// TODO(cmars): move nil case here rather than hide in
-			// reportAgentError; that's really weird.
 			default:
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
@@ -306,8 +302,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 					reportAgentError(u, "resolver loop error", err)
 				}
 			}
-
-			resolver.UpdateCharmDir(localState.State, u.charmDirLocker)
 		}
 
 		if errors.Cause(err) != resolver.ErrRestart {
