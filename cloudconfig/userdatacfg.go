@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/version"
 )
 
@@ -61,11 +62,11 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	}
 
 	switch operatingSystem {
-	case version.Ubuntu:
+	case os.Ubuntu:
 		return &unixConfigure{base}, nil
-	case version.CentOS:
+	case os.CentOS:
 		return &unixConfigure{base}, nil
-	case version.Windows:
+	case os.Windows:
 		return &windowsConfigure{base}, nil
 	default:
 		return nil, errors.NotSupportedf("OS %s", icfg.Series)
@@ -76,7 +77,7 @@ type baseConfigure struct {
 	tag  names.Tag
 	icfg *instancecfg.InstanceConfig
 	conf cloudinit.CloudConfig
-	os   version.OSType
+	os   os.OSType
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -125,7 +126,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	if err != nil {
 		return err
 	}
-	if targetOS != version.Windows {
+	if targetOS != os.Windows {
 		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
 	}
 	c.conf.AddScripts(cmds...)
@@ -137,7 +138,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 
 func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 	switch c.os {
-	case version.Windows:
+	case os.Windows:
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
 			c.conf.ShellRenderer().FromSlash(toolsDir),

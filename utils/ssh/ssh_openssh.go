@@ -94,10 +94,6 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	// If any identities are specified, the
 	// default ones must be explicitly specified.
 	if len(identities) > 0 {
-		// Restrict SSH to only the explicitly provided identity files.
-		// Otherwise we may run out of authentication attempts if the
-		// user has many identity files.
-		args = append(args, "-o", "IdentitiesOnly yes")
 		for _, identity := range defaultIdentities {
 			path, err := utils.NormalizePath(identity)
 			if err != nil {

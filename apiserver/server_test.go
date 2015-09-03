@@ -374,38 +374,13 @@ func (r *fakeResource) Stop() error {
 	return nil
 }
 
-func (s *serverSuite) TestRootTeardown(c *gc.C) {
-	s.checkRootTeardown(c, false)
-}
-
-func (s *serverSuite) TestRootTeardownClosingState(c *gc.C) {
-	s.checkRootTeardown(c, true)
-}
-
-func (s *serverSuite) checkRootTeardown(c *gc.C, closeState bool) {
-	root, resources := apiserver.TestingApiRootEx(s.State, closeState)
-	resource := new(fakeResource)
-	resources.Register(resource)
-
-	c.Assert(resource.stopped, jc.IsFalse)
-	root.Kill()
-	c.Assert(resource.stopped, jc.IsTrue)
-
-	assertStateIsOpen(c, s.State)
-	root.Cleanup()
-	if closeState {
-		assertStateIsClosed(c, s.State)
-	} else {
-		assertStateIsOpen(c, s.State)
-	}
-}
-
 func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
 	s.checkApiHandlerTeardown(c, s.State, s.State)
 }
 
 func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
 	otherState := s.Factory.MakeEnvironment(c, nil)
+	defer otherState.Close()
 	s.checkApiHandlerTeardown(c, s.State, otherState)
 }
 
@@ -417,14 +392,6 @@ func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	c.Assert(resource.stopped, jc.IsFalse)
 	handler.Kill()
 	c.Assert(resource.stopped, jc.IsTrue)
-
-	assertStateIsOpen(c, st)
-	handler.Cleanup()
-	if srvSt == st {
-		assertStateIsOpen(c, st)
-	} else {
-		assertStateIsClosed(c, st)
-	}
 }
 
 // newServer returns a new running API server.
@@ -438,12 +405,4 @@ func (s *serverSuite) newServer(c *gc.C) *apiserver.Server {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return srv
-}
-
-func assertStateIsOpen(c *gc.C, st *state.State) {
-	c.Assert(st.Ping(), jc.ErrorIsNil)
-}
-
-func assertStateIsClosed(c *gc.C, st *state.State) {
-	c.Assert(func() { st.Ping() }, gc.PanicMatches, "Session already closed")
 }

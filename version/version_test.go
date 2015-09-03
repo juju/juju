@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -168,7 +169,7 @@ func binaryVersion(major, minor, patch, build int, tag, series, arch string) ver
 		},
 		Series: series,
 		Arch:   arch,
-		OS:     version.Ubuntu,
+		OS:     os.Ubuntu,
 	}
 }
 
@@ -222,7 +223,7 @@ func (*suite) TestParseBinary(c *gc.C) {
 			Number: test.expect,
 			Series: "trusty",
 			Arch:   "amd64",
-			OS:     version.Ubuntu,
+			OS:     os.Ubuntu,
 		}
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))

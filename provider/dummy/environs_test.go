@@ -395,6 +395,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		ProviderId:        "dummy-private",
 		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
 		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
 		CIDR:              "0.20.0.0/24",
 		ProviderId:        "dummy-public",
@@ -410,6 +411,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		noallocInfo[i].ProviderId = network.Id("noalloc-" + pid)
 		noallocInfo[i].AllocatableIPLow = nil
 		noallocInfo[i].AllocatableIPHigh = nil
+		noallocInfo[i].AvailabilityZones = exp.AvailabilityZones
 		noallocInfo[i].CIDR = exp.CIDR
 	}
 

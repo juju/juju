@@ -204,7 +204,7 @@ func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
 	if err == nil {
 		// We have an existing environment with the same name. If it is the
 		// same environment with the same user, then this is fine, and we just
-		// change the current envrionment.
+		// change the current environment.
 		endpoint := existing.APIEndpoint()
 		existingCreds := existing.APICredentials()
 		// Need to make sure we check the username of the credentials,

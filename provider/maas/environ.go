@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -900,6 +901,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	// Networking.
+	//
+	// TODO(dimitern): Once we can get from spaces constraints to MAAS
+	// networks (or even directly to spaces), include them in the
+	// instance selection.
 	requestedNetworks := args.InstanceConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
@@ -1192,9 +1197,9 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 		return nil, errors.Trace(err)
 	}
 	switch operatingSystem {
-	case version.Windows:
+	case os.Windows:
 		cloudcfg.AddScripts(runCmd)
-	case version.Ubuntu:
+	case os.Ubuntu:
 		cloudcfg.SetSystemUpdate(true)
 		cloudcfg.AddScripts("set -xe", runCmd)
 		// Only create the default bridge if we're not using static

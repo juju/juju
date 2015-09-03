@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -90,7 +91,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	switch w.os {
-	case version.Ubuntu:
+	case os.Ubuntu:
 		w.conf.AddSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
 		if w.icfg.Tools != nil {
 			initSystem, err := service.VersionInitSystem(w.icfg.Series)
@@ -104,7 +105,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 	// on having an ubuntu user there.
 	// Hopefully in the future we are going to move all the distirbutions to
 	// having a "juju" user
-	case version.CentOS:
+	case os.CentOS:
 		script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys))
 		w.conf.AddScripts(script)
 		w.conf.AddScripts("systemctl stop firewalld")
@@ -138,10 +139,10 @@ func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
 }
 
 func (w *unixConfigure) setDataDirPermissions() string {
-	os, _ := version.GetOSFromSeries(w.icfg.Series)
+	seriesos, _ := version.GetOSFromSeries(w.icfg.Series)
 	var user string
-	switch os {
-	case version.CentOS:
+	switch seriesos {
+	case os.CentOS:
 		user = "root"
 	default:
 		user = "syslog"
