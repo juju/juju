@@ -78,6 +78,26 @@ func (c *RelationSetCommand) Init(args []string) error {
 	return nil
 }
 
+func ensureYamlIsMap(data []byte) error {
+	// Can this validation be done more simply or efficiently?
+	var scalar string
+	if err := goyaml.Unmarshal(data, &scalar); err != nil {
+		return errors.Trace(err)
+	}
+	if scalar != "" {
+		return errors.Errorf("expected YAML map, got %q", scalar)
+	}
+
+	var sequence []string
+	if err := goyaml.Unmarshal(data, &sequence); err != nil {
+		return errors.Trace(err)
+	}
+	if len(sequence) != 0 {
+		return errors.Errorf("expected YAML map, got %#v", sequence)
+	}
+	return nil
+}
+
 func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, error) {
 	data, err := ioutil.ReadAll(in)
 	if err != nil {
@@ -86,22 +106,8 @@ func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, erro
 
 	skipValidation := false // for debugging
 	if !skipValidation {
-		// Can this validation be done more simply or efficiently?
-
-		var scalar string
-		if err := goyaml.Unmarshal(data, &scalar); err != nil {
+		if err := ensureYamlIsMap(data); err != nil {
 			return nil, errors.Trace(err)
-		}
-		if scalar != "" {
-			return nil, errors.Errorf("expected YAML map, got %q", scalar)
-		}
-
-		var sequence []string
-		if err := goyaml.Unmarshal(data, &sequence); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(sequence) != 0 {
-			return nil, errors.Errorf("expected YAML map, got %#v", sequence)
 		}
 	}
 
