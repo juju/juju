@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -80,6 +81,10 @@ func (s *spaceShim) Subnets() ([]common.BackingSubnet, error) {
 type stateShim struct {
 	Backing
 	st *state.State
+}
+
+func (s *stateShim) EnvironConfig() (*config.Config, error) {
+	return s.st.EnvironConfig()
 }
 
 func (s *stateShim) AddSpace(name string, subnetIds []string, public bool) error {

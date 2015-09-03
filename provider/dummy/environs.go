@@ -275,9 +275,11 @@ type environState struct {
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
-	name         string
-	ecfgMutex    sync.Mutex
-	ecfgUnlocked *environConfig
+	name           string
+	ecfgMutex      sync.Mutex
+	ecfgUnlocked   *environConfig
+	spacesMutex    sync.RWMutex
+	supportsSpaces bool
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -570,8 +572,9 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, ErrNotPrepared
 	}
 	env := &environ{
-		name:         ecfg.Name(),
-		ecfgUnlocked: ecfg,
+		name:           ecfg.Name(),
+		ecfgUnlocked:   ecfg,
+		supportsSpaces: true,
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -1056,6 +1059,26 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 		return nil, environs.ErrNoInstances
 	}
 	return
+}
+
+// SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
+// It can be used by myEnviron.(testing.SpacesEnabler).SetSupportsSpaces.
+func (env *environ) SetSupportsSpaces(supports bool) bool {
+	env.spacesMutex.Lock()
+	defer env.spacesMutex.Unlock()
+	current := env.supportsSpaces
+	env.supportsSpaces = supports
+	return current
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (env *environ) SupportsSpaces() (bool, error) {
+	env.spacesMutex.RLock()
+	defer env.spacesMutex.RUnlock()
+	if !env.supportsSpaces {
+		return false, errors.NotSupportedf("spaces")
+	}
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
