@@ -246,7 +246,7 @@ Acquire::magic::Proxy "";
 		c.Assert(envConfig.FtpProxy(), gc.Equals, test.expectedProxy.Ftp)
 		c.Assert(envConfig.NoProxy(), gc.Equals, test.expectedProxy.NoProxy)
 
-		if jujuos.HostOS() == jujuos.Ubuntu {
+		if os.HostOS() == os.Ubuntu {
 			c.Assert(envConfig.AptHttpProxy(), gc.Equals, test.expectedAptProxy.Http)
 			c.Assert(envConfig.AptHttpsProxy(), gc.Equals, test.expectedAptProxy.Https)
 			c.Assert(envConfig.AptFtpProxy(), gc.Equals, test.expectedAptProxy.Ftp)
