@@ -974,7 +974,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// Simulate creating volumes when requested.
 	volumes := make([]storage.Volume, len(args.Volumes))
 	for iv, v := range args.Volumes {
-		persistent, _ := v.Attributes[storage.Persistent].(bool)
+		persistent, _ := v.Attributes["persistent"].(bool)
 		volumes[iv] = storage.Volume{
 			Tag: names.NewVolumeTag(strconv.Itoa(iv + 1)),
 			VolumeInfo: storage.VolumeInfo{

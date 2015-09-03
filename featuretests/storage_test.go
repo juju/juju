@@ -24,16 +24,13 @@ import (
 )
 
 const (
-	testPool           = "block"
-	testPersistentPool = "block-persistent"
+	testPool = "block"
 )
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
 	poolManager := poolmanager.New(stsetts)
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = poolManager.Create(testPersistentPool, ec2.EBS_ProviderType, map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
@@ -144,13 +141,13 @@ storage-block/0 data/0          pending false
 }
 
 func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	context := runList(c)
 	expected := `
 [Storage]       
 UNIT            ID     LOCATION STATUS  PERSISTENT 
-storage-block/0 data/0          pending true       
+storage-block/0 data/0          pending false      
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -180,7 +177,7 @@ storage-block/0:
 }
 
 func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
 	context := runShow(c, "data/0")
 	expected := `
@@ -189,7 +186,7 @@ storage-block/0:
     storage: data
     kind: block
     status: pending
-    persistent: true
+    persistent: false
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -207,10 +204,6 @@ block:
   provider: loop
   attrs:
     it: works
-block-persistent:
-  provider: ebs
-  attrs:
-    persistent: true
 ebs:
   provider: ebs
 loop:
@@ -226,13 +219,12 @@ tmpfs:
 func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
 	context := runPoolList(c, "--format", "tabular")
 	expected := `
-NAME              PROVIDER  ATTRS
-block             loop      it=works
-block-persistent  ebs       persistent=true
-ebs               ebs       
-loop              loop      
-rootfs            rootfs    
-tmpfs             tmpfs     
+NAME    PROVIDER  ATTRS
+block   loop      it=works
+ebs     ebs       
+loop    loop      
+rootfs  rootfs    
+tmpfs   tmpfs     
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -260,14 +252,14 @@ func (s *cmdStorageSuite) TestListPoolsNameInvalid(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestListPoolsProvider(c *gc.C) {
-	context := runPoolList(c, "--provider", "ebs")
+	context := runPoolList(c, "--provider", "loop")
 	expected := `
-block-persistent:
-  provider: ebs
+block:
+  provider: loop
   attrs:
-    persistent: true
-ebs:
-  provider: ebs
+    it: works
+loop:
+  provider: loop
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
@@ -401,11 +393,11 @@ func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
-	createUnitWithStorage(c, &s.JujuConnSuite, testPersistentPool)
+	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 	context := runVolumeList(c, "0")
 	expected := `
 MACHINE  UNIT             STORAGE  DEVICE  VOLUME  ID  SIZE  STATE    MESSAGE
-0        storage-block/0  data/0           0                 pending  
+0        storage-block/0  data/0           0/0               pending  
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
