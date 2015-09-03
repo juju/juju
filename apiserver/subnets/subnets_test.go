@@ -617,8 +617,8 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 	c *gc.C, envName string,
 	withZones, withSpaces, withSubnets apiservertesting.SetUpFlag,
 	expectedError string,
+	expectedSatisfies func(error) bool,
 ) {
-
 	apiservertesting.BackingInstance.SetUp(c, envName, withZones, withSpaces, withSubnets)
 
 	// These calls always happen.
@@ -733,7 +733,11 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 			continue
 		}
 		c.Check(result.Error, gc.ErrorMatches, expectedError)
-		c.Check(result.Error.Code, gc.Equals, "")
+		if expectedSatisfies != nil {
+			c.Check(result.Error, jc.Satisfies, expectedSatisfies)
+		} else {
+			c.Check(result.Error.Code, gc.Equals, "")
+		}
 	}
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, expectedCalls...)
@@ -744,6 +748,7 @@ func (s *SubnetsSuite) TestAddSubnetsWithNoProviderSubnetsFails(c *gc.C) {
 		c, apiservertesting.StubNetworkingEnvironName,
 		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets,
 		"no subnets defined",
+		nil,
 	)
 }
 
@@ -752,6 +757,7 @@ func (s *SubnetsSuite) TestAddSubnetsWithNoBackingSpacesFails(c *gc.C) {
 		c, apiservertesting.StubNetworkingEnvironName,
 		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithSubnets,
 		"no spaces defined",
+		nil,
 	)
 }
 
@@ -760,6 +766,7 @@ func (s *SubnetsSuite) TestAddSubnetsWithNoProviderZonesFails(c *gc.C) {
 		c, apiservertesting.StubZonedNetworkingEnvironName,
 		apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets,
 		"no zones defined",
+		nil,
 	)
 }
 
@@ -768,6 +775,7 @@ func (s *SubnetsSuite) TestAddSubnetsWhenNetworkingEnvironNotSupported(c *gc.C) 
 		c, apiservertesting.StubEnvironName,
 		apiservertesting.WithoutZones, apiservertesting.WithoutSpaces, apiservertesting.WithoutSubnets,
 		"environment networking features not supported",
+		params.IsCodeNotSupported,
 	)
 }
 
