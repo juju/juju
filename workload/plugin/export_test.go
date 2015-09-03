@@ -5,4 +5,5 @@ package plugin
 
 var (
 	FindBuiltin = findBuiltin
+	FindPlugin  = find
 )
