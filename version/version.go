@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/juju/utils/arch"
-	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -41,7 +40,6 @@ var Current = Binary{
 	Number: MustParse(version),
 	Series: series.HostSeries(),
 	Arch:   arch.HostArch(),
-	OS:     series.MustOSFromSeries(series.HostSeries()),
 }
 
 var Compiler = runtime.Compiler
@@ -84,7 +82,6 @@ type Binary struct {
 	Number
 	Series string
 	Arch   string
-	OS     jujuos.OSType
 }
 
 func (v Binary) String() string {
@@ -190,8 +187,7 @@ func ParseBinary(s string) (Binary, error) {
 	}
 	v.Series = m[7]
 	v.Arch = m[8]
-	var err error
-	v.OS, err = series.GetOSFromSeries(v.Series)
+	_, err := series.GetOSFromSeries(v.Series)
 	return v, err
 }
 

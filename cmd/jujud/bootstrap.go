@@ -311,7 +311,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	dataDir := agentConfig.DataDir()
 	tools, err := agenttools.ReadTools(dataDir, version.Current)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(
@@ -319,22 +319,26 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		"tools.tar.gz",
 	))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	storage, err := st.ToolsStorage()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer storage.Close()
 
 	var toolsVersions []version.Binary
 	if strings.HasPrefix(tools.URL, "file://") {
 		// Tools were uploaded: clone for each series of the same OS.
-		osSeries := series.OSSupportedSeries(tools.Version.OS)
-		for _, ser := range osSeries {
+		os, err := series.GetOSFromSeries(tools.Version.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		osSeries := series.OSSupportedSeries(os)
+		for _, series := range osSeries {
 			toolsVersion := tools.Version
-			toolsVersion.Series = ser
+			toolsVersion.Series = series
 			toolsVersions = append(toolsVersions, toolsVersion)
 		}
 	} else {
@@ -350,7 +354,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		}
 		logger.Debugf("Adding tools: %v", toolsVersion)
 		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
