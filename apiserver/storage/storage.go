@@ -234,17 +234,10 @@ func (api *API) isPersistent(si state.StorageInstance) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// If the volume is not provisioned, we read its config attributes.
-	if params, ok := volume.Params(); ok {
-		_, cfg, err := common.StoragePoolConfig(params.Pool, api.poolManager)
-		if err != nil {
-			return false, err
-		}
-		return cfg.IsPersistent(), nil
-	}
-	// If the volume is provisioned, we look at its provisioning info.
 	info, err := volume.Info()
-	if err != nil {
+	if errors.IsNotProvisioned(err) {
+		return false, nil
+	} else if err != nil {
 		return false, err
 	}
 	return info.Persistent, nil
