@@ -189,3 +189,12 @@ func OSSupportedSeries(os jujuos.OSType) []string {
 	}
 	return osSeries
 }
+
+var updatedseriesVersions bool
+
+func updateSeriesVersions() {
+	if !updatedseriesVersions {
+		updateLocalSeriesVersions()
+		updatedseriesVersions = true
+	}
+}

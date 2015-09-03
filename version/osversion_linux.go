@@ -62,15 +62,10 @@ func ReleaseVersion() string {
 	return release["VERSION_ID"]
 }
 
-var updatedseriesVersions bool
-
-func updateSeriesVersions() {
-	if !updatedseriesVersions {
-		err := updateDistroInfo()
-		if err != nil {
-			logger.Warningf("failed to update distro info: %v", err)
-		}
-		updatedseriesVersions = true
+func updateLocalSeriesVersions() {
+	err := updateDistroInfo()
+	if err != nil {
+		logger.Warningf("failed to update distro info: %v", err)
 	}
 }
 
