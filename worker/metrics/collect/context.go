@@ -31,8 +31,13 @@ func newHookContext(unitName string, recorder spool.MetricRecorder) *hookContext
 
 // HookVars implements runner.Context.
 func (ctx *hookContext) HookVars(paths context.Paths) ([]string, error) {
-	// TODO(cmars): Provide restricted hook context vars.
-	return nil, nil
+	vars := []string{
+		"JUJU_CHARM_DIR=" + paths.GetCharmDir(),
+		"JUJU_CONTEXT_ID=" + ctx.id,
+		"JUJU_AGENT_SOCKET=" + paths.GetJujucSocket(),
+		"JUJU_UNIT_NAME=" + ctx.unitName,
+	}
+	return append(vars, context.OSDependentEnvVars(paths)...), nil
 }
 
 // UnitName implements runner.Context.

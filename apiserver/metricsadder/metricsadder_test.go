@@ -209,13 +209,16 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 	}
 }
 
-func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonMachine(c *gc.C) {
+func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonAgent(c *gc.C) {
 	tests := []struct {
 		tag            names.Tag
 		environManager bool
 		expectedError  string
 	}{
-		{names.NewUnitTag("mysql/0"), true, "permission denied"},
+		// TODO(cmars): unit agent should get permission denied when callers are
+		// moved to machine agent.
+		{names.NewUnitTag("mysql/0"), false, ""},
+
 		{names.NewLocalUserTag("admin"), true, "permission denied"},
 		{names.NewMachineTag("0"), false, ""},
 		{names.NewMachineTag("0"), true, ""},

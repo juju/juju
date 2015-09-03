@@ -7,6 +7,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -88,4 +89,14 @@ func (op mockOp) Commit(st operation.State) (*operation.State, error) {
 		return op.commit(st)
 	}
 	return &st, nil
+}
+
+type mockCharmDirLocker struct {
+	charmdir.Locker
+	testing.Stub
+	commit func(operation.State) (*operation.State, error)
+}
+
+func (l *mockCharmDirLocker) SetAvailable(available bool) {
+	l.MethodCall(l, "SetAvailable", available)
 }

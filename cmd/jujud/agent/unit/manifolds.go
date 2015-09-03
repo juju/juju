@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machinelock"
 	"github.com/juju/juju/worker/metrics/collect"
+	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
@@ -173,6 +174,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			MetricSpoolName: MetricSpoolName,
 			CharmDirName:    CharmDirName,
 		}),
+
+		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
+			APICallerName:   APICallerName,
+			MetricSpoolName: MetricSpoolName,
+		}),
 	}
 }
 
@@ -192,4 +198,5 @@ const (
 	MetricSpoolName          = "metric-spool"
 	CharmDirName             = "charm-dir"
 	MetricCollectName        = "metric-collect"
+	MetricSenderName         = "metric-sender"
 )

@@ -172,29 +172,6 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 	c.Assert(recorder.batches, gc.HasLen, 0)
 }
 
-func (s *ManifoldSuite) TestCtxDeclaredMetric(c *gc.C) {
-	recorder := &dummyRecorder{
-		charmURL: "local:quantal/metered-1",
-		unitTag:  "u/0",
-		metrics: map[string]corecharm.Metric{
-			"pings": corecharm.Metric{
-				Type:        corecharm.MetricTypeGauge,
-				Description: "pings-desc",
-			},
-		},
-	}
-	ctx := collect.NewHookContext("u/0", recorder)
-	err := ctx.AddMetric("pings", "1", time.Now())
-	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Flush("", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(recorder.closed, jc.IsTrue)
-	c.Assert(recorder.batches, gc.HasLen, 1)
-	c.Assert(recorder.batches[0].Metrics, gc.HasLen, 1)
-	c.Assert(recorder.batches[0].Metrics[0].Key, gc.Equals, "pings")
-	c.Assert(recorder.batches[0].Metrics[0].Value, gc.Equals, "1")
-}
-
 type dummyAgent struct {
 	agent.Agent
 	dataDir string

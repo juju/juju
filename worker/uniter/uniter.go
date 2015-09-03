@@ -16,7 +16,6 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -275,8 +274,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				Conflicted:          conflicted,
 				Dying:               u.tomb.Dying(),
 				OnIdle:              onIdle,
+				CharmDirLocker:      u.charmDirLocker,
 			})
 			switch cause := errors.Cause(err); cause {
+			case nil:
+				// Loop back around.
 			case tomb.ErrDying:
 				err = tomb.ErrDying
 			case operation.ErrNeedsReboot:
@@ -562,12 +564,6 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 	errorMessage = op.String()
 	before := u.operationState()
 
-	// If we're about to execute an upgrade operation, ensure that
-	// the charmdir is not available for concurrent workers.
-	if before.Kind == operation.Upgrade {
-		u.charmDirLocker.SetAvailable(false)
-	}
-
 	defer func() {
 		after := u.operationState()
 
@@ -579,10 +575,6 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 			// TODO(axw)
 			//u.f.WantLeaderSettingsEvents(before.Leader)
 		}
-
-		// Update availability based on started state & not upgrading.
-		upgrading := after.Kind == operation.RunHook && after.Hook != nil && after.Hook.Kind == hooks.UpgradeCharm
-		u.charmDirLocker.SetAvailable(after.Started && !after.Stopped && !upgrading)
 	}()
 	return u.operationExecutor.Run(op)
 }

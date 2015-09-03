@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -27,6 +28,7 @@ type LoopConfig struct {
 	Conflicted          bool
 	Dying               <-chan struct{}
 	OnIdle              func() error
+	CharmDirLocker      charmdir.Locker
 }
 
 // Loop repeatedly waits for remote state changes, feeding the local and
@@ -61,6 +63,10 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			CompletedActions: map[string]struct{}{},
 		},
 	}
+
+	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
+	updateCharmDir(cfg.Executor.State(), cfg.CharmDirLocker)
+
 	for {
 		// TODO(axw) move update status to the watcher.
 		updateStatus := cfg.UpdateStatusChannel()
@@ -79,6 +85,8 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			rf.LocalState.State = cfg.Executor.State()
 			op, err = cfg.Resolver.NextOp(rf.LocalState, rf.RemoteState, rf)
 		}
+
+		updateCharmDir(rf.LocalState.State, cfg.CharmDirLocker)
 
 		switch errors.Cause(err) {
 		case nil:
@@ -110,4 +118,22 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 			}
 		}
 	}
+}
+
+// updateCharmDir sets charm directory availability for sharing among
+// concurrent workers according to local operation state.
+func updateCharmDir(opState operation.State, locker charmdir.Locker) {
+	var changing bool
+
+	// Determine if the charm content is changing.
+	if opState.Kind == operation.Install || opState.Kind == operation.Upgrade {
+		changing = true
+	} else if opState.Kind == operation.RunHook && opState.Hook != nil && opState.Hook.Kind == hooks.UpgradeCharm {
+		changing = true
+	}
+
+	available := opState.Started && !opState.Stopped && !changing
+	logger.Tracef("charmdir: available=%v opState: started=%v stopped=%v changing=%v",
+		available, opState.Started, opState.Stopped, changing)
+	locker.SetAvailable(available)
 }
