@@ -11,10 +11,11 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
+	"time"
+
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
-	"time"
 )
 
 // allWatcherStateBacking implements allWatcherBacking by
@@ -230,7 +231,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 // getUnitAddresses returns the public and private addresses on a given unit.
 // As of 1.18, the addresses are stored on the assigned machine but we retain
 // this approach for backwards compatibility.
-func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress string, err error) {
+func getUnitAddresses(st *State, unitName string) (string, string, error) {
 	u, err := st.Unit(unitName)
 	if errors.IsNotFound(err) {
 		// Not found, so there won't be any addresses.
@@ -238,9 +239,10 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 	} else if err != nil {
 		return "", "", err
 	}
-	publicAddress, _ = u.PublicAddress()
-	privateAddress, _ = u.PrivateAddress()
-	return publicAddress, privateAddress, nil
+	// TODO(mfoord): we shouldn't be ignoring the errors here.
+	publicAddress, _ := u.PublicAddress()
+	privateAddress, _ := u.PrivateAddress()
+	return publicAddress.Value, privateAddress.Value, nil
 }
 
 func (u *backingUnit) removed(st *State, store *multiwatcherStore, id interface{}) {

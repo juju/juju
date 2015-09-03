@@ -136,9 +136,9 @@ func (u *uniterBaseAPI) PublicAddress(args params.Entities) (params.StringResult
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				address, ok := unit.PublicAddress()
-				if ok {
-					result.Results[i].Result = address
+				address, addrErr := unit.PublicAddress()
+				if addrErr == nil && address.Value != "" {
+					result.Results[i].Result = address.Value
 				} else {
 					err = common.NoAddressSetError(tag, "public")
 				}
@@ -169,9 +169,9 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				address, ok := unit.PrivateAddress()
-				if ok {
-					result.Results[i].Result = address
+				address, addrErr := unit.PrivateAddress()
+				if addrErr == nil && address.Value != "" {
+					result.Results[i].Result = address.Value
 				} else {
 					err = common.NoAddressSetError(tag, "private")
 				}

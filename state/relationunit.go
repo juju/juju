@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v5"
@@ -38,8 +39,8 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
 }
 
-// PrivateAddress returns the private address of the unit and whether it is valid.
-func (ru *RelationUnit) PrivateAddress() (string, bool) {
+// PrivateAddress returns the private address of the unit.
+func (ru *RelationUnit) PrivateAddress() (network.Address, error) {
 	return ru.unit.PrivateAddress()
 }
 

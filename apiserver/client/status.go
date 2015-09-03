@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -428,7 +427,9 @@ func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 		if err != nil {
 			status.InstanceState = "error"
 		}
-		status.DNSName = network.SelectPublicAddress(machine.Addresses())
+		// In case of error addr.Value will be "".
+		addr, _ := machine.PublicAddress()
+		status.DNSName = addr.Value
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
@@ -609,7 +610,8 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) api.UnitStatus {
 	var result api.UnitStatus
-	result.PublicAddress, _ = unit.PublicAddress()
+	addr, _ := unit.PublicAddress()
+	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
 	for _, port := range unitPorts {
 		result.OpenedPorts = append(result.OpenedPorts, port.String())

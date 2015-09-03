@@ -177,24 +177,27 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		if err != nil {
 			return results, err
 		}
-		addr := network.SelectPublicAddress(machine.Addresses())
-		if addr == "" {
-			return results, fmt.Errorf("machine %q has no public address", machine)
+		addr, err := machine.PublicAddress()
+		if addr.Value == "" {
+			return results, errors.Annotatef(err, "machine %q has no public address", machine)
 		}
-		return params.PublicAddressResults{PublicAddress: addr}, nil
+		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 
 	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
 		}
-		addr, ok := unit.PublicAddress()
-		if !ok {
-			return results, fmt.Errorf("unit %q has no public address", unit)
+		addr, err := unit.PublicAddress()
+		if err != nil {
+			return results, errors.Trace(err)
 		}
-		return params.PublicAddressResults{PublicAddress: addr}, nil
+		if addr.Value == "" {
+			return results, errors.Annotatef(err, "unit %q has no public address", unit)
+		}
+		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 	}
-	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
+	return results, errors.Errorf("unknown unit or machine %q", p.Target)
 }
 
 // PrivateAddress implements the server side of Client.PrivateAddress.
@@ -205,22 +208,28 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		if err != nil {
 			return results, err
 		}
-		addr := network.SelectInternalAddress(machine.Addresses(), false)
-		if addr == "" {
+		addr, err := machine.PrivateAddress()
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		if addr.Value == "" {
 			return results, fmt.Errorf("machine %q has no internal address", machine)
 		}
-		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
 
 	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
 		}
-		addr, ok := unit.PrivateAddress()
-		if !ok {
+		addr, err := unit.PrivateAddress()
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		if addr.Value == "" {
 			return results, fmt.Errorf("unit %q has no internal address", unit)
 		}
-		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
 	}
 	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
 }
