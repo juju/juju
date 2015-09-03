@@ -2126,7 +2126,7 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// A dead machine should report the last known addresses.
+	// A dead machine should still report the last known addresses.
 	addr, err = machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
@@ -2134,6 +2134,52 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 	addr, err = machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+}
+
+func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to fetch the address to set the default.
+	addr, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+
+	// Now add an address that would previously have sorted before the
+	// default.
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"), network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert the address is unchanged.
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+}
+
+func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We need to fetch the address to set the default.
+	addr, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+
+	// Now add an address that would previously have sorted before the
+	// default.
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"), network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert the address is unchanged.
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
