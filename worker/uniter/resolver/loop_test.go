@@ -49,10 +49,10 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 
 func (s *LoopSuite) loop() (resolver.LocalState, error) {
 	return resolver.Loop(resolver.LoopConfig{
-		Resolver: s.resolver,
-		Factory:  s.opFactory,
-		Watcher:  s.watcher,
-		Executor: s.executor,
+		Resolver:       s.resolver,
+		Factory:        s.opFactory,
+		Watcher:        s.watcher,
+		Executor:       s.executor,
 		CharmURL:       s.charmURL,
 		Dying:          s.dying,
 		OnIdle:         s.onIdle,

@@ -265,15 +265,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var localState resolver.LocalState
 		for err == nil {
 			localState, err = resolver.Loop(resolver.LoopConfig{
-				Resolver:            uniterResolver,
-				Watcher:             watcher,
-				Executor:            u.operationExecutor,
-				Factory:             u.operationFactory,
-				CharmURL:            charmURL,
-				Conflicted:          conflicted,
-				Dying:               u.tomb.Dying(),
-				OnIdle:              onIdle,
-				CharmDirLocker:      u.charmDirLocker,
+				Resolver:       uniterResolver,
+				Watcher:        watcher,
+				Executor:       u.operationExecutor,
+				Factory:        u.operationFactory,
+				CharmURL:       charmURL,
+				Conflicted:     conflicted,
+				Dying:          u.tomb.Dying(),
+				OnIdle:         onIdle,
+				CharmDirLocker: u.charmDirLocker,
 			})
 			switch cause := errors.Cause(err); cause {
 			case nil:

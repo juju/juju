@@ -16,15 +16,15 @@ import (
 
 // LoopConfig contains configuration parameters for the resolver loop.
 type LoopConfig struct {
-	Resolver            Resolver
-	Watcher             remotestate.Watcher
-	Executor            operation.Executor
-	Factory             operation.Factory
-	CharmURL            *charm.URL
-	Conflicted          bool
-	Dying               <-chan struct{}
-	OnIdle              func() error
-	CharmDirLocker      charmdir.Locker
+	Resolver       Resolver
+	Watcher        remotestate.Watcher
+	Executor       operation.Executor
+	Factory        operation.Factory
+	CharmURL       *charm.URL
+	Conflicted     bool
+	Dying          <-chan struct{}
+	OnIdle         func() error
+	CharmDirLocker charmdir.Locker
 }
 
 // Loop repeatedly waits for remote state changes, feeding the local and
