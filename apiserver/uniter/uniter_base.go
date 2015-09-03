@@ -1024,7 +1024,7 @@ func (u *uniterBaseAPI) EnterScope(args params.RelationUnits) (params.ErrorResul
 			// private address (we already know it).
 			privateAddress, _ := relUnit.PrivateAddress()
 			settings := map[string]interface{}{
-				"private-address": privateAddress,
+				"private-address": privateAddress.Value,
 			}
 			err = relUnit.EnterScope(settings)
 		}
