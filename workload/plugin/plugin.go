@@ -60,18 +60,29 @@ const testingPluginName = "testing-plugin"
 //
 // If the plugin is not found then errors.NotFound is returned.
 func Find(name, dataDir string) (workload.Plugin, error) {
-	if name == testingPluginName {
-		findExecutable := func(name string) (workload.Plugin, error) {
-			return executable.FindPlugin(name, dataDir)
-		}
-		plugin, err := find(name, findExecutable, findBuiltin)
+	// Currently we only support executable plugins for a specific
+	// plugin name.
+	if name != testingPluginName {
+		// Effectively, this is the only thing we do in production.
+		plugin, err := findBuiltin(name)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return plugin, nil
 	}
 
-	plugin, err := findBuiltin(name)
+	// For now the rest of this function is used only during testing.
+	// Once executable plugins are generally supported, the preceding
+	// portion of this function may be removed.
+	//
+	// That may happen once we resolve concerns about the plugin
+	// approach. Until then we default to supporting only built-in
+	// plugins.
+
+	findExecutable := func(name string) (workload.Plugin, error) {
+		return executable.FindPlugin(name, dataDir)
+	}
+	plugin, err := find(name, findExecutable, findBuiltin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
