@@ -63,6 +63,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 
 func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
 	s.srv.Stop()
+
 	s.discharger.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
@@ -99,7 +100,6 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 
 // newServer returns a new running API server.
 func (s *macaroonLoginSuite) newServer(c *gc.C) (api.Connection, *apiserver.Server) {
-	c.Logf("transport: %#v", http.DefaultTransport.(*http.Transport).TLSClientConfig)
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{

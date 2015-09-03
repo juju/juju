@@ -113,6 +113,11 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag names.Tag, pw
 		return nil, errors.Trace(err)
 	}
 
+	bakeryClient := opts.BakeryClient
+	if bakeryClient == nil {
+		bakeryClient = httpbakery.NewClient()
+	}
+
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &State{
@@ -123,10 +128,9 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag names.Tag, pw
 		serverRootAddress: conn.Config().Location.Host,
 		// why are the contents of the tag (username and password) written into the
 		// state structure BEFORE login ?!?
-		tag:      tagToString(info.Tag),
-		password: info.Password,
-		certPool: conn.Config().TlsConfig.RootCAs,
-		// TODO (alesstimec) We really should persist cookies.
+		tag:          tagToString(info.Tag),
+		password:     info.Password,
+		certPool:     conn.Config().TlsConfig.RootCAs,
 		bakeryClient: httpbakery.NewClient(),
 	}
 	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
