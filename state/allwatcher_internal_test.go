@@ -703,7 +703,48 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}})
 
-	// Make some changes to the state.
+	// Destroy a machine and make sure that's seen.
+	err = m1.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	deltas = tw.All(1)
+	zeroOutTimestampsForDeltas(c, deltas)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:    s.state.EnvironUUID(),
+			Id:         "1",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("dying"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
+		},
+	}})
+
+	err = m1.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	deltas = tw.All(1)
+	zeroOutTimestampsForDeltas(c, deltas)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:    s.state.EnvironUUID(),
+			Id:         "1",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("dead"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
+		},
+	}})
+
+	// Make some more changes to the state.
 	arch := "amd64"
 	mem := uint64(4096)
 	hc := &instance.HardwareCharacteristics{
@@ -713,10 +754,6 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	err = m0.SetProvisioned("i-0", "bootstrap_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m1.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m1.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
 	err = m1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -753,14 +790,8 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}, {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    s.state.EnvironUUID(),
-			Id:         "1",
-			Status:     multiwatcher.Status("pending"),
-			StatusData: map[string]interface{}{},
-			Life:       multiwatcher.Life("alive"),
-			Series:     "saucy",
-			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses:  []network.Address{},
+			EnvUUID: s.state.EnvironUUID(),
+			Id:      "1",
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1122,6 +1153,29 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 						ServerUUID: env.ServerUUID(),
 					}}}
 		},
+		func(c *gc.C, st *State) changeTestCase {
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "status is changed if the service exists in the store",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
+					EnvUUID:     st.EnvironUUID(),
+					Name:        "wordpress",
+					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
+				}},
+				change: watcher.Change{
+					C:  "constraints",
+					Id: st.docID("s#wordpress"),
+				},
+				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.ServiceInfo{
+						EnvUUID:     st.EnvironUUID(),
+						Name:        "wordpress",
+						Constraints: constraints.MustParse("mem=4G arch=amd64"),
+					}}}
+		},
 	}
 	s.performChangeTestCases(c, changeTestFuncs)
 }
@@ -1263,15 +1317,52 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}})
 
-	// Make some changes to the state, including the addition of a new
-	// environment.
+	// Destroy a machine and make sure that's seen.
+	err = m10.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	deltas = tw.All(1)
+	zeroOutTimestampsForDeltas(c, deltas)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:    st1.EnvironUUID(),
+			Id:         "0",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("dying"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
+		},
+	}})
+
+	err = m10.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	deltas = tw.All(1)
+	zeroOutTimestampsForDeltas(c, deltas)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
+			EnvUUID:    st1.EnvironUUID(),
+			Id:         "0",
+			Status:     multiwatcher.Status("pending"),
+			StatusData: map[string]interface{}{},
+			Life:       multiwatcher.Life("dead"),
+			Series:     "saucy",
+			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			HasVote:    false,
+			WantsVote:  false,
+		},
+	}})
+
+	// Make further changes to the state, including the addition of a
+	// new environment.
 	err = m00.SetProvisioned("i-0", "bootstrap_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m10.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m10.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
 	err = m10.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1295,7 +1386,6 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Look for the state changes from the allwatcher.
 	deltas = tw.All(7)
-
 	zeroOutTimestampsForDeltas(c, deltas)
 
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
@@ -1316,14 +1406,8 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	}, {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
-			EnvUUID:    st1.EnvironUUID(),
-			Id:         "0",
-			Status:     multiwatcher.Status("pending"),
-			StatusData: map[string]interface{}{},
-			Life:       multiwatcher.Life("alive"),
-			Series:     "saucy",
-			Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses:  []network.Address{},
+			EnvUUID: st1.EnvironUUID(),
+			Id:      "0",
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1394,41 +1478,6 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			WantsVote:  false,
 		},
 	}})
-}
-
-func (s *allEnvWatcherStateSuite) TestStatePool(c *gc.C) {
-	envUUID0 := s.state.EnvironUUID()
-	envUUID1 := s.state1.EnvironUUID()
-
-	p := newStatePool(s.state)
-	defer p.closeAll()
-
-	st0, err := p.get(envUUID0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st0.EnvironUUID(), gc.Equals, envUUID0)
-
-	st1, err := p.get(envUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1.EnvironUUID(), gc.Equals, envUUID1)
-
-	// Check that pooling works and the same instances are returned
-	// when re-requested.
-	st0_, err := p.get(envUUID0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st0_, gc.Equals, st0)
-
-	st1_, err := p.get(envUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1_, gc.Equals, st1)
-
-	// Now close pooled States and ensure a new one is returned when a
-	// State is re-requested.
-	err = p.closeAll()
-	c.Assert(err, jc.ErrorIsNil)
-
-	st1__, err := p.get(envUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1__, gc.Not(gc.Equals), st1)
 }
 
 func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
@@ -2020,7 +2069,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
-			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
+			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2038,7 +2087,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 					&multiwatcher.ServiceInfo{
 						EnvUUID:     st.EnvironUUID(),
 						Name:        "wordpress",
-						Constraints: constraints.MustParse("mem=4G cpu-cores= arch=amd64"),
+						Constraints: constraints.MustParse("mem=4G arch=amd64"),
 					}}}
 		},
 	}
@@ -2822,6 +2871,7 @@ type testWatcher struct {
 	st     *State
 	c      *gc.C
 	b      Backing
+	sm     *storeManager
 	w      *Multiwatcher
 	deltas chan []multiwatcher.Delta
 }
@@ -2833,6 +2883,7 @@ func newTestWatcher(b Backing, st *State, c *gc.C) *testWatcher {
 		st:     st,
 		c:      c,
 		b:      b,
+		sm:     sm,
 		w:      w,
 		deltas: make(chan []multiwatcher.Delta),
 	}
@@ -2907,7 +2958,8 @@ func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
 
 func (tw *testWatcher) Stop() {
 	tw.c.Assert(tw.w.Stop(), jc.ErrorIsNil)
-	tw.b.Release()
+	tw.c.Assert(tw.sm.Stop(), jc.ErrorIsNil)
+	tw.c.Assert(tw.b.Release(), jc.ErrorIsNil)
 }
 
 func (tw *testWatcher) AssertNoChange() {
@@ -2968,21 +3020,26 @@ func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
 	}
 }
 
+func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
+	ok, err := jc.DeepEqual(got, want)
+	if ok {
+		c.Check(err, jc.ErrorIsNil)
+	}
+	return ok
+}
+
 // assertEntitiesEqual is a specialised version of the typical
 // jc.DeepEquals check that provides more informative output when
 // comparing EntityInfo slices.
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
-	if len(got) == 0 {
-		got = nil
-	}
-	if len(want) == 0 {
-		want = nil
-	}
-
-	if deepEqual(c, got, want) {
+	if jcDeepEqualsCheck(c, got, want) {
 		return
 	}
-	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	if len(got) != len(want) {
+		c.Errorf("entity length mismatch; got %d; want %d", len(got), len(want))
+	} else {
+		c.Errorf("entity contents mismatch; same length %d", len(got))
+	}
 	// Lets construct a decent output.
 	var errorOutput string
 	errorOutput = "\ngot: \n"
@@ -3001,7 +3058,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		for i := 0; i < len(got); i++ {
 			g := got[i]
 			w := want[i]
-			if !deepEqual(c, g, w) {
+			if !jcDeepEqualsCheck(c, g, w) {
 				firstDiffError += "\n"
 				firstDiffError += fmt.Sprintf("first difference at position %d\n", i)
 				firstDiffError += "got:\n"

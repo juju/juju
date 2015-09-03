@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/arch"
 )
 
 var (
@@ -136,7 +136,7 @@ func (manager *containerManager) CreateContainer(
 	}
 	// Create the container.
 	startParams = ParseConstraintsToStartParams(instanceConfig.Constraints)
-	startParams.Arch = version.Current.Arch
+	startParams.Arch = arch.HostArch()
 	startParams.Series = series
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename

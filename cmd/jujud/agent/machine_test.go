@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
@@ -46,6 +47,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -63,6 +65,7 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
@@ -664,7 +667,11 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
+		c, s.DefaultToolsStorage,
+		s.Environ.Config().AgentStream(),
+		s.Environ.Config().AgentStream(),
+		usefulVersion,
+	)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
@@ -721,6 +728,54 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for peergrouper worker to be started")
 	}
+}
+
+func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
+	// TODO(dimitern): Fix this in a follow-up.
+	c.Skip("Test temporarily disabled as flaky - see bug lp:1488576")
+
+	started := make(chan struct{})
+	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
+		close(started)
+		w, err := addresser.NewWorker(api)
+		c.Check(err, jc.ErrorIsNil)
+		if expectFinished {
+			// When the address-allocation feature flag is disabled.
+			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
+		} else {
+			// When the address-allocation feature flag is enabled.
+			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
+		}
+		return w, err
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the addresser to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "cleaner")
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for addresser to start")
+	}
+}
+
+func (s *MachineSuite) TestAddresserWorkerDoesNotStopWhenAddressDeallocationSupported(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.testAddresserNewWorkerResult(c, false)
+}
+
+func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupported(c *gc.C) {
+	s.SetFeatureFlags()
+	s.testAddresserNewWorkerResult(c, true)
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {

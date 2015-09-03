@@ -428,7 +428,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mcons, err := machine.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	expect := constraints.MustParse("mem=2G cpu-cores=2 cpu-power=400 networks=net3,^net4,^net5")
+	expect := constraints.MustParse("mem=2G cpu-cores=2 cpu-power=400")
 	c.Assert(mcons, gc.DeepEquals, expect)
 }
 
