@@ -22,6 +22,10 @@ func readSeries() (string, error) {
 		return "unknown", err
 	}
 	updateSeriesVersions()
+	return seriesFromOSRelease(values)
+}
+
+func seriesFromOSRelease(values map[string]string) (string, error) {
 	switch values["ID"] {
 	case strings.ToLower(os.Ubuntu.String()):
 		return getValue(ubuntuSeries, values["VERSION_ID"])
