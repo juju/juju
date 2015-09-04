@@ -2617,6 +2617,7 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	s.setUpScenario(c)
+	network.ResetGlobalPreferIPv6()
 
 	// Internally, network.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.

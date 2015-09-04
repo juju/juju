@@ -178,8 +178,11 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 			return results, err
 		}
 		addr, err := machine.PublicAddress()
-		if addr.Value == "" {
+		if err != nil {
 			return results, errors.Annotatef(err, "machine %q has no public address", machine)
+		}
+		if addr.Value == "" {
+			return results, errors.Errorf("machine %q has no public address", machine)
 		}
 		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 
@@ -190,10 +193,10 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		}
 		addr, err := unit.PublicAddress()
 		if err != nil {
-			return results, errors.Trace(err)
+			return results, errors.Annotatef(err, "unit %q has no public address", unit)
 		}
 		if addr.Value == "" {
-			return results, errors.Annotatef(err, "unit %q has no public address", unit)
+			return results, errors.Errorf("unit %q has no public address", unit)
 		}
 		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 	}
@@ -210,10 +213,10 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		}
 		addr, err := machine.PrivateAddress()
 		if err != nil {
-			return results, errors.Trace(err)
+			return results, errors.Annotatef(err, "machine %q has no internal address", machine)
 		}
 		if addr.Value == "" {
-			return results, fmt.Errorf("machine %q has no internal address", machine)
+			return results, errors.Errorf("machine %q has no internal address", machine)
 		}
 		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
 
@@ -224,10 +227,10 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		}
 		addr, err := unit.PrivateAddress()
 		if err != nil {
-			return results, errors.Trace(err)
+			return results, errors.Annotatef(err, "unit %q has no internal address", unit)
 		}
 		if addr.Value == "" {
-			return results, fmt.Errorf("unit %q has no internal address", unit)
+			return results, errors.Errorf("unit %q has no internal address", unit)
 		}
 		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
 	}
