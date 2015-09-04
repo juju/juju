@@ -33,7 +33,9 @@ type RemoteStateWatcher struct {
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
 	storageAttachmentChanges  chan storageAttachmentChange
 	leadershipTracker         leadership.Tracker
-	tomb                      tomb.Tomb
+	updateStatusChannel       func() <-chan time.Time
+
+	tomb tomb.Tomb
 
 	out     chan struct{}
 	mu      sync.Mutex
@@ -43,9 +45,10 @@ type RemoteStateWatcher struct {
 // WatcherConfig holds configuration parameters for the
 // remote state watcher.
 type WatcherConfig struct {
-	State             State
-	LeadershipTracker leadership.Tracker
-	UnitTag           names.UnitTag
+	State               State
+	LeadershipTracker   leadership.Tracker
+	UpdateStatusChannel func() <-chan time.Time
+	UnitTag             names.UnitTag
 }
 
 // TimedSignal is the signature of a function used to generate a
@@ -62,6 +65,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
 		storageAttachmentChanges:  make(chan storageAttachmentChange),
 		leadershipTracker:         config.LeadershipTracker,
+		updateStatusChannel:       config.UpdateStatusChannel,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -376,11 +380,25 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.relationUnitsChanged(change); err != nil {
 				return err
 			}
+
+		case <-w.updateStatusChannel():
+			logger.Debugf("update status timer triggered")
+			if err := w.updateStatusChanged(); err != nil {
+				return err
+			}
 		}
 
 		// Something changed.
 		fire()
 	}
+}
+
+// updateStatusChanged is called when the update status timer expires.
+func (w *RemoteStateWatcher) updateStatusChanged() error {
+	w.mu.Lock()
+	w.current.UpdateStatusVersion++
+	w.mu.Unlock()
+	return nil
 }
 
 // unitChanged responds to changes in the unit.

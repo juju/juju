@@ -36,6 +36,30 @@ func (s *ResolverOpFactorySuite) TestInitialState(c *gc.C) {
 	c.Assert(f.RemoteState, jc.DeepEquals, remotestate.Snapshot{})
 }
 
+func (s *ResolverOpFactorySuite) TestUpdateStatusChanged(c *gc.C) {
+	s.testUpdateStatusChanged(c, resolver.ResolverOpFactory.NewRunHook)
+	s.testUpdateStatusChanged(c, resolver.ResolverOpFactory.NewSkipHook)
+}
+
+func (s *ResolverOpFactorySuite) testUpdateStatusChanged(
+	c *gc.C, meth func(resolver.ResolverOpFactory, hook.Info) (operation.Operation, error),
+) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.RemoteState.UpdateStatusVersion = 1
+
+	op, err := f.NewRunHook(hook.Info{Kind: hooks.UpdateStatus})
+	c.Assert(err, jc.ErrorIsNil)
+	f.RemoteState.UpdateStatusVersion = 2
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Local state's UpdateStatusVersion should be set to what
+	// RemoteState's UpdateStatusVersion was when the operation
+	// was constructed.
+	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 1)
+}
+
 func (s *ResolverOpFactorySuite) TestConfigChanged(c *gc.C) {
 	s.testConfigChanged(c, resolver.ResolverOpFactory.NewRunHook)
 	s.testConfigChanged(c, resolver.ResolverOpFactory.NewSkipHook)
@@ -58,10 +82,12 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ConfigVersion = 1
+	f.RemoteState.UpdateStatusVersion = 3
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	f.RemoteState.ConfigVersion = 2
+	f.RemoteState.UpdateStatusVersion = 4
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,6 +96,7 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	// RemoteState's ConfigVersion was when the operation
 	// was constructed.
 	c.Assert(f.LocalState.ConfigVersion, gc.Equals, 1)
+	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
 }
 
 func (s *ResolverOpFactorySuite) TestLeaderSettingsChanged(c *gc.C) {
@@ -82,10 +109,12 @@ func (s *ResolverOpFactorySuite) testLeaderSettingsChanged(
 ) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.LeaderSettingsVersion = 1
+	f.RemoteState.UpdateStatusVersion = 3
 
 	op, err := meth(f, hook.Info{Kind: hooks.LeaderSettingsChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	f.RemoteState.LeaderSettingsVersion = 2
+	f.RemoteState.UpdateStatusVersion = 4
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,6 +123,7 @@ func (s *ResolverOpFactorySuite) testLeaderSettingsChanged(
 	// RemoteState's LeaderSettingsVersion was when the operation
 	// was constructed.
 	c.Assert(f.LocalState.LeaderSettingsVersion, gc.Equals, 1)
+	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
 }
 
 func (s *ResolverOpFactorySuite) TestUpgrade(c *gc.C) {

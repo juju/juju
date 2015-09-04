@@ -107,12 +107,21 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 	switch info.Kind {
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
-		op = onCommitWrapper{op, func() { s.LocalState.ConfigVersion = v }}
+		op = onCommitWrapper{op, func() {
+			s.LocalState.ConfigVersion = v
+		}}
 	case hooks.LeaderSettingsChanged:
 		v := s.RemoteState.LeaderSettingsVersion
-		op = onCommitWrapper{op, func() { s.LocalState.LeaderSettingsVersion = v }}
+		op = onCommitWrapper{op, func() {
+			s.LocalState.LeaderSettingsVersion = v
+		}}
 	}
-	return op
+	// No matter what has finished running, we reset the UpdateStatusVersion so that
+	// the update-status hook only fires after the next timer.
+	v := s.RemoteState.UpdateStatusVersion
+	return onCommitWrapper{op, func() {
+		s.LocalState.UpdateStatusVersion = v
+	}}
 }
 
 type onCommitWrapper struct {
@@ -125,6 +134,13 @@ func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error
 	if err != nil {
 		return nil, err
 	}
-	op.f()
+	onCommit(op)
 	return st, nil
+}
+
+func onCommit(op operation.Operation) {
+	if wrapper, ok := op.(onCommitWrapper); ok {
+		wrapper.f()
+		onCommit(wrapper.Operation)
+	}
 }

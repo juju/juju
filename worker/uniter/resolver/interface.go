@@ -66,6 +66,10 @@ type LocalState struct {
 	// at the earliest opportunity.
 	Restart bool
 
+	// UpdateStatusVersion is the version of update status from remotestate.Snapshot
+	// for which an update-status hook has been committed.
+	UpdateStatusVersion int
+
 	// ConfigVersion is the version of config from remotestate.Snapshot
 	// for which a config-changed hook has been committed.
 	ConfigVersion int

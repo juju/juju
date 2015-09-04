@@ -4,6 +4,9 @@
 package remotestate_test
 
 import (
+	"time"
+
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -12,7 +15,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/remotestate"
-	"github.com/juju/names"
 )
 
 type WatcherSuite struct {
@@ -21,7 +23,12 @@ type WatcherSuite struct {
 	st         mockState
 	leadership mockLeadershipTracker
 	watcher    *remotestate.RemoteStateWatcher
+	clock      *testing.Clock
 }
+
+// Duration is arbitrary, we'll trigger the ticker
+// by advancing the clock past the duration.
+var statusTickDuration = 10 * time.Second
 
 var _ = gc.Suite(&WatcherSuite{})
 
@@ -61,10 +68,16 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		minionTicket: mockTicket{make(chan struct{}, 1), true},
 	}
 
+	s.clock = testing.NewClock(time.Now())
+	statusTicker := func() <-chan time.Time {
+		return s.clock.After(statusTickDuration)
+	}
+
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
-		State:             &s.st,
-		LeadershipTracker: &s.leadership,
-		UnitTag:           s.st.unit.tag,
+		State:               &s.st,
+		LeadershipTracker:   &s.leadership,
+		UnitTag:             s.st.unit.tag,
+		UpdateStatusChannel: statusTicker,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.watcher = w
@@ -167,13 +180,22 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 
 	s.st.unit.service.relationsWatcher.changes <- []string{}
 	assertOneChange()
+
+	s.clock.Advance(statusTickDuration + 1)
+	assertOneChange()
 }
 
 func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
+	statusTicker := func() <-chan time.Time {
+		// Duration is arbitrary, we'll trigger the ticker
+		// by advancing the clock past the duration.
+		return s.clock.After(statusTickDuration)
+	}
 	config := remotestate.WatcherConfig{
-		State:             &s.st,
-		LeadershipTracker: &s.leadership,
-		UnitTag:           s.st.unit.tag,
+		State:               &s.st,
+		LeadershipTracker:   &s.leadership,
+		UnitTag:             s.st.unit.tag,
+		UpdateStatusChannel: statusTicker,
 	}
 	w, err := remotestate.NewWatcher(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -468,4 +490,25 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 		jc.DeepEquals,
 		map[string]int64{"mysql/2": 1},
 	)
+}
+
+func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
+	signalAll(&s.st, &s.leadership)
+	initial := s.watcher.Snapshot()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	// Advance the clock past the trigger time.
+	s.clock.Advance(11 * time.Second)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
+
+	// Advance again but not past the trigger time.
+	s.clock.Advance(6 * time.Second)
+	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "unexpected remote state change")
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
+
+	// And we hit the trigger time.
+	s.clock.Advance(5 * time.Second)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+2)
 }
