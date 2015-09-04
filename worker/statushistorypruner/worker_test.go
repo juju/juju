@@ -17,12 +17,16 @@ import (
 )
 
 type mockTimer struct {
-	period time.Duration
+	period chan time.Duration
 	c      chan time.Time
 }
 
 func (t *mockTimer) Reset(d time.Duration) bool {
-	t.period = d
+	select {
+	case t.period <- d:
+	case <-time.After(coretesting.LongWait):
+		panic("timed out waiting for timer to reset")
+	}
 	return true
 }
 
@@ -40,7 +44,7 @@ func (t *mockTimer) fire() error {
 }
 
 func newMockTimer(d time.Duration) worker.PeriodicTimer {
-	return &mockTimer{period: d,
+	return &mockTimer{period: make(chan time.Duration, 1),
 		c: make(chan time.Time),
 	}
 }
@@ -52,9 +56,10 @@ type statusHistoryPrunerSuite struct {
 }
 
 func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
-	var passedMaxLogs int
+	var passedMaxLogs chan int
+	passedMaxLogs = make(chan int, 1)
 	fakePruner := func(_ *state.State, maxLogs int) error {
-		passedMaxLogs = maxLogs
+		passedMaxLogs <- maxLogs
 		return nil
 	}
 	params := statushistorypruner.HistoryPrunerParams{
@@ -81,7 +86,19 @@ func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
 	})
 	err := fakeTimer.(*mockTimer).fire()
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(passedMaxLogs, gc.Equals, 3)
+	var passedLogs int
+	select {
+	case passedLogs = <-passedMaxLogs:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for passed logs to pruner")
+	}
+	c.Assert(passedLogs, gc.Equals, 3)
 	// Reset will have been called with the actual PruneInterval
-	c.Assert(fakeTimer.(*mockTimer).period, gc.Equals, coretesting.ShortWait)
+	var period time.Duration
+	select {
+	case period = <-fakeTimer.(*mockTimer).period:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for period reset by pruner")
+	}
+	c.Assert(period, gc.Equals, coretesting.ShortWait)
 }
