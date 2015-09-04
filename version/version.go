@@ -344,17 +344,6 @@ func (v Number) IsDev() bool {
 	return v.Tag != "" || v.Build > 0
 }
 
-// ReleaseVersion looks for the value of VERSION_ID in the content of
-// the os-release.  If the value is not found, the file is not found, or
-// an error occurs reading the file, an empty string is returned.
-func ReleaseVersion() string {
-	release, err := jujuos.ReadOSRelease(osReleaseFile)
-	if err != nil {
-		return ""
-	}
-	return release["VERSION_ID"]
-}
-
 // ParseMajorMinor takes an argument of the form "major.minor" and returns ints major and minor.
 func ParseMajorMinor(vers string) (int, int, error) {
 	parts := strings.Split(vers, ".")
