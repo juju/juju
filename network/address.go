@@ -203,7 +203,9 @@ func deriveScope(addr Address) Scope {
 	return addr.Scope
 }
 
-// ExactMatchScope
+// ExactMatchScope checks if an address exactly matches any of the specified
+// scopes. An address will not match if globalPreferIPv6 is set and it isn't an
+// IPv6 address.
 func ExactMatchScope(addr Address, addrScopes ...Scope) bool {
 	if globalPreferIPv6 && addr.Type != IPv6Address {
 		return false
