@@ -146,7 +146,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 type formattedStatus struct {
 	Environment      string                   `json:"environment"`
-	AvailableVersion string                   `json:"available-version,omitempty" yaml:",omitempty"`
+	AvailableVersion string                   `json:"available-version,omitempty" yaml:"available-version,omitempty"`
 	Machines         map[string]machineStatus `json:"machines"`
 	Services         map[string]serviceStatus `json:"services"`
 	Networks         map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
