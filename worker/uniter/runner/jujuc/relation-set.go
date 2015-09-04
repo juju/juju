@@ -78,24 +78,34 @@ func (c *RelationSetCommand) Init(args []string) error {
 	return nil
 }
 
-func ensureYamlIsMap(data []byte) error {
+// ensureYamlIsMap will check that the passed data fits a hash of strings
+// structure (and not a simple string or array) and will return the
+// hashmap, a bool indicating if there was validation issues and an
+// error representing either a validation error or an actual error
+// in the process.
+func ensureYamlIsMap(data []byte) (map[string]string, error) {
 	// Can this validation be done more simply or efficiently?
 	var scalar string
 	if err := goyaml.Unmarshal(data, &scalar); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if scalar != "" {
-		return errors.Errorf("expected YAML map, got %q", scalar)
+		return nil, errors.Errorf("expected YAML map, got %q", scalar)
 	}
 
 	var sequence []string
 	if err := goyaml.Unmarshal(data, &sequence); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if len(sequence) != 0 {
-		return errors.Errorf("expected YAML map, got %#v", sequence)
+		return nil, errors.Errorf("expected YAML map, got %#v", sequence)
 	}
-	return nil
+
+	kvs := make(map[string]string)
+	if err := goyaml.Unmarshal(data, kvs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return kvs, nil
 }
 
 func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, error) {
@@ -104,18 +114,10 @@ func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, erro
 		return nil, errors.Trace(err)
 	}
 
-	skipValidation := false // for debugging
-	if !skipValidation {
-		if err := ensureYamlIsMap(data); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	kvs := make(map[string]string)
-	if err := goyaml.Unmarshal(data, kvs); err != nil {
+	var kvs map[string]string
+	if kvs, err = ensureYamlIsMap(data); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return kvs, nil
 }
 

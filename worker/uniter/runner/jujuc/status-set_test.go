@@ -70,7 +70,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 
 func (s *statusSetSuite) TestStatus(c *gc.C) {
 	expectedYaml := map[int]string{2: "" +
-		"number: 22\n" +
+		"number: \"22\"\n" +
 		"string: some string\n",
 	}
 	for i, args := range [][]string{
@@ -103,7 +103,7 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 
 func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	expectedYaml := map[int]string{2: "" +
-		"number: 22\n" +
+		"number: \"22\"\n" +
 		"string: some string\n",
 	}
 	for i, args := range [][]string{

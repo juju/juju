@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -54,13 +53,16 @@ func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *StatusSetCommand) parseData(data string) error {
 	// So far we only accept maps as data.
-	if err := ensureYamlIsMap([]byte(data)); err != nil {
+	var err error
+	var yamlMap map[string]string
+	if yamlMap, err = ensureYamlIsMap([]byte(data)); err != nil {
 		return errors.Trace(err)
 	}
-
-	if err := goyaml.Unmarshal([]byte(data), &c.data); err != nil {
-		return errors.Annotate(err, "cannot parse the status data")
+	c.data = make(map[string]interface{}, len(yamlMap))
+	for k, v := range yamlMap {
+		c.data[k] = v
 	}
+
 	return nil
 }
 
