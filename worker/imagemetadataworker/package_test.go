@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -48,4 +50,12 @@ func (s *baseMetadataSuite) SomeEnviron() environs.Environ {
 
 type anEnv struct {
 	environs.Environ
+}
+
+func (e anEnv) Config() *config.Config {
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "nonex",
+	})
+	cfg, _ := config.New(config.NoDefaults, attrs)
+	return cfg
 }

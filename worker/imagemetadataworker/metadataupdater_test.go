@@ -22,9 +22,20 @@ type imageMetadataUpdateSuite struct {
 	baseMetadataSuite
 }
 
+func (s *imageMetadataUpdateSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	imagemetadataworker.UseTestImageData(imagemetadataworker.TestImagesData)
+}
+
+func (s *imageMetadataUpdateSuite) TearDownSuite(c *gc.C) {
+	imagemetadataworker.UseTestImageData(nil)
+	s.BaseSuite.TearDownSuite(c)
+}
+
 func (s *imageMetadataUpdateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
+
 func (s *imageMetadataUpdateSuite) TestWorker(c *gc.C) {
 
 	var list imagemetadataworker.ListPublishedMetadataFunc = func(env environs.Environ) ([]*imagemetadata.ImageMetadata, error) {
@@ -72,4 +83,30 @@ func (s *imageMetadataUpdateSuite) TestMetadataChanges(c *gc.C) {
 		c.Assert(stored, gc.DeepEquals, expected)
 
 	}
+}
+
+func (s *imageMetadataUpdateSuite) TestListMetadata(c *gc.C) {
+	m1 := imagemetadata.ImageMetadata{
+		Id:         "ami-26745463",
+		Storage:    "ebs",
+		VirtType:   "pv",
+		Arch:       "amd64",
+		Version:    "12.04",
+		RegionName: "au-east-2",
+		Endpoint:   "https://somewhere-else",
+	}
+	m2 := imagemetadata.ImageMetadata{
+		Id:         "ami-36745463",
+		Storage:    "ebs",
+		VirtType:   "pv",
+		Arch:       "amd64",
+		Version:    "14.04",
+		RegionName: "nz-east-1",
+		Endpoint:   "https://anywhere",
+	}
+	expected := []*imagemetadata.ImageMetadata{&m1, &m2}
+
+	listed, err := imagemetadataworker.DefaultListPublishedMetadata(s.SomeEnviron())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(listed, jc.SameContents, expected)
 }

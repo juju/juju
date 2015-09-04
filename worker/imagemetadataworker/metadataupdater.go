@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	environsmetadata "github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
@@ -61,9 +62,9 @@ func list(env environs.Environ) ([]*environsmetadata.ImageMetadata, error) {
 		return nil, err
 	}
 
-	// We want all metadata, hence empty constraints.
-	cons := environsmetadata.ImageConstraint{}
-	metadata, _, err := environsmetadata.Fetch(sources, &cons, false)
+	// We want all metadata.
+	cons := environsmetadata.NewImageConstraint(simplestreams.LookupParams{})
+	metadata, _, err := environsmetadata.Fetch(sources, cons, false)
 	if err != nil {
 		return nil, err
 	}
