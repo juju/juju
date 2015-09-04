@@ -34,8 +34,6 @@ func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	realDataDir, err := paths.DataDir(version.Current.Series)
 	c.Assert(err, jc.ErrorIsNil)
-	realUniterStateDir, err := paths.UniterStateDir(version.Current.Series)
-	c.Assert(err, jc.ErrorIsNil)
 
 	realDataDir = filepath.FromSlash(realDataDir)
 	logPath := filepath.Join(logDir, "juju")
@@ -50,9 +48,7 @@ func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 	configLogDir := filepath.FromSlash(readConfig.LogDir())
 	configDataDir := filepath.FromSlash(readConfig.DataDir())
-	uniterStateDir := filepath.FromSlash(readConfig.UniterStateDir())
 	c.Assert(configLogDir, gc.Equals, logPath)
-	c.Assert(uniterStateDir, gc.Equals, realUniterStateDir)
 	c.Assert(configDataDir, gc.Equals, realDataDir)
 	c.Assert(readConfig.PreferIPv6(), jc.IsFalse)
 	// The api info doesn't have the environment tag set.

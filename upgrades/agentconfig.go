@@ -139,7 +139,6 @@ func migrateLocalProviderAgentConfig(context Context) error {
 			DataDir:         dataDir,
 			LogDir:          logDir,
 			MetricsSpoolDir: metricSpoolDir,
-			UniterStateDir:  uniterStateDir,
 		},
 		Jobs:         jobs,
 		Values:       values,

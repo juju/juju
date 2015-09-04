@@ -32,7 +32,6 @@ type format_1_18Serialization struct {
 	DataDir           string
 	LogDir            string
 	MetricsSpoolDir   string
-	UniterStateDir    string
 	Nonce             string
 	Jobs              []multiwatcher.MachineJob `yaml:",omitempty"`
 	UpgradedToVersion *version.Number           `yaml:"upgradedToVersion"`
@@ -96,7 +95,6 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		paths: NewPathsWithDefaults(Paths{
 			DataDir:         format.DataDir,
 			LogDir:          format.LogDir,
-			UniterStateDir:  format.UniterStateDir,
 			MetricsSpoolDir: format.MetricsSpoolDir,
 		}),
 		jobs:              format.Jobs,
@@ -163,7 +161,6 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		DataDir:           config.paths.DataDir,
 		LogDir:            config.paths.LogDir,
 		MetricsSpoolDir:   config.paths.MetricsSpoolDir,
-		UniterStateDir:    config.paths.UniterStateDir,
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,

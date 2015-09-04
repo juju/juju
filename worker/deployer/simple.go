@@ -127,7 +127,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			Paths: agent.Paths{
 				DataDir:         dataDir,
 				LogDir:          logDir,
-				UniterStateDir:  agent.DefaultPaths.UniterStateDir,
 				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
 			},
 			UpgradedToVersion: version.Current.Number,

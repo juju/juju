@@ -34,11 +34,10 @@ var logger = loggo.GetLogger("juju.agent")
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir                = paths.MustSucceed(paths.LogDir(version.Current.Series))
-	dataDir               = paths.MustSucceed(paths.DataDir(version.Current.Series))
-	confDir               = paths.MustSucceed(paths.ConfDir(version.Current.Series))
-	metricsSpoolDir       = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
-	defaultUniterStateDir = paths.MustSucceed(paths.UniterStateDir(version.Current.Series))
+	logDir          = paths.MustSucceed(paths.LogDir(version.Current.Series))
+	dataDir         = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	confDir         = paths.MustSucceed(paths.ConfDir(version.Current.Series))
+	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
 )
 
 // Agent exposes the agent's configuration to other components. This
@@ -94,9 +93,6 @@ type Paths struct {
 	// MetricsSpoolDir is the spool directory where workloads store
 	// collected metrics.
 	MetricsSpoolDir string
-	// UniterStateDir is the directory where each uniter persists
-	// its state.
-	UniterStateDir string
 	// ConfDir is the directory where all  config file for
 	// Juju agents are stored.
 	ConfDir string
@@ -113,9 +109,6 @@ func (p *Paths) Migrate(newPaths Paths) {
 	if newPaths.MetricsSpoolDir != "" {
 		p.MetricsSpoolDir = newPaths.MetricsSpoolDir
 	}
-	if newPaths.UniterStateDir != "" {
-		p.UniterStateDir = newPaths.UniterStateDir
-	}
 	if newPaths.ConfDir != "" {
 		p.ConfDir = newPaths.ConfDir
 	}
@@ -129,9 +122,6 @@ func NewPathsWithDefaults(p Paths) Paths {
 	}
 	if p.LogDir != "" {
 		paths.LogDir = p.LogDir
-	}
-	if p.UniterStateDir != "" {
-		paths.UniterStateDir = p.UniterStateDir
 	}
 	if p.MetricsSpoolDir != "" {
 		paths.MetricsSpoolDir = p.MetricsSpoolDir
@@ -148,7 +138,6 @@ var (
 		DataDir:         dataDir,
 		LogDir:          path.Join(logDir, "juju"),
 		MetricsSpoolDir: metricsSpoolDir,
-		UniterStateDir:  defaultUniterStateDir,
 		ConfDir:         confDir,
 	}
 )
@@ -201,9 +190,6 @@ type Config interface {
 
 	// Dir returns the agent's directory.
 	Dir() string
-
-	// UniterStateDir returns the directory for persisting uniter execution status.
-	UniterStateDir() string
 
 	// Nonce returns the nonce saved when the machine was provisioned
 	// TODO: make this one of the key/value pairs.
@@ -715,10 +701,6 @@ func (c *configInternal) Environment() names.EnvironTag {
 
 func (c *configInternal) Dir() string {
 	return Dir(c.paths.DataDir, c.tag)
-}
-
-func (c *configInternal) UniterStateDir() string {
-	return c.paths.UniterStateDir
 }
 
 func (c *configInternal) check() error {

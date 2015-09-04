@@ -88,12 +88,6 @@ func MetricsSpoolDir(series string) (string, error) {
 	return osVal(series, metricsSpoolDir)
 }
 
-// UniterStateDir returns a filesystem path to the folder used by juju to
-// persist whether the uniter has started or not.
-func UniterStateDir(series string) (string, error) {
-	return osVal(series, uniterStateDir)
-}
-
 // CertDir returns a filesystem path to the folder used by juju to
 // store certificates that are added by default to the Juju client
 // api certificate pool.
