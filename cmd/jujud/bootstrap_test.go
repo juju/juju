@@ -667,7 +667,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 
 	addresses, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapName = network.SelectPublicAddress(addresses)
+	s.bootstrapName = network.SelectPublicAddress(addresses).Value
 	s.envcfg = env.Config()
 	s.b64yamlEnvcfg = b64yaml(s.envcfg.AllAttrs()).encode()
 }
