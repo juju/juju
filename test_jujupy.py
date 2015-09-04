@@ -2044,6 +2044,13 @@ class TestSimpleEnvironment(TestCase):
             with self.assertRaises(NoSuchEnvironment):
                 SimpleEnvironment.from_config('bar')
 
+    def test_from_config_none(self):
+        with temp_config():
+            with scoped_environ():
+                os.environ['JUJU_ENV'] = 'foo'
+                env = SimpleEnvironment.from_config(None)
+                self.assertEqual(env.environment, 'foo')
+
 
 class TestGroupReporter(TestCase):
 
