@@ -1541,6 +1541,10 @@ func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 
 func (s *MachineSuite) TestMetadataWorkerUpdatesState(c *gc.C) {
 	expected := []*envimagemetadata.ImageMetadata{{Id: "whatever"}}
+
+	// Reset newMetadataUpdater to it original value to ensure that
+	// expected worker behaviour is tested - i.e. does worker write
+	// published image metadata to state?
 	s.PatchValue(&newMetadataUpdater, imagemetadataworker.NewWorker)
 	s.PatchValue(&imagemetadataworker.DefaultListPublishedMetadata, func(env environs.Environ) ([]*envimagemetadata.ImageMetadata, error) {
 		return expected, nil

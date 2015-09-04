@@ -22,8 +22,7 @@ func init() {
 	testRoundTripper.RegisterForScheme("test")
 }
 
-// UseTestImageData causes the given content to be served
-// when the ec2 client asks for image data.
+// UseTestImageData causes the given content to be served when published metadata is requested.
 func UseTestImageData(files map[string]string) {
 	if files != nil {
 		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
@@ -34,6 +33,8 @@ func UseTestImageData(files map[string]string) {
 	}
 }
 
+// TODO (anastasiamac 2015-09-04) This metadata is so verbose.
+// Need to generate the text by creating a struct and marshalling it.
 var TestImagesData = map[string]string{
 	"/streams/v1/index.json": `
 		{
