@@ -739,3 +739,32 @@ func (*AddressSuite) TestDecimalToIPv4(c *gc.C) {
 	addr = network.DecimalToIPv4(uint32(3232235777))
 	c.Assert(addr.String(), gc.Equals, "192.168.1.1")
 }
+
+func (*AddressSuite) TestExactMatchScope(c *gc.C) {
+	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
+	match := network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsTrue)
+	match = network.ExactMatchScope(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
+
+	addr = network.NewScopedAddress("8.8.8.8", network.ScopePublic)
+	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactMatchScope(addr, network.ScopePublic)
+	c.Assert(match, jc.IsTrue)
+}
+
+func (*AddressSuite) TestExactMatchScopeHonoursPreferIPv6(c *gc.C) {
+	network.SetPreferIPv6(true)
+	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
+	match := network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactMatchScope(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
+
+	addr = network.NewScopedAddress("8.8.8.8", network.ScopePublic)
+	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactMatchScope(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
+}
