@@ -477,16 +477,59 @@ func (f *VolumeFilter) IsEmpty() bool {
 	return len(f.Machines) == 0
 }
 
-// VolumeInstance describes a storage volume in the environment
+// VolumeDetails describes a storage volume in the environment
 // for the purpose of volume CLI commands.
 //
 // This is kept separate from Volume which contains only information
 // specific to the volume model, whereas VolumeDetails is intended
-// to contain complete information about a volume.
+// to contain complete information about a volume and related
+// information (status, attachments, storage).
 type VolumeDetails struct {
+
+	// VolumeTag is the tag for the volume.
+	VolumeTag string `json:"volumetag"`
+
+	// Info contains information about the volume.
+	Info VolumeInfo `json:"info"`
+
+	// Status contains the status of the volume.
+	Status EntityStatus `json:"status"`
+
+	// MachineAttachments contains a mapping from
+	// machine tag to volume attachment information.
+	MachineAttachments map[string]VolumeAttachmentInfo `json:"machineattachments,omitempty"`
+
+	// StorageTag is the tag of the storage instance
+	// that the volume is assigned to, if any.
+	StorageTag string `json:"storagetag,omitempty"`
+
+	// StorageOwnerTag is the tag of the entity that
+	// owns the volume's assigned storage instance,
+	// if any.
+	StorageOwnerTag string `json:"ownertag,omitempty"`
+}
+
+// LegacyVolumeDetails describes a storage volume in the environment
+// for the purpose of volume CLI commands.
+//
+// This is kept separate from Volume which contains only information
+// specific to the volume model, whereas LegacyVolumeDetails is intended
+// to contain complete information about a volume.
+//
+// NOTE: this is for backwards compatibility only. This struct
+// should not be changed!
+type LegacyVolumeDetails struct {
 
 	// VolumeTag is tag for this volume instance.
 	VolumeTag string `json:"volumetag"`
+
+	// StorageInstance returns the tag of the storage instance that this
+	// volume is assigned to, if any.
+	StorageTag string `json:"storage,omitempty"`
+
+	// UnitTag is the tag of the unit attached to storage instance
+	// for this volume.
+	UnitTag string `json:"unit,omitempty"`
 
 	// VolumeId is a unique provider-supplied ID for the volume.
 	VolumeId string `json:"volumeid,omitempty"`
@@ -501,14 +544,6 @@ type VolumeDetails struct {
 	// machine to which it is attached.
 	Persistent bool `json:"persistent"`
 
-	// StorageInstance returns the tag of the storage instance that this
-	// volume is assigned to, if any.
-	StorageTag string `json:"storage,omitempty"`
-
-	// UnitTag is the tag of the unit attached to storage instance
-	// for this volume.
-	UnitTag string `json:"unit,omitempty"`
-
 	// Status contains the current status of the volume.
 	Status EntityStatus `json:"status"`
 }
@@ -516,11 +551,25 @@ type VolumeDetails struct {
 // VolumeDetailsResult contains details about a volume, its attachments or
 // an error preventing retrieving those details.
 type VolumeDetailsResult struct {
-	// Volume describes the volume in detail.
-	Volume VolumeDetails `json:"volume"`
 
-	// Attachments describes the attachments of the volume to machines.
-	Attachments []VolumeAttachment `json:"attachments,omitempty"`
+	// Details describes the volume in detail.
+	Details *VolumeDetails `json:"details,omitempty"`
+
+	// LegacyVolume describes the volume in detail.
+	//
+	// NOTE: VolumeDetails contains redundant and nonsensical
+	// information. Use Details if it is available, and only use
+	// this for backwards-compatibility.
+	LegacyVolume *LegacyVolumeDetails `json:"volume,omitempty"`
+
+	// LegacyAttachments describes the attachments of the volume to
+	// machines.
+	//
+	// NOTE: this should have gone into VolumeDetails, but it's too
+	// late for that now. We'll continue to populate it, and use it
+	// if it's defined but Volume.Attachments is not. Please do not
+	// copy this structure.
+	LegacyAttachments []VolumeAttachment `json:"attachments,omitempty"`
 
 	// Error contains volume retrieval error.
 	Error *Error `json:"error,omitempty"`

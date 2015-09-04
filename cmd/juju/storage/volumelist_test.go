@@ -285,54 +285,39 @@ func (s mockVolumeListAPI) createTestVolumeDetailsResult(
 	machines []string,
 	status params.EntityStatus,
 ) params.VolumeDetailsResult {
+
 	volume := s.createTestVolume(id, persistent, storageid, unitid, status)
-
-	// Create unattached volume
-	if len(machines) == 0 {
-		return params.VolumeDetailsResult{Volume: volume}
-	}
-
-	// Create volume attachments
-	attachments := make([]params.VolumeAttachment, len(machines))
+	volume.MachineAttachments = make(map[string]params.VolumeAttachmentInfo)
 	for i, machine := range machines {
-		attachments[i] = s.createTestAttachment(volume.VolumeTag, machine, i%2 == 0)
+		info := params.VolumeAttachmentInfo{
+			ReadOnly: i%2 == 0,
+		}
+		if s.fillDeviceName {
+			info.DeviceName = "testdevice"
+		}
+		machineTag := names.NewMachineTag(machine).String()
+		volume.MachineAttachments[machineTag] = info
 	}
-
-	return params.VolumeDetailsResult{
-		Volume:      volume,
-		Attachments: attachments,
-	}
+	return params.VolumeDetailsResult{Details: volume}
 }
 
-func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) params.VolumeDetails {
+func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) *params.VolumeDetails {
 	tag := names.NewVolumeTag(id)
-	result := params.VolumeDetails{
-		VolumeTag:  tag.String(),
-		VolumeId:   "provider-supplied-" + tag.Id(),
-		HardwareId: "serial blah blah",
-		Persistent: persistent,
-		Size:       uint64(1024),
-		Status:     status,
+	result := &params.VolumeDetails{
+		VolumeTag: tag.String(),
+		Info: params.VolumeInfo{
+			VolumeId:   "provider-supplied-" + tag.Id(),
+			HardwareId: "serial blah blah",
+			Persistent: persistent,
+			Size:       uint64(1024),
+		},
+		Status: status,
 	}
 	if storageid != "" {
 		result.StorageTag = names.NewStorageTag(storageid).String()
 	}
 	if unitid != "" {
-		result.UnitTag = names.NewUnitTag(unitid).String()
-	}
-	return result
-}
-
-func (s mockVolumeListAPI) createTestAttachment(volumeTag, machine string, readonly bool) params.VolumeAttachment {
-	result := params.VolumeAttachment{
-		VolumeTag:  volumeTag,
-		MachineTag: names.NewMachineTag(machine).String(),
-		Info: params.VolumeAttachmentInfo{
-			ReadOnly: readonly,
-		},
-	}
-	if s.fillDeviceName {
-		result.Info.DeviceName = "testdevice"
+		result.StorageOwnerTag = names.NewUnitTag(unitid).String()
 	}
 	return result
 }

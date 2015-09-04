@@ -325,7 +325,7 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 					MachineTag: m}
 			}
 			results.Results = []params.VolumeDetailsResult{
-				params.VolumeDetailsResult{Attachments: attachments},
+				params.VolumeDetailsResult{LegacyAttachments: attachments},
 			}
 			return nil
 		})
@@ -334,9 +334,9 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
-	c.Assert(found[0].Attachments, gc.HasLen, len(machines))
-	c.Assert(machineTags.Contains(found[0].Attachments[0].MachineTag), jc.IsTrue)
-	c.Assert(machineTags.Contains(found[0].Attachments[1].MachineTag), jc.IsTrue)
+	c.Assert(found[0].LegacyAttachments, gc.HasLen, len(machines))
+	c.Assert(machineTags.Contains(found[0].LegacyAttachments[0].MachineTag), jc.IsTrue)
+	c.Assert(machineTags.Contains(found[0].LegacyAttachments[1].MachineTag), jc.IsTrue)
 }
 
 func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
@@ -360,7 +360,7 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 			c.Assert(result, gc.FitsTypeOf, &params.VolumeDetailsResults{})
 			results := result.(*params.VolumeDetailsResults)
 			results.Results = []params.VolumeDetailsResult{
-				{Volume: params.VolumeDetails{VolumeTag: tag}},
+				{LegacyVolume: &params.LegacyVolumeDetails{VolumeTag: tag}},
 			}
 			return nil
 		})
@@ -369,7 +369,7 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
-	c.Assert(found[0].Volume.VolumeTag, gc.Equals, tag)
+	c.Assert(found[0].LegacyVolume.VolumeTag, gc.Equals, tag)
 }
 
 func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
