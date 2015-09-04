@@ -473,7 +473,7 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 			// anyway).
 		default:
 			// Something went wrong but we don't know what. Try again soon.
-			logger.Debugf("%q manifold worker returned unexpected error: %v", err)
+			logger.Debugf("%q manifold worker returned unexpected error: %v", name, err)
 			engine.requestStart(name, engine.config.ErrorDelay)
 		}
 	}
