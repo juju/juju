@@ -58,7 +58,7 @@ func MetadataStorage(e environs.Environ) envstorage.Storage {
 }
 
 func InstanceAddress(publicIP string, addresses map[string][]nova.IPAddress) string {
-	return network.SelectPublicAddress(convertNovaAddresses(publicIP, addresses))
+	return network.SelectPublicAddress(convertNovaAddresses(publicIP, addresses)).Value
 }
 
 func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
