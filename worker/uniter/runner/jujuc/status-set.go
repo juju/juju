@@ -52,53 +52,14 @@ func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.service, "service", false, "set this status for the service to which the unit belongs if the unit is the leader")
 }
 
-// cleanup converts a map[interface{}]interface{} into a serializable map[string]interface{}
-// or errs.
-func cleanup(m map[interface{}]interface{}) (map[string]interface{}, error) {
-	ret := make(map[string]interface{}, len(m))
-	for k, v := range m {
-		key, ok := k.(string)
-		if !ok {
-			return nil, errors.Errorf("keys must be strings got: %T", k)
-		}
-		switch vt := v.(type) {
-		case string, int64, int32, int, uint, uint32, uint64:
-			ret[key] = vt
-		case map[interface{}]interface{}:
-			cleanMap, err := cleanup(vt)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot process this data")
-			}
-			ret[key] = cleanMap
-		default:
-			return nil, errors.Errorf("values can only be strings, [u]ints[32|64] or other maps, got %T", vt)
-		}
-	}
-	return ret, nil
-}
-
 func (c *StatusSetCommand) parseData(data string) error {
 	// So far we only accept maps as data.
 	if err := ensureYamlIsMap([]byte(data)); err != nil {
 		return errors.Trace(err)
 	}
 
-	var raw map[string]interface{}
-	if err := goyaml.Unmarshal([]byte(data), &raw); err != nil {
+	if err := goyaml.Unmarshal([]byte(data), &c.data); err != nil {
 		return errors.Annotate(err, "cannot parse the status data")
-	}
-
-	c.data = make(map[string]interface{}, len(raw))
-	for k, v := range raw {
-		if vt, ok := v.(map[interface{}]interface{}); ok {
-			cleanMap, err := cleanup(vt)
-			if err != nil {
-				return errors.Annotate(err, "cannot process data")
-			}
-			c.data[k] = cleanMap
-			continue
-		}
-		c.data[k] = v
 	}
 	return nil
 }

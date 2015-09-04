@@ -31,7 +31,7 @@ var statusSetInitTests = []struct {
 	{[]string{"maintenance", ""}, ""},
 	{[]string{"maintenance", "hello"}, ""},
 	{[]string{}, `invalid args, require <status> \[message\] \[data\]`},
-	{[]string{"maintenance", "hello", "Information: {number: 22, string: some string}", "extra"}, `unrecognized args: \["extra"\]`},
+	{[]string{"maintenance", "hello", "{number: 22, string: some string}", "extra"}, `unrecognized args: \["extra"\]`},
 	{[]string{"foo", "hello"}, `invalid status "foo", expected one of \[maintenance blocked waiting active\]`},
 }
 
@@ -70,14 +70,13 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 
 func (s *statusSetSuite) TestStatus(c *gc.C) {
 	expectedYaml := map[int]string{2: "" +
-		"Information:\n" +
-		"  number: 22\n" +
-		"  string: some string\n",
+		"number: 22\n" +
+		"string: some string\n",
 	}
 	for i, args := range [][]string{
 		[]string{"maintenance", "doing some work"},
 		[]string{"active", ""},
-		[]string{"maintenance", "valid data", `Information: {number: 22, string: some string}`},
+		[]string{"maintenance", "valid data", `{number: 22, string: some string}`},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -104,14 +103,13 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 
 func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	expectedYaml := map[int]string{2: "" +
-		"Information:\n" +
-		"  number: 22\n" +
-		"  string: some string\n",
+		"number: 22\n" +
+		"string: some string\n",
 	}
 	for i, args := range [][]string{
 		[]string{"--service", "maintenance", "doing some work"},
 		[]string{"--service", "active", ""},
-		[]string{"--service", "maintenance", "valid data", `Information: {number: 22, string: some string}`},
+		[]string{"--service", "maintenance", "valid data", `{number: 22, string: some string}`},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -135,23 +133,5 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 		}
 		c.Assert(status.Units, jc.DeepEquals, []jujuc.StatusInfo{})
 
-	}
-}
-
-func (s *statusSetSuite) TestStatusInvalidData(c *gc.C) {
-	for i, argsAndErr := range [][]string{
-		[]string{"maintenance", "valid data", `Information: {number: 22, 1: some string}`, "error: cannot parse data to set status: cannot process data: keys must be strings got: int\n"},
-	} {
-		c.Logf("test %d: %#v", i, argsAndErr)
-		args := argsAndErr[:3]
-		expectedErr := argsAndErr[3]
-		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
-		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
-		code := cmd.Main(com, ctx, args)
-		c.Assert(code, gc.Equals, 2)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, expectedErr)
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	}
 }
