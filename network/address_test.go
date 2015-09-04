@@ -216,11 +216,11 @@ type selectTest struct {
 }
 
 // expected returns the expected address for the test.
-func (t selectTest) expected() string {
+func (t selectTest) expected() network.Address {
 	if t.expectedIndex == -1 {
-		return ""
+		return network.Address{}
 	}
-	return t.addresses[t.expectedIndex].Value
+	return t.addresses[t.expectedIndex]
 }
 
 var selectPublicTests = []selectTest{{
