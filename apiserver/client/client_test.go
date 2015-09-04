@@ -2574,6 +2574,7 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	s.setUpScenario(c)
+	network.ResetGlobalPreferIPv6()
 
 	// Internally, network.SelectPublicAddress is used; the "most public"
 	// address is returned.
