@@ -73,18 +73,18 @@ type EntityStatus struct {
 }
 
 // convertToVolumeInfo returns map of maps with volume info
-// keyed first on machine_id and then on volume_id.
-func convertToVolumeInfo(all []params.VolumeItem) (map[string]map[string]map[string]VolumeInfo, error) {
+// keyed first on machine ID and then on volume ID.
+func convertToVolumeInfo(all []params.VolumeDetailsResult) (map[string]map[string]map[string]VolumeInfo, error) {
 	result := map[string]map[string]map[string]VolumeInfo{}
 	for _, one := range all {
-		if err := convertVolumeItem(one, result); err != nil {
+		if err := convertVolumeDetailsResult(one, result); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 	return result, nil
 }
 
-func convertVolumeItem(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
+func convertVolumeDetailsResult(item params.VolumeDetailsResult, all map[string]map[string]map[string]VolumeInfo) error {
 	if len(item.Attachments) != 0 {
 		// add info for volume attachments
 		return convertVolumeAttachments(item, all)
@@ -102,7 +102,7 @@ var idFromTag = func(s string) (string, error) {
 	return tag.Id(), nil
 }
 
-func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
+func convertVolumeAttachments(item params.VolumeDetailsResult, all map[string]map[string]map[string]VolumeInfo) error {
 	for _, one := range item.Attachments {
 		machine, err := idFromTag(one.MachineTag)
 		if err != nil {
@@ -131,7 +131,7 @@ func addOneToAll(machineId, unitId, storageId string, item VolumeInfo, all map[s
 	unitVolumes[storageId] = item
 }
 
-func createInfo(volume params.VolumeInstance) (info VolumeInfo, unit, storage string) {
+func createInfo(volume params.VolumeDetails) (info VolumeInfo, unit, storage string) {
 	info.VolumeId = volume.VolumeId
 	info.HardwareId = volume.HardwareId
 	info.Size = volume.Size

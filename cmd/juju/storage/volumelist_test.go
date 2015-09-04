@@ -243,53 +243,53 @@ func (s mockVolumeListAPI) Close() error {
 	return nil
 }
 
-func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeItem, error) {
+func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsResult, error) {
 	if s.errOut != "" {
 		return nil, errors.New(s.errOut)
 	}
 	if s.listEmpty {
 		return nil, nil
 	}
-	result := []params.VolumeItem{}
+	result := []params.VolumeDetailsResult{}
 	if s.addErrItem {
-		result = append(result, params.VolumeItem{
+		result = append(result, params.VolumeDetailsResult{
 			Error: common.ServerError(errors.New("volume item error"))})
 	}
 	if s.listAll {
 		machines = []string{"25", "42"}
 		//unattached
-		result = append(result, s.createTestVolumeItem(
+		result = append(result, s.createTestVolumeDetailsResult(
 			"3/4", true, "db-dir/1000", "abc/0", nil,
 			createTestStatus(params.StatusDestroying, ""),
 		))
-		result = append(result, s.createTestVolumeItem(
+		result = append(result, s.createTestVolumeDetailsResult(
 			"3/3", false, "", "", nil,
 			createTestStatus(params.StatusDestroying, ""),
 		))
 	}
-	result = append(result, s.createTestVolumeItem(
+	result = append(result, s.createTestVolumeDetailsResult(
 		"0/1", true, "shared-fs/0", "postgresql/0", machines,
 		createTestStatus(params.StatusAttaching, "failed to attach"),
 	))
-	result = append(result, s.createTestVolumeItem(
+	result = append(result, s.createTestVolumeDetailsResult(
 		"0/abc/0/88", false, "shared-fs/0", "", machines,
 		createTestStatus(params.StatusAttached, ""),
 	))
 	return result, nil
 }
 
-func (s mockVolumeListAPI) createTestVolumeItem(
+func (s mockVolumeListAPI) createTestVolumeDetailsResult(
 	id string,
 	persistent bool,
 	storageid, unitid string,
 	machines []string,
 	status params.EntityStatus,
-) params.VolumeItem {
+) params.VolumeDetailsResult {
 	volume := s.createTestVolume(id, persistent, storageid, unitid, status)
 
 	// Create unattached volume
 	if len(machines) == 0 {
-		return params.VolumeItem{Volume: volume}
+		return params.VolumeDetailsResult{Volume: volume}
 	}
 
 	// Create volume attachments
@@ -298,15 +298,15 @@ func (s mockVolumeListAPI) createTestVolumeItem(
 		attachments[i] = s.createTestAttachment(volume.VolumeTag, machine, i%2 == 0)
 	}
 
-	return params.VolumeItem{
+	return params.VolumeDetailsResult{
 		Volume:      volume,
 		Attachments: attachments,
 	}
 }
 
-func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) params.VolumeInstance {
+func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) params.VolumeDetails {
 	tag := names.NewVolumeTag(id)
-	result := params.VolumeInstance{
+	result := params.VolumeDetails{
 		VolumeTag:  tag.String(),
 		VolumeId:   "provider-supplied-" + tag.Id(),
 		HardwareId: "serial blah blah",

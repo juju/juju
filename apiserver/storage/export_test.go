@@ -7,8 +7,8 @@ var (
 	IsValidPoolListFilter      = (*API).isValidPoolListFilter
 	ValidateNames              = (*API).isValidNameCriteria
 	ValidateProviders          = (*API).isValidProviderCriteria
-	CreateVolumeItem           = (*API).createVolumeItem
-	GetVolumeItems             = (*API).getVolumeItems
+	CreateVolumeDetailsResult  = (*API).createVolumeDetailsResult
+	GetVolumeDetailsResults    = (*API).getVolumeDetailsResults
 	FilterVolumes              = (*API).filterVolumes
 	VolumeAttachments          = (*API).volumeAttachments
 	ListVolumeAttachments      = (*API).listVolumeAttachments

@@ -479,21 +479,23 @@ func (f *VolumeFilter) IsEmpty() bool {
 
 // VolumeInstance describes a storage volume in the environment
 // for the purpose of volume CLI commands.
-// It is kept separate from Volume which is primarily used in uniter
-// and may answer different concerns as well as serve different purposes.
-type VolumeInstance struct {
+//
+// This is kept separate from Volume which contains only information
+// specific to the volume model, whereas VolumeDetails is intended
+// to contain complete information about a volume.
+type VolumeDetails struct {
 
 	// VolumeTag is tag for this volume instance.
 	VolumeTag string `json:"volumetag"`
 
 	// VolumeId is a unique provider-supplied ID for the volume.
-	VolumeId string `json:"volumeid"`
+	VolumeId string `json:"volumeid,omitempty"`
 
 	// HardwareId is the volume's hardware ID.
 	HardwareId string `json:"hardwareid,omitempty"`
 
 	// Size is the size of the volume in MiB.
-	Size uint64 `json:"size"`
+	Size uint64 `json:"size,omitempty"`
 
 	// Persistent reflects whether the volume is destroyed with the
 	// machine to which it is attached.
@@ -511,22 +513,22 @@ type VolumeInstance struct {
 	Status EntityStatus `json:"status"`
 }
 
-// VolumeItem contain volume, its attachments
-// and retrieval error.
-type VolumeItem struct {
-	// Volume is storage volume.
-	Volume VolumeInstance `json:"volume,omitempty"`
+// VolumeDetailsResult contains details about a volume, its attachments or
+// an error preventing retrieving those details.
+type VolumeDetailsResult struct {
+	// Volume describes the volume in detail.
+	Volume VolumeDetails `json:"volume"`
 
-	// Attachments are storage volume attachments.
+	// Attachments describes the attachments of the volume to machines.
 	Attachments []VolumeAttachment `json:"attachments,omitempty"`
 
 	// Error contains volume retrieval error.
 	Error *Error `json:"error,omitempty"`
 }
 
-// VolumeItemsResult holds volumes.
-type VolumeItemsResult struct {
-	Results []VolumeItem `json:"results,omitempty"`
+// VolumeDetailsResults holds volume details.
+type VolumeDetailsResults struct {
+	Results []VolumeDetailsResult `json:"results,omitempty"`
 }
 
 // StorageConstraints contains constraints for storage instance.
