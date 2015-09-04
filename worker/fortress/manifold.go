@@ -14,11 +14,19 @@ import (
 //
 // Clients should access the fortress resource via Guard and/or Guest pointers.
 // Guest.Visit calls will block until a Guard.Unlock call is made; Guard.Lockdown
+<<<<<<< HEAD
 // calls will block new Guest.Visits and wait until all active Visits complete.
 //
 // If multiple clients act as guards, the fortress' state at any time will be
 // determined by whichever guard last ran an operation; that is to say, it will
 // be impossible to reliably tell from outside. So please don't do that.
+=======
+// calls will block new Guest.Visits and wait until all current ones complete.
+//
+// If multiple clients act as guards, the fortress' state at any time will be
+// determined by whichever guard last ran an operation; that is to say, it will
+// be impossible to reliably tell from outside, so please don't do that.
+>>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
 func Manifold() dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
@@ -27,7 +35,11 @@ func Manifold() dependency.Manifold {
 		Output: func(in worker.Worker, out interface{}) error {
 			inFortress, _ := in.(*fortress)
 			if inFortress == nil {
+<<<<<<< HEAD
 				return errors.Errorf("in should be %T; is %T", inFortress, in)
+=======
+				return errors.Errorf("expected %T; got %T", inFortress, in)
+>>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
 			}
 			switch outPointer := out.(type) {
 			case *Guard:
