@@ -15,7 +15,7 @@ from schedule_hetero_control import (
     build_jobs,
     calculate_jobs,
     get_args,
-    get_candidate_version,
+    get_candidate_info,
     get_releases,
     )
 from utility import temp_dir
@@ -56,12 +56,13 @@ class TestBuildJobs(TestCase):
                 'http://localhost:8080', 'jrandom', 'password1')
 
 
-class TestGetCandidateVersion(TestCase):
-    def test_get_candidate_version(self):
+class TestGetCandidateInfo(TestCase):
+    def test_get_candidate_info(self):
         with temp_dir() as dir_path:
             make_build_var_file(dir_path, version='1.24.3')
-            version = get_candidate_version(dir_path)
+            version, revision = get_candidate_info(dir_path)
         self.assertEqual(version, '1.24.3')
+        self.assertEqual(revision, '2870')
 
 
 class CalculateJobs(TestCase):
@@ -73,18 +74,7 @@ class CalculateJobs(TestCase):
             os.makedirs(candidate_path)
             make_build_var_file(candidate_path, version='1.24.3')
             jobs = list(calculate_jobs(root))
-        expected = [{'new_to_old': 'true',
-                     'old_version': '1.20.11',
-                     'candidate': '1.24.3',
-                     'candidate_path': '1.24',
-                     'client_os': 'ubuntu',
-                     },
-                    {'new_to_old': 'false',
-                     'old_version': '1.20.11',
-                     'candidate': '1.24.3',
-                     'candidate_path': '1.24',
-                     'client_os': 'ubuntu'}]
-
+        expected = self.make_jobs('1.24.3', '1.20.11', '1.24')
         self.assertItemsEqual(jobs, expected)
 
     def test_calculate_jobs_schedule_all(self):
@@ -101,65 +91,34 @@ class CalculateJobs(TestCase):
             os.utime(buildvars_path, (time(), a_week_ago))
             jobs = list(calculate_jobs(root, schedule_all=False))
             jobs_schedule_all = list(calculate_jobs(root, schedule_all=True))
-        expected = [{'new_to_old': 'true',
-                     'client_os': 'ubuntu',
-                     'old_version': '1.20.11',
-                     'candidate': '1.23.3',
-                     'candidate_path': '1.23'},
-                    {'new_to_old': 'false',
-                     'client_os': 'ubuntu',
-                     'old_version': '1.20.11',
-                     'candidate': '1.23.3',
-                     'candidate_path': '1.23'},
-                    {'new_to_old': 'true',
-                     'client_os': 'ubuntu',
-                     'old_version': '1.20.11',
-                     'candidate': '1.24.3',
-                     'candidate_path': '1.24'},
-                    {'new_to_old': 'false',
-                     'client_os': 'ubuntu',
-                     'old_version': '1.20.11',
-                     'candidate': '1.24.3',
-                     'candidate_path': '1.24'}]
-        self.assertItemsEqual(jobs, expected[2:])
+        expected = self.make_jobs('1.24.3', '1.20.11', '1.24')
+        expected.extend(self.make_jobs('1.23.3', '1.20.11', '1.23'))
+        self.assertItemsEqual(jobs, expected[:6])
         self.assertItemsEqual(jobs_schedule_all, expected)
 
     def test_calculate_jobs_osx(self):
         with temp_dir() as root:
             release_path = os.path.join(root, 'old-juju', '1.20.11')
             os.makedirs(release_path)
-            release_path = os.path.join(root, 'old-juju', '1.20.11-osx')
-            os.makedirs(release_path)
-
-            candidate_path_1 = os.path.join(root, 'candidate', '1.24.4')
-            os.makedirs(candidate_path_1)
-            make_build_var_file(candidate_path_1, '1.24.4')
-
-            candidate_path_2 = os.path.join(root, 'candidate', '1.24.4-osx')
-            os.makedirs(candidate_path_2)
-            make_build_var_file(candidate_path_2, '1.24.4')
+            candidate_path = os.path.join(root, 'candidate', '1.24.4')
+            os.makedirs(candidate_path)
+            make_build_var_file(candidate_path, '1.24.4')
             jobs = list(calculate_jobs(root, schedule_all=False))
-        expected = [{'candidate': '1.24.4',
-                     'candidate_path': '1.24.4',
-                     'client_os': 'ubuntu',
-                     'new_to_old': 'true',
-                     'old_version': '1.20.11'},
-                    {'candidate': '1.24.4',
-                     'candidate_path': '1.24.4',
-                     'client_os': 'ubuntu',
-                     'new_to_old': 'false',
-                     'old_version': '1.20.11'},
-                    {'candidate': '1.24.4',
-                     'candidate_path': '1.24.4-osx',
-                     'client_os': 'osx',
-                     'new_to_old': 'true',
-                     'old_version': '1.20.11-osx'},
-                    {'candidate': '1.24.4',
-                     'candidate_path': '1.24.4-osx',
-                     'client_os': 'osx',
-                     'new_to_old': 'false',
-                     'old_version': '1.20.11-osx'}]
+        expected = self.make_jobs('1.24.4', '1.20.11')
         self.assertItemsEqual(jobs, expected)
+
+    def make_jobs(self, candidate, old_version, candidate_path=False):
+        jobs = []
+        for client_os in ('ubuntu', 'osx', 'windows'):
+            for new_to_old in ('false', 'true'):
+                jobs.append({
+                    'candidate': candidate,
+                    'candidate_path': candidate_path or candidate,
+                    'client_os': client_os,
+                    'new_to_old': new_to_old,
+                    'old_version': old_version,
+                    'revision_build': '2870'})
+        return jobs
 
 
 def make_build_var_file(dir_path, version):
