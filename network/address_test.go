@@ -767,4 +767,16 @@ func (*AddressSuite) TestExactMatchScopeHonoursPreferIPv6(c *gc.C) {
 	c.Assert(match, jc.IsFalse)
 	match = network.ExactMatchScope(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
+
+	addr = network.NewScopedAddress("2001:db8::ff00:42:8329", network.ScopePublic)
+	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactMatchScope(addr, network.ScopePublic)
+	c.Assert(match, jc.IsTrue)
+
+	addr = network.NewScopedAddress("fc00::1", network.ScopeCloudLocal)
+	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsTrue)
+	match = network.ExactMatchScope(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
 }
