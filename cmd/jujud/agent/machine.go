@@ -90,6 +90,7 @@ import (
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -683,6 +684,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
+
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -820,6 +822,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return worker.NewSimpleWorker(inner), nil
 			})
+			runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
+				// 4 times a day seems a decent enough amount of checks.
+				checkerParams := toolsversionchecker.VersionCheckerParams{
+					CheckInterval: time.Hour * 6,
+				}
+				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+			})
+
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:

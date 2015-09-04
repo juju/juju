@@ -51,7 +51,9 @@ func FormatOneline(value interface{}) ([]byte, error) {
 			recurseUnits(unit, 1, pprint)
 		}
 	}
-
+	if fs.AvailableVersion != "" {
+		fmt.Fprintf(&out, "\n- new available version: %q", fs.AvailableVersion)
+	}
 	return out.Bytes(), nil
 }
 
@@ -162,6 +164,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	for _, name := range sortStringsNaturally(stringKeysFromMap(fs.Machines)) {
 		m := fs.Machines[name]
 		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
+	}
+	tw.Flush()
+
+	if fs.AvailableVersion != "" {
+		p("\n[Juju]")
+		p("UPGRADE-AVAILABLE")
+		p(fs.AvailableVersion)
 	}
 	tw.Flush()
 
