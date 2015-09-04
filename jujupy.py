@@ -973,7 +973,10 @@ class SimpleEnvironment:
 
     @classmethod
     def from_config(cls, name):
-        return cls(name, get_selected_environment(name)[0])
+        config, selected = get_selected_environment(name)
+        if name is None:
+            name = selected
+        return cls(name, config)
 
     def needs_sudo(self):
         return self.local
