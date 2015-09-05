@@ -51,5 +51,5 @@ type Visit func() error
 // Abort is a channel that can be closed to abort a blocking operation.
 type Abort <-chan struct{}
 
-// ErrAborted is used to confirm clean termination of a blocking operation.
+// ErrAborted is used to confirm early termination of a blocking operation.
 var ErrAborted = errors.New("fortress operation aborted")
