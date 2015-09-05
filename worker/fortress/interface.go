@@ -3,6 +3,9 @@
 
 /*
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> spread code out a bit more; improved docs
 Package fortress implements a convenient metaphor for an RWLock.
 
 A "fortress" is constructed via a manifold's Start func, and accessed via its
@@ -16,6 +19,7 @@ The original motivating use case was for a component to mediate charm directory
 access between the uniter and the metrics collector. The metrics collector must
 be free to run its own independent hooks while the uniter is active; but metrics
 hooks and charm upgrades cannot be allowed to tread on one another's toes.
+<<<<<<< HEAD
 =======
 Package fortress implements a convenient metaphor for an RWLock (originally
 designed to coordinate access to a charm directory among the uniter (which
@@ -23,6 +27,8 @@ sometimes deploys new charms) and the metrics collector (which needs to run
 hooks on its own schedule; and can safely run hooks in parallel with other
 hooks, but not while the charm directory is changing underneath it)).
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+>>>>>>> spread code out a bit more; improved docs
 */
 package fortress
 
@@ -31,10 +37,14 @@ import (
 )
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // Guard manages Guest access to a fortress.
 =======
 // Guard manages Guest Visits to a fortress.
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+// Guard manages Guest access to a fortress.
+>>>>>>> spread code out a bit more; improved docs
 type Guard interface {
 
 	// Unlock unblocks all Guest.Visit calls.
@@ -46,6 +56,7 @@ type Guard interface {
 	Lockdown(Abort) error
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 // Guest allows clients to Visit a fortress when it's unlocked; that is, to
 // get non-exclusive access to whatever resource is being protected for the
@@ -63,6 +74,16 @@ type Guest interface {
 	// It will return ErrAborted if the supplied Abort is closed before the
 	// Visit is started.
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+// Guest allows clients to Visit a fortress when it's unlocked; that is, to
+// get non-exclusive access to whatever resource is being protected for the
+// duration of the supplied Visit func.
+type Guest interface {
+
+	// Visit waits until the fortress is unlocked, then runs the supplied
+	// Visit func. It will return ErrAborted if the supplied Abort is closed
+	// before the Visit is started.
+>>>>>>> spread code out a bit more; improved docs
 	Visit(Visit, Abort) error
 }
 
@@ -73,8 +94,12 @@ type Visit func() error
 type Abort <-chan struct{}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // ErrAborted is used to confirm clean termination of a blocking operation.
 =======
 // ErrAborted is used to signal clean termination of a blocking operation.
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+// ErrAborted is used to confirm clean termination of a blocking operation.
+>>>>>>> spread code out a bit more; improved docs
 var ErrAborted = errors.New("fortress operation aborted")

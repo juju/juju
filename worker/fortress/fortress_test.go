@@ -8,9 +8,12 @@ import (
 	"time"
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	"github.com/juju/errors"
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+>>>>>>> spread code out a bit more; improved docs
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,9 +21,12 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	"github.com/juju/juju/worker/dependency"
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+>>>>>>> spread code out a bit more; improved docs
 	"github.com/juju/juju/worker/fortress"
 )
 
@@ -31,6 +37,9 @@ type FortressSuite struct {
 var _ = gc.Suite(&FortressSuite{})
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> spread code out a bit more; improved docs
 func (s *FortressSuite) TestOutputBadSource(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
@@ -42,12 +51,16 @@ func (s *FortressSuite) TestOutputBadSource(c *gc.C) {
 	c.Check(out, gc.IsNil)
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+>>>>>>> spread code out a bit more; improved docs
 func (s *FortressSuite) TestOutputBadTarget(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 	var out interface{}
 	err := fix.manifold.Output(fix.worker, &out)
@@ -59,6 +72,12 @@ func (s *FortressSuite) TestOutputBadTarget(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, "out should be *fortress.Guest or *fortress.Guard; is *interface {}")
 	c.Check(state, gc.IsNil)
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+	var out interface{}
+	err := fix.manifold.Output(fix.worker, &out)
+	c.Check(err.Error(), gc.Equals, "out should be *fortress.Guest or *fortress.Guard; is *interface {}")
+	c.Check(out, gc.IsNil)
+>>>>>>> spread code out a bit more; improved docs
 }
 
 func (s *FortressSuite) TestStoppedUnlock(c *gc.C) {
@@ -363,6 +382,7 @@ func (s *FortressSuite) TestAbortedLockdownUnlock(c *gc.C) {
 	AssertUnlocked(c, fix.Guest(c))
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 type fixture struct {
@@ -442,3 +462,5 @@ func badVisit() error {
 	return errors.New("bad!")
 }
 >>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
+=======
+>>>>>>> spread code out a bit more; improved docs
