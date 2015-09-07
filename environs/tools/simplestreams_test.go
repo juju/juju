@@ -72,7 +72,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 		registerLiveSimpleStreamsTests(testData.baseURL,
 			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
-				Series:    []string{version.Current.Series},
+				Series:    []string{series.HostSeries()},
 				Arches:    []string{"amd64"},
 				Stream:    "released",
 			}), testData.requireSigned)

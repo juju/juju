@@ -30,6 +30,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/series"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -235,17 +236,17 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
-	s.assertUploadedTools(c, t, []string{version.Current.Series}, "released")
+	s.assertUploadedTools(c, t, []string{series.HostSeries()}, "released")
 }
 
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	seriesToUpload := "precise"
-	if seriesToUpload == version.Current.Series {
+	if seriesToUpload == series.HostSeries() {
 		seriesToUpload = "raring"
 	}
 	t, err := sync.Upload(s.targetStorage, "released", nil, "quantal", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", version.Current.Series}, "released")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", series.HostSeries()}, "released")
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -271,7 +272,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 
 func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 	seriesToUpload := "precise"
-	if seriesToUpload == version.Current.Series {
+	if seriesToUpload == series.HostSeries() {
 		seriesToUpload = "raring"
 	}
 	builtTools, err := sync.BuildToolsTarball(nil, "testing")
@@ -279,7 +280,7 @@ func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 
 	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "quantal", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", version.Current.Series}, "testing")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", series.HostSeries()}, "testing")
 }
 
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {

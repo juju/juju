@@ -12,12 +12,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
 )
 
 const (
@@ -175,7 +175,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Addresses:               cfg.Addresses,
-		Series:                  version.Current.Series,
+		Series:                  series.HostSeries(),
 		Nonce:                   BootstrapNonce,
 		Constraints:             cfg.Constraints,
 		InstanceId:              cfg.InstanceId,
