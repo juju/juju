@@ -151,12 +151,14 @@ var findInstanceSpecTests = []struct {
 
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	for i, test := range findInstanceSpecTests {
+		instances.DebugBuffer.Reset()
 		c.Logf("\ntest %d: %q; %q; %q; %v", i, test.series, test.arches, test.cons, test.storage)
 		stor := test.storage
 		if len(stor) == 0 {
 			stor = []string{ssdStorage, ebsStorage}
 		}
 		spec, err := findInstanceSpec(
+			imagemetadata.Fetch,
 			[]simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
 			"released",
@@ -167,10 +169,53 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 				Constraints: constraints.MustParse(test.cons),
 				Storage:     stor,
 			})
+		if err != nil {
+			c.Logf(instances.DebugBuffer.String())
+		}
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(spec.InstanceType.Name, gc.Equals, test.itype)
-		c.Check(spec.Image.Id, gc.Equals, test.image)
+		if c.Check(spec.InstanceType.Name, gc.Equals, test.itype) == false {
+			c.Logf(instances.DebugBuffer.String())
+		}
+		if c.Check(spec.Image.Id, gc.Equals, test.image) == false {
+			c.Logf(instances.DebugBuffer.String())
+		}
 	}
+}
+
+func (s *specSuite) TestFindInstanceSpecPrefersInstanceType(c *gc.C) {
+
+	c.Skip("tmp")
+
+	source := []simplestreams.DataSource{
+		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
+	}
+	instanceConstraint := &instances.InstanceConstraint{
+		Region:      "test",
+		Series:      testing.FakeDefaultSeries,
+		Constraints: constraints.MustParse("instance-type=t2.medium"),
+	}
+
+	numCalls := 0
+	fetch := func(
+		_ []simplestreams.DataSource,
+		constraints *imagemetadata.ImageConstraint,
+		_ bool,
+	) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
+		numCalls++
+
+		imgMeta := []*imagemetadata.ImageMetadata{
+			{Id: "ami-00000033", Storage: "ssd", VirtType: "pv", Arch: "amd64", Version: "14.04", RegionAlias: "", RegionName: "test", Endpoint: "", Stream: ""},
+			{Id: "ami-00000034", Storage: "ssd", VirtType: "pv", Arch: "i386", Version: "14.04", RegionAlias: "", RegionName: "test", Endpoint: "", Stream: ""},
+			{Id: "ami-00000035", Storage: "ssd", VirtType: "hvm", Arch: "amd64", Version: "14.04", RegionAlias: "", RegionName: "test", Endpoint: "", Stream: ""},
+			{Id: "ami-00000039", Storage: "ebs", VirtType: "pv", Arch: "amd64", Version: "14.04", RegionAlias: "", RegionName: "test", Endpoint: "", Stream: ""},
+		}
+
+		return imgMeta, nil, nil
+	}
+	_, err := findInstanceSpec(fetch, source, "released", instanceConstraint)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numCalls, jc.GreaterThan, 0)
 }
 
 var findInstanceSpecErrorTests = []struct {
@@ -199,6 +244,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec(
+			imagemetadata.Fetch,
 			[]simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
 			"released",

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -380,6 +381,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			continue
 		} else {
 			if !c.Check(err, jc.ErrorIsNil) {
+				c.Log(DebugBuffer.String())
 				continue
 			}
 			c.Check(spec.Image.Id, gc.Equals, t.imageId)
@@ -487,3 +489,24 @@ func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
 		ic.String(), gc.Equals,
 		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: [ebs ssd]}")
 }
+
+func (*imageSuite) TestFindLargestWordSize(c *gc.C) {
+	images := []Image{{Arch: "amd64"}, {Arch: "i386"}}
+	largest := findLargestWordSize(images, func(a string) int { return arch.Info[a].WordSize })
+	c.Assert(largest, gc.HasLen, 1)
+	c.Check(largest[0], gc.Equals, images[0])
+}
+
+// func (*imageSuite) TestFindInstanceSpecMultipleInstanceMatches(c *gc.C) {
+// 	images := []Image{{Arch: "amd64"}, {Arch: "i386"}}
+// 	ic := &InstanceConstraint{
+// 		Series: "precise",
+// 		Region: "region",
+// 		Arches: []string{"amd64"},
+// 	}
+// 	instanceTypes := []InstanceType{{Arches: []string{"amd64"}, Cost: 0}, {Arches: []string{"amd64"}, Cost: 1}}
+// 	instanceSpec, err := FindInstanceSpec(images, ic, instanceTypes)
+
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	c.Check(instanceSpec.InstanceType, gc.DeepEquals, instanceTypes[0])
+// }
