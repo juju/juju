@@ -71,7 +71,7 @@ func (c *VolumeListCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// filter out valid output, if any
-	var valid []params.VolumeItem
+	var valid []params.VolumeDetailsResult
 	for _, one := range found {
 		if one.Error == nil {
 			valid = append(valid, one)
@@ -95,7 +95,7 @@ var getVolumeListAPI = (*VolumeListCommand).getVolumeListAPI
 // VolumeListAPI defines the API methods that the volume list command use.
 type VolumeListAPI interface {
 	Close() error
-	ListVolumes(machines []string) ([]params.VolumeItem, error)
+	ListVolumes(machines []string) ([]params.VolumeDetailsResult, error)
 }
 
 func (c *VolumeListCommand) getVolumeListAPI() (VolumeListAPI, error) {
