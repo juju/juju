@@ -1061,7 +1061,7 @@ func (m *Machine) PublicAddress() (network.Address, error) {
 		return network.Address{}, nil
 	}
 	checkScope := func(addr network.Address) bool {
-		return network.ExactMatchScope(addr, network.ScopePublic)
+		return network.ExactScopeMatch(addr, network.ScopePublic)
 	}
 	getAddr := func() network.Address {
 		return network.SelectPublicAddress(addresses)
@@ -1120,7 +1120,7 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 		return network.Address{}, nil
 	}
 	checkScope := func(addr network.Address) bool {
-		return network.ExactMatchScope(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
+		return network.ExactScopeMatch(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
 	}
 	getAddr := func() network.Address {
 		return network.SelectInternalAddress(addresses, false)

@@ -740,43 +740,43 @@ func (*AddressSuite) TestDecimalToIPv4(c *gc.C) {
 	c.Assert(addr.String(), gc.Equals, "192.168.1.1")
 }
 
-func (*AddressSuite) TestExactMatchScope(c *gc.C) {
+func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
 	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
-	match := network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsTrue)
-	match = network.ExactMatchScope(addr, network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
 
 	addr = network.NewScopedAddress("8.8.8.8", network.ScopePublic)
-	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsFalse)
-	match = network.ExactMatchScope(addr, network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsTrue)
 }
 
-func (*AddressSuite) TestExactMatchScopeHonoursPreferIPv6(c *gc.C) {
+func (*AddressSuite) TestExactScopeMatchHonoursPreferIPv6(c *gc.C) {
 	network.SetPreferIPv6(true)
 	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
-	match := network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsFalse)
-	match = network.ExactMatchScope(addr, network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
 
 	addr = network.NewScopedAddress("8.8.8.8", network.ScopePublic)
-	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsFalse)
-	match = network.ExactMatchScope(addr, network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
 
 	addr = network.NewScopedAddress("2001:db8::ff00:42:8329", network.ScopePublic)
-	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsFalse)
-	match = network.ExactMatchScope(addr, network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsTrue)
 
 	addr = network.NewScopedAddress("fc00::1", network.ScopeCloudLocal)
-	match = network.ExactMatchScope(addr, network.ScopeCloudLocal)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsTrue)
-	match = network.ExactMatchScope(addr, network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsFalse)
 }
