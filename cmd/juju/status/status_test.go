@@ -34,6 +34,14 @@ import (
 	"github.com/juju/juju/version"
 )
 
+func defineNextVersion() string {
+	ver := version.Current.Number
+	ver.Patch++
+	return ver.String()
+}
+
+var nextVersion = defineNextVersion()
+
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(envcmd.Wrap(&StatusCommand{}), ctx, args)
@@ -120,6 +128,16 @@ func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pi
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
 	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
+
+	// We need to have a new version available to test it outputs
+	// correctly.
+	env, err := st.Environment()
+	c.Check(err, jc.ErrorIsNil)
+	ver := version.Current.Number
+	ver.Patch++
+	err = env.UpdateLatestToolsVersion(ver)
+	c.Check(err, jc.ErrorIsNil)
+
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
@@ -255,7 +273,8 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
-				"environment": "dummyenv",
+				"environment":       "dummyenv",
+				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
 						"instance-id":                "pending",
@@ -275,7 +294,8 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
-				"environment": "dummyenv",
+				"environment":       "dummyenv",
+				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
 						"agent-state":                "pending",
@@ -294,7 +314,8 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
-				"environment": "dummyenv",
+				"environment":       "dummyenv",
+				"available-version": nextVersion,
 				"machines": M{
 					"0": machine0,
 				},
@@ -306,7 +327,8 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
-				"environment": "dummyenv",
+				"environment":       "dummyenv",
+				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
 						"dns-name":                   "dummyenv-0.dns",
@@ -2169,7 +2191,8 @@ var statusTests = []testCase{
 		expect{
 			"simulate just the two services and a bootstrap node",
 			M{
-				"environment": "dummyenv",
+				"environment":       "dummyenv",
+				"available-version": nextVersion,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -3548,6 +3571,10 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
   - logging/1: dummyenv-2.dns (started)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
+- new available version: "1.24.7"
+- new available version: "1.24.7"
+- new available version: "1.24.7"
+- new available version: "1.24.7"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3619,7 +3646,8 @@ var statusTimeTest = test(
 	expect{
 		"add two units, one alive (in error state), one started",
 		M{
-			"environment": "dummyenv",
+			"environment":       "dummyenv",
+			"available-version": nextVersion,
 			"machines": M{
 				"0": machine0,
 				"1": machine1,
