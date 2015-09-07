@@ -9,13 +9,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
 // RelationUnit holds information about a single unit in a relation, and

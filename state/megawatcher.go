@@ -238,9 +238,14 @@ func getUnitAddresses(st *State, unitName string) (string, string, error) {
 	} else if err != nil {
 		return "", "", err
 	}
-	// TODO(mfoord): we shouldn't be ignoring the errors here.
-	publicAddress, _ := u.PublicAddress()
-	privateAddress, _ := u.PrivateAddress()
+	publicAddress, err := u.PublicAddress()
+	if err != nil {
+		logger.Warningf("getting a public address for unit %q failed: %q", u.Name(), err)
+	}
+	privateAddress, err := u.PrivateAddress()
+	if err != nil {
+		logger.Warningf("getting a private address for unit %q failed: %q", u.Name(), err)
+	}
 	return publicAddress.Value, privateAddress.Value, nil
 }
 
