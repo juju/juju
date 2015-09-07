@@ -1072,20 +1072,20 @@ func (m *Machine) PublicAddress() (network.Address, error) {
 	}
 
 	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
-	if changed {
-		err := m.setDefaultAddress(newAddr, true)
-		if err != nil {
-			if err != errNotAlive {
-				return network.Address{}, errors.Trace(err)
-			} else {
-				// Dead machines cannot change address, report the last
-				// known address.
-				return publicAddress, nil
-			}
-		}
-		return newAddr, nil
+	if !changed {
+		return publicAddress, nil
 	}
-	return publicAddress, nil
+	err := m.setDefaultAddress(newAddr, true)
+	if err != nil {
+		if err != errNotAlive {
+			return network.Address{}, errors.Trace(err)
+		} else {
+			// Dead machines cannot change address, report the last
+			// known address.
+			return publicAddress, nil
+		}
+	}
+	return newAddr, nil
 }
 
 // maybeGetNewAddress determines if the current address is the most appropriate
@@ -1133,20 +1133,21 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 	}
 
 	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
-	if changed {
-		err := m.setDefaultAddress(newAddr, false)
-		if err != nil {
-			if err != errNotAlive {
-				return network.Address{}, errors.Trace(err)
-			} else {
-				// Dead machines cannot change address, report the last
-				// known address.
-				return privateAddress, nil
-			}
-		}
-		return newAddr, nil
+	if !changed {
+		return privateAddress, nil
 	}
-	return privateAddress, nil
+	err := m.setDefaultAddress(newAddr, false)
+	if err != nil {
+		if err != errNotAlive {
+			return network.Address{}, errors.Trace(err)
+		} else {
+			// Dead machines cannot change address, report the last
+			// known address.
+			return privateAddress, nil
+		}
+	}
+	return newAddr, nil
+
 }
 
 func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) error {
