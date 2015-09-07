@@ -313,7 +313,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		tools.DefaultBaseURL = ""
 
 		// Set up apparent CLI version and initialize the command.
-		version.Current = version.MustParseBinary(test.currentVersion)
+		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
 		com := &upgradeJujuCommand{}
 		if err := coretesting.InitCommand(envcmd.Wrap(com), test.args); err != nil {
 			if test.expectInitErr != "" {
