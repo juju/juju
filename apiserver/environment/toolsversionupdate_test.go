@@ -25,34 +25,11 @@ type dummyEnviron struct {
 	environs.Environ
 }
 
-// SampleConfig() returns an environment configuration with all required
-// attributes set.
-func sampleConfig() coretesting.Attrs {
-	return coretesting.Attrs{
-		"type":                      "dummy",
-		"name":                      "only",
-		"uuid":                      coretesting.EnvironmentTag.Id(),
-		"authorized-keys":           coretesting.FakeAuthKeys,
-		"firewall-mode":             config.FwInstance,
-		"admin-secret":              coretesting.DefaultMongoPassword,
-		"ca-cert":                   coretesting.CACert,
-		"ca-private-key":            coretesting.CAKey,
-		"ssl-hostname-verification": true,
-		"development":               false,
-		"state-port":                1234,
-		"api-port":                  4321,
-		"syslog-port":               2345,
-		"default-series":            config.LatestLtsSeries(),
-
-		"secret":       "pork",
-		"state-server": true,
-		"prefer-ipv6":  true,
-	}
-}
-
 func (s *updaterSuite) TestCheckTools(c *gc.C) {
-	sConfig := sampleConfig()
-	sConfig["agent-version"] = "2.5.0"
+	sConfig := coretesting.FakeConfig()
+	sConfig = sConfig.Merge(coretesting.Attrs{
+		"agent-version": "2.5.0",
+	})
 	cfg, err := config.New(config.NoDefaults, sConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	fakeNewEnvirons := func(*config.Config) (environs.Environ, error) {
@@ -96,8 +73,10 @@ func (s *updaterSuite) TestUpdateToolsAvailability(c *gc.C) {
 	s.PatchValue(&newEnvirons, fakeNewEnvirons)
 
 	fakeEnvConfig := func(_ *state.Environment) (*config.Config, error) {
-		sConfig := sampleConfig()
-		sConfig["agent-version"] = "2.5.0"
+		sConfig := coretesting.FakeConfig()
+		sConfig = sConfig.Merge(coretesting.Attrs{
+			"agent-version": "2.5.0",
+		})
 		return config.New(config.NoDefaults, sConfig)
 	}
 	s.PatchValue(&envConfig, fakeEnvConfig)
