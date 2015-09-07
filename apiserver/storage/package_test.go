@@ -39,10 +39,13 @@ type baseStorageSuite struct {
 	unitTag         names.UnitTag
 	machineTag      names.MachineTag
 
-	volumeTag        names.VolumeTag
-	volume           *mockVolume
-	volumeAttachment *mockVolumeAttachment
-	calls            []string
+	volumeTag            names.VolumeTag
+	volume               *mockVolume
+	volumeAttachment     *mockVolumeAttachment
+	filesystemTag        names.FilesystemTag
+	filesystem           *mockFilesystem
+	filesystemAttachment *mockFilesystemAttachment
+	calls                []string
 
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
@@ -81,6 +84,10 @@ const (
 	machineVolumeAttachmentsCall            = "machineVolumeAttachments"
 	volumeAttachmentsCall                   = "volumeAttachments"
 	allVolumesCall                          = "allVolumes"
+	filesystemCall                          = "filesystemCall"
+	machineFilesystemAttachmentsCall        = "machineFilesystemAttachments"
+	filesystemAttachmentsCall               = "filesystemAttachments"
+	allFilesystemsCall                      = "allFilesystems"
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
 )
@@ -98,11 +105,17 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 	storageInstanceAttachment := &mockStorageAttachment{storage: s.storageInstance}
 
 	s.machineTag = names.NewMachineTag("66")
-	filesystemTag := names.NewFilesystemTag("104")
+	s.filesystemTag = names.NewFilesystemTag("104")
 	s.volumeTag = names.NewVolumeTag("22")
-	filesystem := &mockFilesystem{tag: filesystemTag}
-	filesystemAttachment := &mockFilesystemAttachment{}
-	s.volume = &mockVolume{tag: s.volumeTag, storage: s.storageTag}
+	s.filesystem = &mockFilesystem{
+		tag:     s.filesystemTag,
+		storage: &s.storageTag,
+	}
+	s.filesystemAttachment = &mockFilesystemAttachment{
+		filesystem: s.filesystemTag,
+		machine:    s.machineTag,
+	}
+	s.volume = &mockVolume{tag: s.volumeTag, storage: &s.storageTag}
 	s.volumeAttachment = &mockVolumeAttachment{
 		VolumeTag:  s.volumeTag,
 		MachineTag: s.machineTag,
@@ -127,13 +140,13 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 		storageInstanceFilesystem: func(sTag names.StorageTag) (state.Filesystem, error) {
 			s.calls = append(s.calls, storageInstanceFilesystemCall)
 			c.Assert(sTag, gc.DeepEquals, s.storageTag)
-			return filesystem, nil
+			return s.filesystem, nil
 		},
 		storageInstanceFilesystemAttachment: func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
 			s.calls = append(s.calls, storageInstanceFilesystemAttachmentCall)
 			c.Assert(m, gc.DeepEquals, s.machineTag)
-			c.Assert(f, gc.DeepEquals, filesystemTag)
-			return filesystemAttachment, nil
+			c.Assert(f, gc.DeepEquals, s.filesystemTag)
+			return s.filesystemAttachment, nil
 		},
 		storageInstanceVolume: func(t names.StorageTag) (state.Volume, error) {
 			s.calls = append(s.calls, storageInstanceVolumeCall)
@@ -163,6 +176,25 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 		allVolumes: func() ([]state.Volume, error) {
 			s.calls = append(s.calls, allVolumesCall)
 			return []state.Volume{s.volume}, nil
+		},
+		filesystem: func(tag names.FilesystemTag) (state.Filesystem, error) {
+			s.calls = append(s.calls, filesystemCall)
+			c.Assert(tag, gc.DeepEquals, s.filesystemTag)
+			return s.filesystem, nil
+		},
+		machineFilesystemAttachments: func(machine names.MachineTag) ([]state.FilesystemAttachment, error) {
+			s.calls = append(s.calls, machineFilesystemAttachmentsCall)
+			c.Assert(machine, gc.DeepEquals, s.machineTag)
+			return []state.FilesystemAttachment{s.filesystemAttachment}, nil
+		},
+		filesystemAttachments: func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error) {
+			s.calls = append(s.calls, filesystemAttachmentsCall)
+			c.Assert(filesystem, gc.DeepEquals, s.filesystemTag)
+			return []state.FilesystemAttachment{s.filesystemAttachment}, nil
+		},
+		allFilesystems: func() ([]state.Filesystem, error) {
+			s.calls = append(s.calls, allFilesystemsCall)
+			return []state.Filesystem{s.filesystem}, nil
 		},
 		envName: "storagetest",
 		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) error {
@@ -270,6 +302,10 @@ type mockState struct {
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
 	allVolumes                          func() ([]state.Volume, error)
+	filesystem                          func(tag names.FilesystemTag) (state.Filesystem, error)
+	machineFilesystemAttachments        func(machine names.MachineTag) ([]state.FilesystemAttachment, error)
+	filesystemAttachments               func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
+	allFilesystems                      func() ([]state.Filesystem, error)
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 }
@@ -338,6 +374,22 @@ func (st *mockState) Volume(tag names.VolumeTag) (state.Volume, error) {
 	return st.volume(tag)
 }
 
+func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
+	return st.allFilesystems()
+}
+
+func (st *mockState) FilesystemAttachments(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error) {
+	return st.filesystemAttachments(filesystem)
+}
+
+func (st *mockState) MachineFilesystemAttachments(machine names.MachineTag) ([]state.FilesystemAttachment, error) {
+	return st.machineFilesystemAttachments(machine)
+}
+
+func (st *mockState) Filesystem(tag names.FilesystemTag) (state.Filesystem, error) {
+	return st.filesystem(tag)
+}
+
 func (st *mockState) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) error {
 	return st.addStorageForUnit(u, name, cons)
 }
@@ -357,17 +409,16 @@ func (m *mockNotifyWatcher) Changes() <-chan struct{} {
 
 type mockVolume struct {
 	state.Volume
-	tag          names.VolumeTag
-	storage      names.StorageTag
-	hasNoStorage bool
-	info         *state.VolumeInfo
+	tag     names.VolumeTag
+	storage *names.StorageTag
+	info    *state.VolumeInfo
 }
 
 func (m *mockVolume) StorageInstance() (names.StorageTag, error) {
-	if m.hasNoStorage {
-		return names.StorageTag{}, errors.NewNotAssigned(nil, "error from mock")
+	if m.storage != nil {
+		return *m.storage, nil
 	}
-	return m.storage, nil
+	return names.StorageTag{}, errors.NewNotAssigned(nil, "error from mock")
 }
 
 func (m *mockVolume) VolumeTag() names.VolumeTag {
@@ -394,24 +445,61 @@ func (m *mockVolume) Status() (state.StatusInfo, error) {
 
 type mockFilesystem struct {
 	state.Filesystem
-	tag names.FilesystemTag
+	tag     names.FilesystemTag
+	storage *names.StorageTag
+	volume  *names.VolumeTag
+	info    *state.FilesystemInfo
+}
+
+func (m *mockFilesystem) Storage() (names.StorageTag, error) {
+	if m.storage != nil {
+		return *m.storage, nil
+	}
+	return names.StorageTag{}, errors.NewNotAssigned(nil, "error from mock")
 }
 
 func (m *mockFilesystem) FilesystemTag() names.FilesystemTag {
 	return m.tag
 }
 
+func (m *mockFilesystem) Volume() (names.VolumeTag, error) {
+	if m.volume != nil {
+		return *m.volume, nil
+	}
+	return names.VolumeTag{}, state.ErrNoBackingVolume
+}
+
+func (m *mockFilesystem) Info() (state.FilesystemInfo, error) {
+	if m.info != nil {
+		return *m.info, nil
+	}
+	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
+}
+
+func (m *mockFilesystem) Status() (state.StatusInfo, error) {
+	return state.StatusInfo{Status: state.StatusAttached}, nil
+}
+
 type mockFilesystemAttachment struct {
 	state.FilesystemAttachment
-	tag names.FilesystemTag
+	filesystem names.FilesystemTag
+	machine    names.MachineTag
+	info       *state.FilesystemAttachmentInfo
 }
 
 func (m *mockFilesystemAttachment) Filesystem() names.FilesystemTag {
-	return m.tag
+	return m.filesystem
+}
+
+func (m *mockFilesystemAttachment) Machine() names.MachineTag {
+	return m.machine
 }
 
 func (m *mockFilesystemAttachment) Info() (state.FilesystemAttachmentInfo, error) {
-	return state.FilesystemAttachmentInfo{}, nil
+	if m.info != nil {
+		return *m.info, nil
+	}
+	return state.FilesystemAttachmentInfo{}, errors.NotProvisionedf("filesystem attachment")
 }
 
 type mockStorageInstance struct {

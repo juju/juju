@@ -102,10 +102,7 @@ func FilesystemFromState(f state.Filesystem) (params.Filesystem, error) {
 	result := params.Filesystem{
 		f.FilesystemTag().String(),
 		"",
-		params.FilesystemInfo{
-			info.FilesystemId,
-			info.Size,
-		},
+		FilesystemInfoFromState(info),
 	}
 	volumeTag, err := f.Volume()
 	if err == nil {
@@ -114,6 +111,14 @@ func FilesystemFromState(f state.Filesystem) (params.Filesystem, error) {
 		return params.Filesystem{}, errors.Trace(err)
 	}
 	return result, nil
+}
+
+// FilesystemInfoFromState converts a state.FilesystemInfo to params.FilesystemInfo.
+func FilesystemInfoFromState(info state.FilesystemInfo) params.FilesystemInfo {
+	return params.FilesystemInfo{
+		info.FilesystemId,
+		info.Size,
+	}
 }
 
 // FilesystemAttachmentToState converts a storage.FilesystemAttachment
@@ -143,11 +148,17 @@ func FilesystemAttachmentFromState(v state.FilesystemAttachment) (params.Filesys
 	return params.FilesystemAttachment{
 		v.Filesystem().String(),
 		v.Machine().String(),
-		params.FilesystemAttachmentInfo{
-			info.MountPoint,
-			info.ReadOnly,
-		},
+		FilesystemAttachmentInfoFromState(info),
 	}, nil
+}
+
+// FilesystemAttachmentInfoFromState converts a state.FilesystemAttachmentInfo
+// to params.FilesystemAttachmentInfo.
+func FilesystemAttachmentInfoFromState(info state.FilesystemAttachmentInfo) params.FilesystemAttachmentInfo {
+	return params.FilesystemAttachmentInfo{
+		info.MountPoint,
+		info.ReadOnly,
+	}
 }
 
 // ParseFilesystemAttachmentIds parses the strings, returning machine storage IDs.
