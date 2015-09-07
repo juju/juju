@@ -102,6 +102,21 @@ func (c *Client) ListVolumes(machines []string) ([]params.VolumeDetailsResult, e
 	return found.Results, nil
 }
 
+// ListFilesystems lists filesystems for desired machines.
+// If no machines provided, a list of all filesystems is returned.
+func (c *Client) ListFilesystems(machines []string) ([]params.FilesystemDetailsResult, error) {
+	tags := make([]string, len(machines))
+	for i, one := range machines {
+		tags[i] = names.NewMachineTag(one).String()
+	}
+	args := params.FilesystemFilter{Machines: tags}
+	found := params.FilesystemDetailsResults{}
+	if err := c.facade.FacadeCall("ListFilesystems", args, &found); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return found.Results, nil
+}
+
 // AddToUnit adds specified storage to desired units.
 func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
 	out := params.ErrorResults{}
