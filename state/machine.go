@@ -1062,6 +1062,7 @@ func (m *Machine) PublicAddress() (network.Address, error) {
 		logger.Warningf("getting PublicAddress: no addresses for machine %q", m.Id())
 		return network.Address{}, nil
 	}
+	// Always prefer an exact match if available.
 	checkScope := func(addr network.Address) bool {
 		return network.ExactScopeMatch(addr, network.ScopePublic)
 	}
@@ -1121,6 +1122,7 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 		logger.Warningf("getting PrivateAddress: no addresses for machine %q", m.Id())
 		return network.Address{}, nil
 	}
+	// Always prefer an exact match if available.
 	checkScope := func(addr network.Address) bool {
 		return network.ExactScopeMatch(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
 	}
