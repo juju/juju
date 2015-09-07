@@ -741,6 +741,7 @@ func (*AddressSuite) TestDecimalToIPv4(c *gc.C) {
 }
 
 func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
+	network.SetPreferIPv6(false)
 	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
 	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsTrue)
