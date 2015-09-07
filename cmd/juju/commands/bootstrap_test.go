@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -698,9 +699,10 @@ func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
 	currentVersion.Major = 2
 	currentVersion.Minor = 22
 	currentVersion.Patch = 46
-	currentVersion.Series = "trusty"
+	currentVersion.Series = "incorrect"
 	currentVersion.Arch = "amd64"
 	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	coretesting.RunCommand(
 		c, newBootstrapCommand(),
 		"--no-auto-upgrade",

@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -107,7 +108,7 @@ const bootstrapMachineId = "0"
 var (
 	logger     = loggo.GetLogger("juju.cmd.jujud")
 	retryDelay = 3 * time.Second
-	JujuRun    = paths.MustSucceed(paths.JujuRun(version.Current.Series))
+	JujuRun    = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.

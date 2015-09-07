@@ -9,8 +9,8 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type InitialiserSuite struct {
@@ -43,7 +43,7 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	paccmder, err := commands.NewPackageCommander("precise")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&version.Current.Series, "precise")
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
 	container := NewContainerInitialiser("precise")
 
 	err = container.Initialise()

@@ -20,6 +20,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -217,7 +218,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 
 func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	toolsSeries := set.NewStrings(toolsLtsSeries...)
-	toolsSeries.Add(version.Current.Series)
+	toolsSeries.Add(series.HostSeries())
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Current
@@ -254,7 +255,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
 	defaultSeries := coretesting.FakeDefaultSeries
-	if version.Current.Series != defaultSeries {
+	if series.HostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)
