@@ -14,16 +14,16 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// formatVolumeListTabular returns a tabular summary of volume instances.
-func formatVolumeListTabular(value interface{}) ([]byte, error) {
-	infos, ok := value.(map[string]map[string]map[string]VolumeInfo)
+// formatFilesystemListTabular returns a tabular summary of filesystem instances.
+func formatFilesystemListTabular(value interface{}) ([]byte, error) {
+	infos, ok := value.(map[string]map[string]map[string]FilesystemInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", infos, value)
 	}
-	return formatVolumeListTabularTyped(infos), nil
+	return formatFilesystemListTabularTyped(infos), nil
 }
 
-func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeInfo) []byte {
+func formatFilesystemListTabularTyped(infos map[string]map[string]map[string]FilesystemInfo) []byte {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -38,7 +38,7 @@ func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeI
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("MACHINE", "UNIT", "STORAGE", "DEVICE", "VOLUME", "ID", "SIZE", "STATE", "MESSAGE")
+	print("MACHINE", "UNIT", "STORAGE", "FILESYSTEM", "VOLUME", "ID", "MOUNTPOINT", "SIZE", "STATE", "MESSAGE")
 
 	// 1. sort by machines
 	machines := set.NewStrings()
@@ -74,8 +74,10 @@ func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeI
 					size = humanize.IBytes(info.Size * humanize.MiByte)
 				}
 				print(
-					machine, unit, storage, info.DeviceName,
-					info.Volume, info.VolumeId, size,
+					machine, unit, storage,
+					info.Filesystem, info.Volume,
+					info.FilesystemId,
+					info.MountPoint, size,
 					string(info.Status.Current), info.Status.Message,
 				)
 			}

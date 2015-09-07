@@ -42,10 +42,10 @@ type VolumeCommandBase struct {
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {
 	// from params.Volume. This is provider-supplied unique volume id.
-	VolumeId string `yaml:"id" json:"id"`
+	VolumeId string `yaml:"id,omitempty" json:"id,omitempty"`
 
 	// from params.Volume
-	HardwareId string `yaml:"hardwareid" json:"hardwareid"`
+	HardwareId string `yaml:"hardwareid,omitempty" json:"hardwareid,omitempty"`
 
 	// from params.Volume
 	Size uint64 `yaml:"size" json:"size"`
@@ -60,7 +60,7 @@ type VolumeInfo struct {
 	ReadOnly bool `yaml:"read-only" json:"read-only"`
 
 	// from params.Volume. This is juju volume id.
-	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
+	Volume string `yaml:"volume" json:"volume"`
 
 	// from params.Volume.
 	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
@@ -93,10 +93,10 @@ func convertVolumeDetailsResult(item params.VolumeDetailsResult, all map[string]
 		}
 		info.DeviceName = attachmentInfo.DeviceName
 		info.ReadOnly = attachmentInfo.ReadOnly
-		addOneToAll(machineId, storage, storageOwner, info, all)
+		addOneVolumeToAll(machineId, storage, storageOwner, info, all)
 	}
 	if len(attachments) == 0 {
-		addOneToAll("unattached", storage, storageOwner, info, all)
+		addOneVolumeToAll("unattached", storage, storageOwner, info, all)
 	}
 	return nil
 }
@@ -109,11 +109,10 @@ var idFromTag = func(s string) (string, error) {
 	return tag.Id(), nil
 }
 
-func convertVolumeAttachments(item params.VolumeDetailsResult, all map[string]map[string]map[string]VolumeInfo) error {
-	return nil
-}
-
-func addOneToAll(machineId, storageId, storageOwnerId string, item VolumeInfo, all map[string]map[string]map[string]VolumeInfo) {
+func addOneVolumeToAll(
+	machineId, storageId, storageOwnerId string,
+	item VolumeInfo, all map[string]map[string]map[string]VolumeInfo,
+) {
 	machineVolumes, ok := all[machineId]
 	if !ok {
 		machineVolumes = map[string]map[string]VolumeInfo{}

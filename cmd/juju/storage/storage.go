@@ -38,6 +38,7 @@ func NewSuperCommand() cmd.Command {
 	storagecmd.Register(envcmd.Wrap(&AddCommand{}))
 	storagecmd.Register(NewPoolSuperCommand())
 	storagecmd.Register(NewVolumeSuperCommand())
+	storagecmd.Register(NewFilesystemSuperCommand())
 	return storagecmd
 }
 
