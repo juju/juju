@@ -392,12 +392,10 @@ func runVolumeList(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
-	context := runVolumeList(c, "abc", "--format", "yaml")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(testing.Stderr(context),
-		gc.Matches,
-		`parsing machine tag machine-abc: "machine-abc" is not a valid machine tag
-`)
+	_, err := testing.RunCommand(
+		c, envcmd.Wrap(&cmdstorage.VolumeListCommand{}), "abc",
+	)
+	c.Assert(err, gc.ErrorMatches, `"machine-abc" is not a valid machine tag`)
 }
 
 func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
