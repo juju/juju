@@ -109,10 +109,12 @@ type machineDoc struct {
 	HasVote       bool
 	PasswordHash  string
 	Clean         bool
+
 	// We store 2 different sets of addresses for the machine, obtained
 	// from different sources.
 	// Addresses is the set of addresses obtained by asking the provider.
 	Addresses []address
+
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
 
