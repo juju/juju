@@ -118,12 +118,12 @@ type machineDoc struct {
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
 
-	//DefaultPublicAddress, if set, is the default address to be used for
-	//the machine when a public address is requested.
+	// DefaultPublicAddress, if set, is the default address to be used for
+	// the machine when a public address is requested.
 	DefaultPublicAddress address `bson:",omitempty"`
 
-	//DefaultPrivateAddress, if set, is the default address to be used for
-	//the machine when a private address is requested.
+	// DefaultPrivateAddress, if set, is the default address to be used for
+	// the machine when a private address is requested.
 	DefaultPrivateAddress address `bson:",omitempty"`
 
 	// The SupportedContainers attributes are used to advertise what containers this
