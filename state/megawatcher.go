@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
-
-	"time"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
