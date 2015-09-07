@@ -2,7 +2,7 @@
 // Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version_test
+package series_test
 
 import (
 	"sort"
@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type supportedSeriesWindowsSuite struct {
@@ -21,7 +21,7 @@ type supportedSeriesWindowsSuite struct {
 var _ = gc.Suite(&supportedSeriesWindowsSuite{})
 
 func (s *supportedSeriesWindowsSuite) TestSeriesVersion(c *gc.C) {
-	vers, err := version.SeriesVersion("win8")
+	vers, err := series.SeriesVersion("win8")
 	if err != nil {
 		c.Assert(err, gc.Not(gc.ErrorMatches), `invalid series "win8"`, gc.Commentf(`unable to lookup series "win8"`))
 	} else {
@@ -51,7 +51,7 @@ func (s *supportedSeriesWindowsSuite) TestSupportedSeries(c *gc.C) {
 		"win8",
 		"win81",
 	}
-	series := version.SupportedSeries()
+	series := series.SupportedSeries()
 	sort.Strings(series)
 	c.Assert(series, gc.DeepEquals, expectedSeries)
 }

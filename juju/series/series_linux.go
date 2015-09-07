@@ -1,23 +1,24 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version
+package series
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/juju/errors"
-
 	jujuos "github.com/juju/juju/juju/os"
 )
 
-func osVersion() (string, error) {
-	return readSeries()
-}
+var (
+	// osReleaseFile is the name of the file that is read in order to determine
+	// the linux type release version.
+	osReleaseFile = "/etc/os-release"
+)
 
 func readSeries() (string, error) {
 	values, err := jujuos.ReadOSRelease(osReleaseFile)

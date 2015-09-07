@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -330,10 +331,10 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	var toolsVersions []version.Binary
 	if strings.HasPrefix(tools.URL, "file://") {
 		// Tools were uploaded: clone for each series of the same OS.
-		osSeries := version.OSSupportedSeries(tools.Version.OS)
-		for _, series := range osSeries {
+		osSeries := series.OSSupportedSeries(tools.Version.OS)
+		for _, ser := range osSeries {
 			toolsVersion := tools.Version
-			toolsVersion.Series = series
+			toolsVersion.Series = ser
 			toolsVersions = append(toolsVersions, toolsVersion)
 		}
 	} else {

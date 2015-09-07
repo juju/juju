@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version_test
+package series_test
 
 import (
 	"io/ioutil"
@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/os"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/series"
 )
 
 func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
@@ -20,7 +20,7 @@ func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
 	if os.HostOS() != os.Ubuntu {
 		c.Skip("This test is only relevant on Ubuntu.")
 	}
-	vers, err := version.SeriesVersion("precise")
+	vers, err := series.SeriesVersion("precise")
 	if err != nil && err.Error() == `invalid series "precise"` {
 		c.Fatalf(`Unable to lookup series "precise", you may need to: apt-get install distro-info`)
 	}
@@ -33,10 +33,10 @@ func (s *supportedSeriesSuite) TestSupportedSeries(c *gc.C) {
 	filename := filepath.Join(d, "ubuntu.csv")
 	err := ioutil.WriteFile(filename, []byte(distInfoData), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(version.DistroInfo, filename)
+	s.PatchValue(series.DistroInfo, filename)
 
 	expectedSeries := []string{"precise", "quantal", "raring", "saucy"}
-	series := version.SupportedSeries()
+	series := series.SupportedSeries()
 	sort.Strings(series)
 	c.Assert(series, gc.DeepEquals, expectedSeries)
 }

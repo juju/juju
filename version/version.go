@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/juju/arch"
 	jujuos "github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 )
 
 // The presence and format of this constant is very important.
@@ -34,16 +35,14 @@ var switchOverVersion = MustParse("1.19.9")
 // the linux type release version.
 var osReleaseFile = "/etc/os-release"
 
-var osVers = mustOSVersion()
-
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
 	Number: MustParse(version),
-	Series: osVers,
+	Series: series.HostSeries(),
 	Arch:   arch.HostArch(),
-	OS:     MustOSFromSeries(osVers),
+	OS:     series.MustOSFromSeries(series.HostSeries()),
 }
 
 var Compiler = runtime.Compiler
@@ -193,7 +192,7 @@ func ParseBinary(s string) (Binary, error) {
 	v.Series = m[7]
 	v.Arch = m[8]
 	var err error
-	v.OS, err = GetOSFromSeries(v.Series)
+	v.OS, err = series.GetOSFromSeries(v.Series)
 	return v, err
 }
 

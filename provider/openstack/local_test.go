@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -369,7 +370,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Current
 	amd64Version.Arch = arch.AMD64
-	for _, series := range version.SupportedSeries() {
+	for _, series := range series.SupportedSeries() {
 		amd64Version.Series = series
 		envtesting.AssertUploadFakeToolsVersions(
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)

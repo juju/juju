@@ -1,15 +1,15 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version_test
+package series_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type supportedSeriesSuite struct {
@@ -20,7 +20,7 @@ type supportedSeriesSuite struct {
 var _ = gc.Suite(&supportedSeriesSuite{})
 
 func (s *supportedSeriesSuite) SetUpTest(c *gc.C) {
-	s.cleanup = version.SetSeriesVersions(make(map[string]string))
+	s.cleanup = series.SetSeriesVersions(make(map[string]string))
 }
 
 func (s *supportedSeriesSuite) TearDownTest(c *gc.C) {
@@ -54,7 +54,7 @@ var getOSFromSeriesTests = []struct {
 
 func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
 	for _, t := range getOSFromSeriesTests {
-		got, err := version.GetOSFromSeries(t.series)
+		got, err := series.GetOSFromSeries(t.series)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -65,13 +65,13 @@ func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
 }
 
 func (s *supportedSeriesSuite) TestUnknownOSFromSeries(c *gc.C) {
-	_, err := version.GetOSFromSeries("Xuanhuaceratops")
-	c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+	_, err := series.GetOSFromSeries("Xuanhuaceratops")
+	c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
 	c.Assert(err, gc.ErrorMatches, `unknown OS for series: "Xuanhuaceratops"`)
 }
 
 func (s *supportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {
-	version.SetSeriesVersions(map[string]string{
+	series.SetSeriesVersions(map[string]string{
 		"trusty":  "14.04",
 		"utopic":  "14.10",
 		"win7":    "win7",
@@ -79,12 +79,12 @@ func (s *supportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {
 		"centos7": "centos7",
 		"arch":    "rolling",
 	})
-	series := version.OSSupportedSeries(os.Ubuntu)
-	c.Assert(series, jc.SameContents, []string{"trusty", "utopic"})
-	series = version.OSSupportedSeries(os.Windows)
-	c.Assert(series, jc.SameContents, []string{"win7", "win81"})
-	series = version.OSSupportedSeries(os.CentOS)
-	c.Assert(series, jc.SameContents, []string{"centos7"})
-	series = version.OSSupportedSeries(os.Arch)
-	c.Assert(series, jc.SameContents, []string{"arch"})
+	supported := series.OSSupportedSeries(os.Ubuntu)
+	c.Assert(supported, jc.SameContents, []string{"trusty", "utopic"})
+	supported = series.OSSupportedSeries(os.Windows)
+	c.Assert(supported, jc.SameContents, []string{"win7", "win81"})
+	supported = series.OSSupportedSeries(os.CentOS)
+	c.Assert(supported, jc.SameContents, []string{"centos7"})
+	supported = series.OSSupportedSeries(os.Arch)
+	c.Assert(supported, jc.SameContents, []string{"arch"})
 }

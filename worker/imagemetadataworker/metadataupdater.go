@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	environsmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/worker"
 )
 
@@ -101,13 +101,14 @@ var convertToParams = func(published []*environsmetadata.ImageMetadata) []params
 	return metadata
 }
 
-var seriesVersion = version.SeriesVersion
+// TODO(dfc) why is this like this ?
+var seriesVersion = series.SeriesVersion
 
 func versionSeries(v string) string {
 	if v == "" {
 		return v
 	}
-	for _, s := range version.SupportedSeries() {
+	for _, s := range series.SupportedSeries() {
 		sv, err := seriesVersion(s)
 		if err != nil {
 			logger.Errorf("cannot determine version for series %v: %v", s, err)

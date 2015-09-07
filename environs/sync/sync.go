@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	jujuseries "github.com/juju/juju/juju/series"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -253,7 +254,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, stream string, series ...string)
 	}
 	logger.Debugf("generating tarballs for %v", series)
 	for _, series := range series {
-		_, err := version.SeriesVersion(series)
+		_, err := jujuseries.SeriesVersion(series)
 		if err != nil {
 			return err
 		}

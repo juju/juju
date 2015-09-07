@@ -2,9 +2,9 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version
+package series
 
 var (
 	CurrentVersionKey = &currentVersionKey
-	OSVersion         = osVersion
+	ReadSeries        = readSeries
 )

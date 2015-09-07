@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/version"
 )
 
 const (
@@ -139,7 +139,7 @@ func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
 }
 
 func (w *unixConfigure) setDataDirPermissions() string {
-	seriesos, _ := version.GetOSFromSeries(w.icfg.Series)
+	seriesos, _ := series.GetOSFromSeries(w.icfg.Series)
 	var user string
 	switch seriesos {
 	case os.CentOS:

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
@@ -135,7 +136,7 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 
 func (w *proxyWorker) writeEnvironment() error {
 	// TODO(dfc) this should be replace with a switch on os.HostOS()
-	osystem, err := version.GetOSFromSeries(version.Current.Series)
+	osystem, err := series.GetOSFromSeries(version.Current.Series)
 	if err != nil {
 		return err
 	}

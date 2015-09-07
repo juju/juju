@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version_test
+package series_test
 
 import (
 	"io/ioutil"
@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type linuxVersionSuite struct {
@@ -34,7 +34,7 @@ var distroInfoContents = `version,codename,series,created,release,eol,eol-server
 var _ = gc.Suite(&linuxVersionSuite{})
 
 func (s *linuxVersionSuite) SetUpTest(c *gc.C) {
-	cleanup := version.SetSeriesVersions(make(map[string]string))
+	cleanup := series.SetSeriesVersions(make(map[string]string))
 	s.AddCleanup(func(*gc.C) { cleanup() })
 }
 
@@ -42,7 +42,7 @@ func (s *linuxVersionSuite) TestOSVersion(c *gc.C) {
 	// Set up fake /etc/os-release file from the future.
 	d := c.MkDir()
 	release := filepath.Join(d, "future-release")
-	s.PatchValue(version.OSReleaseFile, release)
+	s.PatchValue(series.OSReleaseFile, release)
 	err := ioutil.WriteFile(release, []byte(futureReleaseFileContents), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -50,11 +50,11 @@ func (s *linuxVersionSuite) TestOSVersion(c *gc.C) {
 	distroInfo := filepath.Join(d, "ubuntu.csv")
 	err = ioutil.WriteFile(distroInfo, []byte(distroInfoContents), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(version.DistroInfo, distroInfo)
+	s.PatchValue(series.DistroInfo, distroInfo)
 
 	// Ensure the future series can be read even though Juju doesn't
 	// know about it.
-	version, err := version.ReadSeries()
+	version, err := series.ReadSeries()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(version, gc.Equals, "spock")
 }
@@ -115,12 +115,12 @@ VERSION_ID="9.10"
 	}} {
 		c.Logf("%v: %v", i, test.message)
 		filename := filepath.Join(c.MkDir(), "os-release")
-		s.PatchValue(version.OSReleaseFile, filename)
+		s.PatchValue(series.OSReleaseFile, filename)
 		if test.releaseContent != "" {
 			err := ioutil.WriteFile(filename, []byte(test.releaseContent+"\n"), 0644)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		value := version.ReleaseVersion()
+		value := series.ReleaseVersion()
 		c.Assert(value, gc.Equals, test.expected)
 	}
 }
@@ -212,12 +212,12 @@ VERSION_ID="12"
 func (s *readSeriesSuite) TestReadSeries(c *gc.C) {
 	d := c.MkDir()
 	f := filepath.Join(d, "foo")
-	s.PatchValue(version.OSReleaseFile, f)
+	s.PatchValue(series.OSReleaseFile, f)
 	for i, t := range readSeriesTests {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
 		c.Assert(err, jc.ErrorIsNil)
-		series, err := version.ReadSeries()
+		series, err := series.ReadSeries()
 		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
