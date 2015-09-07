@@ -428,7 +428,8 @@ func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 			status.InstanceState = "error"
 		}
 		// In case of error addr.Value will be "".
-		addr, _ := machine.PublicAddress()
+		addr, err := machine.PublicAddress()
+		logger.Warningf("error fetching public address: %q", err)
 		status.DNSName = addr.Value
 	} else {
 		if errors.IsNotProvisioned(err) {
