@@ -12,7 +12,7 @@ import (
 
 // ServiceGet returns the configuration for a service.
 func (c *Client) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
-	service, err := c.api.state.Service(args.ServiceName)
+	service, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
@@ -63,7 +63,7 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 // ServiceGetCharmURL returns the charm URL the given service is
 // running at present.
 func (c *Client) ServiceGetCharmURL(args params.ServiceGet) (params.StringResult, error) {
-	service, err := c.api.state.Service(args.ServiceName)
+	service, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return params.StringResult{}, err
 	}

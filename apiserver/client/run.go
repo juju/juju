@@ -44,7 +44,7 @@ func remoteParamsForMachine(machine *state.Machine, command string, timeout time
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the service names or unit names are not found, an error is returned.
-func getAllUnitNames(st *state.State, units, services []string) (result []*state.Unit, err error) {
+func getAllUnitNames(st stateInterface, units, services []string) (result []*state.Unit, err error) {
 	unitsSet := set.NewStrings(units...)
 	for _, name := range services {
 		service, err := st.Service(name)
@@ -87,7 +87,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.RunResults{}, errors.Trace(err)
 	}
-	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
+	units, err := getAllUnitNames(c.api.stateAccessor, run.Units, run.Services)
 	if err != nil {
 		return results, err
 	}
@@ -101,7 +101,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		// We know that the unit is both a principal unit, and that it has an
 		// assigned machine.
 		machineId, _ := unit.AssignedMachineId()
-		machine, err := c.api.state.Machine(machineId)
+		machine, err := c.api.stateAccessor.Machine(machineId)
 		if err != nil {
 			return results, err
 		}
@@ -111,7 +111,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		params = append(params, execParam)
 	}
 	for _, machineId := range run.Machines {
-		machine, err := c.api.state.Machine(machineId)
+		machine, err := c.api.stateAccessor.Machine(machineId)
 		if err != nil {
 			return results, err
 		}
@@ -127,7 +127,7 @@ func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.RunResults{}, errors.Trace(err)
 	}
-	machines, err := c.api.state.AllMachines()
+	machines, err := c.api.stateAccessor.AllMachines()
 	if err != nil {
 		return params.RunResults{}, err
 	}

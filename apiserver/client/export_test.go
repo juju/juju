@@ -3,6 +3,8 @@
 
 package client
 
+import "github.com/juju/juju/state"
+
 var (
 	RemoteParamsForMachine = remoteParamsForMachine
 	GetAllUnitNames        = getAllUnitNames
@@ -21,3 +23,18 @@ var (
 )
 
 type MachineAndContainers machineAndContainers
+
+// Status history exports
+type StateInterface stateInterface
+
+var GetState = getState
+
+type Patcher interface {
+	PatchValue(ptr, value interface{})
+}
+
+func PatchState(p Patcher, st StateInterface) {
+	p.PatchValue(&getState, func(*state.State) stateInterface {
+		return st
+	})
+}

@@ -145,7 +145,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		expected: []string{"magic/0", "magic/1"},
 	}} {
 		c.Logf("%v: %s", i, test.message)
-		result, err := client.GetAllUnitNames(s.State, test.units, test.services)
+		result, err := client.GetAllUnitNames(client.GetState(s.State), test.units, test.services)
 		if test.error == "" {
 			c.Check(err, jc.ErrorIsNil)
 			var units []string

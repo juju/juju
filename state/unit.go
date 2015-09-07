@@ -112,6 +112,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	presence.Presencer
+	StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
