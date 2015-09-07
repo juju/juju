@@ -221,7 +221,7 @@ func setAgentAddressScript(stateAddr string) string {
 func runMachineUpdate(machine *state.Machine, sshArg string) error {
 	addr, err := machine.PublicAddress()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if addr.Value == "" {
 		return errors.Errorf("no appropriate public address found")
