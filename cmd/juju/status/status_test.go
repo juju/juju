@@ -266,7 +266,7 @@ var machineCons = constraints.MustParse("cpu-cores=2 mem=8G root-disk=8G")
 
 var statusTests = []testCase{
 	// Status tests
-	test(
+	test( // 0
 		"bootstrap and starting a single instance",
 
 		addMachine{machineId: "0", job: state.JobManageEnviron},
@@ -343,7 +343,8 @@ var statusTests = []testCase{
 				"services": M{},
 			},
 		},
-	), test(
+	),
+	test( // 1
 		"instance with different hardware characteristics",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		setAddresses{"0", []network.Address{
@@ -369,7 +370,8 @@ var statusTests = []testCase{
 				"services": M{},
 			},
 		},
-	), test(
+	),
+	test( // 2
 		"instance without addresses",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageEnviron},
 		startAliveMachine{"0"},
@@ -390,7 +392,8 @@ var statusTests = []testCase{
 				"services": M{},
 			},
 		},
-	), test(
+	),
+	test( // 3
 		"test pending and missing machines",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
@@ -426,7 +429,8 @@ var statusTests = []testCase{
 				"services": M{},
 			},
 		},
-	), test(
+	),
+	test( // 4
 		"add two services and expose one, then add 2 more machines and some units",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -892,7 +896,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 5
 		"a unit with a hook relation error",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -987,7 +992,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 6
 		"a unit with a hook relation error when the agent is down",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -1082,7 +1088,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 7
 		"add a dying service",
 		addCharm{"dummy"},
 		addService{name: "dummy-service", charm: "dummy"},
@@ -1128,7 +1135,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 8
 		"a unit where the agent is down shows as lost",
 		addCharm{"dummy"},
 		addService{name: "dummy-service", charm: "dummy"},
@@ -1181,7 +1189,7 @@ var statusTests = []testCase{
 	),
 
 	// Relation tests
-	test(
+	test( // 9
 		"complex scenario with multiple related services",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -1355,7 +1363,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 10
 		"simple peer scenario",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -1457,7 +1466,7 @@ var statusTests = []testCase{
 	),
 
 	// Subordinate tests
-	test(
+	test( // 11
 		"one service with one subordinate service",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -1784,7 +1793,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test(
+	test( // 12
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -1917,7 +1926,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 13
 		"service with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -1971,7 +1981,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 14
 		"unit with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -2025,7 +2036,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 15
 		"service and unit with out of date charms",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -2081,7 +2093,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 16
 		"service with local charm not shown as out of date",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
@@ -2136,7 +2149,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
+	),
+	test( // 17
 		"deploy two services; set meter statuses on one",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
