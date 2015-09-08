@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package storagecommon_test
 
 import (
 	"github.com/juju/errors"
@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
@@ -70,7 +70,7 @@ func (s *volumesSuite) TestVolumeParamsAlreadyProvisioned(c *gc.C) {
 
 func (*volumesSuite) testVolumeParams(c *gc.C, provisioned bool) {
 	tag := names.NewVolumeTag("100")
-	p, err := common.VolumeParams(
+	p, err := storagecommon.VolumeParams(
 		&fakeVolume{tag: tag, provisioned: provisioned},
 		nil, // StorageInstance
 		testing.CustomEnvironConfig(c, testing.Attrs{
@@ -95,7 +95,7 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 	volumeTag := names.NewVolumeTag("100")
 	storageTag := names.NewStorageTag("mystore/0")
 	unitTag := names.NewUnitTag("mysql/123")
-	p, err := common.VolumeParams(
+	p, err := storagecommon.VolumeParams(
 		&fakeVolume{tag: volumeTag},
 		&fakeStorageInstance{tag: storageTag, owner: unitTag},
 		testing.CustomEnvironConfig(c, nil),

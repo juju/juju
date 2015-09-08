@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -176,7 +177,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	if err != nil {
 		return params.StorageDetails{}, errors.Annotate(err, "getting unit for storage attachment")
 	}
-	info, err := common.StorageAttachmentInfo(api.storage, sa, machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(api.storage, sa, machineTag)
 	if err != nil {
 		if errors.IsNotProvisioned(err) {
 			// If Info returns an error, then the storage has not yet been provisioned.
@@ -514,7 +515,7 @@ func createVolumeDetails(
 	}
 
 	if info, err := v.Info(); err == nil {
-		details.Info = common.VolumeInfoFromState(info)
+		details.Info = storagecommon.VolumeInfoFromState(info)
 	}
 
 	if len(attachments) > 0 {
@@ -523,7 +524,7 @@ func createVolumeDetails(
 			stateInfo, err := attachment.Info()
 			var info params.VolumeAttachmentInfo
 			if err == nil {
-				info = common.VolumeAttachmentInfoFromState(stateInfo)
+				info = storagecommon.VolumeAttachmentInfoFromState(stateInfo)
 			}
 			details.MachineAttachments[attachment.Machine().String()] = info
 		}
@@ -645,7 +646,7 @@ func createFilesystemDetails(
 	}
 
 	if info, err := f.Info(); err == nil {
-		details.Info = common.FilesystemInfoFromState(info)
+		details.Info = storagecommon.FilesystemInfoFromState(info)
 	}
 
 	if len(attachments) > 0 {
@@ -654,7 +655,7 @@ func createFilesystemDetails(
 			stateInfo, err := attachment.Info()
 			var info params.FilesystemAttachmentInfo
 			if err == nil {
-				info = common.FilesystemAttachmentInfoFromState(stateInfo)
+				info = storagecommon.FilesystemAttachmentInfoFromState(stateInfo)
 			}
 			details.MachineAttachments[attachment.Machine().String()] = info
 		}
