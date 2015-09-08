@@ -24,11 +24,12 @@ type StatusParams struct {
 
 // Status holds information about the status of a juju environment.
 type FullStatus struct {
-	EnvironmentName string
-	Machines        map[string]MachineStatus
-	Services        map[string]ServiceStatus
-	Networks        map[string]NetworkStatus
-	Relations       []RelationStatus
+	EnvironmentName  string
+	AvailableVersion string
+	Machines         map[string]MachineStatus
+	Services         map[string]ServiceStatus
+	Networks         map[string]NetworkStatus
+	Relations        []RelationStatus
 }
 
 // MachineStatus holds status info about a machine.
