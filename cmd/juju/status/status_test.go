@@ -205,6 +205,7 @@ var (
 				"series":      "quantal",
 			},
 			"1/lxc/1": M{
+				"agent-state": "pending",
 				"instance-id": "pending",
 				"series":      "quantal",
 			},
@@ -277,6 +278,7 @@ var statusTests = []testCase{
 				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
+						"agent-state":                "pending",
 						"instance-id":                "pending",
 						"series":                     "quantal",
 						"state-server-member-status": "adding-vote",
@@ -405,6 +407,7 @@ var statusTests = []testCase{
 				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
+						"agent-state":                "pending",
 						"instance-id":                "pending",
 						"series":                     "quantal",
 						"state-server-member-status": "adding-vote",
@@ -613,7 +616,7 @@ var statusTests = []testCase{
 					"3": M{
 						"dns-name":         "dummyenv-3.dns",
 						"instance-id":      "dummyenv-3",
-						"agent-state":      "down",
+						"agent-state":      "stopped",
 						"agent-state-info": "(stopped: Really?)",
 						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
@@ -627,6 +630,7 @@ var statusTests = []testCase{
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
+						"agent-state": "pending",
 						"life":        "dead",
 						"instance-id": "pending",
 						"series":      "quantal",
@@ -1125,6 +1129,7 @@ var statusTests = []testCase{
 				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
+						"agent-state": "pending",
 						"instance-id": "pending",
 						"series":      "quantal",
 					},
