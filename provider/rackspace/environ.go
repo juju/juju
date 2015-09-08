@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -21,16 +22,12 @@ type environ struct {
 	environs.Environ
 }
 
-// Exported for tests
-var Bootstrap = common.Bootstrap
-
-// Exported for tests
-var NewInstanceConfigurator = common.NewSshInstanceConfigurator
+var bootstrap = common.Bootstrap
 
 // Bootstrap implements environs.Environ.
 func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
-	return Bootstrap(ctx, e, params)
+	return bootstrap(ctx, e, params)
 }
 
 func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
@@ -43,8 +40,8 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if os == version.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
-		return nil, errors.Errorf("Rackspace provider don't support firawall mode other then none for windows instances.")
+	if os == jujuos.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
+		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
 
 	}
 	r, err := e.Environ.StartInstance(args)
@@ -57,6 +54,8 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	}
 	return r, errors.Trace(err)
 }
+
+var newInstanceConfigurator = common.NewSshInstanceConfigurator
 
 // connectToSsh creates new InstanceConfigurator and calls  DropAllPorts method.
 // In order to do this it needs to wait until ip address becomes avaliable.
@@ -90,7 +89,7 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 		if isStateServer(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
-		client = NewInstanceConfigurator(publicAddr)
+		client = newInstanceConfigurator(publicAddr)
 		err = client.DropAllPorts([]int{apiPort, 22}, publicAddr)
 		if err != nil {
 			logger.Debugf(err.Error())
