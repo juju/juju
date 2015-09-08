@@ -432,6 +432,7 @@ var statusTests = []testCase{
 	),
 	test( // 4
 		"add two services and expose one, then add 2 more machines and some units",
+		// step 0
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
@@ -453,6 +454,7 @@ var statusTests = []testCase{
 			},
 		},
 
+		// step 8
 		setServiceExposed{"exposed-service", true},
 		expect{
 			"one exposed service",
@@ -468,6 +470,7 @@ var statusTests = []testCase{
 			},
 		},
 
+		// step 10
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
@@ -492,6 +495,7 @@ var statusTests = []testCase{
 			},
 		},
 
+		// step 19
 		addAliveUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
 		setAgentStatus{"exposed-service/0", state.StatusError, "You Require More Vespene Gas", nil},
@@ -576,6 +580,7 @@ var statusTests = []testCase{
 			},
 		},
 
+		// step 29
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
@@ -676,6 +681,7 @@ var statusTests = []testCase{
 			},
 		},
 
+		// step 41
 		scopedExpect{
 			"scope status on dummy-service/0 unit",
 			[]string{"dummy-service/0"},
