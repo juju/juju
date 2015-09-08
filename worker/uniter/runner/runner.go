@@ -15,9 +15,12 @@ import (
 	utilexec "github.com/juju/utils/exec"
 
 	jujuos "github.com/juju/juju/juju/os"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+var logger = loggo.GetLogger("juju.worker.uniter.runner")
 
 // Runner is responsible for invoking commands in a context.
 type Runner interface {
@@ -39,8 +42,8 @@ type Runner interface {
 type Context interface {
 	jujuc.Context
 	Id() string
-	HookVars(paths Paths) []string
-	ActionData() (*ActionData, error)
+	HookVars(paths context.Paths) ([]string, error)
+	ActionData() (*context.ActionData, error)
 	SetProcess(process *os.Process)
 	HasExecutionSetUnitStatus() bool
 	ResetExecutionSetUnitStatus()
@@ -49,36 +52,15 @@ type Context interface {
 	Flush(badge string, failure error) error
 }
 
-// Paths exposes the paths needed by Runner.
-type Paths interface {
-
-	// GetToolsDir returns the filesystem path to the dirctory containing
-	// the hook tool symlinks.
-	GetToolsDir() string
-
-	// GetCharmDir returns the filesystem path to the directory in which
-	// the charm is installed.
-	GetCharmDir() string
-
-	// GetJujucSocket returns the path to the socket used by the hook tools
-	// to communicate back to the executing uniter process. It might be a
-	// filesystem path, or it might be abstract.
-	GetJujucSocket() string
-
-	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
-	// to store metrics recorded during a single hook run.
-	GetMetricsSpoolDir() string
-}
-
 // NewRunner returns a Runner backed by the supplied context and paths.
-func NewRunner(context Context, paths Paths) Runner {
+func NewRunner(context Context, paths context.Paths) Runner {
 	return &runner{context, paths}
 }
 
 // runner implements Runner.
 type runner struct {
 	context Context
-	paths   Paths
+	paths   context.Paths
 }
 
 func (runner *runner) Context() Context {
@@ -93,7 +75,10 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	}
 	defer srv.Close()
 
-	env := runner.context.HookVars(runner.paths)
+	env, err := runner.context.HookVars(runner.paths)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	command := utilexec.RunParams{
 		Commands:    commands,
 		WorkingDir:  runner.paths.GetCharmDir(),
@@ -131,7 +116,10 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 	}
 	defer srv.Close()
 
-	env := runner.context.HookVars(runner.paths)
+	env, err := runner.context.HookVars(runner.paths)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if jujuos.HostOS() == jujuos.Windows {
 		// TODO(fwereade): somehow consolidate with utils/exec?
 		// We don't do this on the other code path, which uses exec.RunCommands,
@@ -153,7 +141,7 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	charmDir := runner.paths.GetCharmDir()
 	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
 	if err != nil {
-		if IsMissingHookError(err) {
+		if context.IsMissingHookError(err) {
 			// Missing hook is perfectly valid, but worth mentioning.
 			logger.Infof("skipped %q hook (not implemented)", hookName)
 		}

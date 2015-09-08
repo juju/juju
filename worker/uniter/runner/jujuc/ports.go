@@ -151,13 +151,13 @@ var openPortInfo = &cmd.Info{
 	Doc:     "The port range will only be open while the service is exposed.",
 }
 
-func NewOpenPortCommand(ctx Context) cmd.Command {
+func NewOpenPortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
 		info: openPortInfo,
 		action: func(c *portCommand) error {
 			return ctx.OpenPorts(c.Protocol, c.FromPort, c.ToPort)
 		},
-	}
+	}, nil
 }
 
 var closePortInfo = &cmd.Info{
@@ -166,11 +166,11 @@ var closePortInfo = &cmd.Info{
 	Purpose: "ensure a port or range is always closed",
 }
 
-func NewClosePortCommand(ctx Context) cmd.Command {
+func NewClosePortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
 		info: closePortInfo,
 		action: func(c *portCommand) error {
 			return ctx.ClosePorts(c.Protocol, c.FromPort, c.ToPort)
 		},
-	}
+	}, nil
 }

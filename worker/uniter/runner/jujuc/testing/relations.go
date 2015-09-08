@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -58,22 +59,24 @@ type ContextRelations struct {
 }
 
 // Relation implements jujuc.ContextRelations.
-func (c *ContextRelations) Relation(id int) (jujuc.ContextRelation, bool) {
+func (c *ContextRelations) Relation(id int) (jujuc.ContextRelation, error) {
 	c.stub.AddCall("Relation", id)
-	c.stub.NextErr()
 
-	r, found := c.info.Relations[id]
-	return r, found
+	r, ok := c.info.Relations[id]
+	var err error
+	if !ok {
+		err = errors.NotFoundf("relation")
+	}
+	return r, err
 }
 
 // RelationIds implements jujuc.ContextRelations.
-func (c *ContextRelations) RelationIds() []int {
+func (c *ContextRelations) RelationIds() ([]int, error) {
 	c.stub.AddCall("RelationIds")
-	c.stub.NextErr()
 
 	ids := []int{}
 	for id := range c.info.Relations {
 		ids = append(ids, id)
 	}
-	return ids
+	return ids, c.stub.NextErr()
 }

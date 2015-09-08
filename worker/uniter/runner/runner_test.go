@@ -15,23 +15,23 @@ import (
 	"github.com/juju/errors"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5/hooks"
 
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
+	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
 type RunCommandSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) getHookContext(c *gc.C) *runner.HookContext {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies)
-}
+var noProxies = proxy.Settings{}
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
 	// TODO(bogdanteleaga): powershell throws another exit status code when
@@ -40,8 +40,9 @@ func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Have to figure out a good way to output to stderr from powershell")
 	}
-	ctx := s.getHookContext(c)
-	paths := NewRealPaths(c)
+	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
+	c.Assert(err, jc.ErrorIsNil)
+	paths := runnertesting.NewRealPaths(c)
 	runner := runner.NewRunner(ctx, paths)
 
 	commands := `
@@ -53,13 +54,13 @@ exit 42
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Code, gc.Equals, 42)
-	c.Assert(strings.TrimRight(string(result.Stdout), "\r\n"), gc.Equals, paths.charm)
+	c.Assert(strings.TrimRight(string(result.Stdout), "\r\n"), gc.Equals, paths.GetCharmDir())
 	c.Assert(strings.TrimRight(string(result.Stderr), "\r\n"), gc.Equals, "this is standard err")
 	c.Assert(ctx.GetProcess(), gc.NotNil)
 }
 
 type RunHookSuite struct {
-	HookContextSuite
+	ContextSuite
 }
 
 var _ = gc.Suite(&RunHookSuite{})
@@ -113,12 +114,12 @@ var runHookTests = []struct {
 }
 
 func (s *RunHookSuite) TestRunHook(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, noProxies)
-		paths := NewRealPaths(c)
+		ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
+		c.Assert(err, jc.ErrorIsNil)
+
+		paths := runnertesting.NewRealPaths(c)
 		rnr := runner.NewRunner(ctx, paths)
 		var hookExists bool
 		if t.spec.perm != 0 {
@@ -126,15 +127,15 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			spec.dir = "hooks"
 			spec.name = hookName
 			c.Logf("makeCharm %#v", spec)
-			makeCharm(c, spec, paths.charm)
+			makeCharm(c, spec, paths.GetCharmDir())
 			hookExists = true
 		}
 		t0 := time.Now()
-		err := rnr.RunHook("something-happened")
+		err = rnr.RunHook("something-happened")
 		if t.err == "" && hookExists {
 			c.Assert(err, jc.ErrorIsNil)
 		} else if !hookExists {
-			c.Assert(runner.IsMissingHookError(err), jc.IsTrue)
+			c.Assert(context.IsMissingHookError(err), jc.IsTrue)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -146,7 +147,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 
 type MockContext struct {
 	runner.Context
-	actionData   *runner.ActionData
+	actionData   *context.ActionData
 	expectPid    int
 	flushBadge   string
 	flushFailure error
@@ -157,11 +158,11 @@ func (ctx *MockContext) UnitName() string {
 	return "some-unit/999"
 }
 
-func (ctx *MockContext) HookVars(paths runner.Paths) []string {
-	return []string{"VAR=value"}
+func (ctx *MockContext) HookVars(paths context.Paths) ([]string, error) {
+	return []string{"VAR=value"}, nil
 }
 
-func (ctx *MockContext) ActionData() (*runner.ActionData, error) {
+func (ctx *MockContext) ActionData() (*context.ActionData, error) {
 	if ctx.actionData == nil {
 		return nil, errors.New("blam")
 	}
@@ -184,18 +185,18 @@ func (ctx *MockContext) Flush(badge string, failure error) error {
 
 type RunMockContextSuite struct {
 	envtesting.IsolationSuite
-	paths RealPaths
+	paths runnertesting.RealPaths
 }
 
 var _ = gc.Suite(&RunMockContextSuite{})
 
 func (s *RunMockContextSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.paths = NewRealPaths(c)
+	s.paths = runnertesting.NewRealPaths(c)
 }
 
 func (s *RunMockContextSuite) assertRecordedPid(c *gc.C, expectPid int) {
-	path := filepath.Join(s.paths.charm, "pid")
+	path := filepath.Join(s.paths.GetCharmDir(), "pid")
 	content, err := ioutil.ReadFile(path)
 	c.Assert(err, jc.ErrorIsNil)
 	expectContent := fmt.Sprintf("%d", expectPid)
@@ -211,7 +212,7 @@ func (s *RunMockContextSuite) TestRunHookFlushSuccess(c *gc.C) {
 		dir:  "hooks",
 		name: hookName,
 		perm: 0700,
-	}, s.paths.charm)
+	}, s.paths.GetCharmDir())
 	actualErr := runner.NewRunner(ctx, s.paths).RunHook("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
@@ -229,7 +230,7 @@ func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
 		name: hookName,
 		perm: 0700,
 		code: 123,
-	}, s.paths.charm)
+	}, s.paths.GetCharmDir())
 	actualErr := runner.NewRunner(ctx, s.paths).RunHook("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
@@ -241,13 +242,13 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
 	ctx := &MockContext{
 		flushResult: expectErr,
-		actionData:  &runner.ActionData{},
+		actionData:  &context.ActionData{},
 	}
 	makeCharm(c, hookSpec{
 		dir:  "actions",
 		name: hookName,
 		perm: 0700,
-	}, s.paths.charm)
+	}, s.paths.GetCharmDir())
 	actualErr := runner.NewRunner(ctx, s.paths).RunAction("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
@@ -259,14 +260,14 @@ func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
 	ctx := &MockContext{
 		flushResult: expectErr,
-		actionData:  &runner.ActionData{},
+		actionData:  &context.ActionData{},
 	}
 	makeCharm(c, hookSpec{
 		dir:  "actions",
 		name: hookName,
 		perm: 0700,
 		code: 123,
-	}, s.paths.charm)
+	}, s.paths.GetCharmDir())
 	actualErr := runner.NewRunner(ctx, s.paths).RunAction("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")

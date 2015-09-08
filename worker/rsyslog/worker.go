@@ -35,7 +35,7 @@ var logger = loggo.GetLogger("juju.worker.rsyslog")
 
 var (
 	rsyslogConfDir = "/etc/rsyslog.d"
-	logDir         = agent.DefaultLogDir
+	logDir         = agent.DefaultPaths.LogDir
 	syslogTargets  = []*rsyslog.Writer{}
 )
 

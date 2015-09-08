@@ -120,9 +120,11 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string, vers ve
 
 	stateInfo := s.MongoInfo(c)
 	apiInfo := s.APIInfo(c)
+	paths := agent.DefaultPaths
+	paths.DataDir = s.DataDir()
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           s.DataDir(),
+			Paths:             paths,
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
