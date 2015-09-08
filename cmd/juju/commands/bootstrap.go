@@ -36,8 +36,7 @@ import (
 // provisionalProviders is the names of providers that are hidden behind
 // feature flags.
 var provisionalProviders = map[string]string{
-	"cloudsigma": feature.CloudSigma,
-	"vsphere":    feature.VSphereProvider,
+	"vsphere": feature.VSphereProvider,
 }
 
 const bootstrapDoc = `

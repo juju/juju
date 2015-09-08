@@ -242,96 +242,81 @@ func (s mockVolumeListAPI) Close() error {
 	return nil
 }
 
-func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeItem, error) {
+func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsResult, error) {
 	if s.errOut != "" {
 		return nil, errors.New(s.errOut)
 	}
 	if s.listEmpty {
 		return nil, nil
 	}
-	result := []params.VolumeItem{}
+	result := []params.VolumeDetailsResult{}
 	if s.addErrItem {
-		result = append(result, params.VolumeItem{
+		result = append(result, params.VolumeDetailsResult{
 			Error: common.ServerError(errors.New("volume item error"))})
 	}
 	if s.listAll {
 		machines = []string{"25", "42"}
 		//unattached
-		result = append(result, s.createTestVolumeItem(
+		result = append(result, s.createTestVolumeDetailsResult(
 			"3/4", true, "db-dir/1000", "abc/0", nil,
 			createTestStatus(params.StatusDestroying, ""),
 		))
-		result = append(result, s.createTestVolumeItem(
+		result = append(result, s.createTestVolumeDetailsResult(
 			"3/3", false, "", "", nil,
 			createTestStatus(params.StatusDestroying, ""),
 		))
 	}
-	result = append(result, s.createTestVolumeItem(
+	result = append(result, s.createTestVolumeDetailsResult(
 		"0/1", true, "shared-fs/0", "postgresql/0", machines,
 		createTestStatus(params.StatusAttaching, "failed to attach"),
 	))
-	result = append(result, s.createTestVolumeItem(
+	result = append(result, s.createTestVolumeDetailsResult(
 		"0/abc/0/88", false, "shared-fs/0", "", machines,
 		createTestStatus(params.StatusAttached, ""),
 	))
 	return result, nil
 }
 
-func (s mockVolumeListAPI) createTestVolumeItem(
+func (s mockVolumeListAPI) createTestVolumeDetailsResult(
 	id string,
 	persistent bool,
 	storageid, unitid string,
 	machines []string,
 	status params.EntityStatus,
-) params.VolumeItem {
+) params.VolumeDetailsResult {
+
 	volume := s.createTestVolume(id, persistent, storageid, unitid, status)
-
-	// Create unattached volume
-	if len(machines) == 0 {
-		return params.VolumeItem{Volume: volume}
-	}
-
-	// Create volume attachments
-	attachments := make([]params.VolumeAttachment, len(machines))
+	volume.MachineAttachments = make(map[string]params.VolumeAttachmentInfo)
 	for i, machine := range machines {
-		attachments[i] = s.createTestAttachment(volume.VolumeTag, machine, i%2 == 0)
+		info := params.VolumeAttachmentInfo{
+			ReadOnly: i%2 == 0,
+		}
+		if s.fillDeviceName {
+			info.DeviceName = "testdevice"
+		}
+		machineTag := names.NewMachineTag(machine).String()
+		volume.MachineAttachments[machineTag] = info
 	}
-
-	return params.VolumeItem{
-		Volume:      volume,
-		Attachments: attachments,
-	}
+	return params.VolumeDetailsResult{Details: volume}
 }
 
-func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) params.VolumeInstance {
+func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) *params.VolumeDetails {
 	tag := names.NewVolumeTag(id)
-	result := params.VolumeInstance{
-		VolumeTag:  tag.String(),
-		VolumeId:   "provider-supplied-" + tag.Id(),
-		HardwareId: "serial blah blah",
-		Persistent: persistent,
-		Size:       uint64(1024),
-		Status:     status,
+	result := &params.VolumeDetails{
+		VolumeTag: tag.String(),
+		Info: params.VolumeInfo{
+			VolumeId:   "provider-supplied-" + tag.Id(),
+			HardwareId: "serial blah blah",
+			Persistent: persistent,
+			Size:       uint64(1024),
+		},
+		Status: status,
 	}
 	if storageid != "" {
 		result.StorageTag = names.NewStorageTag(storageid).String()
 	}
 	if unitid != "" {
-		result.UnitTag = names.NewUnitTag(unitid).String()
-	}
-	return result
-}
-
-func (s mockVolumeListAPI) createTestAttachment(volumeTag, machine string, readonly bool) params.VolumeAttachment {
-	result := params.VolumeAttachment{
-		VolumeTag:  volumeTag,
-		MachineTag: names.NewMachineTag(machine).String(),
-		Info: params.VolumeAttachmentInfo{
-			ReadOnly: readonly,
-		},
-	}
-	if s.fillDeviceName {
-		result.Info.DeviceName = "testdevice"
+		result.StorageOwnerTag = names.NewUnitTag(unitid).String()
 	}
 	return result
 }
