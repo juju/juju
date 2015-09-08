@@ -176,13 +176,43 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 	}
 
+	newToolsVersion, err := c.newToolsVersionAvailable()
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
+	}
+
 	return params.FullStatus{
-		EnvironmentName: cfg.Name(),
-		Machines:        processMachines(context.machines),
-		Services:        context.processServices(),
-		Networks:        context.processNetworks(),
-		Relations:       context.processRelations(),
+		EnvironmentName:  cfg.Name(),
+		AvailableVersion: newToolsVersion,
+		Machines:         processMachines(context.machines),
+		Services:         context.processServices(),
+		Networks:         context.processNetworks(),
+		Relations:        context.processRelations(),
 	}, nil
+}
+
+// newToolsVersionAvailable will return a string representing a tools
+// version only if the latest check is newer than current tools.
+func (c *Client) newToolsVersionAvailable() (string, error) {
+	env, err := c.api.stateAccessor.Environment()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot get environment")
+	}
+
+	latestVersion := env.LatestToolsVersion()
+
+	envConfig, err := c.api.stateAccessor.EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain current environ config")
+	}
+	oldV, ok := envConfig.AgentVersion()
+	if !ok {
+		return "", nil
+	}
+	if oldV.Compare(latestVersion) < 0 {
+		return latestVersion.String(), nil
+	}
+	return "", nil
 }
 
 // Status is a stub version of FullStatus that was introduced in 1.16
