@@ -34,7 +34,7 @@ var providerInstance environProvider
 >>>>>>> working version of rackspace provider
 func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -53,8 +53,12 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 =======
 	if osEnviron, ok := env.(*openstack.Environ); ok {
 		osEnviron.SetProviderConfigurator(new(rackspaceProviderConfigurator))
+<<<<<<< HEAD
 		return environ{env}, err
 >>>>>>> review comments implemented
+=======
+		return environ{env}, errors.Trace(err)
+>>>>>>> More review comments implemented
 	}
 	return nil, errors.Errorf("Expected openstack.Environ, but got: %T", env)
 }

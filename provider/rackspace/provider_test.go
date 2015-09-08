@@ -18,6 +18,9 @@ type providerSuite struct {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> More review comments implemented
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
@@ -49,8 +52,11 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	c.Check(s.innerProvider.Pop().name, gc.Equals, "Validate")
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> review comments implemented
+=======
+>>>>>>> More review comments implemented
 type fakeProvider struct {
 	methodCalls []methodCall
 }
@@ -100,6 +106,7 @@ func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return nil, nil
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 var _ = gc.Suite(&providerSuite{})
@@ -133,3 +140,5 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	c.Check(s.innerProvider.Pop().name, gc.Equals, "Validate")
 }
 >>>>>>> review comments implemented
+=======
+>>>>>>> More review comments implemented

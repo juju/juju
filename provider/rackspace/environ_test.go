@@ -27,6 +27,9 @@ type environSuite struct {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> More review comments implemented
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
@@ -68,8 +71,11 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	c.Check(dropParams.params[1], gc.Equals, "1.1.1.1")
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> test fixed for rackspace provider
+=======
+>>>>>>> More review comments implemented
 type methodCall struct {
 	name   string
 	params []interface{}
@@ -283,6 +289,7 @@ func (e *fakeInstance) Ports(machineId string) ([]network.PortRange, error) {
 	return nil, nil
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 var _ = gc.Suite(&environSuite{})
@@ -327,3 +334,5 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	c.Check(dropParams.params[1], gc.Equals, "1.1.1.1")
 }
 >>>>>>> test fixed for rackspace provider
+=======
+>>>>>>> More review comments implemented

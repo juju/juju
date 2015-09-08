@@ -89,6 +89,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	}
 	if os == jujuos.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
 		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
+<<<<<<< HEAD
 
 	}
 	r, err := e.Environ.StartInstance(args)
@@ -165,6 +166,8 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 	}
 	if os == version.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
 		return nil, errors.Errorf("Rackspace provider don't support firawall mode other then none for windows instances.")
+=======
+>>>>>>> More review comments implemented
 
 	}
 	r, err := e.Environ.StartInstance(args)
@@ -177,6 +180,8 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 	}
 	return r, errors.Trace(err)
 }
+
+var newInstanceConfigurator = common.NewSshInstanceConfigurator
 
 // connectToSsh creates new InstanceConfigurator and calls  DropAllPorts method.
 // In order to do this it needs to wait until ip address becomes avaliable.
@@ -211,7 +216,11 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 		if isStateServer(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
+<<<<<<< HEAD
 		client = common.NewSshInstanceConfigurator(publicAddr)
+=======
+		client = newInstanceConfigurator(publicAddr)
+>>>>>>> More review comments implemented
 		err = client.DropAllPorts([]int{apiPort, 22}, publicAddr)
 		if err != nil {
 			logger.Debugf(err.Error())
