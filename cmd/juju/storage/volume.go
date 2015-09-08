@@ -85,7 +85,10 @@ func convertToVolumeInfo(all []params.VolumeDetailsResult) (map[string]map[strin
 }
 
 func convertVolumeDetailsResult(item params.VolumeDetailsResult, all map[string]map[string]map[string]VolumeInfo) error {
-	info, attachments, storage, storageOwner := createVolumeInfo(item)
+	info, attachments, storage, storageOwner, err := createVolumeInfo(item)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for machineTag, attachmentInfo := range attachments {
 		machineId, err := idFromTag(machineTag)
 		if err != nil {
@@ -126,13 +129,12 @@ func addOneVolumeToAll(
 	storageOwnerVolumes[storageId] = item
 }
 
-// TODO(axw) there are a lot of ignored errors in here, which are *probably*
-// nil, but we should report them up the stack to be safe.
 func createVolumeInfo(result params.VolumeDetailsResult) (
 	info VolumeInfo,
 	attachments map[string]params.VolumeAttachmentInfo,
 	storageId string,
 	storageOwnerId string,
+	err error,
 ) {
 	details := result.Details
 	if details == nil {
@@ -149,21 +151,28 @@ func createVolumeInfo(result params.VolumeDetailsResult) (
 		// TODO(axw) we should support formatting as ISO time
 		common.FormatTime(details.Status.Since, false),
 	}
-	if v, err := idFromTag(details.VolumeTag); err == nil {
+	if v, err := idFromTag(details.VolumeTag); err != nil {
+		return VolumeInfo{}, nil, "", "", errors.Trace(err)
+	} else {
 		info.Volume = v
 	}
-	var err error
-	if storageId, err = idFromTag(details.StorageTag); err != nil {
-		// volume is not assigned to a storage instance
-		storageId = "unassigned"
+
+	storageId = "unassigned"
+	if details.StorageTag != "" {
+		if storageId, err = idFromTag(details.StorageTag); err != nil {
+			return VolumeInfo{}, nil, "", "", errors.Trace(err)
+		}
 	}
-	if storageOwnerId, err = idFromTag(details.StorageOwnerTag); err != nil {
-		// volume is not assigned to a storage instance,
-		// or storage instance is not attached to a unit (legacy)
-		storageOwnerId = "unattached"
+
+	storageOwnerId = "unattached"
+	if details.StorageOwnerTag != "" {
+		if storageOwnerId, err = idFromTag(details.StorageOwnerTag); err != nil {
+			return VolumeInfo{}, nil, "", "", errors.Trace(err)
+		}
 	}
+
 	attachments = details.MachineAttachments
-	return info, attachments, storageId, storageOwnerId
+	return info, attachments, storageId, storageOwnerId, nil
 }
 
 // volumeDetailsFromLegacy converts from legacy data structures

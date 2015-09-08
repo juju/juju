@@ -76,7 +76,10 @@ func convertToFilesystemInfo(all []params.FilesystemDetailsResult) (map[string]m
 }
 
 func convertFilesystemDetailsResult(item params.FilesystemDetailsResult, all map[string]map[string]map[string]FilesystemInfo) error {
-	info, attachments, storage, storageOwner := createFilesystemInfo(item)
+	info, attachments, storage, storageOwner, err := createFilesystemInfo(item)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for machineTag, attachmentInfo := range attachments {
 		machineId, err := idFromTag(machineTag)
 		if err != nil {
@@ -106,13 +109,12 @@ func addOneFilesystemToAll(machineId, storageId, storageOwnerId string, item Fil
 	storageOwnerFilesystems[storageId] = item
 }
 
-// TODO(axw) there are a lot of ignored errors in here, which are *probably*
-// nil, but we should report them up the stack to be safe.
 func createFilesystemInfo(result params.FilesystemDetailsResult) (
 	info FilesystemInfo,
 	attachments map[string]params.FilesystemAttachmentInfo,
 	storageId string,
 	storageOwnerId string,
+	err error,
 ) {
 	info.FilesystemId = result.Result.Info.FilesystemId
 	info.Size = result.Result.Info.Size
@@ -122,24 +124,33 @@ func createFilesystemInfo(result params.FilesystemDetailsResult) (
 		// TODO(axw) we should support formatting as ISO time
 		common.FormatTime(result.Result.Status.Since, false),
 	}
-	if f, err := idFromTag(result.Result.FilesystemTag); err == nil {
+
+	if f, err := idFromTag(result.Result.FilesystemTag); err != nil {
+		return FilesystemInfo{}, nil, "", "", errors.Trace(err)
+	} else {
 		info.Filesystem = f
 	}
+
 	if result.Result.VolumeTag != "" {
 		if v, err := idFromTag(result.Result.VolumeTag); err == nil {
 			info.Volume = v
 		}
 	}
-	var err error
-	if storageId, err = idFromTag(result.Result.StorageTag); err != nil {
-		// filesystem is not assigned to a storage instance
-		storageId = "unassigned"
+
+	storageId = "unassigned"
+	if result.Result.StorageTag != "" {
+		if storageId, err = idFromTag(result.Result.StorageTag); err != nil {
+			return FilesystemInfo{}, nil, "", "", errors.Trace(err)
+		}
 	}
-	if storageOwnerId, err = idFromTag(result.Result.StorageOwnerTag); err != nil {
-		// filesystem is not assigned to a storage instance,
-		// or storage instance is not attached to a unit (legacy)
-		storageOwnerId = "unattached"
+
+	storageOwnerId = "unattached"
+	if result.Result.StorageOwnerTag != "" {
+		if storageOwnerId, err = idFromTag(result.Result.StorageOwnerTag); err != nil {
+			return FilesystemInfo{}, nil, "", "", errors.Trace(err)
+		}
 	}
+
 	attachments = result.Result.MachineAttachments
-	return info, attachments, storageId, storageOwnerId
+	return info, attachments, storageId, storageOwnerId, nil
 }

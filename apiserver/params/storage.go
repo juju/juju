@@ -510,8 +510,8 @@ type VolumeDetails struct {
 	// machine tag to volume attachment information.
 	MachineAttachments map[string]VolumeAttachmentInfo `json:"machineattachments,omitempty"`
 
-	// NOTE: below should really be StorageDetails, but
-	// StorageDetails is pretty broken at the moment.
+	// NOTE(axw): below should really be StorageDetails,
+	// but StorageDetails is pretty broken at the moment.
 	// StorageDetails is really *StorageAttachmentDetails*,
 	// but also includes information about the storage
 	// instance. We need to rev the storage API and fix
@@ -534,7 +534,7 @@ type VolumeDetails struct {
 // specific to the volume model, whereas LegacyVolumeDetails is intended
 // to contain complete information about a volume.
 //
-// NOTE: this is for backwards compatibility only. This struct
+// NOTE(axw): this is for backwards compatibility only. This struct
 // should not be changed!
 type LegacyVolumeDetails struct {
 
@@ -575,7 +575,7 @@ type VolumeDetailsResult struct {
 
 	// LegacyVolume describes the volume in detail.
 	//
-	// NOTE: VolumeDetails contains redundant and nonsensical
+	// NOTE(axw): VolumeDetails contains redundant and nonsensical
 	// information. Use Details if it is available, and only use
 	// this for backwards-compatibility.
 	LegacyVolume *LegacyVolumeDetails `json:"volume,omitempty"`
@@ -583,7 +583,7 @@ type VolumeDetailsResult struct {
 	// LegacyAttachments describes the attachments of the volume to
 	// machines.
 	//
-	// NOTE: this should have gone into VolumeDetails, but it's too
+	// NOTE(axw): this should have gone into VolumeDetails, but it's too
 	// late for that now. We'll continue to populate it, and use it
 	// if it's defined but Volume.Attachments is not. Please do not
 	// copy this structure.
@@ -624,7 +624,7 @@ type FilesystemDetails struct {
 	// machine tag to filesystem attachment information.
 	MachineAttachments map[string]FilesystemAttachmentInfo `json:"machineattachments,omitempty"`
 
-	// NOTE: below should really be StorageDetails, but
+	// NOTE(axw): below should really be StorageDetails, but
 	// StorageDetails is pretty broken at the moment.
 	// StorageDetails is really *StorageAttachmentDetails*,
 	// but also includes information about the storage
