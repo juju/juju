@@ -168,6 +168,7 @@ func (rh *runHook) afterHook(state State) (bool, error) {
 		if hasRunStatusSet {
 			break
 		}
+		logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
