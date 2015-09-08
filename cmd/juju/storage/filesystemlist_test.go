@@ -98,7 +98,7 @@ func (s *filesystemListSuite) TestFilesystemListTabular(c *gc.C) {
 		// Default format is tabular
 		`
 MACHINE  UNIT          STORAGE      FILESYSTEM  VOLUME  ID                            MOUNTPOINT  SIZE    STATE      MESSAGE
-2        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach
+2        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach, will retry
 2        unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached   
 
 `[1:],
@@ -115,9 +115,9 @@ func (s *filesystemListSuite) TestFilesystemListTabularSort(c *gc.C) {
 		// Default format is tabular
 		`
 MACHINE  UNIT          STORAGE      FILESYSTEM  VOLUME  ID                            MOUNTPOINT  SIZE    STATE      MESSAGE
-2        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach
+2        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach, will retry
 2        unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached   
-3        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach
+3        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach, will retry
 3        unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached   
 
 `[1:],
@@ -135,9 +135,9 @@ func (s *filesystemListSuite) TestFilesystemListTabularSortWithUnattached(c *gc.
 		// Default format is tabular
 		`
 MACHINE     UNIT          STORAGE      FILESYSTEM  VOLUME  ID                            MOUNTPOINT  SIZE    STATE       MESSAGE
-25          postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching   failed to attach
+25          postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching   failed to attach, will retry
 25          unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached    
-42          postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching   failed to attach
+42          postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching   failed to attach, will retry
 42          unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached    
 unattached  abc/0         db-dir/1000  3/4                 provider-supplied-3/4                     1.0GiB  destroying  
 unattached  unattached    unassigned   3/3                 provider-supplied-3/3                     1.0GiB  destroying  
@@ -230,7 +230,7 @@ func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.File
 	}
 	result = append(result, s.createTestFilesystemDetailsResult(
 		"0/1", "0/99", true, "shared-fs/0", "postgresql/0", machines,
-		createTestStatus(params.StatusAttaching, "failed to attach"),
+		createTestStatus(params.StatusAttaching, "failed to attach, will retry"),
 	))
 	result = append(result, s.createTestFilesystemDetailsResult(
 		"0/abc/0/88", "", false, "shared-fs/0", "", machines,

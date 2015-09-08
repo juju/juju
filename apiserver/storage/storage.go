@@ -547,6 +547,9 @@ func createVolumeDetails(
 	return details, nil
 }
 
+// ListFilesystems returns a list of filesystems in the environment matching
+// the provided filter. Each result describes a filesystem in detail, including
+// the filesystem's attachments.
 func (a *API) ListFilesystems(filter params.FilesystemFilter) (params.FilesystemDetailsResults, error) {
 	filesystems, filesystemAttachments, err := filterFilesystems(a.storage, filter)
 	if err != nil {

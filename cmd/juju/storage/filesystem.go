@@ -23,14 +23,14 @@ const filesystemCmdPurpose = "manage storage filesystems"
 // NewFilesystemSuperCommand creates the storage filesystem super subcommand and
 // registers the subcommands that it supports.
 func NewFilesystemSuperCommand() cmd.Command {
-	poolcmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
+	supercmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
 		Name:        "filesystem",
 		Doc:         filesystemCmdDoc,
 		UsagePrefix: "juju storage",
 		Purpose:     filesystemCmdPurpose,
 	})
-	poolcmd.Register(envcmd.Wrap(&FilesystemListCommand{}))
-	return poolcmd
+	supercmd.Register(envcmd.Wrap(&FilesystemListCommand{}))
+	return supercmd
 }
 
 // FilesystemCommandBase is a helper base structure for filesystem commands.
