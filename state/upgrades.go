@@ -1618,6 +1618,9 @@ func MigrateLastLoginAndLastConnection(st *State) error {
 	var lastConnectionDocs []interface{}
 
 	for _, oldUser := range oldUserDocs {
+		if oldUser.LastLogin == nil {
+			continue
+		}
 		lastLoginDocs = append(lastLoginDocs, userLastLoginDoc{
 			oldUser.DocID,
 			oldUser.EnvUUID,
@@ -1626,6 +1629,9 @@ func MigrateLastLoginAndLastConnection(st *State) error {
 	}
 
 	for _, oldEnvUser := range oldEnvUserDocs {
+		if oldEnvUser.LastConnection == nil {
+			continue
+		}
 		lastConnectionDocs = append(lastConnectionDocs, envUserLastConnectionDoc{
 			oldEnvUser.DocID,
 			oldEnvUser.EnvUUID,
