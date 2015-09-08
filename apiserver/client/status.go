@@ -53,7 +53,7 @@ func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatus
 	if args.Size < 1 {
 		return params.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
 	}
-	unit, err := c.api.stateAccessor.HistoricalUnit(args.Name)
+	unit, err := c.api.stateAccessor.Unit(args.Name)
 	if err != nil {
 		return params.UnitStatusHistory{}, errors.Trace(err)
 	}
@@ -66,8 +66,7 @@ func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatus
 		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
 	}
 	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
-		agent := unit.AgentHistoryGetter()
-		agentStatuses, err := agent.StatusHistory(args.Size)
+		agentStatuses, err := unit.AgentHistory().StatusHistory(args.Size)
 		if err != nil {
 			return params.UnitStatusHistory{}, errors.Trace(err)
 		}

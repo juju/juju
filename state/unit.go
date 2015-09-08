@@ -794,6 +794,12 @@ func (u *Unit) Agent() *UnitAgent {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
 }
 
+// AgentHistory returns an StatusHistoryGetter which can
+//be used to query the status history of the unit's agent.
+func (u *Unit) AgentHistory() StatusHistoryGetter {
+	return u.Agent()
+}
+
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // where not separate entities.

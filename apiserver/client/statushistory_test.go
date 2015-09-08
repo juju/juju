@@ -162,10 +162,11 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 		Size: 3,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	expected := make([]state.StatusInfo, 3)
-	expected[0] = s.st.agentHistory[1]
-	expected[1] = s.st.unitHistory[0]
-	expected[2] = s.st.agentHistory[0]
+	expected := []state.StatusInfo{
+		s.st.agentHistory[1],
+		s.st.unitHistory[0],
+		s.st.agentHistory[0],
+	}
 	checkStatusInfo(c, h.Statuses, expected)
 }
 
@@ -179,39 +180,39 @@ func (m *mockState) EnvironUUID() string {
 	return "uuid"
 }
 
-func (m *mockState) HistoricalUnit(name string) (client.HistoricalUnit, error) {
+func (m *mockState) Unit(name string) (client.Unit, error) {
 	if name != "unit/0" {
 		return nil, errors.NotFoundf("%v", name)
 	}
 	return &mockUnit{
-		m.unitHistory,
-		&mockUnitAgent{m.agentHistory},
+		status: m.unitHistory,
+		agent:  &mockUnitAgent{m.agentHistory},
 	}, nil
 }
 
 type mockUnit struct {
-	history []state.StatusInfo
-	agent   *mockUnitAgent
+	status statuses
+	agent  *mockUnitAgent
+	client.Unit
 }
 
 func (m *mockUnit) StatusHistory(size int) ([]state.StatusInfo, error) {
-	if size > len(m.history) {
-		size = len(m.history)
-	}
-	return m.history[:size], nil
+	return m.status.StatusHistory(size)
 }
 
-func (m *mockUnit) AgentHistoryGetter() state.StatusHistoryGetter {
+func (m *mockUnit) AgentHistory() state.StatusHistoryGetter {
 	return m.agent
 }
 
 type mockUnitAgent struct {
-	history []state.StatusInfo
+	statuses
 }
 
-func (m *mockUnitAgent) StatusHistory(size int) ([]state.StatusInfo, error) {
-	if size > len(m.history) {
-		size = len(m.history)
+type statuses []state.StatusInfo
+
+func (s statuses) StatusHistory(size int) ([]state.StatusInfo, error) {
+	if size > len(s) {
+		size = len(s)
 	}
-	return m.history[:size], nil
+	return s[:size], nil
 }

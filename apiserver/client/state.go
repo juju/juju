@@ -15,19 +15,23 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// HistoricalUnit represents a state.Unit instance that
-// can fetch its status history.
-type HistoricalUnit interface {
+// Unit represents a state.Unit.
+type Unit interface {
 	state.StatusHistoryGetter
-	AgentHistoryGetter() state.StatusHistoryGetter
+	Life() state.Life
+	Destroy() (err error)
+	IsPrincipal() bool
+	PublicAddress() (string, bool)
+	PrivateAddress() (string, bool)
+	Resolve(retryHooks bool) error
+	AgentHistory() state.StatusHistoryGetter
 }
 
 // stateInterface contains the state.State methods used in this package,
 // allowing stubs to ve created for testing.
 type stateInterface interface {
 	FindEntity(names.Tag) (state.Entity, error)
-	Unit(string) (*state.Unit, error)
-	HistoricalUnit(string) (HistoricalUnit, error)
+	Unit(string) (Unit, error)
 	Service(string) (*state.Service, error)
 	Machine(string) (*state.Machine, error)
 	AllMachines() ([]*state.Machine, error)
@@ -63,18 +67,10 @@ type stateShim struct {
 	*state.State
 }
 
-func (s *stateShim) HistoricalUnit(name string) (HistoricalUnit, error) {
-	u, err := s.Unit(name)
+func (s *stateShim) Unit(name string) (Unit, error) {
+	u, err := s.State.Unit(name)
 	if err != nil {
 		return nil, err
 	}
-	return &historicalUnit{u}, nil
-}
-
-type historicalUnit struct {
-	*state.Unit
-}
-
-func (h *historicalUnit) AgentHistoryGetter() state.StatusHistoryGetter {
-	return h.Agent()
+	return u, nil
 }

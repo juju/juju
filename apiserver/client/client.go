@@ -43,6 +43,7 @@ type API struct {
 	toolsFinder  *common.ToolsFinder
 }
 
+// TODO(wallyworld) - remove this method
 // state returns a state.State instance for this API.
 // Until all code is refactored to use interfaces, we
 // need this helper to keep older code happy.
@@ -418,7 +419,7 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 }
 
 // addServiceUnits adds a given number of units to a service.
-func addServiceUnits(st stateInterface, args params.AddServiceUnits) ([]*state.Unit, error) {
+func addServiceUnits(st *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
 	service, err := st.Service(args.ServiceName)
 	if err != nil {
 		return nil, err
@@ -427,10 +428,9 @@ func addServiceUnits(st stateInterface, args params.AddServiceUnits) ([]*state.U
 		return nil, fmt.Errorf("must add at least one unit")
 	}
 
-	stateAPI := st.(*stateShim).State
 	// New API uses placement directives.
 	if len(args.Placement) > 0 {
-		return jjj.AddUnitsWithPlacement(stateAPI, service, args.NumUnits, args.Placement)
+		return jjj.AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
 	}
 
 	// Otherwise we use the older machine spec.
@@ -444,7 +444,7 @@ func addServiceUnits(st stateInterface, args params.AddServiceUnits) ([]*state.U
 			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
-	return jjj.AddUnits(stateAPI, service, args.NumUnits, args.ToMachineSpec)
+	return jjj.AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -457,7 +457,7 @@ func (c *Client) AddServiceUnitsWithPlacement(args params.AddServiceUnits) (para
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.AddServiceUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addServiceUnits(c.api.stateAccessor, args)
+	units, err := addServiceUnits(c.api.state(), args)
 	if err != nil {
 		return params.AddServiceUnitsResults{}, err
 	}

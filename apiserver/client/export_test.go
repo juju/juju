@@ -27,8 +27,6 @@ type MachineAndContainers machineAndContainers
 // Status history exports
 type StateInterface stateInterface
 
-var GetState = getState
-
 type Patcher interface {
 	PatchValue(ptr, value interface{})
 }

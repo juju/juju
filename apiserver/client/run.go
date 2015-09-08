@@ -44,7 +44,7 @@ func remoteParamsForMachine(machine *state.Machine, command string, timeout time
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the service names or unit names are not found, an error is returned.
-func getAllUnitNames(st stateInterface, units, services []string) (result []*state.Unit, err error) {
+func getAllUnitNames(st *state.State, units, services []string) (result []*state.Unit, err error) {
 	unitsSet := set.NewStrings(units...)
 	for _, name := range services {
 		service, err := st.Service(name)
@@ -87,7 +87,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.RunResults{}, errors.Trace(err)
 	}
-	units, err := getAllUnitNames(c.api.stateAccessor, run.Units, run.Services)
+	units, err := getAllUnitNames(c.api.state(), run.Units, run.Services)
 	if err != nil {
 		return results, err
 	}
