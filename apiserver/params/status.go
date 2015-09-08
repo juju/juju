@@ -105,6 +105,7 @@ type UnitStatus struct {
 
 // NetworksSpecification holds the enabled and disabled networks for a
 // service.
+// TODO(dimitern): Drop this in a follow-up.
 type NetworksSpecification struct {
 	Enabled  []string
 	Disabled []string
