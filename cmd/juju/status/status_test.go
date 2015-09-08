@@ -2999,24 +2999,22 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	code, stdout, stderr := runStatus(c, "--format", "summary")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(
-		string(stdout),
-		gc.Equals,
-		"Running on subnets: 127.0.0.1/8, 10.0.0.1/8 \n"+
-			"Utilizing ports:                            \n"+
-			" # MACHINES: (3)\n"+
-			"    started:  3 \n"+
-			"            \n"+
-			"    # UNITS: (4)\n"+
-			"      error:  1 \n"+
-			"    started:  3 \n"+
-			"            \n"+
-			" # SERVICES:  (3)\n"+
-			"     logging  1/1 exposed\n"+
-			"       mysql  1/1 exposed\n"+
-			"   wordpress  1/1 exposed\n"+
-			"\n",
-	)
+	c.Assert(string(stdout), gc.Equals, `
+Running on subnets: 127.0.0.1/8, 10.0.0.1/8 
+Utilizing ports:                            
+ # MACHINES: (3)
+    started:  3 
+            
+    # UNITS: (4)
+      error:  1 
+    started:  3 
+            
+ # SERVICES:  (3)
+     logging  1/1 exposed
+       mysql  1/1 exposed
+   wordpress  1/1 exposed
+
+`[1:])
 }
 func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx := s.newContext(c)
@@ -3073,6 +3071,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
   - logging/1: dummyenv-2.dns (error)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
+- new available version: "1.25-beta2"
 `
 	assertOneLineStatus(c, expectedV1)
 
@@ -3081,6 +3080,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
   - logging/1: dummyenv-2.dns (agent:idle, workload:error)
 - wordpress/0: dummyenv-1.dns (agent:idle, workload:active)
   - logging/0: dummyenv-1.dns (agent:idle, workload:active)
+- new available version: "1.25-beta2"
 `
 	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
 	assertOneLineStatus(c, expectedV2)
@@ -3166,29 +3166,27 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	code, stdout, stderr := runStatus(c, args...)
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(
-		string(stdout),
-		gc.Equals,
-		"[Services] \n"+
-			"NAME       STATUS      EXPOSED CHARM                  \n"+
-			"logging                true    cs:quantal/logging-1   \n"+
-			"mysql      maintenance true    cs:quantal/mysql-1     \n"+
-			"wordpress  active      true    cs:quantal/wordpress-3 \n"+
-			"\n"+
-			"[Units]     \n"+
-			"ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        \n"+
-			"mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      \n"+
-			"  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs \n"+
-			"wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                \n"+
-			"  logging/0 active         idle                              dummyenv-1.dns                                \n"+
-			"\n"+
-			"[Machines] \n"+
-			"ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         \n"+
-			"0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"\n",
-	)
+	c.Assert(string(stdout), gc.Equals, `
+[Services] 
+NAME       STATUS      EXPOSED CHARM                  
+logging                true    cs:quantal/logging-1   
+mysql      maintenance true    cs:quantal/mysql-1     
+wordpress  active      true    cs:quantal/wordpress-3 
+
+[Units]     
+ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        
+mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      
+  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs 
+wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                
+  logging/0 active         idle                              dummyenv-1.dns                                
+
+[Machines] 
+ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         
+0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
+1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
+2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
+
+`[1:])
 }
 
 func (s *StatusSuite) TestStatusV2(c *gc.C) {
@@ -3231,21 +3229,20 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	}
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(
-		string(out),
-		gc.Equals,
-		"[Services] \n"+
-			"NAME       STATUS EXPOSED CHARM \n"+
-			"foo               false         \n"+
-			"\n"+
-			"[Units] \n"+
-			"ID      WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           \n"+
-			"foo/0   maintenance    executing                                        (config-changed) doing some work  \n"+
-			"foo/1   maintenance    executing                                        (backup database) doing some work \n"+
-			"\n"+
-			"[Machines] \n"+
-			"ID         STATE VERSION DNS INS-ID SERIES HARDWARE \n",
-	)
+	c.Assert(string(out), gc.Equals, `
+[Services] 
+NAME       STATUS EXPOSED CHARM 
+foo               false         
+
+[Units] 
+ID      WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           
+foo/0   maintenance    executing                                        (config-changed) doing some work  
+foo/1   maintenance    executing                                        (backup database) doing some work 
+
+[Machines] 
+ID         STATE VERSION DNS INS-ID SERIES HARDWARE 
+
+`[1:])
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
