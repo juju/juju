@@ -94,8 +94,19 @@ for i in `seq 1 2`; do
     else
         run_remote_script
     fi
-    if [[ $? == 0 ]]; then
+    RESULT=$?
+    if [[ $RESULT == 0 ]]; then
         break
     fi
-    rm -r $log_dir/*
+    if [[ $i == 1 ]]; then
+        # Don't remove the log if it fails on the second try.
+        rm -rf $log_dir/*
+    fi
 done
+
+# Cleanup
+if [[ "$client_os" == "osx" ]] || [[ "$client_os" == "windows" ]]; then
+    rm -rf $temp_dir
+    rm -rf $old_temp_dir
+fi
+exit $RESULT
