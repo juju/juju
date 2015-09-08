@@ -14,3 +14,7 @@ func NewProvider(innerProvider environs.EnvironProvider) environs.EnvironProvide
 func NewEnviron(innerEnviron environs.Environ) environs.Environ {
 	return environ{innerEnviron}
 }
+
+var Bootstrap = &bootstrap
+
+var NewInstanceConfigurator = &newInstanceConfigurator

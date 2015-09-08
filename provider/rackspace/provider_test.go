@@ -17,6 +17,37 @@ type providerSuite struct {
 	innerProvider *fakeProvider
 }
 
+var _ = gc.Suite(&providerSuite{})
+
+func (s *providerSuite) SetUpTest(c *gc.C) {
+	s.innerProvider = new(fakeProvider)
+	s.provider = rackspace.NewProvider(s.innerProvider)
+}
+
+func (s *providerSuite) TestOpen(c *gc.C) {
+	_, err := s.provider.Open(nil)
+	c.Check(s.innerProvider.Pop().name, gc.Equals, "Open")
+	c.Check(err, gc.ErrorMatches, "Expected openstack.Environ, but got: <nil>")
+}
+
+func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
+	_, err := s.provider.PrepareForBootstrap(nil, nil)
+	c.Check(s.innerProvider.Pop().name, gc.Equals, "PrepareForBootstrap")
+	c.Check(err, gc.ErrorMatches, "Expected openstack.Environ, but got: <nil>")
+}
+
+func (s *providerSuite) TestValidate(c *gc.C) {
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":            "some-name",
+		"type":            "some-type",
+		"authorized-keys": "key",
+	})
+	c.Check(err, gc.IsNil)
+	_, err = s.provider.Validate(cfg, nil)
+	c.Check(err, gc.IsNil)
+	c.Check(s.innerProvider.Pop().name, gc.Equals, "Validate")
+}
+
 type fakeProvider struct {
 	methodCalls []methodCall
 }
@@ -64,35 +95,4 @@ func (p *fakeProvider) BoilerplateConfig() string {
 func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	p.Push("SecretAttrs", cfg)
 	return nil, nil
-}
-
-var _ = gc.Suite(&providerSuite{})
-
-func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.innerProvider = new(fakeProvider)
-	s.provider = rackspace.NewProvider(s.innerProvider)
-}
-
-func (s *providerSuite) TestOpen(c *gc.C) {
-	_, err := s.provider.Open(nil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "Open")
-	c.Check(err, gc.ErrorMatches, "Expected openstack.Environ, but got: <nil>")
-}
-
-func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
-	_, err := s.provider.PrepareForBootstrap(nil, nil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "PrepareForBootstrap")
-	c.Check(err, gc.ErrorMatches, "Expected openstack.Environ, but got: <nil>")
-}
-
-func (s *providerSuite) TestValidate(c *gc.C) {
-	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":            "some-name",
-		"type":            "some-type",
-		"authorized-keys": "key",
-	})
-	c.Check(err, gc.IsNil)
-	_, err = s.provider.Validate(cfg, nil)
-	c.Check(err, gc.IsNil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "Validate")
 }

@@ -22,11 +22,11 @@ var providerInstance environProvider
 
 func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if osEnviron, ok := env.(*openstack.Environ); ok {
 		osEnviron.SetProviderConfigurator(new(rackspaceProviderConfigurator))
-		return environ{env}, err
+		return environ{env}, errors.Trace(err)
 	}
 	return nil, errors.Errorf("Expected openstack.Environ, but got: %T", env)
 }
