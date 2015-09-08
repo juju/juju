@@ -313,6 +313,10 @@ func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	return nil
 }
 
+func (mock *MockContext) UnitName() string {
+	return "unit/0"
+}
+
 func (mock *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return &mock.status, nil
 }
