@@ -4,12 +4,9 @@
 package version
 
 var (
-	DistroInfo                    = &distroInfo
-	ReadSeries                    = readSeries
 	KernelToMajor                 = kernelToMajor
 	MacOSXSeriesFromKernelVersion = macOSXSeriesFromKernelVersion
 	MacOSXSeriesFromMajorVersion  = macOSXSeriesFromMajorVersion
-	OSReleaseFile                 = &osReleaseFile
 )
 
 func SetSeriesVersions(value map[string]string) func() {

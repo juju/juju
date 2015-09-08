@@ -807,17 +807,22 @@ func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
 func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
 	var toolsList = coretools.List{&coretools.Tools{Version: version.Current}}
 	var called bool
+	var a string
+	if matchArch {
+		// if matchArch is true, this will be overwriten with the host's arch, otherwise
+		// leave a blank.
+		a = arch.HostArch()
+	}
+
 	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
 			Number:       version.Current.Number,
 			Series:       version.Current.Series,
+			Arch:         a,
 			MinorVersion: -1,
 			MajorVersion: -1,
-		}
-		if matchArch {
-			expected.Arch = arch.HostArch()
 		}
 		c.Assert(args, gc.Equals, expected)
 		result := response.(*params.FindToolsResult)
@@ -827,12 +832,6 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-
-	var a *string
-	if matchArch {
-		arch := arch.HostArch()
-		a = &arch
-	}
 	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {

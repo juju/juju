@@ -208,6 +208,9 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 	return outq
 }
 
+// toBsonD converts an arbitrary value to a bson.D via marshaling
+// through BSON. This is still done even if the input is already a
+// bson.D so that we end up with a copy of the input.
 func toBsonD(doc interface{}) (bson.D, error) {
 	bytes, err := bson.Marshal(doc)
 	if err != nil {

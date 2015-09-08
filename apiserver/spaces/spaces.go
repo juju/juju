@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -28,7 +30,10 @@ type API interface {
 // Backing defines the state methods this facede needs, so they can be
 // mocked for testing.
 type Backing interface {
-	// AddSpace creates a space
+	// EnvironConfig returns the configuration of the environment.
+	EnvironConfig() (*config.Config, error)
+
+	// AddSpace creates a space.
 	AddSpace(name string, subnetIds []string, public bool) error
 
 	// AllSpaces returns all known Juju network spaces.
@@ -64,10 +69,13 @@ func newAPIWithBacking(backing Backing, resources *common.Resources, authorizer 
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Spaces)),
+func (api *spacesAPI) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+	err = api.supportsSpaces()
+	if err != nil {
+		return results, common.ServerError(errors.Trace(err))
 	}
+
+	results.Results = make([]params.ErrorResult, len(args.Spaces))
 
 	for i, space := range args.Spaces {
 		err := api.createOneSpace(space)
@@ -129,6 +137,11 @@ func backingSubnetToParamsSubnet(subnet common.BackingSubnet) params.Subnet {
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error) {
+	err = api.supportsSpaces()
+	if err != nil {
+		return results, common.ServerError(errors.Trace(err))
+	}
+
 	spaces, err := api.backing.AllSpaces()
 	if err != nil {
 		return results, errors.Trace(err)
@@ -154,4 +167,26 @@ func (api *spacesAPI) ListSpaces() (results params.ListSpacesResults, err error)
 		results.Results[i] = result
 	}
 	return results, nil
+}
+
+// supportsSpaces checks if the environment implements NetworkingEnviron
+// and also if it supports spaces.
+func (api *spacesAPI) supportsSpaces() error {
+	config, err := api.backing.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "getting environment config")
+	}
+	env, err := environs.New(config)
+	if err != nil {
+		return errors.Annotate(err, "validating environment config")
+	}
+	netEnv, ok := environs.SupportsNetworking(env)
+	if !ok {
+		return errors.NotSupportedf("networking")
+	}
+	ok, err = netEnv.SupportsSpaces()
+	if err != nil {
+		logger.Warningf("environment does not support spaces: %v", err)
+	}
+	return err
 }

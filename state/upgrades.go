@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -1592,6 +1593,9 @@ func MigrateLastLoginAndLastConnection(st *State) error {
 	var lastConnectionDocs []interface{}
 
 	for _, oldUser := range oldUserDocs {
+		if oldUser.LastLogin == nil {
+			continue
+		}
 		lastLoginDocs = append(lastLoginDocs, userLastLoginDoc{
 			oldUser.DocID,
 			oldUser.EnvUUID,
@@ -1600,6 +1604,9 @@ func MigrateLastLoginAndLastConnection(st *State) error {
 	}
 
 	for _, oldEnvUser := range oldEnvUserDocs {
+		if oldEnvUser.LastConnection == nil {
+			continue
+		}
 		lastConnectionDocs = append(lastConnectionDocs, envUserLastConnectionDoc{
 			oldEnvUser.DocID,
 			oldEnvUser.EnvUUID,
@@ -1608,15 +1615,26 @@ func MigrateLastLoginAndLastConnection(st *State) error {
 		})
 	}
 
-	// 2. raw-write all that data to the new collections, overwriting everything
-	if len(lastLoginDocs) > 0 {
-		if err := userLastLogins.Insert(lastLoginDocs...); err != nil {
+	// 2. raw-write all that data to the new collections, overwriting
+	// everything.
+	//
+	// If a user accesses the API during the upgrade, a lastLoginDoc could
+	// already exist. In this is the case, we hit a duplicate key error, which
+	// we ignore. The insert becomes a no-op, keeping the new lastLoginDoc
+	// which will be more up-to-date than what's read in through the usersC
+	// collection.
+	for _, lastLoginDoc := range lastLoginDocs {
+		if err := userLastLogins.Insert(lastLoginDoc); err != nil && !mgo.IsDup(err) {
+			id := lastLoginDoc.(userLastLoginDoc).DocID
+			logger.Debugf("failed to insert userLastLoginDoc with id %q. Got error: %v", id, err)
 			return err
 		}
 	}
 
-	if len(lastConnectionDocs) > 0 {
-		if err := envUserLastConnections.Insert(lastConnectionDocs...); err != nil {
+	for _, lastConnectionDoc := range lastConnectionDocs {
+		if err := envUserLastConnections.Insert(lastConnectionDoc); err != nil && !mgo.IsDup(err) {
+			id := lastConnectionDoc.(envUserLastConnectionDoc).ID
+			logger.Debugf("failed to insert envUserLastConnectionDoc with id %q. Got error: %v", id, err)
 			return err
 		}
 	}
@@ -2094,10 +2112,6 @@ func AddVolumeStatus(st *State) error {
 			if !errors.IsNotFound(err) {
 				return errors.Annotate(err, "getting status")
 			}
-			// If the volume has not been provisioned, then
-			// it should be Pending; if it has been provisioned,
-			// but there is an unprovisioned attachment, then
-			// it should be Attaching; otherwise it is Attached.
 			status, err := upgradingVolumeStatus(st, volume)
 			if err != nil {
 				return errors.Annotate(err, "deciding volume status")
@@ -2114,11 +2128,66 @@ func AddVolumeStatus(st *State) error {
 	})
 }
 
+// If the volume has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment,
+// then it should be Attaching; otherwise it is Attached.
 func upgradingVolumeStatus(st *State, volume Volume) (Status, error) {
 	if _, err := volume.Info(); errors.IsNotProvisioned(err) {
 		return StatusPending, nil
 	}
 	attachments, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, attachment := range attachments {
+		_, err := attachment.Info()
+		if errors.IsNotProvisioned(err) {
+			return StatusAttaching, nil
+		}
+	}
+	return StatusAttached, nil
+}
+
+// AddFilesystemStatus ensures each filesystem has a status doc.
+func AddFilesystemStatus(st *State) error {
+	return runForAllEnvStates(st, func(st *State) error {
+		filesystems, err := st.AllFilesystems()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ops []txn.Op
+		for _, filesystem := range filesystems {
+			_, err := filesystem.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Annotate(err, "getting status")
+			}
+			status, err := upgradingFilesystemStatus(st, filesystem)
+			if err != nil {
+				return errors.Annotate(err, "deciding filesystem status")
+			}
+			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
+				Status:  status,
+				Updated: time.Now().UnixNano(),
+			}))
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runTransaction(ops))
+		}
+		return nil
+	})
+}
+
+// If the filesystem has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment, then
+// it should be Attaching; otherwise it is Attached.
+func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error) {
+	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
+		return StatusPending, nil
+	}
+	attachments, err := st.FilesystemAttachments(filesystem.FilesystemTag())
 	if err != nil {
 		return "", errors.Trace(err)
 	}

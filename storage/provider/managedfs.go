@@ -67,37 +67,38 @@ func (s *managedFilesystemSource) backingVolumeBlockDevice(v names.VolumeTag) (s
 }
 
 // CreateFilesystems is defined on storage.FilesystemSource.
-func (s *managedFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.Filesystem, error) {
-	filesystems := make([]storage.Filesystem, len(args))
+func (s *managedFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
 		filesystem, err := s.createFilesystem(arg)
 		if err != nil {
-			return nil, errors.Annotatef(err, "creating filesystem %s", arg.Tag.Id())
+			results[i].Error = err
+			continue
 		}
-		filesystems[i] = filesystem
+		results[i].Filesystem = filesystem
 	}
-	return filesystems, nil
+	return results, nil
 }
 
-func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams) (storage.Filesystem, error) {
+func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams) (*storage.Filesystem, error) {
 	blockDevice, err := s.backingVolumeBlockDevice(arg.Volume)
 	if err != nil {
-		return storage.Filesystem{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	devicePath := devicePath(blockDevice)
 	if isDiskDevice(devicePath) {
 		if err := destroyPartitions(s.run, devicePath); err != nil {
-			return storage.Filesystem{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if err := createPartition(s.run, devicePath); err != nil {
-			return storage.Filesystem{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		devicePath = partitionDevicePath(devicePath)
 	}
 	if err := createFilesystem(s.run, devicePath); err != nil {
-		return storage.Filesystem{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return storage.Filesystem{
+	return &storage.Filesystem{
 		arg.Tag,
 		arg.Volume,
 		storage.FilesystemInfo{
@@ -108,43 +109,44 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 }
 
 // DestroyFilesystems is defined on storage.FilesystemSource.
-func (s *managedFilesystemSource) DestroyFilesystems(filesystemIds []string) []error {
+func (s *managedFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
 	// DestroyFilesystems is a no-op; there is nothing to destroy,
 	// since the filesystem is just data on a volume. The volume
 	// is destroyed separately.
-	return make([]error, len(filesystemIds))
+	return make([]error, len(filesystemIds)), nil
 }
 
 // AttachFilesystems is defined on storage.FilesystemSource.
-func (s *managedFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.FilesystemAttachment, error) {
-	attachments := make([]storage.FilesystemAttachment, len(args))
+func (s *managedFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
 		attachment, err := s.attachFilesystem(arg)
 		if err != nil {
-			return nil, errors.Annotatef(err, "attaching filesystem %s", arg.Filesystem.Id())
+			results[i].Error = err
+			continue
 		}
-		attachments[i] = attachment
+		results[i].FilesystemAttachment = attachment
 	}
-	return attachments, nil
+	return results, nil
 }
 
-func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (storage.FilesystemAttachment, error) {
+func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachmentParams) (*storage.FilesystemAttachment, error) {
 	filesystem, ok := s.filesystems[arg.Filesystem]
 	if !ok {
-		return storage.FilesystemAttachment{}, errors.Errorf("filesystem %v is not yet provisioned", arg.Filesystem.Id())
+		return nil, errors.Errorf("filesystem %v is not yet provisioned", arg.Filesystem.Id())
 	}
 	blockDevice, err := s.backingVolumeBlockDevice(filesystem.Volume)
 	if err != nil {
-		return storage.FilesystemAttachment{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	devicePath := devicePath(blockDevice)
 	if isDiskDevice(devicePath) {
 		devicePath = partitionDevicePath(devicePath)
 	}
 	if err := mountFilesystem(s.run, s.dirFuncs, devicePath, arg.Path, arg.ReadOnly); err != nil {
-		return storage.FilesystemAttachment{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return storage.FilesystemAttachment{
+	return &storage.FilesystemAttachment{
 		arg.Filesystem,
 		arg.Machine,
 		storage.FilesystemAttachmentInfo{
@@ -155,13 +157,14 @@ func (s *managedFilesystemSource) attachFilesystem(arg storage.FilesystemAttachm
 }
 
 // DetachFilesystems is defined on storage.FilesystemSource.
-func (s *managedFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) error {
-	for _, arg := range args {
+func (s *managedFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) ([]error, error) {
+	results := make([]error, len(args))
+	for i, arg := range args {
 		if err := maybeUnmount(s.run, s.dirFuncs, arg.Path); err != nil {
-			return errors.Annotatef(err, "detaching filesystem %s", arg.Filesystem.Id())
+			results[i] = err
 		}
 	}
-	return nil
+	return results, nil
 }
 
 func destroyPartitions(run runCommandFunc, devicePath string) error {
