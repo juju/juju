@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -29,8 +30,8 @@ var statusSetInitTests = []struct {
 	{[]string{"maintenance"}, ""},
 	{[]string{"maintenance", ""}, ""},
 	{[]string{"maintenance", "hello"}, ""},
-	{[]string{}, `invalid args, require <status> \[message\]`},
-	{[]string{"maintenance", "hello", "extra"}, `unrecognized args: \["extra"\]`},
+	{[]string{}, `invalid args, require <status> \[message\] \[data\]`},
+	{[]string{"maintenance", "hello", "{number: 22, string: some string}", "extra"}, `unrecognized args: \["extra"\]`},
 	{[]string{"foo", "hello"}, `invalid status "foo", expected one of \[maintenance blocked waiting active\]`},
 }
 
@@ -52,7 +53,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
-		"usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
+		"usage: status-set [options] <maintenance | blocked | waiting | active> [message] [data]\n" +
 		"purpose: set status information\n" +
 		"\n" +
 		"options:\n" +
@@ -68,9 +69,14 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 }
 
 func (s *statusSetSuite) TestStatus(c *gc.C) {
+	expectedYaml := map[int]string{2: "" +
+		"number: \"22\"\n" +
+		"string: some string\n",
+	}
 	for i, args := range [][]string{
 		[]string{"maintenance", "doing some work"},
 		[]string{"active", ""},
+		[]string{"maintenance", "valid data", `{number: 22, string: some string}`},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -85,13 +91,25 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Status, gc.Equals, args[0])
 		c.Assert(status.Info, gc.Equals, args[1])
+		if len(args) == 3 {
+			text, err := goyaml.Marshal(status.Data)
+			c.Check(err, jc.ErrorIsNil)
+			expected, ok := expectedYaml[i]
+			c.Check(ok, jc.IsTrue)
+			c.Assert(string(text), gc.Equals, expected)
+		}
 	}
 }
 
 func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
+	expectedYaml := map[int]string{2: "" +
+		"number: \"22\"\n" +
+		"string: some string\n",
+	}
 	for i, args := range [][]string{
 		[]string{"--service", "maintenance", "doing some work"},
 		[]string{"--service", "active", ""},
+		[]string{"--service", "maintenance", "valid data", `{number: 22, string: some string}`},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -106,6 +124,13 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Service.Status, gc.Equals, args[1])
 		c.Assert(status.Service.Info, gc.Equals, args[2])
+		if len(args) == 4 {
+			text, err := goyaml.Marshal(status.Service.Data)
+			c.Check(err, jc.ErrorIsNil)
+			expected, ok := expectedYaml[i]
+			c.Check(ok, jc.IsTrue)
+			c.Assert(string(text), gc.Equals, expected)
+		}
 		c.Assert(status.Units, jc.DeepEquals, []jujuc.StatusInfo{})
 
 	}

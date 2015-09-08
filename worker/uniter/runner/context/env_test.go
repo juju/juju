@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -102,7 +102,7 @@ func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvWindows(c *gc.C) {
-	s.PatchValue(&version.Current.OS, version.Windows)
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
 	os.Setenv("Path", "foo;bar")
 	os.Setenv("PSModulePath", "ping;pong")
 	windowsVars := []string{
@@ -123,7 +123,7 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 }
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
-	s.PatchValue(&version.Current.OS, version.Ubuntu)
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	os.Setenv("PATH", "foo:bar")
 	ubuntuVars := []string{
 		"PATH=path-to-tools:foo:bar",

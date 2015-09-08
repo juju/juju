@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/feature"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -37,7 +38,7 @@ func init() {
 const unknownExecutable = "/sbin/unknown/init/system"
 
 type discoveryTest struct {
-	os       version.OSType
+	os       jujuos.OSType
 	series   string
 	expected string
 }
@@ -58,7 +59,7 @@ func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
-	dt.os = version.Unknown
+	dt.os = jujuos.Unknown
 	dt.setVersion(s)
 }
 
@@ -113,31 +114,31 @@ func (dt discoveryTest) checkInitSystem(c *gc.C, name string, err error) {
 }
 
 var discoveryTests = []discoveryTest{{
-	os:       version.Windows,
+	os:       jujuos.Windows,
 	series:   "win2012",
 	expected: service.InitSystemWindows,
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "oneiric",
 	expected: "",
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "precise",
 	expected: service.InitSystemUpstart,
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "utopic",
 	expected: service.InitSystemUpstart,
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "vivid",
 	expected: maybeSystemd,
 }, {
-	os:       version.CentOS,
+	os:       jujuos.CentOS,
 	series:   "centos7",
 	expected: service.InitSystemSystemd,
 }, {
-	os:       version.Unknown,
+	os:       jujuos.Unknown,
 	expected: "",
 }}
 
@@ -220,7 +221,7 @@ func (s *discoverySuite) TestVersionInitSystem(c *gc.C) {
 func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
 	s.setLegacyUpstart(c)
 	test := discoveryTest{
-		os:       version.Ubuntu,
+		os:       jujuos.Ubuntu,
 		series:   "vivid",
 		expected: service.InitSystemUpstart,
 	}
@@ -234,7 +235,7 @@ func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
 func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	s.unsetLegacyUpstart(c)
 	test := discoveryTest{
-		os:       version.Ubuntu,
+		os:       jujuos.Ubuntu,
 		series:   "vivid",
 		expected: service.InitSystemSystemd,
 	}

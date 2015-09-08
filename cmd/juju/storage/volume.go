@@ -73,24 +73,31 @@ type EntityStatus struct {
 }
 
 // convertToVolumeInfo returns map of maps with volume info
-// keyed first on machine_id and then on volume_id.
-func convertToVolumeInfo(all []params.VolumeItem) (map[string]map[string]map[string]VolumeInfo, error) {
+// keyed first on machine ID and then on volume ID.
+func convertToVolumeInfo(all []params.VolumeDetailsResult) (map[string]map[string]map[string]VolumeInfo, error) {
 	result := map[string]map[string]map[string]VolumeInfo{}
 	for _, one := range all {
-		if err := convertVolumeItem(one, result); err != nil {
+		if err := convertVolumeDetailsResult(one, result); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 	return result, nil
 }
 
-func convertVolumeItem(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
-	if len(item.Attachments) != 0 {
-		// add info for volume attachments
-		return convertVolumeAttachments(item, all)
+func convertVolumeDetailsResult(item params.VolumeDetailsResult, all map[string]map[string]map[string]VolumeInfo) error {
+	info, attachments, storage, storageOwner := createVolumeInfo(item)
+	for machineTag, attachmentInfo := range attachments {
+		machineId, err := idFromTag(machineTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info.DeviceName = attachmentInfo.DeviceName
+		info.ReadOnly = attachmentInfo.ReadOnly
+		addOneToAll(machineId, storage, storageOwner, info, all)
 	}
-	unattached, unit, storage := createInfo(item.Volume)
-	addOneToAll("unattached", unit, storage, unattached, all)
+	if len(attachments) == 0 {
+		addOneToAll("unattached", storage, storageOwner, info, all)
+	}
 	return nil
 }
 
@@ -102,56 +109,86 @@ var idFromTag = func(s string) (string, error) {
 	return tag.Id(), nil
 }
 
-func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
-	for _, one := range item.Attachments {
-		machine, err := idFromTag(one.MachineTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		info, unit, storage := createInfo(item.Volume)
-		info.DeviceName = one.Info.DeviceName
-		info.ReadOnly = one.Info.ReadOnly
-
-		addOneToAll(machine, unit, storage, info, all)
-	}
+func convertVolumeAttachments(item params.VolumeDetailsResult, all map[string]map[string]map[string]VolumeInfo) error {
 	return nil
 }
 
-func addOneToAll(machineId, unitId, storageId string, item VolumeInfo, all map[string]map[string]map[string]VolumeInfo) {
+func addOneToAll(machineId, storageId, storageOwnerId string, item VolumeInfo, all map[string]map[string]map[string]VolumeInfo) {
 	machineVolumes, ok := all[machineId]
 	if !ok {
 		machineVolumes = map[string]map[string]VolumeInfo{}
 		all[machineId] = machineVolumes
 	}
-	unitVolumes, ok := machineVolumes[unitId]
+	storageOwnerVolumes, ok := machineVolumes[storageOwnerId]
 	if !ok {
-		unitVolumes = map[string]VolumeInfo{}
-		machineVolumes[unitId] = unitVolumes
+		storageOwnerVolumes = map[string]VolumeInfo{}
+		machineVolumes[storageOwnerId] = storageOwnerVolumes
 	}
-	unitVolumes[storageId] = item
+	storageOwnerVolumes[storageId] = item
 }
 
-func createInfo(volume params.VolumeInstance) (info VolumeInfo, unit, storage string) {
-	info.VolumeId = volume.VolumeId
-	info.HardwareId = volume.HardwareId
-	info.Size = volume.Size
-	info.Persistent = volume.Persistent
-	info.Status = EntityStatus{
-		volume.Status.Status,
-		volume.Status.Info,
-		// TODO(axw) we should support formatting as ISO time
-		common.FormatTime(volume.Status.Since, false),
+// TODO(axw) there are a lot of ignored errors in here, which are *probably*
+// nil, but we should report them up the stack to be safe.
+func createVolumeInfo(result params.VolumeDetailsResult) (
+	info VolumeInfo,
+	attachments map[string]params.VolumeAttachmentInfo,
+	storageId string,
+	storageOwnerId string,
+) {
+	details := result.Details
+	if details == nil {
+		details = volumeDetailsFromLegacy(result)
 	}
 
-	if v, err := idFromTag(volume.VolumeTag); err == nil {
+	info.VolumeId = details.Info.VolumeId
+	info.HardwareId = details.Info.HardwareId
+	info.Size = details.Info.Size
+	info.Persistent = details.Info.Persistent
+	info.Status = EntityStatus{
+		details.Status.Status,
+		details.Status.Info,
+		// TODO(axw) we should support formatting as ISO time
+		common.FormatTime(details.Status.Since, false),
+	}
+	if v, err := idFromTag(details.VolumeTag); err == nil {
 		info.Volume = v
 	}
 	var err error
-	if storage, err = idFromTag(volume.StorageTag); err != nil {
-		storage = "unassigned"
+	if storageId, err = idFromTag(details.StorageTag); err != nil {
+		// volume is not assigned to a storage instance
+		storageId = "unassigned"
 	}
-	if unit, err = idFromTag(volume.UnitTag); err != nil {
-		unit = "unattached"
+	if storageOwnerId, err = idFromTag(details.StorageOwnerTag); err != nil {
+		// volume is not assigned to a storage instance,
+		// or storage instance is not attached to a unit (legacy)
+		storageOwnerId = "unattached"
 	}
-	return
+	attachments = details.MachineAttachments
+	return info, attachments, storageId, storageOwnerId
+}
+
+// volumeDetailsFromLegacy converts from legacy data structures
+// to params.VolumeDetails. This exists only for backwards-
+// compatibility. Please think long and hard before changing it.
+func volumeDetailsFromLegacy(result params.VolumeDetailsResult) *params.VolumeDetails {
+	details := &params.VolumeDetails{
+		VolumeTag:  result.LegacyVolume.VolumeTag,
+		StorageTag: result.LegacyVolume.StorageTag,
+		Status:     result.LegacyVolume.Status,
+	}
+	details.Info.VolumeId = result.LegacyVolume.VolumeId
+	details.Info.HardwareId = result.LegacyVolume.HardwareId
+	details.Info.Size = result.LegacyVolume.Size
+	details.Info.Persistent = result.LegacyVolume.Persistent
+	if result.LegacyVolume.UnitTag != "" {
+		details.StorageOwnerTag = result.LegacyVolume.UnitTag
+	}
+	if len(result.LegacyAttachments) > 0 {
+		attachments := make(map[string]params.VolumeAttachmentInfo)
+		for _, attachment := range result.LegacyAttachments {
+			attachments[attachment.MachineTag] = attachment.Info
+		}
+		details.MachineAttachments = attachments
+	}
+	return details
 }

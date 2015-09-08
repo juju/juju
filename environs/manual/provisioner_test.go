@@ -20,6 +20,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -46,7 +47,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
-	const operatingSystem = version.Ubuntu
+	const operatingSystem = jujuos.Ubuntu
 
 	args := s.getArgs(c)
 	hostname := args.Host
