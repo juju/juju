@@ -1801,6 +1801,7 @@ var statusTests = []testCase{
 	),
 	test( // 12
 		"machines with containers",
+		// step 0
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
@@ -1809,6 +1810,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 
+		// step 7
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("dummyenv-1.dns")},
 		startAliveMachine{"1"},
@@ -1817,7 +1819,7 @@ var statusTests = []testCase{
 		setAgentStatus{"mysql/0", state.StatusIdle, "", nil},
 		setUnitStatus{"mysql/0", state.StatusActive, "", nil},
 
-		// A container on machine 1.
+		// step 14: A container on machine 1.
 		addContainer{"1", "1/lxc/0", state.JobHostUnits},
 		setAddresses{"1/lxc/0", network.NewAddresses("dummyenv-2.dns")},
 		startAliveMachine{"1/lxc/0"},
@@ -1827,7 +1829,7 @@ var statusTests = []testCase{
 		setUnitStatus{"mysql/1", state.StatusActive, "", nil},
 		addContainer{"1", "1/lxc/1", state.JobHostUnits},
 
-		// A nested container.
+		// step 22: A nested container.
 		addContainer{"1/lxc/0", "1/lxc/0/lxc/0", state.JobHostUnits},
 		setAddresses{"1/lxc/0/lxc/0", network.NewAddresses("dummyenv-3.dns")},
 		startAliveMachine{"1/lxc/0/lxc/0"},
@@ -1882,7 +1884,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		// once again, with a scope on mysql/1
+		// step 27: once again, with a scope on mysql/1
 		scopedExpect{
 			"machines with nested containers",
 			[]string{"mysql/1"},
