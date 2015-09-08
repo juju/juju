@@ -276,11 +276,12 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
-	return ctx.unit.SetUnitStatus(
+	err := ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
 		status.Data,
 	)
+	return errors.Annotatef(err, "could not set status %q with info %q and data: %v", status.Status, status.Info, status.Data)
 }
 
 // SetServiceStatus will set the given status to the service to which this

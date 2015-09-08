@@ -6,6 +6,7 @@ import (
 
 	"github.com/juju/errors"
 
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/version"
 )
 
@@ -56,7 +57,7 @@ func osVal(series string, valname osVarType) (string, error) {
 		return "", err
 	}
 	switch os {
-	case version.Windows:
+	case jujuos.Windows:
 		return winVals[valname], nil
 	default:
 		return nixVals[valname], nil

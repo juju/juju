@@ -5,8 +5,6 @@ package version_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -15,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -168,7 +167,7 @@ func binaryVersion(major, minor, patch, build int, tag, series, arch string) ver
 		},
 		Series: series,
 		Arch:   arch,
-		OS:     version.Ubuntu,
+		OS:     os.Ubuntu,
 	}
 }
 
@@ -222,7 +221,7 @@ func (*suite) TestParseBinary(c *gc.C) {
 			Number: test.expect,
 			Series: "trusty",
 			Arch:   "amd64",
-			OS:     version.Ubuntu,
+			OS:     os.Ubuntu,
 		}
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
@@ -322,72 +321,6 @@ func (*suite) TestParseMajorMinor(c *gc.C) {
 			c.Check(major, gc.Equals, test.expectMajor)
 			c.Check(minor, gc.Equals, test.expectMinor)
 		}
-	}
-}
-
-func (s *suite) TestUseFastLXC(c *gc.C) {
-	for i, test := range []struct {
-		message        string
-		releaseContent string
-		expected       string
-	}{{
-		message: "missing release file",
-	}, {
-		message:        "OS release file is missing ID",
-		releaseContent: "some junk\nand more junk",
-	}, {
-		message: "precise release",
-		releaseContent: `
-NAME="Ubuntu"
-VERSION="12.04 LTS, Precise"
-ID=ubuntu
-ID_LIKE=debian
-PRETTY_NAME="Ubuntu 12.04.3 LTS"
-VERSION_ID="12.04"
-`,
-		expected: "12.04",
-	}, {
-		message: "trusty release",
-		releaseContent: `
-NAME="Ubuntu"
-VERSION="14.04.1 LTS, Trusty Tahr"
-ID=ubuntu
-ID_LIKE=debian
-PRETTY_NAME="Ubuntu 14.04.1 LTS"
-VERSION_ID="14.04"
-`,
-		expected: "14.04",
-	}, {
-		message: "minimal trusty release",
-		releaseContent: `
-ID=ubuntu
-VERSION_ID="14.04"
-`,
-		expected: "14.04",
-	}, {
-		message: "minimal unstable unicorn",
-		releaseContent: `
-ID=ubuntu
-VERSION_ID="14.10"
-`,
-		expected: "14.10",
-	}, {
-		message: "minimal jaunty",
-		releaseContent: `
-ID=ubuntu
-VERSION_ID="9.10"
-`,
-		expected: "9.10",
-	}} {
-		c.Logf("%v: %v", i, test.message)
-		filename := filepath.Join(c.MkDir(), "os-release")
-		s.PatchValue(version.OSReleaseFile, filename)
-		if test.releaseContent != "" {
-			err := ioutil.WriteFile(filename, []byte(test.releaseContent+"\n"), 0644)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		value := version.ReleaseVersion()
-		c.Assert(value, gc.Equals, test.expected)
 	}
 }
 

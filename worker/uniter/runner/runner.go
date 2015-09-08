@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
 
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -120,7 +120,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if version.Current.OS == version.Windows {
+	if jujuos.HostOS() == jujuos.Windows {
 		// TODO(fwereade): somehow consolidate with utils/exec?
 		// We don't do this on the other code path, which uses exec.RunCommands,
 		// because that already has handling for windows environment requirements.

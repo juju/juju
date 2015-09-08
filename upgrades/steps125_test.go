@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
@@ -63,22 +64,22 @@ func (m *mockOSRemove) osRemove(path string) error {
 }
 
 var removeFileTests = []struct {
-	os           version.OSType
+	os           os.OSType
 	callExpected bool
 	shouldFail   bool
 }{
 	{
-		os:           version.Ubuntu,
+		os:           os.Ubuntu,
 		callExpected: false,
 		shouldFail:   false,
 	},
 	{
-		os:           version.Windows,
+		os:           os.Windows,
 		callExpected: true,
 		shouldFail:   false,
 	},
 	{
-		os:           version.Windows,
+		os:           os.Windows,
 		callExpected: true,
 		shouldFail:   true,
 	},
@@ -88,7 +89,7 @@ func (s *steps125Suite) TestRemoveJujudPass(c *gc.C) {
 	for _, t := range removeFileTests {
 		mock := &mockOSRemove{shouldFail: t.shouldFail}
 		s.PatchValue(upgrades.OsRemove, mock.osRemove)
-		s.PatchValue(&version.Current.OS, t.os)
+		s.PatchValue(&os.HostOS, func() os.OSType { return t.os })
 		err := upgrades.RemoveJujudpass(nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(mock.called, gc.Equals, t.callExpected)
@@ -112,23 +113,23 @@ func (m *mockRunCmds) runCommands(params exec.RunParams) (*exec.ExecResponse, er
 }
 
 var addRegKeyTests = []struct {
-	os           version.OSType
+	os           os.OSType
 	callExpected bool
 	shouldFail   bool
 	errMessage   string
 }{
 	{
-		os:           version.Ubuntu,
+		os:           os.Ubuntu,
 		callExpected: false,
 		shouldFail:   false,
 	},
 	{
-		os:           version.Windows,
+		os:           os.Windows,
 		callExpected: true,
 		shouldFail:   false,
 	},
 	{
-		os:           version.Windows,
+		os:           os.Windows,
 		callExpected: true,
 		shouldFail:   true,
 		errMessage:   "could not create juju registry key: derp",
@@ -139,7 +140,7 @@ func (s *steps125Suite) TestAddJujuRegKey(c *gc.C) {
 	for _, t := range addRegKeyTests {
 		mock := &mockRunCmds{shouldFail: t.shouldFail, c: c}
 		s.PatchValue(upgrades.ExecRunCommands, mock.runCommands)
-		s.PatchValue(&version.Current.OS, t.os)
+		s.PatchValue(&os.HostOS, func() os.OSType { return t.os })
 		err := upgrades.AddJujuRegKey(nil)
 		if t.shouldFail {
 			c.Assert(err, gc.ErrorMatches, t.errMessage)

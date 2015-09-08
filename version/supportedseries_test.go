@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -28,23 +29,23 @@ func (s *supportedSeriesSuite) TearDownTest(c *gc.C) {
 
 var getOSFromSeriesTests = []struct {
 	series string
-	want   version.OSType
+	want   os.OSType
 	err    string
 }{{
 	series: "precise",
-	want:   version.Ubuntu,
+	want:   os.Ubuntu,
 }, {
 	series: "win2012r2",
-	want:   version.Windows,
+	want:   os.Windows,
 }, {
 	series: "mountainlion",
-	want:   version.OSX,
+	want:   os.OSX,
 }, {
 	series: "centos7",
-	want:   version.CentOS,
+	want:   os.CentOS,
 }, {
 	series: "arch",
-	want:   version.Arch,
+	want:   os.Arch,
 }, {
 	series: "",
 	err:    "series \"\" not valid",
@@ -78,12 +79,12 @@ func (s *supportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {
 		"centos7": "centos7",
 		"arch":    "rolling",
 	})
-	series := version.OSSupportedSeries(version.Ubuntu)
+	series := version.OSSupportedSeries(os.Ubuntu)
 	c.Assert(series, jc.SameContents, []string{"trusty", "utopic"})
-	series = version.OSSupportedSeries(version.Windows)
+	series = version.OSSupportedSeries(os.Windows)
 	c.Assert(series, jc.SameContents, []string{"win7", "win81"})
-	series = version.OSSupportedSeries(version.CentOS)
+	series = version.OSSupportedSeries(os.CentOS)
 	c.Assert(series, jc.SameContents, []string{"centos7"})
-	series = version.OSSupportedSeries(version.Arch)
+	series = version.OSSupportedSeries(os.Arch)
 	c.Assert(series, jc.SameContents, []string{"arch"})
 }

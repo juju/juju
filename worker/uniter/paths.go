@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/os"
 )
 
 // Paths represents the set of filesystem paths a uniter worker has reason to
@@ -105,7 +105,7 @@ func NewPaths(dataDir string, unitTag names.UnitTag) Paths {
 	stateDir := join(baseDir, "state")
 
 	socket := func(name string, abstract bool) string {
-		if version.Current.OS == version.Windows {
+		if os.HostOS() == os.Windows {
 			return fmt.Sprintf(`\\.\pipe\%s-%s`, unitTag, name)
 		}
 		path := join(baseDir, name+".socket")

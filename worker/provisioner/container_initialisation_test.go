@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -299,7 +300,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	c.Assert(err, jc.ErrorIsNil)
 
 	switch current_os {
-	case version.CentOS:
+	case jujuos.CentOS:
 		series = "centos7"
 		expected_initial = []string{
 			"yum", "--assumeyes", "--debuglevel=1", "install"}
@@ -530,7 +531,7 @@ func getContainerInstance() (cont []ContainerInstance, err error) {
 	}
 
 	switch current_os {
-	case version.CentOS:
+	case jujuos.CentOS:
 		cont = []ContainerInstance{
 			{instance.LXC, [][]string{
 				{"lxc"},

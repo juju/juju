@@ -582,7 +582,9 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		for _, series := range version.SupportedSeries() {
 			os, err := version.GetOSFromSeries(series)
 			c.Assert(err, jc.ErrorIsNil)
-			if os == version.Current.OS {
+			hostos, err := version.GetOSFromSeries(version.Current.Series)
+			c.Assert(err, jc.ErrorIsNil)
+			if os == hostos {
 				expectedSeries.Add(series)
 			}
 		}

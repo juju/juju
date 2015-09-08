@@ -89,13 +89,13 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 
 // ListVolumes lists volumes for desired machines.
 // If no machines provided, a list of all volumes is returned.
-func (c *Client) ListVolumes(machines []string) ([]params.VolumeItem, error) {
+func (c *Client) ListVolumes(machines []string) ([]params.VolumeDetailsResult, error) {
 	tags := make([]string, len(machines))
 	for i, one := range machines {
 		tags[i] = names.NewMachineTag(one).String()
 	}
 	args := params.VolumeFilter{Machines: tags}
-	found := params.VolumeItemsResult{}
+	found := params.VolumeDetailsResults{}
 	if err := c.facade.FacadeCall("ListVolumes", args, &found); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -449,7 +449,6 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 		envtesting.AssertUploadFakeToolsVersions(
 			c, stor, "releases", s.Environ.Config().AgentStream(), s.oldVersion)
 	}
-
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
 	s.assertStateServerUpgrades(c)
 }

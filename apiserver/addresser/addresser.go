@@ -48,9 +48,9 @@ func NewAddresserAPI(
 	}, nil
 }
 
-// getNetworingEnviron checks if the environment implements NetworkingEnviron
+// getNetworkingEnviron checks if the environment implements NetworkingEnviron
 // and also if it supports IP address allocation.
-func (api *AddresserAPI) getNetworingEnviron() (environs.NetworkingEnviron, bool, error) {
+func (api *AddresserAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
 	config, err := api.st.EnvironConfig()
 	if err != nil {
 		return nil, false, errors.Annotate(err, "getting environment config")
@@ -74,7 +74,7 @@ func (api *AddresserAPI) getNetworingEnviron() (environs.NetworkingEnviron, bool
 // deallocate IP addresses.
 func (api *AddresserAPI) CanDeallocateAddresses() params.BoolResult {
 	result := params.BoolResult{}
-	_, ok, err := api.getNetworingEnviron()
+	_, ok, err := api.getNetworkingEnviron()
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result
@@ -86,7 +86,7 @@ func (api *AddresserAPI) CanDeallocateAddresses() params.BoolResult {
 // CleanupIPAddresses releases and removes the dead IP addresses.
 func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 	result := params.ErrorResult{}
-	netEnv, ok, err := api.getNetworingEnviron()
+	netEnv, ok, err := api.getNetworkingEnviron()
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result
