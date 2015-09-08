@@ -296,15 +296,15 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
-	expect, expectOK := s.unit.PrivateAddress()
+	expect, _ := s.unit.PrivateAddress()
 	actual, actualOK := ctx.PrivateAddress()
-	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	c.Assert(actual, gc.Equals, expect.Value)
+	c.Assert(actualOK, gc.Equals, expect.Value != "")
 
-	expect, expectOK = s.unit.PublicAddress()
+	expect, _ = s.unit.PublicAddress()
 	actual, actualOK = ctx.PublicAddress()
-	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	c.Assert(actual, gc.Equals, expect.Value)
+	c.Assert(actualOK, gc.Equals, expect.Value != "")
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
