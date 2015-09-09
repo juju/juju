@@ -194,7 +194,7 @@ func (s *uniterResolver) nextOp(
 
 	// Now that storage hooks have run at least once, before anything else,
 	// we need to run the install hook.
-	if !localState.Installed {
+	if !localState.Installed && !localState.Started {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
