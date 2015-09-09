@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -84,13 +85,12 @@ func watcherApiCall(requst string, args, result interface{}, err error) apiCall 
 	}
 }
 
-func mockAPICaller(c *gc.C, callNumber *int, apiCalls ...apiCall) apitesting.APICallerFunc {
+func mockAPICaller(c *gc.C, callNumber *int32, apiCalls ...apiCall) apitesting.APICallerFunc {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		index := *callNumber
+		index := int(atomic.AddInt32(callNumber, 1)) - 1
 		c.Logf("request %d, %s", index, request)
 		c.Assert(index < len(apiCalls), jc.IsTrue)
 		call := apiCalls[index]
-		*callNumber += 1
 		c.Check(objType, gc.Equals, call.facadeName)
 		c.Check(version, gc.Equals, call.version)
 		c.Check(id, gc.Equals, call.id)
@@ -122,11 +122,15 @@ func (s *relationsSuite) SetUpTest(c *gc.C) {
 	s.relationsDir = filepath.Join(c.MkDir(), "relations")
 }
 
+func assertNumCalls(c *gc.C, numCalls int32, expected int) {
+	c.Assert(numCalls, gc.Equals, int32(numCalls))
+}
+
 func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
-	numCalls := 0
+	numCalls := int32(0)
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterApiCall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
@@ -135,7 +139,7 @@ func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(numCalls, gc.Equals, 2)
+	assertNumCalls(c, numCalls, 2)
 	return r
 }
 
@@ -149,7 +153,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
-	numCalls := 0
+	numCalls := int32(0)
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
@@ -180,7 +184,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(numCalls, gc.Equals, 8)
+	assertNumCalls(c, numCalls, 8)
 
 	info := r.GetInfo()
 	c.Assert(info, gc.HasLen, 1)
@@ -196,7 +200,7 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
-	numCalls := 0
+	numCalls := int32(0)
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
 		uniterApiCall("Life", unitEntity, params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}, nil),
@@ -206,7 +210,7 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(numCalls, gc.Equals, 2)
+	assertNumCalls(c, numCalls, 2)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -251,7 +255,7 @@ func relationJoinedApiCalls() []apiCall {
 	return apiCalls
 }
 
-func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int, apiCalls ...apiCall) relation.Relations {
+func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
 
@@ -259,7 +263,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int, apiCal
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*numCalls, gc.Equals, 2)
+	assertNumCalls(c, *numCalls, 2)
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -279,7 +283,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int, apiCal
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*numCalls, gc.Equals, 10)
+	assertNumCalls(c, *numCalls, 10)
 	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -291,11 +295,11 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int, apiCal
 }
 
 func (s *relationsSuite) TestHookRelationJoined(c *gc.C) {
-	numCalls := 0
+	numCalls := int32(0)
 	s.assertHookRelationJoined(c, &numCalls, relationJoinedApiCalls()...)
 }
 
-func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int, apiCalls ...apiCall) relation.Relations {
+func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
 	r := s.assertHookRelationJoined(c, numCalls, apiCalls...)
 
 	localState := resolver.LocalState{
@@ -313,7 +317,7 @@ func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int, apiCa
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*numCalls, gc.Equals, 11)
+	assertNumCalls(c, *numCalls, 11)
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -324,24 +328,24 @@ func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int, apiCa
 	return r
 }
 
-func getPrincipalApiCalls(numCalls int) []apiCall {
+func getPrincipalApiCalls(numCalls int32) []apiCall {
 	unitEntity := params.Entities{Entities: []params.Entity{params.Entity{Tag: "unit-wordpress-0"}}}
 	result := make([]apiCall, numCalls)
-	for i := 0; i < numCalls; i++ {
+	for i := int32(0); i < numCalls; i++ {
 		result[i] = uniterApiCall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil)
 	}
 	return result
 }
 
 func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
-	numCalls := 0
+	numCalls := int32(0)
 	apiCalls := relationJoinedApiCalls()
 
-	apiCalls = append(apiCalls, getPrincipalApiCalls(1)...)
+	apiCalls = append(apiCalls, getPrincipalApiCalls(int32(1))...)
 	s.assertHookRelationChanged(c, &numCalls, apiCalls...)
 }
 
-func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int, apiCalls ...apiCall) relation.Relations {
+func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
 	r := s.assertHookRelationChanged(c, numCalls, apiCalls...)
 
 	localState := resolver.LocalState{
@@ -362,7 +366,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int, apiC
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*numCalls, gc.Equals, 12)
+	assertNumCalls(c, *numCalls, 12)
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -374,7 +378,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int, apiC
 }
 
 func (s *relationsSuite) TestHookRelationDeparted(c *gc.C) {
-	numCalls := 0
+	numCalls := int32(0)
 	apiCalls := relationJoinedApiCalls()
 
 	apiCalls = append(apiCalls, getPrincipalApiCalls(2)...)
@@ -382,7 +386,7 @@ func (s *relationsSuite) TestHookRelationDeparted(c *gc.C) {
 }
 
 func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
-	numCalls := 0
+	numCalls := int32(0)
 	apiCalls := relationJoinedApiCalls()
 
 	apiCalls = append(apiCalls, getPrincipalApiCalls(3)...)
@@ -403,12 +407,12 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(numCalls, gc.Equals, 13)
+	assertNumCalls(c, numCalls, 13)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
 }
 
 func (s *relationsSuite) TestCommitHook(c *gc.C) {
-	numCalls := 0
+	numCalls := int32(0)
 	apiCalls := relationJoinedApiCalls()
 	relationUnits := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
@@ -477,7 +481,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 		uniterApiCall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 	}
 
-	numCalls := 0
+	numCalls := int32(0)
 	apiCaller := mockAPICaller(c, &numCalls, apiCalls...)
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
