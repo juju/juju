@@ -53,53 +53,42 @@ type relationsSuite struct {
 var _ = gc.Suite(&relationsSuite{})
 
 type apiCall struct {
-	facadeName string
-	version    int
-	id         string
-	request    string
-	args       interface{}
-	result     interface{}
-	err        error
+	request string
+	args    interface{}
+	result  interface{}
+	err     error
 }
 
 func uniterApiCall(request string, args, result interface{}, err error) apiCall {
 	return apiCall{
-		facadeName: "Uniter",
-		version:    2,
-		request:    request,
-		args:       args,
-		result:     result,
-		err:        err,
-	}
-}
-
-func watcherApiCall(requst string, args, result interface{}, err error) apiCall {
-	return apiCall{
-		facadeName: "NotifyWatcher",
-		version:    0,
-		id:         "1",
-		request:    requst,
-		args:       args,
-		result:     result,
-		err:        err,
+		request: request,
+		args:    args,
+		result:  result,
+		err:     err,
 	}
 }
 
 func mockAPICaller(c *gc.C, callNumber *int32, apiCalls ...apiCall) apitesting.APICallerFunc {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		index := int(atomic.AddInt32(callNumber, 1)) - 1
-		c.Logf("request %d, %s", index, request)
-		c.Assert(index < len(apiCalls), jc.IsTrue)
-		call := apiCalls[index]
-		c.Check(objType, gc.Equals, call.facadeName)
-		c.Check(version, gc.Equals, call.version)
-		c.Check(id, gc.Equals, call.id)
-		c.Check(request, gc.Equals, call.request)
-		c.Check(arg, jc.DeepEquals, call.args)
-		if call.err != nil {
-			return common.ServerError(call.err)
+		switch objType {
+		case "NotifyWatcher":
+			return nil
+		case "Uniter":
+			index := int(atomic.AddInt32(callNumber, 1)) - 1
+			c.Check(index < len(apiCalls), jc.IsTrue)
+			call := apiCalls[index]
+			c.Logf("request %d, %s", index, request)
+			c.Check(version, gc.Equals, 2)
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, call.request)
+			c.Check(arg, jc.DeepEquals, call.args)
+			if call.err != nil {
+				return common.ServerError(call.err)
+			}
+			testing.PatchValue(result, call.result)
+		default:
+			c.Fail()
 		}
-		testing.PatchValue(result, call.result)
 		return nil
 	})
 	return apiCaller
@@ -179,13 +168,11 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 		uniterApiCall("Relation", relationUnits, relationResults, nil),
 		uniterApiCall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterApiCall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		watcherApiCall("Stop", nil, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		watcherApiCall("Next", nil, nil, errors.NewNotFound(nil, "watcher")),
 	)
 	st := uniter.NewState(apiCaller, unitTag)
 	r, err := relation.NewRelations(st, unitTag, s.stateDir, s.relationsDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 8)
+	assertNumCalls(c, &numCalls, 6)
 
 	info := r.GetInfo()
 	c.Assert(info, gc.HasLen, 1)
@@ -249,8 +236,6 @@ func relationJoinedApiCalls() []apiCall {
 		uniterApiCall("Relation", relationUnits, relationResults, nil),
 		uniterApiCall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterApiCall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		watcherApiCall("Stop", nil, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		watcherApiCall("Next", nil, nil, errors.NewNotFound(nil, "watcher")),
 		uniterApiCall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 	}
 	return apiCalls
@@ -284,7 +269,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 10)
+	assertNumCalls(c, numCalls, 8)
 	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -318,7 +303,7 @@ func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int32, api
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 11)
+	assertNumCalls(c, numCalls, 9)
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -367,7 +352,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 12)
+	assertNumCalls(c, numCalls, 10)
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -408,7 +393,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, &numCalls, 13)
+	assertNumCalls(c, &numCalls, 11)
 	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
 }
 
@@ -477,8 +462,6 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 		uniterApiCall("Relation", relationUnits, relationResults, nil),
 		uniterApiCall("Watch", unitEntity, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}}}, nil),
 		uniterApiCall("EnterScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		watcherApiCall("Stop", nil, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
-		watcherApiCall("Next", nil, nil, errors.NewNotFound(nil, "watcher")),
 		uniterApiCall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 	}
 
