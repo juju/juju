@@ -80,7 +80,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		// New server
 		agent := machine.Agent
 		out = machineStatus{
-			AgentState:     machine.AgentState,
+			AgentState:     agent.Status,
 			AgentStateInfo: adjustInfoIfMachineAgentDown(machine.AgentState, agent.Status, agent.Info),
 			AgentVersion:   agent.Version,
 			Life:           agent.Life,
