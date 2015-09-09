@@ -1533,6 +1533,7 @@ func AddMissingServiceStatuses(st *State) error {
 // ChangeStatusHistoryUpdatedType seeks for historicalStatusDoc records
 // whose updated attribute is a time and converts them to int64.
 func ChangeStatusHistoryUpdatedType(st *State) error {
+	// Ensure all ids are using the new form.
 	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
 		return errors.Annotate(err, "cannot update ids of status history")
 	}
@@ -1543,6 +1544,10 @@ func ChangeStatusHistoryUpdatedType(st *State) error {
 // ChangeStatusUpdatedType seeks for statusDoc records
 // whose updated attribute is a time and converts them to int64.
 func ChangeStatusUpdatedType(st *State) error {
+	// Ensure all ids are using the new form.
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
 	run := func(st *State) error { return changeUpdatedType(st, statusesC) }
 	return runForAllEnvStates(st, run)
 }
@@ -1607,11 +1612,6 @@ func changeUpdatedType(st *State, collection string) error {
 
 	wColl := coll.Writeable()
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		updated, ok := doc["updated"].(time.Time)
 		if ok {
@@ -1625,6 +1625,10 @@ func changeUpdatedType(st *State, collection string) error {
 
 // ChangeStatusHistoryEntityId renames entityId field to globalkey.
 func ChangeStatusHistoryEntityId(st *State) error {
+	// Ensure all ids are using the new form.
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
 	return runForAllEnvStates(st, changeStatusHistoryEntityId)
 }
 
@@ -1642,11 +1646,6 @@ func changeStatusHistoryEntityId(st *State) error {
 		return errors.Annotate(err, "cannot get entity ids")
 	}
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		entityId, ok := doc["entityid"].(string)
 		if !ok {
