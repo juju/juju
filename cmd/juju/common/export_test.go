@@ -3,16 +3,22 @@
 
 package common
 
+import (
+	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/envcmd"
+)
+
 // NewGetConstraintsCommand returns a GetCommand with the api provided as specified.
-func NewGetConstraintsCommand(api ConstraintsAPI) *GetConstraintsCommand {
-	return &GetConstraintsCommand{
+func NewGetConstraintsCommandWithAPI(api ConstraintsAPI) cmd.Command {
+	return envcmd.Wrap(&GetConstraintsCommand{
 		api: api,
-	}
+	})
 }
 
 // NewGetConstraintsCommand returns a GetCommand with the api provided as specified.
-func NewSetConstraintsCommand(api ConstraintsAPI) *SetConstraintsCommand {
-	return &SetConstraintsCommand{
+func NewSetConstraintsCommandWithAPI(api ConstraintsAPI) cmd.Command {
+	return envcmd.Wrap(&SetConstraintsCommand{
 		api: api,
-	}
+	})
 }

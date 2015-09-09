@@ -10,10 +10,15 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// DefinedCommand lists actions defined by the charm of a given service.
-type DefinedCommand struct {
+func newDefinedCommand() cmd.Command {
+	return envcmd.Wrap(&definedCommand{})
+}
+
+// definedCommand lists actions defined by the charm of a given service.
+type definedCommand struct {
 	ActionCommandBase
 	serviceTag names.ServiceTag
 	fullSchema bool
@@ -28,12 +33,12 @@ For more information, see also the 'do' subcommand, which executes actions.
 `
 
 // Set up the output.
-func (c *DefinedCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *definedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.fullSchema, "schema", false, "display the full action schema")
 }
 
-func (c *DefinedCommand) Info() *cmd.Info {
+func (c *definedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "defined",
 		Args:    "<service name>",
@@ -43,7 +48,7 @@ func (c *DefinedCommand) Info() *cmd.Info {
 }
 
 // Init validates the service name and any other options.
-func (c *DefinedCommand) Init(args []string) error {
+func (c *definedCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no service name specified")
@@ -61,7 +66,7 @@ func (c *DefinedCommand) Init(args []string) error {
 
 // Run grabs the Actions spec from the api.  It then sets up a sensible
 // output format for the map.
-func (c *DefinedCommand) Run(ctx *cmd.Context) error {
+func (c *definedCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err

@@ -14,10 +14,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// ListCommand displays a list of all subnets known to Juju
-type ListCommand struct {
+func newListCommand() cmd.Command {
+	return envcmd.Wrap(&listCommand{})
+}
+
+// listCommand displays a list of all subnets known to Juju
+type listCommand struct {
 	SubnetCommandBase
 
 	SpaceName string
@@ -25,7 +31,7 @@ type ListCommand struct {
 
 	spaceTag *names.SpaceTag
 
-	out cmd.Output
+	Out cmd.Output
 }
 
 const listCommandDoc = `
@@ -40,7 +46,7 @@ output to a file, use --output.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *ListCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
@@ -50,9 +56,9 @@ func (c *ListCommand) Info() *cmd.Info {
 }
 
 // SetFlags is defined on the cmd.Command interface.
-func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+	c.Out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
@@ -63,7 +69,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *ListCommand) Init(args []string) error {
+func (c *listCommand) Init(args []string) error {
 	// No arguments are accepted, just flags.
 	err := cmd.CheckEmpty(args)
 	if err != nil {
@@ -84,7 +90,7 @@ func (c *ListCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *ListCommand) Run(ctx *cmd.Context) error {
+func (c *listCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		// Validate space and/or zone, if given to display a nicer error
 		// message.
@@ -141,7 +147,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 			result.Subnets[sub.CIDR] = subResult
 		}
 
-		return c.out.Write(ctx, result)
+		return c.Out.Write(ctx, result)
 	})
 }
 

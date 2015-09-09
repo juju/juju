@@ -8,11 +8,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	jujucmd "github.com/juju/juju/cmd/juju/commands"
 	cmdstorage "github.com/juju/juju/cmd/juju/storage"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
@@ -199,14 +201,32 @@ data/0:
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
 
-func runPoolList(c *gc.C, args ...string) *cmd.Context {
-	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), args...)
+func runJujuCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	// NOTE (alesstimec): Writers need to be reset, because
+	// they are set globally in the juju/cmd package and will
+	// return an error if we attempt to run two commands in the
+	// same test.
+	loggo.RemoveWriter("warning")
+	ctx, err := cmd.DefaultContext()
 	c.Assert(err, jc.ErrorIsNil)
-	return context
+	command := jujucmd.NewJujuCommand(ctx)
+	return testing.RunCommand(c, command, args...)
+}
+
+func runPoolList(c *gc.C, args ...string) (string, string, error) {
+	cmdArgs := append([]string{"storage", "pool", "list"}, args...)
+	ctx, err := runJujuCommand(c, cmdArgs...)
+	stdout, stderr := "", ""
+	if ctx != nil {
+		stdout = testing.Stdout(ctx)
+		stderr = testing.Stderr(ctx)
+	}
+	return stdout, stderr, err
 }
 
 func (s *cmdStorageSuite) TestListPools(c *gc.C) {
-	context := runPoolList(c)
+	stdout, _, err := runPoolList(c)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
   provider: loop
@@ -221,11 +241,12 @@ rootfs:
 tmpfs:
   provider: tmpfs
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
-	context := runPoolList(c, "--format", "tabular")
+	stdout, _, err := runPoolList(c, "--format", "tabular")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 NAME    PROVIDER  ATTRS
 block   loop      it=works
@@ -235,32 +256,37 @@ rootfs  rootfs
 tmpfs   tmpfs     
 
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestListPoolsName(c *gc.C) {
-	context := runPoolList(c, "--name", "block")
+	stdout, _, err := runPoolList(c, "--name", "block")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
   provider: loop
   attrs:
     it: works
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameNoMatch(c *gc.C) {
-	context := runPoolList(c, "--name", "cranky")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	stdout, stderr, err := runPoolList(c, "--name", "cranky")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameInvalid(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), "--name", "9oops")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not valid.*")
+	_, stderr, err := runPoolList(c, "--name", "9oops")
+	c.Assert(err, gc.NotNil)
+	c.Assert(stderr, jc.Contains, `ERROR pool name "9oops" not valid`)
 }
 
 func (s *cmdStorageSuite) TestListPoolsProvider(c *gc.C) {
-	context := runPoolList(c, "--provider", "loop")
+	stdout, _, err := runPoolList(c, "--provider", "loop")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
   provider: loop
@@ -269,7 +295,7 @@ block:
 loop:
   provider: loop
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
@@ -280,85 +306,105 @@ func (s *cmdStorageSuite) registerTmpProviderType(c *gc.C) {
 
 func (s *cmdStorageSuite) TestListPoolsProviderNoMatch(c *gc.C) {
 	s.registerTmpProviderType(c)
-	context := runPoolList(c, "--provider", string(provider.TmpfsProviderType))
+	stdout, _, err := runPoolList(c, "--provider", string(provider.TmpfsProviderType))
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 tmpfs:
   provider: tmpfs
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderUnregistered(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolListCommand{}), "--provider", "oops")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not supported.*")
+	_, stderr, err := runPoolList(c, "--provider", "oops")
+	c.Assert(err, gc.NotNil)
+	c.Assert(stderr, jc.Contains, `"oops" for environment "dummyenv" not supported`)
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndProvider(c *gc.C) {
-	context := runPoolList(c, "--name", "block", "--provider", "loop")
+	stdout, _, err := runPoolList(c, "--name", "block", "--provider", "loop")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 block:
   provider: loop
   attrs:
     it: works
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func (s *cmdStorageSuite) TestListPoolsProviderAndNotName(c *gc.C) {
-	context := runPoolList(c, "--name", "fluff", "--provider", "ebs")
+	stdout, _, err := runPoolList(c, "--name", "fluff", "--provider", "ebs")
+	c.Assert(err, jc.ErrorIsNil)
 	// there is no pool that matches this name AND type
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNameAndNotProvider(c *gc.C) {
 	s.registerTmpProviderType(c)
-	context := runPoolList(c, "--name", "block", "--provider", string(provider.TmpfsProviderType))
+	stdout, _, err := runPoolList(c, "--name", "block", "--provider", string(provider.TmpfsProviderType))
+	c.Assert(err, jc.ErrorIsNil)
 	// no pool matches this name and this provider
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "")
 }
 
 func (s *cmdStorageSuite) TestListPoolsNotNameAndNotProvider(c *gc.C) {
 	s.registerTmpProviderType(c)
-	context := runPoolList(c, "--name", "fluff", "--provider", string(provider.TmpfsProviderType))
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	stdout, _, err := runPoolList(c, "--name", "fluff", "--provider", string(provider.TmpfsProviderType))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
 }
 
-func runPoolCreate(c *gc.C, args ...string) *cmd.Context {
-	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), args...)
-	c.Assert(err, jc.ErrorIsNil)
-	return context
+func runPoolCreate(c *gc.C, args ...string) (string, string, error) {
+	cmdArgs := append([]string{"storage", "pool", "create"}, args...)
+	ctx, err := runJujuCommand(c, cmdArgs...)
+	stdout, stderr := "", ""
+	if ctx != nil {
+		stdout = testing.Stdout(ctx)
+		stderr = testing.Stderr(ctx)
+	}
+	return stdout, stderr, err
+
 }
 
 func (s *cmdStorageSuite) TestCreatePool(c *gc.C) {
 	pname := "ftPool"
-	context := runPoolCreate(c, pname, "loop", "smth=one")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	stdout, _, err := runPoolCreate(c, pname, "loop", "smth=one")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
 	assertPoolExists(c, s.State, pname, "loop", "smth=one")
 }
 
-func (s *cmdStorageSuite) assertCreatePoolError(c *gc.C, expected string, args ...string) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.PoolCreateCommand{}), args...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
+func (s *cmdStorageSuite) assertCreatePoolError(c *gc.C, errString, expected string, args ...string) {
+	_, stderr, err := runPoolCreate(c, args...)
+	if errString != "" {
+		c.Assert(err, gc.ErrorMatches, errString)
+	} else {
+		c.Assert(err, gc.NotNil)
+	}
+
+	c.Assert(stderr, jc.Contains, expected)
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorNoAttrs(c *gc.C) {
-	s.assertCreatePoolError(c, ".*pool creation requires names, provider type and attrs for configuration.*", "loop", "ftPool")
+	s.assertCreatePoolError(c, "pool creation requires names, provider type and attrs for configuration", "", "loop", "ftPool")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorNoProvider(c *gc.C) {
-	s.assertCreatePoolError(c, ".*pool creation requires names, provider type and attrs for configuration.*", "oops provider", "smth=one")
+	s.assertCreatePoolError(c, "pool creation requires names, provider type and attrs for configuration", "", "oops provider", "smth=one")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorProviderType(c *gc.C) {
-	s.assertCreatePoolError(c, ".*not found.*", "loop", "ftPool", "smth=one")
+	s.assertCreatePoolError(c, "", "not found", "loop", "ftPool", "smth=one")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolDuplicateName(c *gc.C) {
 	pname := "ftPool"
-	context := runPoolCreate(c, pname, "loop", "smth=one")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	stdout, _, err := runPoolCreate(c, pname, "loop", "smth=one")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
 	assertPoolExists(c, s.State, pname, "loop", "smth=one")
-	s.assertCreatePoolError(c, ".*cannot overwrite existing settings*", pname, "loop", "smth=one")
+	s.assertCreatePoolError(c, "", "cannot overwrite existing settings", pname, "loop", "smth=one")
 }
 
 func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
@@ -384,30 +430,28 @@ func assertPoolExists(c *gc.C, st *state.State, pname, provider, attr string) {
 	c.Assert(exists, jc.IsTrue)
 }
 
-func runVolumeList(c *gc.C, args ...string) *cmd.Context {
-	context, err := testing.RunCommand(c,
-		envcmd.Wrap(&cmdstorage.VolumeListCommand{}), args...)
-	c.Assert(err, jc.ErrorIsNil)
-	return context
+func runVolumeList(c *gc.C, args ...string) (string, string, error) {
+	cmdArgs := append([]string{"storage", "volume", "list"}, args...)
+	ctx, err := runJujuCommand(c, cmdArgs...)
+	return testing.Stdout(ctx), testing.Stderr(ctx), err
 }
 
 func (s *cmdStorageSuite) TestListVolumeInvalidMachine(c *gc.C) {
-	_, err := testing.RunCommand(
-		c, envcmd.Wrap(&cmdstorage.VolumeListCommand{}), "abc",
-	)
-	c.Assert(err, gc.ErrorMatches, `"machine-abc" is not a valid machine tag`)
+	_, stderr, err := runVolumeList(c, "abc")
+	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(stderr, jc.Contains, `"machine-abc" is not a valid machine tag`)
 }
 
 func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	context := runVolumeList(c, "0")
+	stdout, _, err := runVolumeList(c, "0")
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 MACHINE  UNIT             STORAGE  ID   PROVIDER-ID  DEVICE  SIZE  STATE    MESSAGE
 0        storage-block/0  data/0   0/0                             pending  
 
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
-	c.Assert(testing.Stderr(context), gc.Equals, "")
+	c.Assert(stdout, gc.Equals, expected)
 }
 
 func runAddToUnit(c *gc.C, args ...string) *cmd.Context {

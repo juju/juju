@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/testing"
 )
@@ -48,13 +47,13 @@ func (f *fakeImagesListAPI) ListImages(kind, series, arch string) ([]params.Imag
 func (s *listImagesCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.mockAPI = &fakeImagesListAPI{}
-	s.PatchValue(cachedimages.GetListImagesAPI, func(c *cachedimages.ListCommand) (cachedimages.ListImagesAPI, error) {
+	s.PatchValue(cachedimages.GetListImagesAPI, func(_ *cachedimages.CachedImagesCommandBase) (cachedimages.ListImagesAPI, error) {
 		return s.mockAPI, nil
 	})
 }
 
 func runListCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&cachedimages.ListCommand{}), args...)
+	return testing.RunCommand(c, cachedimages.NewListCommand(), args...)
 }
 
 func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {
