@@ -78,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
@@ -124,6 +125,7 @@ var (
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
+	newMetadataUpdater       = imagemetadataworker.NewWorker
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
@@ -791,6 +793,17 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			clock.WallClock,
 		), nil
 	})
+
+	if isEnvironManager {
+		// Start worker that stores missing published image metadata in state.
+		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
+			env, err := environs.New(envConfig)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return newMetadataUpdater(st.MetadataUpdater(), imagemetadataworker.DefaultListPublishedMetadata, env), nil
+		})
+	}
 
 	// Check if the network management is disabled.
 	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()

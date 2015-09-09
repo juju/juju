@@ -451,7 +451,9 @@ type dummyProvider struct {
 	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
 	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
 	createVolumesFunc     func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
+	createFilesystemsFunc func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
 	attachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
+	attachFilesystemsFunc func([]storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
 	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
 	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) ([]error, error)
 	destroyVolumesFunc    func([]string) ([]error, error)
@@ -565,6 +567,10 @@ func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 
 // CreateFilesystems makes some filesystems that we can check later to ensure things went as expected.
 func (s *dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+	if s.provider != nil && s.provider.createFilesystemsFunc != nil {
+		return s.provider.createFilesystemsFunc(params)
+	}
+
 	paramsCopy := make([]storage.FilesystemParams, len(params))
 	copy(paramsCopy, params)
 	s.createFilesystemsArgs = append(s.createFilesystemsArgs, paramsCopy)
@@ -588,7 +594,11 @@ func (s *dummyFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]er
 }
 
 // AttachFilesystems attaches filesystems to machines.
-func (*dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+	if s.provider != nil && s.provider.attachFilesystemsFunc != nil {
+		return s.provider.attachFilesystemsFunc(params)
+	}
+
 	results := make([]storage.AttachFilesystemsResult, len(params))
 	for i, p := range params {
 		if p.FilesystemId == "" {

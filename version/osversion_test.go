@@ -5,8 +5,6 @@ package version_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,114 +13,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type readSeriesSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&readSeriesSuite{})
-
 type kernelVersionSuite struct {
 	testing.BaseSuite
 }
 
 var _ = gc.Suite(&kernelVersionSuite{})
-
-var readSeriesTests = []struct {
-	contents string
-	series   string
-	err      string
-}{{
-	`NAME="Ubuntu"
-VERSION="12.04.5 LTS, Precise Pangolin"
-ID=ubuntu
-ID_LIKE=debian
-PRETTY_NAME="Ubuntu precise (12.04.5 LTS)"
-VERSION_ID="12.04"
-`,
-	"precise",
-	"",
-}, {
-	`NAME="Ubuntu"
-ID=ubuntu
-VERSION_ID= "12.04" `,
-	"precise",
-	"",
-}, {
-	`NAME='Ubuntu'
-ID='ubuntu'
-VERSION_ID='12.04'
-`,
-	"precise",
-	"",
-}, {
-	`NAME="CentOS Linux"
-ID="centos"
-VERSION_ID="7"
-`,
-	"centos7",
-	"",
-}, {
-	`NAME="Arch Linux"
-ID=arch
-PRETTY_NAME="Arch Linux"
-ANSI_COLOR="0;36"
-HOME_URL="https://www.archlinux.org/"
-SUPPORT_URL="https://bbs.archlinux.org/"
-BUG_REPORT_URL="https://bugs.archlinux.org/"
-`,
-	"arch",
-	"",
-}, {
-	`NAME="Ubuntu"
-VERSION="14.04.1 LTS, Trusty Tahr"
-ID=ubuntu
-ID_LIKE=debian
-PRETTY_NAME="Ubuntu 14.04.1 LTS"
-VERSION_ID="14.04"
-HOME_URL="http://www.ubuntu.com/"
-SUPPORT_URL="http://help.ubuntu.com/"
-BUG_REPORT_URL="http://bugs.launchpad.net/ubuntu/"
-`,
-	"trusty",
-	"",
-}, {
-	"",
-	"unknown",
-	"OS release file is missing ID",
-}, {
-	`NAME="CentOS Linux"
-ID="centos"
-`,
-	"unknown",
-	"OS release file is missing VERSION_ID",
-}, {
-	`NAME="SuSE Linux"
-ID="SuSE"
-VERSION_ID="12"
-`,
-	"unknown",
-	"",
-},
-}
-
-func (s *readSeriesSuite) TestReadSeries(c *gc.C) {
-	d := c.MkDir()
-	f := filepath.Join(d, "foo")
-	s.PatchValue(version.OSReleaseFile, f)
-	for i, t := range readSeriesTests {
-		c.Logf("test %d", i)
-		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, jc.ErrorIsNil)
-		series, err := version.ReadSeries()
-		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		}
-
-		c.Assert(series, gc.Equals, t.series)
-	}
-}
 
 func sysctlMacOS10dot9dot2() (string, error) {
 	// My 10.9.2 Mac gives "13.1.0" as the kernel version

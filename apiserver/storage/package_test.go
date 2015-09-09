@@ -40,8 +40,8 @@ type baseStorageSuite struct {
 	machineTag      names.MachineTag
 
 	volumeTag        names.VolumeTag
-	volume           state.Volume
-	volumeAttachment state.VolumeAttachment
+	volume           *mockVolume
+	volumeAttachment *mockVolumeAttachment
 	calls            []string
 
 	poolManager *mockPoolManager
@@ -360,6 +360,7 @@ type mockVolume struct {
 	tag          names.VolumeTag
 	storage      names.StorageTag
 	hasNoStorage bool
+	info         *state.VolumeInfo
 }
 
 func (m *mockVolume) StorageInstance() (names.StorageTag, error) {
@@ -381,6 +382,9 @@ func (m *mockVolume) Params() (state.VolumeParams, bool) {
 }
 
 func (m *mockVolume) Info() (state.VolumeInfo, error) {
+	if m.info != nil {
+		return *m.info, nil
+	}
 	return state.VolumeInfo{}, errors.NotProvisionedf("%v", m.tag)
 }
 
@@ -453,6 +457,7 @@ func (m *mockStorageAttachment) Unit() names.UnitTag {
 type mockVolumeAttachment struct {
 	VolumeTag  names.VolumeTag
 	MachineTag names.MachineTag
+	info       *state.VolumeAttachmentInfo
 }
 
 func (va *mockVolumeAttachment) Volume() names.VolumeTag {
@@ -468,7 +473,10 @@ func (va *mockVolumeAttachment) Life() state.Life {
 }
 
 func (va *mockVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {
-	return state.VolumeAttachmentInfo{}, errors.New("not interested yet")
+	if va.info != nil {
+		return *va.info, nil
+	}
+	return state.VolumeAttachmentInfo{}, errors.NotProvisionedf("volume attachment")
 }
 
 func (va *mockVolumeAttachment) Params() (state.VolumeAttachmentParams, bool) {

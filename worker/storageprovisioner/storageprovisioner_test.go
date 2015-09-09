@@ -265,6 +265,76 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 	})
 }
 
+func (s *storageProvisionerSuite) TestCreateFilesystemRetry(c *gc.C) {
+	filesystemInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+		defer close(filesystemInfoSet)
+		return make([]params.ErrorResult, len(filesystems)), nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var createFilesystemTimes []time.Time
+
+	s.provider.createFilesystemsFunc = func(args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+		createFilesystemTimes = append(createFilesystemTimes, clock.Now())
+		if len(createFilesystemTimes) < 10 {
+			return []storage.CreateFilesystemsResult{{Error: errors.New("badness")}}, nil
+		}
+		return []storage.CreateFilesystemsResult{{
+			Filesystem: &storage.Filesystem{Tag: args[0].Tag},
+		}}, nil
+	}
+
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
+	c.Assert(createFilesystemTimes, gc.HasLen, 10)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(createFilesystemTimes[0], gc.Equals, time.Time{})
+
+	delays := make([]time.Duration, len(createFilesystemTimes)-1)
+	for i := range createFilesystemTimes[1:] {
+		delays[i] = createFilesystemTimes[i+1].Sub(createFilesystemTimes[i])
+	}
+	c.Assert(delays, jc.DeepEquals, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		4 * time.Minute,
+		8 * time.Minute,
+		16 * time.Minute,
+		30 * time.Minute, // ceiling reached
+		30 * time.Minute,
+		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "pending", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: ""},
+	})
+}
+
 func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 	volumeInfoSet := make(chan interface{})
 	volumeAccessor := newMockVolumeAccessor()
@@ -345,6 +415,89 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 		{Tag: "volume-1", Status: "attaching", Info: "badness"},
 		{Tag: "volume-1", Status: "attaching", Info: "badness"},
 		{Tag: "volume-1", Status: "attached", Info: ""},
+	})
+}
+
+func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
+	filesystemInfoSet := make(chan interface{})
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.setFilesystemInfo = func(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
+		defer close(filesystemInfoSet)
+		return make([]params.ErrorResult, len(filesystems)), nil
+	}
+	filesystemAttachmentInfoSet := make(chan interface{})
+	filesystemAccessor.setFilesystemAttachmentInfo = func(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
+		defer close(filesystemAttachmentInfoSet)
+		return make([]params.ErrorResult, len(filesystemAttachments)), nil
+	}
+
+	// mockFunc's After will progress the current time by the specified
+	// duration and signal the channel immediately.
+	clock := &mockClock{}
+	var attachFilesystemTimes []time.Time
+
+	s.provider.attachFilesystemsFunc = func(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+		attachFilesystemTimes = append(attachFilesystemTimes, clock.Now())
+		if len(attachFilesystemTimes) < 10 {
+			return []storage.AttachFilesystemsResult{{Error: errors.New("badness")}}, nil
+		}
+		return []storage.AttachFilesystemsResult{{
+			FilesystemAttachment: &storage.FilesystemAttachment{
+				args[0].Filesystem,
+				args[0].Machine,
+				storage.FilesystemAttachmentInfo{
+					Path: "/oh/over/there",
+				},
+			},
+		}}, nil
+	}
+
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
+	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
+	c.Assert(attachFilesystemTimes, gc.HasLen, 10)
+
+	// The first attempt should have been immediate: T0.
+	c.Assert(attachFilesystemTimes[0], gc.Equals, time.Time{})
+
+	delays := make([]time.Duration, len(attachFilesystemTimes)-1)
+	for i := range attachFilesystemTimes[1:] {
+		delays[i] = attachFilesystemTimes[i+1].Sub(attachFilesystemTimes[i])
+	}
+	c.Assert(delays, jc.DeepEquals, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		4 * time.Minute,
+		8 * time.Minute,
+		16 * time.Minute,
+		30 * time.Minute, // ceiling reached
+		30 * time.Minute,
+		30 * time.Minute,
+	})
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "filesystem-1", Status: "attaching", Info: ""},        // CreateFilesystems
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"}, // AttachFilesystems
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attaching", Info: "badness"},
+		{Tag: "filesystem-1", Status: "attached", Info: ""},
 	})
 }
 

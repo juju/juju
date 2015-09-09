@@ -4,11 +4,6 @@
 package version
 
 import (
-	"bufio"
-	"fmt"
-	"io"
-	"os"
-	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -119,8 +114,6 @@ var windowsVersions = map[string]string{
 	"Windows 10":                     "win10",
 }
 
-var distroInfo = "/usr/share/distro-info/ubuntu.csv"
-
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
 func GetOSFromSeries(series string) (jujuos.OSType, error) {
@@ -150,8 +143,7 @@ func GetOSFromSeries(series string) (jujuos.OSType, error) {
 }
 
 var (
-	seriesVersionsMutex   sync.Mutex
-	updatedseriesVersions bool
+	seriesVersionsMutex sync.Mutex
 )
 
 // SeriesVersion returns the version for the specified series.
@@ -198,55 +190,11 @@ func OSSupportedSeries(os jujuos.OSType) []string {
 	return osSeries
 }
 
+var updatedseriesVersions bool
+
 func updateSeriesVersions() {
 	if !updatedseriesVersions {
-		err := updateDistroInfo()
-		if err != nil {
-			logger.Warningf("failed to update distro info: %v", err)
-		}
+		updateLocalSeriesVersions()
 		updatedseriesVersions = true
 	}
-}
-
-// updateDistroInfo updates seriesVersions from /usr/share/distro-info/ubuntu.csv if possible..
-func updateDistroInfo() error {
-	// We need to find the series version eg 12.04 from the series eg precise. Use the information found in
-	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
-	f, err := os.Open(distroInfo)
-	if err != nil {
-		// On non-Ubuntu systems this file won't exist but that's expected.
-		return nil
-	}
-	defer f.Close()
-	bufRdr := bufio.NewReader(f)
-	// Only find info for precise or later.
-	// TODO: only add in series that are supported (i.e. before end of life)
-	preciseOrLaterFound := false
-	for {
-		line, err := bufRdr.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return fmt.Errorf("reading distro info file file: %v", err)
-		}
-		// lines are of the form: "12.04 LTS,Precise Pangolin,precise,2011-10-13,2012-04-26,2017-04-26"
-		parts := strings.Split(line, ",")
-		// Ignore any malformed lines.
-		if len(parts) < 3 {
-			continue
-		}
-		series := parts[2]
-		if series == "precise" {
-			preciseOrLaterFound = true
-		}
-		if series != "precise" && !preciseOrLaterFound {
-			continue
-		}
-		// the numeric version may contain a LTS moniker so strip that out.
-		seriesInfo := strings.Split(parts[0], " ")
-		seriesVersions[series] = seriesInfo[0]
-		ubuntuSeries[series] = seriesInfo[0]
-	}
-	return nil
 }
