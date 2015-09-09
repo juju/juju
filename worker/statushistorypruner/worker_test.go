@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/statushistorypruner"
@@ -58,7 +57,7 @@ type statusHistoryPrunerSuite struct {
 func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
 	var passedMaxLogs chan int
 	passedMaxLogs = make(chan int, 1)
-	fakePruner := func(_ *state.State, maxLogs int) error {
+	fakePruner := func(maxLogs int) error {
 		passedMaxLogs <- maxLogs
 		return nil
 	}
@@ -75,7 +74,7 @@ func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
 		return fakeTimer
 	}
 	pruner := statushistorypruner.NewPruneWorker(
-		&state.State{},
+		nil,
 		&params,
 		fakeTimerFunc,
 		fakePruner,

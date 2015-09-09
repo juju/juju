@@ -862,6 +862,9 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
 			})
+			runner.StartWorker("statushistorypruner", func() (worker.Worker, error) {
+				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
+			})
 
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
@@ -1082,9 +1085,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
 				})
 			}
-			a.startWorkerAfterUpgrade(singularRunner, "statushistorypruner", func() (worker.Worker, error) {
-				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
-			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
