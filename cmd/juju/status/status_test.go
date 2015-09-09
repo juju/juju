@@ -3239,10 +3239,11 @@ ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE
 
 [Juju]            
 UPGRADE-AVAILABLE 
-%s        
+%s 
 
 `
-	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion))
+	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersion))
+	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion+spaces))
 }
 
 func (s *StatusSuite) TestStatusV2(c *gc.C) {
