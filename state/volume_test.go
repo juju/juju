@@ -84,7 +84,7 @@ func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddService("storage-block", s.Owner.String(), ch, nil, storage)
+	_, err := s.State.AddService("storage-block", s.Owner.String(), ch, nil, storage, nil)
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -93,7 +93,7 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	service, err := s.State.AddService("storage-block", s.Owner.String(), ch, nil, storage)
+	service, err := s.State.AddService("storage-block", s.Owner.String(), ch, nil, storage, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
