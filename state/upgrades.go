@@ -1544,10 +1544,6 @@ func ChangeStatusHistoryUpdatedType(st *State) error {
 // ChangeStatusUpdatedType seeks for statusDoc records
 // whose updated attribute is a time and converts them to int64.
 func ChangeStatusUpdatedType(st *State) error {
-	// Ensure all ids are using the new form.
-	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
-		return errors.Annotate(err, "cannot update ids of status history")
-	}
 	run := func(st *State) error { return changeUpdatedType(st, statusesC) }
 	return runForAllEnvStates(st, run)
 }
@@ -1571,7 +1567,9 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "cannot find all docs for %q", statusesHistoryC)
 	}
-
+	if len(docs) == 0 {
+		rawColl.Find(nil).All(&docs)
+	}
 	writeableColl := coll.Writeable()
 	for _, doc := range docs {
 		id, ok := doc["_id"].(string)
