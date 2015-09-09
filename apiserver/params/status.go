@@ -181,6 +181,12 @@ type UnitStatusHistory struct {
 	Statuses []AgentStatus
 }
 
+// StatusHistoryPruneArgs holds arguments for status history
+// prunning process.
+type StatusHistoryPruneArgs struct {
+	MaxLogsPerState int
+}
+
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
@@ -210,11 +216,16 @@ type ServiceStatusResults struct {
 	Results []ServiceStatusResult
 }
 
+// HistoryKind represents the possible types of
+// status history entries.
 type HistoryKind string
 
 const (
+	// KindCombined represents all possible kinds.
 	KindCombined HistoryKind = "combined"
-	KindAgent    HistoryKind = "agent"
+	// KindAgent represent a unit agent status history entry.
+	KindAgent HistoryKind = "agent"
+	// KindWorkload represents a charm workload status history entry.
 	KindWorkload HistoryKind = "workload"
 )
 

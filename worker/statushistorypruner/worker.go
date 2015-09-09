@@ -8,7 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/statushistory"
 	"github.com/juju/juju/worker"
 )
 
@@ -19,7 +20,12 @@ type HistoryPrunerParams struct {
 	PruneInterval   time.Duration
 }
 
+// DefaultMaxLogsPerState is the default value for logs for each entity
+// that should be kept at any given time.
 const DefaultMaxLogsPerState = 100
+
+// DefaultPruneInterval is the default interval that should be waited
+// between prune calls.
 const DefaultPruneInterval = 5 * time.Minute
 
 // NewHistoryPrunerParams returns a HistoryPrunerParams initialized with default parameter.
@@ -30,26 +36,33 @@ func NewHistoryPrunerParams() *HistoryPrunerParams {
 	}
 }
 
-type pruneHistoryFunc func(*state.State, int) error
+// Facade represents an API that implements status history pruning.
+type Facade interface {
+	Prune(int) error
+}
+
+type pruneFunc func(int) error
 
 type pruneWorker struct {
-	st     *state.State
-	params *HistoryPrunerParams
-	pruner pruneHistoryFunc
+	statusHistory Facade
+	params        *HistoryPrunerParams
+	prune         pruneFunc
 }
 
 // New returns a worker.Worker for history Pruner.
-func New(st *state.State, params *HistoryPrunerParams) worker.Worker {
+func New(api api.Connection, params *HistoryPrunerParams) worker.Worker {
+	statusHistory := statushistory.NewFacade(api)
+	prune := func(i int) error { return statusHistory.Prune(i) }
 	w := &pruneWorker{
-		st:     st,
-		params: params,
-		pruner: state.PruneStatusHistory,
+		statusHistory: statusHistory,
+		params:        params,
+		prune:         prune,
 	}
 	return worker.NewPeriodicWorker(w.doPruning, w.params.PruneInterval, worker.NewTimer)
 }
 
 func (w *pruneWorker) doPruning(stop <-chan struct{}) error {
-	err := w.pruner(w.st, w.params.MaxLogsPerState)
+	err := w.prune(w.params.MaxLogsPerState)
 	if err != nil {
 		return errors.Trace(err)
 	}
