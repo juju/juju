@@ -255,6 +255,41 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *gc.C) {
 	})
 }
 
+type delayedExecutor struct {
+	operation.Executor
+	updateStatusHookTicker *manualTicker
+}
+
+func (d *delayedExecutor) Run(op operation.Operation) error {
+	// expire the status update timer during the install hook
+	if strings.HasPrefix(op.String(), "run install") {
+		if err := d.updateStatusHookTicker.Tick(); err != nil {
+			return err
+		}
+	}
+	return d.Executor.Run(op)
+}
+
+func (s *UniterSuite) TestUpdateStatusHookOnlyRunsAfterStart(c *gc.C) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func() error, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+		c.Assert(err, jc.ErrorIsNil)
+		return &delayedExecutor{e, s.updateStatusHookTicker}, nil
+	}
+
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update status hook doesn't run until start hook has run",
+			createCharm{},
+			serveCharm{},
+			createUniter{executorFunc: executorFunc},
+			waitHooks{"install", "leader-elected", "config-changed", "start"},
+			updateStatusHookTick{},
+			waitHooks{"update-status"},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
