@@ -122,9 +122,9 @@ func (s *relationsSuite) SetUpTest(c *gc.C) {
 	s.relationsDir = filepath.Join(c.MkDir(), "relations")
 }
 
-func assertNumCalls(c *gc.C, numCalls *int32, expected int) {
+func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
 	v := atomic.LoadInt32(numCalls)
-	c.Assert(v, gc.Equals, int32(expected))
+	c.Assert(v, gc.Equals, expected)
 }
 
 func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
