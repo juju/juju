@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -33,10 +32,6 @@ func (s *volumeListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockVolumeListAPI{fillDeviceName: true, addErrItem: true}
-	s.PatchValue(storage.GetVolumeListAPI,
-		func(c *storage.VolumeListCommand) (storage.VolumeListAPI, error) {
-			return s.mockAPI, nil
-		})
 }
 
 func (s *volumeListSuite) TestVolumeListEmpty(c *gc.C) {
@@ -52,7 +47,7 @@ func (s *volumeListSuite) TestVolumeListEmpty(c *gc.C) {
 func (s *volumeListSuite) TestVolumeListError(c *gc.C) {
 	s.mockAPI.errOut = "just my luck"
 
-	context, err := runVolumeList(c, "--format", "yaml")
+	context, err := s.runVolumeList(c, "--format", "yaml")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, s.mockAPI.errOut)
 	s.assertUserFacingOutput(c, context, "", "")
 }
@@ -152,7 +147,7 @@ volume item error
 
 func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, machine string, args ...string) {
 	all := []string{machine}
-	context, err := runVolumeList(c, append(all, args...)...)
+	context, err := s.runVolumeList(c, append(all, args...)...)
 	c.Assert(err, jc.ErrorIsNil)
 	var result map[string]map[string]map[string]storage.VolumeInfo
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
@@ -177,14 +172,14 @@ func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]map[stri
 }
 
 func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut, expectedErr string) {
-	context, err := runVolumeList(c, args...)
+	context, err := s.runVolumeList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, expectedErr)
 }
 
-func runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *volumeListSuite) runVolumeList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		envcmd.Wrap(&storage.VolumeListCommand{}),
+		storage.NewVolumeListCommand(s.mockAPI),
 		args...)
 }
 

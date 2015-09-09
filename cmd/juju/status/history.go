@@ -18,7 +18,11 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-type StatusHistoryCommand struct {
+func NewStatusHistoryCommand() cmd.Command {
+	return envcmd.Wrap(statusHistoryCommand{})
+}
+
+type statusHistoryCommand struct {
 	envcmd.EnvCommandBase
 	out           cmd.Output
 	outputContent string
@@ -38,7 +42,7 @@ The statuses for the unit workload and/or agent are available.
  and sorted by time of occurrence.
 `
 
-func (c *StatusHistoryCommand) Info() *cmd.Info {
+func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status-history",
 		Args:    "[-n N] <unit>",
@@ -47,13 +51,13 @@ func (c *StatusHistoryCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *StatusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.outputContent, "type", "combined", "type of statuses to be displayed [agent|workload|combined].")
 	f.IntVar(&c.backlogSize, "n", 20, "size of logs backlog.")
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 }
 
-func (c *StatusHistoryCommand) Init(args []string) error {
+func (c *statusHistoryCommand) Init(args []string) error {
 	switch {
 	case len(args) > 1:
 		return errors.Errorf("unexpected arguments after unit name.")
@@ -82,7 +86,7 @@ func (c *StatusHistoryCommand) Init(args []string) error {
 	return errors.Errorf("unexpected status type %q", c.outputContent)
 }
 
-func (c *StatusHistoryCommand) Run(ctx *cmd.Context) error {
+func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)

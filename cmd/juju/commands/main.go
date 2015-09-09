@@ -131,11 +131,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(&DestroyEnvironmentCommand{})
 
 	// Reporting commands.
-	r.Register(wrapEnvCommand(&status.StatusCommand{}))
+	r.Register(status.NewStatusCommand())
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
 	r.Register(wrapEnvCommand(&APIInfoCommand{}))
-	r.Register(wrapEnvCommand(&status.StatusHistoryCommand{}))
+	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))
@@ -147,9 +147,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Configuration commands.
 	r.Register(&InitCommand{})
-	r.RegisterDeprecated(wrapEnvCommand(&common.GetConstraintsCommand{}),
+	r.RegisterDeprecated(common.NewGetConstraintsCommand(),
 		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
-	r.RegisterDeprecated(wrapEnvCommand(&common.SetConstraintsCommand{}),
+	r.RegisterDeprecated(common.NewSetConstraintsCommand(),
 		twoDotOhDeprecation("environment set-constraints or service set-constraints"))
 	r.Register(wrapEnvCommand(&ExposeCommand{}))
 	r.Register(wrapEnvCommand(&SyncToolsCommand{}))

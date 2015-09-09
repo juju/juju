@@ -19,9 +19,13 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// EnvironmentsCommand returns the list of all the environments the
+func newEnvironmentsCommand() cmd.Command {
+	return envcmd.WrapSystem(&environmentsCommand{})
+}
+
+// environmentsCommand returns the list of all the environments the
 // current user can access on the current system.
-type EnvironmentsCommand struct {
+type environmentsCommand struct {
 	envcmd.SysCommandBase
 	out       cmd.Output
 	all       bool
@@ -62,7 +66,7 @@ type EnvironmentsSysAPI interface {
 }
 
 // Info implements Command.Info
-func (c *EnvironmentsCommand) Info() *cmd.Info {
+func (c *environmentsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "environments",
 		Purpose: "list all environments the user can access on the current system",
@@ -70,21 +74,21 @@ func (c *EnvironmentsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *EnvironmentsCommand) getEnvAPI() (EnvironmentsEnvAPI, error) {
+func (c *environmentsCommand) getEnvAPI() (EnvironmentsEnvAPI, error) {
 	if c.envAPI != nil {
 		return c.envAPI, nil
 	}
 	return c.NewEnvironmentManagerAPIClient()
 }
 
-func (c *EnvironmentsCommand) getSysAPI() (EnvironmentsSysAPI, error) {
+func (c *environmentsCommand) getSysAPI() (EnvironmentsSysAPI, error) {
 	if c.sysAPI != nil {
 		return c.sysAPI, nil
 	}
 	return c.NewSystemManagerAPIClient()
 }
 
-func (c *EnvironmentsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
+func (c *environmentsCommand) getConnectionCredentials() (configstore.APICredentials, error) {
 	if c.userCreds != nil {
 		return *c.userCreds, nil
 	}
@@ -92,7 +96,7 @@ func (c *EnvironmentsCommand) getConnectionCredentials() (configstore.APICredent
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *EnvironmentsCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *environmentsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "", "the user to list environments for (administrative users only)")
 	f.BoolVar(&c.all, "all", false, "show all environments  (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "display UUID for environments")
@@ -113,7 +117,7 @@ type UserEnvironment struct {
 }
 
 // Run implements Command.Run
-func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
+func (c *environmentsCommand) Run(ctx *cmd.Context) error {
 	if c.user == "" {
 		creds, err := c.getConnectionCredentials()
 		if err != nil {
@@ -147,7 +151,7 @@ func (c *EnvironmentsCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, output)
 }
 
-func (c *EnvironmentsCommand) getAllEnvironments() ([]base.UserEnvironment, error) {
+func (c *environmentsCommand) getAllEnvironments() ([]base.UserEnvironment, error) {
 	client, err := c.getSysAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -156,7 +160,7 @@ func (c *EnvironmentsCommand) getAllEnvironments() ([]base.UserEnvironment, erro
 	return client.AllEnvironments()
 }
 
-func (c *EnvironmentsCommand) getUserEnvironments() ([]base.UserEnvironment, error) {
+func (c *environmentsCommand) getUserEnvironments() ([]base.UserEnvironment, error) {
 	client, err := c.getEnvAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -166,7 +170,7 @@ func (c *EnvironmentsCommand) getUserEnvironments() ([]base.UserEnvironment, err
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
-func (c *EnvironmentsCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *environmentsCommand) formatTabular(value interface{}) ([]byte, error) {
 	envs, ok := value.([]UserEnvironment)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", envs, value)

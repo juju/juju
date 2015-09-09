@@ -9,12 +9,18 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// RemoveCommand calls the API to remove an existing network space.
-type RemoveCommand struct {
+func newRemoveCommand() cmd.Command {
+	return envcmd.Wrap(&removeCommand{})
+}
+
+// removeCommand calls the API to remove an existing network space.
+type removeCommand struct {
 	SpaceCommandBase
-	Name string
+	name string
 }
 
 const removeCommandDoc = `
@@ -23,7 +29,7 @@ associated with the space will be transfered to the default space.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *RemoveCommand) Info() *cmd.Info {
+func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove",
 		Args:    "<name>",
@@ -34,7 +40,7 @@ func (c *RemoveCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *RemoveCommand) Init(args []string) (err error) {
+func (c *removeCommand) Init(args []string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid arguments specified")
 
 	// Validate given name.
@@ -45,20 +51,20 @@ func (c *RemoveCommand) Init(args []string) (err error) {
 	if !names.IsValidSpace(givenName) {
 		return errors.Errorf("%q is not a valid space name", givenName)
 	}
-	c.Name = givenName
+	c.name = givenName
 
 	return cmd.CheckEmpty(args[1:])
 }
 
 // Run implements Command.Run.
-func (c *RemoveCommand) Run(ctx *cmd.Context) error {
+func (c *removeCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Remove the space.
-		err := api.RemoveSpace(c.Name)
+		err := api.RemoveSpace(c.name)
 		if err != nil {
-			return errors.Annotatef(err, "cannot remove space %q", c.Name)
+			return errors.Annotatef(err, "cannot remove space %q", c.name)
 		}
-		ctx.Infof("removed space %q", c.Name)
+		ctx.Infof("removed space %q", c.name)
 		return nil
 	})
 }
