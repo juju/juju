@@ -10,7 +10,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tarfile
 import traceback
 
 from jujuci import (
@@ -25,14 +24,10 @@ from jujuci import (
 from utility import (
     extract_deb,
     get_deb_arch,
-    print_now,
     run_command,
     s3_cmd,
     temp_dir,
 )
-
-
-OSX_DIR_SUFFIX = "-osx-artifacts"
 
 
 def get_build_parameters(build_data):
@@ -99,20 +94,6 @@ def download_candidate_files(credentials, release_number, path, br_number,
     get_artifacts(
         credentials, PUBLISH_REVISION, pr_number, 'juju-core*', candidate_dir,
         dry_run=dry_run, verbose=verbose)
-    download_osx_client(candidate_dir, br_number)
-
-
-def download_osx_client(
-        candidate_dir, br_number, dry_run=False, verbose=False):
-    osx_dir = candidate_dir.replace('-artifacts', OSX_DIR_SUFFIX)
-    prepare_dir(osx_dir, dry_run=dry_run, verbose=verbose)
-    url = ("s3://juju-qa-data/juju-ci/products/version-{}/"
-           "build-osx-client".format(br_number))
-    if verbose:
-        print_now('Retrieving OS X client from S3: %s' % osx_dir)
-    if not dry_run:
-        s3_cmd(['sync', '--exclude', '*', '--include', '*.tar.gz', url,
-                osx_dir])
 
 
 def get_artifact_dirs(path):
@@ -151,22 +132,13 @@ def extract_candidates(path, dry_run=False, verbose=False):
         with open(buildvars_path) as bf:
             buildvars = json.load(bf)
         version = buildvars['version']
-        if artifacts_path.endswith(OSX_DIR_SUFFIX):
-            package_path = subprocess.check_output(
-                ['find', artifacts_path, '-name', 'juju*osx.tar.gz']).strip()
-            candidate_path = os.path.join(path, "{}-osx".format(version))
-        else:
-            package_path = get_package(artifacts_path, version)
-            candidate_path = os.path.join(path, version)
+        package_path = get_package(artifacts_path, version)
+        candidate_path = os.path.join(path, version)
         if verbose:
             print('extracting %s to %s' % (package_path, candidate_path))
         prepare_dir(candidate_path, dry_run, verbose)
         if not dry_run:
-            if artifacts_path.endswith(OSX_DIR_SUFFIX):
-                with tarfile.open(package_path, 'r:gz') as tar_file:
-                    tar_file.extractall(candidate_path)
-            else:
-                extract_deb(package_path, candidate_path)
+            extract_deb(package_path, candidate_path)
         if verbose:
             print('Copying %s to %s' % (buildvars_path, candidate_path))
         if not dry_run:
