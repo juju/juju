@@ -15,8 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
-	"fmt"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -160,10 +158,7 @@ func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshal
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.expect(c, []string{machine})
-	// This comparison cannot rely on gc.DeepEquals as
-	// json.Unmarshal unmarshalls the number as a float64,
-	// rather than an int
-	s.assertSameVolumeInfos(c, result, expected)
+	c.Assert(result, jc.DeepEquals, expected)
 
 	obtainedErr := testing.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, `
@@ -179,39 +174,6 @@ func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]map[stri
 	result, err := storage.ConvertToVolumeInfo(all)
 	c.Assert(err, jc.ErrorIsNil)
 	return result
-}
-
-func (s *volumeListSuite) assertSameVolumeInfos(c *gc.C, one, two map[string]map[string]map[string]storage.VolumeInfo) {
-	c.Assert(len(one), gc.Equals, len(two))
-
-	propertyCompare := func(a, b interface{}) {
-		// As some types may have been unmarshalled incorrectly, for example
-		// int versus float64, compare values' string representations
-		c.Assert(fmt.Sprintf("%v", a), jc.DeepEquals, fmt.Sprintf("%v", b))
-
-	}
-	for machineKey, machineVolumes1 := range one {
-		machineVolumes2, ok := two[machineKey]
-		c.Assert(ok, jc.IsTrue)
-		// these are maps
-		c.Assert(len(machineVolumes1), gc.Equals, len(machineVolumes2))
-		for unitKey, units1 := range machineVolumes1 {
-			units2, ok := machineVolumes2[unitKey]
-			c.Assert(ok, jc.IsTrue)
-			// these are maps
-			c.Assert(len(units1), gc.Equals, len(units2))
-			for storageKey, info1 := range units1 {
-				info2, ok := units2[storageKey]
-				c.Assert(ok, jc.IsTrue)
-				propertyCompare(info1.VolumeId, info2.VolumeId)
-				propertyCompare(info1.HardwareId, info2.HardwareId)
-				propertyCompare(info1.Size, info2.Size)
-				propertyCompare(info1.Persistent, info2.Persistent)
-				propertyCompare(info1.DeviceName, info2.DeviceName)
-				propertyCompare(info1.ReadOnly, info2.ReadOnly)
-			}
-		}
-	}
 }
 
 func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut, expectedErr string) {

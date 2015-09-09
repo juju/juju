@@ -84,20 +84,20 @@ func (a *AgentEntityWatcher) Watch(args params.Entities) (params.NotifyWatchResu
 	return result, nil
 }
 
-// multiNotifyWatcher implements state.NotifyWatcher, combining
+// MultiNotifyWatcher implements state.NotifyWatcher, combining
 // multiple NotifyWatchers.
-type multiNotifyWatcher struct {
+type MultiNotifyWatcher struct {
 	tomb     tomb.Tomb
 	watchers []state.NotifyWatcher
 	changes  chan struct{}
 }
 
-// newMultiNotifyWatcher creates a NotifyWatcher that combines
+// NewMultiNotifyWatcher creates a NotifyWatcher that combines
 // each of the NotifyWatchers passed in. Each watcher's initial
 // event is consumed, and a single initial event is sent.
 // Subsequent events are not coalesced.
-func newMultiNotifyWatcher(w ...state.NotifyWatcher) *multiNotifyWatcher {
-	m := &multiNotifyWatcher{
+func NewMultiNotifyWatcher(w ...state.NotifyWatcher) *MultiNotifyWatcher {
+	m := &MultiNotifyWatcher{
 		watchers: w,
 		changes:  make(chan struct{}),
 	}
@@ -125,7 +125,7 @@ func newMultiNotifyWatcher(w ...state.NotifyWatcher) *multiNotifyWatcher {
 // loop copies events from the input channel to the output channel,
 // coalescing events by waiting a short time between receiving and
 // sending.
-func (w *multiNotifyWatcher) loop(in <-chan struct{}) {
+func (w *MultiNotifyWatcher) loop(in <-chan struct{}) {
 	defer close(w.changes)
 	// out is initialised to m.changes to send the inital event.
 	out := w.changes
@@ -165,26 +165,26 @@ func copyEvents(out chan<- struct{}, in <-chan struct{}, tomb *tomb.Tomb) {
 	}
 }
 
-func (w *multiNotifyWatcher) Kill() {
+func (w *MultiNotifyWatcher) Kill() {
 	w.tomb.Kill(nil)
 	for _, w := range w.watchers {
 		w.Kill()
 	}
 }
 
-func (w *multiNotifyWatcher) Wait() error {
+func (w *MultiNotifyWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *multiNotifyWatcher) Stop() error {
+func (w *MultiNotifyWatcher) Stop() error {
 	w.Kill()
 	return w.Wait()
 }
 
-func (w *multiNotifyWatcher) Err() error {
+func (w *MultiNotifyWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func (w *multiNotifyWatcher) Changes() <-chan struct{} {
+func (w *MultiNotifyWatcher) Changes() <-chan struct{} {
 	return w.changes
 }

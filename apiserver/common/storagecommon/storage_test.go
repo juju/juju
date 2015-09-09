@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package storagecommon_test
 
 import (
 	"github.com/juju/juju/state"

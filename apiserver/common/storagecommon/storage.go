@@ -1,7 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+// Package storagecommon provides common storage-related services
+// for API server facades.
+package storagecommon
 
 import (
 	"path"
@@ -9,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
@@ -162,7 +165,7 @@ func WatchStorageAttachment(
 		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 	}
 	w2 := st.WatchStorageAttachment(storageTag, unitTag)
-	return newMultiNotifyWatcher(w, w2), nil
+	return common.NewMultiNotifyWatcher(w, w2), nil
 }
 
 var errNoDevicePath = errors.New("cannot determine device path: no serial or persistent device name")
