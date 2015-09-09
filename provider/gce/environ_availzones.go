@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -123,4 +124,10 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 	}
 
 	return zoneNames, nil
+}
+
+// SubnetsAvailabilityZoneNames returns the names of the availability
+// zones for the given provider-specific subnet IDs.
+func (env *environ) SubnetsAvailabilityZoneNames(subnetIds []network.Id) ([]string, error) {
+	return nil, nil
 }

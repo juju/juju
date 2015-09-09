@@ -90,11 +90,13 @@ func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 
 type availabilityZonesFunc func() ([]common.AvailabilityZone, error)
 type instanceAvailabilityZoneNamesFunc func([]instance.Id) ([]string, error)
+type subnetsAvailabilityZoneNamesFunc func([]network.Id) ([]string, error)
 
 type mockZonedEnviron struct {
 	mockEnviron
 	availabilityZones             availabilityZonesFunc
 	instanceAvailabilityZoneNames instanceAvailabilityZoneNamesFunc
+	subnetsAvailabilityZoneNames  subnetsAvailabilityZoneNamesFunc
 }
 
 func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
@@ -103,6 +105,10 @@ func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, err
 
 func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
 	return env.instanceAvailabilityZoneNames(ids)
+}
+
+func (env *mockZonedEnviron) SubnetsAvailabilityZoneNames(subnetIds []network.Id) ([]string, error) {
+	return env.subnetsAvailabilityZoneNames(subnetIds)
 }
 
 type mockInstance struct {

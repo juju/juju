@@ -6,11 +6,13 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -253,4 +255,35 @@ func (s *AvailabilityZoneSuite) TestDistributeInstances(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(eligible, jc.SameContents, test.eligible)
 	}
+}
+
+func (s *AvailabilityZoneSuite) TestSubnetsAvailabilityZoneNamesError(c *gc.C) {
+	var called int
+	s.PatchValue(&s.env.subnetsAvailabilityZoneNames, func(ids []network.Id) ([]string, error) {
+		called++
+		return nil, errors.NotImplementedf("TestSubnetsAvailabilityZoneNames")
+	})
+	// TODO(dimitern): In a follow-up commit call
+	// SubnetsAvailabilityZoneNames() inside
+	// AvailabilityZoneAllocations instead.
+	zoneNames, err := s.env.SubnetsAvailabilityZoneNames(nil)
+	c.Assert(called, gc.Equals, 1)
+	c.Assert(err, gc.ErrorMatches, "TestSubnetsAvailabilityZoneNames not implemented")
+	c.Assert(zoneNames, gc.HasLen, 0)
+}
+
+func (s *AvailabilityZoneSuite) TestSubnetsAvailabilityZoneNamesSuccess(c *gc.C) {
+	var called int
+	s.PatchValue(&s.env.subnetsAvailabilityZoneNames, func(ids []network.Id) ([]string, error) {
+		called++
+		return []string{"zone1", "zone2"}, nil
+	})
+	// TODO(dimitern): In a follow-up commit call
+	// SubnetsAvailabilityZoneNames() inside
+	// AvailabilityZoneAllocations instead.
+	zoneNames, err := s.env.SubnetsAvailabilityZoneNames([]network.Id{"id1", "id2"})
+	c.Assert(called, gc.Equals, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zoneNames, gc.HasLen, 2)
+	c.Assert(zoneNames, jc.DeepEquals, []string{"zone1", "zone2"})
 }

@@ -1676,3 +1676,9 @@ func (e *environ) TagInstance(id instance.Id, tags map[string]string) error {
 	}
 	return nil
 }
+
+// SubnetsAvailabilityZoneNames returns the names of the availability
+// zones for the given provider-specific subnet IDs.
+func (env *environ) SubnetsAvailabilityZoneNames(subnetIds []network.Id) ([]string, error) {
+	return nil, nil
+}
