@@ -150,6 +150,10 @@ def make_candidate_dir(root, candidate_id, branch='foo', revision_build=1234,
             buildvars_file)
     if modified is not None:
         os.utime(buildvars_path, (time(), modified))
+    juju_path = os.path.join(master_path, 'usr', 'foo', 'juju')
+    os.makedirs(os.path.dirname(juju_path))
+    with open(juju_path, 'w') as juju_file:
+        juju_file.write('Fake juju bin.\n')
     return master_path
 
 
