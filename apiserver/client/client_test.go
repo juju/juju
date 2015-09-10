@@ -3307,11 +3307,11 @@ var resolveCharmTests = []struct {
 }, {
 	about:      "fully qualified reference not found",
 	url:        "cs:utopic/riak-42",
-	resolveErr: `cannot resolve charm URL "cs:utopic/riak-42": charm not found`,
+	resolveErr: `cannot resolve URL "cs:utopic/riak-42": charm not found`,
 }, {
 	about:      "reference not found",
 	url:        "cs:no-such",
-	resolveErr: `cannot resolve charm URL "cs:no-such": charm not found`,
+	resolveErr: `cannot resolve URL "cs:no-such": entity not found`,
 }, {
 	about:    "invalid charm name",
 	url:      "cs:",

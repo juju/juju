@@ -134,7 +134,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer csClient.jar.Save()
-	newURL, repo, err := resolveCharmURL(newRef.String(), csClient.params, ctx.AbsPath(c.RepoPath), conf)
+	newURL, repo, err := resolveEntityURL(newRef.String(), csClient.params, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,10 +153,11 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo, csClient)
+	addedURL, err := addCharmViaAPI(client, newURL, repo, csClient)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
+	ctx.Infof("Added charm %q to the environment.", addedURL)
 
 	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
 }

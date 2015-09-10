@@ -97,7 +97,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:trusty/unknown-123`)
 }
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
@@ -444,15 +444,54 @@ var deployAuthorizationTests = []struct {
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
 	expectError:  `cannot retrieve charm "cs:~bob/trusty/wordpress6-47": cannot get archive: unauthorized: access denied for user "client-username"`,
+}, {
+	about:     "public bundle, success",
+	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
+	deployURL: "cs:~bob/bundle/wordpress-simple1",
+	expectOutput: `
+adding charm cs:trusty/mysql-0
+adding charm cs:trusty/wordpress-1
+deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
+}, {
+	about:        "non-public bundle, success",
+	uploadURL:    "cs:~bob/bundle/wordpress-simple2-0",
+	deployURL:    "cs:~bob/bundle/wordpress-simple2-0",
+	readPermUser: clientUserName,
+	expectOutput: `
+adding charm cs:trusty/mysql-0
+adding charm cs:trusty/wordpress-1
+deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
+}, {
+	about:        "non-public bundle, access denied",
+	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
+	deployURL:    "cs:~bob/bundle/wordpress-simple3",
+	readPermUser: "bob",
+	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
+	// Upload the two charms required to upload the bundle.
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-0", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-1", "wordpress")
+
+	// Run the tests.
 	for i, test := range deployAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+
+		// Upload the charm or bundle under test.
+		url := charm.MustParseURL(test.uploadURL)
+		if url.Series == "bundle" {
+			url, _ = testcharms.UploadBundle(c, s.client, test.uploadURL, "wordpress-simple")
+		} else {
+			url, _ = testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+		}
+
+		// Change the ACL of the uploaded entity if required in this case.
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
+
+		// Deploy the entity and check output or possible errors.
 		ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectError)
@@ -460,7 +499,7 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		output := strings.Trim(coretesting.Stderr(ctx), "\n")
-		c.Assert(output, gc.Equals, test.expectOutput)
+		c.Assert(output, gc.Equals, strings.TrimSpace(test.expectOutput))
 	}
 }
 
@@ -557,6 +596,17 @@ func (s *charmStoreSuite) TearDownTest(c *gc.C) {
 func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
 	err := s.client.Put("/"+url.Path()+"/meta/perm/read", perms)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// assertCharmsUplodaded checks that the given charm ids have been uploaded.
+func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
+	charms, err := s.State.AllCharms()
+	c.Assert(err, jc.ErrorIsNil)
+	uploaded := make([]string, len(charms))
+	for i, charm := range charms {
+		uploaded[i] = charm.URL().String()
+	}
+	c.Assert(uploaded, jc.SameContents, ids)
 }
 
 type testMetricCredentialsSetter struct {
