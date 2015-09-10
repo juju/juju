@@ -54,6 +54,28 @@ func (fix *fixture) Guest(c *gc.C) (out fortress.Guest) {
 	return out
 }
 
+func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
+	err := fix.Guard(c).Unlock()
+	c.Assert(err, jc.ErrorIsNil)
+	visitStarted := make(chan struct{}, 1)
+	defer close(visitStarted)
+	unblockVisit := make(chan struct{}, 1)
+	go func() {
+		err := fix.Guest(c).Visit(func() error {
+			visitStarted <- struct{}{}
+			<-unblockVisit
+			return nil
+		}, nil)
+		c.Check(err, jc.ErrorIsNil)
+	}()
+	select {
+	case <-visitStarted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("visit never started")
+	}
+	return unblockVisit
+}
+
 // AssertUnlocked checks that the supplied Guest can Visit its fortress.
 func AssertUnlocked(c *gc.C, guest fortress.Guest) {
 	visited := make(chan error)
