@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
@@ -74,13 +74,13 @@ func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *providerSuite) makeTestMetadata(c *gc.C, series, location string, im []*imagemetadata.ImageMetadata) {
+func (s *providerSuite) makeTestMetadata(c *gc.C, ser, location string, im []*imagemetadata.ImageMetadata) {
 	cloudSpec := simplestreams.CloudSpec{
 		Region:   location,
 		Endpoint: "https://management.core.windows.net/",
 	}
 
-	seriesVersion, err := version.SeriesVersion(series)
+	seriesVersion, err := series.SeriesVersion(ser)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, im := range im {
 		im.Version = seriesVersion

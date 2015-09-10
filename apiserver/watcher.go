@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -249,7 +250,7 @@ func newVolumeAttachmentsWatcher(
 	id string,
 ) (interface{}, error) {
 	return newMachineStorageIdsWatcher(
-		st, resources, auth, id, common.ParseVolumeAttachmentIds,
+		st, resources, auth, id, storagecommon.ParseVolumeAttachmentIds,
 	)
 }
 
@@ -260,7 +261,7 @@ func newFilesystemAttachmentsWatcher(
 	id string,
 ) (interface{}, error) {
 	return newMachineStorageIdsWatcher(
-		st, resources, auth, id, common.ParseFilesystemAttachmentIds,
+		st, resources, auth, id, storagecommon.ParseFilesystemAttachmentIds,
 	)
 }
 

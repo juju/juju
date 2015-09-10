@@ -1,6 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// The storage command provides a storage management interface,
+// for manipulating and inspecting storage entities (volumes,
+// filesystems, charm storage).
 package storage
 
 import (
@@ -38,6 +41,7 @@ func NewSuperCommand() cmd.Command {
 	storagecmd.Register(envcmd.Wrap(&AddCommand{}))
 	storagecmd.Register(NewPoolSuperCommand())
 	storagecmd.Register(NewVolumeSuperCommand())
+	storagecmd.Register(NewFilesystemSuperCommand())
 	return storagecmd
 }
 

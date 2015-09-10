@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -67,10 +68,10 @@ func VersionInitSystem(series string) (string, error) {
 	return initName, nil
 }
 
-func versionInitSystem(series string) (string, error) {
-	seriesos, err := version.GetOSFromSeries(series)
+func versionInitSystem(ser string) (string, error) {
+	seriesos, err := series.GetOSFromSeries(ser)
 	if err != nil {
-		notFound := errors.NotFoundf("init system for series %q", series)
+		notFound := errors.NotFoundf("init system for series %q", ser)
 		return "", errors.Wrap(err, notFound)
 	}
 
@@ -78,7 +79,7 @@ func versionInitSystem(series string) (string, error) {
 	case os.Windows:
 		return InitSystemWindows, nil
 	case os.Ubuntu:
-		switch series {
+		switch ser {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
 			return InitSystemUpstart, nil
 		default:
@@ -91,7 +92,7 @@ func versionInitSystem(series string) (string, error) {
 	case os.CentOS:
 		return InitSystemSystemd, nil
 	}
-	return "", errors.NotFoundf("unknown os %q (from series %q), init system", seriesos, series)
+	return "", errors.NotFoundf("unknown os %q (from series %q), init system", seriesos, ser)
 }
 
 type discoveryCheck struct {

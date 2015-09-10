@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/series"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -257,7 +258,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	var allTools tools.List
-	for _, series := range version.SupportedSeries() {
+	for _, series := range series.SupportedSeries() {
 		binary := version.Binary{
 			Number: version.Current.Number,
 			Series: series,

@@ -25,6 +25,26 @@ type uniterResolver struct {
 	storageResolver    resolver.Resolver
 }
 
+func newUniterResolver(
+	clearResolved func() error,
+	reportHookError func(hook.Info) error,
+	fixDeployer func() error,
+	leadershipResolver resolver.Resolver,
+	actionsResolver resolver.Resolver,
+	relationsResolver resolver.Resolver,
+	storageResolver resolver.Resolver,
+) *uniterResolver {
+	return &uniterResolver{
+		clearResolved:      clearResolved,
+		reportHookError:    reportHookError,
+		fixDeployer:        fixDeployer,
+		leadershipResolver: leadershipResolver,
+		actionsResolver:    actionsResolver,
+		relationsResolver:  relationsResolver,
+		storageResolver:    storageResolver,
+	}
+}
+
 func (s *uniterResolver) NextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
@@ -194,7 +214,9 @@ func (s *uniterResolver) nextOp(
 
 	// Now that storage hooks have run at least once, before anything else,
 	// we need to run the install hook.
-	if !localState.Installed {
+	// TODO(cmars): remove !localState.Started. It's here as a temporary
+	// measure because unit agent upgrades aren't being performed yet.
+	if !localState.Installed && !localState.Started {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
