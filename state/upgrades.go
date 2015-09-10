@@ -1548,10 +1548,8 @@ func ChangeStatusUpdatedType(st *State) error {
 	return runForAllEnvStates(st, run)
 }
 
-func changeIdsFromSeqToAuto(st *State) (err error) {
-	var (
-		docs []bson.M
-	)
+func changeIdsFromSeqToAuto(st *State) error {
+	var docs []bson.M
 	rawColl, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
@@ -1560,16 +1558,15 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 
 	// Filtering is done by hand because the ids we are trying to modify
 	// do not have uuid.
-	err = rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs)
-	if errors.IsNotFound(err) {
-		return nil
-	}
+	err := rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs)
+
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Annotatef(err, "cannot find all docs for %q", statusesHistoryC)
 	}
-	if len(docs) == 0 {
-		rawColl.Find(nil).All(&docs)
-	}
+
 	writeableColl := coll.Writeable()
 	for _, doc := range docs {
 		id, ok := doc["_id"].(string)
