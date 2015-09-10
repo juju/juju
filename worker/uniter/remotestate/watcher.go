@@ -84,6 +84,14 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		err := w.loop(config.UnitTag)
 		logger.Errorf("remote state watcher exited: %v", err)
 		w.tomb.Kill(errors.Cause(err))
+
+		// Stop all remaining sub-watchers.
+		for _, w := range w.storageAttachmentWatchers {
+			watcher.Stop(w, &w.tomb)
+		}
+		for _, w := range w.relations {
+			watcher.Stop(w, &w.tomb)
+		}
 	}()
 	return w, nil
 }
