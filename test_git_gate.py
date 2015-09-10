@@ -89,13 +89,16 @@ class TestGoTest(unittest.TestCase):
         self.patch_action("git_gate.SubcommandRunner.__call__",
                           lambda self, *args: (self.command,) + args)
         self.patch_action("os.chdir", lambda d: ("chdir", d))
+
         # Verify go commands run with GOPATH overridden
         real_runner = git_gate.SubcommandRunner
+
         def _check(command, environ=None):
             if command in ("go", "godeps"):
                 self.assertIsInstance(environ, dict)
                 self.assertEquals(environ.get("GOPATH"), "/tmp/fake")
             return real_runner(command, environ)
+
         patcher = mock.patch("git_gate.SubcommandRunner", side_effect=_check)
         patcher.start()
         self.addCleanup(patcher.stop)
