@@ -134,7 +134,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer csClient.jar.Save()
-	newURL, repo, err := resolveEntityURL(newRef.String(), csClient.params, ctx.AbsPath(c.RepoPath), conf)
+	newURL, repo, err := resolveCharmStoreEntityURL(newRef.String(), csClient.params, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
