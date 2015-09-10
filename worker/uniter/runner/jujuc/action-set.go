@@ -22,8 +22,8 @@ type ActionSetCommand struct {
 }
 
 // NewActionSetCommand returns a new ActionSetCommand with the given context.
-func NewActionSetCommand(ctx Context) cmd.Command {
-	return &ActionSetCommand{ctx: ctx}
+func NewActionSetCommand(ctx Context) (cmd.Command, error) {
+	return &ActionSetCommand{ctx: ctx}, nil
 }
 
 // Info returns the content for --help.

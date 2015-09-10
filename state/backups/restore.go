@@ -255,14 +255,14 @@ func updateBackupMachineTag(oldTag, newTag names.Tag) error {
 	if oldTagString == newTagString {
 		return nil
 	}
-	oldTagPath := path.Join(agent.DefaultDataDir, oldTagString)
-	newTagPath := path.Join(agent.DefaultDataDir, newTagString)
+	oldTagPath := path.Join(agent.DefaultPaths.DataDir, oldTagString)
+	newTagPath := path.Join(agent.DefaultPaths.DataDir, newTagString)
 
-	oldToolsDir := tools.ToolsDir(agent.DefaultDataDir, oldTagString)
+	oldToolsDir := tools.ToolsDir(agent.DefaultPaths.DataDir, oldTagString)
 	oldLink, err := filepath.EvalSymlinks(oldToolsDir)
 
 	os.Rename(oldTagPath, newTagPath)
-	newToolsDir := tools.ToolsDir(agent.DefaultDataDir, newTagString)
+	newToolsDir := tools.ToolsDir(agent.DefaultPaths.DataDir, newTagString)
 	newToolsPath := strings.Replace(oldLink, oldTagPath, newTagPath, -1)
 	err = symlink.Replace(newToolsDir, newToolsPath)
 	return errors.Annotatef(err, "cannot set the new tools path")

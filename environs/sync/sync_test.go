@@ -42,7 +42,6 @@ func TestPackage(t *testing.T) {
 type syncSuite struct {
 	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
-	origVersion  version.Binary
 	storage      storage.Storage
 	localStorage string
 }
@@ -57,9 +56,9 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	}
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.origVersion = version.Current
+
 	// It's important that this be v1.8.x to match the test data.
-	version.Current.Number = version.MustParse("1.8.3")
+	s.PatchValue(&version.Current.Number, version.MustParse("1.8.3"))
 
 	// Create a source storage.
 	baseDir := c.MkDir()
@@ -85,7 +84,6 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 }
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
-	version.Current = s.origVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 }

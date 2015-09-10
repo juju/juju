@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	jujuos "github.com/juju/juju/juju/os"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 var windowsSuffixOrder = []string{
@@ -24,7 +25,7 @@ func lookPath(hook string) (string, error) {
 	hookFile, err := exec.LookPath(hook)
 	if err != nil {
 		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
-			return "", &missingHookError{hook}
+			return "", context.NewMissingHookError(hook)
 		}
 		return "", err
 	}
@@ -46,7 +47,7 @@ func searchHook(charmDir, hook string) (string, error) {
 		file := fmt.Sprintf("%s%s", hookFile, suffix)
 		foundHook, err := lookPath(file)
 		if err != nil {
-			if IsMissingHookError(err) {
+			if context.IsMissingHookError(err) {
 				// look for next suffix
 				continue
 			}
@@ -54,7 +55,7 @@ func searchHook(charmDir, hook string) (string, error) {
 		}
 		return foundHook, nil
 	}
-	return "", &missingHookError{hook}
+	return "", context.NewMissingHookError(hook)
 }
 
 // hookCommand constructs an appropriate command to be passed to

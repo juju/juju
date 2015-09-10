@@ -7,16 +7,19 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
+	"github.com/juju/juju/worker/uniter/resolver"
 	"github.com/juju/juju/worker/uniter/storage"
 )
 
@@ -27,7 +30,9 @@ type attachmentsSuite struct {
 var _ = gc.Suite(&attachmentsSuite{})
 
 func assertStorageTags(c *gc.C, a *storage.Attachments, tags ...names.StorageTag) {
-	c.Assert(a.StorageTags(), jc.SameContents, tags)
+	sTags, err := a.StorageTags()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sTags, jc.SameContents, tags)
 }
 
 func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
@@ -41,12 +46,8 @@ func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	_, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := att.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
 	// state dir should have been created.
 	c.Assert(stateDir, jc.IsDirectory)
 }
@@ -66,19 +67,12 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 			c.Assert(u, gc.Equals, unitTag)
 			return attachmentIds, nil
 		},
-		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-			return newMockNotifyWatcher(), nil
-		},
 	}
 
 	storageTag := names.NewStorageTag("data/0")
 	withAttachments := func(f func(*storage.Attachments)) {
 		att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 		c.Assert(err, jc.ErrorIsNil)
-		defer func() {
-			err := att.Stop()
-			c.Assert(err, jc.ErrorIsNil)
-		}()
 		f(att)
 	}
 
@@ -139,10 +133,6 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 			c.Assert(u, gc.Equals, unitTag)
 			return nil, nil
 		},
-		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-			w := newMockNotifyWatcher()
-			return w, nil
-		},
 		storageAttachmentLife: func(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
 			return []params.LifeResult{{Life: params.Dying}}, nil
 		},
@@ -156,10 +146,6 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := att.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
 	err = att.UpdateStorage([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(removed, jc.IsTrue)
@@ -184,11 +170,6 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 			c.Assert(u, gc.Equals, unitTag)
 			return nil, nil
 		},
-		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-			w := newMockNotifyWatcher()
-			w.changes <- struct{}{}
-			return w, nil
-		},
 		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
 			c.Assert(s, gc.Equals, storageTag)
 			return attachment, nil
@@ -197,27 +178,41 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := att.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
 
-	// There should be no context for data/0 until a hook is queued.
+	// There should be no context for data/0 until a required remote state change occurs.
 	_, ok := att.Storage(storageTag)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, jc.Satisfies, errors.IsNotFound)
 	assertStorageTags(c, att)
 
 	err = att.UpdateStorage([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
-	hi := waitOneHook(c, att.Hooks())
-	c.Assert(hi, gc.Equals, hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: storageTag.Id(),
-	})
 	assertStorageTags(c, att, storageTag)
 
-	ctx, ok := att.Storage(storageTag)
-	c.Assert(ok, jc.IsTrue)
+	storageResolver := storage.NewResolver(att)
+	storage.SetStorageLife(storageResolver, map[names.StorageTag]params.Life{
+		storageTag: params.Alive,
+	})
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
+			storageTag: remotestate.StorageSnapshot{
+				Kind:     params.StorageKindBlock,
+				Life:     params.Alive,
+				Location: "/dev/sdb",
+				Attached: true,
+			},
+		},
+	}
+	op, err := storageResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run hook storage-attached")
+
+	ctx, err := att.Storage(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(ctx.Tag(), gc.Equals, storageTag)
 	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)
@@ -243,11 +238,6 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 			c.Assert(u, gc.Equals, unitTag)
 			return nil, nil
 		},
-		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-			w := newMockNotifyWatcher()
-			w.changes <- struct{}{}
-			return w, nil
-		},
 		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
 			c.Assert(s, gc.Equals, storageTag)
 			return attachment, nil
@@ -261,10 +251,6 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := att.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
 	err = att.UpdateStorage([]names.StorageTag{storageTag})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(att.Pending(), gc.Equals, 1)
@@ -311,11 +297,6 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 				UnitTag:    unitTag.String(),
 			}}, nil
 		},
-		watchStorageAttachment: func(s names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-			w := newMockNotifyWatcher()
-			w.changes <- struct{}{}
-			return w, nil
-		},
 		storageAttachment: func(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
 			c.Assert(u, gc.Equals, unitTag)
 			if s == storageTag0 {
@@ -361,10 +342,6 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 
 	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := att.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
 	c.Assert(att.Pending(), gc.Equals, 1)
 
 	err = att.SetDying()
@@ -414,11 +391,6 @@ func (s *attachmentsUpdateSuite) SetUpTest(c *gc.C) {
 			c.Assert(u, gc.Equals, s.unitTag)
 			return s.unitAttachmentIds[u], nil
 		},
-		watchStorageAttachment: func(storageTag names.StorageTag, u names.UnitTag) (watcher.NotifyWatcher, error) {
-			w := newMockNotifyWatcher()
-			w.changes <- struct{}{}
-			return w, nil
-		},
 		storageAttachment: func(storageTag names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
 			att, ok := s.attachmentsByTag[storageTag]
 			c.Assert(ok, jc.IsTrue)
@@ -435,10 +407,6 @@ func (s *attachmentsUpdateSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.att, err = storage.NewAttachments(st, s.unitTag, stateDir, abort)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		err := s.att.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	})
 }
 
 func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedAlive(c *gc.C) {
@@ -452,11 +420,6 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedAlive(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	assertStorageTags(c, s.att, s.storageTag0)
-	hi := waitOneHook(c, s.att.Hooks())
-	c.Assert(hi, gc.Equals, hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: s.storageTag0.Id(),
-	})
 	c.Assert(s.att.Pending(), gc.Equals, 1)
 }
 
@@ -466,7 +429,6 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateUntrackedDying(c *gc.C) {
 	// be started.
 	err := s.att.UpdateStorage([]names.StorageTag{s.storageTag1})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoHooks(c, s.att.Hooks())
 	c.Assert(s.att.Pending(), gc.Equals, 0)
 	assertStorageTags(c, s.att)
 }
@@ -487,11 +449,6 @@ func (s *attachmentsUpdateSuite) TestAttachmentsRefresh(c *gc.C) {
 		err := s.att.Refresh()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	hi := waitOneHook(c, s.att.Hooks())
-	c.Assert(hi, gc.Equals, hook.Info{
-		Kind:      hooks.StorageAttached,
-		StorageId: s.storageTag0.Id(),
-	})
 	c.Assert(s.att.Pending(), gc.Equals, 1)
 }
 
@@ -513,7 +470,6 @@ func (s *attachmentsUpdateSuite) TestAttachmentsUpdateShortCircuitNoHooks(c *gc.
 	s.attachmentsByTag[s.storageTag1].Life = params.Dying
 	err = s.att.UpdateStorage([]names.StorageTag{s.storageTag1})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNoHooks(c, s.att.Hooks())
 	err = s.att.ValidateHook(hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: s.storageTag1.Id(),

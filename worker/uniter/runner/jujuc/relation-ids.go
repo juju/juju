@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -19,16 +20,26 @@ type RelationIdsCommand struct {
 	out  cmd.Output
 }
 
-func NewRelationIdsCommand(ctx Context) cmd.Command {
-	return &RelationIdsCommand{ctx: ctx}
+func NewRelationIdsCommand(ctx Context) (cmd.Command, error) {
+	name := ""
+	if r, err := ctx.HookRelation(); err == nil {
+		name = r.Name()
+	} else if cause := errors.Cause(err); !errors.IsNotFound(cause) {
+		return nil, errors.Trace(err)
+	}
+
+	return &RelationIdsCommand{ctx: ctx, Name: name}, nil
 }
 
 func (c *RelationIdsCommand) Info() *cmd.Info {
 	args := "<name>"
 	doc := ""
-	if r, found := c.ctx.HookRelation(); found {
+	if r, err := c.ctx.HookRelation(); err == nil {
+		// There's not much we can do about this error here.
 		args = "[<name>]"
 		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
+	} else if !errors.IsNotFound(err) {
+		logger.Errorf("Could not retrieve hook relation: %v", err)
 	}
 	return &cmd.Info{
 		Name:    "relation-ids",
@@ -43,9 +54,6 @@ func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *RelationIdsCommand) Init(args []string) error {
-	if r, found := c.ctx.HookRelation(); found {
-		c.Name = r.Name()
-	}
 	if len(args) > 0 {
 		c.Name = args[0]
 		args = args[1:]
@@ -57,9 +65,16 @@ func (c *RelationIdsCommand) Init(args []string) error {
 
 func (c *RelationIdsCommand) Run(ctx *cmd.Context) error {
 	result := []string{}
-	for _, id := range c.ctx.RelationIds() {
-		if r, found := c.ctx.Relation(id); found && r.Name() == c.Name {
+	ids, err := c.ctx.RelationIds()
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	for _, id := range ids {
+		r, err := c.ctx.Relation(id)
+		if err == nil && r.Name() == c.Name {
 			result = append(result, r.FakeId())
+		} else if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
 		}
 	}
 	sort.Strings(result)

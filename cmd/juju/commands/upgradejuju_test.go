@@ -24,6 +24,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
@@ -544,7 +545,7 @@ upgrade to this version by running
 		for i, v := range test.tools {
 			versions[i], err = version.ParseBinary(v)
 			if err != nil {
-				c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+				c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
 			}
 		}
 		if len(versions) > 0 {

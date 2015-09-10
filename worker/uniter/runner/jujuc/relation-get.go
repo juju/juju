@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -15,26 +16,40 @@ import (
 // RelationGetCommand implements the relation-get command.
 type RelationGetCommand struct {
 	cmd.CommandBase
-	ctx        Context
-	RelationId int
-	Key        string
-	UnitName   string
-	out        cmd.Output
+	ctx Context
+
+	RelationId      int
+	relationIdProxy gnuflag.Value
+
+	Key      string
+	UnitName string
+	out      cmd.Output
 }
 
-func NewRelationGetCommand(ctx Context) cmd.Command {
-	return &RelationGetCommand{ctx: ctx}
+func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
+	var err error
+	cmd := &RelationGetCommand{ctx: ctx}
+	cmd.relationIdProxy, err = newRelationIdValue(ctx, &cmd.RelationId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cmd, nil
 }
 
+// Info is part of the cmd.Command interface.
 func (c *RelationGetCommand) Info() *cmd.Info {
 	args := "<key> <unit id>"
 	doc := `
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 `
-	if name, found := c.ctx.RemoteUnitName(); found {
+	// There's nothing we can really do about the error here.
+	if name, err := c.ctx.RemoteUnitName(); err == nil {
 		args = "[<key> [<unit id>]]"
 		doc += fmt.Sprintf("Current default unit id is %q.", name)
+	} else if !errors.IsNotFound(err) {
+		logger.Errorf("Failed to retrieve remote unit name: %v", err)
 	}
 	return &cmd.Info{
 		Name:    "relation-get",
@@ -44,14 +59,14 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 	}
 }
 
+// SetFlags is part of the cmd.Command interface.
 func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	rV := newRelationIdValue(c.ctx, &c.RelationId)
-
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(rV, "r", "specify a relation by id")
-	f.Var(rV, "relation", "")
+	f.Var(c.relationIdProxy, "r", "specify a relation by id")
+	f.Var(c.relationIdProxy, "relation", "")
 }
 
+// Init is part of the cmd.Command interface.
 func (c *RelationGetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return fmt.Errorf("no relation id specified")
@@ -63,8 +78,11 @@ func (c *RelationGetCommand) Init(args []string) error {
 		}
 		args = args[1:]
 	}
-	if name, found := c.ctx.RemoteUnitName(); found {
+	name, err := c.ctx.RemoteUnitName()
+	if err == nil {
 		c.UnitName = name
+	} else if cause := errors.Cause(err); !errors.IsNotFound(cause) {
+		return errors.Trace(err)
 	}
 	if len(args) > 0 {
 		c.UnitName = args[0]
@@ -77,9 +95,9 @@ func (c *RelationGetCommand) Init(args []string) error {
 }
 
 func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
-		return fmt.Errorf("unknown relation id")
+	r, err := c.ctx.Relation(c.RelationId)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	var settings params.Settings
 	if c.UnitName == c.ctx.UnitName() {

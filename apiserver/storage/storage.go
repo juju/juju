@@ -1,6 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// Package storage provides an API server facade for managing
+// storage entities.
 package storage
 
 import (
@@ -9,6 +11,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -176,7 +179,7 @@ func (api *API) createParamsStorageAttachment(si params.StorageDetails, sa state
 	if err != nil {
 		return params.StorageDetails{}, errors.Annotate(err, "getting unit for storage attachment")
 	}
-	info, err := common.StorageAttachmentInfo(api.storage, sa, machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(api.storage, sa, machineTag)
 	if err != nil {
 		if errors.IsNotProvisioned(err) {
 			// If Info returns an error, then the storage has not yet been provisioned.
@@ -514,7 +517,7 @@ func createVolumeDetails(
 	}
 
 	if info, err := v.Info(); err == nil {
-		details.Info = common.VolumeInfoFromState(info)
+		details.Info = storagecommon.VolumeInfoFromState(info)
 	}
 
 	if len(attachments) > 0 {
@@ -523,7 +526,7 @@ func createVolumeDetails(
 			stateInfo, err := attachment.Info()
 			var info params.VolumeAttachmentInfo
 			if err == nil {
-				info = common.VolumeAttachmentInfoFromState(stateInfo)
+				info = storagecommon.VolumeAttachmentInfoFromState(stateInfo)
 			}
 			details.MachineAttachments[attachment.Machine().String()] = info
 		}
@@ -536,6 +539,137 @@ func createVolumeDetails(
 	details.Status = common.EntityStatusFromState(status)
 
 	if storageTag, err := v.StorageInstance(); err == nil {
+		details.StorageTag = storageTag.String()
+		storageInstance, err := st.StorageInstance(storageTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		details.StorageOwnerTag = storageInstance.Owner().String()
+	}
+
+	return details, nil
+}
+
+// ListFilesystems returns a list of filesystems in the environment matching
+// the provided filter. Each result describes a filesystem in detail, including
+// the filesystem's attachments.
+func (a *API) ListFilesystems(filter params.FilesystemFilter) (params.FilesystemDetailsResults, error) {
+	filesystems, filesystemAttachments, err := filterFilesystems(a.storage, filter)
+	if err != nil {
+		return params.FilesystemDetailsResults{}, common.ServerError(err)
+	}
+	results := createFilesystemDetailsResults(a.storage, filesystems, filesystemAttachments)
+	return params.FilesystemDetailsResults{Results: results}, nil
+}
+
+func filterFilesystems(
+	st storageAccess,
+	f params.FilesystemFilter,
+) ([]state.Filesystem, map[names.FilesystemTag][]state.FilesystemAttachment, error) {
+	if f.IsEmpty() {
+		// No filter was specified: get all filesystems, and all attachments.
+		filesystems, err := st.AllFilesystems()
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		filesystemAttachments := make(map[names.FilesystemTag][]state.FilesystemAttachment)
+		for _, f := range filesystems {
+			attachments, err := st.FilesystemAttachments(f.FilesystemTag())
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+			filesystemAttachments[f.FilesystemTag()] = attachments
+		}
+		return filesystems, filesystemAttachments, nil
+	}
+	filesystemsByTag := make(map[names.FilesystemTag]state.Filesystem)
+	filesystemAttachments := make(map[names.FilesystemTag][]state.FilesystemAttachment)
+	for _, machine := range f.Machines {
+		machineTag, err := names.ParseMachineTag(machine)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		attachments, err := st.MachineFilesystemAttachments(machineTag)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		for _, attachment := range attachments {
+			filesystemTag := attachment.Filesystem()
+			filesystemsByTag[filesystemTag] = nil
+			filesystemAttachments[filesystemTag] = append(filesystemAttachments[filesystemTag], attachment)
+		}
+	}
+	for filesystemTag := range filesystemsByTag {
+		filesystem, err := st.Filesystem(filesystemTag)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		filesystemsByTag[filesystemTag] = filesystem
+	}
+	filesystems := make([]state.Filesystem, 0, len(filesystemsByTag))
+	for _, filesystem := range filesystemsByTag {
+		filesystems = append(filesystems, filesystem)
+	}
+	return filesystems, filesystemAttachments, nil
+}
+
+func createFilesystemDetailsResults(
+	st storageAccess,
+	filesystems []state.Filesystem,
+	attachments map[names.FilesystemTag][]state.FilesystemAttachment,
+) []params.FilesystemDetailsResult {
+
+	if len(filesystems) == 0 {
+		return nil
+	}
+
+	results := make([]params.FilesystemDetailsResult, len(filesystems))
+	for i, f := range filesystems {
+		details, err := createFilesystemDetails(st, f, attachments[f.FilesystemTag()])
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Result = details
+	}
+	return results
+}
+
+func createFilesystemDetails(
+	st storageAccess, f state.Filesystem, attachments []state.FilesystemAttachment,
+) (*params.FilesystemDetails, error) {
+
+	details := &params.FilesystemDetails{
+		FilesystemTag: f.FilesystemTag().String(),
+	}
+
+	if volumeTag, err := f.Volume(); err == nil {
+		details.VolumeTag = volumeTag.String()
+	}
+
+	if info, err := f.Info(); err == nil {
+		details.Info = storagecommon.FilesystemInfoFromState(info)
+	}
+
+	if len(attachments) > 0 {
+		details.MachineAttachments = make(map[string]params.FilesystemAttachmentInfo, len(attachments))
+		for _, attachment := range attachments {
+			stateInfo, err := attachment.Info()
+			var info params.FilesystemAttachmentInfo
+			if err == nil {
+				info = storagecommon.FilesystemAttachmentInfoFromState(stateInfo)
+			}
+			details.MachineAttachments[attachment.Machine().String()] = info
+		}
+	}
+
+	status, err := f.Status()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	details.Status = common.EntityStatusFromState(status)
+
+	if storageTag, err := f.Storage(); err == nil {
 		details.StorageTag = storageTag.String()
 		storageInstance, err := st.StorageInstance(storageTag)
 		if err != nil {

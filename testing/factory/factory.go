@@ -412,7 +412,14 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 	chURL, ok := params.Unit.CharmURL()
 	c.Assert(ok, gc.Equals, true)
 
-	metric, err := params.Unit.AddMetrics(utils.MustNewUUID().String(), *params.Time, chURL.String(), params.Metrics)
+	metric, err := factory.st.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  *params.Time,
+			CharmURL: chURL.String(),
+			Metrics:  params.Metrics,
+			Unit:     params.Unit.UnitTag(),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
 		err := metric.SetSent()

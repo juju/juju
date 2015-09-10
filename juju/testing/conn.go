@@ -595,9 +595,11 @@ func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
+	paths := agent.DefaultPaths
+	paths.DataDir = s.DataDir()
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           s.DataDir(),
+			Paths:             paths,
 			Tag:               tag,
 			UpgradedToVersion: version.Current.Number,
 			Password:          password,

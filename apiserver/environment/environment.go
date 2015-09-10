@@ -15,11 +15,13 @@ func init() {
 // EnvironmentAPI implements the API used by the machine environment worker.
 type EnvironmentAPI struct {
 	*common.EnvironWatcher
+	*EnvironTools
 }
 
 // NewEnvironmentAPI creates a new instance of the Environment API.
 func NewEnvironmentAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*EnvironmentAPI, error) {
 	return &EnvironmentAPI{
 		EnvironWatcher: common.NewEnvironWatcher(st, resources, authorizer),
+		EnvironTools:   NewEnvironTools(st, authorizer),
 	}, nil
 }

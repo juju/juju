@@ -649,7 +649,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	})
 
 	// Check the mount point has been created inside the container.
-	c.Assert(filepath.Join(s.LxcDir, name, "rootfs", agent.DefaultLogDir), jc.IsDirectory)
+	c.Assert(filepath.Join(s.LxcDir, name, "rootfs", agent.DefaultPaths.LogDir), jc.IsDirectory)
 	// Check that the config file is linked in the restart dir.
 	expectedLinkLocation := filepath.Join(s.RestartDir, name+".conf")
 	expectedTarget := filepath.Join(s.LxcDir, name, "config")
