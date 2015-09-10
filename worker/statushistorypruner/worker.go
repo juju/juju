@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/statushistory"
 	"github.com/juju/juju/worker"
 )
 
@@ -43,25 +41,29 @@ type Facade interface {
 
 type pruneFunc func(int) error
 
-type pruneWorker struct {
+type pruner struct {
 	statusHistory Facade
 	params        *HistoryPrunerParams
 	prune         pruneFunc
 }
 
-// New returns a worker.Worker for history Pruner.
-func New(api api.Connection, params *HistoryPrunerParams) worker.Worker {
-	statusHistory := statushistory.NewFacade(api)
-	prune := func(i int) error { return statusHistory.Prune(i) }
-	w := &pruneWorker{
-		statusHistory: statusHistory,
+// newPruner is only to simplify testing of pruner without periodic worker.
+func newPruner(facade Facade, params *HistoryPrunerParams) *pruner {
+	prune := func(i int) error { return facade.Prune(i) }
+	return &pruner{
+		statusHistory: facade,
 		params:        params,
 		prune:         prune,
 	}
+}
+
+// New returns a worker.Worker for history Pruner.
+func New(facade Facade, params *HistoryPrunerParams) worker.Worker {
+	w := newPruner(facade, params)
 	return worker.NewPeriodicWorker(w.doPruning, w.params.PruneInterval, worker.NewTimer)
 }
 
-func (w *pruneWorker) doPruning(stop <-chan struct{}) error {
+func (w *pruner) doPruning(stop <-chan struct{}) error {
 	err := w.prune(w.params.MaxLogsPerState)
 	if err != nil {
 		return errors.Trace(err)
