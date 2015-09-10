@@ -2020,3 +2020,9 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 	err := processNodes(lshw.Nodes)
 	return interfaces, primaryIface, err
 }
+
+// SubnetsAvailabilityZoneNames returns the names of the availability
+// zones for the given provider-specific subnet IDs.
+func (env *maasEnviron) SubnetsAvailabilityZoneNames(subnetIds []network.Id) ([]string, error) {
+	return nil, nil
+}

@@ -1482,3 +1482,9 @@ func ec2ErrCode(err error) string {
 	}
 	return ec2err.Code
 }
+
+// SubnetsAvailabilityZoneNames returns the names of the availability
+// zones for the given provider-specific subnet IDs.
+func (env *environ) SubnetsAvailabilityZoneNames(subnetIds []network.Id) ([]string, error) {
+	return nil, nil
+}

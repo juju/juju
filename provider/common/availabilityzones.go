@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 // AvailabilityZone describes a provider availability zone.
@@ -31,6 +32,12 @@ type ZonedEnviron interface {
 	// zones for the specified instances. The error returned follows the same
 	// rules as Environ.Instances.
 	InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error)
+
+	// SubnetsAvailabilityZoneNames returns the names of the
+	// availability zones for the provider-specific subnet IDs.
+	// The error returned follows the same rules as
+	// Environ.Instances.
+	SubnetsAvailabilityZoneNames(subnetIds []network.Id) ([]string, error)
 }
 
 // AvailabilityZoneInstances describes an availability zone and
