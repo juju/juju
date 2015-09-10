@@ -51,7 +51,7 @@ func (s *CreateSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
 func (s *CreateSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
 
-	err := s.AssertRunSpacesNotSupported(c, 
+	err := s.AssertRunSpacesNotSupported(c,
 		`cannot create space "foo": spaces not supported`,
 		"foo", "10.1.2.0/24",
 	)
