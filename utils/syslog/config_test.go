@@ -50,8 +50,8 @@ func (s *syslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslo
 func args() syslogtesting.TemplateArgs {
 	return syslogtesting.TemplateArgs{
 		MachineTag: "some-machine",
-		LogDir:     agent.DefaultLogDir,
-		DataDir:    agent.DefaultDataDir,
+		LogDir:     agent.DefaultPaths.LogDir,
+		DataDir:    agent.DefaultPaths.DataDir,
 		Port:       8888,
 		Server:     "server",
 	}
@@ -60,8 +60,8 @@ func args() syslogtesting.TemplateArgs {
 func cfg() *syslog.SyslogConfig {
 	return &syslog.SyslogConfig{
 		LogFileName:          "some-machine",
-		LogDir:               agent.DefaultLogDir,
-		JujuConfigDir:        agent.DefaultDataDir,
+		LogDir:               agent.DefaultPaths.LogDir,
+		JujuConfigDir:        agent.DefaultPaths.DataDir,
 		Port:                 8888,
 		StateServerAddresses: []string{"server"},
 	}

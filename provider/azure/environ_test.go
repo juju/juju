@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type baseEnvironSuite struct {
@@ -1621,6 +1622,7 @@ func (s *environSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)

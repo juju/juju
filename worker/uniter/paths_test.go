@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -29,7 +29,7 @@ func relPathFunc(base string) func(parts ...string) string {
 }
 
 func (s *PathsSuite) TestWindows(c *gc.C) {
-	s.PatchValue(&version.Current.OS, version.Windows)
+	s.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
 
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-service/323")
@@ -56,7 +56,7 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 }
 
 func (s *PathsSuite) TestOther(c *gc.C) {
-	s.PatchValue(&version.Current.OS, version.OSType(-1))
+	s.PatchValue(&os.HostOS, func() os.OSType { return os.Unknown })
 
 	dataDir := c.MkDir()
 	unitTag := names.NewUnitTag("some-service/323")

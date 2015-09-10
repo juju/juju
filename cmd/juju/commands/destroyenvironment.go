@@ -232,6 +232,6 @@ If the environment is unusable, then you may run
 
 to forcefully destroy the environment. Upon doing so, review
 your environment provider console for any resources that need
-to be cleaned up. Using force will also by-pass destroy-envrionment block.
+to be cleaned up. Using force will also by-pass destroy-environment block.
 
 `

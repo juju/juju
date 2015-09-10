@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -173,6 +174,79 @@ func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
 func (s *StateSuite) TestMongoSession(c *gc.C) {
 	session := s.State.MongoSession()
 	c.Assert(session.Ping(), gc.IsNil)
+}
+
+func (s *StateSuite) TestWatch(c *gc.C) {
+	// The allWatcher infrastructure is comprehensively tested
+	// elsewhere. This just ensures things are hooked up correctly in
+	// State.Watch()
+
+	w := s.State.Watch()
+	defer w.Stop()
+	deltasC := makeMultiwatcherOutput(w)
+
+	m := s.Factory.MakeMachine(c, nil) // Generate event
+	s.State.StartSync()
+
+	select {
+	case deltas := <-deltasC:
+		c.Assert(deltas, gc.HasLen, 1)
+		info := deltas[0].Entity.(*multiwatcher.MachineInfo)
+		c.Assert(info.EnvUUID, gc.Equals, s.State.EnvironUUID())
+		c.Assert(info.Id, gc.Equals, m.Id())
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
+}
+
+func makeMultiwatcherOutput(w *state.Multiwatcher) chan []multiwatcher.Delta {
+	deltasC := make(chan []multiwatcher.Delta)
+	go func() {
+		for {
+			deltas, err := w.Next()
+			if err != nil {
+				return
+			}
+			deltasC <- deltas
+		}
+	}()
+	return deltasC
+}
+
+func (s *StateSuite) TestWatchAllEnvs(c *gc.C) {
+	// The allEnvWatcher infrastructure is comprehensively tested
+	// elsewhere. This just ensures things are hooked up correctly in
+	// State.WatchAllEnvs()
+
+	w := s.State.WatchAllEnvs()
+	defer w.Stop()
+	deltasC := makeMultiwatcherOutput(w)
+
+	m := s.Factory.MakeMachine(c, nil)
+
+	envSeen := false
+	machineSeen := false
+	timeout := time.After(testing.LongWait)
+	for !envSeen || !machineSeen {
+		select {
+		case deltas := <-deltasC:
+			for _, delta := range deltas {
+				switch e := delta.Entity.(type) {
+				case *multiwatcher.EnvironmentInfo:
+					c.Assert(e.EnvUUID, gc.Equals, s.State.EnvironUUID())
+					envSeen = true
+				case *multiwatcher.MachineInfo:
+					c.Assert(e.EnvUUID, gc.Equals, s.State.EnvironUUID())
+					c.Assert(e.Id, gc.Equals, m.Id())
+					machineSeen = true
+				}
+			}
+		case <-timeout:
+			c.Fatal("timed out")
+		}
+	}
+	c.Assert(envSeen, jc.IsTrue)
+	c.Assert(machineSeen, jc.IsTrue)
 }
 
 type MultiEnvStateSuite struct {
@@ -2684,10 +2758,21 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		if collName == "constraints" || collName == "envusers" || collName == "settings" {
 			continue
 		}
-		ops = append(ops, mgotxn.Op{
-			C:      collName,
-			Id:     state.DocID(st, "arbitraryid"),
-			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+		if state.HasRawAccess(collName) {
+			coll, closer := state.GetRawCollection(st, collName)
+			defer closer()
+
+			err := coll.Insert(bson.M{
+				"_id":      state.DocID(st, "arbitraryid"),
+				"env-uuid": st.EnvironUUID(),
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			ops = append(ops, mgotxn.Op{
+				C:      collName,
+				Id:     state.DocID(st, "arbitraryid"),
+				Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+		}
 	}
 	err := state.RunTransaction(st, ops)
 	c.Assert(err, jc.ErrorIsNil)

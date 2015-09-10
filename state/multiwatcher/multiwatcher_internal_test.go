@@ -17,6 +17,8 @@ var (
 	_ EntityInfo = (*RelationInfo)(nil)
 	_ EntityInfo = (*AnnotationInfo)(nil)
 	_ EntityInfo = (*BlockInfo)(nil)
+	_ EntityInfo = (*ActionInfo)(nil)
+	_ EntityInfo = (*EnvironmentInfo)(nil)
 )
 
 type ConstantsSuite struct{}

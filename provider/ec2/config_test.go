@@ -122,6 +122,14 @@ func (t configTest) check(c *gc.C) {
 	// check storage bucket is configured correctly
 	env := e.(*environ)
 	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
+
+	expectedStorage := "ebs"
+	if t.blockStorageSource != "" {
+		expectedStorage = t.blockStorageSource
+	}
+	storage, ok := ecfg.StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(storage, gc.Equals, expectedStorage)
 }
 
 var configTests = []configTest{
@@ -208,7 +216,7 @@ var configTests = []configTest{
 		blockStorageSource: "ebs",
 	}, {
 		config: attrs{
-			"default-block-storage-source": "ebs-fast",
+			"storage-default-block-source": "ebs-fast",
 		},
 		blockStorageSource: "ebs-fast",
 	}, {

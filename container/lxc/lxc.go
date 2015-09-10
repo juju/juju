@@ -125,7 +125,7 @@ func NewContainerManager(
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultLogDir
+		logDir = agent.DefaultPaths.LogDir
 	}
 	var useClone bool
 	useCloneVal := conf.PopValue("use-clone")
@@ -384,8 +384,9 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
+	arch := arch.HostArch()
 	hardware := &instance.HardwareCharacteristics{
-		Arch: &version.Current.Arch,
+		Arch: &arch,
 	}
 
 	return &lxcInstance{lxcContainer, name}, hardware, nil

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/version"
 )
 
@@ -379,12 +380,12 @@ type AdvancedPackagingConfig interface {
 
 // New returns a new Config with no options set.
 func New(series string) (CloudConfig, error) {
-	os, err := version.GetOSFromSeries(series)
+	seriesos, err := version.GetOSFromSeries(series)
 	if err != nil {
 		return nil, err
 	}
-	switch os {
-	case version.Windows:
+	switch seriesos {
+	case os.Windows:
 		renderer, _ := shell.NewRenderer("powershell")
 		return &windowsCloudConfig{
 			&cloudConfig{
@@ -393,7 +394,7 @@ func New(series string) (CloudConfig, error) {
 				attrs:    make(map[string]interface{}),
 			},
 		}, nil
-	case version.Ubuntu:
+	case os.Ubuntu:
 		renderer, _ := shell.NewRenderer("bash")
 		return &ubuntuCloudConfig{
 			&cloudConfig{
@@ -404,7 +405,7 @@ func New(series string) (CloudConfig, error) {
 				attrs:     make(map[string]interface{}),
 			},
 		}, nil
-	case version.CentOS:
+	case os.CentOS:
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
 			&cloudConfig{

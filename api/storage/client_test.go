@@ -317,15 +317,15 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 			args := a.(params.VolumeFilter)
 			c.Assert(args.Machines, gc.HasLen, 2)
 
-			c.Assert(result, gc.FitsTypeOf, &params.VolumeItemsResult{})
-			results := result.(*params.VolumeItemsResult)
+			c.Assert(result, gc.FitsTypeOf, &params.VolumeDetailsResults{})
+			results := result.(*params.VolumeDetailsResults)
 			attachments := make([]params.VolumeAttachment, len(args.Machines))
 			for i, m := range args.Machines {
 				attachments[i] = params.VolumeAttachment{
 					MachineTag: m}
 			}
-			results.Results = []params.VolumeItem{
-				params.VolumeItem{Attachments: attachments},
+			results.Results = []params.VolumeDetailsResult{
+				params.VolumeDetailsResult{LegacyAttachments: attachments},
 			}
 			return nil
 		})
@@ -334,9 +334,9 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
-	c.Assert(found[0].Attachments, gc.HasLen, len(machines))
-	c.Assert(machineTags.Contains(found[0].Attachments[0].MachineTag), jc.IsTrue)
-	c.Assert(machineTags.Contains(found[0].Attachments[1].MachineTag), jc.IsTrue)
+	c.Assert(found[0].LegacyAttachments, gc.HasLen, len(machines))
+	c.Assert(machineTags.Contains(found[0].LegacyAttachments[0].MachineTag), jc.IsTrue)
+	c.Assert(machineTags.Contains(found[0].LegacyAttachments[1].MachineTag), jc.IsTrue)
 }
 
 func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
@@ -357,10 +357,10 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 			args := a.(params.VolumeFilter)
 			c.Assert(args.IsEmpty(), jc.IsTrue)
 
-			c.Assert(result, gc.FitsTypeOf, &params.VolumeItemsResult{})
-			results := result.(*params.VolumeItemsResult)
-			results.Results = []params.VolumeItem{
-				{Volume: params.VolumeInstance{VolumeTag: tag}},
+			c.Assert(result, gc.FitsTypeOf, &params.VolumeDetailsResults{})
+			results := result.(*params.VolumeDetailsResults)
+			results.Results = []params.VolumeDetailsResult{
+				{LegacyVolume: &params.LegacyVolumeDetails{VolumeTag: tag}},
 			}
 			return nil
 		})
@@ -369,7 +369,7 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
-	c.Assert(found[0].Volume.VolumeTag, gc.Equals, tag)
+	c.Assert(found[0].LegacyVolume.VolumeTag, gc.Equals, tag)
 }
 
 func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
@@ -388,6 +388,99 @@ func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
 		})
 	storageClient := storage.NewClient(apiCaller)
 	_, err := storageClient.ListVolumes(nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+}
+
+func (s *storageMockSuite) TestListFilesystems(c *gc.C) {
+	expected := params.FilesystemDetails{
+		FilesystemTag: "filesystem-1",
+		Info: params.FilesystemInfo{
+			FilesystemId: "fs-id",
+			Size:         4096,
+		},
+		Status: params.EntityStatus{
+			Status: "attached",
+		},
+		MachineAttachments: map[string]params.FilesystemAttachmentInfo{
+			"0": params.FilesystemAttachmentInfo{
+				MountPoint: "/mnt/kinabalu",
+				ReadOnly:   false,
+			},
+		},
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListFilesystems")
+
+			c.Assert(a, gc.FitsTypeOf, params.FilesystemFilter{})
+			args := a.(params.FilesystemFilter)
+			c.Assert(args.Machines, jc.DeepEquals, []string{
+				"machine-1", "machine-2",
+			})
+
+			c.Assert(result, gc.FitsTypeOf, &params.FilesystemDetailsResults{})
+			results := result.(*params.FilesystemDetailsResults)
+			results.Results = []params.FilesystemDetailsResult{{
+				Result: &expected,
+			}}
+			return nil
+		},
+	)
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.ListFilesystems([]string{"1", "2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 1)
+	c.Assert(found[0], jc.DeepEquals, params.FilesystemDetailsResult{Result: &expected})
+}
+
+func (s *storageMockSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListFilesystems")
+
+			c.Assert(a, gc.FitsTypeOf, params.FilesystemFilter{})
+			args := a.(params.FilesystemFilter)
+			c.Assert(args.IsEmpty(), jc.IsTrue)
+			return nil
+		},
+	)
+	storageClient := storage.NewClient(apiCaller)
+	_, err := storageClient.ListFilesystems(nil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *storageMockSuite) TestListFilesystemsFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListFilesystems")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	_, err := storageClient.ListFilesystems(nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 

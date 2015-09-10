@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014, 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package relation_test
@@ -6,9 +6,9 @@ package relation_test
 import (
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }

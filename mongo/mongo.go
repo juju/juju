@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"gopkg.in/mgo.v2"
 
+	environs "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/version"
@@ -185,7 +187,8 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := installMongod(args.SetNumaControlPolicy); err != nil {
+	operatingsystem := version.Current.Series
+	if err := installMongod(operatingsystem, args.SetNumaControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever
@@ -198,6 +201,29 @@ func EnsureServer(args EnsureServerParams) error {
 		return err
 	}
 	logVersion(mongoPath)
+
+	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
+		return err
+	}
+
+	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
+	if err != nil {
+		return fmt.Errorf("cannot write mongod shared secret: %v", err)
+	}
+
+	// Disable the default mongodb installed by the mongodb-server package.
+	// Only do this if the file doesn't exist already, so users can run
+	// their own mongodb server if they wish to.
+	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
+		err = utils.AtomicWriteFile(
+			mongoConfigPath,
+			[]byte("ENABLE_MONGODB=no"),
+			0644,
+		)
+		if err != nil {
+			return err
+		}
+	}
 
 	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
 	svc, err := newService(ServiceName(args.Namespace), svcConf)
@@ -223,29 +249,6 @@ func EnsureServer(args EnsureServerParams) error {
 				return svc.Start()
 			}
 			return nil
-		}
-	}
-
-	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
-		return err
-	}
-
-	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
-	if err != nil {
-		return fmt.Errorf("cannot write mongod shared secret: %v", err)
-	}
-
-	// Disable the default mongodb installed by the mongodb-server package.
-	// Only do this if the file doesn't exist already, so users can run
-	// their own mongodb server if they wish to.
-	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
-		err = utils.AtomicWriteFile(
-			mongoConfigPath,
-			[]byte("ENABLE_MONGODB=no"),
-			0644,
-		)
-		if err != nil {
-			return err
 		}
 	}
 
@@ -295,33 +298,21 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
-// getPackageManager is a helper function which returns the
-// package manager implementation for the current system.
-func getPackageManager() (manager.PackageManager, error) {
-	return manager.NewPackageManager(version.Current.Series)
-}
-
-// getPackagingConfigurer is a helper function which returns the
-// packaging configuration manager for the current system.
-func getPackagingConfigurer() (config.PackagingConfigurer, error) {
-	return config.NewPackagingConfigurer(version.Current.Series)
-}
-
-func installMongod(numaCtl bool) error {
-	series := version.Current.Series
-
-	pacconfer, err := getPackagingConfigurer()
+func installMongod(operatingsystem string, numaCtl bool) error {
+	// fetch the packaging configuration manager for the current operating system.
+	pacconfer, err := config.NewPackagingConfigurer(operatingsystem)
 	if err != nil {
 		return err
 	}
 
-	pacman, err := getPackageManager()
+	// fetch the package manager implementation for the current operating system.
+	pacman, err := manager.NewPackageManager(operatingsystem)
 	if err != nil {
 		return err
 	}
 
 	// Only Quantal requires the PPA.
-	if series == "quantal" {
+	if operatingsystem == "quantal" {
 		// install python-software-properties:
 		if err := pacman.InstallPrerequisite(); err != nil {
 			return err
@@ -331,14 +322,14 @@ func installMongod(numaCtl bool) error {
 		}
 	}
 	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
-	if series == "centos7" {
+	if operatingsystem == "centos7" {
 		// install epel-release
 		if err := pacman.Install("epel-release"); err != nil {
 			return err
 		}
 	}
 
-	mongoPkg := packageForSeries(series)
+	mongoPkg := packageForSeries(operatingsystem)
 
 	pkgs := []string{mongoPkg}
 	if numaCtl {
@@ -360,21 +351,21 @@ func installMongod(numaCtl bool) error {
 	}
 
 	// Work around SELinux on centos7
-	if series == "centos7" {
+	if operatingsystem == "centos7" {
 		cmd := []string{"chcon", "-R", "-v", "-t", "mongod_var_lib_t", "/var/lib/juju/"}
 		logger.Infof("running %s %v", cmd[0], cmd[1:])
 		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
 		if err != nil {
-			logger.Infof("chcon error %s", err)
-			logger.Infof("chcon error %s", err.Error())
+			logger.Errorf("chcon failed to change file security context error %s", err)
 			return err
 		}
 
-		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", "37017"}
+		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(environs.DefaultStatePort)}
 		logger.Infof("running %s %v", cmd[0], cmd[1:])
 		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
 		if err != nil {
 			if !strings.Contains(err.Error(), "exit status 1") {
+				logger.Errorf("semanage failed to provide access on port %d error %s", environs.DefaultStatePort, err)
 				return err
 			}
 		}

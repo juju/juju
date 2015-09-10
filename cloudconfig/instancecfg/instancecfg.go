@@ -91,6 +91,10 @@ type InstanceConfig struct {
 	// LogDir holds the directory that juju logs will be written to.
 	LogDir string
 
+	// MetricsSpoolDir represents the spool directory path, where all
+	// metrics are stored.
+	MetricsSpoolDir string
+
 	// Jobs holds what machine jobs to run.
 	Jobs []multiwatcher.MachineJob
 
@@ -110,6 +114,9 @@ type InstanceConfig struct {
 	MachineContainerHostname string
 
 	// Networks holds a list of networks the instances should be on.
+	//
+	// TODO(dimitern): Drop this in a follow-up in favor or spaces
+	// constraints.
 	Networks []string
 
 	// AuthorizedKeys specifies the keys that are allowed to
@@ -215,8 +222,11 @@ func (cfg *InstanceConfig) AgentConfig(
 		password = cfg.MongoInfo.Password
 	}
 	configParams := agent.AgentConfigParams{
-		DataDir:           cfg.DataDir,
-		LogDir:            cfg.LogDir,
+		Paths: agent.Paths{
+			DataDir:         cfg.DataDir,
+			LogDir:          cfg.LogDir,
+			MetricsSpoolDir: cfg.MetricsSpoolDir,
+		},
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: toolsVersion,
@@ -290,6 +300,9 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	if cfg.LogDir == "" {
 		return errors.New("missing log directory")
+	}
+	if cfg.MetricsSpoolDir == "" {
+		return errors.New("missing metrics spool directory")
 	}
 	if len(cfg.Jobs) == 0 {
 		return errors.New("missing machine jobs")
@@ -405,11 +418,16 @@ func NewInstanceConfig(
 	if err != nil {
 		return nil, err
 	}
+	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
+	if err != nil {
+		return nil, err
+	}
 	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
 	icfg := &InstanceConfig{
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
+		MetricsSpoolDir:         metricsSpoolDir,
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),

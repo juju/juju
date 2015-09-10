@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
@@ -171,4 +172,5 @@ type Connection interface {
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
 	Rsyslog() *rsyslog.State
+	MetadataUpdater() *imagemetadata.Client
 }

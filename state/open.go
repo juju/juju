@@ -186,7 +186,7 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 	if serverUUID == "" {
 		serverUUID = envUUID
 	}
-	envUserOp, _ := createEnvUserOpAndDoc(envUUID, owner, owner, owner.Name())
+	envUserOp := createEnvUserOp(envUUID, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
@@ -286,7 +286,13 @@ func (st *State) Close() (err error) {
 	}
 	st.mu.Lock()
 	if st.allManager != nil {
-		handle("multiwatcher backing", st.allManager.Stop())
+		handle("allwatcher manager", st.allManager.Stop())
+	}
+	if st.allEnvManager != nil {
+		handle("allenvwatcher manager", st.allEnvManager.Stop())
+	}
+	if st.allEnvWatcherBacking != nil {
+		handle("allenvwatcher backing", st.allEnvWatcherBacking.Release())
 	}
 	st.session.Close()
 	st.mu.Unlock()

@@ -6,6 +6,7 @@ import (
 
 	"github.com/juju/errors"
 
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/version"
 )
 
@@ -19,26 +20,32 @@ const (
 	confDir
 	jujuRun
 	certDir
+	metricsSpoolDir
+	uniterStateDir
 )
 
 var nixVals = map[osVarType]string{
-	tmpDir:     "/tmp",
-	logDir:     "/var/log",
-	dataDir:    "/var/lib/juju",
-	storageDir: "/var/lib/juju/storage",
-	confDir:    "/etc/juju",
-	jujuRun:    "/usr/bin/juju-run",
-	certDir:    "/etc/juju/certs.d",
+	tmpDir:          "/tmp",
+	logDir:          "/var/log",
+	dataDir:         "/var/lib/juju",
+	storageDir:      "/var/lib/juju/storage",
+	confDir:         "/etc/juju",
+	jujuRun:         "/usr/bin/juju-run",
+	certDir:         "/etc/juju/certs.d",
+	metricsSpoolDir: "/var/lib/juju/metricspool",
+	uniterStateDir:  "/var/lib/juju/uniter/state",
 }
 
 var winVals = map[osVarType]string{
-	tmpDir:     "C:/Juju/tmp",
-	logDir:     "C:/Juju/log",
-	dataDir:    "C:/Juju/lib/juju",
-	storageDir: "C:/Juju/lib/juju/storage",
-	confDir:    "C:/Juju/etc",
-	jujuRun:    "C:/Juju/bin/juju-run.exe",
-	certDir:    "C:/Juju/certs",
+	tmpDir:          "C:/Juju/tmp",
+	logDir:          "C:/Juju/log",
+	dataDir:         "C:/Juju/lib/juju",
+	storageDir:      "C:/Juju/lib/juju/storage",
+	confDir:         "C:/Juju/etc",
+	jujuRun:         "C:/Juju/bin/juju-run.exe",
+	certDir:         "C:/Juju/certs",
+	metricsSpoolDir: "C:/Juju/lib/juju/metricspool",
+	uniterStateDir:  "C:/Juju/lib/juju/uniter/state",
 }
 
 // osVal will lookup the value of the key valname
@@ -50,7 +57,7 @@ func osVal(series string, valname osVarType) (string, error) {
 		return "", err
 	}
 	switch os {
-	case version.Windows:
+	case jujuos.Windows:
 		return winVals[valname], nil
 	default:
 		return nixVals[valname], nil
@@ -74,6 +81,12 @@ func LogDir(series string) (string, error) {
 // store tools, charms, locks, etc
 func DataDir(series string) (string, error) {
 	return osVal(series, dataDir)
+}
+
+// MetricsSpoolDir returns a filesystem path to the folder used by juju
+// to store metrics.
+func MetricsSpoolDir(series string) (string, error) {
+	return osVal(series, metricsSpoolDir)
 }
 
 // CertDir returns a filesystem path to the folder used by juju to

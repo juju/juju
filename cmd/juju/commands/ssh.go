@@ -60,7 +60,7 @@ const sshDoc = `
 Launch an ssh shell on the machine identified by the <target> parameter.
 <target> can be either a machine id  as listed by "juju status" in the
 "machines" section or a unit name as listed in the "services" section.
-Any extra parameters are passsed as extra parameters to the ssh command.
+Any extra parameters are passed as extra parameters to the ssh command.
 
 Examples:
 

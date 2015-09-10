@@ -203,10 +203,6 @@ type historicalStatusDoc struct {
 
 func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 	historyDoc := &historicalStatusDoc{
-		// We can't guarantee that the statusDoc we're dealing with has the
-		// env-uuid filled in; and envStateCollection does not trap inserts.
-		// Good to be explicit; better to fix leaky abstraction.
-		EnvUUID:    st.EnvironUUID(),
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
 		StatusData: doc.StatusData, // coming from a statusDoc, already escaped

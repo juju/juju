@@ -89,14 +89,29 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 
 // ListVolumes lists volumes for desired machines.
 // If no machines provided, a list of all volumes is returned.
-func (c *Client) ListVolumes(machines []string) ([]params.VolumeItem, error) {
+func (c *Client) ListVolumes(machines []string) ([]params.VolumeDetailsResult, error) {
 	tags := make([]string, len(machines))
 	for i, one := range machines {
 		tags[i] = names.NewMachineTag(one).String()
 	}
 	args := params.VolumeFilter{Machines: tags}
-	found := params.VolumeItemsResult{}
+	found := params.VolumeDetailsResults{}
 	if err := c.facade.FacadeCall("ListVolumes", args, &found); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return found.Results, nil
+}
+
+// ListFilesystems lists filesystems for desired machines.
+// If no machines provided, a list of all filesystems is returned.
+func (c *Client) ListFilesystems(machines []string) ([]params.FilesystemDetailsResult, error) {
+	tags := make([]string, len(machines))
+	for i, one := range machines {
+		tags[i] = names.NewMachineTag(one).String()
+	}
+	args := params.FilesystemFilter{Machines: tags}
+	found := params.FilesystemDetailsResults{}
+	if err := c.facade.FacadeCall("ListFilesystems", args, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return found.Results, nil

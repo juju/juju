@@ -32,15 +32,24 @@ key-value arguments. A value of "-" for the filename means <stdin>.
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
 	cmd.CommandBase
-	ctx          Context
-	RelationId   int
-	Settings     map[string]string
-	settingsFile cmd.FileVar
-	formatFlag   string // deprecated
+	ctx             Context
+	RelationId      int
+	relationIdProxy gnuflag.Value
+	Settings        map[string]string
+	settingsFile    cmd.FileVar
+	formatFlag      string // deprecated
 }
 
-func NewRelationSetCommand(ctx Context) cmd.Command {
-	return &RelationSetCommand{ctx: ctx}
+func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
+	c := &RelationSetCommand{ctx: ctx}
+
+	rV, err := newRelationIdValue(ctx, &c.RelationId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.relationIdProxy = rV
+
+	return c, nil
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
@@ -53,10 +62,8 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	rV := newRelationIdValue(c.ctx, &c.RelationId)
-
-	f.Var(rV, "r", "specify a relation by id")
-	f.Var(rV, "relation", "")
+	f.Var(c.relationIdProxy, "r", "specify a relation by id")
+	f.Var(c.relationIdProxy, "relation", "")
 
 	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
@@ -78,38 +85,46 @@ func (c *RelationSetCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, error) {
-	data, err := ioutil.ReadAll(in)
-	if err != nil {
+// ensureYamlIsMap will check that the passed data fits a hash of strings
+// structure (and not a simple string or array) and will return the
+// hashmap, a bool indicating if there was validation issues and an
+// error representing either a validation error or an actual error
+// in the process.
+func ensureYamlIsMap(data []byte) (map[string]string, error) {
+	// Can this validation be done more simply or efficiently?
+	var scalar string
+	if err := goyaml.Unmarshal(data, &scalar); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if scalar != "" {
+		return nil, errors.Errorf("expected YAML map, got %q", scalar)
+	}
 
-	skipValidation := false // for debugging
-	if !skipValidation {
-		// Can this validation be done more simply or efficiently?
-
-		var scalar string
-		if err := goyaml.Unmarshal(data, &scalar); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if scalar != "" {
-			return nil, errors.Errorf("expected YAML map, got %q", scalar)
-		}
-
-		var sequence []string
-		if err := goyaml.Unmarshal(data, &sequence); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(sequence) != 0 {
-			return nil, errors.Errorf("expected YAML map, got %#v", sequence)
-		}
+	var sequence []string
+	if err := goyaml.Unmarshal(data, &sequence); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(sequence) != 0 {
+		return nil, errors.Errorf("expected YAML map, got %#v", sequence)
 	}
 
 	kvs := make(map[string]string)
 	if err := goyaml.Unmarshal(data, kvs); err != nil {
 		return nil, errors.Trace(err)
 	}
+	return kvs, nil
+}
 
+func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, error) {
+	data, err := ioutil.ReadAll(in)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var kvs map[string]string
+	if kvs, err = ensureYamlIsMap(data); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return kvs, nil
 }
 
@@ -145,9 +160,9 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
-		return fmt.Errorf("unknown relation id")
+	r, err := c.ctx.Relation(c.RelationId)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	settings, err := r.Settings()
 	if err != nil {

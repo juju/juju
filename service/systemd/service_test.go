@@ -6,7 +6,6 @@ package systemd_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/juju/juju/paths"
 	"os"
 	"strings"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -237,19 +237,20 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 	service := s.newService(c)
 
+	user, group := systemd.SyslogUserGroup()
 	dirname := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
 	script := `
 #!/usr/bin/env bash
 
 # Set up logging.
 touch '/var/log/juju/machine-0.log'
-chown syslog:syslog '/var/log/juju/machine-0.log'
+chown `[1:] + user + `:` + group + ` '/var/log/juju/machine-0.log'
 chmod 0600 '/var/log/juju/machine-0.log'
 exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
-`[1:] + jujud + " machine-0"
+` + jujud + " machine-0"
 	c.Check(service, jc.DeepEquals, &systemd.Service{
 		Service: common.Service{
 			Name: s.name,
@@ -786,6 +787,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	commands, err := service.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
+	user, group := systemd.SyslogUserGroup()
 	test := systemdtesting.WriteConfTest{
 		Service: name,
 		DataDir: s.dataDir,
@@ -797,13 +799,13 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 		Script: `
 # Set up logging.
 touch '/var/log/juju/machine-0.log'
-chown syslog:syslog '/var/log/juju/machine-0.log'
+chown `[1:] + user + `:` + group + ` '/var/log/juju/machine-0.log'
 chmod 0600 '/var/log/juju/machine-0.log'
 exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
 # Run the script.
-`[1:] + jujud + " machine-0",
+` + jujud + " machine-0",
 	}
 	test.CheckCommands(c, commands)
 }

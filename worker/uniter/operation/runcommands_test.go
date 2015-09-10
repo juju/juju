@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type RunCommandsSuite struct {
@@ -34,7 +34,7 @@ func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, gc.ErrorMatches, "blooey")
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, runner.CommandInfo{
+	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, context.CommandInfo{
 		RelationId:      123,
 		RemoteUnitName:  "foo/456",
 		ForceRemoteUnit: true,
@@ -60,7 +60,7 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, runner.CommandInfo{
+	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, context.CommandInfo{
 		RelationId:      123,
 		RemoteUnitName:  "foo/456",
 		ForceRemoteUnit: true,
@@ -92,7 +92,7 @@ func (s *RunCommandsSuite) TestPrepareCtxError(c *gc.C) {
 }
 
 func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
-	for _, sendErr := range []error{runner.ErrRequeueAndReboot, runner.ErrReboot} {
+	for _, sendErr := range []error{context.ErrRequeueAndReboot, context.ErrReboot} {
 		runnerFactory := NewRunCommandsRunnerFactory(
 			&utilexec.ExecResponse{Code: 101}, sendErr,
 		)

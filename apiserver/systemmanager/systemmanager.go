@@ -6,12 +6,12 @@
 package systemmanager
 
 import (
-	"github.com/juju/utils/set"
 	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -32,6 +32,7 @@ type SystemManager interface {
 	EnvironmentConfig() (params.EnvironmentConfigResults, error)
 	ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
+	WatchAllEnvs() (params.AllWatcherId, error)
 }
 
 // SystemManagerAPI implements the environment manager interface and is
@@ -40,6 +41,7 @@ type SystemManagerAPI struct {
 	state      *state.State
 	authorizer common.Authorizer
 	apiUser    names.UserTag
+	resources  *common.Resources
 }
 
 var _ SystemManager = (*SystemManagerAPI)(nil)
@@ -71,6 +73,7 @@ func NewSystemManagerAPI(
 		state:      st,
 		authorizer: authorizer,
 		apiUser:    apiUser,
+		resources:  resources,
 	}, nil
 }
 
@@ -90,6 +93,10 @@ func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error)
 	}
 	visibleEnvironments := set.NewStrings()
 	for _, env := range environments {
+		lastConn, err := env.LastConnection()
+		if err != nil && !state.IsNeverConnectedError(err) {
+			return result, errors.Trace(err)
+		}
 		visibleEnvironments.Add(env.UUID())
 		result.UserEnvironments = append(result.UserEnvironments, params.UserEnvironment{
 			Environment: params.Environment{
@@ -97,7 +104,7 @@ func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error)
 				UUID:     env.UUID(),
 				OwnerTag: env.Owner().String(),
 			},
-			LastConnection: env.LastConnection,
+			LastConnection: &lastConn,
 		})
 	}
 
@@ -251,6 +258,16 @@ func (s *SystemManagerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 		return errors.New("not supported")
 	}
 	return errors.Trace(s.state.RemoveAllBlocksForSystem())
+}
+
+// WatchAllEnvs starts watching events for all environments in the
+// system. The returned AllWatcherId should be used with Next on the
+// AllEnvWatcher endpoint to receive deltas.
+func (c *SystemManagerAPI) WatchAllEnvs() (params.AllWatcherId, error) {
+	w := c.state.WatchAllEnvs()
+	return params.AllWatcherId{
+		AllWatcherId: c.resources.Register(w),
+	}, nil
 }
 
 type orderedBlockInfo []params.EnvironmentBlockInfo

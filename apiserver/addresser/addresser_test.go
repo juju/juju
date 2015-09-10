@@ -4,11 +4,9 @@
 package addresser_test
 
 import (
-	"errors"
-
-	gc "gopkg.in/check.v1"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/addresser"
 	"github.com/juju/juju/apiserver/common"
@@ -38,6 +36,11 @@ type AddresserSuite struct {
 
 var _ = gc.Suite(&AddresserSuite{})
 
+func (s *AddresserSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	environs.RegisterProvider("mock", mockEnvironProvider{})
+}
+
 func (s *AddresserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
@@ -59,6 +62,60 @@ func (s *AddresserSuite) SetUpTest(c *gc.C) {
 func (s *AddresserSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesEnabled(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: true,
+	})
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesDisabled(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+	s.SetFeatureFlags()
+
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: false,
+	})
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesConfigGetFailure(c *gc.C) {
+	config := testingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	s.st.stub.SetErrors(errors.New("ouch"))
+
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result.Error, gc.ErrorMatches, "getting environment config: ouch")
+	c.Assert(result.Result, jc.IsFalse)
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesEnvironmentNewFailure(c *gc.C) {
+	config := nonexTestingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
+	c.Assert(result.Result, jc.IsFalse)
+}
+
+func (s *AddresserSuite) TestCanDeallocateAddressesNotSupportedFailure(c *gc.C) {
+	config := mockTestingEnvConfig(c)
+	s.st.setConfig(c, config)
+
+	result := s.api.CanDeallocateAddresses()
+	c.Assert(result, jc.DeepEquals, params.BoolResult{
+		Error:  nil,
+		Result: false,
+	})
 }
 
 func (s *AddresserSuite) TestCleanupIPAddressesSuccess(c *gc.C) {
@@ -143,7 +200,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesConfigGetFailure(c *gc.C) {
 }
 
 func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
-	config := tidelandTestingEnvConfig(c)
+	config := nonexTestingEnvConfig(c)
 	s.st.setConfig(c, config)
 
 	dead, err := s.st.DeadIPAddresses()
@@ -152,7 +209,7 @@ func (s *AddresserSuite) TestCleanupIPAddressesEnvironmentNewFailure(c *gc.C) {
 
 	// Validation of configuration fails due to illegal provider.
 	apiErr := s.api.CleanupIPAddresses()
-	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "tideland"`)
+	c.Assert(apiErr.Error, gc.ErrorMatches, `validating environment config: no registered provider for "nonex"`)
 
 	// Still has two dead addresses.
 	dead, err = s.st.DeadIPAddresses()
@@ -216,11 +273,11 @@ func testingEnvConfig(c *gc.C) *config.Config {
 	return env.Config()
 }
 
-// tidelandTestingEnvConfig prepares an environment configuration using
-// the illegal tideland provider.
-func tidelandTestingEnvConfig(c *gc.C) *config.Config {
+// nonexTestingEnvConfig prepares an environment configuration using
+// a non-existent provider.
+func nonexTestingEnvConfig(c *gc.C) *config.Config {
 	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
-		"type": "tideland",
+		"type": "nonex",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,7 +287,6 @@ func tidelandTestingEnvConfig(c *gc.C) *config.Config {
 // mockTestingEnvConfig prepares an environment configuration using
 // the mock provider which does not support networking.
 func mockTestingEnvConfig(c *gc.C) *config.Config {
-	environs.RegisterProvider("mock", mockEnvironProvider{})
 	cfg, err := config.New(config.NoDefaults, mockConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(coretesting.Context(c)), configstore.NewMem())

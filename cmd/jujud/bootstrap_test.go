@@ -151,8 +151,10 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
 	agentParams := agent.AgentConfigParams{
-		LogDir:            s.logDir,
-		DataDir:           s.dataDir,
+		Paths: agent.Paths{
+			LogDir:  s.logDir,
+			DataDir: s.dataDir,
+		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
@@ -580,7 +582,9 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		for _, series := range version.SupportedSeries() {
 			os, err := version.GetOSFromSeries(series)
 			c.Assert(err, jc.ErrorIsNil)
-			if os == version.Current.OS {
+			hostos, err := version.GetOSFromSeries(version.Current.Series)
+			c.Assert(err, jc.ErrorIsNil)
+			if os == hostos {
 				expectedSeries.Add(series)
 			}
 		}

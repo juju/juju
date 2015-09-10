@@ -1261,6 +1261,9 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 // RequestedNetworks returns the list of network names the machine
 // should be on. Unlike networks specified with constraints, these
 // networks are required to be present on the machine.
+//
+// TODO(dimitern): Drop this when we can use space bindings derived
+// from constraints.
 func (m *Machine) RequestedNetworks() ([]string, error) {
 	return readRequestedNetworks(m.st, m.globalKey())
 }
@@ -1421,14 +1424,17 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		return err
 	}
 	notSetYet := bson.D{{"nonce", ""}}
-	ops := []txn.Op{
-		{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: append(isAliveDoc, notSetYet...),
-		},
-		setConstraintsOp(m.st, m.globalKey(), cons),
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: append(isAliveDoc, notSetYet...),
+	}}
+	mcons, err := m.st.resolveMachineConstraints(cons)
+	if err != nil {
+		return err
 	}
+
+	ops = append(ops, setConstraintsOp(m.st, m.globalKey(), mcons))
 	// make multiple attempts to push the ErrExcessiveContention case out of the
 	// realm of plausibility: it implies local state indicating unprovisioned,
 	// and remote state indicating provisioned (reasonable); but which changes

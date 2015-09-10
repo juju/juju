@@ -134,7 +134,7 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg, err := c.Config(store)
+	cfg, err := c.Config(store, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}

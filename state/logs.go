@@ -534,7 +534,7 @@ func getCollectionMB(coll *mgo.Collection) (int, error) {
 	return result["size"].(int), nil
 }
 
-// getEnvsInLogs returns the unique envrionment UUIDs that exist in
+// getEnvsInLogs returns the unique environment UUIDs that exist in
 // the logs collection. This uses the one of the indexes on the
 // collection and should be fast.
 func getEnvsInLogs(coll *mgo.Collection) ([]string, error) {
