@@ -164,11 +164,11 @@ var relationSetInitTests = []relationSetInitTest{
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "2"},
-		err:      `invalid value "2" for flag -r: unknown relation id`,
+		err:      `invalid value "2" for flag -r: relation not found`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "ignored:2"},
-		err:      `invalid value "ignored:2" for flag -r: unknown relation id`,
+		err:      `invalid value "ignored:2" for flag -r: relation not found`,
 	}, {
 		ctxrelid: -1,
 		err:      `no relation id specified`,

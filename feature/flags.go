@@ -60,8 +60,5 @@ func IsDbLogEnabled() bool {
 // forwarding configuration files by stopping the rsyslog workers.
 const DisableRsyslog = "disable-rsyslog"
 
-// CloudSigma enables the CloudSigma provider.
-const CloudSigma = "cloudsigma"
-
 // VSphereProvider enables the generic vmware provider.
 const VSphereProvider = "vsphere-provider"

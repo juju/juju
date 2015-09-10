@@ -13,6 +13,7 @@ type UnitAgent struct {
 	st   *State
 	tag  names.Tag
 	name string
+	StatusHistoryGetter
 }
 
 func newUnitAgent(st *State, tag names.Tag, name string) *UnitAgent {

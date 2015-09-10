@@ -32,8 +32,8 @@ import (
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/storage/looputil"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -125,7 +125,7 @@ func NewContainerManager(
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultLogDir
+		logDir = agent.DefaultPaths.LogDir
 	}
 	var useClone bool
 	useCloneVal := conf.PopValue("use-clone")
@@ -164,7 +164,7 @@ func NewContainerManager(
 
 // releaseVersion is a function that returns a string representing the
 // DISTRIB_RELEASE from the /etc/lsb-release file.
-var releaseVersion = version.ReleaseVersion
+var releaseVersion = series.ReleaseVersion
 
 // preferFastLXC returns true if the host is capable of
 // LXC cloning from a template.

@@ -199,10 +199,9 @@ type hostArchToolsFinder struct {
 }
 
 // FindTools is defined on the ToolsFinder interface.
-func (h hostArchToolsFinder) FindTools(v version.Number, series string, _ *string) (tools.List, error) {
+func (h hostArchToolsFinder) FindTools(v version.Number, series, _ string) (tools.List, error) {
 	// Override the arch constraint with the arch of the host.
-	arch := arch.HostArch()
-	return h.f.FindTools(v, series, &arch)
+	return h.f.FindTools(v, series, arch.HostArch())
 }
 
 // resolvConf is the full path to the resolv.conf file on the local

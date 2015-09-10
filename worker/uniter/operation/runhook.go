@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -94,13 +95,13 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
-	case runner.IsMissingHookError(cause):
+	case context.IsMissingHookError(cause):
 		ranHook = false
 		err = nil
-	case cause == runner.ErrRequeueAndReboot:
+	case cause == context.ErrRequeueAndReboot:
 		step = Queued
 		fallthrough
-	case cause == runner.ErrReboot:
+	case cause == context.ErrReboot:
 		err = ErrNeedsReboot
 	case err == nil:
 	default:
@@ -167,6 +168,7 @@ func (rh *runHook) afterHook(state State) (bool, error) {
 		if hasRunStatusSet {
 			break
 		}
+		logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
@@ -213,12 +215,12 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	newState := change.apply(state)
 
 	switch rh.info.Kind {
+	case hooks.Install:
+		newState.Installed = true
 	case hooks.Start:
 		newState.Started = true
 	case hooks.Stop:
 		newState.Stopped = true
-	case hooks.CollectMetrics:
-		newState.CollectMetricsTime = time.Now().Unix()
 	case hooks.UpdateStatus:
 		newState.UpdateStatusTime = time.Now().Unix()
 	}

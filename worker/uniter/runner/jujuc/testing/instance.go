@@ -22,11 +22,10 @@ type ContextInstance struct {
 }
 
 // AvailabilityZone implements jujuc.ContextInstance.
-func (c *ContextInstance) AvailabilityZone() (string, bool) {
+func (c *ContextInstance) AvailabilityZone() (string, error) {
 	c.stub.AddCall("AvailabilityZone")
-	c.stub.NextErr()
 
-	return c.info.AvailabilityZone, true
+	return c.info.AvailabilityZone, c.stub.NextErr()
 }
 
 // RequestReboot implements jujuc.ContextInstance.

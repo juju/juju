@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/series"
 )
 
 // ToolsContentId returns the tools content id for the given stream.
@@ -56,7 +56,7 @@ func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 		for _, t := range metadata {
 			id, err := t.productId()
 			if err != nil {
-				if version.IsUnknownSeriesVersionError(err) {
+				if series.IsUnknownSeriesVersionError(err) {
 					logger.Infof("ignoring tools metadata with unknown series %q", t.Release)
 					continue
 				}
@@ -105,7 +105,7 @@ func MarshalToolsMetadataProductsJSON(
 		for _, t := range metadata {
 			id, err := t.productId()
 			if err != nil {
-				if version.IsUnknownSeriesVersionError(err) {
+				if series.IsUnknownSeriesVersionError(err) {
 					continue
 				}
 				return nil, err

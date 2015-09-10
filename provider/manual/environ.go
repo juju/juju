@@ -160,7 +160,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 	// if the agents directory exists. Note that we cannot test the
 	// root data directory, as that is created in the process of
 	// initialising sshstorage.
-	agentsDir := path.Join(agent.DefaultDataDir, "agents")
+	agentsDir := path.Join(agent.DefaultPaths.DataDir, "agents")
 	const noAgentDir = "no-agent-dir"
 	stdin := fmt.Sprintf(
 		"test -d %s || echo %s",
@@ -204,7 +204,7 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 		var stor storage.Storage
 		if envConfig.useSSHStorage() {
 			storageDir := e.StorageDir()
-			storageTmpdir := path.Join(agent.DefaultDataDir, storageTmpSubdir)
+			storageTmpdir := path.Join(agent.DefaultPaths.DataDir, storageTmpSubdir)
 			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
 			if err != nil {
 				return fmt.Errorf("initialising SSH storage failed: %v", err)
@@ -293,8 +293,8 @@ exit 0
 		script,
 		terminationworker.TerminationSignal,
 		mongo.ServiceName(""),
-		utils.ShQuote(agent.DefaultDataDir),
-		utils.ShQuote(agent.DefaultLogDir),
+		utils.ShQuote(agent.DefaultPaths.DataDir),
+		utils.ShQuote(agent.DefaultPaths.LogDir),
 	)
 	_, err := runSSHCommand(
 		"ubuntu@"+e.envConfig().bootstrapHost(),
@@ -341,7 +341,7 @@ func (e *manualEnviron) StorageAddr() string {
 }
 
 func (e *manualEnviron) StorageDir() string {
-	return path.Join(agent.DefaultDataDir, storageSubdir)
+	return path.Join(agent.DefaultPaths.DataDir, storageSubdir)
 }
 
 func (e *manualEnviron) SharedStorageAddr() string {

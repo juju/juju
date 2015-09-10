@@ -31,6 +31,7 @@ type format_1_18Serialization struct {
 	Tag               string
 	DataDir           string
 	LogDir            string
+	MetricsSpoolDir   string
 	Nonce             string
 	Jobs              []multiwatcher.MachineJob `yaml:",omitempty"`
 	UpgradedToVersion *version.Number           `yaml:"upgradedToVersion"`
@@ -90,9 +91,12 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 	config := &configInternal{
-		tag:               tag,
-		dataDir:           format.DataDir,
-		logDir:            format.LogDir,
+		tag: tag,
+		paths: NewPathsWithDefaults(Paths{
+			DataDir:         format.DataDir,
+			LogDir:          format.LogDir,
+			MetricsSpoolDir: format.MetricsSpoolDir,
+		}),
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
@@ -101,12 +105,6 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
 		preferIPv6:        format.PreferIPv6,
-	}
-	if config.logDir == "" {
-		config.logDir = DefaultLogDir
-	}
-	if config.dataDir == "" {
-		config.dataDir = DefaultDataDir
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -160,8 +158,9 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 	}
 	format := &format_1_18Serialization{
 		Tag:               config.tag.String(),
-		DataDir:           config.dataDir,
-		LogDir:            config.logDir,
+		DataDir:           config.paths.DataDir,
+		LogDir:            config.paths.LogDir,
+		MetricsSpoolDir:   config.paths.MetricsSpoolDir,
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,

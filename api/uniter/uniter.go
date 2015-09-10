@@ -359,6 +359,34 @@ func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortR
 	return portsMap, nil
 }
 
+// WatchRelationUnits returns a watcher that notifies of changes to the
+// counterpart units in the relation for the given unit.
+func (st *State) WatchRelationUnits(
+	relationTag names.RelationTag,
+	unitTag names.UnitTag,
+) (watcher.RelationUnitsWatcher, error) {
+	var results params.RelationUnitsWatchResults
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{{
+			Relation: relationTag.String(),
+			Unit:     unitTag.String(),
+		}},
+	}
+	err := st.facade.FacadeCall("WatchRelationUnits", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewRelationUnitsWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
 // environment1dot16 requests just the UUID of the current environment, when
 // using an older API server that does not support CurrentEnvironment API call.
 func (st *State) environment1dot16() (*Environment, error) {

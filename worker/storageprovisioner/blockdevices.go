@@ -15,11 +15,18 @@ import (
 // machine have been seen to have changed. This triggers a refresh of all
 // block devices for attached volumes backing pending filesystems.
 func machineBlockDevicesChanged(ctx *context) error {
-	if len(ctx.pendingFilesystems) == 0 {
+	if len(ctx.incompleteFilesystemParams) == 0 {
 		return nil
 	}
-	volumeTags := make([]names.VolumeTag, 0, len(ctx.pendingFilesystems))
-	for _, params := range ctx.pendingFilesystems {
+	volumeTags := make([]names.VolumeTag, 0, len(ctx.incompleteFilesystemParams))
+	// We only need to query volumes for incomplete filesystems,
+	// and not incomplete filesystem attachments, because a
+	// filesystem attachment cannot exist without a filesystem.
+	// Therefore, the block device must have existed before
+	// the filesystem attachment. Upon restarting the worker,
+	// witnessing an already-provisioned filesystem will trigger
+	// a refresh of the block device for the backing volume.
+	for _, params := range ctx.incompleteFilesystemParams {
 		if params.Volume == (names.VolumeTag{}) {
 			// Filesystem is not volume-backed.
 			continue
@@ -76,6 +83,20 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error
 	for i, result := range results {
 		if result.Error == nil {
 			ctx.volumeBlockDevices[volumeTags[i]] = result.Result
+			for _, params := range ctx.incompleteFilesystemParams {
+				if params.Volume == volumeTags[i] {
+					updatePendingFilesystem(ctx, params)
+				}
+			}
+			for id, params := range ctx.incompleteFilesystemAttachmentParams {
+				filesystem, ok := ctx.filesystems[params.Filesystem]
+				if !ok {
+					continue
+				}
+				if filesystem.Volume == volumeTags[i] {
+					updatePendingFilesystemAttachment(ctx, id, params)
+				}
+			}
 		} else if params.IsCodeNotProvisioned(result.Error) || params.IsCodeNotFound(result.Error) {
 			// Either the volume (attachment) isn't provisioned,
 			// or the corresponding block device is not yet known.

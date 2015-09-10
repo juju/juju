@@ -19,6 +19,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/juju/arch"
+	jujuos "github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 )
 
 // The presence and format of this constant is very important.
@@ -33,16 +35,14 @@ var switchOverVersion = MustParse("1.19.9")
 // the linux type release version.
 var osReleaseFile = "/etc/os-release"
 
-var osVers = mustOSVersion()
-
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
 	Number: MustParse(version),
-	Series: osVers,
+	Series: series.HostSeries(),
 	Arch:   arch.HostArch(),
-	OS:     MustOSFromSeries(osVers),
+	OS:     series.MustOSFromSeries(series.HostSeries()),
 }
 
 var Compiler = runtime.Compiler
@@ -85,7 +85,7 @@ type Binary struct {
 	Number
 	Series string
 	Arch   string
-	OS     OSType
+	OS     jujuos.OSType
 }
 
 func (v Binary) String() string {
@@ -192,7 +192,7 @@ func ParseBinary(s string) (Binary, error) {
 	v.Series = m[7]
 	v.Arch = m[8]
 	var err error
-	v.OS, err = GetOSFromSeries(v.Series)
+	v.OS, err = series.GetOSFromSeries(v.Series)
 	return v, err
 }
 
@@ -341,17 +341,6 @@ func (v Number) IsDev() bool {
 		return isOdd(v.Minor) || v.Build > 0
 	}
 	return v.Tag != "" || v.Build > 0
-}
-
-// ReleaseVersion looks for the value of VERSION_ID in the content of
-// the os-release.  If the value is not found, the file is not found, or
-// an error occurs reading the file, an empty string is returned.
-func ReleaseVersion() string {
-	release, err := readOSRelease()
-	if err != nil {
-		return ""
-	}
-	return release["VERSION_ID"]
 }
 
 // ParseMajorMinor takes an argument of the form "major.minor" and returns ints major and minor.

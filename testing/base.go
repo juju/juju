@@ -17,8 +17,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/arch"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/wrench"
 )
 
@@ -216,4 +219,33 @@ func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
 	cleaner.AddCleanup(func(_ *gc.C) {
 		close(done)
 	})
+}
+
+type PackageManagerStruct struct {
+	PackageManager    string
+	RepositoryManager string
+	PackageQuery      string
+}
+
+func GetPackageManager() (s PackageManagerStruct, err error) {
+	os, err := series.GetOSFromSeries(version.Current.Series)
+	if err != nil {
+		return s, err
+	}
+
+	switch os {
+	case jujuos.CentOS:
+		s.PackageManager = "yum"
+		s.PackageQuery = "yum"
+		s.RepositoryManager = "yum-config-manager --add-repo"
+	case jujuos.Ubuntu:
+		s.PackageManager = "apt-get"
+		s.PackageQuery = "dpkg-query"
+		s.RepositoryManager = "add-apt-repository"
+	default:
+		s.PackageManager = "apt-get"
+		s.PackageQuery = "dpkg-query"
+		s.RepositoryManager = "add-apt-repository"
+	}
+	return s, nil
 }

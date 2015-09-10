@@ -48,45 +48,28 @@ func (s sortableStatuses) Less(i, j int) bool {
 	return s[i].Since.Before(*s[j].Since)
 }
 
-// TODO(perrito666) this client method requires more testing, only its parts are unittested.
 // UnitStatusHistory returns a slice of past statuses for a given unit.
 func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatusHistory, error) {
-	size := args.Size - 1
-	if size < 1 {
+	if args.Size < 1 {
 		return params.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
 	}
-	unit, err := c.api.state.Unit(args.Name)
+	unit, err := c.api.stateAccessor.Unit(args.Name)
 	if err != nil {
 		return params.UnitStatusHistory{}, errors.Trace(err)
 	}
 	statuses := params.UnitStatusHistory{}
 	if args.Kind == params.KindCombined || args.Kind == params.KindWorkload {
-		unitStatuses, err := unit.StatusHistory(size)
+		unitStatuses, err := unit.StatusHistory(args.Size)
 		if err != nil {
 			return params.UnitStatusHistory{}, errors.Trace(err)
 		}
-
-		current, err := unit.Status()
-		if err != nil {
-			return params.UnitStatusHistory{}, errors.Trace(err)
-		}
-		unitStatuses = append(unitStatuses, current)
-
 		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
 	}
 	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
-		agent := unit.Agent()
-		agentStatuses, err := agent.StatusHistory(size)
+		agentStatuses, err := unit.AgentHistory().StatusHistory(args.Size)
 		if err != nil {
 			return params.UnitStatusHistory{}, errors.Trace(err)
 		}
-
-		current, err := agent.Status()
-		if err != nil {
-			return params.UnitStatusHistory{}, errors.Trace(err)
-		}
-		agentStatuses = append(agentStatuses, current)
-
 		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(agentStatuses, params.KindAgent)...)
 	}
 
@@ -103,20 +86,20 @@ func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatus
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
-	cfg, err := c.api.state.EnvironConfig()
+	cfg, err := c.api.stateAccessor.EnvironConfig()
 	if err != nil {
 		return params.FullStatus{}, errors.Annotate(err, "could not get environ config")
 	}
 	var noStatus params.FullStatus
 	var context statusContext
 	if context.services, context.units, context.latestCharms, err =
-		fetchAllServicesAndUnits(c.api.state, len(args.Patterns) <= 0); err != nil {
+		fetchAllServicesAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
-	} else if context.machines, err = fetchMachines(c.api.state, nil); err != nil {
+	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
-	} else if context.relations, err = fetchRelations(c.api.state); err != nil {
+	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
-	} else if context.networks, err = fetchNetworks(c.api.state); err != nil {
+	} else if context.networks, err = fetchNetworks(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch networks")
 	}
 
@@ -193,13 +176,43 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 	}
 
+	newToolsVersion, err := c.newToolsVersionAvailable()
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
+	}
+
 	return params.FullStatus{
-		EnvironmentName: cfg.Name(),
-		Machines:        processMachines(context.machines),
-		Services:        context.processServices(),
-		Networks:        context.processNetworks(),
-		Relations:       context.processRelations(),
+		EnvironmentName:  cfg.Name(),
+		AvailableVersion: newToolsVersion,
+		Machines:         processMachines(context.machines),
+		Services:         context.processServices(),
+		Networks:         context.processNetworks(),
+		Relations:        context.processRelations(),
 	}, nil
+}
+
+// newToolsVersionAvailable will return a string representing a tools
+// version only if the latest check is newer than current tools.
+func (c *Client) newToolsVersionAvailable() (string, error) {
+	env, err := c.api.stateAccessor.Environment()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot get environment")
+	}
+
+	latestVersion := env.LatestToolsVersion()
+
+	envConfig, err := c.api.stateAccessor.EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain current environ config")
+	}
+	oldV, ok := envConfig.AgentVersion()
+	if !ok {
+		return "", nil
+	}
+	if oldV.Compare(latestVersion) < 0 {
+		return latestVersion.String(), nil
+	}
+	return "", nil
 }
 
 // Status is a stub version of FullStatus that was introduced in 1.16
@@ -235,7 +248,7 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st *state.State, machineIds set.Strings) (map[string][]*state.Machine, error) {
+func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -266,7 +279,7 @@ func fetchMachines(st *state.State, machineIds set.Strings) (map[string][]*state
 // fetchAllServicesAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllServicesAndUnits(
-	st *state.State,
+	st stateInterface,
 	matchAny bool,
 ) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
 
@@ -338,7 +351,7 @@ func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (set.Strings, 
 // to have the relations for each service. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // service that used to happen in processServiceRelations().
-func fetchRelations(st *state.State) (map[string][]*state.Relation, error) {
+func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
 		return nil, err
@@ -353,7 +366,7 @@ func fetchRelations(st *state.State) (map[string][]*state.Relation, error) {
 }
 
 // fetchNetworks returns a map from network name to network.
-func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
+func fetchNetworks(st stateInterface) (map[string]*state.Network, error) {
 	networks, err := st.AllNetworks()
 	if err != nil {
 		return nil, err

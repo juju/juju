@@ -45,7 +45,7 @@ var relationListTests = []struct {
 		relid:   -1,
 		args:    []string{"-r", "unknown:123"},
 		code:    2,
-		out:     `invalid value "unknown:123" for flag -r: unknown relation id`,
+		out:     `invalid value "unknown:123" for flag -r: relation not found`,
 	}, {
 		summary: "default relation, bad arg",
 		relid:   1,
@@ -57,7 +57,7 @@ var relationListTests = []struct {
 		relid:   1,
 		args:    []string{"-r", "unknown:123"},
 		code:    2,
-		out:     `invalid value "unknown:123" for flag -r: unknown relation id`,
+		out:     `invalid value "unknown:123" for flag -r: relation not found`,
 	}, {
 		summary: "default relation, no members",
 		relid:   1,

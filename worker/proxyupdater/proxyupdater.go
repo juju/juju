@@ -17,6 +17,8 @@ import (
 
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
@@ -133,12 +135,13 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 }
 
 func (w *proxyWorker) writeEnvironment() error {
-	osystem, err := version.GetOSFromSeries(version.Current.Series)
+	// TODO(dfc) this should be replace with a switch on os.HostOS()
+	osystem, err := series.GetOSFromSeries(version.Current.Series)
 	if err != nil {
 		return err
 	}
 	switch osystem {
-	case version.Windows:
+	case os.Windows:
 		return w.writeEnvironmentToRegistry()
 	default:
 		return w.writeEnvironmentFile()

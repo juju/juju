@@ -11,10 +11,10 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/bzr"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5/charmrepo"
 
-	"github.com/juju/juju/bzr"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
 )

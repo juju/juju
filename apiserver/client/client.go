@@ -6,6 +6,7 @@ package client
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -33,13 +34,21 @@ func init() {
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
-	state     *state.State
-	auth      common.Authorizer
-	resources *common.Resources
-	client    *Client
+	stateAccessor stateInterface
+	auth          common.Authorizer
+	resources     *common.Resources
+	client        *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
 	toolsFinder  *common.ToolsFinder
+}
+
+// TODO(wallyworld) - remove this method
+// state returns a state.State instance for this API.
+// Until all code is refactored to use interfaces, we
+// need this helper to keep older code happy.
+func (api *API) state() *state.State {
+	return api.stateAccessor.(*stateShim).State
 }
 
 // Client serves client-specific API methods.
@@ -48,25 +57,30 @@ type Client struct {
 	check *common.BlockChecker
 }
 
+var getState = func(st *state.State) stateInterface {
+	return &stateShim{st}
+}
+
 // NewClient creates a new instance of the Client Facade.
 func NewClient(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	urlGetter := common.NewToolsURLGetter(st.EnvironUUID(), st)
+	apiState := getState(st)
+	urlGetter := common.NewToolsURLGetter(apiState.EnvironUUID(), apiState)
 	return &Client{
 		api: &API{
-			state:        st,
-			auth:         authorizer,
-			resources:    resources,
-			statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
-			toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
+			stateAccessor: apiState,
+			auth:          authorizer,
+			resources:     resources,
+			statusSetter:  common.NewStatusSetter(st, common.AuthAlways()),
+			toolsFinder:   common.NewToolsFinder(st, st, urlGetter),
 		},
 		check: common.NewBlockChecker(st)}, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
-	w := c.api.state.Watch()
+	w := c.api.stateAccessor.Watch()
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
 	}, nil
@@ -81,7 +95,7 @@ func (c *Client) ServiceSet(p params.ServiceSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := c.api.state.Service(p.ServiceName)
+	svc, err := c.api.stateAccessor.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -97,7 +111,7 @@ func (c *Client) ServiceSet(p params.ServiceSet) error {
 // when the GUI handles the new behavior.
 // TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
-	svc, err := c.api.state.Service(p.ServiceName)
+	svc, err := c.api.stateAccessor.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -110,7 +124,7 @@ func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := c.api.state.Service(p.ServiceName)
+	svc, err := c.api.stateAccessor.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -127,7 +141,7 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := c.api.state.Service(p.ServiceName)
+	svc, err := c.api.stateAccessor.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -138,7 +152,7 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 // TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
 	var results params.ServiceCharmRelationsResults
-	service, err := c.api.state.Service(p.ServiceName)
+	service, err := c.api.stateAccessor.Service(p.ServiceName)
 	if err != nil {
 		return results, err
 	}
@@ -158,7 +172,7 @@ func (c *Client) Resolved(p params.Resolved) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	unit, err := c.api.state.Unit(p.UnitName)
+	unit, err := c.api.stateAccessor.Unit(p.UnitName)
 	if err != nil {
 		return err
 	}
@@ -169,7 +183,7 @@ func (c *Client) Resolved(p params.Resolved) error {
 func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
 	switch {
 	case names.IsValidMachine(p.Target):
-		machine, err := c.api.state.Machine(p.Target)
+		machine, err := c.api.stateAccessor.Machine(p.Target)
 		if err != nil {
 			return results, err
 		}
@@ -180,7 +194,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		return params.PublicAddressResults{PublicAddress: addr}, nil
 
 	case names.IsValidUnit(p.Target):
-		unit, err := c.api.state.Unit(p.Target)
+		unit, err := c.api.stateAccessor.Unit(p.Target)
 		if err != nil {
 			return results, err
 		}
@@ -197,7 +211,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
 	switch {
 	case names.IsValidMachine(p.Target):
-		machine, err := c.api.state.Machine(p.Target)
+		machine, err := c.api.stateAccessor.Machine(p.Target)
 		if err != nil {
 			return results, err
 		}
@@ -208,7 +222,7 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		return params.PrivateAddressResults{PrivateAddress: addr}, nil
 
 	case names.IsValidUnit(p.Target):
-		unit, err := c.api.state.Unit(p.Target)
+		unit, err := c.api.stateAccessor.Unit(p.Target)
 		if err != nil {
 			return results, err
 		}
@@ -228,7 +242,7 @@ func (c *Client) ServiceExpose(args params.ServiceExpose) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := c.api.state.Service(args.ServiceName)
+	svc, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -242,7 +256,7 @@ func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := c.api.state.Service(args.ServiceName)
+	svc, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -257,7 +271,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	return service.DeployService(c.api.state, c.api.auth.GetAuthTag().String(), args)
+	return service.DeployService(c.api.state(), c.api.auth.GetAuthTag().String(), args)
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
@@ -280,7 +294,7 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 			return errors.Trace(err)
 		}
 	}
-	svc, err := c.api.state.Service(args.ServiceName)
+	svc, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -319,7 +333,7 @@ func (c *Client) serviceSetCharm(service *state.Service, url string, force bool)
 	if err != nil {
 		return err
 	}
-	sch, err := c.api.state.Charm(curl)
+	sch, err := c.api.stateAccessor.Charm(curl)
 	if errors.IsNotFound(err) {
 		// Charms should be added before trying to use them, with
 		// AddCharm or AddLocalCharm API calls. When they're not,
@@ -347,7 +361,7 @@ func (c *Client) serviceSetCharm1dot16(service *state.Service, curl *charm.URL, 
 	if err != nil {
 		return err
 	}
-	ch, err := c.api.state.Charm(curl)
+	ch, err := c.api.stateAccessor.Charm(curl)
 	if err != nil {
 		return err
 	}
@@ -397,7 +411,7 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 			return errors.Trace(err)
 		}
 	}
-	service, err := c.api.state.Service(args.ServiceName)
+	service, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -405,8 +419,8 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 }
 
 // addServiceUnits adds a given number of units to a service.
-func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
-	service, err := state.Service(args.ServiceName)
+func addServiceUnits(st *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
+	service, err := st.Service(args.ServiceName)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +430,7 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 
 	// New API uses placement directives.
 	if len(args.Placement) > 0 {
-		return jjj.AddUnitsWithPlacement(state, service, args.NumUnits, args.Placement)
+		return jjj.AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
 	}
 
 	// Otherwise we use the older machine spec.
@@ -425,12 +439,12 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	}
 
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
-		_, err = state.Machine(args.ToMachineSpec)
+		_, err = st.Machine(args.ToMachineSpec)
 		if err != nil {
 			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
-	return jjj.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
+	return jjj.AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -443,7 +457,7 @@ func (c *Client) AddServiceUnitsWithPlacement(args params.AddServiceUnits) (para
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.AddServiceUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addServiceUnits(c.api.state, args)
+	units, err := addServiceUnits(c.api.state(), args)
 	if err != nil {
 		return params.AddServiceUnitsResults{}, err
 	}
@@ -461,7 +475,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	}
 	var errs []string
 	for _, name := range args.UnitNames {
-		unit, err := c.api.state.Unit(name)
+		unit, err := c.api.stateAccessor.Unit(name)
 		switch {
 		case errors.IsNotFound(err):
 			err = fmt.Errorf("unit %q does not exist", name)
@@ -486,7 +500,7 @@ func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 	if err := c.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := c.api.state.Service(args.ServiceName)
+	svc, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -496,7 +510,7 @@ func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 // GetServiceConstraints returns the constraints for a given service.
 // TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
-	svc, err := c.api.state.Service(args.ServiceName)
+	svc, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return params.GetConstraintsResults{}, err
 	}
@@ -506,7 +520,7 @@ func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (param
 
 // GetEnvironmentConstraints returns the constraints for the environment.
 func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, error) {
-	cons, err := c.api.state.EnvironConstraints()
+	cons, err := c.api.stateAccessor.EnvironConstraints()
 	if err != nil {
 		return params.GetConstraintsResults{}, err
 	}
@@ -519,7 +533,7 @@ func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := c.api.state.Service(args.ServiceName)
+	svc, err := c.api.stateAccessor.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -531,7 +545,7 @@ func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	return c.api.state.SetEnvironConstraints(args.Constraints)
+	return c.api.stateAccessor.SetEnvironConstraints(args.Constraints)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
@@ -539,11 +553,11 @@ func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
-	inEps, err := c.api.state.InferEndpoints(args.Endpoints...)
+	inEps, err := c.api.stateAccessor.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, err
 	}
-	rel, err := c.api.state.AddRelation(inEps...)
+	rel, err := c.api.stateAccessor.AddRelation(inEps...)
 	if err != nil {
 		return params.AddRelationResults{}, err
 	}
@@ -563,11 +577,11 @@ func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	if err := c.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	eps, err := c.api.state.InferEndpoints(args.Endpoints...)
+	eps, err := c.api.stateAccessor.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return err
 	}
-	rel, err := c.api.state.EndpointsRelation(eps...)
+	rel, err := c.api.stateAccessor.EndpointsRelation(eps...)
 	if err != nil {
 		return err
 	}
@@ -630,7 +644,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	}
 
 	if p.Series == "" {
-		conf, err := c.api.state.EnvironConfig()
+		conf, err := c.api.stateAccessor.EnvironConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -639,7 +653,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 
 	var placementDirective string
 	if p.Placement != nil {
-		env, err := c.api.state.Environment()
+		env, err := c.api.stateAccessor.Environment()
 		if err != nil {
 			return nil, err
 		}
@@ -666,19 +680,19 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {
-		return c.api.state.AddOneMachine(template)
+		return c.api.stateAccessor.AddOneMachine(template)
 	}
 	if p.ParentId != "" {
-		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+		return c.api.stateAccessor.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
 	}
-	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
+	return c.api.stateAccessor.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	var result params.ProvisioningScriptResult
-	icfg, err := InstanceConfig(c.api.state, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, err
 	}
@@ -692,7 +706,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
-	} else if cfg, err := c.api.state.EnvironConfig(); err != nil {
+	} else if cfg, err := c.api.stateAccessor.EnvironConfig(); err != nil {
 		return result, err
 	} else {
 		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
@@ -707,7 +721,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	var errs []string
 	for _, id := range args.MachineNames {
-		machine, err := c.api.state.Machine(id)
+		machine, err := c.api.stateAccessor.Machine(id)
 		switch {
 		case errors.IsNotFound(err):
 			err = fmt.Errorf("machine %s does not exist", id)
@@ -737,7 +751,7 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	if err != nil {
 		return api.CharmInfo{}, err
 	}
-	charm, err := c.api.state.Charm(curl)
+	charm, err := c.api.stateAccessor.Charm(curl)
 	if err != nil {
 		return api.CharmInfo{}, err
 	}
@@ -754,7 +768,7 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
 func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
-	state := c.api.state
+	state := c.api.stateAccessor
 	conf, err := state.EnvironConfig()
 	if err != nil {
 		return api.EnvironmentInfo{}, err
@@ -798,13 +812,13 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 		switch arg.Action {
 		case params.AddEnvUser:
-			_, err := c.api.state.AddEnvironmentUser(user, createdBy, "")
+			_, err := c.api.stateAccessor.AddEnvironmentUser(user, createdBy, "")
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
 			}
 		case params.RemoveEnvUser:
-			err := c.api.state.RemoveEnvironmentUser(user)
+			err := c.api.stateAccessor.RemoveEnvironmentUser(user)
 			if err != nil {
 				err = errors.Annotate(err, "could not unshare environment")
 				result.Results[i].Error = common.ServerError(err)
@@ -819,7 +833,7 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 // EnvUserInfo returns information on all users in the environment.
 func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
 	var results params.EnvUserInfoResults
-	env, err := c.api.state.Environment()
+	env, err := c.api.stateAccessor.Environment()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -829,13 +843,22 @@ func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
 	}
 
 	for _, user := range users {
+		var lastConn *time.Time
+		userLastConn, err := user.LastConnection()
+		if err != nil {
+			if !state.IsNeverConnectedError(err) {
+				return results, errors.Trace(err)
+			}
+		} else {
+			lastConn = &userLastConn
+		}
 		results.Results = append(results.Results, params.EnvUserInfoResult{
 			Result: &params.EnvUserInfo{
 				UserName:       user.UserName(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
-				LastConnection: user.LastConnection(),
+				LastConnection: lastConn,
 			},
 		})
 	}
@@ -855,7 +878,7 @@ func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotatio
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
-	ann, err := c.api.state.Annotations(entity)
+	ann, err := c.api.stateAccessor.Annotations(entity)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -874,7 +897,7 @@ func (c *Client) parseEntityTag(tag0 string) (names.Tag, error) {
 }
 
 func (c *Client) findEntity(tag names.Tag) (state.GlobalEntity, error) {
-	entity0, err := c.api.state.FindEntity(tag)
+	entity0, err := c.api.stateAccessor.FindEntity(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -897,7 +920,7 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.api.state.SetAnnotations(entity, args.Pairs)
+	return c.api.stateAccessor.SetAnnotations(entity, args.Pairs)
 }
 
 // AgentVersion returns the current version that the API server is running.
@@ -910,7 +933,7 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
 	result := params.EnvironmentConfigResults{}
 	// Get the existing environment config from the state.
-	config, err := c.api.state.EnvironConfig()
+	config, err := c.api.stateAccessor.EnvironConfig()
 	if err != nil {
 		return result, err
 	}
@@ -939,7 +962,7 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-	return c.api.state.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
+	return c.api.stateAccessor.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
 }
 
 // EnvironmentUnset implements the server-side part of the
@@ -951,7 +974,7 @@ func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-	return c.api.state.UpdateEnvironConfig(nil, args.Keys, nil)
+	return c.api.stateAccessor.UpdateEnvironConfig(nil, args.Keys, nil)
 }
 
 // SetEnvironAgentVersion sets the environment agent version.
@@ -959,7 +982,7 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	return c.api.state.SetEnvironAgentVersion(args.Version)
+	return c.api.stateAccessor.SetEnvironAgentVersion(args.Version)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -968,7 +991,7 @@ func (c *Client) AbortCurrentUpgrade() error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	return c.api.state.AbortCurrentUpgrade()
+	return c.api.stateAccessor.AbortCurrentUpgrade()
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
@@ -989,7 +1012,7 @@ func destroyErr(desc string, ids, errs []string) error {
 }
 
 func (c *Client) AddCharm(args params.CharmURL) error {
-	return service.AddCharmWithAuthorization(c.api.state, params.AddCharmWithAuthorization{
+	return service.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
 		URL: args.URL,
 	})
 }
@@ -1001,13 +1024,13 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
 func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
-	return service.AddCharmWithAuthorization(c.api.state, args)
+	return service.AddCharmWithAuthorization(c.api.state(), args)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
-	return service.ResolveCharms(c.api.state, args)
+	return service.ResolveCharms(c.api.state(), args)
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
@@ -1027,7 +1050,7 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 // APIHostPorts returns the API host/port addresses stored in state.
 func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	var servers [][]network.HostPort
-	if servers, err = c.api.state.APIHostPorts(); err != nil {
+	if servers, err = c.api.stateAccessor.APIHostPorts(); err != nil {
 		return params.APIHostPortsResult{}, err
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
@@ -1043,7 +1066,7 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 	}
 	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
 	for i, stateServersSpec := range args.Specs {
-		result, err := highavailability.EnsureAvailabilitySingle(c.api.state, stateServersSpec)
+		result, err := highavailability.EnsureAvailabilitySingle(c.api.state(), stateServersSpec)
 		results.Results[i].Result = result
 		results.Results[i].Error = common.ServerError(err)
 	}
@@ -1057,6 +1080,6 @@ func (c *Client) DestroyEnvironment() (err error) {
 		return errors.Trace(err)
 	}
 
-	environTag := c.api.state.EnvironTag()
-	return errors.Trace(common.DestroyEnvironment(c.api.state, environTag))
+	environTag := c.api.stateAccessor.EnvironTag()
+	return errors.Trace(common.DestroyEnvironment(c.api.state(), environTag))
 }

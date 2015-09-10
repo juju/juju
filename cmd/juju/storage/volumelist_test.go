@@ -15,8 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
-	"fmt"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -160,10 +158,7 @@ func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshal
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.expect(c, []string{machine})
-	// This comparison cannot rely on gc.DeepEquals as
-	// json.Unmarshal unmarshalls the number as a float64,
-	// rather than an int
-	s.assertSameVolumeInfos(c, result, expected)
+	c.Assert(result, jc.DeepEquals, expected)
 
 	obtainedErr := testing.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, `
@@ -179,39 +174,6 @@ func (s *volumeListSuite) expect(c *gc.C, machines []string) map[string]map[stri
 	result, err := storage.ConvertToVolumeInfo(all)
 	c.Assert(err, jc.ErrorIsNil)
 	return result
-}
-
-func (s *volumeListSuite) assertSameVolumeInfos(c *gc.C, one, two map[string]map[string]map[string]storage.VolumeInfo) {
-	c.Assert(len(one), gc.Equals, len(two))
-
-	propertyCompare := func(a, b interface{}) {
-		// As some types may have been unmarshalled incorrectly, for example
-		// int versus float64, compare values' string representations
-		c.Assert(fmt.Sprintf("%v", a), jc.DeepEquals, fmt.Sprintf("%v", b))
-
-	}
-	for machineKey, machineVolumes1 := range one {
-		machineVolumes2, ok := two[machineKey]
-		c.Assert(ok, jc.IsTrue)
-		// these are maps
-		c.Assert(len(machineVolumes1), gc.Equals, len(machineVolumes2))
-		for unitKey, units1 := range machineVolumes1 {
-			units2, ok := machineVolumes2[unitKey]
-			c.Assert(ok, jc.IsTrue)
-			// these are maps
-			c.Assert(len(units1), gc.Equals, len(units2))
-			for storageKey, info1 := range units1 {
-				info2, ok := units2[storageKey]
-				c.Assert(ok, jc.IsTrue)
-				propertyCompare(info1.VolumeId, info2.VolumeId)
-				propertyCompare(info1.HardwareId, info2.HardwareId)
-				propertyCompare(info1.Size, info2.Size)
-				propertyCompare(info1.Persistent, info2.Persistent)
-				propertyCompare(info1.DeviceName, info2.DeviceName)
-				propertyCompare(info1.ReadOnly, info2.ReadOnly)
-			}
-		}
-	}
 }
 
 func (s *volumeListSuite) assertValidList(c *gc.C, args []string, expectedOut, expectedErr string) {
@@ -243,96 +205,81 @@ func (s mockVolumeListAPI) Close() error {
 	return nil
 }
 
-func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeItem, error) {
+func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsResult, error) {
 	if s.errOut != "" {
 		return nil, errors.New(s.errOut)
 	}
 	if s.listEmpty {
 		return nil, nil
 	}
-	result := []params.VolumeItem{}
+	result := []params.VolumeDetailsResult{}
 	if s.addErrItem {
-		result = append(result, params.VolumeItem{
+		result = append(result, params.VolumeDetailsResult{
 			Error: common.ServerError(errors.New("volume item error"))})
 	}
 	if s.listAll {
 		machines = []string{"25", "42"}
 		//unattached
-		result = append(result, s.createTestVolumeItem(
+		result = append(result, s.createTestVolumeDetailsResult(
 			"3/4", true, "db-dir/1000", "abc/0", nil,
 			createTestStatus(params.StatusDestroying, ""),
 		))
-		result = append(result, s.createTestVolumeItem(
+		result = append(result, s.createTestVolumeDetailsResult(
 			"3/3", false, "", "", nil,
 			createTestStatus(params.StatusDestroying, ""),
 		))
 	}
-	result = append(result, s.createTestVolumeItem(
+	result = append(result, s.createTestVolumeDetailsResult(
 		"0/1", true, "shared-fs/0", "postgresql/0", machines,
 		createTestStatus(params.StatusAttaching, "failed to attach"),
 	))
-	result = append(result, s.createTestVolumeItem(
+	result = append(result, s.createTestVolumeDetailsResult(
 		"0/abc/0/88", false, "shared-fs/0", "", machines,
 		createTestStatus(params.StatusAttached, ""),
 	))
 	return result, nil
 }
 
-func (s mockVolumeListAPI) createTestVolumeItem(
+func (s mockVolumeListAPI) createTestVolumeDetailsResult(
 	id string,
 	persistent bool,
 	storageid, unitid string,
 	machines []string,
 	status params.EntityStatus,
-) params.VolumeItem {
+) params.VolumeDetailsResult {
+
 	volume := s.createTestVolume(id, persistent, storageid, unitid, status)
-
-	// Create unattached volume
-	if len(machines) == 0 {
-		return params.VolumeItem{Volume: volume}
-	}
-
-	// Create volume attachments
-	attachments := make([]params.VolumeAttachment, len(machines))
+	volume.MachineAttachments = make(map[string]params.VolumeAttachmentInfo)
 	for i, machine := range machines {
-		attachments[i] = s.createTestAttachment(volume.VolumeTag, machine, i%2 == 0)
+		info := params.VolumeAttachmentInfo{
+			ReadOnly: i%2 == 0,
+		}
+		if s.fillDeviceName {
+			info.DeviceName = "testdevice"
+		}
+		machineTag := names.NewMachineTag(machine).String()
+		volume.MachineAttachments[machineTag] = info
 	}
-
-	return params.VolumeItem{
-		Volume:      volume,
-		Attachments: attachments,
-	}
+	return params.VolumeDetailsResult{Details: volume}
 }
 
-func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) params.VolumeInstance {
+func (s mockVolumeListAPI) createTestVolume(id string, persistent bool, storageid, unitid string, status params.EntityStatus) *params.VolumeDetails {
 	tag := names.NewVolumeTag(id)
-	result := params.VolumeInstance{
-		VolumeTag:  tag.String(),
-		VolumeId:   "provider-supplied-" + tag.Id(),
-		HardwareId: "serial blah blah",
-		Persistent: persistent,
-		Size:       uint64(1024),
-		Status:     status,
+	result := &params.VolumeDetails{
+		VolumeTag: tag.String(),
+		Info: params.VolumeInfo{
+			VolumeId:   "provider-supplied-" + tag.Id(),
+			HardwareId: "serial blah blah",
+			Persistent: persistent,
+			Size:       uint64(1024),
+		},
+		Status: status,
 	}
 	if storageid != "" {
 		result.StorageTag = names.NewStorageTag(storageid).String()
 	}
 	if unitid != "" {
-		result.UnitTag = names.NewUnitTag(unitid).String()
-	}
-	return result
-}
-
-func (s mockVolumeListAPI) createTestAttachment(volumeTag, machine string, readonly bool) params.VolumeAttachment {
-	result := params.VolumeAttachment{
-		VolumeTag:  volumeTag,
-		MachineTag: names.NewMachineTag(machine).String(),
-		Info: params.VolumeAttachmentInfo{
-			ReadOnly: readonly,
-		},
-	}
-	if s.fillDeviceName {
-		result.Info.DeviceName = "testdevice"
+		result.StorageOwnerTag = names.NewUnitTag(unitid).String()
 	}
 	return result
 }
