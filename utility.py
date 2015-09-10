@@ -349,6 +349,7 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
+    return output
 
 
 def to_unit_test(test_function):
