@@ -1,11 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version
+package series
 
 import (
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -13,19 +14,24 @@ import (
 	"github.com/juju/juju/juju/os"
 )
 
-var logger = loggo.GetLogger("juju.version")
+var logger = loggo.GetLogger("juju.juju.series")
 
-// mustOSVersion will panic if the osVersion is "unknown" due
-// to an error.
-//
-// If you want to avoid the panic, call osVersion and handle
-// the error.
-func mustOSVersion() string {
-	version, err := osVersion()
-	if err != nil {
-		panic("osVersion reported an error: " + err.Error())
-	}
-	return version
+var HostSeries = hostSeries
+
+var (
+	seriesOnce sync.Once
+	series     string // filled in by the first call to hostSeries
+)
+
+func hostSeries() string {
+	seriesOnce.Do(func() {
+		var err error
+		series, err = readSeries()
+		if err != nil {
+			panic("unable to determine host series: " + err.Error())
+		}
+	})
+	return series
 }
 
 // MustOSFromSeries will panic if the series represents an "unknown"
@@ -64,7 +70,7 @@ func macOSXSeriesFromKernelVersion(getKernelVersion func() (string, error)) (str
 // TODO(jam): 2014-05-06 https://launchpad.net/bugs/1316593
 // we should have a system file that we can read so this can be updated without
 // recompiling Juju. For now, this is a lot easier, and also solves the fact
-// that we want to populate version.Current.Series during init() time, before
+// that we want to populate HostSeries during init() time, before
 // we've potentially read that information from anywhere else
 // macOSXSeries maps from the Darwin Kernel Major Version to the Mac OSX
 // series.

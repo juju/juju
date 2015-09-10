@@ -3,7 +3,7 @@
 
 // +build !linux
 
-package version
+package series
 
 // TODO(ericsnow) Refactor dependents so we can remove this for non-linux.
 

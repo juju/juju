@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version_test
+package series_test
 
 import (
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type kernelVersionSuite struct {
@@ -29,19 +29,19 @@ func sysctlError() (string, error) {
 }
 
 func (*kernelVersionSuite) TestKernelToMajorVersion(c *gc.C) {
-	majorVersion, err := version.KernelToMajor(sysctlMacOS10dot9dot2)
+	majorVersion, err := series.KernelToMajor(sysctlMacOS10dot9dot2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(majorVersion, gc.Equals, 13)
 }
 
 func (*kernelVersionSuite) TestKernelToMajorVersionError(c *gc.C) {
-	majorVersion, err := version.KernelToMajor(sysctlError)
+	majorVersion, err := series.KernelToMajor(sysctlError)
 	c.Assert(err, gc.ErrorMatches, "no such syscall")
 	c.Check(majorVersion, gc.Equals, 0)
 }
 
 func (*kernelVersionSuite) TestKernelToMajorVersionNoDots(c *gc.C) {
-	majorVersion, err := version.KernelToMajor(func() (string, error) {
+	majorVersion, err := series.KernelToMajor(func() (string, error) {
 		return "1234", nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,7 +49,7 @@ func (*kernelVersionSuite) TestKernelToMajorVersionNoDots(c *gc.C) {
 }
 
 func (*kernelVersionSuite) TestKernelToMajorVersionNotInt(c *gc.C) {
-	majorVersion, err := version.KernelToMajor(func() (string, error) {
+	majorVersion, err := series.KernelToMajor(func() (string, error) {
 		return "a.b.c", nil
 	})
 	c.Assert(err, gc.ErrorMatches, `strconv.ParseInt: parsing "a": invalid syntax`)
@@ -57,7 +57,7 @@ func (*kernelVersionSuite) TestKernelToMajorVersionNotInt(c *gc.C) {
 }
 
 func (*kernelVersionSuite) TestKernelToMajorVersionEmpty(c *gc.C) {
-	majorVersion, err := version.KernelToMajor(func() (string, error) {
+	majorVersion, err := series.KernelToMajor(func() (string, error) {
 		return "", nil
 	})
 	c.Assert(err, gc.ErrorMatches, `strconv.ParseInt: parsing "": invalid syntax`)
@@ -65,7 +65,7 @@ func (*kernelVersionSuite) TestKernelToMajorVersionEmpty(c *gc.C) {
 }
 
 func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersion(c *gc.C) {
-	series, err := version.MacOSXSeriesFromKernelVersion(sysctlMacOS10dot9dot2)
+	series, err := series.MacOSXSeriesFromKernelVersion(sysctlMacOS10dot9dot2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(series, gc.Equals, "mavericks")
 }
@@ -73,10 +73,10 @@ func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersion(c *gc.C) {
 func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersionError(c *gc.C) {
 	// We suppress the actual error in favor of returning "unknown", but we
 	// do log the error
-	series, err := version.MacOSXSeriesFromKernelVersion(sysctlError)
+	series, err := series.MacOSXSeriesFromKernelVersion(sysctlError)
 	c.Assert(err, gc.ErrorMatches, "no such syscall")
 	c.Assert(series, gc.Equals, "unknown")
-	c.Check(c.GetTestLog(), gc.Matches, ".* juju.version unable to determine OS version: no such syscall\n")
+	c.Check(c.GetTestLog(), gc.Matches, ".* juju.juju.series unable to determine OS version: no such syscall\n")
 }
 
 func (*kernelVersionSuite) TestMacOSXSeries(c *gc.C) {
@@ -94,7 +94,7 @@ func (*kernelVersionSuite) TestMacOSXSeries(c *gc.C) {
 		{version: 0, series: "unknown", err: `unknown series ""`},
 	}
 	for _, test := range tests {
-		series, err := version.MacOSXSeriesFromMajorVersion(test.version)
+		series, err := series.MacOSXSeriesFromMajorVersion(test.version)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {

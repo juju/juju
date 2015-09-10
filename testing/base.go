@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/juju/arch"
 	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/wrench"
@@ -227,7 +228,7 @@ type PackageManagerStruct struct {
 }
 
 func GetPackageManager() (s PackageManagerStruct, err error) {
-	os, err := version.GetOSFromSeries(version.Current.Series)
+	os, err := series.GetOSFromSeries(version.Current.Series)
 	if err != nil {
 		return s, err
 	}

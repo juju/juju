@@ -2,7 +2,7 @@
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package version
+package series
 
 import (
 	"strings"
@@ -29,7 +29,7 @@ func getVersionFromRegistry() (string, error) {
 	return s, nil
 }
 
-func osVersion() (string, error) {
+func readSeries() (string, error) {
 	ver, err := getVersionFromRegistry()
 	if err != nil {
 		return "unknown", err
