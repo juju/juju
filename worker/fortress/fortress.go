@@ -83,11 +83,15 @@ func (f *fortress) loop() error {
 	var active sync.WaitGroup
 	defer active.Wait()
 
+	// guestTickets will be set on Unlock and cleared at the start of Lockdown.
 	var guestTickets <-chan guestTicket
 	for {
 		select {
 		case <-f.tomb.Dying():
 			return tomb.ErrDying
+		case ticket := <-guestTickets:
+			active.Add(1)
+			go ticket.complete(active.Done)
 		case ticket := <-f.guardTickets:
 			if ticket.allowGuests {
 				guestTickets = f.guestTickets
@@ -95,9 +99,6 @@ func (f *fortress) loop() error {
 				guestTickets = nil
 			}
 			go ticket.complete(active.Wait)
-		case ticket := <-guestTickets:
-			active.Add(1)
-			go ticket.complete(active.Done)
 		}
 	}
 }
@@ -112,7 +113,7 @@ type guardTicket struct {
 // complete unconditionally sends a single value on ticket.result; either nil
 // (when the desired state is reached) or ErrAborted (when the ticket's Abort
 // is closed). It should be called on its own goroutine.
-func (ticket guardTicket) complete(waitLocked func()) {
+func (ticket guardTicket) complete(waitLockedDown func()) {
 	var result error
 	defer func() {
 		ticket.result <- result
@@ -120,8 +121,10 @@ func (ticket guardTicket) complete(waitLocked func()) {
 
 	done := make(chan struct{})
 	go func() {
+		// If we're locking down, we should wait for all Visits to complete.
+		// If not, Visits are already being accepted and we're already done.
 		if !ticket.allowGuests {
-			waitLocked()
+			waitLockedDown()
 		}
 		close(done)
 	}()

@@ -236,17 +236,8 @@ func (s *FortressSuite) TestVisitUnblocksLockdown(c *gc.C) {
 	defer fix.TearDown(c)
 
 	// Start a long Visit to an unlocked fortress.
-	err := fix.Guard(c).Unlock()
-	c.Assert(err, jc.ErrorIsNil)
-	unblock := make(chan struct{}, 1)
-	defer close(unblock)
-	go func() {
-		err := fix.Guest(c).Visit(func() error {
-			<-unblock
-			return nil
-		}, nil)
-		c.Check(err, jc.ErrorIsNil)
-	}()
+	unblockVisit := fix.startBlockingVisit(c)
+	defer close(unblockVisit)
 
 	// Start a Lockdown call, and check that nothing progresses...
 	locked := make(chan error, 1)
@@ -263,7 +254,7 @@ func (s *FortressSuite) TestVisitUnblocksLockdown(c *gc.C) {
 	AssertLocked(c, fix.Guest(c))
 
 	// Complete the running Visit, and check that the Lockdown completes too.
-	unblock <- struct{}{}
+	unblockVisit <- struct{}{}
 	select {
 	case err := <-locked:
 		c.Check(err, jc.ErrorIsNil)
@@ -277,17 +268,8 @@ func (s *FortressSuite) TestAbortedLockdownStillLocks(c *gc.C) {
 	defer fix.TearDown(c)
 
 	// Start a long Visit to an unlocked fortress.
-	err := fix.Guard(c).Unlock()
-	c.Assert(err, jc.ErrorIsNil)
-	unblock := make(chan struct{}, 1)
-	defer close(unblock)
-	go func() {
-		err := fix.Guest(c).Visit(func() error {
-			<-unblock
-			return nil
-		}, nil)
-		c.Check(err, jc.ErrorIsNil)
-	}()
+	unblockVisit := fix.startBlockingVisit(c)
+	defer close(unblockVisit)
 
 	// Start a Lockdown call, and check that nothing progresses...
 	locked := make(chan error, 1)
@@ -319,23 +301,14 @@ func (s *FortressSuite) TestAbortedLockdownUnlock(c *gc.C) {
 	defer fix.TearDown(c)
 
 	// Start a long Visit to an unlocked fortress.
-	guard := fix.Guard(c)
-	err := guard.Unlock()
-	c.Assert(err, jc.ErrorIsNil)
-	unblock := make(chan struct{}, 1)
-	defer close(unblock)
-	go func() {
-		err := fix.Guest(c).Visit(func() error {
-			<-unblock
-			return nil
-		}, nil)
-		c.Check(err, jc.ErrorIsNil)
-	}()
+	unblockVisit := fix.startBlockingVisit(c)
+	defer close(unblockVisit)
 
 	// Start and abort a Lockdown.
 	abort := make(chan struct{})
 	close(abort)
-	err = guard.Lockdown(abort)
+	guard := fix.Guard(c)
+	err := guard.Lockdown(abort)
 	c.Assert(err, gc.Equals, fortress.ErrAborted)
 
 	// Unlock the fortress again, leaving the original visit running, and
