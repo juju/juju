@@ -38,6 +38,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
+	"github.com/juju/juju/api/statushistory"
 	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
@@ -862,9 +863,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
 			})
-			runner.StartWorker("statushistorypruner", func() (worker.Worker, error) {
-				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
-			})
 
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
@@ -1214,6 +1212,11 @@ func (a *MachineAgent) startEnvWorkers(
 	} else {
 		logger.Debugf("not starting firewaller worker - firewall-mode is %q", fwMode)
 	}
+
+	singularRunner.StartWorker("statushistorypruner", func() (worker.Worker, error) {
+		f := statushistory.NewFacade(apiSt)
+		return statushistorypruner.New(f, statushistorypruner.NewHistoryPrunerParams()), nil
+	})
 
 	return runner, nil
 }

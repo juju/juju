@@ -42,10 +42,30 @@ func (t *mockTimer) fire() error {
 	return nil
 }
 
-func newMockTimer(d time.Duration) worker.PeriodicTimer {
+func newMockTimer(d time.Duration) *mockTimer {
 	return &mockTimer{period: make(chan time.Duration, 1),
 		c: make(chan time.Time),
 	}
+}
+
+type fakeFacade struct {
+	passedMaxLogs chan int
+}
+
+func newFakeFacade() *fakeFacade {
+	return &fakeFacade{
+		passedMaxLogs: make(chan int, 1),
+	}
+}
+
+// Prune implements Facade
+func (f *fakeFacade) Prune(maxLogs int) error {
+	select {
+	case f.passedMaxLogs <- maxLogs:
+	case <-time.After(coretesting.LongWait):
+		return errors.New("timed out waiting for facade call Prune to run")
+	}
+	return nil
 }
 
 var _ = gc.Suite(&statusHistoryPrunerSuite{})
@@ -54,7 +74,7 @@ type statusHistoryPrunerSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
+func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
 	var passedMaxLogs chan int
 	passedMaxLogs = make(chan int, 1)
 	fakePruner := func(maxLogs int) error {
@@ -73,8 +93,8 @@ func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
 		c.Assert(d, gc.Equals, 0*time.Nanosecond)
 		return fakeTimer
 	}
-	pruner := statushistorypruner.NewPruneWorker(
-		nil,
+	pruner := statushistorypruner.NewPruneWorkerWithPrune(
+		newFakeFacade(),
 		&params,
 		fakeTimerFunc,
 		fakePruner,
@@ -83,7 +103,7 @@ func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
 		pruner.Kill()
 		c.Assert(pruner.Wait(), jc.ErrorIsNil)
 	})
-	err := fakeTimer.(*mockTimer).fire()
+	err := fakeTimer.fire()
 	c.Check(err, jc.ErrorIsNil)
 	var passedLogs int
 	select {
@@ -95,9 +115,44 @@ func (s *statusHistoryPrunerSuite) TestWorker(c *gc.C) {
 	// Reset will have been called with the actual PruneInterval
 	var period time.Duration
 	select {
-	case period = <-fakeTimer.(*mockTimer).period:
+	case period = <-fakeTimer.period:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for period reset by pruner")
 	}
 	c.Assert(period, gc.Equals, coretesting.ShortWait)
+}
+
+func (s *statusHistoryPrunerSuite) TestPruneCallsFacade(c *gc.C) {
+	params := statushistorypruner.HistoryPrunerParams{
+		MaxLogsPerState: 3,
+		PruneInterval:   coretesting.ShortWait,
+	}
+	fakeTimer := newMockTimer(coretesting.LongWait)
+
+	fakeTimerFunc := func(d time.Duration) worker.PeriodicTimer {
+		// construction of timer should be with 0 because we intend it to
+		// run once before waiting.
+		c.Assert(d, gc.Equals, 0*time.Nanosecond)
+		return fakeTimer
+	}
+	facade := newFakeFacade()
+	pruner := statushistorypruner.NewPruneWorker(
+		facade,
+		&params,
+		fakeTimerFunc,
+	)
+
+	s.AddCleanup(func(*gc.C) {
+		pruner.Kill()
+		c.Assert(pruner.Wait(), jc.ErrorIsNil)
+	})
+	err := fakeTimer.fire()
+	c.Check(err, jc.ErrorIsNil)
+	var passedLogs int
+	select {
+	case passedLogs = <-facade.passedMaxLogs:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for passed logs to pruner facade")
+	}
+	c.Assert(passedLogs, gc.Equals, 3)
 }

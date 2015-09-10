@@ -3,16 +3,18 @@
 
 package statushistorypruner
 
-import (
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/worker"
-)
+import "github.com/juju/juju/worker"
 
-func NewPruneWorker(api api.Connection, params *HistoryPrunerParams, t worker.NewTimerFunc, prune pruneFunc) worker.Worker {
-	w := &pruneWorker{
-		statusHistory: nil,
+func NewPruneWorkerWithPrune(f Facade, params *HistoryPrunerParams, t worker.NewTimerFunc, prune pruneFunc) worker.Worker {
+	w := &pruner{
+		statusHistory: f,
 		params:        params,
 		prune:         prune,
 	}
+	return worker.NewPeriodicWorker(w.doPruning, w.params.PruneInterval, t)
+}
+
+func NewPruneWorker(f Facade, params *HistoryPrunerParams, t worker.NewTimerFunc) worker.Worker {
+	w := newPruner(f, params)
 	return worker.NewPeriodicWorker(w.doPruning, w.params.PruneInterval, t)
 }
