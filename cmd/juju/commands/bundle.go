@@ -7,20 +7,29 @@ import (
 	"fmt"
 
 	"github.com/juju/bundlechanges"
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 )
 
+// deploymentLogger is used to notify clients about the bundle deployment
+// progress.
+type deploymentLogger interface {
+	// Infof formats and logs the given message.
+	Infof(string, ...interface{})
+}
+
 // deployBundle deploys the given bundle data using the given API client and
 // charm store client. The deployment is not transactional, and its progress is
-// notified using the given command context.
-func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient, repoPath string, conf *config.Config, ctx *cmd.Context) error {
-	// TODO frankban: provide a verifyConstraints function.
-	if err := data.Verify(nil); err != nil {
+// notified using the given deployment logger.
+func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient, repoPath string, conf *config.Config, log deploymentLogger) error {
+	if err := data.Verify(func(s string) error {
+		_, err := constraints.Parse(s)
+		return err
+	}); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 
@@ -33,7 +42,7 @@ func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient
 		csclient: csclient,
 		repoPath: repoPath,
 		conf:     conf,
-		ctx:      ctx,
+		log:      log,
 		data:     data,
 	}
 	for _, change := range changes {
@@ -73,7 +82,7 @@ type bundleHandler struct {
 	csclient *csClient
 	repoPath string
 	conf     *config.Config
-	ctx      *cmd.Context
+	log      deploymentLogger
 	data     *charm.BundleData
 }
 
@@ -86,7 +95,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 	if url.Series == "bundle" {
 		return errors.New(fmt.Sprintf("expected charm URL, got bundle URL %q", p.Charm))
 	}
-	h.ctx.Infof("adding charm %s", url)
+	h.log.Infof("adding charm %s", url)
 	url, err = addCharmViaAPI(h.client, url, repo, h.csclient)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", url)

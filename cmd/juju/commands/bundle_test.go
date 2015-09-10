@@ -202,6 +202,17 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidData(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: negative number of units specified on service "mysql"`)
 }
 
+func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidConstraints(c *gc.C) {
+	_, err := s.deployBundleYAML(c, `
+        services:
+            mysql:
+                charm: mysql
+                num_units: 1
+                constraints: bad-wolf
+    `)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: invalid constraints "bad-wolf" in service "mysql": malformed constraint "bad-wolf"`)
+}
+
 func (s *deployRepoCharmStoreSuite) TestDeployBundleInception(c *gc.C) {
 	_, err := s.deployBundleYAML(c, `
         services:
