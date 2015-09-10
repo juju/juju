@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -171,7 +172,7 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
-	info, err := common.StorageAttachmentInfo(s.st, stateStorageAttachment, machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(s.st, stateStorageAttachment, machineTag)
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
@@ -266,7 +267,7 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	if err != nil {
 		return nothing, err
 	}
-	watch, err := common.WatchStorageAttachment(s.st, storageTag, machineTag, unitTag)
+	watch, err := storagecommon.WatchStorageAttachment(s.st, storageTag, machineTag, unitTag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}

@@ -20,7 +20,6 @@ type FactoryParams struct {
 	Callbacks      Callbacks
 	StorageUpdater StorageUpdater
 	Abort          <-chan struct{}
-	MetricSender   apiMetricSender
 	MetricSpoolDir string
 }
 
@@ -34,18 +33,6 @@ func NewFactory(params FactoryParams) Factory {
 
 type factory struct {
 	config FactoryParams
-}
-
-// newResolved wraps the supplied operation such that it will clear the uniter
-// resolve flag before executing.
-func (f *factory) newResolved(wrapped Operation) (Operation, error) {
-	if wrapped == nil {
-		return nil, errors.New("operation required")
-	}
-	return &resolvedOperation{
-		Operation: wrapped,
-		callbacks: f.config.Callbacks,
-	}, nil
 }
 
 // newDeploy is the common code for creating arbitrary deploy operations.
@@ -78,20 +65,12 @@ func (f *factory) NewUpgrade(charmURL *corecharm.URL) (Operation, error) {
 
 // NewRevertUpgrade is part of the Factory interface.
 func (f *factory) NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error) {
-	charmOp, err := f.newDeploy(Upgrade, charmURL, true, false)
-	if err != nil {
-		return nil, err
-	}
-	return f.newResolved(charmOp)
+	return f.newDeploy(Upgrade, charmURL, true, false)
 }
 
 // NewResolvedUpgrade is part of the Factory interface.
 func (f *factory) NewResolvedUpgrade(charmURL *corecharm.URL) (Operation, error) {
-	charmOp, err := f.newDeploy(Upgrade, charmURL, false, true)
-	if err != nil {
-		return nil, err
-	}
-	return f.newResolved(charmOp)
+	return f.newDeploy(Upgrade, charmURL, false, true)
 }
 
 // NewRunHook is part of the Factory interface.
@@ -106,22 +85,13 @@ func (f *factory) NewRunHook(hookInfo hook.Info) (Operation, error) {
 	}, nil
 }
 
-// NewRetryHook is part of the Factory interface.
-func (f *factory) NewRetryHook(hookInfo hook.Info) (Operation, error) {
-	hookOp, err := f.NewRunHook(hookInfo)
-	if err != nil {
-		return nil, err
-	}
-	return f.newResolved(hookOp)
-}
-
 // NewSkipHook is part of the Factory interface.
 func (f *factory) NewSkipHook(hookInfo hook.Info) (Operation, error) {
 	hookOp, err := f.NewRunHook(hookInfo)
 	if err != nil {
 		return nil, err
 	}
-	return f.newResolved(&skipOperation{hookOp})
+	return &skipOperation{hookOp}, nil
 }
 
 // NewAction is part of the Factory interface.
@@ -158,14 +128,6 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 	}, nil
 }
 
-// NewUpdateRelations is part of the Factory interface.
-func (f *factory) NewUpdateRelations(ids []int) (Operation, error) {
-	return &updateRelations{
-		ids:       ids,
-		callbacks: f.config.Callbacks,
-	}, nil
-}
-
 // NewUpdateStorage is part of the Factory interface.
 func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
 	return &updateStorage{
@@ -182,12 +144,4 @@ func (f *factory) NewResignLeadership() (Operation, error) {
 // NewAcceptLeadership is part of the Factory interface.
 func (f *factory) NewAcceptLeadership() (Operation, error) {
 	return &acceptLeadership{}, nil
-}
-
-// NewSendMetrics is part of the Factory interface.
-func (f *factory) NewSendMetrics() (Operation, error) {
-	return &sendMetrics{
-		sender:   f.config.MetricSender,
-		spoolDir: f.config.MetricSpoolDir,
-	}, nil
 }

@@ -82,6 +82,9 @@ type EnvCommandBase struct {
 	// compatVersion defines the minimum CLI version
 	// that this command should be compatible with.
 	compatVerson *int
+
+	envGetterClient EnvironmentGetter
+	envGetterErr    error
 }
 
 func (c *EnvCommandBase) SetEnvName(envName string) {
@@ -96,6 +99,20 @@ func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
 	return root.Client(), nil
 }
 
+// NewEnvironmentGetter returns a new object which implements the
+// EnvironmentGetter interface.
+func (c *EnvCommandBase) NewEnvironmentGetter() (EnvironmentGetter, error) {
+	if c.envGetterErr != nil {
+		return nil, c.envGetterErr
+	}
+
+	if c.envGetterClient != nil {
+		return c.envGetterClient, nil
+	}
+
+	return c.NewAPIClient()
+}
+
 func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the EnvName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
@@ -106,12 +123,34 @@ func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	return juju.NewAPIFromName(c.envName)
 }
 
-func (c *EnvCommandBase) Config(store configstore.Storage) (*config.Config, error) {
+// Config returns the configuration for the environment; obtaining bootstrap
+// information from the API if necessary.  If callers already have an active
+// client API connection, it will be used.  Otherwise, a new API connection will
+// be used if necessary.
+func (c *EnvCommandBase) Config(store configstore.Storage, client EnvironmentGetter) (*config.Config, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
 	cfg, _, err := environs.ConfigForName(c.envName, store)
-	return cfg, err
+	if err == nil {
+		return cfg, nil
+	} else if !environs.IsEmptyConfig(err) {
+		return nil, errors.Trace(err)
+	}
+
+	if client == nil {
+		client, err = c.NewEnvironmentGetter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer client.Close()
+	}
+
+	bootstrapCfg, err := client.EnvironmentGet()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return config.New(config.NoDefaults, bootstrapCfg)
 }
 
 // ConnectionCredentials returns the credentials used to connect to the API for
@@ -302,6 +341,7 @@ func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext
 
 type EnvironmentGetter interface {
 	EnvironmentGet() (map[string]interface{}, error)
+	Close() error
 }
 
 // GetEnvironmentVersion retrieves the environment's agent-version

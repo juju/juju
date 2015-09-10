@@ -19,12 +19,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/juju/arch"
+	jujuos "github.com/juju/juju/juju/os"
 )
 
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.25-alpha1"
+const version = "1.26-alpha1"
 
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = MustParse("1.19.9")
@@ -85,7 +86,7 @@ type Binary struct {
 	Number
 	Series string
 	Arch   string
-	OS     OSType
+	OS     jujuos.OSType
 }
 
 func (v Binary) String() string {
@@ -341,17 +342,6 @@ func (v Number) IsDev() bool {
 		return isOdd(v.Minor) || v.Build > 0
 	}
 	return v.Tag != "" || v.Build > 0
-}
-
-// ReleaseVersion looks for the value of VERSION_ID in the content of
-// the os-release.  If the value is not found, the file is not found, or
-// an error occurs reading the file, an empty string is returned.
-func ReleaseVersion() string {
-	release, err := readOSRelease()
-	if err != nil {
-		return ""
-	}
-	return release["VERSION_ID"]
 }
 
 // ParseMajorMinor takes an argument of the form "major.minor" and returns ints major and minor.

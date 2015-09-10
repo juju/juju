@@ -14,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/version"
 )
 
 var limitMap = map[string]string{
@@ -43,15 +43,12 @@ type confRenderer interface {
 }
 
 func syslogUserGroup() (string, string) {
-	var user, group string
-	switch version.Current.OS {
-	case version.CentOS:
-		user, group = "root", "adm"
+	switch os.HostOS() {
+	case os.CentOS:
+		return "root", "adm"
 	default:
-		user, group = "syslog", "syslog"
+		return "syslog", "syslog"
 	}
-
-	return user, group
 }
 
 // normalize adjusts the conf to more standardized content and

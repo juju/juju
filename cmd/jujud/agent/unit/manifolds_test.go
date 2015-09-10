@@ -4,11 +4,13 @@
 package unit_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
 )
 
 type ManifoldsSuite struct {
@@ -33,41 +35,41 @@ func (s *ManifoldsSuite) TestAcyclic(c *gc.C) {
 	manifolds := unit.Manifolds(unit.ManifoldsConfig{
 		Agent: fakeAgent{},
 	})
-	count := len(manifolds)
+	err := dependency.Validate(manifolds)
+	c.Assert(err, jc.ErrorIsNil)
+}
 
-	// Set of vars for depth-first topological sort of manifolds. (Note that,
-	// because we've already got outgoing links stored conveniently, we're
-	// actually checking the transpose of the dependency graph. Cycles will
-	// still be cycles in either direction, though.)
-	done := make(map[string]bool)
-	doing := make(map[string]bool)
-	sorted := make([]string, 0, count)
-
-	// Stupid _-suffix malarkey allows recursion. Seems cleaner to keep these
-	// considerations inside this func than to embody the algorithm in a type.
-	visit := func(node string) {}
-	visit_ := func(node string) {
-		if doing[node] {
-			c.Fatalf("cycle detected at %q (considering: %v)", node, doing)
-		}
-		if !done[node] {
-			doing[node] = true
-			for _, input := range manifolds[node].Inputs {
-				visit(input)
-			}
-			done[node] = true
-			doing[node] = false
-			sorted = append(sorted, node)
-		}
+func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
+	config := unit.ManifoldsConfig{
+		Agent:               nil,
+		LogSource:           nil,
+		LeadershipGuarantee: 0,
 	}
-	visit = visit_
 
-	// Actually sort them, or fail if we find a cycle.
-	for node := range manifolds {
-		visit(node)
+	manifolds := unit.Manifolds(config)
+	expectedKeys := []string{
+		unit.AgentName,
+		unit.APIAdddressUpdaterName,
+		unit.APICallerName,
+		unit.APIInfoGateName,
+		unit.LeadershipTrackerName,
+		unit.LoggingConfigUpdaterName,
+		unit.LogSenderName,
+		unit.MachineLockName,
+		unit.ProxyConfigUpdaterName,
+		unit.RsyslogConfigUpdaterName,
+		unit.UniterName,
+		unit.UpgraderName,
+		unit.MetricSpoolName,
+		unit.MetricCollectName,
+		unit.MetricSenderName,
+		unit.CharmDirName,
 	}
-	c.Logf("got: %v", sorted)
-	c.Check(sorted, gc.HasLen, count) // Final sanity check.
+	keys := make([]string, 0, len(manifolds))
+	for k := range manifolds {
+		keys = append(keys, k)
+	}
+	c.Assert(expectedKeys, jc.SameContents, keys)
 }
 
 type fakeAgent struct {

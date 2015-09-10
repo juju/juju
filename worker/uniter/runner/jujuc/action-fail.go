@@ -16,8 +16,8 @@ type ActionFailCommand struct {
 }
 
 // NewActionFailCommand returns a new ActionFailCommand with the given context.
-func NewActionFailCommand(ctx Context) cmd.Command {
-	return &ActionFailCommand{ctx: ctx}
+func NewActionFailCommand(ctx Context) (cmd.Command, error) {
+	return &ActionFailCommand{ctx: ctx}, nil
 }
 
 // Info returns the content for --help.

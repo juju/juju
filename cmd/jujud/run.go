@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -161,8 +161,8 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 // application specific settings (proxy settings in firefox ignore
 // registry values on Windows).
 func (c *RunCommand) appendProxyToCommands() string {
-	switch version.Current.OS {
-	case version.Ubuntu:
+	switch jujuos.HostOS() {
+	case jujuos.Ubuntu:
 		return `[ -f "/home/ubuntu/.juju-proxy" ] && . "/home/ubuntu/.juju-proxy"` + "\n" + c.commands
 	default:
 		return c.commands

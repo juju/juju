@@ -12,10 +12,11 @@ import (
 )
 
 type formattedStatus struct {
-	Environment string                   `json:"environment"`
-	Machines    map[string]machineStatus `json:"machines"`
-	Services    map[string]serviceStatus `json:"services"`
-	Networks    map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+	Environment      string                   `json:"environment"`
+	AvailableVersion string                   `json:"available-version,omitempty" yaml:"available-version,omitempty"`
+	Machines         map[string]machineStatus `json:"machines"`
+	Services         map[string]serviceStatus `json:"services"`
+	Networks         map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
 }
 
 type errorStatus struct {

@@ -347,7 +347,7 @@ type EntityStatus struct {
 	Since  *time.Time
 }
 
-// EntityStatus holds parameters for setting the status of a single entity.
+// EntityStatusArgs holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
 	Tag    string
 	Status Status
@@ -551,13 +551,14 @@ type AgentVersionResult struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
-	Constraints constraints.Value
-	Series      string
-	Placement   string
-	Networks    []string
-	Jobs        []multiwatcher.MachineJob
-	Volumes     []VolumeParams
-	Tags        map[string]string
+	Constraints    constraints.Value
+	Series         string
+	Placement      string
+	Networks       []string
+	Jobs           []multiwatcher.MachineJob
+	Volumes        []VolumeParams
+	Tags           map[string]string
+	SubnetsToZones map[string][]string
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

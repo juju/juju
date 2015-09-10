@@ -87,6 +87,7 @@ type BaseSuiteUnpatched struct {
 
 	Addresses     []network.Address
 	BaseInstance  *google.Instance
+	BaseDisk      *google.Disk
 	Instance      *environInstance
 	InstName      string
 	Metadata      map[string]string
@@ -161,6 +162,14 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.InstanceType = allInstanceTypes[0]
+	// Storage
+	s.BaseDisk = &google.Disk{
+		Id:     1234567,
+		Name:   "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:   "home-zone",
+		Status: google.StatusReady,
+		Size:   1024,
+	}
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
@@ -422,6 +431,10 @@ type fakeConnCall struct {
 	FirewallName string
 	PortRanges   []network.PortRange
 	Region       string
+	Disks        []google.DiskSpec
+	VolumeName   string
+	InstanceId   string
+	Mode         string
 }
 
 type fakeConn struct {
@@ -431,6 +444,12 @@ type fakeConn struct {
 	Insts      []google.Instance
 	PortRanges []network.PortRange
 	Zones      []google.AvailabilityZone
+
+	GoogleDisks   []*google.Disk
+	GoogleDisk    *google.Disk
+	AttachedDisk  *google.AttachedDisk
+	AttachedDisks []*google.AttachedDisk
+
 	Err        error
 	FailOnCall int
 }
@@ -517,6 +536,71 @@ func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone,
 		Region:   region,
 	})
 	return fc.Zones, fc.err()
+}
+
+func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*google.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "CreateDisks",
+		ZoneName: zone,
+		Disks:    disks,
+	})
+	return fc.GoogleDisks, fc.err()
+}
+
+func (fc *fakeConn) Disks(zone string) ([]*google.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Disks",
+		ZoneName: zone,
+	})
+	return fc.GoogleDisks, fc.err()
+}
+
+func (fc *fakeConn) RemoveDisk(zone, id string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "RemoveDisk",
+		ZoneName: zone,
+		ID:       id,
+	})
+	return fc.err()
+}
+
+func (fc *fakeConn) Disk(zone, id string) (*google.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Disk",
+		ZoneName: zone,
+		ID:       id,
+	})
+	return fc.GoogleDisk, fc.err()
+}
+
+func (fc *fakeConn) AttachDisk(zone, volumeName, instanceId string, mode google.DiskMode) (*google.AttachedDisk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "AttachDisk",
+		ZoneName:   zone,
+		VolumeName: volumeName,
+		InstanceId: instanceId,
+		Mode:       string(mode),
+	})
+	return fc.AttachedDisk, fc.err()
+}
+
+func (fc *fakeConn) DetachDisk(zone, instanceId, volumeName string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "DetachDisk",
+		ZoneName:   zone,
+		InstanceId: instanceId,
+		VolumeName: volumeName,
+	})
+	return fc.err()
+}
+
+func (fc *fakeConn) InstanceDisks(zone, instanceId string) ([]*google.AttachedDisk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "InstanceDisks",
+		ZoneName:   zone,
+		InstanceId: instanceId,
+	})
+	return fc.AttachedDisks, fc.err()
 }
 
 func (fc *fakeConn) WasCalled(funcName string) (bool, []fakeConnCall) {

@@ -477,27 +477,69 @@ func (f *VolumeFilter) IsEmpty() bool {
 	return len(f.Machines) == 0
 }
 
-// VolumeInstance describes a storage volume in the environment
+// FilesystemFilter holds a filter for filter list API call.
+type FilesystemFilter struct {
+	// Machines are machine tags to filter on.
+	Machines []string `json:"machines,omitempty"`
+}
+
+// IsEmpty determines if filter is empty
+func (f *FilesystemFilter) IsEmpty() bool {
+	return len(f.Machines) == 0
+}
+
+// VolumeDetails describes a storage volume in the environment
 // for the purpose of volume CLI commands.
-// It is kept separate from Volume which is primarily used in uniter
-// and may answer different concerns as well as serve different purposes.
-type VolumeInstance struct {
+//
+// This is kept separate from Volume which contains only information
+// specific to the volume model, whereas VolumeDetails is intended
+// to contain complete information about a volume and related
+// information (status, attachments, storage).
+type VolumeDetails struct {
+
+	// VolumeTag is the tag for the volume.
+	VolumeTag string `json:"volumetag"`
+
+	// Info contains information about the volume.
+	Info VolumeInfo `json:"info"`
+
+	// Status contains the status of the volume.
+	Status EntityStatus `json:"status"`
+
+	// MachineAttachments contains a mapping from
+	// machine tag to volume attachment information.
+	MachineAttachments map[string]VolumeAttachmentInfo `json:"machineattachments,omitempty"`
+
+	// NOTE(axw): below should really be StorageDetails,
+	// but StorageDetails is pretty broken at the moment.
+	// StorageDetails is really *StorageAttachmentDetails*,
+	// but also includes information about the storage
+	// instance. We need to rev the storage API and fix
+	// this all up in one go.
+
+	// StorageTag is the tag of the storage instance
+	// that the volume is assigned to, if any.
+	StorageTag string `json:"storagetag,omitempty"`
+
+	// StorageOwnerTag is the tag of the entity that
+	// owns the volume's assigned storage instance,
+	// if any.
+	StorageOwnerTag string `json:"ownertag,omitempty"`
+}
+
+// LegacyVolumeDetails describes a storage volume in the environment
+// for the purpose of volume CLI commands.
+//
+// This is kept separate from Volume which contains only information
+// specific to the volume model, whereas LegacyVolumeDetails is intended
+// to contain complete information about a volume.
+//
+// NOTE(axw): this is for backwards compatibility only. This struct
+// should not be changed!
+type LegacyVolumeDetails struct {
 
 	// VolumeTag is tag for this volume instance.
 	VolumeTag string `json:"volumetag"`
-
-	// VolumeId is a unique provider-supplied ID for the volume.
-	VolumeId string `json:"volumeid"`
-
-	// HardwareId is the volume's hardware ID.
-	HardwareId string `json:"hardwareid,omitempty"`
-
-	// Size is the size of the volume in MiB.
-	Size uint64 `json:"size"`
-
-	// Persistent reflects whether the volume is destroyed with the
-	// machine to which it is attached.
-	Persistent bool `json:"persistent"`
 
 	// StorageInstance returns the tag of the storage instance that this
 	// volume is assigned to, if any.
@@ -507,26 +549,108 @@ type VolumeInstance struct {
 	// for this volume.
 	UnitTag string `json:"unit,omitempty"`
 
+	// VolumeId is a unique provider-supplied ID for the volume.
+	VolumeId string `json:"volumeid,omitempty"`
+
+	// HardwareId is the volume's hardware ID.
+	HardwareId string `json:"hardwareid,omitempty"`
+
+	// Size is the size of the volume in MiB.
+	Size uint64 `json:"size,omitempty"`
+
+	// Persistent reflects whether the volume is destroyed with the
+	// machine to which it is attached.
+	Persistent bool `json:"persistent"`
+
 	// Status contains the current status of the volume.
 	Status EntityStatus `json:"status"`
 }
 
-// VolumeItem contain volume, its attachments
-// and retrieval error.
-type VolumeItem struct {
-	// Volume is storage volume.
-	Volume VolumeInstance `json:"volume,omitempty"`
+// VolumeDetailsResult contains details about a volume, its attachments or
+// an error preventing retrieving those details.
+type VolumeDetailsResult struct {
 
-	// Attachments are storage volume attachments.
-	Attachments []VolumeAttachment `json:"attachments,omitempty"`
+	// Details describes the volume in detail.
+	Details *VolumeDetails `json:"details,omitempty"`
+
+	// LegacyVolume describes the volume in detail.
+	//
+	// NOTE(axw): VolumeDetails contains redundant and nonsensical
+	// information. Use Details if it is available, and only use
+	// this for backwards-compatibility.
+	LegacyVolume *LegacyVolumeDetails `json:"volume,omitempty"`
+
+	// LegacyAttachments describes the attachments of the volume to
+	// machines.
+	//
+	// NOTE(axw): this should have gone into VolumeDetails, but it's too
+	// late for that now. We'll continue to populate it, and use it
+	// if it's defined but Volume.Attachments is not. Please do not
+	// copy this structure.
+	LegacyAttachments []VolumeAttachment `json:"attachments,omitempty"`
 
 	// Error contains volume retrieval error.
 	Error *Error `json:"error,omitempty"`
 }
 
-// VolumeItemsResult holds volumes.
-type VolumeItemsResult struct {
-	Results []VolumeItem `json:"results,omitempty"`
+// VolumeDetailsResults holds volume details.
+type VolumeDetailsResults struct {
+	Results []VolumeDetailsResult `json:"results,omitempty"`
+}
+
+// FilesystemDetails describes a storage filesystem in the environment
+// for the purpose of filesystem CLI commands.
+//
+// This is kept separate from Filesystem which contains only information
+// specific to the filesystem model, whereas FilesystemDetails is intended
+// to contain complete information about a filesystem and related
+// information (status, attachments, storage).
+type FilesystemDetails struct {
+
+	// FilesystemTag is the tag for the filesystem.
+	FilesystemTag string `json:"filesystemtag"`
+
+	// VolumeTag is the tag for the volume backing the
+	// filesystem, if any.
+	VolumeTag string `json:"volumetag,omitempty"`
+
+	// Info contains information about the filesystem.
+	Info FilesystemInfo `json:"info"`
+
+	// Status contains the status of the filesystem.
+	Status EntityStatus `json:"status"`
+
+	// MachineAttachments contains a mapping from
+	// machine tag to filesystem attachment information.
+	MachineAttachments map[string]FilesystemAttachmentInfo `json:"machineattachments,omitempty"`
+
+	// NOTE(axw): below should really be StorageDetails, but
+	// StorageDetails is pretty broken at the moment.
+	// StorageDetails is really *StorageAttachmentDetails*,
+	// but also includes information about the storage
+	// instance. We need to rev the storage API and fix
+	// this all up in one go.
+
+	// StorageTag is the tag of the storage instance
+	// that the filesystem is assigned to, if any.
+	StorageTag string `json:"storagetag,omitempty"`
+
+	// StorageOwnerTag is the tag of the entity that
+	// owns the filesystem's assigned storage instance,
+	// if any.
+	StorageOwnerTag string `json:"ownertag,omitempty"`
+}
+
+// FilesystemDetailsResult contains details about a filesystem, its attachments or
+// an error preventing retrieving those details.
+type FilesystemDetailsResult struct {
+	Result *FilesystemDetails `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
+}
+
+// FilesystemDetailsResults holds filesystem details.
+type FilesystemDetailsResults struct {
+	Results []FilesystemDetailsResult `json:"results,omitempty"`
 }
 
 // StorageConstraints contains constraints for storage instance.

@@ -44,6 +44,8 @@ type WriteCollection interface {
 
 	// All other methods act as documented for *mgo.Collection.
 	Insert(docs ...interface{}) error
+	Upsert(selector interface{}, update interface{}) (info *mgo.ChangeInfo, err error)
+	UpsertId(id interface{}, update interface{}) (info *mgo.ChangeInfo, err error)
 	Update(selector interface{}, update interface{}) error
 	UpdateId(id interface{}, update interface{}) error
 	Remove(sel interface{}) error

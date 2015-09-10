@@ -12,6 +12,8 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/storage/provider/registry"
 )
 
 type poolSuite struct {
@@ -114,8 +116,14 @@ func (s *poolSuite) TestCreateMissingType(c *gc.C) {
 }
 
 func (s *poolSuite) TestCreateInvalidConfig(c *gc.C) {
-	_, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"persistent": true})
-	c.Assert(err, gc.ErrorMatches, `validating storage provider config: machine scoped storage provider "testpool" does not support persistent storage`)
+	registry.RegisterProvider("invalid", &dummy.StorageProvider{
+		ValidateConfigFunc: func(*storage.Config) error {
+			return errors.New("no good")
+		},
+	})
+	defer registry.RegisterProvider("invalid", nil)
+	_, err := s.poolManager.Create("testpool", "invalid", nil)
+	c.Assert(err, gc.ErrorMatches, "validating storage provider config: no good")
 }
 
 func (s *poolSuite) TestDelete(c *gc.C) {

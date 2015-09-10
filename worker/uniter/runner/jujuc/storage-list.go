@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -17,8 +18,8 @@ type StorageListCommand struct {
 	out cmd.Output
 }
 
-func NewStorageListCommand(ctx Context) cmd.Command {
-	return &StorageListCommand{ctx: ctx}
+func NewStorageListCommand(ctx Context) (cmd.Command, error) {
+	return &StorageListCommand{ctx: ctx}, nil
 }
 
 func (c *StorageListCommand) Info() *cmd.Info {
@@ -43,7 +44,10 @@ func (c *StorageListCommand) Init(args []string) (err error) {
 }
 
 func (c *StorageListCommand) Run(ctx *cmd.Context) error {
-	tags := c.ctx.StorageTags()
+	tags, err := c.ctx.StorageTags()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	names := make([]string, len(tags))
 	for i, tag := range tags {
 		names[i] = tag.Id()

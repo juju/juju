@@ -90,6 +90,14 @@ func MoreImportant(err0, err1 error) bool {
 	return importance(err0) > importance(err1)
 }
 
+// MoreImportantError returns the most important error
+func MoreImportantError(err0, err1 error) error {
+	if importance(err0) > importance(err1) {
+		return err0
+	}
+	return err1
+}
+
 // AgentDone processes the error returned by
 // an exiting agent.
 func AgentDone(logger loggo.Logger, err error) error {
@@ -238,7 +246,7 @@ var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config
 	if err != nil {
 		return nil, err
 	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agent.DefaultConfDir)
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agent.DefaultPaths.ConfDir)
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

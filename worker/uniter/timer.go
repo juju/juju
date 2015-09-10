@@ -7,6 +7,22 @@ import (
 	"time"
 )
 
+const (
+	// interval at which the unit's status should be polled
+	statusPollInterval = 5 * time.Minute
+)
+
 // Signal is the signature of a function used to generate a
 // hook signal.
 type TimedSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
+
+// updateStatusSignal returns a time channel that fires after a given interval.
+func updateStatusSignal(now, lastSignal time.Time, interval time.Duration) <-chan time.Time {
+	waitDuration := interval - now.Sub(lastSignal)
+	return time.After(waitDuration)
+}
+
+// NewUpdateStatusTimer returns a timed signal suitable for update-status hook.
+func NewUpdateStatusTimer() TimedSignal {
+	return updateStatusSignal
+}
