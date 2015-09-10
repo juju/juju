@@ -1558,9 +1558,7 @@ func changeIdsFromSeqToAuto(st *State) error {
 
 	// Filtering is done by hand because the ids we are trying to modify
 	// do not have uuid.
-	err := rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs)
-
-	if err != nil {
+	if err := rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
