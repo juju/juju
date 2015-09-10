@@ -380,6 +380,37 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 			Life: params.Dying,
 		},
 	})
+}
+
+func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
+	signalAll(&s.st, &s.leadership)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	storageTag0 := names.NewStorageTag("blob/0")
+	storageAttachmentId0 := params.StorageAttachmentId{
+		UnitTag:    s.st.unit.tag.String(),
+		StorageTag: storageTag0.String(),
+	}
+	storageTag0Watcher := &mockStorageAttachmentWatcher{
+		changes: make(chan struct{}, 1),
+	}
+	s.st.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
+	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+		UnitTag:    storageAttachmentId0.UnitTag,
+		StorageTag: storageAttachmentId0.StorageTag,
+		Life:       params.Dying,
+		Kind:       params.StorageKindUnknown, // unprovisioned
+	}
+
+	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	storageTag0Watcher.changes <- struct{}{}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+		storageTag0: remotestate.StorageSnapshot{
+			Life: params.Dying,
+		},
+	})
 
 	// Removing the storage attachment and then triggering the storage-
 	// specific watcher should not cause an event to be emitted, but it
