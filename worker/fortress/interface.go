@@ -29,8 +29,11 @@ type Guard interface {
 	Unlock() error
 
 	// Lockdown blocks new Guest.Visit calls, and waits for existing calls to
-	// complete. It will return ErrAborted if the supplied Abort is closed
-	// before lockdown is complete.
+	// complete; it will return ErrAborted if the supplied Abort is closed
+	// before lockdown is complete. In this situation, the fortress will
+	// remain closed to new visits, but may still be executing pre-existing
+	// ones; you need to wait for a Lockdown to complete successfully before
+	// you can infer exclusive access.
 	Lockdown(Abort) error
 }
 

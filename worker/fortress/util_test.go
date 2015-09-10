@@ -54,6 +54,11 @@ func (fix *fixture) Guest(c *gc.C) (out fortress.Guest) {
 	return out
 }
 
+// startBlockingVisit Unlocks the fortress; starts a Visit and waits for it to
+// be invoked; then leaves that Visit blocking, and returns a channel on which
+// you (1) *can* send a value to unblock the visit but (2) *must* defer a close
+// (in case your test fails before sending, in which case we still want to stop
+// the visit).
 func (fix *fixture) startBlockingVisit(c *gc.C) chan<- struct{} {
 	err := fix.Guard(c).Unlock()
 	c.Assert(err, jc.ErrorIsNil)
