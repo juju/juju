@@ -70,7 +70,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 			if errors.IsNotSupported(err) {
 				ctx.Infof("cannot list spaces: %v", err)
 			}
-			return errors.Annotatef(err, "cannot list spaces")
+			return errors.Annotate(err, "cannot list spaces")
 		}
 		if len(spaces) == 0 {
 			ctx.Infof("no spaces to display")

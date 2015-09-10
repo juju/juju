@@ -418,7 +418,6 @@ func SetStatePolicy(policy state.Policy) {
 }
 
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
-// It can be used by myEnviron.(testing.SpacesEnabler).SetSupportsSpaces.
 func SetSupportsSpaces(supports bool) bool {
 	p := &providerInstance
 	p.mu.Lock()

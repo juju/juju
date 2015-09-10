@@ -79,18 +79,20 @@ func (s *cmdSpaceSuite) RunSuper(c *gc.C, expectedError string, args ...string) 
 	return s.Run(c, cmdspace.NewSuperCommand(), expectedError, args...)
 }
 
-func (s *cmdSpaceSuite) RunSuperNotSupported(c *gc.C, args ...string) *cmd.Context {
-	context, err := testing.RunCommand(c, cmdspace.NewSuperCommand(), args...)
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	return context
-}
-
 func (s *cmdSpaceSuite) RunCreate(c *gc.C, expectedError string, args ...string) *cmd.Context {
 	// To capture subcommand errors, we must *NOT* to run it through
 	// the supercommand, otherwise there error is logged and
 	// swallowed!
 	createCommand := envcmd.Wrap(&cmdspace.CreateCommand{})
 	return s.Run(c, createCommand, expectedError, args...)
+}
+
+func (s *cmdSpaceSuite) RunList(c *gc.C, expectedError string, args ...string) *cmd.Context {
+	// To capture subcommand errors, we must *NOT* to run it through
+	// the supercommand, otherwise there error is logged and
+	// swallowed!
+	listCommand := envcmd.Wrap(&cmdspace.ListCommand{})
+	return s.Run(c, listCommand, expectedError, args...)
 }
 
 func (s *cmdSpaceSuite) AssertOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
@@ -102,10 +104,11 @@ func (s *cmdSpaceSuite) TestSpaceCreateNotSupported(c *gc.C) {
 	isEnabled := dummy.SetSupportsSpaces(false)
 	defer dummy.SetSupportsSpaces(isEnabled)
 
-	context := s.RunSuperNotSupported(c, "create", "foo")
+	expectedError := "cannot create space \"foo\": spaces not supported"
+	context := s.RunCreate(c, expectedError, "foo")
 	s.AssertOutput(c, context,
 		"", // No stdout output.
-		"cannot create space \"foo\": spaces not supported\n",
+		expectedError+"\n",
 	)
 }
 
@@ -221,9 +224,10 @@ func (s *cmdSpaceSuite) TestSpaceListNotSupported(c *gc.C) {
 	isEnabled := dummy.SetSupportsSpaces(false)
 	defer dummy.SetSupportsSpaces(isEnabled)
 
-	context := s.RunSuperNotSupported(c, "list")
+	expectedError := "cannot list spaces: spaces not supported"
+	context := s.RunList(c, expectedError)
 	s.AssertOutput(c, context,
 		"", // No stdout output.
-		"cannot list spaces: spaces not supported\n",
+		expectedError+"\n",
 	)
 }
