@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
