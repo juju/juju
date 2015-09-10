@@ -186,25 +186,12 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
-	statusTicker := func() <-chan time.Time {
-		// Duration is arbitrary, we'll trigger the ticker
-		// by advancing the clock past the duration.
-		return s.clock.After(statusTickDuration)
-	}
-	config := remotestate.WatcherConfig{
-		State:               &s.st,
-		LeadershipTracker:   &s.leadership,
-		UnitTag:             s.st.unit.tag,
-		UpdateStatusChannel: statusTicker,
-	}
-	w, err := remotestate.NewWatcher(config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
 	s.st.unit.actionWatcher.changes <- []string{"an-action"}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Actions, gc.DeepEquals, []string{"an-action"})
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Actions, gc.DeepEquals, []string{"an-action"})
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
