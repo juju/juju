@@ -1095,7 +1095,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(
-	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints,
+	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints, settings charm.Settings,
 ) (service *Service, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
 	ownerTag, err := names.ParseUserTag(owner)
@@ -1171,7 +1171,7 @@ func (st *State) AddService(
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(svc.settingsKey(), nil),
+		createSettingsOp(st, svc.settingsKey(), map[string]interface{}(settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
@@ -1188,6 +1188,7 @@ func (st *State) AddService(
 			Insert: svcDoc,
 		},
 	}
+
 	// Collect peer relation addition operations.
 	peerOps, err := st.addPeerRelationsOps(name, peers)
 	if err != nil {

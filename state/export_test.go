@@ -128,7 +128,7 @@ func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, ow
 
 func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(name, owner.String(), ch, networks, storage)
+	service, err := st.AddService(name, owner.String(), ch, networks, storage, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
