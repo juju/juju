@@ -184,7 +184,7 @@ type UnitStatusHistory struct {
 // StatusHistoryPruneArgs holds arguments for status history
 // prunning process.
 type StatusHistoryPruneArgs struct {
-	MaxLogsPerState int
+	MaxLogsPerEntity int
 }
 
 // StatusResult holds an entity status, extra information, or an

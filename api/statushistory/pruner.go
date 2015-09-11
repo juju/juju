@@ -22,9 +22,9 @@ func NewFacade(caller base.APICaller) *Facade {
 }
 
 // Prune calls "StatusHistory.Prune"
-func (s *Facade) Prune(maxLogsPerState int) error {
+func (s *Facade) Prune(maxLogsPerEntity int) error {
 	p := params.StatusHistoryPruneArgs{
-		MaxLogsPerState: maxLogsPerState,
+		MaxLogsPerEntity: maxLogsPerEntity,
 	}
 	return s.facade.FacadeCall("Prune", p, nil)
 }

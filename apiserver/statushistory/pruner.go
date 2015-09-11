@@ -16,13 +16,10 @@ func init() {
 
 var logger = loggo.GetLogger("juju.apiserver.statushistory")
 
-type pruneHistoryFunc func(*state.State, int) error
-
 // API is the concrete implementation of the Pruner endpoint..
 type API struct {
 	st         *state.State
 	authorizer common.Authorizer
-	prune      pruneHistoryFunc
 }
 
 // NewAPI returns an API Instance.
@@ -30,7 +27,6 @@ func NewAPI(st *state.State, _ *common.Resources, auth common.Authorizer) (*API,
 	return &API{
 		st:         st,
 		authorizer: auth,
-		prune:      state.PruneStatusHistory,
 	}, nil
 }
 
@@ -40,5 +36,5 @@ func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
 	if !api.authorizer.AuthEnvironManager() {
 		return common.ErrPerm
 	}
-	return api.prune(api.st, p.MaxLogsPerState)
+	return state.PruneStatusHistory(api.st, p.MaxLogsPerEntity)
 }

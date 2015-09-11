@@ -75,58 +75,6 @@ type statusHistoryPrunerSuite struct {
 }
 
 func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
-	var passedMaxLogs chan int
-	passedMaxLogs = make(chan int, 1)
-	fakePruner := func(maxLogs int) error {
-		passedMaxLogs <- maxLogs
-		return nil
-	}
-	params := statushistorypruner.HistoryPrunerParams{
-		MaxLogsPerState: 3,
-		PruneInterval:   coretesting.ShortWait,
-	}
-	fakeTimer := newMockTimer(coretesting.LongWait)
-
-	fakeTimerFunc := func(d time.Duration) worker.PeriodicTimer {
-		// construction of timer should be with 0 because we intend it to
-		// run once before waiting.
-		c.Assert(d, gc.Equals, 0*time.Nanosecond)
-		return fakeTimer
-	}
-	pruner := statushistorypruner.NewPruneWorkerWithPrune(
-		newFakeFacade(),
-		&params,
-		fakeTimerFunc,
-		fakePruner,
-	)
-	s.AddCleanup(func(*gc.C) {
-		pruner.Kill()
-		c.Assert(pruner.Wait(), jc.ErrorIsNil)
-	})
-	err := fakeTimer.fire()
-	c.Check(err, jc.ErrorIsNil)
-	var passedLogs int
-	select {
-	case passedLogs = <-passedMaxLogs:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for passed logs to pruner")
-	}
-	c.Assert(passedLogs, gc.Equals, 3)
-	// Reset will have been called with the actual PruneInterval
-	var period time.Duration
-	select {
-	case period = <-fakeTimer.period:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for period reset by pruner")
-	}
-	c.Assert(period, gc.Equals, coretesting.ShortWait)
-}
-
-func (s *statusHistoryPrunerSuite) TestPruneCallsFacade(c *gc.C) {
-	params := statushistorypruner.HistoryPrunerParams{
-		MaxLogsPerState: 3,
-		PruneInterval:   coretesting.ShortWait,
-	}
 	fakeTimer := newMockTimer(coretesting.LongWait)
 
 	fakeTimerFunc := func(d time.Duration) worker.PeriodicTimer {
@@ -136,23 +84,35 @@ func (s *statusHistoryPrunerSuite) TestPruneCallsFacade(c *gc.C) {
 		return fakeTimer
 	}
 	facade := newFakeFacade()
-	pruner := statushistorypruner.NewPruneWorker(
-		facade,
-		&params,
-		fakeTimerFunc,
-	)
+	conf := statushistorypruner.Config{
+		Facade:           facade,
+		MaxLogsPerEntity: 3,
+		PruneInterval:    coretesting.ShortWait,
+		NewTimer:         fakeTimerFunc,
+	}
 
+	pruner := statushistorypruner.New(conf)
 	s.AddCleanup(func(*gc.C) {
 		pruner.Kill()
-		c.Assert(pruner.Wait(), jc.ErrorIsNil)
+		c.Assert(worker.Stop(pruner), jc.ErrorIsNil)
 	})
 	err := fakeTimer.fire()
 	c.Check(err, jc.ErrorIsNil)
+
 	var passedLogs int
 	select {
 	case passedLogs = <-facade.passedMaxLogs:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for passed logs to pruner facade")
+		c.Fatal("timed out waiting for passed logs to pruner")
 	}
 	c.Assert(passedLogs, gc.Equals, 3)
+
+	// Reset will have been called with the actual PruneInterval
+	var period time.Duration
+	select {
+	case period = <-fakeTimer.period:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for period reset by pruner")
+	}
+	c.Assert(period, gc.Equals, coretesting.ShortWait)
 }
