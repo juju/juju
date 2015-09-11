@@ -5,7 +5,7 @@ package remotestate_test
 
 import (
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"

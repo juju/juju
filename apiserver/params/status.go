@@ -8,7 +8,7 @@ package params
 import (
 	"time"
 
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"

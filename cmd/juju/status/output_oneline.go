@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/cmd/juju/common"
 )
 

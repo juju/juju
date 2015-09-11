@@ -4,8 +4,6 @@
 package rsyslog
 
 import (
-	"github.com/juju/utils/featureflag"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/rsyslog"
@@ -13,6 +11,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/util"
+	"github.com/juju/utils/featureflag"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
