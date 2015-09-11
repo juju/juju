@@ -198,11 +198,13 @@ func updateRequired(serverCert string, newAddrs []string) ([]string, bool, error
 
 // TearDown is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) TearDown() error {
-	select {
-	case <-c.certChanged:
-		// already closed
-	default:
-		close(c.certChanged)
-	}
+	// (lp:1493123) We do *not* close c.certChanged here because a call
+	// to Handle() after TearDown() would result in a panic. That
+	// sequence of calls happens when CertificateUpdater is wrapped in
+	// NotifyWorker, that worker errors out and gets restarted by
+	// a runner. In effect, CertificateUpdater doesn't properly "own"
+	// the channel (c.certChanged). If it were refactored to correct
+	// that then closing the channel here would be appropriate under
+	// some conditions, like when NotifyWorker.Kill is called.
 	return nil
 }
