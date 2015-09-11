@@ -43,7 +43,7 @@ func (s *UserdataSuite) TestAzureWindows(c *gc.C) {
 	data := []byte("test")
 	result, err := renderer.EncodeUserdata(data, version.Windows)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, renderers.WinEmbedInScript(data))
+	c.Assert(result, jc.DeepEquals, renderers.ToBase64(renderers.WinEmbedInScript(data)))
 }
 
 func (s *UserdataSuite) TestAzureUnknownOS(c *gc.C) {
