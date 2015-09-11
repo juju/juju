@@ -450,7 +450,9 @@ var deployAuthorizationTests = []struct {
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
 adding charm cs:trusty/mysql-0
+deploying service mysql (charm: cs:trusty/mysql-0)
 adding charm cs:trusty/wordpress-1
+deploying service wordpress (charm: cs:trusty/wordpress-1)
 deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 }, {
 	about:        "non-public bundle, success",
@@ -459,7 +461,9 @@ deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 	readPermUser: clientUserName,
 	expectOutput: `
 adding charm cs:trusty/mysql-0
+reusing service mysql (charm: cs:trusty/mysql-0)
 adding charm cs:trusty/wordpress-1
+reusing service wordpress (charm: cs:trusty/wordpress-1)
 deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 }, {
 	about:        "non-public bundle, access denied",
@@ -607,6 +611,36 @@ func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
 		uploaded[i] = charm.URL().String()
 	}
 	c.Assert(uploaded, jc.SameContents, ids)
+}
+
+// serviceInfo holds information about a deployed service.
+type serviceInfo struct {
+	charm       string
+	config      charm.Settings
+	constraints constraints.Value
+}
+
+// assertServicesDeployed checks that the given services have been deployed.
+func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]serviceInfo) {
+	services, err := s.State.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+	deployed := make(map[string]serviceInfo, len(services))
+	for _, service := range services {
+		charm, _ := service.CharmURL()
+		config, err := service.ConfigSettings()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(config) == 0 {
+			config = nil
+		}
+		constraints, err := service.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		deployed[service.Name()] = serviceInfo{
+			charm:       charm.String(),
+			config:      config,
+			constraints: constraints,
+		}
+	}
+	c.Assert(deployed, jc.DeepEquals, info)
 }
 
 type testMetricCredentialsSetter struct {

@@ -4,11 +4,10 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
@@ -66,7 +65,7 @@ func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient
 		case *bundlechanges.SetAnnotationsChange:
 			err = h.setAnnotations(change.Id(), change.Params)
 		default:
-			return errors.New(fmt.Sprintf("unknown change type: %T", change))
+			return errors.Errorf("unknown change type: %T", change)
 		}
 		if err != nil {
 			return errors.Annotate(err, "cannot deploy bundle")
@@ -93,12 +92,12 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
 	if url.Series == "bundle" {
-		return errors.New(fmt.Sprintf("expected charm URL, got bundle URL %q", p.Charm))
+		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	h.log.Infof("adding charm %s", url)
 	url, err = addCharmViaAPI(h.client, url, repo, h.csclient)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add charm %q", url)
+		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
 	// TODO frankban: the key here should really be the change id, but in the
 	// current bundlechanges format the charm name is included in the service
@@ -111,7 +110,48 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 // addService deploys or update a service with no units. Service options are
 // also set or updated.
 func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) error {
-	// TODO frankban: implement this method.
+	status, err := h.client.Status(nil)
+	if err != nil {
+		return errors.Annotate(err, "cannot retrieve environment status")
+	}
+	svcStatus, svcExists := status.Services[p.Service]
+	// TODO frankban: the charm should really be resolved using
+	// resolve(p.Charm, h.results) at this point: see TODO in addCharm.
+	ch := h.results["resolved-"+p.Charm]
+	if svcExists {
+		// The service is already deployed in the environment: check that its
+		// charm is compatible with the one declared in the bundle. If it is,
+		// reuse the existing service or upgrade to a specified revision.
+		// Exit with an error otherwise.
+		if svcStatus.Charm == ch {
+			h.log.Infof("reusing service %s (charm: %s)", p.Service, ch)
+		} else {
+			if err := checkCompatibleCharms(ch, svcStatus.Charm); err != nil {
+				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
+			}
+			h.log.Infof("upgrading charm for existing service %s (from %s to %s)", p.Service, svcStatus.Charm, ch)
+			if err := h.client.ServiceSetCharm(p.Service, ch, false); err != nil {
+				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
+			}
+		}
+	} else {
+		// The service does not exist in the environment.
+		h.log.Infof("deploying service %s (charm: %s)", p.Service, ch)
+		// TODO frankban: handle service constraints in the bundle changes.
+		// Note that services are always added without units here, as the units
+		// will be added later when handling unit changes in addUnit.
+		numUnits, configYAML, cons, toMachineSpec := 0, "", constraints.Value{}, ""
+		if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err != nil {
+			return errors.Annotatef(err, "cannot deploy service %q", p.Service)
+		}
+	}
+	if len(p.Options) > 0 {
+		h.log.Infof("configuring service %s", p.Service)
+		if err := setServiceOptions(h.client, p.Service, p.Options); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	h.results[id] = p.Service
 	return nil
 }
 
@@ -136,5 +176,34 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 // setAnnotations sets annotations for a service or a machine.
 func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotationsParams) error {
 	// TODO frankban: implement this method.
+	return nil
+}
+
+// checkCompatibleCharms ensures that the charms with the given ids are
+// compatible, meaning an upgrade from one to the other is allowed.
+func checkCompatibleCharms(id1, id2 string) error {
+	ref1, err := charm.ParseReference(id1)
+	if err != nil {
+		return errors.Annotatef(err, "cannot parse charm URL %q", id1)
+	}
+	ref2, err := charm.ParseReference(id2)
+	if err != nil {
+		return errors.Annotatef(err, "cannot parse charm URL %q", id2)
+	}
+	if (ref1.Name != ref2.Name) || (ref1.User != ref2.User) {
+		return errors.Errorf("charm %q is incompatible with charm %q", id1, id2)
+	}
+	return nil
+}
+
+// setServiceOptions changes the configuration for the given service.
+func setServiceOptions(client *api.Client, service string, options map[string]interface{}) error {
+	config, err := yaml.Marshal(map[string]map[string]interface{}{service: options})
+	if err != nil {
+		return errors.Annotatef(err, "cannot marshal options for service %q", service)
+	}
+	if err := client.ServiceSetYAML(service, string(config)); err != nil {
+		return errors.Annotatef(err, "cannot set options for service %q", service)
+	}
 	return nil
 }
