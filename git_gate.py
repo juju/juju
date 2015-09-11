@@ -87,6 +87,9 @@ def parse_args(args=None):
     parser = argparse.ArgumentParser()
     project_group = parser.add_argument_group()
     project_group.add_argument(
+        "--keep", action="store_true",
+        help="Do not remove working dir after testing.")
+    project_group.add_argument(
         "--project", required=True, help="Go import path of package to test.")
     project_group.add_argument(
         "--project-url", help="URL to git repository of package.")
@@ -116,7 +119,7 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    with temp_dir() as d:
+    with temp_dir(keep=args.keep) as d:
         try:
             go_test(args, d)
         except SubcommandError as err:

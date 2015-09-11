@@ -14,6 +14,14 @@ class TestParseArgs(unittest.TestCase):
              "--project-url", "https://git.testing/project"])
         self.assertEqual(args.project, "git.testing/project")
         self.assertEqual(args.project_url, "https://git.testing/project")
+        self.assertEqual(args.keep, False)
+
+    def test_keep(self):
+        args = git_gate.parse_args(
+            ["--project", "git.testing/project",
+             "--project-url", "https://git.testing/project", "--keep"])
+        self.assertEqual(args.project, "git.testing/project")
+        self.assertEqual(args.keep, True)
 
     def test_project_and_ref(self):
         args = git_gate.parse_args(
