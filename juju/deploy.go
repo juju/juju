@@ -82,14 +82,10 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		args.Charm,
 		args.Networks,
 		stateStorageConstraints(args.Storage),
+		settings,
 	)
 	if err != nil {
 		return nil, err
-	}
-	if len(settings) > 0 {
-		if err := service.UpdateConfigSettings(settings); err != nil {
-			return nil, err
-		}
 	}
 	if args.Charm.Meta().Subordinate {
 		return service, nil
