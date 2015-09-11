@@ -32,7 +32,6 @@ type CertificateUpdater struct {
 	setter          StateServingInfoSetter
 	configGetter    EnvironConfigGetter
 	hostPortsGetter APIHostPortsGetter
-	certChanged     chan params.StateServingInfo
 	addresses       []network.Address
 }
 
@@ -70,7 +69,6 @@ type APIHostPortsGetter interface {
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
 	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
-	certChanged chan params.StateServingInfo,
 ) worker.Worker {
 	return worker.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  addressWatcher,
@@ -78,7 +76,6 @@ func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInf
 		hostPortsGetter: hostPortsGetter,
 		getter:          getter,
 		setter:          setter,
-		certChanged:     certChanged,
 	})
 }
 
@@ -198,13 +195,5 @@ func updateRequired(serverCert string, newAddrs []string) ([]string, bool, error
 
 // TearDown is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) TearDown() error {
-	// (lp:1493123) We do *not* close c.certChanged here because a call
-	// to Handle() after TearDown() would result in a panic. That
-	// sequence of calls happens when CertificateUpdater is wrapped in
-	// NotifyWorker, that worker errors out and gets restarted by
-	// a runner. In effect, CertificateUpdater doesn't properly "own"
-	// the channel (c.certChanged). If it were refactored to correct
-	// that then closing the channel here would be appropriate under
-	// some conditions, like when NotifyWorker.Kill is called.
 	return nil
 }
