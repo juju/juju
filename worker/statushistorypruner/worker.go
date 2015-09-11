@@ -14,59 +14,45 @@ import (
 // HistoryPrunerParams specifies how history logs should be prunned.
 type HistoryPrunerParams struct {
 	// TODO(perrito666) We might want to have some sort of limitation of the collection size too.
-	MaxLogsPerState int
-	PruneInterval   time.Duration
+	MaxLogsPerEntity int
+	PruneInterval    time.Duration
 }
 
-// DefaultMaxLogsPerState is the default value for logs for each entity
+// DefaultMaxLogsPerEntity is the default value for logs for each entity
 // that should be kept at any given time.
-const DefaultMaxLogsPerState = 100
+const DefaultMaxLogsPerEntity = 100
 
 // DefaultPruneInterval is the default interval that should be waited
 // between prune calls.
 const DefaultPruneInterval = 5 * time.Minute
 
-// NewHistoryPrunerParams returns a HistoryPrunerParams initialized with default parameter.
-func NewHistoryPrunerParams() *HistoryPrunerParams {
-	return &HistoryPrunerParams{
-		MaxLogsPerState: DefaultMaxLogsPerState,
-		PruneInterval:   DefaultPruneInterval,
-	}
-}
+// DefaultNewTimer is the timer constructor to be used when running
+// on production.
+var DefaultNewTimer = worker.NewTimer
 
 // Facade represents an API that implements status history pruning.
 type Facade interface {
 	Prune(int) error
 }
 
-type pruneFunc func(int) error
-
-type pruner struct {
-	statusHistory Facade
-	params        *HistoryPrunerParams
-	prune         pruneFunc
-}
-
-// newPruner is only to simplify testing of pruner without periodic worker.
-func newPruner(facade Facade, params *HistoryPrunerParams) *pruner {
-	prune := func(i int) error { return facade.Prune(i) }
-	return &pruner{
-		statusHistory: facade,
-		params:        params,
-		prune:         prune,
-	}
+// Config holds all necessary attributes to start a pruner worker.
+type Config struct {
+	Facade           Facade
+	MaxLogsPerEntity int
+	PruneInterval    time.Duration
+	NewTimer         worker.NewTimerFunc
 }
 
 // New returns a worker.Worker for history Pruner.
-func New(facade Facade, params *HistoryPrunerParams) worker.Worker {
-	w := newPruner(facade, params)
-	return worker.NewPeriodicWorker(w.doPruning, w.params.PruneInterval, worker.NewTimer)
-}
+func New(conf Config) worker.Worker {
 
-func (w *pruner) doPruning(stop <-chan struct{}) error {
-	err := w.prune(w.params.MaxLogsPerState)
-	if err != nil {
-		return errors.Trace(err)
+	doPruning := func(stop <-chan struct{}) error {
+		err := conf.Facade.Prune(conf.MaxLogsPerEntity)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	}
-	return nil
+
+	return worker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer)
 }
