@@ -43,11 +43,11 @@ func (s *DeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	output, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm cs:trusty/mysql-42
-deploying service mysql (charm: cs:trusty/mysql-42)
-adding charm cs:trusty/wordpress-47
-deploying service wordpress (charm: cs:trusty/wordpress-47)
-relating wordpress:db and mysql:server
+added charm cs:trusty/mysql-42
+service mysql deployed (charm: cs:trusty/mysql-42)
+added charm cs:trusty/wordpress-47
+service wordpress deployed (charm: cs:trusty/wordpress-47)
+related wordpress:db and mysql:server
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
@@ -67,9 +67,9 @@ func (s *DeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	output, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm cs:trusty/mysql-42
+added charm cs:trusty/mysql-42
 reusing service mysql (charm: cs:trusty/mysql-42)
-adding charm cs:trusty/wordpress-47
+added charm cs:trusty/wordpress-47
 reusing service wordpress (charm: cs:trusty/wordpress-47)
 wordpress:db and mysql:server are already related
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
@@ -239,11 +239,11 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm local:trusty/mysql-1
-deploying service mysql (charm: local:trusty/mysql-1)
-adding charm local:trusty/wordpress-3
-deploying service wordpress (charm: local:trusty/wordpress-3)
-relating wordpress:db and mysql:server
+added charm local:trusty/mysql-1
+service mysql deployed (charm: local:trusty/mysql-1)
+added charm local:trusty/wordpress-3
+service wordpress deployed (charm: local:trusty/wordpress-3)
+related wordpress:db and mysql:server
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "local:trusty/mysql-1", "local:trusty/wordpress-3")
@@ -270,11 +270,11 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm local:trusty/mysql-1
-deploying service mysql (charm: local:trusty/mysql-1)
-adding charm cs:trusty/wordpress-42
-deploying service wordpress (charm: cs:trusty/wordpress-42)
-relating wordpress:db and mysql:server
+added charm local:trusty/mysql-1
+service mysql deployed (charm: local:trusty/mysql-1)
+added charm cs:trusty/wordpress-42
+service wordpress deployed (charm: cs:trusty/wordpress-42)
+related wordpress:db and mysql:server
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "local:trusty/mysql-1", "cs:trusty/wordpress-42")
@@ -304,12 +304,12 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm cs:precise/dummy-0
-deploying service customized (charm: cs:precise/dummy-0)
-configuring service customized
-adding charm cs:trusty/wordpress-42
-deploying service wordpress (charm: cs:trusty/wordpress-42)
-configuring service wordpress
+added charm cs:precise/dummy-0
+service customized deployed (charm: cs:precise/dummy-0)
+service customized configured
+added charm cs:trusty/wordpress-42
+service wordpress deployed (charm: cs:trusty/wordpress-42)
+service wordpress configured
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
@@ -344,11 +344,11 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm cs:vivid/upgrade-1
-deploying service up (charm: cs:vivid/upgrade-1)
-adding charm cs:trusty/wordpress-42
-deploying service wordpress (charm: cs:trusty/wordpress-42)
-configuring service wordpress
+added charm cs:vivid/upgrade-1
+service up deployed (charm: cs:vivid/upgrade-1)
+added charm cs:trusty/wordpress-42
+service wordpress deployed (charm: cs:trusty/wordpress-42)
+service wordpress configured
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:vivid/upgrade-1", "cs:trusty/wordpress-42")
@@ -367,11 +367,11 @@ deployment of bundle "local:bundle/example-0" completed`
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput = `
-adding charm cs:vivid/upgrade-2
-upgrading charm for existing service up (from cs:vivid/upgrade-1 to cs:vivid/upgrade-2)
-adding charm cs:trusty/wordpress-42
+added charm cs:vivid/upgrade-2
+upgraded charm for existing service up (from cs:vivid/upgrade-1 to cs:vivid/upgrade-2)
+added charm cs:trusty/wordpress-42
 reusing service wordpress (charm: cs:trusty/wordpress-42)
-configuring service wordpress
+service wordpress configured
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:trusty/wordpress-42")
@@ -444,17 +444,17 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm cs:trusty/mysql-1
-deploying service mysql (charm: cs:trusty/mysql-1)
-adding charm cs:trusty/postgres-2
-deploying service pgres (charm: cs:trusty/postgres-2)
-adding charm cs:trusty/varnish-3
-deploying service varnish (charm: cs:trusty/varnish-3)
-adding charm cs:trusty/wordpress-0
-deploying service wp (charm: cs:trusty/wordpress-0)
-relating wp:db and mysql:server
-relating wp:db and pgres:server
-relating varnish:webcache and wp:cache
+added charm cs:trusty/mysql-1
+service mysql deployed (charm: cs:trusty/mysql-1)
+added charm cs:trusty/postgres-2
+service pgres deployed (charm: cs:trusty/postgres-2)
+added charm cs:trusty/varnish-3
+service varnish deployed (charm: cs:trusty/varnish-3)
+added charm cs:trusty/wordpress-0
+service wp deployed (charm: cs:trusty/wordpress-0)
+related wp:db and mysql:server
+related wp:db and pgres:server
+related varnish:webcache and wp:cache
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:db pgres:server", "wp:cache varnish:webcache")
@@ -497,14 +497,14 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-adding charm cs:trusty/mysql-1
+added charm cs:trusty/mysql-1
 reusing service mysql (charm: cs:trusty/mysql-1)
-adding charm cs:trusty/varnish-3
+added charm cs:trusty/varnish-3
 reusing service varnish (charm: cs:trusty/varnish-3)
-adding charm cs:trusty/wordpress-0
+added charm cs:trusty/wordpress-0
 reusing service wp (charm: cs:trusty/wordpress-0)
 wp:db and mysql:server are already related
-relating varnish:webcache and wp:cache
+related varnish:webcache and wp:cache
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:cache varnish:webcache")

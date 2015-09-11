@@ -97,11 +97,11 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 	if url.Series == "bundle" {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
-	h.log.Infof("adding charm %s", url)
 	url, err = addCharmViaAPI(h.client, url, repo, h.csclient)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
+	h.log.Infof("added charm %s", url)
 	// TODO frankban: the key here should really be the change id, but in the
 	// current bundlechanges format the charm name is included in the service
 	// change, not a placeholder pointing to the corresponding charm change, as
@@ -132,14 +132,13 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 			if err := checkCompatibleCharms(ch, svcStatus.Charm); err != nil {
 				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
 			}
-			h.log.Infof("upgrading charm for existing service %s (from %s to %s)", p.Service, svcStatus.Charm, ch)
 			if err := h.client.ServiceSetCharm(p.Service, ch, false); err != nil {
 				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
 			}
+			h.log.Infof("upgraded charm for existing service %s (from %s to %s)", p.Service, svcStatus.Charm, ch)
 		}
 	} else {
 		// The service does not exist in the environment.
-		h.log.Infof("deploying service %s (charm: %s)", p.Service, ch)
 		// TODO frankban: handle service constraints in the bundle changes.
 		// Note that services are always added without units here, as the units
 		// will be added later when handling unit changes in addUnit.
@@ -147,12 +146,13 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 		if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err != nil {
 			return errors.Annotatef(err, "cannot deploy service %q", p.Service)
 		}
+		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
 	}
 	if len(p.Options) > 0 {
-		h.log.Infof("configuring service %s", p.Service)
 		if err := setServiceOptions(h.client, p.Service, p.Options); err != nil {
 			return errors.Trace(err)
 		}
+		h.log.Infof("service %s configured", p.Service)
 	}
 	h.results[id] = p.Service
 	return nil
@@ -183,10 +183,10 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 			return nil
 		}
 	}
-	h.log.Infof("relating %s and %s", ep1, ep2)
 	if _, err := h.client.AddRelation(ep1, ep2); err != nil {
 		return errors.Annotatef(err, "cannot add relation between %q and %q", ep1, ep2)
 	}
+	h.log.Infof("related %s and %s", ep1, ep2)
 	return nil
 }
 
