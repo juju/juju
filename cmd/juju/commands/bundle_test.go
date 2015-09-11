@@ -47,6 +47,7 @@ adding charm cs:trusty/mysql-42
 deploying service mysql (charm: cs:trusty/mysql-42)
 adding charm cs:trusty/wordpress-47
 deploying service wordpress (charm: cs:trusty/wordpress-47)
+relating wordpress:db and mysql:server
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
@@ -54,6 +55,7 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 		"mysql":     {charm: "cs:trusty/mysql-42"},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
 	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 }
 
 func (s *DeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
@@ -69,6 +71,7 @@ adding charm cs:trusty/mysql-42
 reusing service mysql (charm: cs:trusty/mysql-42)
 adding charm cs:trusty/wordpress-47
 reusing service wordpress (charm: cs:trusty/wordpress-47)
+wordpress:db and mysql:server are already related
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
@@ -76,6 +79,7 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 		"mysql":     {charm: "cs:trusty/mysql-42"},
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
 	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 }
 
 func (s *DeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
@@ -239,6 +243,7 @@ adding charm local:trusty/mysql-1
 deploying service mysql (charm: local:trusty/mysql-1)
 adding charm local:trusty/wordpress-3
 deploying service wordpress (charm: local:trusty/wordpress-3)
+relating wordpress:db and mysql:server
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "local:trusty/mysql-1", "local:trusty/wordpress-3")
@@ -246,6 +251,7 @@ deployment of bundle "local:bundle/example-0" completed`
 		"mysql":     {charm: "local:trusty/mysql-1"},
 		"wordpress": {charm: "local:trusty/wordpress-3"},
 	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
@@ -268,6 +274,7 @@ adding charm local:trusty/mysql-1
 deploying service mysql (charm: local:trusty/mysql-1)
 adding charm cs:trusty/wordpress-42
 deploying service wordpress (charm: cs:trusty/wordpress-42)
+relating wordpress:db and mysql:server
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUplodaded(c, "local:trusty/mysql-1", "cs:trusty/wordpress-42")
@@ -275,6 +282,7 @@ deployment of bundle "local:bundle/example-0" completed`
 		"mysql":     {charm: "local:trusty/mysql-1"},
 		"wordpress": {charm: "cs:trusty/wordpress-42"},
 	})
+	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
@@ -408,4 +416,96 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
                 num_units: 1
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade charm for service "wordpress": cannot change a service's series`)
+}
+
+func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-1", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/postgres-2", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/varnish-3", "varnish")
+	output, err := s.deployBundleYAML(c, `
+        services:
+            wp:
+                charm: wordpress
+                num_units: 1
+            mysql:
+                charm: mysql-1
+                num_units: 1
+            pgres:
+                charm: trusty/postgres-2
+                num_units: 1
+            varnish:
+                charm: trusty/varnish
+                num_units: 1
+        relations:
+            - ["wp:db", "mysql:server"]
+            - ["wp:db", "pgres:server"]
+            - ["varnish:webcache", "wp:cache"]
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+adding charm cs:trusty/mysql-1
+deploying service mysql (charm: cs:trusty/mysql-1)
+adding charm cs:trusty/postgres-2
+deploying service pgres (charm: cs:trusty/postgres-2)
+adding charm cs:trusty/varnish-3
+deploying service varnish (charm: cs:trusty/varnish-3)
+adding charm cs:trusty/wordpress-0
+deploying service wp (charm: cs:trusty/wordpress-0)
+relating wp:db and mysql:server
+relating wp:db and pgres:server
+relating varnish:webcache and wp:cache
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:db pgres:server", "wp:cache varnish:webcache")
+}
+
+func (s *deployRepoCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-1", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/postgres-2", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/varnish-3", "varnish")
+	_, err := s.deployBundleYAML(c, `
+        services:
+            wp:
+                charm: wordpress
+                num_units: 1
+            mysql:
+                charm: mysql-1
+                num_units: 1
+            varnish:
+                charm: trusty/varnish
+                num_units: 1
+        relations:
+            - ["wp:db", "mysql:server"]
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	output, err := s.deployBundleYAML(c, `
+        services:
+            wp:
+                charm: wordpress
+                num_units: 1
+            mysql:
+                charm: mysql-1
+                num_units: 1
+            varnish:
+                charm: trusty/varnish
+                num_units: 1
+        relations:
+            - ["wp:db", "mysql:server"]
+            - ["varnish:webcache", "wp:cache"]
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+adding charm cs:trusty/mysql-1
+reusing service mysql (charm: cs:trusty/mysql-1)
+adding charm cs:trusty/varnish-3
+reusing service varnish (charm: cs:trusty/varnish-3)
+adding charm cs:trusty/wordpress-0
+reusing service wp (charm: cs:trusty/wordpress-0)
+wp:db and mysql:server are already related
+relating varnish:webcache and wp:cache
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:cache varnish:webcache")
 }

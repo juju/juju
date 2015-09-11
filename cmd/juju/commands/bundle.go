@@ -4,6 +4,9 @@
 package commands
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -163,7 +166,27 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 
 // addRelation creates a relationship between two services.
 func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams) error {
-	// TODO frankban: implement this method.
+	ep1 := resolveRelation(p.Endpoint1, h.results)
+	ep2 := resolveRelation(p.Endpoint2, h.results)
+	// Check whether the given relation already exists.
+	status, err := h.client.Status(nil)
+	if err != nil {
+		return errors.Annotate(err, "cannot retrieve environment status")
+	}
+	for _, r := range status.Relations {
+		if len(r.Endpoints) != 2 {
+			continue
+		}
+		if (r.Endpoints[0].String() == ep1 && r.Endpoints[1].String() == ep2) ||
+			(r.Endpoints[1].String() == ep1 && r.Endpoints[0].String() == ep2) {
+			h.log.Infof("%s and %s are already related", ep1, ep2)
+			return nil
+		}
+	}
+	h.log.Infof("relating %s and %s", ep1, ep2)
+	if _, err := h.client.AddRelation(ep1, ep2); err != nil {
+		return errors.Annotatef(err, "cannot add relation between %q and %q", ep1, ep2)
+	}
 	return nil
 }
 
@@ -206,4 +229,22 @@ func setServiceOptions(client *api.Client, service string, options map[string]in
 		return errors.Annotatef(err, "cannot set options for service %q", service)
 	}
 	return nil
+}
+
+// resolve returns the real entity name for the bundle entity (for instance a
+// service or a machine) with the given placeholder id.
+func resolve(placeholder string, results map[string]string) string {
+	id := placeholder[1:]
+	return results[id]
+}
+
+// resolveRelation returns the relation name resolving the included service
+// placeholder.
+func resolveRelation(e string, results map[string]string) string {
+	parts := strings.SplitN(e, ":", 2)
+	service := resolve(parts[0], results)
+	if len(parts) == 1 {
+		return service
+	}
+	return fmt.Sprintf("%s:%s", service, parts[1])
 }
