@@ -83,7 +83,7 @@ func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *gc.C) {
 	// overwrites it (TearDownTest will revert it again).
 	os.Setenv("JUJU_REPOSITORY", "")
 	err = runUpgradeCharm(c, "riak", "--repository=")
-	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/riak`)
+	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:trusty/riak`)
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *gc.C) {
@@ -100,9 +100,9 @@ func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:trusty/blah": charm not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:trusty/blah": charm not found`)
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
-	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:missing/one": charm not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:missing/one": charm not found`)
 	// TODO(dimitern): add tests with incompatible charms
 }
 

@@ -190,15 +190,31 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer csClient.jar.Save()
-	curl, repo, err := resolveCharmURL(c.CharmName, csClient.params, ctx.AbsPath(c.RepoPath), conf)
+
+	repoPath := ctx.AbsPath(c.RepoPath)
+	curl, repo, err := resolveCharmStoreEntityURL(c.CharmName, csClient.params, repoPath, conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	curl, err = addCharmViaAPI(client, ctx, curl, repo, csClient)
+	if curl.Series == "bundle" {
+		// Deploy a bundle entity.
+		bundle, err := repo.GetBundle(curl)
+		if err != nil {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
+		if err := deployBundle(bundle.Data(), client, csClient, repoPath, conf, ctx); err != nil {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
+		ctx.Infof("deployment of bundle %q completed", curl)
+		return nil
+	}
+
+	curl, err = addCharmViaAPI(client, curl, repo, csClient)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
+	ctx.Infof("Added charm %q to the environment.", curl)
 
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
