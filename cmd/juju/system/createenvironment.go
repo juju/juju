@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	localProvider "github.com/juju/juju/provider/local"
@@ -201,10 +202,23 @@ func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkele
 		if err != nil {
 			return nil, err
 		}
-		err = yaml.Unmarshal(configYAML, &fileConfig)
+
+		rawFileConfig := make(map[string]interface{})
+		err = yaml.Unmarshal(configYAML, &rawFileConfig)
 		if err != nil {
 			return nil, err
 		}
+
+		conformantConfig, err := common.ConformYAML(rawFileConfig)
+		if err != nil {
+			return nil, err
+		}
+		betterConfig, ok := conformantConfig.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("config must contain a YAML map with string keys")
+		}
+
+		fileConfig = betterConfig
 	}
 
 	configValues := make(map[string]interface{})

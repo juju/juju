@@ -165,6 +165,29 @@ func (s *createSuite) TestConfigFileValuesPassedThrough(c *gc.C) {
 	c.Assert(s.fake.config["cloud"], gc.Equals, "9")
 }
 
+func (s *createSuite) TestConfigFileWithNestedMaps(c *gc.C) {
+	nestedConfig := map[string]interface{}{
+		"account": "magic",
+		"cloud":   "9",
+	}
+	config := map[string]interface{}{
+		"foo":    "bar",
+		"nested": nestedConfig,
+	}
+
+	bytes, err := yaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	file.Write(bytes)
+	file.Close()
+
+	_, err = s.run(c, "test", "--config", file.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.config["foo"], gc.Equals, "bar")
+	c.Assert(s.fake.config["nested"], jc.DeepEquals, nestedConfig)
+}
+
 func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file, err := ioutil.TempFile(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
