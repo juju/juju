@@ -1062,7 +1062,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			// to the agent to close it rather than any one of the
 			// workers.
 			//
-			// For now we simply do not close the channel.
+			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
