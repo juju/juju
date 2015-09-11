@@ -34,11 +34,11 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/os"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 const (
@@ -1185,8 +1185,8 @@ func setupJujuNetworking() (string, error) {
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (cloudinit.CloudConfig, error) {
-	cloudcfg, err := cloudinit.New(series)
+func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, ser string) (cloudinit.CloudConfig, error) {
+	cloudcfg, err := cloudinit.New(ser)
 	if err != nil {
 		return nil, err
 	}
@@ -1197,7 +1197,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 		return nil, errors.Trace(err)
 	}
 
-	operatingSystem, err := version.GetOSFromSeries(series)
+	operatingSystem, err := series.GetOSFromSeries(ser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

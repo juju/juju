@@ -28,7 +28,6 @@ func AddStoppedFieldToUniterState(tag names.UnitTag, dataDir string) error {
 	default:
 		return err
 	}
-
 }
 
 func getUniterStateFile(dataDir string, tag names.UnitTag) string {

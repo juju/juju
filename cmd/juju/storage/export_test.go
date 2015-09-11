@@ -4,12 +4,14 @@
 package storage
 
 var (
-	GetStorageShowAPI = &getStorageShowAPI
-	GetStorageListAPI = &getStorageListAPI
-	GetPoolListAPI    = &getPoolListAPI
-	GetPoolCreateAPI  = &getPoolCreateAPI
-	GetVolumeListAPI  = &getVolumeListAPI
+	GetStorageShowAPI    = &getStorageShowAPI
+	GetStorageListAPI    = &getStorageListAPI
+	GetPoolListAPI       = &getPoolListAPI
+	GetPoolCreateAPI     = &getPoolCreateAPI
+	GetVolumeListAPI     = &getVolumeListAPI
+	GetFilesystemListAPI = &getFilesystemListAPI
 
-	ConvertToVolumeInfo = convertToVolumeInfo
-	GetStorageAddAPI    = &getStorageAddAPI
+	ConvertToVolumeInfo     = convertToVolumeInfo
+	ConvertToFilesystemInfo = convertToFilesystemInfo
+	GetStorageAddAPI        = &getStorageAddAPI
 )

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/juju/os"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/series"
 )
 
 const (
@@ -49,7 +49,7 @@ type UserdataConfig interface {
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
-	operatingSystem, err := version.GetOSFromSeries(icfg.Series)
+	operatingSystem, err := series.GetOSFromSeries(icfg.Series)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	svcName := c.icfg.MachineAgentServiceName
 	// TODO (gsamfira): This is temporary until we find a cleaner way to fix
 	// cloudinit.LogProgressCmd to not add >&9 on Windows.
-	targetOS, err := version.GetOSFromSeries(c.icfg.Series)
+	targetOS, err := series.GetOSFromSeries(c.icfg.Series)
 	if err != nil {
 		return err
 	}

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 var PrivateKeyPassphrase = "12345"
@@ -598,7 +598,7 @@ func (tc *testConstraint) IndexIds() []string {
 }
 
 func (tc *testConstraint) ProductIds() ([]string, error) {
-	version, err := version.SeriesVersion(tc.Series[0])
+	version, err := series.SeriesVersion(tc.Series[0])
 	if err != nil {
 		return nil, err
 	}

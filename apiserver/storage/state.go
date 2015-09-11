@@ -59,6 +59,18 @@ type storageAccess interface {
 	// Volume is required for volume functionality.
 	Volume(tag names.VolumeTag) (state.Volume, error)
 
+	// AllFilesystems is required for filesystem functionality.
+	AllFilesystems() ([]state.Filesystem, error)
+
+	// FilesystemAttachments is required for filesystem functionality.
+	FilesystemAttachments(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
+
+	// MachineFilesystemAttachments is required for filesystem functionality.
+	MachineFilesystemAttachments(machine names.MachineTag) ([]state.FilesystemAttachment, error)
+
+	// Filesystem is required for filesystem functionality.
+	Filesystem(tag names.FilesystemTag) (state.Filesystem, error)
+
 	// AddStorageForUnit is required for storage add functionality.
 	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error
 

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -579,13 +580,13 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
-		storageInstance, err := common.MaybeAssignedStorageInstance(
+		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
 			volume.StorageInstance, p.st.StorageInstance,
 		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
-		volumeParams, err := common.VolumeParams(volume, storageInstance, envConfig, poolManager)
+		volumeParams, err := storagecommon.VolumeParams(volume, storageInstance, envConfig, poolManager)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
@@ -784,11 +785,11 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		volumes, err := common.VolumesToState(arg.Volumes)
+		volumes, err := storagecommon.VolumesToState(arg.Volumes)
 		if err != nil {
 			return err
 		}
-		volumeAttachments, err := common.VolumeAttachmentInfosToState(arg.VolumeAttachments)
+		volumeAttachments, err := storagecommon.VolumeAttachmentInfosToState(arg.VolumeAttachments)
 		if err != nil {
 			return err
 		}

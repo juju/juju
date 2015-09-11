@@ -391,6 +391,99 @@ func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }
 
+func (s *storageMockSuite) TestListFilesystems(c *gc.C) {
+	expected := params.FilesystemDetails{
+		FilesystemTag: "filesystem-1",
+		Info: params.FilesystemInfo{
+			FilesystemId: "fs-id",
+			Size:         4096,
+		},
+		Status: params.EntityStatus{
+			Status: "attached",
+		},
+		MachineAttachments: map[string]params.FilesystemAttachmentInfo{
+			"0": params.FilesystemAttachmentInfo{
+				MountPoint: "/mnt/kinabalu",
+				ReadOnly:   false,
+			},
+		},
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListFilesystems")
+
+			c.Assert(a, gc.FitsTypeOf, params.FilesystemFilter{})
+			args := a.(params.FilesystemFilter)
+			c.Assert(args.Machines, jc.DeepEquals, []string{
+				"machine-1", "machine-2",
+			})
+
+			c.Assert(result, gc.FitsTypeOf, &params.FilesystemDetailsResults{})
+			results := result.(*params.FilesystemDetailsResults)
+			results.Results = []params.FilesystemDetailsResult{{
+				Result: &expected,
+			}}
+			return nil
+		},
+	)
+	storageClient := storage.NewClient(apiCaller)
+	found, err := storageClient.ListFilesystems([]string{"1", "2"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 1)
+	c.Assert(found[0], jc.DeepEquals, params.FilesystemDetailsResult{Result: &expected})
+}
+
+func (s *storageMockSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListFilesystems")
+
+			c.Assert(a, gc.FitsTypeOf, params.FilesystemFilter{})
+			args := a.(params.FilesystemFilter)
+			c.Assert(args.IsEmpty(), jc.IsTrue)
+			return nil
+		},
+	)
+	storageClient := storage.NewClient(apiCaller)
+	_, err := storageClient.ListFilesystems(nil)
+	c.Assert(called, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *storageMockSuite) TestListFilesystemsFacadeCallError(c *gc.C) {
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Storage")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListFilesystems")
+
+			return errors.New(msg)
+		})
+	storageClient := storage.NewClient(apiCaller)
+	_, err := storageClient.ListFilesystems(nil)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+}
+
 func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 	size := uint64(42)
 	cons := params.StorageConstraints{

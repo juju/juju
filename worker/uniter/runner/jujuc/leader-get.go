@@ -20,8 +20,8 @@ type leaderGetCommand struct {
 }
 
 // NewLeaderGetCommand returns a new leaderGetCommand with the given context.
-func NewLeaderGetCommand(ctx Context) cmd.Command {
-	return &leaderGetCommand{ctx: ctx}
+func NewLeaderGetCommand(ctx Context) (cmd.Command, error) {
+	return &leaderGetCommand{ctx: ctx}, nil
 }
 
 // Info is part of the cmd.Command interface.

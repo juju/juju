@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/series"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -358,7 +359,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	// Add tools with an unknown series. Do not add an entry in the
 	// expected list as these tools should be ignored.
 	vers, err := version.ParseBinary("3.2.1-xuanhuaceratops-amd64")
-	c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+	c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
 	toolsList = append(toolsList, &coretools.Tools{
 		Version: vers,
 		Size:    456,

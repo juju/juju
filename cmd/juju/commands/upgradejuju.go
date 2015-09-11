@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/juju/series"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -329,7 +330,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 		return err
 	}
 	defer f.Close()
-	additionalSeries := version.OSSupportedSeries(builtTools.Version.OS)
+	additionalSeries := series.OSSupportedSeries(builtTools.Version.OS)
 	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
 	if err != nil {
 		return err

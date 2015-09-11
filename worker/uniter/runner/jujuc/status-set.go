@@ -22,8 +22,8 @@ type StatusSetCommand struct {
 }
 
 // NewStatusSetCommand makes a jujuc status-set command.
-func NewStatusSetCommand(ctx Context) cmd.Command {
-	return &StatusSetCommand{ctx: ctx}
+func NewStatusSetCommand(ctx Context) (cmd.Command, error) {
+	return &StatusSetCommand{ctx: ctx}, nil
 }
 
 func (c *StatusSetCommand) Info() *cmd.Info {
