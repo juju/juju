@@ -1775,8 +1775,8 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddService(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("haha/borken", s.Owner.String(), charm, nil, nil, nil)
+	ch := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("haha/borken", s.Owner.String(), ch, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
@@ -1785,10 +1785,16 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	_, err = s.State.AddService("umadbro", s.Owner.String(), nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
-	wordpress, err := s.State.AddService("wordpress", s.Owner.String(), charm, nil, nil, nil)
+	insettings := charm.Settings{"tuning": "optimized"}
+
+	wordpress, err := s.State.AddService("wordpress", s.Owner.String(), ch, nil, nil, insettings)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	mysql, err := s.State.AddService("mysql", s.Owner.String(), charm, nil, nil, nil)
+	outsettings, err := wordpress.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outsettings, gc.DeepEquals, insettings)
+
+	mysql, err := s.State.AddService("mysql", s.Owner.String(), ch, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 
@@ -1796,15 +1802,15 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 	wordpress, err = s.State.Service("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	ch, _, err := wordpress.Charm()
+	ch, _, err = wordpress.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 	mysql, err = s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 	ch, _, err = mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
