@@ -1533,6 +1533,7 @@ func AddMissingServiceStatuses(st *State) error {
 // ChangeStatusHistoryUpdatedType seeks for historicalStatusDoc records
 // whose updated attribute is a time and converts them to int64.
 func ChangeStatusHistoryUpdatedType(st *State) error {
+	// Ensure all ids are using the new form.
 	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
 		return errors.Annotate(err, "cannot update ids of status history")
 	}
@@ -1547,10 +1548,8 @@ func ChangeStatusUpdatedType(st *State) error {
 	return runForAllEnvStates(st, run)
 }
 
-func changeIdsFromSeqToAuto(st *State) (err error) {
-	var (
-		docs []bson.M
-	)
+func changeIdsFromSeqToAuto(st *State) error {
+	var docs []bson.M
 	rawColl, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
@@ -1559,11 +1558,10 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 
 	// Filtering is done by hand because the ids we are trying to modify
 	// do not have uuid.
-	err = rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
+	if err := rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Annotatef(err, "cannot find all docs for %q", statusesHistoryC)
 	}
 
@@ -1607,11 +1605,6 @@ func changeUpdatedType(st *State, collection string) error {
 
 	wColl := coll.Writeable()
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		updated, ok := doc["updated"].(time.Time)
 		if ok {
@@ -1625,6 +1618,10 @@ func changeUpdatedType(st *State, collection string) error {
 
 // ChangeStatusHistoryEntityId renames entityId field to globalkey.
 func ChangeStatusHistoryEntityId(st *State) error {
+	// Ensure all ids are using the new form.
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
 	return runForAllEnvStates(st, changeStatusHistoryEntityId)
 }
 
@@ -1642,11 +1639,6 @@ func changeStatusHistoryEntityId(st *State) error {
 		return errors.Annotate(err, "cannot get entity ids")
 	}
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		entityId, ok := doc["entityid"].(string)
 		if !ok {
