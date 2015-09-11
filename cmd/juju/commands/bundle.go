@@ -4,8 +4,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -67,7 +65,7 @@ func deployBundle(data *charm.BundleData, client *api.Client, csclient *csClient
 		case *bundlechanges.SetAnnotationsChange:
 			err = h.setAnnotations(change.Id(), change.Params)
 		default:
-			return errors.New(fmt.Sprintf("unknown change type: %T", change))
+			return errors.Errorf("unknown change type: %T", change)
 		}
 		if err != nil {
 			return errors.Annotate(err, "cannot deploy bundle")
@@ -94,7 +92,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
 	if url.Series == "bundle" {
-		return errors.New(fmt.Sprintf("expected charm URL, got bundle URL %q", p.Charm))
+		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	h.log.Infof("adding charm %s", url)
 	url, err = addCharmViaAPI(h.client, url, repo, h.csclient)
@@ -193,7 +191,7 @@ func checkCompatibleCharms(id1, id2 string) error {
 		return errors.Annotatef(err, "cannot parse charm URL %q", id2)
 	}
 	if (ref1.Name != ref2.Name) || (ref1.User != ref2.User) {
-		return errors.New(fmt.Sprintf("charm %q is incompatible with charm %q", id1, id2))
+		return errors.Errorf("charm %q is incompatible with charm %q", id1, id2)
 	}
 	return nil
 }
