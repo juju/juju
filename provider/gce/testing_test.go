@@ -84,14 +84,15 @@ type BaseSuiteUnpatched struct {
 	Env       *environ
 	Prefix    string
 
-	Addresses     []network.Address
-	BaseInstance  *google.Instance
-	BaseDisk      *google.Disk
-	Instance      *environInstance
-	InstName      string
-	Metadata      map[string]string
-	StartInstArgs environs.StartInstanceParams
-	InstanceType  instances.InstanceType
+	Addresses       []network.Address
+	BaseInstance    *google.Instance
+	BaseDisk        *google.Disk
+	Instance        *environInstance
+	InstName        string
+	UbuntuMetadata  map[string]string
+	WindowsMetadata map[string]string
+	StartInstArgs   environs.StartInstanceParams
+	InstanceType    instances.InstanceType
 
 	Ports []network.PortRange
 }
@@ -136,11 +137,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	authKeys, err := google.FormatAuthorizedKeys(instanceConfig.AuthorizedKeys, "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Metadata = map[string]string{
+	s.UbuntuMetadata = map[string]string{
 		metadataKeyIsState:   metadataValueTrue,
 		metadataKeyCloudInit: string(userData),
 		metadataKeyEncoding:  "base64",
 		metadataKeySSHKeys:   authKeys,
+	}
+	s.WindowsMetadata = map[string]string{
+		metadataKeyWindowsUserdata: string(userData),
+		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
 	s.Addresses = []network.Address{{
 		Value: "10.0.0.1",
@@ -220,14 +225,14 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 		Disks:             []google.DiskSpec{diskSpec},
 		Network:           google.NetworkSpec{Name: "somenetwork"},
 		NetworkInterfaces: []string{"somenetif"},
-		Metadata:          s.Metadata,
+		Metadata:          s.UbuntuMetadata,
 		Tags:              []string{id},
 	}
 	summary := google.InstanceSummary{
 		ID:        id,
 		ZoneName:  "home-zone",
 		Status:    google.StatusRunning,
-		Metadata:  s.Metadata,
+		Metadata:  s.UbuntuMetadata,
 		Addresses: s.Addresses,
 	}
 	return google.NewInstance(summary, &instanceSpec)

@@ -17,8 +17,10 @@ const (
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
 	// http://cloudinit.readthedocs.org/en/latest/
 	// https://cloud.google.com/compute/docs/metadata
-	metadataKeyCloudInit = "user-data"
-	metadataKeyEncoding  = "user-data-encoding"
+	metadataKeyCloudInit       = "user-data"
+	metadataKeyEncoding        = "user-data-encoding"
+	metadataKeyWindowsUserdata = "windows-startup-script-ps1"
+	metadataKeyWindowsSysprep  = "sysprep-specialize-script-ps1"
 	// GCE uses this specific key for authentication (*handwaving*)
 	// https://cloud.google.com/compute/docs/instances#sshkeys
 	metadataKeySSHKeys = "sshKeys"
@@ -34,7 +36,8 @@ const (
 	// See https://cloud.google.com/compute/docs/operating-systems/linux-os#ubuntu
 	// TODO(ericsnow) Should this be handled in cloud-images (i.e.
 	// simplestreams)?
-	imageBasePath = "projects/ubuntu-os-cloud/global/images/"
+	ubuntuImageBasePath  = "projects/ubuntu-os-cloud/global/images/"
+	windowsImageBasePath = "projects/windows-cloud/global/images/"
 )
 
 var (
