@@ -450,7 +450,9 @@ var deployAuthorizationTests = []struct {
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
 adding charm cs:trusty/mysql-0
+deploying service mysql (charm: cs:trusty/mysql-0)
 adding charm cs:trusty/wordpress-1
+deploying service wordpress (charm: cs:trusty/wordpress-1)
 deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 }, {
 	about:        "non-public bundle, success",
@@ -459,7 +461,9 @@ deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 	readPermUser: clientUserName,
 	expectOutput: `
 adding charm cs:trusty/mysql-0
+reusing service mysql (charm: cs:trusty/mysql-0)
 adding charm cs:trusty/wordpress-1
+reusing service wordpress (charm: cs:trusty/wordpress-1)
 deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 }, {
 	about:        "non-public bundle, access denied",
