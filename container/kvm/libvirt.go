@@ -21,9 +21,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-
 	"github.com/juju/juju/network"
+	"github.com/juju/utils"
 )
 
 var (

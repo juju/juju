@@ -7,11 +7,12 @@ import (
 	"sort"
 	"sync"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jujutxn "github.com/juju/txn"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/addresser"
 	"github.com/juju/juju/environs"
