@@ -79,6 +79,14 @@ class TestSubcommandError(unittest.TestCase):
 
 
 class TestGoTest(unittest.TestCase):
+    """
+    Tests for go_test function.
+
+    Class has setup that patches out each operation with relevent side effects,
+    running a command, printing output, or changing directory. Those are
+    recorded in order in the actions list, so each test can supply a set of
+    arguments then just match the actions.
+    """
 
     maxDiff = None
 
@@ -103,25 +111,24 @@ class TestGoTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def patch_action(self, target, action):
+    def patch_action(self, target, func):
+        """Patch target recording each call in actions as wrapped by func."""
         def _record(*args, **kwargs):
-            self.actions.append(action(*args, **kwargs))
+            self.actions.append(func(*args, **kwargs))
         patcher = mock.patch(target, _record)
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    @staticmethod
-    def make_args(project, **kwargs):
-        return argparse.Namespace(
-            project=project,
-            project_url=kwargs.get("project_url"),
-            project_ref=kwargs.get("project_ref"),
-            merge_url=kwargs.get("merge_url"),
-            merge_ref=kwargs.get("merge_ref"),
-            go_get_all=kwargs.get("go_get_all"),
-            dependencies=kwargs.get("dependencies", []),
-            tsv_path=kwargs.get("tsv_path"),
-        )
+    args = frozenset("project project_url project_ref merge_url merge_ref"
+                     " go_get_all dependencies tsv_path".split())
+
+    @classmethod
+    def make_args(cls, project, **kwargs):
+        """Gives args like parse_args with all values defaulted to None."""
+        if not cls.args.issuperset(kwargs):
+            raise ValueError("Invalid arguments given: {!r}".format(kwargs))
+        kwargs["project"] = project
+        return argparse.Namespace(**dict((k, kwargs.get(k)) for k in cls.args))
 
     def test_get_test(self):
         args = self.make_args("git.testing/project", go_get_all=True)
