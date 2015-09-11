@@ -113,40 +113,37 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 // addService deploys or update a service with no units. Service options are
 // also set or updated.
 func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) error {
-	status, err := h.client.Status(nil)
-	if err != nil {
-		return errors.Annotate(err, "cannot retrieve environment status")
-	}
-	svcStatus, svcExists := status.Services[p.Service]
 	// TODO frankban: the charm should really be resolved using
 	// resolve(p.Charm, h.results) at this point: see TODO in addCharm.
 	ch := h.results["resolved-"+p.Charm]
-	if svcExists {
+	// TODO frankban: handle service constraints in the bundle changes.
+	numUnits, configYAML, cons, toMachineSpec := 0, "", constraints.Value{}, ""
+	if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err == nil {
+		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
+		// TODO frankban: do this check using the cause rather than the string,
+		// when a specific cause is available for this error case.
+	} else if strings.Contains(err.Error(), "service already exists") {
 		// The service is already deployed in the environment: check that its
 		// charm is compatible with the one declared in the bundle. If it is,
 		// reuse the existing service or upgrade to a specified revision.
 		// Exit with an error otherwise.
-		if svcStatus.Charm == ch {
+		existingCharm, err := h.client.ServiceGetCharmURL(p.Service)
+		if err != nil {
+			return errors.Annotatef(err, "cannot retrieve info for service %q", p.Service)
+		}
+		if existingCharm.String() == ch {
 			h.log.Infof("reusing service %s (charm: %s)", p.Service, ch)
 		} else {
-			if err := checkCompatibleCharms(ch, svcStatus.Charm); err != nil {
+			if err := checkCompatibleCharms(ch, existingCharm.String()); err != nil {
 				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
 			}
 			if err := h.client.ServiceSetCharm(p.Service, ch, false); err != nil {
 				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
 			}
-			h.log.Infof("upgraded charm for existing service %s (from %s to %s)", p.Service, svcStatus.Charm, ch)
+			h.log.Infof("upgraded charm for existing service %s (from %s to %s)", p.Service, existingCharm, ch)
 		}
 	} else {
-		// The service does not exist in the environment.
-		// TODO frankban: handle service constraints in the bundle changes.
-		// Note that services are always added without units here, as the units
-		// will be added later when handling unit changes in addUnit.
-		numUnits, configYAML, cons, toMachineSpec := 0, "", constraints.Value{}, ""
-		if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err != nil {
-			return errors.Annotatef(err, "cannot deploy service %q", p.Service)
-		}
-		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
+		return errors.Annotatef(err, "cannot deploy service %q", p.Service)
 	}
 	if len(p.Options) > 0 {
 		if err := setServiceOptions(h.client, p.Service, p.Options); err != nil {
@@ -168,26 +165,20 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams) error {
 	ep1 := resolveRelation(p.Endpoint1, h.results)
 	ep2 := resolveRelation(p.Endpoint2, h.results)
-	// Check whether the given relation already exists.
-	status, err := h.client.Status(nil)
-	if err != nil {
-		return errors.Annotate(err, "cannot retrieve environment status")
+	_, err := h.client.AddRelation(ep1, ep2)
+	if err == nil {
+		// A new relation has been established.
+		h.log.Infof("related %s and %s", ep1, ep2)
+		return nil
 	}
-	for _, r := range status.Relations {
-		if len(r.Endpoints) != 2 {
-			continue
-		}
-		if (r.Endpoints[0].String() == ep1 && r.Endpoints[1].String() == ep2) ||
-			(r.Endpoints[1].String() == ep1 && r.Endpoints[0].String() == ep2) {
-			h.log.Infof("%s and %s are already related", ep1, ep2)
-			return nil
-		}
+	// TODO frankban: do this check using the cause rather than the string,
+	// when a specific cause is available for this error case.
+	if strings.Contains(err.Error(), "relation already exists") {
+		// The relation is already present in the environment.
+		h.log.Infof("%s and %s are already related", ep1, ep2)
+		return nil
 	}
-	if _, err := h.client.AddRelation(ep1, ep2); err != nil {
-		return errors.Annotatef(err, "cannot add relation between %q and %q", ep1, ep2)
-	}
-	h.log.Infof("related %s and %s", ep1, ep2)
-	return nil
+	return errors.Annotatef(err, "cannot add relation between %q and %q", ep1, ep2)
 }
 
 // addUnit adds a single unit to a service already present in the environment.
