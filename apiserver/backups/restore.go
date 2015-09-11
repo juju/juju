@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -27,13 +26,19 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		return errors.Trace(err)
 	}
 
-	addr := network.SelectInternalAddress(machine.Addresses(), false)
-	if addr == "" {
+	addr, err := machine.PrivateAddress()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if addr.Value == "" {
 		return errors.Errorf("machine %q has no internal address", machine)
 	}
 
-	publicAddress := network.SelectPublicAddress(machine.Addresses())
-	if publicAddress == "" {
+	publicAddress, err := machine.PublicAddress()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if publicAddress.Value == "" {
 		return errors.Errorf("machine %q has no public address", machine)
 	}
 
@@ -58,8 +63,8 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	logger.Infof("beginning server side restore of backup %q", p.BackupId)
 	// Restore
 	restoreArgs := backups.RestoreArgs{
-		PrivateAddress: addr,
-		PublicAddress:  publicAddress,
+		PrivateAddress: addr.Value,
+		PublicAddress:  publicAddress.Value,
 		NewInstId:      instanceId,
 		NewInstTag:     machine.Tag(),
 		NewInstSeries:  machine.Series(),

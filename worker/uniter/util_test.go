@@ -435,11 +435,11 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 			// GZ 2013-07-10: Hardcoded values from dummy environ
 			//                special cased here, questionable.
 			private, _ := ctx.unit.PrivateAddress()
-			if private != "private.address.example.com" {
+			if private.Value != "private.address.example.com" {
 				continue
 			}
 			public, _ := ctx.unit.PublicAddress()
-			if public != "public.address.example.com" {
+			if public.Value != "public.address.example.com" {
 				continue
 			}
 			return
