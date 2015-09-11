@@ -378,6 +378,8 @@ deployment of bundle "local:bundle/example-0" completed`
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	// Try upgrading to a different charm name.
 	testcharms.UploadCharm(c, s.client, "trusty/incompatible-42", "wordpress")
 	_, err := s.deployBundleYAML(c, `
         services:
@@ -386,6 +388,18 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
                 num_units: 1
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade charm for service "wordpress": charm "cs:trusty/incompatible-42" is incompatible with charm "local:quantal/wordpress-3"`)
+
+	// Try upgrading to a different user.
+	testcharms.UploadCharm(c, s.client, "~who/trusty/wordpress-42", "wordpress")
+	_, err = s.deployBundleYAML(c, `
+        services:
+            wordpress:
+                charm: cs:~who/trusty/wordpress-42
+                num_units: 1
+    `)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade charm for service "wordpress": charm "cs:~who/trusty/wordpress-42" is incompatible with charm "local:quantal/wordpress-3"`)
+
+	// Try upgrading to a different series.
 	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
 	_, err = s.deployBundleYAML(c, `
         services:
