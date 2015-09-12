@@ -1043,6 +1043,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
+
+			// certChangedChan is shared by multiple workers it's up
+			// to the agent to close it rather than any one of the
+			// workers.
+			//
+			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
@@ -1058,7 +1064,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
 			if feature.IsDbLogEnabled() {
