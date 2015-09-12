@@ -55,7 +55,8 @@ class TestBackgroundChaos(TestCase):
         self.assertEqual(1, ru_mock.call_count)
         self.assertEqual(1, rc_mock.call_count)
         self.assertEqual({'state': 'start'}, w_mock.mock_calls[0][2])
-        self.assertEqual({'state': 'complete'}, w_mock.mock_calls[1][2])
+        self.assertEqual({'state': 'complete', 'timeout': 1},
+                         w_mock.mock_calls[1][2])
 
     def test_background_chaos_exits(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')

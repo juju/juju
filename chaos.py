@@ -27,7 +27,7 @@ def background_chaos(env, client, log_dir, time):
     monkey.wait_for_chaos(state='start')
     try:
         yield
-        monkey.wait_for_chaos(state='complete')
+        monkey.wait_for_chaos(state='complete', timeout=time)
     except BaseException as e:
         logging.exception(e)
         sys.exit(1)
