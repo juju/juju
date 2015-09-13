@@ -4,6 +4,7 @@
 package collect_test
 
 import (
+	"runtime"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -62,5 +63,9 @@ func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(varMap["JUJU_AGENT_SOCKET"], gc.Equals, "/dummy/jujuc.sock")
 	c.Assert(varMap["JUJU_UNIT_NAME"], gc.Equals, "u/0")
-	c.Assert(varMap["PATH"], gc.Not(gc.Equals), "")
+	key := "PATH"
+	if runtime.GOOS == "windows" {
+		key = "Path"
+	}
+	c.Assert(varMap[key], gc.Not(gc.Equals), "")
 }
