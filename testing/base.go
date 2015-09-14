@@ -60,8 +60,8 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 
 	// Update the feature flag set to be the requested initial set.
 	// This works for both windows and unix, even though normally
-	// the feature flags on windows are determined using the registry,
-	// for tests, setting with the environment variable isolates us
+	// the feature flags on windows are determined using the registry.
+	// For tests, setting with the environment variable isolates us
 	// from a single resource that was hitting contention during parallel
 	// test runs.
 	os.Setenv(osenv.JujuFeatureFlagEnvKey, s.initialFeatureFlags)
