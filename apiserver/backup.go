@@ -26,20 +26,20 @@ var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
 
 // backupHandler handles backup requests.
 type backupHandler struct {
-	httpHandler
+	ctxt httpContext
 }
 
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	stateWrapper, err := h.validateEnvironUUID(req)
+	stateWrapper, err := h.ctxt.validateEnvironUUID(req)
 	if err != nil {
 		h.sendError(resp, http.StatusNotFound, err.Error())
 		return
 	}
 
 	if err := stateWrapper.authenticateUser(req); err != nil {
-		h.authError(resp, h)
+		h.ctxt.authError(resp, h)
 		return
 	}
 
