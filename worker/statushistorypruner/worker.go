@@ -18,18 +18,6 @@ type HistoryPrunerParams struct {
 	PruneInterval    time.Duration
 }
 
-// DefaultMaxLogsPerEntity is the default value for logs for each entity
-// that should be kept at any given time.
-const DefaultMaxLogsPerEntity = 100
-
-// DefaultPruneInterval is the default interval that should be waited
-// between prune calls.
-const DefaultPruneInterval = 5 * time.Minute
-
-// DefaultNewTimer is the timer constructor to be used when running
-// on production.
-var DefaultNewTimer = worker.NewTimer
-
 // Facade represents an API that implements status history pruning.
 type Facade interface {
 	Prune(int) error
@@ -38,21 +26,35 @@ type Facade interface {
 // Config holds all necessary attributes to start a pruner worker.
 type Config struct {
 	Facade           Facade
-	MaxLogsPerEntity int
+	MaxLogsPerEntity uint
 	PruneInterval    time.Duration
 	NewTimer         worker.NewTimerFunc
 }
 
-// New returns a worker.Worker for history Pruner.
-func New(conf Config) worker.Worker {
+// Validate will err unless basic requirements for a valid
+// config are met.
+func (c *Config) Validate() error {
+	if c.Facade == nil {
+		return errors.New("missing Facade")
+	}
+	if c.NewTimer == nil {
+		return errors.New("missing Timer")
+	}
+	return nil
+}
 
+// New returns a worker.Worker for history Pruner.
+func New(conf Config) (worker.Worker, error) {
+	if err := conf.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	doPruning := func(stop <-chan struct{}) error {
-		err := conf.Facade.Prune(conf.MaxLogsPerEntity)
+		err := conf.Facade.Prune(int(conf.MaxLogsPerEntity))
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	}
 
-	return worker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer)
+	return worker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer), nil
 }
