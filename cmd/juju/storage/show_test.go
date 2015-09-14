@@ -130,31 +130,33 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, error) {
+func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetailsResult, error) {
 	if s.noMatch {
 		return nil, nil
 	}
-	all := make([]params.StorageDetails, len(tags))
+	all := make([]params.StorageDetailsResult, len(tags))
 	for i, tag := range tags {
-		all[i] = params.StorageDetails{
+		all[i].Legacy = params.LegacyStorageDetails{
 			StorageTag: tag.String(),
 			UnitTag:    "unit-postgresql-0",
 			Kind:       params.StorageKindBlock,
 			Status:     "pending",
 		}
 		if i == 1 {
-			all[i].Persistent = true
+			all[i].Legacy.Persistent = true
 		}
 	}
 	for _, tag := range tags {
 		if strings.Contains(tag.String(), "shared") {
-			all = append(all, params.StorageDetails{
-				StorageTag: tag.String(),
-				OwnerTag:   "unit-transcode-0",
-				UnitTag:    "unit-transcode-0",
-				Kind:       params.StorageKindFilesystem,
-				Location:   "a location",
-				Status:     "attached",
+			all = append(all, params.StorageDetailsResult{
+				Legacy: params.LegacyStorageDetails{
+					StorageTag: tag.String(),
+					OwnerTag:   "unit-transcode-0",
+					UnitTag:    "unit-transcode-0",
+					Kind:       params.StorageKindFilesystem,
+					Location:   "a location",
+					Status:     "attached",
+				},
 			})
 		}
 	}

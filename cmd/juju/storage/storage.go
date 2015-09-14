@@ -70,9 +70,9 @@ type StorageInfo struct {
 	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
 }
 
-// formatStorageDetails takes a set of StorageDetail and creates a
+// formatStorageDetails takes a set of LegacyStorageDetail and creates a
 // mapping keyed on unit and storage id.
-func formatStorageDetails(storages []params.StorageDetails) (map[string]map[string]StorageInfo, error) {
+func formatStorageDetails(storages []params.LegacyStorageDetails) (map[string]map[string]StorageInfo, error) {
 	if len(storages) == 0 {
 		return nil, nil
 	}

@@ -29,7 +29,7 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Show retrieves information about desired storage instances.
-func (c *Client) Show(tags []names.StorageTag) ([]params.StorageDetails, error) {
+func (c *Client) Show(tags []names.StorageTag) ([]params.StorageDetailsResult, error) {
 	found := params.StorageDetailsResults{}
 	entities := make([]params.Entity, len(tags))
 	for i, tag := range tags {
@@ -38,20 +38,7 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageDetails, error) 
 	if err := c.facade.FacadeCall("Show", params.Entities{Entities: entities}, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.convert(found.Results)
-}
-
-func (c *Client) convert(found []params.StorageDetailsResult) ([]params.StorageDetails, error) {
-	var storages []params.StorageDetails
-	var allErr params.ErrorResults
-	for _, result := range found {
-		if result.Error != nil {
-			allErr.Results = append(allErr.Results, params.ErrorResult{result.Error})
-			continue
-		}
-		storages = append(storages, result.Result)
-	}
-	return storages, allErr.Combine()
+	return found.Results, nil
 }
 
 // List lists all storage.

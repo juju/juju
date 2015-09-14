@@ -67,10 +67,12 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// filter out valid output, if any
-	var valid []params.StorageDetails
+	var valid []params.LegacyStorageDetails
 	for _, one := range found {
 		if one.Error == nil {
-			valid = append(valid, one.Result)
+			// TODO(axw) use non-legacy if available,
+			// convert from legacy otherwise.
+			valid = append(valid, one.Legacy)
 			continue
 		}
 		// display individual error
