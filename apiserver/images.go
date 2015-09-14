@@ -29,12 +29,12 @@ import (
 
 // imagesDownloadHandler handles image download through HTTPS in the API server.
 type imagesDownloadHandler struct {
-	httpHandler
+	ctxt    httpContext
 	dataDir string
 }
 
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stateWrapper, err := h.validateEnvironUUID(r)
+	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return

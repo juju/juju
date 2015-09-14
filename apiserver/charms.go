@@ -34,7 +34,7 @@ import (
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	httpHandler
+	ctxt    httpContext
 	dataDir string
 }
 
@@ -43,7 +43,7 @@ type charmsHandler struct {
 type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stateWrapper, err := h.validateEnvironUUID(r)
+	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
@@ -52,7 +52,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		if err := stateWrapper.authenticateUser(r); err != nil {
-			h.authError(w, h)
+			h.ctxt.authError(w, h)
 			return
 		}
 		// Add a local charm to the store provider.

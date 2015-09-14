@@ -21,8 +21,8 @@ type errorSender interface {
 	sendError(w http.ResponseWriter, statusCode int, message string)
 }
 
-// httpHandler handles http requests through HTTPS in the API server.
-type httpHandler struct {
+// httpContext provides context for HTTP handlers.
+type httpContext struct {
 	// A cache of State instances for different environments.
 	statePool *state.StatePool
 	// strictValidation means that empty envUUID values are not valid.
@@ -36,17 +36,17 @@ type httpStateWrapper struct {
 	state *state.State
 }
 
-func (h *httpHandler) getEnvironUUID(r *http.Request) string {
+func (h *httpContext) getEnvironUUID(r *http.Request) string {
 	return r.URL.Query().Get(":envuuid")
 }
 
 // authError sends an unauthorized error.
-func (h *httpHandler) authError(w http.ResponseWriter, sender errorSender) {
+func (h *httpContext) authError(w http.ResponseWriter, sender errorSender) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
 	sender.sendError(w, http.StatusUnauthorized, "unauthorized")
 }
 
-func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
+func (h *httpContext) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
 	envUUID := h.getEnvironUUID(r)
 	envState, err := validateEnvironUUID(validateArgs{
 		statePool:          h.statePool,
