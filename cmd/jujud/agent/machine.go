@@ -1217,11 +1217,15 @@ func (a *MachineAgent) startEnvWorkers(
 		f := statushistory.NewFacade(apiSt)
 		conf := statushistorypruner.Config{
 			Facade:           f,
-			MaxLogsPerEntity: statushistorypruner.DefaultMaxLogsPerEntity,
-			PruneInterval:    statushistorypruner.DefaultPruneInterval,
-			NewTimer:         statushistorypruner.DefaultNewTimer,
+			MaxLogsPerEntity: params.DefaultMaxLogsPerEntity,
+			PruneInterval:    params.DefaultPruneInterval,
+			NewTimer:         worker.NewTimer,
 		}
-		return statushistorypruner.New(conf), nil
+		w, err := statushistorypruner.New(conf)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start \"statushistorypruner\"")
+		}
+		return w, nil
 	})
 
 	return runner, nil
