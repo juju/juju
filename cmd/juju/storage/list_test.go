@@ -137,15 +137,15 @@ func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List() ([]params.StorageInfo, error) {
-	result := []params.StorageInfo{}
+func (s mockListAPI) List() ([]params.StorageDetailsResult, error) {
+	result := []params.StorageDetailsResult{}
 	result = append(result, getTestAttachments(s.lexicalChaos)...)
 	result = append(result, getTestInstances(s.lexicalChaos)...)
 	return result, nil
 }
 
-func getTestAttachments(chaos bool) []params.StorageInfo {
-	results := []params.StorageInfo{{
+func getTestAttachments(chaos bool) []params.StorageDetailsResult {
+	results := []params.StorageDetailsResult{{
 		params.StorageDetails{
 			StorageTag: "storage-shared-fs-0",
 			OwnerTag:   "service-transcode",
@@ -165,7 +165,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 		}, nil}}
 
 	if chaos {
-		last := params.StorageInfo{
+		last := params.StorageDetailsResult{
 			params.StorageDetails{
 				StorageTag: "storage-shared-fs-5",
 				OwnerTag:   "service-transcode",
@@ -174,7 +174,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				Location:   "nowhere",
 				Status:     "pending",
 			}, nil}
-		second := params.StorageInfo{
+		second := params.StorageDetailsResult{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1010",
 				OwnerTag:   "unit-transcode-1",
@@ -183,7 +183,7 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 				Location:   "",
 				Status:     "pending",
 			}, &params.Error{Message: "error for storage-db-dir-1010"}}
-		first := params.StorageInfo{
+		first := params.StorageDetailsResult{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1000",
 				OwnerTag:   "unit-transcode-1",
@@ -199,9 +199,9 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 	return results
 }
 
-func getTestInstances(chaos bool) []params.StorageInfo {
+func getTestInstances(chaos bool) []params.StorageDetailsResult {
 
-	results := []params.StorageInfo{
+	results := []params.StorageDetailsResult{
 		{
 			params.StorageDetails{
 				StorageTag: "storage-shared-fs-0",
@@ -243,7 +243,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 			}, nil}}
 
 	if chaos {
-		last := params.StorageInfo{
+		last := params.StorageDetailsResult{
 			params.StorageDetails{
 				StorageTag: "storage-shared-fs-5",
 				OwnerTag:   "service-transcode",
@@ -251,14 +251,14 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				Kind:       params.StorageKindUnknown,
 				Status:     "pending",
 			}, nil}
-		second := params.StorageInfo{
+		second := params.StorageDetailsResult{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1010",
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindBlock,
 				Status:     "pending",
 			}, &params.Error{Message: "error for test storage-db-dir-1010"}}
-		first := params.StorageInfo{
+		first := params.StorageDetailsResult{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1000",
 				UnitTag:    "unit-transcode-1",
@@ -266,7 +266,7 @@ func getTestInstances(chaos bool) []params.StorageInfo {
 				Status:     "pending",
 				Persistent: true,
 			}, nil}
-		zero := params.StorageInfo{
+		zero := params.StorageDetailsResult{
 			params.StorageDetails{
 				StorageTag: "storage-db-dir-1100",
 				UnitTag:    "unit-postgresql-0",

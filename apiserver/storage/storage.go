@@ -91,17 +91,17 @@ func (api *API) Show(entities params.Entities) (params.StorageDetailsResults, er
 // List returns all currently known storage. Unlike Show(),
 // if errors encountered while retrieving a particular
 // storage, this error is treated as part of the returned storage detail.
-func (api *API) List() (params.StorageInfosResult, error) {
+func (api *API) List() (params.StorageDetailsResults, error) {
 	stateInstances, err := api.storage.AllStorageInstances()
 	if err != nil {
-		return params.StorageInfosResult{}, common.ServerError(err)
+		return params.StorageDetailsResults{}, common.ServerError(err)
 	}
-	var infos []params.StorageInfo
+	var infos []params.StorageDetailsResult
 	for _, stateInstance := range stateInstances {
 		storageTag := stateInstance.StorageTag()
 		persistent, err := api.isPersistent(stateInstance)
 		if err != nil {
-			return params.StorageInfosResult{}, err
+			return params.StorageDetailsResults{}, err
 		}
 		instance := createParamsStorageInstance(stateInstance, persistent)
 
@@ -112,11 +112,11 @@ func (api *API) List() (params.StorageInfosResult, error) {
 		// as another valid property, i.e. augment storage details.
 		attachments := api.createStorageDetailsResult(storageTag, instance)
 		for _, one := range attachments {
-			aParam := params.StorageInfo{one.Result, one.Error}
+			aParam := params.StorageDetailsResult{one.Result, one.Error}
 			infos = append(infos, aParam)
 		}
 	}
-	return params.StorageInfosResult{Results: infos}, nil
+	return params.StorageDetailsResults{Results: infos}, nil
 }
 
 func (api *API) createStorageDetailsResult(

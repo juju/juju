@@ -426,18 +426,6 @@ type StorageDetailsResults struct {
 	Results []StorageDetailsResult `json:"results,omitempty"`
 }
 
-// StorageInfo contains information about a storage as well as
-// potentially an error related to information retrieval.
-type StorageInfo struct {
-	StorageDetails `json:"result"`
-	Error          *Error `json:"error,omitempty"`
-}
-
-// StorageInfosResult holds storage details.
-type StorageInfosResult struct {
-	Results []StorageInfo `json:"results,omitempty"`
-}
-
 // StoragePool holds data for a pool instance.
 type StoragePool struct {
 

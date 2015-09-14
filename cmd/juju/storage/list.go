@@ -70,7 +70,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 	var valid []params.StorageDetails
 	for _, one := range found {
 		if one.Error == nil {
-			valid = append(valid, one.StorageDetails)
+			valid = append(valid, one.Result)
 			continue
 		}
 		// display individual error
@@ -93,7 +93,7 @@ var (
 // StorageAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
-	List() ([]params.StorageInfo, error)
+	List() ([]params.StorageDetailsResult, error)
 }
 
 func (c *ListCommand) getStorageListAPI() (StorageListAPI, error) {
