@@ -391,7 +391,33 @@ type FilesystemAttachmentParamsResults struct {
 
 // StorageDetails holds information about storage.
 type StorageDetails struct {
+	// StorageTag holds tag for this storage.
+	StorageTag string `json:"storagetag"`
 
+	// OwnerTag holds tag for the owner of this storage, unit or service.
+	OwnerTag string `json:"ownertag"`
+
+	// Kind holds what kind of storage this instance is.
+	Kind StorageKind `json:"kind"`
+
+	// Status contains the status of the storage instance.
+	Status EntityStatus `json:"status"`
+
+	// Persistent reports whether or not the underlying volume or
+	// filesystem is persistent; i.e. whether or not it outlives
+	// the machine that it is attached to.
+	Persistent bool
+
+	// Attachments contains a mapping from unit tag to
+	// storage attachment details.
+	Attachments map[string]StorageAttachmentDetails `json:"attachments,omitempty"`
+}
+
+// LegacyStorageDetails holds information about storage.
+//
+// NOTE(axw): this is for backwards compatibility only. This struct
+// should not be changed!
+type LegacyStorageDetails struct {
 	// StorageTag holds tag for this storage.
 	StorageTag string `json:"storagetag"`
 
@@ -417,13 +443,30 @@ type StorageDetails struct {
 // StorageDetailsResult holds information about a storage instance
 // or error related to its retrieval.
 type StorageDetailsResult struct {
-	Result StorageDetails `json:"result"`
-	Error  *Error         `json:"error,omitempty"`
+	Result *StorageDetails      `json:"details,omitempty"`
+	Legacy LegacyStorageDetails `json:"result"`
+	Error  *Error               `json:"error,omitempty"`
 }
 
 // StorageDetailsResults holds results for storage details or related storage error.
 type StorageDetailsResults struct {
 	Results []StorageDetailsResult `json:"results,omitempty"`
+}
+
+// StorageAttachmentDetails holds detailed information about a storage attachment.
+type StorageAttachmentDetails struct {
+	// StorageTag is the tag of the storage instance.
+	StorageTag string `json:"storagetag"`
+
+	// UnitTag is the tag of the unit attached to the storage instance.
+	UnitTag string `json:"unittag"`
+
+	// MachineTag is the tag of the machine that the attached unit is assigned to.
+	MachineTag string `json:"machinetag"`
+
+	// Location holds location (mount point/device path) of
+	// the attached storage.
+	Location string `json:"location,omitempty"`
 }
 
 // StoragePool holds data for a pool instance.
@@ -504,7 +547,7 @@ type VolumeDetails struct {
 // specific to the volume model, whereas LegacyVolumeDetails is intended
 // to contain complete information about a volume.
 //
-// NOTE: this is for backwards compatibility only. This struct
+// NOTE(axw): this is for backwards compatibility only. This struct
 // should not be changed!
 type LegacyVolumeDetails struct {
 
@@ -545,7 +588,7 @@ type VolumeDetailsResult struct {
 
 	// LegacyVolume describes the volume in detail.
 	//
-	// NOTE: VolumeDetails contains redundant and nonsensical
+	// NOTE(axw): VolumeDetails contains redundant and nonsensical
 	// information. Use Details if it is available, and only use
 	// this for backwards-compatibility.
 	LegacyVolume *LegacyVolumeDetails `json:"volume,omitempty"`
@@ -553,7 +596,7 @@ type VolumeDetailsResult struct {
 	// LegacyAttachments describes the attachments of the volume to
 	// machines.
 	//
-	// NOTE: this should have gone into VolumeDetails, but it's too
+	// NOTE(axw): this should have gone into VolumeDetails, but it's too
 	// late for that now. We'll continue to populate it, and use it
 	// if it's defined but Volume.Attachments is not. Please do not
 	// copy this structure.
