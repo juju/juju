@@ -87,7 +87,7 @@ type Uniter struct {
 
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
-	updateStatusAt TimedSignal
+	updateStatusAt func() <-chan time.Time
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -98,7 +98,7 @@ type UniterParams struct {
 	DataDir              string
 	MachineLock          *fslock.Lock
 	CharmDirLocker       charmdir.Locker
-	UpdateStatusSignal   TimedSignal
+	UpdateStatusSignal   func() <-chan time.Time
 	NewOperationExecutor NewExecutorFunc
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
@@ -182,20 +182,12 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			}
 		}
 		var err error
-		updateStatusChannel := func() <-chan time.Time {
-			return u.updateStatusAt(
-				time.Now(),
-				time.Unix(u.operationState().UpdateStatusTime, 0),
-				statusPollInterval,
-			)
-		}
-
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
 				State:               remotestate.NewAPIState(u.st),
 				LeadershipTracker:   u.leadershipTracker,
 				UnitTag:             unitTag,
-				UpdateStatusChannel: updateStatusChannel,
+				UpdateStatusChannel: u.updateStatusAt,
 			})
 		if err != nil {
 			return errors.Trace(err)

@@ -172,12 +172,11 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	newState, err := op.Prepare(overwriteState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, &operation.State{
-		Kind:             operation.RunAction,
-		Step:             operation.Pending,
-		ActionId:         &someActionId,
-		Started:          true,
-		UpdateStatusTime: 1234567,
-		Hook:             &hook.Info{Kind: hooks.Install},
+		Kind:     operation.RunAction,
+		Step:     operation.Pending,
+		ActionId: &someActionId,
+		Started:  true,
+		Hook:     &hook.Info{Kind: hooks.Install},
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
@@ -198,12 +197,11 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		description: "preserves appropriate fields",
 		before:      overwriteState,
 		after: operation.State{
-			Kind:             operation.RunAction,
-			Step:             operation.Done,
-			ActionId:         &someActionId,
-			Hook:             &hook.Info{Kind: hooks.Install},
-			Started:          true,
-			UpdateStatusTime: 1234567,
+			Kind:     operation.RunAction,
+			Step:     operation.Done,
+			ActionId: &someActionId,
+			Hook:     &hook.Info{Kind: hooks.Install},
+			Started:  true,
 		},
 	}}
 
@@ -243,36 +241,32 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 	}, {
 		description: "preserves only appropriate fields, no hook",
 		before: operation.State{
-			Kind:             operation.Continue,
-			Step:             operation.Pending,
-			Started:          true,
-			UpdateStatusTime: 1234567,
-			CharmURL:         curl("cs:quantal/wordpress-2"),
-			ActionId:         &randomActionId,
+			Kind:     operation.Continue,
+			Step:     operation.Pending,
+			Started:  true,
+			CharmURL: curl("cs:quantal/wordpress-2"),
+			ActionId: &randomActionId,
 		},
 		after: operation.State{
-			Kind:             operation.Continue,
-			Step:             operation.Pending,
-			Started:          true,
-			UpdateStatusTime: 1234567,
+			Kind:    operation.Continue,
+			Step:    operation.Pending,
+			Started: true,
 		},
 	}, {
 		description: "preserves only appropriate fields, with hook",
 		before: operation.State{
-			Kind:             operation.Continue,
-			Step:             operation.Pending,
-			Started:          true,
-			UpdateStatusTime: 1234567,
-			CharmURL:         curl("cs:quantal/wordpress-2"),
-			ActionId:         &randomActionId,
-			Hook:             &hook.Info{Kind: hooks.Install},
+			Kind:     operation.Continue,
+			Step:     operation.Pending,
+			Started:  true,
+			CharmURL: curl("cs:quantal/wordpress-2"),
+			ActionId: &randomActionId,
+			Hook:     &hook.Info{Kind: hooks.Install},
 		},
 		after: operation.State{
-			Kind:             operation.RunHook,
-			Step:             operation.Pending,
-			Hook:             &hook.Info{Kind: hooks.Install},
-			Started:          true,
-			UpdateStatusTime: 1234567,
+			Kind:    operation.RunHook,
+			Step:    operation.Pending,
+			Hook:    &hook.Info{Kind: hooks.Install},
+			Started: true,
 		},
 	}}
 

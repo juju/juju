@@ -4,8 +4,6 @@
 package operation_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -172,11 +170,10 @@ func (s *RunHookSuite) TestPrepareSuccess_Preserve(c *gc.C) {
 		(operation.Factory).NewRunHook,
 		overwriteState,
 		operation.State{
-			Started:          true,
-			UpdateStatusTime: 1234567,
-			Kind:             operation.RunHook,
-			Step:             operation.Pending,
-			Hook:             &hook.Info{Kind: hooks.ConfigChanged},
+			Started: true,
+			Kind:    operation.RunHook,
+			Step:    operation.Pending,
+			Hook:    &hook.Info{Kind: hooks.ConfigChanged},
 		},
 	)
 }
@@ -307,12 +304,11 @@ func (s *RunHookSuite) TestExecuteSuccess_Preserve(c *gc.C) {
 	s.testExecuteSuccess(c,
 		overwriteState,
 		operation.State{
-			Started:          true,
-			UpdateStatusTime: 1234567,
-			Kind:             operation.RunHook,
-			Step:             operation.Done,
-			Hook:             &hook.Info{Kind: hooks.ConfigChanged},
-			StatusSet:        true,
+			Started:   true,
+			Kind:      operation.RunHook,
+			Step:      operation.Done,
+			Hook:      &hook.Info{Kind: hooks.ConfigChanged},
+			StatusSet: true,
 		},
 		true,
 	)
@@ -399,12 +395,11 @@ func (s *RunHookSuite) testExecuteHookWithSetStatus(c *gc.C, kind hooks.Kind, se
 	s.testExecuteThenCharmStatus(c,
 		overwriteState,
 		operation.State{
-			Started:          true,
-			UpdateStatusTime: 1234567,
-			Kind:             operation.RunHook,
-			Step:             operation.Done,
-			Hook:             &hook.Info{Kind: kind},
-			StatusSet:        setStatusCalled,
+			Started:   true,
+			Kind:      operation.RunHook,
+			Step:      operation.Done,
+			Hook:      &hook.Info{Kind: kind},
+			StatusSet: setStatusCalled,
 		},
 		kind,
 		setStatusCalled,
@@ -487,10 +482,9 @@ func (s *RunHookSuite) TestCommitSuccess_ConfigChanged_Preserve(c *gc.C) {
 			hook.Info{Kind: hooks.ConfigChanged},
 			overwriteState,
 			operation.State{
-				Started:          true,
-				UpdateStatusTime: 1234567,
-				Kind:             operation.Continue,
-				Step:             operation.Pending,
+				Started: true,
+				Kind:    operation.Continue,
+				Step:    operation.Pending,
 			},
 		)
 	}
@@ -526,10 +520,9 @@ func (s *RunHookSuite) TestCommitSuccess_Start_Preserve(c *gc.C) {
 			hook.Info{Kind: hooks.Start},
 			overwriteState,
 			operation.State{
-				Started:          true,
-				UpdateStatusTime: 1234567,
-				Kind:             operation.Continue,
-				Step:             operation.Pending,
+				Started: true,
+				Kind:    operation.Continue,
+				Step:    operation.Pending,
 			},
 		)
 	}
@@ -580,12 +573,11 @@ func (s *RunHookSuite) testQueueHook_Preserve(c *gc.C, cause hooks.Kind) {
 			hook.Info{Kind: cause},
 			overwriteState,
 			operation.State{
-				Kind:             operation.RunHook,
-				Step:             operation.Queued,
-				Started:          true,
-				Stopped:          cause == hooks.Stop,
-				Hook:             hi,
-				UpdateStatusTime: 1234567,
+				Kind:    operation.RunHook,
+				Step:    operation.Queued,
+				Started: true,
+				Stopped: cause == hooks.Stop,
+				Hook:    hi,
 			},
 		)
 	}
@@ -630,12 +622,11 @@ func (s *RunHookSuite) testQueueNothing_Preserve(c *gc.C, hookInfo hook.Info) {
 			hookInfo,
 			overwriteState,
 			operation.State{
-				Kind:             operation.Continue,
-				Step:             operation.Pending,
-				Installed:        hookInfo.Kind == hooks.Install,
-				Started:          true,
-				Stopped:          hookInfo.Kind == hooks.Stop,
-				UpdateStatusTime: 1234567,
+				Kind:      operation.Continue,
+				Step:      operation.Pending,
+				Installed: hookInfo.Kind == hooks.Install,
+				Started:   true,
+				Stopped:   hookInfo.Kind == hooks.Stop,
 			},
 		)
 	}
@@ -717,43 +708,6 @@ func (s *RunHookSuite) TestQueueNothing_RelationBroken_Preserve(c *gc.C) {
 	s.testQueueNothing_Preserve(c, hook.Info{
 		Kind: hooks.RelationBroken,
 	})
-}
-
-func (s *RunHookSuite) testCommitSuccess_UpdateStatusTime(c *gc.C, newHook newHook) {
-	callbacks := &CommitHookCallbacks{
-		MockCommitHook: &MockCommitHook{},
-	}
-	factory := operation.NewFactory(operation.FactoryParams{
-		Callbacks: callbacks,
-	})
-	op, err := newHook(factory, hook.Info{Kind: hooks.UpdateStatus})
-	c.Assert(err, jc.ErrorIsNil)
-
-	nowBefore := time.Now().Unix()
-	newState, err := op.Commit(overwriteState)
-	c.Assert(err, jc.ErrorIsNil)
-
-	nowAfter := time.Now().Unix()
-	nowWritten := newState.UpdateStatusTime
-	c.Logf("%d <= %d <= %d", nowBefore, nowWritten, nowAfter)
-	c.Check(nowBefore <= nowWritten, jc.IsTrue)
-	c.Check(nowWritten <= nowAfter, jc.IsTrue)
-
-	// Check the other fields match.
-	newState.UpdateStatusTime = 0
-	c.Check(newState, gc.DeepEquals, &operation.State{
-		Started: true,
-		Kind:    operation.Continue,
-		Step:    operation.Pending,
-	})
-}
-
-func (s *RunHookSuite) TestCommitSuccess_UpdateStatusTime_Run(c *gc.C) {
-	s.testCommitSuccess_UpdateStatusTime(c, (operation.Factory).NewRunHook)
-}
-
-func (s *RunHookSuite) TestCommitSuccess_UpdateStatusTime_Skip(c *gc.C) {
-	s.testCommitSuccess_UpdateStatusTime(c, (operation.Factory).NewSkipHook)
 }
 
 func (s *RunHookSuite) testNeedsGlobalMachineLock(c *gc.C, newHook newHook, expected bool) {
