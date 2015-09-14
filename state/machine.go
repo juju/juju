@@ -118,13 +118,13 @@ type machineDoc struct {
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
 
-	// DefaultPublicAddress, if set, is the default address to be used for
+	// PreferredPublicAddress, if set, is the default address to be used for
 	// the machine when a public address is requested.
-	DefaultPublicAddress address `bson:",omitempty"`
+	PreferredPublicAddress address `bson:",omitempty"`
 
-	// DefaultPrivateAddress, if set, is the default address to be used for
+	// PreferredPrivateAddress, if set, is the default address to be used for
 	// the machine when a private address is requested.
-	DefaultPrivateAddress address `bson:",omitempty"`
+	PreferredPrivateAddress address `bson:",omitempty"`
 
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
@@ -1055,7 +1055,7 @@ func containsAddress(addresses []network.Address, address network.Address) bool 
 // returned unless it becomes unavilable (or a better match for scope and type
 // becomes avaialable).
 func (m *Machine) PublicAddress() (network.Address, error) {
-	publicAddress := m.doc.DefaultPublicAddress.networkAddress()
+	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	addresses := m.Addresses()
 	if len(addresses) == 0 {
 		// No addresses to return.
@@ -1116,7 +1116,7 @@ func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAd
 // returned unless it becomes unavilable (or a better match for scope and type
 // becomes avaialable).
 func (m *Machine) PrivateAddress() (network.Address, error) {
-	privateAddress := m.doc.DefaultPrivateAddress.networkAddress()
+	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	addresses := m.Addresses()
 	if len(addresses) == 0 {
 		// No addresses to return.
@@ -1185,9 +1185,9 @@ func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) erro
 	err := m.st.run(buildTxn)
 	if err == nil {
 		if isPublic {
-			m.doc.DefaultPublicAddress = addr
+			m.doc.PreferredPublicAddress = addr
 		} else {
-			m.doc.DefaultPrivateAddress = addr
+			m.doc.PreferredPrivateAddress = addr
 		}
 	}
 	return err
