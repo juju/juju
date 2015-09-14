@@ -28,10 +28,11 @@ type CreateEnvironmentCommand struct {
 	envcmd.SysCommandBase
 	api CreateEnvironmentAPI
 
-	name       string
-	owner      string
-	configFile cmd.FileVar
-	confValues map[string]string
+	name         string
+	owner        string
+	configFile   cmd.FileVar
+	confValues   map[string]string
+	configParser func(interface{}) (interface{}, error)
 }
 
 const createEnvHelpDoc = `
@@ -83,6 +84,10 @@ func (c *CreateEnvironmentCommand) Init(args []string) error {
 
 	if c.owner != "" && !names.IsValidUser(c.owner) {
 		return errors.Errorf("%q is not a valid user", c.owner)
+	}
+
+	if c.configParser == nil {
+		c.configParser = common.ConformYAML
 	}
 
 	return nil
@@ -200,18 +205,18 @@ func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkele
 	if c.configFile.Path != "" {
 		configYAML, err := c.configFile.Read(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "unable to read config file")
 		}
 
 		rawFileConfig := make(map[string]interface{})
 		err = yaml.Unmarshal(configYAML, &rawFileConfig)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "unable to parse config file")
 		}
 
-		conformantConfig, err := common.ConformYAML(rawFileConfig)
+		conformantConfig, err := c.configParser(rawFileConfig)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "unable to parse config file")
 		}
 		betterConfig, ok := conformantConfig.(map[string]interface{})
 		if !ok {
