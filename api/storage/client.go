@@ -55,8 +55,8 @@ func (c *Client) convert(found []params.StorageDetailsResult) ([]params.StorageD
 }
 
 // List lists all storage.
-func (c *Client) List() ([]params.StorageInfo, error) {
-	found := params.StorageInfosResult{}
+func (c *Client) List() ([]params.StorageDetailsResult, error) {
+	found := params.StorageDetailsResults{}
 	if err := c.facade.FacadeCall("List", nil, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
