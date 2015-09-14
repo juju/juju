@@ -607,7 +607,7 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, nil, storage, nil)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -615,7 +615,7 @@ func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *s
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, networks, nil, nil)
+	service, err := s.State.AddService(state.AddServiceArgs{Name: name, Owner: owner, Charm: ch, Networks: networks})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }

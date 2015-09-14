@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -1091,25 +1092,34 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 	return ops, nil
 }
 
+type AddServiceArgs struct {
+	Name      string
+	Owner     string
+	Charm     *Charm
+	Networks  []string
+	Storage   map[string]StorageConstraints
+	Settings  charm.Settings
+	NumUnits  int
+	Placement []*instance.Placement
+}
+
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(
-	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints, settings charm.Settings,
-) (service *Service, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
-	ownerTag, err := names.ParseUserTag(owner)
+func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add service %q", args.Name)
+	ownerTag, err := names.ParseUserTag(args.Owner)
 	if err != nil {
-		return nil, errors.Annotatef(err, "Invalid ownertag %s", owner)
+		return nil, errors.Annotatef(err, "Invalid ownertag %s", args.Owner)
 	}
 	// Sanity checks.
-	if !names.IsValidService(name) {
+	if !names.IsValidService(args.Name) {
 		return nil, errors.Errorf("invalid name")
 	}
-	if ch == nil {
+	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
-	if exists, err := isNotDead(st, servicesC, name); err != nil {
+	if exists, err := isNotDead(st, servicesC, args.Name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
 		return nil, errors.Errorf("service already exists")
@@ -1123,28 +1133,28 @@ func (st *State) AddService(
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if storage == nil {
-		storage = make(map[string]StorageConstraints)
+	if args.Storage == nil {
+		args.Storage = make(map[string]StorageConstraints)
 	}
-	if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
+	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
+	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
-	serviceID := st.docID(name)
+	serviceID := st.docID(args.Name)
 	// Create the service addition operations.
-	peers := ch.Meta().Peers
+	peers := args.Charm.Meta().Peers
 	svcDoc := &serviceDoc{
 		DocID:         serviceID,
-		Name:          name,
+		Name:          args.Name,
 		EnvUUID:       env.UUID(),
-		Series:        ch.URL().Series,
-		Subordinate:   ch.Meta().Subordinate,
-		CharmURL:      ch.URL(),
+		Series:        args.Charm.URL().Series,
+		Subordinate:   args.Charm.Meta().Subordinate,
+		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      owner,
+		OwnerTag:      args.Owner,
 	}
 	svc := newService(st, svcDoc)
 
@@ -1169,9 +1179,9 @@ func (st *State) AddService(
 		// Once we can add networks independently of machine
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
-		createRequestedNetworksOp(st, svc.globalKey(), networks),
-		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(st, svc.settingsKey(), map[string]interface{}(settings)),
+		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
+		createStorageConstraintsOp(svc.globalKey(), args.Storage),
+		createSettingsOp(st, svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
@@ -1190,12 +1200,24 @@ func (st *State) AddService(
 	}
 
 	// Collect peer relation addition operations.
-	peerOps, err := st.addPeerRelationsOps(name, peers)
+	peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, peerOps...)
 
+	for x := 0; x < args.NumUnits; x++ {
+		unit, unitOps, err := svc.addUnitOps("", nil)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, unitOps...)
+		var placement *instance.Placement
+		if x < len(args.Placement) {
+			placement = args.Placement[x]
+		}
+		ops = append(ops, assignUnitOps(st, unit, placement)...)
+	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
 
@@ -1212,6 +1234,23 @@ func (st *State) AddService(
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
+}
+
+func assignUnitOps(st *State, unit string, placement *instance.Placement) []txn.Op {
+	udoc := assignUnitDoc{
+		DocId:     st.docID(utils.MustNewUUID().String()),
+		Unit:      unit,
+		Scope:     placement.Scope,
+		Directive: placement.Directive,
+	}
+	return []txn.Op{
+		{
+			C:      assignUnitC,
+			Id:     udoc.DocId,
+			Assert: txn.DocMissing,
+			Insert: udoc,
+		},
+	}
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an

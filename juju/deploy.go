@@ -71,16 +71,27 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		return nil, fmt.Errorf("use of --networks is deprecated. Please use spaces")
 	}
 
+	if len(args.Placement) == 0 {
+		args.Placement, err = makePlacement(args.ToMachineSpec)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	asa := state.AddServiceArgs{
+		Name:      args.ServiceName,
+		Owner:     args.ServiceOwner,
+		Charm:     args.Charm,
+		Networks:  args.Networks,
+		Storage:   stateStorageConstraints(args.Storage),
+		Settings:  settings,
+		NumUnits:  args.NumUnits,
+		Placement: args.Placement,
+	}
+
 	// TODO(dimitern): In a follow-up drop Networks and use spaces
 	// constraints for this when possible.
-	service, err := st.AddService(
-		args.ServiceName,
-		args.ServiceOwner,
-		args.Charm,
-		args.Networks,
-		stateStorageConstraints(args.Storage),
-		settings,
-	)
+	service, err := st.AddService(asa)
 	if err != nil {
 		return nil, err
 	}
@@ -89,19 +100,6 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 	}
 	if !constraints.IsEmpty(&args.Constraints) {
 		if err := service.SetConstraints(args.Constraints); err != nil {
-			return nil, err
-		}
-	}
-	if args.NumUnits > 0 {
-		var err error
-		// We either have a machine spec or a placement directive.
-		// Placement directives take precedence.
-		if len(args.Placement) > 0 || args.ToMachineSpec == "" {
-			_, err = AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
-		} else {
-			_, err = AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
-		}
-		if err != nil {
 			return nil, err
 		}
 	}
@@ -166,31 +164,39 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 	if machineIdSpec != "" && n != 1 {
 		return nil, errors.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
 	}
-	var placement []*instance.Placement
-	if machineIdSpec != "" {
-		mid := machineIdSpec
-		scope := instance.MachineScope
-		var containerType instance.ContainerType
-		specParts := strings.SplitN(machineIdSpec, ":", 2)
-		if len(specParts) > 1 {
-			firstPart := specParts[0]
-			var err error
-			if containerType, err = instance.ParseContainerType(firstPart); err == nil {
-				mid = specParts[1]
-				scope = string(containerType)
-			}
-		}
-		if !names.IsValidMachine(mid) {
-			return nil, fmt.Errorf("invalid force machine id %q", mid)
-		}
-		placement = []*instance.Placement{
-			{
-				Scope:     scope,
-				Directive: mid,
-			},
-		}
+	placement, err := makePlacement(machineIdSpec)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return AddUnitsWithPlacement(st, svc, n, placement)
+}
+
+// makePlacement makes a placement directive for the given machineIdSpec.
+func makePlacement(machineIdSpec string) ([]*instance.Placement, error) {
+	if machineIdSpec == "" {
+		return nil, nil
+	}
+	mid := machineIdSpec
+	scope := instance.MachineScope
+	var containerType instance.ContainerType
+	specParts := strings.SplitN(machineIdSpec, ":", 2)
+	if len(specParts) > 1 {
+		firstPart := specParts[0]
+		var err error
+		if containerType, err = instance.ParseContainerType(firstPart); err == nil {
+			mid = specParts[1]
+			scope = string(containerType)
+		}
+	}
+	if !names.IsValidMachine(mid) {
+		return nil, errors.Errorf("invalid force machine id %q", mid)
+	}
+	return []*instance.Placement{
+		{
+			Scope:     scope,
+			Directive: mid,
+		},
+	}, nil
 }
 
 // AddUnitsWithPlacement starts n units of the given service using the specified placement
