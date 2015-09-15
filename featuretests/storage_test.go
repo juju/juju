@@ -95,25 +95,17 @@ storage-block/0:
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
-func (s *cmdStorageSuite) TestStorageShowOneMatchingFilter(c *gc.C) {
+func (s *cmdStorageSuite) TestStorageShowOneInvalid(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
-	context := runShow(c, "data/0", "fluff/0")
-	expected := `
-storage-block/0:
-  data/0:
-    storage: data
-    kind: block
-    status: pending
-    persistent: false
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), "data/0", "fluff/0")
+	c.Assert(err, gc.ErrorMatches, "storage instance \"fluff/0\" not found")
 }
 
 func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	context := runShow(c, "fluff/0")
-	c.Assert(testing.Stdout(context), gc.Equals, "{}\n")
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), "data/0", "fluff/0")
+	c.Assert(err, gc.ErrorMatches, "storage instance \"fluff/0\" not found")
 }
 
 func runList(c *gc.C) *cmd.Context {
@@ -143,6 +135,8 @@ storage-block/0 data/0          pending false
 func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
+	// There are currently no guarantees about whether storage
+	// will be persistent until it has been provisioned.
 	context := runList(c)
 	expected := `
 [Storage]       
@@ -179,6 +173,8 @@ storage-block/0:
 func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
+	// There are currently no guarantees about whether storage
+	// will be persistent until it has been provisioned.
 	context := runShow(c, "data/0")
 	expected := `
 storage-block/0:
