@@ -357,6 +357,10 @@ func (s *ServiceSuite) TestInitSettings(c *gc.C) {
 			"title":    "a service",
 			"username": "a service",
 		},
+		{
+			"title":    "a service",
+			"username": "",
+		},
 	} {
 		c.Logf("- test #%d", i)
 		check(settings)
