@@ -105,12 +105,19 @@ func (w *unixConfigure) ConfigureBasic() error {
 	// on having an ubuntu user there.
 	// Hopefully in the future we are going to move all the distirbutions to
 	// having a "juju" user
-	case os.CentOS:
-		script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys))
-		w.conf.AddScripts(script)
-		w.conf.AddScripts("systemctl stop firewalld")
-		w.conf.AddScripts("systemctl disable firewalld")
-		w.conf.AddScripts(`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`)
+	case version.CentOS:
+		w.conf.AddScripts(
+			fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys)),
+
+			// Mask and stop firewalld, if enabled, so it cannot start. See
+			// http://pad.lv/1492066. firewalld might be missing, in which case
+			// is-enabled and is-active prints an error, which is why the output
+			// is surpressed.
+			"systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true",
+			"systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true",
+
+			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
+		)
 		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
