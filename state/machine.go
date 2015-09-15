@@ -118,11 +118,11 @@ type machineDoc struct {
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
 
-	// PreferredPublicAddress, if set, is the default address to be used for
+	// PreferredPublicAddress is the preferred address to be used for
 	// the machine when a public address is requested.
 	PreferredPublicAddress address `bson:",omitempty"`
 
-	// PreferredPrivateAddress, if set, is the default address to be used for
+	// PreferredPrivateAddress is the preferred address to be used for
 	// the machine when a private address is requested.
 	PreferredPrivateAddress address `bson:",omitempty"`
 
@@ -1050,10 +1050,7 @@ func containsAddress(addresses []network.Address, address network.Address) bool 
 	return false
 }
 
-// PublicAddress returns a public address for the machine. The address returned
-// is stored as the default address on first use, and that address is always
-// returned unless it becomes unavilable (or a better match for scope and type
-// becomes avaialable).
+// PublicAddress returns a public address for the machine.
 func (m *Machine) PublicAddress() (network.Address, error) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	var err error
@@ -1086,10 +1083,7 @@ func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAd
 	return addr, false
 }
 
-// PrivateAddress returns a private address for the machine. The address returned
-// is stored as the default address on first use, and that address is always
-// returned unless it becomes unavilable (or a better match for scope and type
-// becomes avaialable).
+// PrivateAddress returns a private address for the machine.
 func (m *Machine) PrivateAddress() (network.Address, error) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	var err error
@@ -1099,11 +1093,11 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 	return privateAddress, err
 }
 
-func (m *Machine) getDefaultAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
+func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
 	addr := fromNetworkAddress(netAddr)
-	fieldName := "defaultprivateaddress"
+	fieldName := "preferredprivateaddress"
 	if isPublic {
-		fieldName = "defaultpublicaddress"
+		fieldName = "preferredpublicaddress"
 	}
 
 	differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
@@ -1133,8 +1127,7 @@ func (m *Machine) getPublicAddressOps(addresses []network.Address) []txn.Op {
 		return []txn.Op{}
 	}
 
-	// XXX can return ErrNotAlive
-	return m.getDefaultAddressOps(newAddr, true)
+	return m.getPreferredAddressOps(newAddr, true)
 }
 
 func (m *Machine) getPrivateAddressOps(addresses []network.Address) []txn.Op {
@@ -1153,7 +1146,7 @@ func (m *Machine) getPrivateAddressOps(addresses []network.Address) []txn.Op {
 		// No change, so no ops.
 		return []txn.Op{}
 	}
-	return m.getDefaultAddressOps(newAddr, false)
+	return m.getPreferredAddressOps(newAddr, false)
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
