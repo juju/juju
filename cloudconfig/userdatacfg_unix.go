@@ -108,12 +108,12 @@ func (w *unixConfigure) ConfigureBasic() error {
 		w.conf.AddScripts(
 			fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys)),
 
-			// Mask and stop firewalld, if enabled, so it cannot start.
-			// See http://pad.lv/1492066. firewalld might be missing,
-			// in which case is-enabled prints an error, which is why
-			// the output is surpressed.
+			// Mask and stop firewalld, if enabled, so it cannot start. See
+			// http://pad.lv/1492066. firewalld might be missing, in which case
+			// is-enabled and is-active prints an error, which is why the output
+			// is surpressed.
 			"systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true",
-			"systemctl stop firewalld",
+			"systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true",
 
 			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
 		)

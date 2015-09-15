@@ -152,18 +152,18 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	return cfg
 }
 
-// environConfig sets the Config field to the given envConfig, if not
+// maybeSetEnvironConfig sets the Config field to the given envConfig, if not
 // nil.
-func (cfg *testInstanceConfig) environConfig(envConfig *config.Config) *testInstanceConfig {
+func (cfg *testInstanceConfig) maybeSetEnvironConfig(envConfig *config.Config) *testInstanceConfig {
 	if envConfig != nil {
 		cfg.Config = envConfig
 	}
 	return cfg
 }
 
-// enableOSUpdateAndUpgrade sets EnableOSRefreshUpdate and
-// EnableOSUpgrade fields to the given values.
-func (cfg *testInstanceConfig) enableOSUpdateAndUpgrade(updateEnabled, upgradeEnabled bool) *testInstanceConfig {
+// setEnableOSUpdateAndUpgrade sets EnableOSRefreshUpdate and EnableOSUpgrade
+// fields to the given values.
+func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgradeEnabled bool) *testInstanceConfig {
 	cfg.EnableOSRefreshUpdate = updateEnabled
 	cfg.EnableOSUpgrade = upgradeEnabled
 	return cfg
@@ -191,7 +191,7 @@ func (cfg *testInstanceConfig) setStateServer() *testInstanceConfig {
 	cfg.InstanceId = "i-bootstrap"
 	cfg.MongoInfo.Tag = nil
 	cfg.APIInfo.Tag = nil
-	return cfg.enableOSUpdateAndUpgrade(true, false)
+	return cfg.setEnableOSUpdateAndUpgrade(true, false)
 }
 
 // mutate calls mutator passing cfg to it, and returns the (possibly)
@@ -233,7 +233,7 @@ func minimalEnvironConfig(c *gc.C) *config.Config {
 var cloudinitTests = []cloudinitTest{
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal").enableOSUpdateAndUpgrade(false, false),
+		cfg:          makeBootstrapConfig("quantal").setEnableOSUpdateAndUpgrade(false, false),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -243,7 +243,7 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal").enableOSUpdateAndUpgrade(true, false),
+		cfg:          makeBootstrapConfig("quantal").setEnableOSUpdateAndUpgrade(true, false),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -253,7 +253,7 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal").enableOSUpdateAndUpgrade(false, true),
+		cfg:          makeBootstrapConfig("quantal").setEnableOSUpdateAndUpgrade(false, true),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -263,7 +263,7 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig("quantal").enableOSUpdateAndUpgrade(true, true),
+		cfg:          makeBootstrapConfig("quantal").setEnableOSUpdateAndUpgrade(true, true),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -382,7 +382,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 		inexactMatch: true,
 		expectScripts: `
 systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
-systemctl stop firewalld
+systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
 sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 `,
 	},
@@ -509,7 +509,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.setEnvConfig {
 			envConfig = minimalEnvironConfig(c)
 		}
-		testConfig := test.cfg.environConfig(envConfig).render()
+		testConfig := test.cfg.maybeSetEnvironConfig(envConfig).render()
 		ci, err := cloudinit.New(testConfig.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
@@ -562,7 +562,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
-		testConfig := test.cfg.environConfig(minimalEnvironConfig(c)).render()
+		testConfig := test.cfg.maybeSetEnvironConfig(minimalEnvironConfig(c)).render()
 		c.Logf("test %d (Configure)", i)
 		cloudcfg, err := cloudinit.New(testConfig.Series)
 		c.Assert(err, jc.ErrorIsNil)
@@ -576,7 +576,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalEnvironConfig(c)
-	instConfig := makeBootstrapConfig("quantal").environConfig(envConfig)
+	instConfig := makeBootstrapConfig("quantal").maybeSetEnvironConfig(envConfig)
 	rendered := instConfig.render()
 	cloudcfg, err := cloudinit.New(rendered.Series)
 	c.Assert(err, jc.ErrorIsNil)
@@ -609,7 +609,7 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	envConfig := minimalEnvironConfig(c)
-	testConfig := cloudinitTests[0].cfg.environConfig(envConfig).render()
+	testConfig := cloudinitTests[0].cfg.maybeSetEnvironConfig(envConfig).render()
 	udata, err := cloudconfig.NewUserdataConfig(&testConfig, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
