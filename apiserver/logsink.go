@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func newLogSinkHandler(h httpHandler, logDir string) http.Handler {
+func newLogSinkHandler(h httpContext, logDir string) http.Handler {
 
 	logPath := filepath.Join(logDir, "logsink.log")
 	if err := primeLogFile(logPath); err != nil {
@@ -32,7 +32,7 @@ func newLogSinkHandler(h httpHandler, logDir string) http.Handler {
 	}
 
 	return &logSinkHandler{
-		httpHandler: h,
+		ctxt: h,
 		fileLogger: &lumberjack.Logger{
 			Filename:   logPath,
 			MaxSize:    500, // MB
@@ -54,7 +54,7 @@ func primeLogFile(path string) error {
 }
 
 type logSinkHandler struct {
-	httpHandler
+	ctxt       httpContext
 	fileLogger io.WriteCloser
 }
 
@@ -77,7 +77,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
-			stateWrapper, err := h.validateEnvironUUID(req)
+			stateWrapper, err := h.ctxt.validateEnvironUUID(req)
 			if err != nil {
 				if errErr := h.sendError(socket, err); errErr != nil {
 					// Log at DEBUG so that in a standard environment
