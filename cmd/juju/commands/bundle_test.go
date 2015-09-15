@@ -395,7 +395,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
                 charm: trusty/incompatible-42
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade charm for service "wordpress": charm "cs:trusty/incompatible-42" is incompatible with charm "local:quantal/wordpress-3"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:trusty/incompatible-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 
 	// Try upgrading to a different user.
 	testcharms.UploadCharm(c, s.client, "~who/trusty/wordpress-42", "wordpress")
@@ -405,7 +405,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
                 charm: cs:~who/trusty/wordpress-42
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade charm for service "wordpress": charm "cs:~who/trusty/wordpress-42" is incompatible with charm "local:quantal/wordpress-3"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:~who/trusty/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 
 	// Try upgrading to a different series.
 	testcharms.UploadCharm(c, s.client, "vivid/wordpress-42", "wordpress")
@@ -415,7 +415,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *gc.
                 charm: vivid/wordpress
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade charm for service "wordpress": cannot change a service's series`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": cannot upgrade charm to "cs:vivid/wordpress-42": cannot change a service's series`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {

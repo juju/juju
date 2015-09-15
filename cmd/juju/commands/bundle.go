@@ -127,20 +127,8 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 		// charm is compatible with the one declared in the bundle. If it is,
 		// reuse the existing service or upgrade to a specified revision.
 		// Exit with an error otherwise.
-		existingCharm, err := h.client.ServiceGetCharmURL(p.Service)
-		if err != nil {
-			return errors.Annotatef(err, "cannot retrieve info for service %q", p.Service)
-		}
-		if existingCharm.String() == ch {
-			h.log.Infof("reusing service %s (charm: %s)", p.Service, ch)
-		} else {
-			if err := checkCompatibleCharms(ch, existingCharm.String()); err != nil {
-				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
-			}
-			if err := h.client.ServiceSetCharm(p.Service, ch, false); err != nil {
-				return errors.Annotatef(err, "cannot upgrade charm for service %q", p.Service)
-			}
-			h.log.Infof("upgraded charm for existing service %s (from %s to %s)", p.Service, existingCharm, ch)
+		if err := upgradeCharm(h.client, h.log, p.Service, ch); err != nil {
+			return errors.Annotatef(err, "cannot upgrade service %q", p.Service)
 		}
 	} else {
 		return errors.Annotatef(err, "cannot deploy service %q", p.Service)
@@ -193,20 +181,30 @@ func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotations
 	return nil
 }
 
-// checkCompatibleCharms ensures that the charms with the given ids are
-// compatible, meaning an upgrade from one to the other is allowed.
-func checkCompatibleCharms(id1, id2 string) error {
-	ref1, err := charm.ParseReference(id1)
+// upgradeCharm upgrades the charm for the given service to the given charm id.
+// If the service is already deployed using the given charm id, do nothing.
+// This function returns an error if the existing charm and the target one are
+// incompatible, meaning an upgrade from one to the other is not allowed.
+func upgradeCharm(client *api.Client, log deploymentLogger, service, id string) error {
+	existing, err := client.ServiceGetCharmURL(service)
 	if err != nil {
-		return errors.Annotatef(err, "cannot parse charm URL %q", id1)
+		return errors.Annotatef(err, "cannot retrieve info for service %q", service)
 	}
-	ref2, err := charm.ParseReference(id2)
+	if existing.String() == id {
+		log.Infof("reusing service %s (charm: %s)", service, id)
+		return nil
+	}
+	url, err := charm.ParseReference(id)
 	if err != nil {
-		return errors.Annotatef(err, "cannot parse charm URL %q", id2)
+		return errors.Annotatef(err, "cannot parse charm URL %q", id)
 	}
-	if (ref1.Name != ref2.Name) || (ref1.User != ref2.User) {
-		return errors.Errorf("charm %q is incompatible with charm %q", id1, id2)
+	if (url.Name != existing.Name) || (url.User != existing.User) {
+		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
+	if err := client.ServiceSetCharm(service, id, false); err != nil {
+		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
+	}
+	log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)
 	return nil
 }
 
@@ -224,6 +222,11 @@ func setServiceOptions(client *api.Client, service string, options map[string]in
 
 // resolve returns the real entity name for the bundle entity (for instance a
 // service or a machine) with the given placeholder id.
+// A placeholder id is a string like "$deploy-42" or "$addCharm-2", indicating
+// the results of a previously applied change. It always starts with a dollar
+// sign, followed by the identifier of the referred change. A change id is a
+// string indicating the action type ("deploy", "addRelation" etc.), followed
+// by a unique incremental number.
 func resolve(placeholder string, results map[string]string) string {
 	id := placeholder[1:]
 	return results[id]
