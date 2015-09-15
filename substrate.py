@@ -543,9 +543,11 @@ def parse_euca(euca_output):
         yield fields[1], fields[3]
 
 
-def run_instances(count, job_name):
+def run_instances(count, job_name, series=None):
+    if series is None:
+        series = 'precise'
     environ = dict(os.environ)
-    ami = get_ami.query_ami("precise", "amd64")
+    ami = get_ami.query_ami(series, "amd64")
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
         '-t', 'm1.large', '-g', 'manual-juju-test', ami]
