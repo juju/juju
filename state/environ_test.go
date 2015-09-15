@@ -95,7 +95,7 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	// Destroy only sets the environment to dying and RemoveAllEnvironDocs can
 	// only be called on a dead environment. Normally, the environ's lifecycle
 	// would be set to dead after machines and services have been cleaned up.
-	err = state.SetEnvLifeDying(st1, env1.EnvironTag().Id())
+	err = state.SetEnvLifeDead(st1, env1.EnvironTag().Id())
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)

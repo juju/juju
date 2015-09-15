@@ -339,11 +339,11 @@ func RemoveEnvironment(st *State, uuid string) error {
 	return st.runTransaction(ops)
 }
 
-func SetEnvLifeDying(st *State, envUUID string) error {
+func SetEnvLifeDead(st *State, envUUID string) error {
 	ops := []txn.Op{{
 		C:      environmentsC,
 		Id:     envUUID,
-		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return st.runTransaction(ops)
 }

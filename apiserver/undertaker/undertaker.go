@@ -1,0 +1,67 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package undertaker
+
+import (
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+)
+
+func init() {
+	common.RegisterStandardFacade("Undertaker", 1, NewUndertakerAPI)
+}
+
+// UndertakerAPI implements the API used by the machine undertaker worker.
+type UndertakerAPI struct {
+	st State
+}
+
+// NewUndertakerAPI creates a new instance of the undertaker API.
+func NewUndertakerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UndertakerAPI, error) {
+	return newUndertakerAPI(&stateShim{st}, resources, authorizer)
+}
+
+func newUndertakerAPI(st State, resources *common.Resources, authorizer common.Authorizer) (*UndertakerAPI, error) {
+	if !authorizer.AuthMachineAgent() || !authorizer.AuthEnvironManager() {
+		return nil, common.ErrPerm
+	}
+	return &UndertakerAPI{
+		st: st,
+	}, nil
+}
+
+// EnvironInfo returns information on the environment needed by the undertaker worker.
+func (u *UndertakerAPI) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
+	result := params.UndertakerEnvironInfoResult{}
+	env, err := u.st.Environment()
+
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	tod := env.TimeOfDeath()
+
+	result.Result = params.UndertakerEnvironInfo{
+		UUID:        env.UUID(),
+		GlobalName:  env.Owner().String() + "/" + env.Name(),
+		Name:        env.Name(),
+		IsSystem:    u.st.IsStateServer(),
+		Life:        params.Life(env.Life().String()),
+		TimeOfDeath: &tod,
+	}
+	return result, nil
+}
+
+// ProcessDyingEnviron checks if a dying environment has any machines or services.
+// If there are none, the environment's life is changed from dying to dead.
+func (u *UndertakerAPI) ProcessDyingEnviron() error {
+	return u.st.ProcessDyingEnviron()
+}
+
+// RemoveEnviron removes any records of this environment from Juju.
+func (u *UndertakerAPI) RemoveEnviron() error {
+	return u.st.RemoveAllEnvironDocs()
+}
