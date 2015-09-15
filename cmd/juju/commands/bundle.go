@@ -120,9 +120,9 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) 
 	numUnits, configYAML, cons, toMachineSpec := 0, "", constraints.Value{}, ""
 	if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
-		// TODO frankban: do this check using the cause rather than the string,
-		// when a specific cause is available for this error case.
-	} else if strings.Contains(err.Error(), "service already exists") {
+		// TODO frankban (bug 1495952): do this check using the cause rather
+		// than the string when a specific cause is available.
+	} else if strings.HasSuffix(err.Error(), "service already exists") {
 		// The service is already deployed in the environment: check that its
 		// charm is compatible with the one declared in the bundle. If it is,
 		// reuse the existing service or upgrade to a specified revision.
@@ -159,9 +159,9 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 		h.log.Infof("related %s and %s", ep1, ep2)
 		return nil
 	}
-	// TODO frankban: do this check using the cause rather than the string,
-	// when a specific cause is available for this error case.
-	if strings.Contains(err.Error(), "relation already exists") {
+	// TODO frankban (bug 1495952): do this check using the cause rather than
+	// the string when a specific cause is available.
+	if strings.HasSuffix(err.Error(), "relation already exists") {
 		// The relation is already present in the environment.
 		h.log.Infof("%s and %s are already related", ep1, ep2)
 		return nil
