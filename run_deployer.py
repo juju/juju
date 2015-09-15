@@ -48,14 +48,14 @@ def check_health(cmd_path, env_name=''):
         raise
 
 
-def run_deployer():
-    args = parse_args()
+def run_deployer(argv=None):
+    args = parse_args(argv)
     configure_logging(args.verbose)
     env = SimpleEnvironment.from_config(args.env)
     client = EnvJujuClient.by_version(env, args.juju_bin, debug=args.debug)
     with boot_context(args.temp_env_name, client, None, [], args.series,
                       args.agent_url, args.agent_stream, args.logs,
-                      args.keep_env, False):
+                      args.keep_env, False, region=args.region):
         client.deployer(args.bundle_path, args.bundle_name)
         if args.health_cmd:
             check_health(args.health_cmd, args.temp_env_name)

@@ -294,7 +294,7 @@ class TestAddBasicTestingArguments(TestCase):
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
             verbose=logging.INFO, agent_stream=None, keep_env=False,
-            upload_tools=False, bootstrap_host=None, machine=[])
+            upload_tools=False, bootstrap_host=None, machine=[], region=None)
         self.assertEqual(args, expected)
 
     def test_debug(self):
@@ -366,6 +366,13 @@ class TestAddBasicTestingArguments(TestCase):
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertTrue(args.keep_env)
+
+    def test_region(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--region', 'foo-bar']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual('foo-bar', args.region)
 
 
 class TestRunCommand(TestCase):

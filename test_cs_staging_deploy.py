@@ -41,6 +41,10 @@ class TestCSStagingDeploy(TestCase):
         self.assertIs(csstaging.client[1], '/foo/bin/juju')
         self.assertEqual(csstaging.log_dir, '/tmp/tmp')
         self.assertEqual(csstaging.charm_store_ip, '0.0.0.0')
+        self.assertEqual(csstaging.client[0].config, {
+            'agent_url': None,
+            'series': None,
+            })
 
     def test_from_args_agent_url(self):
         with patch('jujupy.EnvJujuClient.by_version',
@@ -87,6 +91,17 @@ class TestCSStagingDeploy(TestCase):
                     '0.0.0.0', debug_flag=True
                 )
         self.assertEqual(csstaging.client.debug, True)
+
+    def test_from_args_region(self):
+        with patch('jujupy.EnvJujuClient.get_version',
+                   side_effect=lambda x, juju_path=None: ''):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=fake_SimpleEnvironment_from_config):
+                csstaging = CSStagingTest.from_args(
+                    'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                    '0.0.0.0', region='region-foo',
+                )
+        self.assertEqual(csstaging.client.env.config['region'], 'region-foo')
 
     def test_run(self):
         client = EnvJujuClient(

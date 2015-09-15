@@ -152,6 +152,18 @@ class DeployStackTestCase(TestCase):
         self.assertEqual('baz', env.config['bootstrap-host'])
         self.assertEqual('url', env.config['tools-metadata-url'])
         self.assertEqual('devel', env.config['agent-stream'])
+        self.assertNotIn('region', env.config)
+
+    def test_update_env_region(self):
+        env = SimpleEnvironment('foo', {'type': 'paas'})
+        update_env(env, 'bar', region='region-foo')
+        self.assertEqual('region-foo', env.config['region'])
+
+    def test_update_env_region_none(self):
+        env = SimpleEnvironment('foo',
+                                {'type': 'paas', 'region': 'region-foo'})
+        update_env(env, 'bar', region=None)
+        self.assertEqual('region-foo', env.config['region'])
 
     def test_dump_juju_timings(self):
         env = SimpleEnvironment('foo', {'type': 'bar'})
@@ -779,7 +791,7 @@ class TestBootContext(TestCase):
                 pass
         ue_mock.assert_called_with(
             client.env, 'bar', series='wacky', bootstrap_host=None,
-            agent_url='url', agent_stream='devel')
+            agent_url='url', agent_stream='devel', region=None)
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
@@ -830,6 +842,17 @@ class TestBootContext(TestCase):
                               'log_dir', keep_env=False, upload_tools=False):
                 pass
 
+    def test_region(self):
+        self.addContext(patch('subprocess.check_call', autospec=True))
+        client = EnvJujuClient(SimpleEnvironment(
+            'foo', {'type': 'paas'}), '1.23', 'path')
+        with self.bc_context(client, 'log_dir', jes=True):
+            with boot_context('bar', client, None, [], None, None, None,
+                              'log_dir', keep_env=False, upload_tools=False,
+                              region='steve'):
+                pass
+        self.assertEqual('steve', client.env.config['region'])
+
 
 class TestDeployJobParseArgs(TestCase):
 
@@ -853,6 +876,7 @@ class TestDeployJobParseArgs(TestCase):
             with_chaos=0,
             jes=False,
             pre_destroy=False,
+            region=None,
         ))
 
     def test_upload_tools(self):

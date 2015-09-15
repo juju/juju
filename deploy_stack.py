@@ -348,7 +348,7 @@ def deploy_job():
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
-               agent_url=None, agent_stream=None):
+               agent_url=None, agent_stream=None, region=None):
     # Rename to the new name.
     env.environment = new_env_name
     env.config['name'] = new_env_name
@@ -360,6 +360,8 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
         env.config['tools-metadata-url'] = agent_url
     if agent_stream is not None:
         env.config['agent-stream'] = agent_stream
+    if region is not None:
+        env.config['region'] = region
 
 
 def tear_down(client, jes_enabled):
@@ -379,7 +381,7 @@ def tear_down(client, jes_enabled):
 @contextmanager
 def boot_context(temp_env_name, client, bootstrap_host, machines, series,
                  agent_url, agent_stream, log_dir, keep_env, upload_tools,
-                 permanent=False):
+                 permanent=False, region=None):
     """Create a temporary environment in a context manager to run tests in.
 
     Bootstrap a new environment from a temporary config that is suitable to
@@ -432,7 +434,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
 
         update_env(client.env, temp_env_name, series=series,
                    bootstrap_host=bootstrap_host, agent_url=agent_url,
-                   agent_stream=agent_stream)
+                   agent_stream=agent_stream, region=region)
         try:
             host = bootstrap_host
             ssh_machines = [] + machines

@@ -28,11 +28,13 @@ class CSStagingTest:
     @classmethod
     def from_args(cls, env, tmp_name, juju_path, log_dir, charm_store_ip,
                   charm=None, series=None, agent_url=None,
-                  debug_flag=False):
+                  debug_flag=False, region=None):
         env_config = SimpleEnvironment.from_config(env)
         env_config.environment = tmp_name
         env_config.config['series'] = series
         env_config.config['agent_url'] = agent_url
+        if region is not None:
+            env_config.config['region'] = region
         client = EnvJujuClient.by_version(env_config, juju_path,
                                           debug=debug_flag)
         return cls(client, charm_store_ip, charm, log_dir)
@@ -91,7 +93,7 @@ def main():
                                         args.charm_store_ip,
                                         args.charm,
                                         args.series, args.agent_url,
-                                        args.debug)
+                                        args.debug, args.region)
     csstaging.run()
 
 if __name__ == '__main__':
