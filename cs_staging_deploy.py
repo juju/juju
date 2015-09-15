@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-
-__metaclass__ = type
-
 from argparse import ArgumentParser
 import logging
 import subprocess
@@ -21,6 +18,9 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
 )
+
+
+__metaclass__ = type
 
 
 class CSStagingTest:

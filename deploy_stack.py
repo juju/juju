@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 from __future__ import print_function
-__metaclass__ = type
 
 
 from argparse import ArgumentParser
@@ -58,10 +57,13 @@ from utility import (
 )
 
 
+__metaclass__ = type
+
+
 def destroy_environment(client, instance_tag):
     client.destroy_environment()
-    if (client.env.config['type'] == 'manual'
-            and 'AWS_ACCESS_KEY' in os.environ):
+    if (client.env.config['type'] == 'manual' and
+            'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
 
 

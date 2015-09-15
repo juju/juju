@@ -1,12 +1,14 @@
 from __future__ import print_function
 
-__metaclass__ = type
-
 import json
 import re
 from unittest import FunctionTestCase
 
 from jujupy import yaml_loads
+
+
+__metaclass__ = type
+
 
 # Machine and unit, deprecated in unit
 AGENT_STATE_KEY = "agent-state"

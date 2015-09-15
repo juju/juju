@@ -3,8 +3,6 @@
 
 from __future__ import print_function
 
-__metaclass__ = type
-
 from argparse import ArgumentParser
 import logging
 import os
@@ -34,6 +32,9 @@ from utility import (
     ensure_deleted,
     print_now,
 )
+
+
+__metaclass__ = type
 
 
 running_instance_pattern = re.compile('\["([^"]+)"\]')
