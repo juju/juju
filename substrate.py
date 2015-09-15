@@ -544,6 +544,13 @@ def parse_euca(euca_output):
 
 
 def run_instances(count, job_name, series):
+    """create a number of instances in ec2 and tag them.
+
+    :param count: The number of instances to create.
+    :param job_name: The name of job that owns the instances (used as a tag).
+    :param series: The series to run in the instance.
+        If None, Precise will be used.
+    """
     if series is None:
         series = 'precise'
     environ = dict(os.environ)
