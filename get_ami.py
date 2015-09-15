@@ -12,7 +12,7 @@ STREAM_INDEX = "http://cloud-images.ubuntu.com/releases/streams/v1/index.json"
 ENDPOINT_TEMPLATE = "endpoint~ec2.{region}.amazonaws.com"
 
 DEFAULT_PARAMS = {
-    "label": "release",
+    "label": None,
     "virt": "pv",
     "root_store": "ssd",
 }
@@ -27,7 +27,8 @@ def query_ami(series, arch, region=None, **kwargs):
         v = kwargs.pop(k, DEFAULT_PARAMS[k])
         if v is None:
             v = DEFAULT_PARAMS[k]
-        sstream_params.append("{}={}".format(k, v))
+        if v is not None:
+            sstream_params.append("{}={}".format(k, v))
     if kwargs:
         raise ValueError("Unknown kwargs: {}".format(", ".join(kwargs)))
     endpoint_info = ENDPOINT_TEMPLATE.format(region=region)
