@@ -31,7 +31,7 @@ import (
 // toolsHandler is the base type for uploading and downloading
 // tools over HTTPS via the API server.
 type toolsHandler struct {
-	httpHandler
+	ctxt httpContext
 }
 
 // toolsHandler handles tool upload through HTTPS in the API server.
@@ -45,7 +45,7 @@ type toolsDownloadHandler struct {
 }
 
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stateWrapper, err := h.validateEnvironUUID(r)
+	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
 		h.sendExistingError(w, http.StatusNotFound, err)
 		return
@@ -68,14 +68,14 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	stateWrapper, err := h.validateEnvironUUID(r)
+	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
 		h.sendExistingError(w, http.StatusNotFound, err)
 		return
 	}
 
 	if err := stateWrapper.authenticateUser(r); err != nil {
-		h.authError(w, h)
+		h.ctxt.authError(w, h)
 		return
 	}
 

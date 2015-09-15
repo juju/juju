@@ -27,7 +27,7 @@ import (
 // variants. The supplied handle func allows for varied handling of
 // requests.
 type debugLogHandler struct {
-	httpHandler
+	ctxt   httpContext
 	stop   <-chan struct{}
 	handle debugLogHandlerFunc
 }
@@ -45,9 +45,9 @@ func newDebugLogHandler(
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
-		httpHandler: httpHandler{statePool: statePool},
-		stop:        stop,
-		handle:      handle,
+		ctxt:   httpContext{statePool: statePool},
+		stop:   stop,
+		handle: handle,
 	}
 }
 
@@ -79,7 +79,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
-			stateWrapper, err := h.validateEnvironUUID(req)
+			stateWrapper, err := h.ctxt.validateEnvironUUID(req)
 			if err != nil {
 				socket.sendError(err)
 				return

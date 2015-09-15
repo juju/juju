@@ -396,7 +396,7 @@ func (srv *Server) run(lis net.Listener) {
 
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpHandler{statePool: srv.statePool}, srv.logDir))
+			newLogSinkHandler(httpContext{statePool: srv.statePool}, srv.logDir))
 		handleAll(mux, "/environment/:envuuid/log",
 			newDebugLogDBHandler(srv.statePool, srvDying))
 	} else {
@@ -405,8 +405,8 @@ func (srv *Server) run(lis net.Listener) {
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir},
+			ctxt:    httpContext{statePool: srv.statePool},
+			dataDir: srv.dataDir},
 	)
 	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
 	// where we only want to support specific request methods. However, our
@@ -414,16 +414,16 @@ func (srv *Server) run(lis net.Listener) {
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
+			httpContext{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
+			httpContext{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/backups",
-		&backupHandler{httpHandler{
+		&backupHandler{httpContext{
 			statePool:          srv.statePool,
 			strictValidation:   true,
 			stateServerEnvOnly: true,
@@ -432,8 +432,8 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
 		&imagesDownloadHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir},
+			ctxt:    httpContext{statePool: srv.statePool},
+			dataDir: srv.dataDir},
 	)
 	// For backwards compatibility we register all the old paths
 
@@ -445,18 +445,18 @@ func (srv *Server) run(lis net.Listener) {
 
 	handleAll(mux, "/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir,
+			ctxt:    httpContext{statePool: srv.statePool},
+			dataDir: srv.dataDir,
 		},
 	)
 	handleAll(mux, "/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
+			httpContext{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
+			httpContext{statePool: srv.statePool},
 		}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
