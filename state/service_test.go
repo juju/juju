@@ -319,7 +319,7 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 func (s *ServiceSuite) TestInitSettings(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 
-	check := func(settings charm.Settings) (charm.Settings, charm.Settings) {
+	check := func(settings charm.Settings) {
 		svcA, err := s.State.AddService("svc-a", s.Owner.String(), ch, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		if len(settings) > 0 {
@@ -337,23 +337,29 @@ func (s *ServiceSuite) TestInitSettings(c *gc.C) {
 		defer svcB.Destroy()
 
 		c.Check(settingsA, jc.DeepEquals, settingsB)
-		return settingsA, settingsB
+		if settings == nil {
+			c.Check(settingsA, gc.HasLen, 0)
+			c.Check(settingsB, gc.HasLen, 0)
+		} else {
+			c.Check(settingsA, jc.DeepEquals, settings)
+			c.Check(settingsB, jc.DeepEquals, settings)
+		}
 	}
 
-	check(nil)
-	for i, settings := range []charm.Settings{{
-	// "username" default = "admin001"
-	}, {
-		"title": "a service",
-		// "username" default = "admin001"
-	}, {
-		"title":    "a service",
-		"username": "a service",
-	}} {
+	for i, settings := range []charm.Settings{
+		nil,
+		{},
+		{
+			"title": "a service",
+			// "username" default = "admin001"
+		},
+		{
+			"title":    "a service",
+			"username": "a service",
+		},
+	} {
 		c.Logf("- test #%d", i)
-		settingsA, settingsB := check(settings)
-		c.Check(settingsA, jc.DeepEquals, settings)
-		c.Check(settingsB, jc.DeepEquals, settings)
+		check(settings)
 	}
 }
 
