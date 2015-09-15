@@ -47,7 +47,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cmd/jujud/util/password"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envimagemetadata "github.com/juju/juju/environs/imagemetadata"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -1496,7 +1495,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDep
 func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
-	newWorker := func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
@@ -1519,7 +1518,7 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
-	newWorker := func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
@@ -1546,9 +1545,6 @@ func (s *MachineSuite) TestMetadataWorkerUpdatesState(c *gc.C) {
 	// expected worker behaviour is tested - i.e. does worker write
 	// published image metadata to state?
 	s.PatchValue(&newMetadataUpdater, imagemetadataworker.NewWorker)
-	s.PatchValue(&imagemetadataworker.DefaultListPublishedMetadata, func(env environs.Environ) ([]*envimagemetadata.ImageMetadata, error) {
-		return expected, nil
-	})
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
