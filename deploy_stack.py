@@ -408,7 +408,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     running_domains = dict()
     try:
         if client.env.config['type'] == 'manual' and bootstrap_host is None:
-            instances = run_instances(3, temp_env_name, series=series)
+            instances = run_instances(3, temp_env_name, series)
             created_machines = True
             bootstrap_host = instances[0][1]
             machines.extend(i[1] for i in instances[1:])

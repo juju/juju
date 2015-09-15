@@ -543,7 +543,7 @@ def parse_euca(euca_output):
         yield fields[1], fields[3]
 
 
-def run_instances(count, job_name, series=None):
+def run_instances(count, job_name, series):
     if series is None:
         series = 'precise'
     environ = dict(os.environ)

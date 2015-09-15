@@ -915,7 +915,7 @@ class EucaTestCase(TestCase):
                            return_value=description, autospec=True):
                     with patch('subprocess.call', autospec=True) as c_mock:
                         with self.assertRaises(CalledProcessError):
-                            run_instances(1, 'qux')
+                            run_instances(1, 'qux', 'trusty')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_run_instances_describe_failed(self):
@@ -926,7 +926,7 @@ class EucaTestCase(TestCase):
                        side_effect=CalledProcessError('', '')):
                 with patch('subprocess.call', autospec=True) as c_mock:
                     with self.assertRaises(CalledProcessError):
-                        run_instances(1, 'qux')
+                        run_instances(1, 'qux', 'trusty')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_destroy_job_instances_none(self):
