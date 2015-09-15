@@ -137,24 +137,25 @@ func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List() ([]params.StorageInfo, error) {
-	result := []params.StorageInfo{}
+func (s mockListAPI) List() ([]params.StorageDetailsResult, error) {
+	result := []params.StorageDetailsResult{}
 	result = append(result, getTestAttachments(s.lexicalChaos)...)
 	result = append(result, getTestInstances(s.lexicalChaos)...)
 	return result, nil
 }
 
-func getTestAttachments(chaos bool) []params.StorageInfo {
-	results := []params.StorageInfo{{
-		params.StorageDetails{
+func getTestAttachments(chaos bool) []params.StorageDetailsResult {
+	results := []params.StorageDetailsResult{{
+		Legacy: params.LegacyStorageDetails{
 			StorageTag: "storage-shared-fs-0",
 			OwnerTag:   "service-transcode",
 			UnitTag:    "unit-transcode-0",
 			Kind:       params.StorageKindBlock,
 			Location:   "here",
 			Status:     "attached",
-		}, nil}, {
-		params.StorageDetails{
+		},
+	}, {
+		Legacy: params.LegacyStorageDetails{
 			StorageTag: "storage-db-dir-1000",
 			OwnerTag:   "unit-transcode-0",
 			UnitTag:    "unit-transcode-0",
@@ -162,36 +163,33 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 			Location:   "there",
 			Status:     "provisioned",
 			Persistent: true,
-		}, nil}}
+		},
+	}}
 
 	if chaos {
-		last := params.StorageInfo{
-			params.StorageDetails{
+		last := params.StorageDetailsResult{
+			Legacy: params.LegacyStorageDetails{
 				StorageTag: "storage-shared-fs-5",
 				OwnerTag:   "service-transcode",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 				Location:   "nowhere",
 				Status:     "pending",
-			}, nil}
-		second := params.StorageInfo{
-			params.StorageDetails{
-				StorageTag: "storage-db-dir-1010",
-				OwnerTag:   "unit-transcode-1",
-				UnitTag:    "unit-transcode-1",
-				Kind:       params.StorageKindBlock,
-				Location:   "",
-				Status:     "pending",
-			}, &params.Error{Message: "error for storage-db-dir-1010"}}
-		first := params.StorageInfo{
-			params.StorageDetails{
+			},
+		}
+		second := params.StorageDetailsResult{
+			Error: &params.Error{Message: "error for storage-db-dir-1010"},
+		}
+		first := params.StorageDetailsResult{
+			Legacy: params.LegacyStorageDetails{
 				StorageTag: "storage-db-dir-1000",
 				OwnerTag:   "unit-transcode-1",
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "attached",
 				Persistent: true,
-			}, nil}
+			},
+		}
 		results = append(results, last)
 		results = append(results, second)
 		results = append(results, first)
@@ -199,80 +197,79 @@ func getTestAttachments(chaos bool) []params.StorageInfo {
 	return results
 }
 
-func getTestInstances(chaos bool) []params.StorageInfo {
+func getTestInstances(chaos bool) []params.StorageDetailsResult {
 
-	results := []params.StorageInfo{
-		{
-			params.StorageDetails{
-				StorageTag: "storage-shared-fs-0",
-				OwnerTag:   "service-transcode",
-				UnitTag:    "unit-transcode-0",
-				Kind:       params.StorageKindUnknown,
-				Status:     "pending",
-			}, nil},
-		{
-			params.StorageDetails{
-				StorageTag: "storage-shared-fs-0",
-				OwnerTag:   "service-transcode",
-				UnitTag:    "unit-transcode-1",
-				Kind:       params.StorageKindUnknown,
-				Status:     "pending",
-			}, nil},
-		{
-			params.StorageDetails{
-				StorageTag: "storage-db-dir-1100",
-				UnitTag:    "unit-postgresql-0",
-				Kind:       params.StorageKindFilesystem,
-				Status:     "pending",
-			}, nil},
-		{
-			params.StorageDetails{
-				StorageTag: "storage-db-dir-1100",
-				UnitTag:    "unit-transcode-0",
-				Kind:       params.StorageKindFilesystem,
-				Status:     "pending",
-			}, nil},
-		{
-			params.StorageDetails{
-				StorageTag: "storage-db-dir-1000",
-				OwnerTag:   "unit-transcode-0",
-				UnitTag:    "unit-transcode-0",
-				Kind:       params.StorageKindBlock,
-				Status:     "pending",
-				Persistent: true,
-			}, nil}}
+	results := []params.StorageDetailsResult{{
+		Legacy: params.LegacyStorageDetails{
+			StorageTag: "storage-shared-fs-0",
+			OwnerTag:   "service-transcode",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindUnknown,
+			Status:     "pending",
+		},
+	}, {
+		Legacy: params.LegacyStorageDetails{
+			StorageTag: "storage-shared-fs-0",
+			OwnerTag:   "service-transcode",
+			UnitTag:    "unit-transcode-1",
+			Kind:       params.StorageKindUnknown,
+			Status:     "pending",
+		},
+	}, {
+		Legacy: params.LegacyStorageDetails{
+			StorageTag: "storage-db-dir-1100",
+			UnitTag:    "unit-postgresql-0",
+			Kind:       params.StorageKindFilesystem,
+			Status:     "pending",
+		},
+	}, {
+		Legacy: params.LegacyStorageDetails{
+			StorageTag: "storage-db-dir-1100",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindFilesystem,
+			Status:     "pending",
+		},
+	}, {
+		Legacy: params.LegacyStorageDetails{
+			StorageTag: "storage-db-dir-1000",
+			OwnerTag:   "unit-transcode-0",
+			UnitTag:    "unit-transcode-0",
+			Kind:       params.StorageKindBlock,
+			Status:     "pending",
+			Persistent: true,
+		},
+	}}
 
 	if chaos {
-		last := params.StorageInfo{
-			params.StorageDetails{
+		last := params.StorageDetailsResult{
+			Legacy: params.LegacyStorageDetails{
 				StorageTag: "storage-shared-fs-5",
 				OwnerTag:   "service-transcode",
 				UnitTag:    "unit-transcode-0",
 				Kind:       params.StorageKindUnknown,
 				Status:     "pending",
-			}, nil}
-		second := params.StorageInfo{
-			params.StorageDetails{
-				StorageTag: "storage-db-dir-1010",
-				UnitTag:    "unit-transcode-1",
-				Kind:       params.StorageKindBlock,
-				Status:     "pending",
-			}, &params.Error{Message: "error for test storage-db-dir-1010"}}
-		first := params.StorageInfo{
-			params.StorageDetails{
+			},
+		}
+		second := params.StorageDetailsResult{
+			Error: &params.Error{Message: "error for test storage-db-dir-1010"},
+		}
+		first := params.StorageDetailsResult{
+			Legacy: params.LegacyStorageDetails{
 				StorageTag: "storage-db-dir-1000",
 				UnitTag:    "unit-transcode-1",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "pending",
 				Persistent: true,
-			}, nil}
-		zero := params.StorageInfo{
-			params.StorageDetails{
+			},
+		}
+		zero := params.StorageDetailsResult{
+			Legacy: params.LegacyStorageDetails{
 				StorageTag: "storage-db-dir-1100",
 				UnitTag:    "unit-postgresql-0",
 				Kind:       params.StorageKindFilesystem,
 				Status:     "pending",
-			}, nil}
+			},
+		}
 		results = append(results, last)
 		results = append(results, second)
 		results = append(results, zero)

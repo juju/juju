@@ -71,11 +71,28 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	found, err := api.Show(tags)
+
+	results, err := api.Show(tags)
 	if err != nil {
 		return err
 	}
-	output, err := formatStorageDetails(found)
+
+	var errs params.ErrorResults
+	var valid []params.LegacyStorageDetails
+	for _, result := range results {
+		if result.Error != nil {
+			errs.Results = append(errs.Results, params.ErrorResult{result.Error})
+			continue
+		}
+		// TODO(axw) use non-legacy if available,
+		// convert from legacy otherwise.
+		valid = append(valid, result.Legacy)
+	}
+	if len(errs.Results) > 0 {
+		return errs.Combine()
+	}
+
+	output, err := formatStorageDetails(valid)
 	if err != nil {
 		return err
 	}
@@ -100,7 +117,7 @@ var (
 // StorageAPI defines the API methods that the storage commands use.
 type StorageShowAPI interface {
 	Close() error
-	Show(tags []names.StorageTag) ([]params.StorageDetails, error)
+	Show(tags []names.StorageTag) ([]params.StorageDetailsResult, error)
 }
 
 func (c *ShowCommand) getStorageShowAPI() (StorageShowAPI, error) {

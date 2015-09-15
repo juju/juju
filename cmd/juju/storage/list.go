@@ -67,10 +67,12 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// filter out valid output, if any
-	var valid []params.StorageDetails
+	var valid []params.LegacyStorageDetails
 	for _, one := range found {
 		if one.Error == nil {
-			valid = append(valid, one.StorageDetails)
+			// TODO(axw) use non-legacy if available,
+			// convert from legacy otherwise.
+			valid = append(valid, one.Legacy)
 			continue
 		}
 		// display individual error
@@ -93,7 +95,7 @@ var (
 // StorageAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
-	List() ([]params.StorageInfo, error)
+	List() ([]params.StorageDetailsResult, error)
 }
 
 func (c *ListCommand) getStorageListAPI() (StorageListAPI, error) {
