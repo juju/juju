@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-__metaclass__ = type
-
 from jujupy import Environment
 
 import sys
+
+
+__metaclass__ = type
 
 
 def agent_update(environment):

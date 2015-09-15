@@ -1,5 +1,3 @@
-__metaclass__ = type
-
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import (
@@ -56,6 +54,9 @@ from utility import (
     scoped_environ,
     temp_dir,
 )
+
+
+__metaclass__ = type
 
 
 def assert_juju_call(test_case, mock_method, client, expected_args,
@@ -465,7 +466,10 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_juju_output(self):
         env = SimpleEnvironment('foo')
-        asdf = lambda x, stderr: 'asdf'
+
+        def asdf(x, stderr):
+            return 'asdf'
+
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output('bar')
@@ -475,7 +479,10 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_juju_output_accepts_varargs(self):
         env = SimpleEnvironment('foo')
-        asdf = lambda x, stderr: 'asdf'
+
+        def asdf(x, stderr):
+            return 'asdf'
+
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')

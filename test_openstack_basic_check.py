@@ -1,4 +1,3 @@
-__metaclass__ = type
 from argparse import Namespace
 from contextlib import contextmanager
 import os
@@ -9,6 +8,9 @@ from openstack_basic_check import (
     get_args,
     set_environ,
     )
+
+
+__metaclass__ = type
 
 
 class TestGetArgs(TestCase):

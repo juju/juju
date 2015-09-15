@@ -14,7 +14,8 @@ from quickstart_deploy import QuickstartTest
 class TestQuickstartTest(TestCase):
 
     def test_from_args(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
+        def side_effect(x, y=None, debug=False):
+            return x, y
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -30,7 +31,8 @@ class TestQuickstartTest(TestCase):
         self.assertEqual(quickstart.service_count, 2)
 
     def test_from_args_agent_url(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
+        def side_effect(x, y=None, debug=False):
+            return (x, y)
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -42,7 +44,8 @@ class TestQuickstartTest(TestCase):
                          'http://agent_url.com')
 
     def test_from_args_series(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
+        def side_effect(x, y=None, debug=False):
+            return (x, y)
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
