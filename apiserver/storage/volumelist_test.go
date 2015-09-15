@@ -21,14 +21,27 @@ var _ = gc.Suite(&volumeSuite{})
 func (s *volumeSuite) expectedVolumeDetailsResult() params.VolumeDetailsResult {
 	return params.VolumeDetailsResult{
 		Details: &params.VolumeDetails{
-			VolumeTag:       s.volumeTag.String(),
-			StorageTag:      "storage-data-0",
-			StorageOwnerTag: "unit-mysql-0",
+			VolumeTag: s.volumeTag.String(),
 			Status: params.EntityStatus{
 				Status: "attached",
 			},
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				s.machineTag.String(): params.VolumeAttachmentInfo{},
+			},
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-data-0",
+				OwnerTag:   "unit-mysql-0",
+				Kind:       params.StorageKindFilesystem,
+				Status: params.EntityStatus{
+					Status: "pending",
+				},
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-mysql-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-data-0",
+						UnitTag:    "unit-mysql-0",
+						MachineTag: "machine-66",
+					},
+				},
 			},
 		},
 		LegacyVolume: &params.LegacyVolumeDetails{
@@ -50,6 +63,8 @@ func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
+	found.Results[0].Details.Storage.Status.Since = nil
 	c.Assert(found.Results[0], gc.DeepEquals, s.expectedVolumeDetailsResult())
 }
 
@@ -78,6 +93,8 @@ func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
 	found, err := s.api.ListVolumes(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
+	found.Results[0].Details.Storage.Status.Since = nil
 	c.Assert(found.Results[0], jc.DeepEquals, s.expectedVolumeDetailsResult())
 }
 
@@ -106,6 +123,8 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
+	found.Results[0].Details.Storage.Status.Since = nil
 	c.Assert(found.Results[0], jc.DeepEquals, expected)
 }
 
@@ -126,5 +145,7 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
+	found.Results[0].Details.Storage.Status.Since = nil
 	c.Assert(found.Results[0], jc.DeepEquals, expected)
 }

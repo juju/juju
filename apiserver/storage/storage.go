@@ -101,7 +101,7 @@ func (api *API) List() (params.StorageDetailsResults, error) {
 }
 
 func (api *API) createStorageDetailsResult(si state.StorageInstance) params.StorageDetailsResult {
-	details, err := api.createStorageDetails(si)
+	details, err := createStorageDetails(api.storage, si)
 	if err != nil {
 		return params.StorageDetailsResult{Error: common.ServerError(err)}
 	}
@@ -125,7 +125,7 @@ func (api *API) createStorageDetailsResult(si state.StorageInstance) params.Stor
 	return params.StorageDetailsResult{Result: details, Legacy: legacy}
 }
 
-func (api *API) createStorageDetails(si state.StorageInstance) (*params.StorageDetails, error) {
+func createStorageDetails(st storageAccess, si state.StorageInstance) (*params.StorageDetails, error) {
 	// Get information from underlying volume or filesystem.
 	var persistent bool
 	var entityStatus params.EntityStatus
@@ -137,7 +137,7 @@ func (api *API) createStorageDetails(si state.StorageInstance) (*params.StorageD
 		entityStatus.Status = params.StatusUnknown
 		entityStatus.Since = &nowUTC
 	} else {
-		volume, err := api.storage.StorageInstanceVolume(si.StorageTag())
+		volume, err := st.StorageInstanceVolume(si.StorageTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -153,14 +153,14 @@ func (api *API) createStorageDetails(si state.StorageInstance) (*params.StorageD
 
 	// Get unit storage attachments.
 	var storageAttachmentDetails map[string]params.StorageAttachmentDetails
-	storageAttachments, err := api.storage.StorageAttachments(si.StorageTag())
+	storageAttachments, err := st.StorageAttachments(si.StorageTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(storageAttachments) > 0 {
 		storageAttachmentDetails = make(map[string]params.StorageAttachmentDetails)
 		for _, a := range storageAttachments {
-			machineTag, location, err := api.storageAttachmentInfo(a)
+			machineTag, location, err := storageAttachmentInfo(st, a)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -197,14 +197,14 @@ func (api *API) createStorageDetails(si state.StorageInstance) (*params.StorageD
 	}, nil
 }
 
-func (api *API) storageAttachmentInfo(a state.StorageAttachment) (_ names.MachineTag, location string, _ error) {
-	machineTag, err := api.storage.UnitAssignedMachine(a.Unit())
+func storageAttachmentInfo(st storageAccess, a state.StorageAttachment) (_ names.MachineTag, location string, _ error) {
+	machineTag, err := st.UnitAssignedMachine(a.Unit())
 	if errors.IsNotAssigned(err) {
 		return names.MachineTag{}, "", nil
 	} else if err != nil {
 		return names.MachineTag{}, "", errors.Trace(err)
 	}
-	info, err := common.StorageAttachmentInfo(api.storage, a, machineTag)
+	info, err := common.StorageAttachmentInfo(st, a, machineTag)
 	if errors.IsNotProvisioned(err) {
 		return machineTag, "", nil
 	} else if err != nil {
@@ -453,21 +453,21 @@ func createVolumeDetailsResults(
 		}
 		result.LegacyVolume = &params.LegacyVolumeDetails{
 			VolumeTag:  details.VolumeTag,
-			StorageTag: details.StorageTag,
 			VolumeId:   details.Info.VolumeId,
 			HardwareId: details.Info.HardwareId,
 			Size:       details.Info.Size,
 			Persistent: details.Info.Persistent,
 			Status:     details.Status,
 		}
-		if details.StorageOwnerTag != "" {
-			kind, err := names.TagKind(details.StorageOwnerTag)
+		if details.Storage != nil {
+			result.LegacyVolume.StorageTag = details.Storage.StorageTag
+			kind, err := names.TagKind(details.Storage.OwnerTag)
 			if err != nil {
 				results[i].Error = common.ServerError(err)
 				continue
 			}
 			if kind == names.UnitTagKind {
-				result.LegacyVolume.UnitTag = details.StorageOwnerTag
+				result.LegacyVolume.UnitTag = details.Storage.OwnerTag
 			}
 		}
 		results[i] = result
@@ -506,12 +506,15 @@ func createVolumeDetails(
 	details.Status = common.EntityStatusFromState(status)
 
 	if storageTag, err := v.StorageInstance(); err == nil {
-		details.StorageTag = storageTag.String()
 		storageInstance, err := st.StorageInstance(storageTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		details.StorageOwnerTag = storageInstance.Owner().String()
+		storageDetails, err := createStorageDetails(st, storageInstance)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		details.Storage = storageDetails
 	}
 
 	return details, nil

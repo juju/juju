@@ -530,14 +530,9 @@ type VolumeDetails struct {
 	// machine tag to volume attachment information.
 	MachineAttachments map[string]VolumeAttachmentInfo `json:"machineattachments,omitempty"`
 
-	// StorageTag is the tag of the storage instance
+	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
-	StorageTag string `json:"storagetag,omitempty"`
-
-	// StorageOwnerTag is the tag of the entity that
-	// owns the volume's assigned storage instance,
-	// if any.
-	StorageOwnerTag string `json:"ownertag,omitempty"`
+	Storage *StorageDetails `json:"storage,omitempty"`
 }
 
 // LegacyVolumeDetails describes a storage volume in the environment
