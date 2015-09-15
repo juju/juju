@@ -78,15 +78,17 @@ func (c *ShowCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	var errs params.ErrorResults
-	var valid []params.LegacyStorageDetails
+	var valid []params.StorageDetails
 	for _, result := range results {
 		if result.Error != nil {
 			errs.Results = append(errs.Results, params.ErrorResult{result.Error})
 			continue
 		}
-		// TODO(axw) use non-legacy if available,
-		// convert from legacy otherwise.
-		valid = append(valid, result.Legacy)
+		if result.Result != nil {
+			valid = append(valid, *result.Result)
+		} else {
+			valid = append(valid, storageDetailsFromLegacy(result.Legacy))
+		}
 	}
 	if len(errs.Results) > 0 {
 		return errs.Combine()
