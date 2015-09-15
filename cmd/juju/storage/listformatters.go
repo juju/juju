@@ -16,7 +16,7 @@ import (
 
 // formatListTabular returns a tabular summary of storage instances.
 func formatListTabular(value interface{}) ([]byte, error) {
-	storageInfo, ok := value.(map[string]map[string]StorageInfo)
+	storageInfo, ok := value.(map[string]StorageInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", storageInfo, value)
 	}
@@ -30,32 +30,74 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 	p("[Storage]")
-	p("UNIT\tID\tLOCATION\tSTATUS\tPERSISTENT")
+	p("UNIT\tID\tLOCATION\tSTATUS\tMESSAGE")
+
+	byUnit := make(map[string]map[string]storageAttachmentInfo)
+	for storageId, storageInfo := range storageInfo {
+		if storageInfo.Attachments == nil {
+			byStorage := byUnit[""]
+			if byStorage == nil {
+				byStorage = make(map[string]storageAttachmentInfo)
+				byUnit[""] = byStorage
+			}
+			byStorage[storageId] = storageAttachmentInfo{
+				storageId:  storageId,
+				kind:       storageInfo.Kind,
+				persistent: storageInfo.Persistent,
+				status:     storageInfo.Status,
+			}
+			continue
+		}
+		for unitId, a := range storageInfo.Attachments.Units {
+			byStorage := byUnit[unitId]
+			if byStorage == nil {
+				byStorage = make(map[string]storageAttachmentInfo)
+				byUnit[unitId] = byStorage
+			}
+			byStorage[storageId] = storageAttachmentInfo{
+				storageId:  storageId,
+				unitId:     unitId,
+				kind:       storageInfo.Kind,
+				persistent: storageInfo.Persistent,
+				location:   a.Location,
+				status:     storageInfo.Status,
+			}
+		}
+	}
 
 	// First sort by units
 	units := make([]string, 0, len(storageInfo))
-	for order := range storageInfo {
-		units = append(units, order)
+	for unit := range byUnit {
+		units = append(units, unit)
 	}
 	sort.Strings(bySuffixNaturally(units))
-	for _, unit := range units {
-		all := storageInfo[unit]
 
+	for _, unit := range units {
 		// Then sort by storage ids
-		storageIds := make([]string, 0, len(all))
-		for anId := range all {
-			storageIds = append(storageIds, anId)
+		byStorage := byUnit[unit]
+		storageIds := make([]string, 0, len(byStorage))
+		for storageId := range byStorage {
+			storageIds = append(storageIds, storageId)
 		}
 		sort.Strings(bySuffixNaturally(storageIds))
 
 		for _, storageId := range storageIds {
-			info := all[storageId]
-			p(unit, storageId, info.Location, info.Status, info.Persistent)
+			info := byStorage[storageId]
+			p(info.unitId, info.storageId, info.location, info.status.Current, info.status.Message)
 		}
 	}
 	tw.Flush()
 
 	return out.Bytes(), nil
+}
+
+type storageAttachmentInfo struct {
+	storageId  string
+	unitId     string
+	kind       string
+	persistent bool
+	location   string
+	status     EntityStatus
 }
 
 type bySuffixNaturally []string

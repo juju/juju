@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.storage")
@@ -59,48 +62,105 @@ func (c *StorageCommandBase) NewStorageAPI() (*storage.Client, error) {
 
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
-	StorageName string `yaml:"storage" json:"storage"`
-	Kind        string `yaml:"kind" json:"kind"`
-	Status      string `yaml:"status,omitempty" json:"status,omitempty"`
-	Persistent  bool   `yaml:"persistent" json:"persistent"`
-	Location    string `yaml:"location,omitempty" json:"location,omitempty"`
+	Kind        string              `yaml:"kind" json:"kind"`
+	Status      EntityStatus        `yaml:"status" json:"status"`
+	Persistent  bool                `yaml:"persistent" json:"persistent"`
+	Attachments *StorageAttachments `yaml:"attachments" json:"attachments"`
 }
 
-// formatStorageDetails takes a set of LegacyStorageDetail and creates a
-// mapping keyed on unit and storage id.
-func formatStorageDetails(storages []params.LegacyStorageDetails) (map[string]map[string]StorageInfo, error) {
+// StorageAttachments contains details about all attachments to a storage
+// instance.
+type StorageAttachments struct {
+	// Units is a mapping from unit ID to unit storage attachment details.
+	Units map[string]UnitStorageAttachment `yaml:"units" json:"units"`
+}
+
+// UnitStorageAttachment contains details of a unit storage attachment.
+type UnitStorageAttachment struct {
+	// MachineId is the ID of the machine that the unit is assigned to.
+	//
+	// This is omitempty to cater for legacy results, where the machine
+	// information is not available.
+	MachineId string `yaml:"machine,omitempty" json:"machine,omitempty"`
+
+	// Location is the location of the storage attachment.
+	Location string `yaml:"location,omitempty" json:"location,omitempty"`
+}
+
+// formatStorageDetails takes a set of StorageDetail and
+// creates a mapping from storage ID to storage details.
+func formatStorageDetails(storages []params.StorageDetails) (map[string]StorageInfo, error) {
 	if len(storages) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]map[string]StorageInfo)
-	for _, one := range storages {
-		storageTag, err := names.ParseStorageTag(one.StorageTag)
+	output := make(map[string]StorageInfo)
+	for _, details := range storages {
+		storageTag, err := names.ParseStorageTag(details.StorageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid storage tag")
 		}
-		unitTag, err := names.ParseTag(one.UnitTag)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid unit tag")
+
+		info := StorageInfo{
+			Kind: details.Kind.String(),
+			Status: EntityStatus{
+				details.Status.Status,
+				details.Status.Info,
+				// TODO(axw) we should support formatting as ISO time
+				common.FormatTime(details.Status.Since, false),
+			},
+			Persistent: details.Persistent,
 		}
 
-		storageName, err := names.StorageName(storageTag.Id())
-		if err != nil {
-			panic(err) // impossible
+		if len(details.Attachments) > 0 {
+			unitStorageAttachments := make(map[string]UnitStorageAttachment)
+			for unitTagString, attachmentDetails := range details.Attachments {
+				unitTag, err := names.ParseUnitTag(unitTagString)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				var machineId string
+				if attachmentDetails.MachineTag != "" {
+					machineTag, err := names.ParseMachineTag(attachmentDetails.MachineTag)
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+					machineId = machineTag.Id()
+				}
+				unitStorageAttachments[unitTag.Id()] = UnitStorageAttachment{
+					machineId,
+					attachmentDetails.Location,
+				}
+			}
+			info.Attachments = &StorageAttachments{unitStorageAttachments}
 		}
-		si := StorageInfo{
-			StorageName: storageName,
-			Kind:        one.Kind.String(),
-			Status:      one.Status,
-			Location:    one.Location,
-			Persistent:  one.Persistent,
-		}
-		unit := unitTag.Id()
-		unitColl, ok := output[unit]
-		if !ok {
-			unitColl = map[string]StorageInfo{}
-			output[unit] = unitColl
-		}
-		unitColl[storageTag.Id()] = si
+
+		output[storageTag.Id()] = info
 	}
 	return output, nil
+}
+
+func storageDetailsFromLegacy(legacy params.LegacyStorageDetails) params.StorageDetails {
+	nowUTC := time.Now().UTC()
+	details := params.StorageDetails{
+		legacy.StorageTag,
+		legacy.OwnerTag,
+		legacy.Kind,
+		params.EntityStatus{
+			Status: params.Status(legacy.Status),
+			Since:  &nowUTC,
+		},
+		legacy.Persistent,
+		nil,
+	}
+	if legacy.UnitTag != "" {
+		details.Attachments = map[string]params.StorageAttachmentDetails{
+			legacy.UnitTag: params.StorageAttachmentDetails{
+				legacy.StorageTag,
+				legacy.UnitTag,
+				"", // machine is unknown in legacy
+				legacy.Location,
+			},
+		}
+	}
+	return details
 }
