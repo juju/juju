@@ -852,7 +852,7 @@ class EucaTestCase(TestCase):
         self.assertEqual(
             [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
 
-    def test_run_instances(self):
+    def test_run_instances_without_series(self):
         euca_data = dedent("""
             header
             INSTANCE\ti-foo\tblah\tbar-0
@@ -878,30 +878,20 @@ class EucaTestCase(TestCase):
         di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
         qa_mock.assert_called_once_with('precise', 'amd64')
 
-    def test_run_instances_with_series(self):
-        euca_data = dedent("""
+    @patch('get_ami.query_ami', autospec=True)
+    @patch('substrate.describe_instances', autospec=True)
+    @patch('subprocess.check_call', autospec=True)
+    @patch('subprocess.check_output', autospec=True)
+    def test_run_instances_with_series(self,
+                                       co_mock, cc_mock, di_mock, qa_mock):
+        co_mock.return_value = dedent("""
             header
             INSTANCE\ti-foo\tblah\tbar-0
             INSTANCE\ti-baz\tblah\tbar-1
-        """)
-        description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
-        ami = "ami-atest"
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True) as co_mock:
-            with patch('subprocess.check_call', autospec=True) as cc_mock:
-                with patch('substrate.describe_instances',
-                           return_value=description, autospec=True) as di_mock:
-                    with patch('get_ami.query_ami',
-                               return_value=ami, autospec=True) as qa_mock:
-                        run_instances(2, 'qux', 'wily')
-        co_mock.assert_called_once_with(
-            ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
-             '-t', 'm1.large', '-g', 'manual-juju-test', ami],
-            env=os.environ)
-        cc_mock.assert_called_once_with(
-            ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
-            env=os.environ)
-        di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
+            """)
+        di_mock.return_value = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
+        qa_mock.return_value = "ami-atest"
+        run_instances(2, 'qux', 'wily')
         qa_mock.assert_called_once_with('wily', 'amd64')
 
     def test_run_instances_tagging_failed(self):
