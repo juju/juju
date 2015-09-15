@@ -28,6 +28,9 @@ func (*RestrictedContext) ConfigSettings() (charm.Settings, error) { return nil,
 // UnitStatus implements jujuc.Context.
 func (*RestrictedContext) UnitStatus() (*StatusInfo, error) { return nil, ErrRestrictedContext }
 
+// UnitStatus implements jujuc.Context.
+func (*RestrictedContext) AddCharmRelation(name, iface string) error { return ErrRestrictedContext }
+
 // SetUnitStatus implements jujuc.Context.
 func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 

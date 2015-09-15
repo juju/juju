@@ -213,6 +213,10 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
+func (ctx *HookContext) AddCharmRelation(name, iface string) error {
+	return ctx.unit.AddCharmRelation(name, iface)
+}
+
 // UnitStatus will return the status for the current Unit.
 func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	if ctx.status == nil {

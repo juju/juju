@@ -1059,6 +1059,41 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 	return st.Charm(curl)
 }
 
+func (st *State) AddCharmRelation(curl *charm.URL, relation charm.Relation) error {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	doc := &charmDoc{}
+	err := charms.FindId(curl.String()).One(&doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !doc.PendingUpload {
+		return errors.Trace(&ErrCharmAlreadyUploaded{curl})
+	}
+
+	ch, err := st.Charm(curl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := ch.AddRelation(relation); err != nil {
+		return errors.Trace(err)
+	}
+
+	ops, err := updateCharmOps(st, ch, curl, ch.StoragePath(), ch.BundleSha256(), stillPending)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := st.runTransaction(ops); err != nil {
+		return onAbort(err, ErrCharmRevisionAlreadyModified)
+	}
+	return nil
+}
+
 // addPeerRelationsOps returns the operations necessary to add the
 // specified service peer relations to the state.
 func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.Relation) ([]txn.Op, error) {

@@ -207,6 +207,26 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 	return &Charm{st: st, doc: *cdoc}
 }
 
+func (c *Charm) AddRelation(relation charm.Relation) error {
+	if !relation.Dynamic {
+		return errors.New("Relation must be dynamic")
+	}
+	if err := c.verifyRelation(relation); err != nil {
+		return errors.Trace(err)
+	}
+	c.doc.Meta.Provides[relation.Name] = relation
+	return nil
+}
+
+func (c *Charm) verifyRelation(relation charm.Relation) error {
+	for name, pr := range c.doc.Meta.Provides {
+		if name == relation.Name && pr.Interface == relation.Interface {
+			return errors.New("relation already exists")
+		}
+	}
+	return nil
+}
+
 // Tag returns a tag identifying the charm.
 // Implementing state.GlobalEntity interface.
 func (c *Charm) Tag() names.Tag {

@@ -1032,6 +1032,23 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
+func (u *Unit) AddCharmRelation(name, iface string) error {
+	r := charm.Relation{
+		Name:      name,
+		Interface: iface,
+		Role:      charm.RoleProvider,
+		Scope:     charm.ScopeGlobal,
+		Dynamic:   true,
+	}
+	svc, err := u.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	charmURL, _ := svc.CharmURL()
+	return u.st.AddCharmRelation(charmURL, r)
+}
+
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalAgentKey())

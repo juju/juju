@@ -104,6 +104,9 @@ type ContextUnit interface {
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
+
+	// AddCharmRelation
+	AddCharmRelation(name, iface string) error
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

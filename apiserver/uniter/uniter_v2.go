@@ -1,6 +1,3 @@
-// Copyright 2015 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
 // The uniter package implements the API interface used by the uniter
 // worker. This file contains the API facade version 2.
 
@@ -25,6 +22,36 @@ func init() {
 type UniterAPIV2 struct {
 	UniterAPIV1
 	StorageAPI
+}
+
+func (u *UniterAPIV2) AddCharmRelation(args params.AddCharmRelation) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		logger.Warningf("failed to check unit access: %v", err)
+		return params.ErrorResults{}, common.ErrPerm
+	}
+	for i, batch := range args.Entities {
+		tag, err := names.ParseUnitTag(batch.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = unit.AddCharmRelation(batch.Name, batch.Interface)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }
 
 // AddMetricBatches adds the metrics for the specified unit.
