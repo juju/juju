@@ -149,10 +149,10 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 	return result
 }
 
-// UpdateFromPublishedImages lists currently published image metadata and
+// UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
-	published, err := api.listPublished()
+	published, err := api.retrievePublished()
 	if err != nil {
 		return errors.Annotatef(err, "getting published images metadata")
 	}
@@ -160,7 +160,7 @@ func (api *API) UpdateFromPublishedImages() error {
 	return errors.Annotatef(err, "saving published images metadata")
 }
 
-func (api *API) listPublished() ([]*envmetadata.ImageMetadata, error) {
+func (api *API) retrievePublished() ([]*envmetadata.ImageMetadata, error) {
 	// Get environ
 	envCfg, err := api.metadata.EnvironConfig()
 	env, err := environs.New(envCfg)
@@ -184,7 +184,8 @@ func (api *API) listPublished() ([]*envmetadata.ImageMetadata, error) {
 }
 
 func (api *API) saveAll(published []*envmetadata.ImageMetadata) error {
-	// Store converted metadata.Note that whether the metadata actually needs
+	// Store converted metadata.
+	// Note that whether the metadata actually needs
 	// to be stored will be determined within this call.
 	errs, err := api.Save(convertToParams(published))
 	if err != nil {

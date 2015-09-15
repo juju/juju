@@ -58,7 +58,7 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) ([]params.ErrorResul
 	return out.Results, nil
 }
 
-// UpdateFromPublishedImages lists currently published image metadata and
+// UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 // This method is primarily intended for a worker.
 func (c *Client) UpdateFromPublishedImages() error {
