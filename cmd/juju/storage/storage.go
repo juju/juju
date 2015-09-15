@@ -89,6 +89,8 @@ type UnitStorageAttachment struct {
 
 	// Location is the location of the storage attachment.
 	Location string `yaml:"location,omitempty" json:"location,omitempty"`
+
+	// TODO(axw) per-unit status when we have it in state.
 }
 
 // formatStorageDetails takes a set of StorageDetail and
@@ -99,48 +101,56 @@ func formatStorageDetails(storages []params.StorageDetails) (map[string]StorageI
 	}
 	output := make(map[string]StorageInfo)
 	for _, details := range storages {
-		storageTag, err := names.ParseStorageTag(details.StorageTag)
+		storageTag, storageInfo, err := createStorageInfo(details)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid storage tag")
+			return nil, errors.Trace(err)
 		}
-
-		info := StorageInfo{
-			Kind: details.Kind.String(),
-			Status: EntityStatus{
-				details.Status.Status,
-				details.Status.Info,
-				// TODO(axw) we should support formatting as ISO time
-				common.FormatTime(details.Status.Since, false),
-			},
-			Persistent: details.Persistent,
-		}
-
-		if len(details.Attachments) > 0 {
-			unitStorageAttachments := make(map[string]UnitStorageAttachment)
-			for unitTagString, attachmentDetails := range details.Attachments {
-				unitTag, err := names.ParseUnitTag(unitTagString)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				var machineId string
-				if attachmentDetails.MachineTag != "" {
-					machineTag, err := names.ParseMachineTag(attachmentDetails.MachineTag)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-					machineId = machineTag.Id()
-				}
-				unitStorageAttachments[unitTag.Id()] = UnitStorageAttachment{
-					machineId,
-					attachmentDetails.Location,
-				}
-			}
-			info.Attachments = &StorageAttachments{unitStorageAttachments}
-		}
-
-		output[storageTag.Id()] = info
+		output[storageTag.Id()] = storageInfo
 	}
 	return output, nil
+}
+
+func createStorageInfo(details params.StorageDetails) (names.StorageTag, StorageInfo, error) {
+	storageTag, err := names.ParseStorageTag(details.StorageTag)
+	if err != nil {
+		return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+	}
+
+	info := StorageInfo{
+		Kind: details.Kind.String(),
+		Status: EntityStatus{
+			details.Status.Status,
+			details.Status.Info,
+			// TODO(axw) we should support formatting as ISO time
+			common.FormatTime(details.Status.Since, false),
+		},
+		Persistent: details.Persistent,
+	}
+
+	if len(details.Attachments) > 0 {
+		unitStorageAttachments := make(map[string]UnitStorageAttachment)
+		for unitTagString, attachmentDetails := range details.Attachments {
+			unitTag, err := names.ParseUnitTag(unitTagString)
+			if err != nil {
+				return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+			}
+			var machineId string
+			if attachmentDetails.MachineTag != "" {
+				machineTag, err := names.ParseMachineTag(attachmentDetails.MachineTag)
+				if err != nil {
+					return names.StorageTag{}, StorageInfo{}, errors.Trace(err)
+				}
+				machineId = machineTag.Id()
+			}
+			unitStorageAttachments[unitTag.Id()] = UnitStorageAttachment{
+				machineId,
+				attachmentDetails.Location,
+			}
+		}
+		info.Attachments = &StorageAttachments{unitStorageAttachments}
+	}
+
+	return storageTag, info, nil
 }
 
 func storageDetailsFromLegacy(legacy params.LegacyStorageDetails) params.StorageDetails {

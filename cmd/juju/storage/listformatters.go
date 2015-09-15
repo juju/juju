@@ -111,31 +111,53 @@ func (s bySuffixNaturally) Swap(a, b int) {
 }
 
 func (s bySuffixNaturally) Less(a, b int) bool {
-	sa := strings.SplitN(s[a], "/", 2)
-	sb := strings.SplitN(s[b], "/", 2)
-	if sa[0] < sb[0] {
-		return true
+	return naturalCompare(s[a], s[b]) == -1
+}
+
+// naturalCompares a with b, first the string before "/",
+// and then the integer or string after. Empty strings
+// are sorted after all others.
+func naturalCompare(a, b string) int {
+	switch {
+	case a == "" && b == "":
+		return 0
+	case a == "":
+		return 1
+	case b == "":
+		return -1
 	}
-	altReturn := sa[0] == sb[0] && sa[1] < sb[1]
+
+	sa := strings.SplitN(a, "/", 2)
+	sb := strings.SplitN(b, "/", 2)
+	if sa[0] < sb[0] {
+		return -1
+	}
+	if sa[0] > sb[0] {
+		return 1
+	}
 
 	getInt := func(suffix string) (bool, int) {
 		num, err := strconv.Atoi(suffix)
 		if err != nil {
-			// It's possible that we are not looking at numeric suffix
-			logger.Infof("parsing a non-numeric %v: %v", suffix, err)
 			return false, 0
 		}
-		fmt.Printf("parsing a non-numeric %v: %v", suffix, err)
 		return true, num
 	}
 
 	naIsNumeric, na := getInt(sa[1])
 	if !naIsNumeric {
-		return altReturn
+		return strings.Compare(sa[1], sb[1])
 	}
 	nbIsNumeric, nb := getInt(sb[1])
 	if !nbIsNumeric {
-		return altReturn
+		return strings.Compare(sa[1], sb[1])
 	}
-	return sa[0] == sb[0] && na < nb
+
+	switch {
+	case na < nb:
+		return -1
+	case na == nb:
+		return 0
+	}
+	return 1
 }
