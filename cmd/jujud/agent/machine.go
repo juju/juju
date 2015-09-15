@@ -799,11 +799,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if isEnvironManager {
 		// Start worker that stores missing published image metadata in state.
 		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			env, err := environs.New(envConfig)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newMetadataUpdater(st.MetadataUpdater(), imagemetadataworker.DefaultListPublishedMetadata, env), nil
+			return newMetadataUpdater(st.MetadataUpdater()), nil
 		})
 	}
 
