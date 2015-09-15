@@ -316,6 +316,47 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 	}
 }
 
+func (s *ServiceSuite) TestInitSettings(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+
+	check := func(settings charm.Settings) (charm.Settings, charm.Settings) {
+		svcA, err := s.State.AddService("svc-a", s.Owner.String(), ch, nil, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		if len(settings) > 0 {
+			err = svcA.UpdateConfigSettings(settings)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		settingsA, err := svcA.ConfigSettings()
+		c.Assert(err, jc.ErrorIsNil)
+		defer svcA.Destroy()
+
+		svcB, err := s.State.AddService("svc-b", s.Owner.String(), ch, nil, nil, settings)
+		c.Assert(err, jc.ErrorIsNil)
+		settingsB, err := svcB.ConfigSettings()
+		c.Assert(err, jc.ErrorIsNil)
+		defer svcB.Destroy()
+
+		c.Check(settingsA, jc.DeepEquals, settingsB)
+		return settingsA, settingsB
+	}
+
+	check(nil)
+	for i, settings := range []charm.Settings{{
+	// "username" default = "admin001"
+	}, {
+		"title": "a service",
+		// "username" default = "admin001"
+	}, {
+		"title":    "a service",
+		"username": "a service",
+	}} {
+		c.Logf("- test #%d", i)
+		settingsA, settingsB := check(settings)
+		c.Check(settingsA, jc.DeepEquals, settings)
+		c.Check(settingsB, jc.DeepEquals, settings)
+	}
+}
+
 func (s *ServiceSuite) TestSetCharmWithDyingService(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
