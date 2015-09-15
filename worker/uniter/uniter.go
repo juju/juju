@@ -430,7 +430,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	u.addCleanup(func() error {
-		return u.runListener.Close()
+		err := u.runListener.Close()
+		if err != nil {
+			logger.Warningf("error closing runlistener: %v", err)
+		}
+		return nil
 	})
 	// The socket needs to have permissions 777 in order for other users to use it.
 	if jujuos.HostOS() != jujuos.Windows {
