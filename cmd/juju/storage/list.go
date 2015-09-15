@@ -67,23 +67,32 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// filter out valid output, if any
-	var valid []params.LegacyStorageDetails
+	var valid []params.StorageDetails
 	for _, one := range found {
-		if one.Error == nil {
-			// TODO(axw) use non-legacy if available,
-			// convert from legacy otherwise.
-			valid = append(valid, one.Legacy)
+		if one.Error != nil {
+			fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
 			continue
 		}
-		// display individual error
-		fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
+		if one.Result != nil {
+			valid = append(valid, *one.Result)
+		} else {
+			details := storageDetailsFromLegacy(one.Legacy)
+			valid = append(valid, details)
+		}
 	}
 	if len(valid) == 0 {
 		return nil
 	}
-	output, err := formatStorageDetails(valid)
+	details, err := formatStorageDetails(valid)
 	if err != nil {
 		return err
+	}
+	var output interface{}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = map[string]map[string]StorageInfo{"storage": details}
+	default:
+		output = details
 	}
 	return c.out.Write(ctx, output)
 }
