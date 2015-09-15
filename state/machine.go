@@ -1056,36 +1056,11 @@ func containsAddress(addresses []network.Address, address network.Address) bool 
 // becomes avaialable).
 func (m *Machine) PublicAddress() (network.Address, error) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
-	addresses := m.Addresses()
-	if len(addresses) == 0 {
-		// No addresses to return.
-		logger.Warningf("getting PublicAddress: no addresses for machine %q", m.Id())
-		return network.Address{}, nil
+	var err error
+	if publicAddress.Value == "" {
+		err = errors.New("no address")
 	}
-	// Always prefer an exact match if available.
-	checkScope := func(addr network.Address) bool {
-		return network.ExactScopeMatch(addr, network.ScopePublic)
-	}
-	// Without an exact match, prefer a fallback match.
-	getAddr := func() network.Address {
-		return network.SelectPublicAddress(addresses)
-	}
-
-	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
-	if !changed {
-		return publicAddress, nil
-	}
-	err := m.setDefaultAddress(newAddr, true)
-	if err != nil {
-		if err != errNotAlive {
-			return network.Address{}, errors.Trace(err)
-		} else {
-			// Dead machines cannot change address, report the last
-			// known address.
-			return publicAddress, nil
-		}
-	}
-	return newAddr, nil
+	return publicAddress, err
 }
 
 // maybeGetNewAddress determines if the current address is the most appropriate
@@ -1117,44 +1092,14 @@ func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAd
 // becomes avaialable).
 func (m *Machine) PrivateAddress() (network.Address, error) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
-	addresses := m.Addresses()
-	if len(addresses) == 0 {
-		// No addresses to return.
-		logger.Warningf("getting PrivateAddress: no addresses for machine %q", m.Id())
-		return network.Address{}, nil
+	var err error
+	if privateAddress.Value == "" {
+		err = errors.New("no address")
 	}
-	// Always prefer an exact match if available.
-	checkScope := func(addr network.Address) bool {
-		return network.ExactScopeMatch(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
-	}
-	// Without an exact match, prefer a fallback match.
-	getAddr := func() network.Address {
-		return network.SelectInternalAddress(addresses, false)
-	}
-
-	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
-	if !changed {
-		return privateAddress, nil
-	}
-	err := m.setDefaultAddress(newAddr, false)
-	if err != nil {
-		if err != errNotAlive {
-			return network.Address{}, errors.Trace(err)
-		} else {
-			// Dead machines cannot change address, report the last
-			// known address.
-			return privateAddress, nil
-		}
-	}
-	return newAddr, nil
-
+	return privateAddress, err
 }
 
-func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) error {
-	if m.doc.Life == Dead {
-		// Don't allow changing the address of dead machines.
-		return errNotAlive
-	}
+func (m *Machine) getDefaultAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
 	addr := fromNetworkAddress(netAddr)
 	fieldName := "defaultprivateaddress"
 	if isPublic {
@@ -1168,39 +1113,58 @@ func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) erro
 		Assert: append(notDeadDoc, differentAddress...),
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
 	}}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, err
-			}
+	return ops
+}
 
-			if m.doc.Life == Dead {
-				return nil, errNotAlive
-			}
-			// Address has already been set.
-			return nil, jujutxn.ErrNoOperations
-		}
-		return ops, nil
+func (m *Machine) getPublicAddressOps(addresses []network.Address) []txn.Op {
+	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
+	// Always prefer an exact match if available.
+	checkScope := func(addr network.Address) bool {
+		return network.ExactScopeMatch(addr, network.ScopePublic)
 	}
-	err := m.st.run(buildTxn)
-	if err == nil {
-		if isPublic {
-			m.doc.PreferredPublicAddress = addr
-		} else {
-			m.doc.PreferredPrivateAddress = addr
-		}
+	// Without an exact match, prefer a fallback match.
+	getAddr := func() network.Address {
+		return network.SelectPublicAddress(addresses)
 	}
-	return err
+
+	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
+	if !changed {
+		// No change, so no ops.
+		return []txn.Op{}
+	}
+
+	// XXX can return ErrNotAlive
+	return m.getDefaultAddressOps(newAddr, true)
+}
+
+func (m *Machine) getPrivateAddressOps(addresses []network.Address) []txn.Op {
+	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
+	// Always prefer an exact match if available.
+	checkScope := func(addr network.Address) bool {
+		return network.ExactScopeMatch(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
+	}
+	// Without an exact match, prefer a fallback match.
+	getAddr := func() network.Address {
+		return network.SelectInternalAddress(addresses, false)
+	}
+
+	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
+	if !changed {
+		// No change, so no ops.
+		return []txn.Op{}
+	}
+	return m.getDefaultAddressOps(newAddr, false)
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
 func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
+	mergedAddresses := mergedAddresses(m.doc.MachineAddresses, fromNetworkAddresses(addresses))
 	mdoc, err := m.st.getMachineDoc(m.Id())
 	if err != nil {
 		return errors.Annotatef(err, "cannot refresh provider addresses for machine %s", m)
 	}
-	if err = m.setAddresses(addresses, &mdoc.Addresses, "addresses"); err != nil {
+	if err = m.setAddresses(addresses, mergedAddresses, &mdoc.Addresses, "addresses"); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
 	}
 	m.doc.Addresses = mdoc.Addresses
@@ -1228,11 +1192,12 @@ func (m *Machine) MachineAddresses() (addresses []network.Address) {
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
 func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
+	allAddresses := mergedAddresses(fromNetworkAddresses(addresses), m.doc.Addresses)
 	mdoc, err := m.st.getMachineDoc(m.Id())
 	if err != nil {
 		return errors.Annotatef(err, "cannot refresh machine addresses for machine %s", m)
 	}
-	if err = m.setAddresses(addresses, &mdoc.MachineAddresses, "machineaddresses"); err != nil {
+	if err = m.setAddresses(addresses, allAddresses, &mdoc.MachineAddresses, "machineaddresses"); err != nil {
 		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, err)
 	}
 	m.doc.MachineAddresses = mdoc.MachineAddresses
@@ -1243,7 +1208,7 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // MachineAddresses, depending on the field argument). Changes are
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
-func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
+func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field *[]address, fieldName string) error {
 	var addressesToSet []network.Address
 	if !m.IsContainer() {
 		// Check addresses first. We'll only add those addresses
@@ -1285,14 +1250,21 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	stateAddresses := fromNetworkAddresses(addressesToSet)
 
 	if addressesEqual(addressesToSet, networkAddresses(*field)) {
+		// XXX presumably this means the preferred address can't have
+		// changed!
 		return nil
 	}
-	if err := m.st.runTransaction([]txn.Op{{
+	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
-	}}); err != nil {
+	}}
+	setPrivateAddressOps := m.getPrivateAddressOps(allAddresses)
+	setPublicAddressOps := m.getPublicAddressOps(allAddresses)
+	ops = append(ops, setPrivateAddressOps...)
+	ops = append(ops, setPublicAddressOps...)
+	if err := m.st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			return ErrDead
 		}
