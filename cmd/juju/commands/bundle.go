@@ -194,11 +194,11 @@ func upgradeCharm(client *api.Client, log deploymentLogger, service, id string) 
 		log.Infof("reusing service %s (charm: %s)", service, id)
 		return nil
 	}
-	url, err := charm.ParseReference(id)
+	url, err := charm.ParseURL(id)
 	if err != nil {
 		return errors.Annotatef(err, "cannot parse charm URL %q", id)
 	}
-	if (url.Name != existing.Name) || (url.User != existing.User) {
+	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
 	if err := client.ServiceSetCharm(service, id, false); err != nil {
@@ -228,6 +228,9 @@ func setServiceOptions(client *api.Client, service string, options map[string]in
 // string indicating the action type ("deploy", "addRelation" etc.), followed
 // by a unique incremental number.
 func resolve(placeholder string, results map[string]string) string {
+	if !strings.HasPrefix(placeholder, "$") {
+		panic(`placeholder does not start with "$"`)
+	}
 	id := placeholder[1:]
 	return results[id]
 }
