@@ -78,46 +78,38 @@ func (c *RelationSetCommand) Init(args []string) error {
 	return nil
 }
 
-// ensureYamlIsMap will check that the passed data fits a hash of strings
-// structure (and not a simple string or array) and will return the
-// hashmap, a bool indicating if there was validation issues and an
-// error representing either a validation error or an actual error
-// in the process.
-func ensureYamlIsMap(data []byte) (map[string]string, error) {
-	// Can this validation be done more simply or efficiently?
-	var scalar string
-	if err := goyaml.Unmarshal(data, &scalar); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if scalar != "" {
-		return nil, errors.Errorf("expected YAML map, got %q", scalar)
-	}
-
-	var sequence []string
-	if err := goyaml.Unmarshal(data, &sequence); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(sequence) != 0 {
-		return nil, errors.Errorf("expected YAML map, got %#v", sequence)
-	}
-
-	kvs := make(map[string]string)
-	if err := goyaml.Unmarshal(data, kvs); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return kvs, nil
-}
-
 func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, error) {
 	data, err := ioutil.ReadAll(in)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var kvs map[string]string
-	if kvs, err = ensureYamlIsMap(data); err != nil {
+	skipValidation := false // for debugging
+	if !skipValidation {
+		// Can this validation be done more simply or efficiently?
+
+		var scalar string
+		if err := goyaml.Unmarshal(data, &scalar); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if scalar != "" {
+			return nil, errors.Errorf("expected YAML map, got %q", scalar)
+		}
+
+		var sequence []string
+		if err := goyaml.Unmarshal(data, &sequence); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(sequence) != 0 {
+			return nil, errors.Errorf("expected YAML map, got %#v", sequence)
+		}
+	}
+
+	kvs := make(map[string]string)
+	if err := goyaml.Unmarshal(data, kvs); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return kvs, nil
 }
 
