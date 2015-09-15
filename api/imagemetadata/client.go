@@ -62,6 +62,8 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) ([]params.ErrorResul
 // updates stored ones accordingly.
 // This method is primarily intended for a worker.
 func (c *Client) UpdateFromPublishedImages() error {
-	return errors.Trace(
-		c.facade.FacadeCall("UpdateFromPublishedImages", nil, nil))
+	// TODO(wallyworld) - this is a temp "fix" to unblock master lp:1495542
+	return nil
+	//	return errors.Trace(
+	//		c.facade.FacadeCall("UpdateFromPublishedImages", nil, nil))
 }
