@@ -852,7 +852,7 @@ class EucaTestCase(TestCase):
         self.assertEqual(
             [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
 
-    def test_run_instances(self):
+    def test_run_instances_without_series(self):
         euca_data = dedent("""
             header
             INSTANCE\ti-foo\tblah\tbar-0
@@ -867,7 +867,7 @@ class EucaTestCase(TestCase):
                            return_value=description, autospec=True) as di_mock:
                     with patch('get_ami.query_ami',
                                return_value=ami, autospec=True) as qa_mock:
-                        run_instances(2, 'qux')
+                        run_instances(2, 'qux', None)
         co_mock.assert_called_once_with(
             ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
              '-t', 'm1.large', '-g', 'manual-juju-test', ami],
@@ -877,6 +877,22 @@ class EucaTestCase(TestCase):
             env=os.environ)
         di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
         qa_mock.assert_called_once_with('precise', 'amd64')
+
+    @patch('get_ami.query_ami', autospec=True)
+    @patch('substrate.describe_instances', autospec=True)
+    @patch('subprocess.check_call', autospec=True)
+    @patch('subprocess.check_output', autospec=True)
+    def test_run_instances_with_series(self,
+                                       co_mock, cc_mock, di_mock, qa_mock):
+        co_mock.return_value = dedent("""
+            header
+            INSTANCE\ti-foo\tblah\tbar-0
+            INSTANCE\ti-baz\tblah\tbar-1
+            """)
+        di_mock.return_value = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
+        qa_mock.return_value = "ami-atest"
+        run_instances(2, 'qux', 'wily')
+        qa_mock.assert_called_once_with('wily', 'amd64')
 
     def test_run_instances_tagging_failed(self):
         euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
@@ -889,7 +905,7 @@ class EucaTestCase(TestCase):
                            return_value=description, autospec=True):
                     with patch('subprocess.call', autospec=True) as c_mock:
                         with self.assertRaises(CalledProcessError):
-                            run_instances(1, 'qux')
+                            run_instances(1, 'qux', 'trusty')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_run_instances_describe_failed(self):
@@ -900,7 +916,7 @@ class EucaTestCase(TestCase):
                        side_effect=CalledProcessError('', '')):
                 with patch('subprocess.call', autospec=True) as c_mock:
                     with self.assertRaises(CalledProcessError):
-                        run_instances(1, 'qux')
+                        run_instances(1, 'qux', 'trusty')
         c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_destroy_job_instances_none(self):
