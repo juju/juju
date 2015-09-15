@@ -7,9 +7,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	envmetadata "github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/testing"
 )
 
 var (
@@ -25,10 +31,10 @@ func init() {
 func useTestImageData(files map[string]string) {
 	if files != nil {
 		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		envmetadata.DefaultBaseURL = "test:"
+		imagemetadata.DefaultBaseURL = "test:"
 	} else {
 		testRoundTripper.Sub = nil
-		envmetadata.DefaultBaseURL = ""
+		imagemetadata.DefaultBaseURL = ""
 	}
 }
 
@@ -143,7 +149,41 @@ func (s *imageMetadataUpdateSuite) SetUpTest(c *gc.C) {
 
 func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImages(c *gc.C) {
 	saved := []cloudimagemetadata.Metadata{}
-	expected := []cloudimagemetadata.Metadata{}
+	expected := []cloudimagemetadata.Metadata{
+		cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				RootStorageType: "ebs",
+				VirtualType:     "pv",
+				Arch:            "amd64",
+				Series:          "trusty",
+				Region:          "nz-east-1",
+				Source:          "public",
+				Stream:          "released"},
+			"ami-36745463",
+		},
+		cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				RootStorageType: "ebs",
+				VirtualType:     "pv",
+				Arch:            "amd64",
+				Series:          "precise",
+				Region:          "au-east-2",
+				Source:          "public",
+				Stream:          "released"},
+			"ami-26745463",
+		},
+	}
+
+	// testingEnvConfig prepares an environment configuration using
+	// the dummy provider.
+	s.state.environConfig = func() (*config.Config, error) {
+		s.calls = append(s.calls, environConfig)
+		cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+		c.Assert(err, jc.ErrorIsNil)
+		env, err := environs.Prepare(cfg, envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
+		c.Assert(err, jc.ErrorIsNil)
+		return env.Config(), err
+	}
 
 	s.state.saveMetadata = func(m cloudimagemetadata.Metadata) error {
 		s.calls = append(s.calls, saveMetadata)
