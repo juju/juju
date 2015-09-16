@@ -72,7 +72,7 @@ class JujuBuildTestCase(TestCase):
             '/foo/juju-release-tools/crossbuild.py',
             get_script('/foo/juju-release-tools'))
         parent_dir = os.path.realpath(
-            os.path.join(__file__, '..', '..'))
+            os.path.join(__file__, '..', '..', '..'))
         self.assertEqual(
             os.path.join(parent_dir, 'juju-release-tools', 'crossbuild.py'),
             get_script())

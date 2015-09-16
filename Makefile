@@ -1,5 +1,5 @@
 test:
-	TMPDIR=/tmp python -m unittest discover -vv . -p 'test_*.py'
+	TMPDIR=/tmp python -m unittest discover -vv ./tests
 lint:
 	flake8 *.py
 clean:

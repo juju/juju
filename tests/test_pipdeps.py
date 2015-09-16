@@ -64,7 +64,8 @@ class TestS3Connection(unittest.TestCase):
 
 class TestRunPipInstall(unittest.TestCase):
 
-    req_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
+    req_path = os.path.join(os.path.realpath(os.path.dirname(pipdeps.__file__)),
+                            "requirements.txt")
 
     def test_added_args(self):
         with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
