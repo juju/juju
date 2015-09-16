@@ -128,6 +128,16 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 	}
+	// Sometimes there are upgrade steps that are needed for each unit.
+	// There are plans afoot to unify the unit and machine agents. When
+	// this happens, there will be a simple helper function for the upgrade
+	// steps to run something for each unit on the machine. Until then, we
+	// need to have the uniter do it, as the overhead of getting a full
+	// upgrade process in the unit agent out weights the current benefits.
+	// So.. since the upgrade steps are all idempotent, we will just call
+	// the upgrade steps when we start the uniter. To be clear, these
+	// should move back to the upgrade package when we do unify the agents.
+	runUpgrades(uniterParams.UnitTag, uniterParams.DataDir)
 	go func() {
 		defer u.tomb.Done()
 		defer u.runCleanups()
@@ -449,4 +459,15 @@ func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
 		return nil, err
 	}
 	return func() error { return u.hookLock.Unlock() }, nil
+}
+
+// runUpgrades is a temporary fix to deal with upgrade steps that need
+// to be run for each unit. This function cannot fail. Errors in the
+// upgrade steps are logged, but the uniter will attempt to continue.
+// Worst case, we are no worse off than we are today, best case, things
+// actually work properly.
+func runUpgrades(tag names.UnitTag, dataDir string) {
+	if err := AddStoppedFieldToUniterState(tag, dataDir); err != nil {
+		logger.Errorf("Upgrade step failed - add Stopped field to uniter state: %v", err)
+	}
 }
