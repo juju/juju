@@ -216,11 +216,11 @@ type selectTest struct {
 }
 
 // expected returns the expected address for the test.
-func (t selectTest) expected() network.Address {
+func (t selectTest) expected() (network.Address, bool) {
 	if t.expectedIndex == -1 {
-		return network.Address{}
+		return network.Address{}, false
 	}
-	return t.addresses[t.expectedIndex]
+	return t.addresses[t.expectedIndex], true
 }
 
 var selectPublicTests = []selectTest{{
@@ -347,7 +347,10 @@ func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
 	for i, t := range selectPublicTests {
 		c.Logf("test %d: %s", i, t.about)
 		network.SetPreferIPv6(t.preferIPv6)
-		c.Check(network.SelectPublicAddress(t.addresses), gc.Equals, t.expected())
+		expectAddr, expectOK := t.expected()
+		actualAddr, actualOK := network.SelectPublicAddress(t.addresses)
+		c.Check(actualOK, gc.Equals, expectOK)
+		c.Check(actualAddr, gc.Equals, expectAddr)
 	}
 }
 
@@ -443,7 +446,10 @@ func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
 	for i, t := range selectInternalTests {
 		c.Logf("test %d: %s", i, t.about)
 		network.SetPreferIPv6(t.preferIPv6)
-		c.Check(network.SelectInternalAddress(t.addresses, false), gc.Equals, t.expected())
+		expectAddr, expectOK := t.expected()
+		actualAddr, actualOK := network.SelectInternalAddress(t.addresses, false)
+		c.Check(actualOK, gc.Equals, expectOK)
+		c.Check(actualAddr, gc.Equals, expectAddr)
 	}
 }
 
@@ -592,7 +598,10 @@ func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 	for i, t := range selectInternalMachineTests {
 		c.Logf("test %d: %s", i, t.about)
 		network.SetPreferIPv6(t.preferIPv6)
-		c.Check(network.SelectInternalAddress(t.addresses, true), gc.Equals, t.expected())
+		expectAddr, expectOK := t.expected()
+		actualAddr, actualOK := network.SelectInternalAddress(t.addresses, true)
+		c.Check(actualOK, gc.Equals, expectOK)
+		c.Check(actualAddr, gc.Equals, expectAddr)
 	}
 }
 
