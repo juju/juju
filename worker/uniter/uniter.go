@@ -174,8 +174,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		charmURL = curl
 	}
 
-	var watcher *remotestate.RemoteStateWatcher
+	var (
+		watcher   *remotestate.RemoteStateWatcher
+		watcherMu sync.Mutex
+	)
+
 	restartWatcher := func() error {
+		watcherMu.Lock()
+		defer watcherMu.Unlock()
+
 		if watcher != nil {
 			if err := watcher.Stop(); err != nil {
 				return errors.Trace(err)
@@ -205,6 +212,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	// watcher may be replaced, so use a closure.
 	u.addCleanup(func() error {
+		watcherMu.Lock()
+		defer watcherMu.Unlock()
+
 		if watcher != nil {
 			return watcher.Stop()
 		}
