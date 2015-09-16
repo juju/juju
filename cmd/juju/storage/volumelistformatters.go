@@ -117,14 +117,14 @@ func (v volumeAttachmentInfos) Less(i, j int) bool {
 		return false
 	}
 
-	switch naturalCompare(v[i].UnitId, v[j].UnitId) {
+	switch compareSlashSeparated(v[i].UnitId, v[j].UnitId) {
 	case -1:
 		return true
 	case 1:
 		return false
 	}
 
-	switch naturalCompare(v[i].Storage, v[j].Storage) {
+	switch compareSlashSeparated(v[i].Storage, v[j].Storage) {
 	case -1:
 		return true
 	case 1:
