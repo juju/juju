@@ -59,12 +59,18 @@ func (s *volumeSuite) expectedVolumeDetailsResult() params.VolumeDetailsResult {
 	}
 }
 
+// TODO(axw) drop this in 1.26. This exists only because we don't have
+// Filesystem.Status, and so we use time.Now() to get Status.Since.
+func (s *volumeSuite) assertAndClearStorageStatus(c *gc.C, details *params.VolumeDetails) {
+	c.Assert(details.Storage.Status.Since, gc.NotNil)
+	details.Storage.Status.Since = nil
+}
+
 func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
-	found.Results[0].Details.Storage.Status.Since = nil
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], gc.DeepEquals, s.expectedVolumeDetailsResult())
 }
 
@@ -93,8 +99,7 @@ func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
 	found, err := s.api.ListVolumes(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
-	found.Results[0].Details.Storage.Status.Since = nil
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], jc.DeepEquals, s.expectedVolumeDetailsResult())
 }
 
@@ -123,8 +128,7 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
-	found.Results[0].Details.Storage.Status.Since = nil
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], jc.DeepEquals, expected)
 }
 
@@ -145,7 +149,6 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Details.Storage.Status.Since, gc.NotNil)
-	found.Results[0].Details.Storage.Status.Since = nil
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], jc.DeepEquals, expected)
 }

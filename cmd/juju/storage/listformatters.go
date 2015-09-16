@@ -70,7 +70,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 	for unit := range byUnit {
 		units = append(units, unit)
 	}
-	sort.Strings(bySuffixNaturally(units))
+	sort.Strings(slashSeparatedIds(units))
 
 	for _, unit := range units {
 		// Then sort by storage ids
@@ -79,7 +79,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		for storageId := range byStorage {
 			storageIds = append(storageIds, storageId)
 		}
-		sort.Strings(bySuffixNaturally(storageIds))
+		sort.Strings(slashSeparatedIds(storageIds))
 
 		for _, storageId := range storageIds {
 			info := byStorage[storageId]
@@ -100,24 +100,24 @@ type storageAttachmentInfo struct {
 	status     EntityStatus
 }
 
-type bySuffixNaturally []string
+type slashSeparatedIds []string
 
-func (s bySuffixNaturally) Len() int {
+func (s slashSeparatedIds) Len() int {
 	return len(s)
 }
 
-func (s bySuffixNaturally) Swap(a, b int) {
+func (s slashSeparatedIds) Swap(a, b int) {
 	s[a], s[b] = s[b], s[a]
 }
 
-func (s bySuffixNaturally) Less(a, b int) bool {
-	return naturalCompare(s[a], s[b]) == -1
+func (s slashSeparatedIds) Less(a, b int) bool {
+	return compareSlashSeparated(s[a], s[b]) == -1
 }
 
-// naturalCompares a with b, first the string before "/",
-// and then the integer or string after. Empty strings
-// are sorted after all others.
-func naturalCompare(a, b string) int {
+// compareSlashSeparated compares a with b, first the string before
+// "/", and then the integer or string after. Empty strings are sorted
+// after all others.
+func compareSlashSeparated(a, b string) int {
 	switch {
 	case a == "" && b == "":
 		return 0
