@@ -20,8 +20,12 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// SetCommand updates the configuration of a service.
-type SetCommand struct {
+func NewSetCommand() cmd.Command {
+	return envcmd.Wrap(&setCommand{})
+}
+
+// setCommand updates the configuration of a service.
+type setCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName     string
 	SettingsStrings map[string]string
@@ -44,7 +48,7 @@ line and in configuration files.
 
 const maxValueSize = 5242880
 
-func (c *SetCommand) Info() *cmd.Info {
+func (c *setCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set",
 		Args:    "<service> name=value ...",
@@ -53,11 +57,11 @@ func (c *SetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted service config")
 }
 
-func (c *SetCommand) Init(args []string) error {
+func (c *setCommand) Init(args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}
@@ -82,7 +86,7 @@ type SetServiceAPI interface {
 	ServiceSet(service string, options map[string]string) error
 }
 
-func (c *SetCommand) getAPI() (SetServiceAPI, error) {
+func (c *setCommand) getAPI() (SetServiceAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -90,7 +94,7 @@ func (c *SetCommand) getAPI() (SetServiceAPI, error) {
 }
 
 // Run updates the configuration of a service.
-func (c *SetCommand) Run(ctx *cmd.Context) error {
+func (c *setCommand) Run(ctx *cmd.Context) error {
 	api, err := c.getAPI()
 	if err != nil {
 		return err

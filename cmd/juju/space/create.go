@@ -44,7 +44,7 @@ func (c *createCommand) Info() *cmd.Info {
 func (c *createCommand) Init(args []string) error {
 	var err error
 	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, true)
-	return errors.Trace(err)
+	return err
 }
 
 // Run implements Command.Run.
