@@ -341,8 +341,14 @@ func (s *ServiceSuite) TestInitSettings(c *gc.C) {
 			c.Check(settingsA, gc.HasLen, 0)
 			c.Check(settingsB, gc.HasLen, 0)
 		} else {
-			c.Check(settingsA, jc.DeepEquals, settings)
-			c.Check(settingsB, jc.DeepEquals, settings)
+			expected := make(charm.Settings)
+			for k, v := range settings {
+				if v != nil {
+					expected[k] = v
+				}
+			}
+			c.Check(settingsA, jc.DeepEquals, expected)
+			c.Check(settingsB, jc.DeepEquals, expected)
 		}
 	}
 
@@ -360,6 +366,10 @@ func (s *ServiceSuite) TestInitSettings(c *gc.C) {
 		{
 			"title":    "a service",
 			"username": "",
+		},
+		{
+			"title":    "a service",
+			"username": nil,
 		},
 	} {
 		c.Logf("- test #%d", i)
