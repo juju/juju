@@ -105,7 +105,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 	// on having an ubuntu user there.
 	// Hopefully in the future we are going to move all the distirbutions to
 	// having a "juju" user
-	case version.CentOS:
+	case os.CentOS:
 		w.conf.AddScripts(
 			fmt.Sprintf(initUbuntuScript, utils.ShQuote(w.icfg.AuthorizedKeys)),
 
