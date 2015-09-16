@@ -1059,13 +1059,14 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(
-	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints, settings charm.Settings,
+	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints, settingValues charm.Settings,
 ) (service *Service, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
 	ownerTag, err := names.ParseUserTag(owner)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Invalid ownertag %s", owner)
 	}
+
 	// Sanity checks.
 	if !names.IsValidService(name) {
 		return nil, errors.Errorf("invalid name")
@@ -1087,6 +1088,7 @@ func (st *State) AddService(
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	if storage == nil {
 		storage = make(map[string]StorageConstraints)
 	}
@@ -1096,6 +1098,10 @@ func (st *State) AddService(
 	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	settings := newSettings(nil, "")
+	settings.apply(settingValues)
+
 	serviceID := st.docID(name)
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
@@ -1135,7 +1141,7 @@ func (st *State) AddService(
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(st, svc.settingsKey(), map[string]interface{}(settings)),
+		createSettingsOp(st, svc.settingsKey(), settings.Map()),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{

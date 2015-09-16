@@ -949,13 +949,7 @@ func (s *Service) UpdateConfigSettings(changes charm.Settings) error {
 	if err != nil {
 		return err
 	}
-	for name, value := range changes {
-		if value == nil {
-			node.Delete(name)
-		} else {
-			node.Set(name, value)
-		}
-	}
+	node.apply(changes)
 	_, err = node.Write()
 	return err
 }
