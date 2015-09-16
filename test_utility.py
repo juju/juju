@@ -422,3 +422,34 @@ class TestScopedEnviron(TestCase):
         with scoped_environ(new_environ):
             self.assertEqual(os.environ, new_environ)
         self.assertNotEqual(os.environ, new_environ)
+
+
+class TestTempDir(TestCase):
+
+    def test_temp_dir(self):
+        with temp_dir() as d:
+            self.assertTrue(os.path.isdir(d))
+        self.assertFalse(os.path.exists(d))
+
+    def test_temp_dir_contents(self):
+        with temp_dir() as d:
+            self.assertTrue(os.path.isdir(d))
+            open(os.path.join(d, "a-file"), "w").close()
+        self.assertFalse(os.path.exists(d))
+
+    def test_temp_dir_parent(self):
+        with temp_dir() as p:
+            with temp_dir(parent=p) as d:
+                self.assertTrue(os.path.isdir(d))
+                self.assertEqual(p, os.path.dirname(d))
+            self.assertFalse(os.path.exists(d))
+        self.assertFalse(os.path.exists(p))
+
+    def test_temp_dir_keep(self):
+        with temp_dir() as p:
+            with temp_dir(parent=p, keep=True) as d:
+                self.assertTrue(os.path.isdir(d))
+                open(os.path.join(d, "a-file"), "w").close()
+            self.assertTrue(os.path.exists(d))
+            self.assertTrue(os.path.exists(os.path.join(d, "a-file")))
+        self.assertFalse(os.path.exists(p))

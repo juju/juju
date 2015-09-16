@@ -129,12 +129,13 @@ def print_now(string):
 
 
 @contextmanager
-def temp_dir(parent=None):
+def temp_dir(parent=None, keep=False):
     directory = mkdtemp(dir=parent)
     try:
         yield directory
     finally:
-        rmtree(directory)
+        if not keep:
+            rmtree(directory)
 
 
 def setup_test_logging(testcase, level=None):
