@@ -21,14 +21,27 @@ var _ = gc.Suite(&volumeSuite{})
 func (s *volumeSuite) expectedVolumeDetailsResult() params.VolumeDetailsResult {
 	return params.VolumeDetailsResult{
 		Details: &params.VolumeDetails{
-			VolumeTag:       s.volumeTag.String(),
-			StorageTag:      "storage-data-0",
-			StorageOwnerTag: "unit-mysql-0",
+			VolumeTag: s.volumeTag.String(),
 			Status: params.EntityStatus{
 				Status: "attached",
 			},
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				s.machineTag.String(): params.VolumeAttachmentInfo{},
+			},
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-data-0",
+				OwnerTag:   "unit-mysql-0",
+				Kind:       params.StorageKindFilesystem,
+				Status: params.EntityStatus{
+					Status: "pending",
+				},
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-mysql-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-data-0",
+						UnitTag:    "unit-mysql-0",
+						MachineTag: "machine-66",
+					},
+				},
 			},
 		},
 		LegacyVolume: &params.LegacyVolumeDetails{
@@ -46,10 +59,18 @@ func (s *volumeSuite) expectedVolumeDetailsResult() params.VolumeDetailsResult {
 	}
 }
 
+// TODO(axw) drop this in 1.26. This exists only because we don't have
+// Filesystem.Status, and so we use time.Now() to get Status.Since.
+func (s *volumeSuite) assertAndClearStorageStatus(c *gc.C, details *params.VolumeDetails) {
+	c.Assert(details.Storage.Status.Since, gc.NotNil)
+	details.Storage.Status.Since = nil
+}
+
 func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], gc.DeepEquals, s.expectedVolumeDetailsResult())
 }
 
@@ -78,6 +99,7 @@ func (s *volumeSuite) TestListVolumesFilter(c *gc.C) {
 	found, err := s.api.ListVolumes(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], jc.DeepEquals, s.expectedVolumeDetailsResult())
 }
 
@@ -106,6 +128,7 @@ func (s *volumeSuite) TestListVolumesVolumeInfo(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], jc.DeepEquals, expected)
 }
 
@@ -126,5 +149,6 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
+	s.assertAndClearStorageStatus(c, found.Results[0].Details)
 	c.Assert(found.Results[0], jc.DeepEquals, expected)
 }
