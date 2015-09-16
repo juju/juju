@@ -56,6 +56,8 @@ const (
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
 	CodeNotSupported              = "not supported"
+	CodeBadRequest                = "bad request"
+	CodeMethodNotAllowed          = "method not allowed"
 )
 
 // ErrCode returns the error code associated with
@@ -177,4 +179,12 @@ func IsCodeLeadershipClaimDenied(err error) bool {
 
 func IsCodeNotSupported(err error) bool {
 	return ErrCode(err) == CodeNotSupported
+}
+
+func IsBadRequest(err error) bool {
+	return ErrCode(err) == CodeBadRequest
+}
+
+func IsMethodNotAllowed(err error) bool {
+	return ErrCode(err) == CodeMethodNotAllowed
 }
