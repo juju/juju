@@ -179,9 +179,9 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	sort.Sort(itemChangeSlice(changes))
 	ops := []txn.Op{{
 		C:      settingsC,
-		Id:     c.st.docID(c.key),
+		Id:     c.key,
 		Assert: txn.DocExists,
-		Update: setUnsetUpdate(updates, deletions),
+		Update: setUnsetUpdate(updates, deletions, "settings"),
 	}}
 	err := c.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -289,11 +289,11 @@ func readSettings(st *State, key string) (*Settings, error) {
 
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
-func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
+func createSettingsOp(key string, values map[string]interface{}) txn.Op {
 	newValues := copyMap(values, escapeReplacer.Replace)
 	return txn.Op{
 		C:      settingsC,
-		Id:     st.docID(key),
+		Id:     key,
 		Assert: txn.DocMissing,
 		Insert: &settingsDoc{
 			Settings: newValues,
@@ -305,7 +305,7 @@ func createSettingsOp(st *State, key string, values map[string]interface{}) txn.
 func createSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
 	s := newSettings(st, key)
 	s.core = copyMap(values, nil)
-	ops := []txn.Op{createSettingsOp(st, key, values)}
+	ops := []txn.Op{createSettingsOp(key, values)}
 	err := s.st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		return nil, errSettingsExist
@@ -318,19 +318,22 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 
 // removeSettings removes the Settings for key.
 func removeSettings(st *State, key string) error {
-	ops := []txn.Op{{
-		C:      settingsC,
-		Id:     st.docID(key),
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
-	err := st.runTransaction(ops)
+	err := st.runTransaction([]txn.Op{removeSettingsOp(key)})
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("settings")
 	} else if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func removeSettingsOp(key string) txn.Op {
+	return txn.Op{
+		C:      settingsC,
+		Id:     key,
+		Assert: txn.DocExists,
+		Remove: true,
+	}
 }
 
 // listSettings returns all the settings with the specified key prefix.
@@ -368,7 +371,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	}
 	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
-	op.Update = setUnsetUpdate(bson.M(newValues), deletes)
+	op.Update = setUnsetUpdate(bson.M(newValues), deletes, "settings")
 	assertFailed := func() (bool, error) {
 		latest, err := readSettings(st, key)
 		if err != nil {
@@ -382,27 +385,30 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 func (s *Settings) assertUnchangedOp() txn.Op {
 	return txn.Op{
 		C:      settingsC,
-		Id:     s.st.docID(s.key),
+		Id:     s.key,
 		Assert: bson.D{{"txn-revno", s.txnRevno}},
 	}
 }
 
-func inSettingsSubdoc(key string) string {
-	return "settings." + key
+func inSubdocReplacer(subdoc string) func(string) string {
+	return func(key string) string {
+		return subdoc + "." + key
+	}
 }
 
 // setUnsetUpdate returns a bson.D for use in
 // a txn.Op's Update field, containing $set and
 // $unset operators if the corresponding operands
 // are non-empty.
-func setUnsetUpdate(set, unset bson.M) bson.D {
+func setUnsetUpdate(set, unset bson.M, subdocField string) bson.D {
 	var update bson.D
+	replace := inSubdocReplacer(subdocField)
 	if len(set) > 0 {
-		set = bson.M(copyMap(map[string]interface{}(set), inSettingsSubdoc))
+		set = bson.M(copyMap(map[string]interface{}(set), replace))
 		update = append(update, bson.DocElem{"$set", set})
 	}
 	if len(unset) > 0 {
-		unset = bson.M(copyMap(map[string]interface{}(unset), inSettingsSubdoc))
+		unset = bson.M(copyMap(map[string]interface{}(unset), replace))
 		update = append(update, bson.DocElem{"$unset", unset})
 	}
 	return update

@@ -1379,7 +1379,7 @@ func (s *Service) Watch() NotifyWatcher {
 // WatchLeaderSettings returns a watcher for observing changed to a service's
 // leader settings.
 func (s *Service) WatchLeaderSettings() NotifyWatcher {
-	docId := s.st.docID(leadershipSettingsDocId(s.Name()))
+	docId := s.st.docID(leadershipSettingsKey(s.Name()))
 	return newEntityWatcher(s.st, settingsC, docId)
 }
 

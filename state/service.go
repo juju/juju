@@ -477,7 +477,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
 	if _, err := readSettings(s.st, newKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
-		settingsOp = createSettingsOp(s.st, newKey, newSettings)
+		settingsOp = createSettingsOp(newKey, newSettings)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else {
@@ -978,8 +978,7 @@ func (s *Service) LeaderSettings() (map[string]string, error) {
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
-	docId := leadershipSettingsDocId(s.doc.Name)
-	rawMap, _, err := readSettingsDoc(s.st, docId)
+	rawMap, _, err := readSettingsDoc(s.st, leadershipSettingsKey(s.doc.Name))
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service")
 	} else if err != nil {
@@ -1010,7 +1009,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 	// We can calculate the actual update ahead of time; it's not dependent
 	// upon the current state of the document. (*Writing* it should depend
 	// on document state, but that's handled below.)
-	docId := leadershipSettingsDocId(s.doc.Name)
+	key := leadershipSettingsKey(s.doc.Name)
 	sets := bson.M{}
 	unsets := bson.M{}
 	for unescapedKey, value := range updates {
@@ -1021,7 +1020,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 			sets[key] = value
 		}
 	}
-	update := setUnsetUpdate(sets, unsets)
+	update := setUnsetUpdate(sets, unsets, "settings")
 
 	isNullChange := func(rawMap map[string]interface{}) bool {
 		for key := range unsets {
@@ -1041,7 +1040,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 		// Read the current document state so we can abort if there's
 		// no actual change; and the txn-revno so we can assert on it
 		// and prevent these settings from landing late.
-		rawMap, txnRevno, err := readSettingsDoc(s.st, docId)
+		rawMap, txnRevno, err := readSettingsDoc(s.st, key)
 		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("service")
 		} else if err != nil {
@@ -1052,7 +1051,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 		}
 		return []txn.Op{{
 			C:      settingsC,
-			Id:     docId,
+			Id:     key,
 			Assert: bson.D{{"txn-revno", txnRevno}},
 			Update: update,
 		}}, nil

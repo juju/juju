@@ -41,10 +41,10 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 			return fmt.Errorf("invalid key %q", key)
 		}
 		if value == "" {
-			toRemove["annotations."+key] = true
+			toRemove[key] = true
 		} else {
 			toInsert[key] = value
-			toUpdate["annotations."+key] = value
+			toUpdate[key] = value
 		}
 	}
 	// Set up and call the necessary transactions - if the document does not
@@ -143,7 +143,7 @@ func updateAnnotations(st *State, entity GlobalEntity, toUpdate, toRemove bson.M
 		C:      annotationsC,
 		Id:     st.docID(entity.globalKey()),
 		Assert: txn.DocExists,
-		Update: setUnsetUpdate(toUpdate, toRemove),
+		Update: setUnsetUpdate(toUpdate, toRemove, "annotations"),
 	}}
 }
 

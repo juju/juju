@@ -113,7 +113,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
-		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
+		ops = append(ops, createSettingsOp(ruKey, settings))
 	} else {
 		var rop txn.Op
 		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, settings)

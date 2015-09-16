@@ -470,7 +470,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Id:     st.docID(environGlobalKey),
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
 				Update: bson.D{
-					{"$set", bson.D{{"agent-version", newVersion.String()}}},
+					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
 				},
 			},
 		}
@@ -1171,7 +1171,7 @@ func (st *State) AddService(
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(st, svc.settingsKey(), nil),
+		createSettingsOp(svc.settingsKey(), nil),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
