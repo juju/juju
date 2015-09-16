@@ -180,6 +180,7 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     sudo rm -rf /tmp/test-* || true
 fi
 
+go test -i ./...
 if [[ "$RETRY" == "true" ]]; then
     $GOTESTCMD ./... || $GOTESTCMD ./...
 elif [[ "$ROBUST" == "true" ]]; then
