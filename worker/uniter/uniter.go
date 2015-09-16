@@ -205,7 +205,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	// watcher may be replaced, so use a closure.
 	u.addCleanup(func() error {
-		return watcher.Stop()
+		if watcher != nil {
+			return watcher.Stop()
+		}
+		return nil
 	})
 
 	onIdle := func() error {
