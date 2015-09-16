@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/testing"
 )
@@ -126,7 +125,7 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
 		command := environment.NewRetryProvisioningCommand(s.fake)
-		context, err := testing.RunCommand(c, envcmd.Wrap(command), t.args...)
+		context, err := testing.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
@@ -149,7 +148,7 @@ func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
-		_, err := testing.RunCommand(c, envcmd.Wrap(command), t.args...)
+		_, err := testing.RunCommand(c, command, t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

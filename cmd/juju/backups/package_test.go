@@ -56,7 +56,7 @@ type BaseBackupsSuite struct {
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	s.command = backups.NewCommand().(*backups.Command)
+	s.command = backups.NewSuperCommand().(*backups.Command)
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}

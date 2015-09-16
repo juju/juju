@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/testing"
 )
@@ -22,7 +21,7 @@ var _ = gc.Suite(&SetSuite{})
 
 func (s *SetSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := environment.NewSetCommand(s.fake)
-	return testing.RunCommand(c, envcmd.Wrap(command), args...)
+	return testing.RunCommand(c, command, args...)
 }
 
 func (s *SetSuite) TestInit(c *gc.C) {
@@ -44,7 +43,7 @@ func (s *SetSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		setCmd := &environment.SetCommand{}
+		setCmd := environment.NewSetCommand(s.fake)
 		err := testing.InitCommand(setCmd, test.args)
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}

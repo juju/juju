@@ -306,13 +306,20 @@ type WrapEnvOption func(*environCommandWrapper)
 // EnvSkipFlags instructs the wrapper to skip --e and
 // --environment flag definition.
 func EnvSkipFlags(w *environCommandWrapper) {
-	w.setFlags = false
+	w.skipFlags = true
 }
 
 // EnvSkipDefault instructs the wrapper not to
 // use the default environment.
 func EnvSkipDefault(w *environCommandWrapper) {
 	w.useDefaultEnvironment = false
+}
+
+// EnvAllowEmpty instructs the wrapper
+// that it is OK for an environment not to
+// be specified.
+func EnvAllowEmpty(w *environCommandWrapper) {
+	w.allowEmptyEnv = true
 }
 
 // Wrap wraps the specified EnvironCommand, returning a Command
@@ -322,8 +329,9 @@ func EnvSkipDefault(w *environCommandWrapper) {
 func Wrap(c EnvironCommand, options ...WrapEnvOption) cmd.Command {
 	wrapper := &environCommandWrapper{
 		EnvironCommand:        c,
-		setFlags:              true,
+		skipFlags:             false,
 		useDefaultEnvironment: true,
+		allowEmptyEnv:         false,
 	}
 	for _, option := range options {
 		option(wrapper)
@@ -333,13 +341,14 @@ func Wrap(c EnvironCommand, options ...WrapEnvOption) cmd.Command {
 
 type environCommandWrapper struct {
 	EnvironCommand
-	setFlags              bool
+	skipFlags             bool
 	useDefaultEnvironment bool
+	allowEmptyEnv         bool
 	envName               string
 }
 
 func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	if w.setFlags {
+	if !w.skipFlags {
 		f.StringVar(&w.envName, "e", "", "juju environment to operate in")
 		f.StringVar(&w.envName, "environment", "", "")
 	}
@@ -347,7 +356,7 @@ func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (w *environCommandWrapper) Init(args []string) error {
-	if w.setFlags {
+	if !w.skipFlags {
 		if w.envName == "" && w.useDefaultEnvironment {
 			// Look for the default.
 			defaultEnv, err := GetDefaultEnvironment()
@@ -357,7 +366,11 @@ func (w *environCommandWrapper) Init(args []string) error {
 			w.envName = defaultEnv
 		}
 		if w.envName == "" && !w.useDefaultEnvironment {
-			return ErrNoEnvironmentSpecified
+			if w.allowEmptyEnv {
+				return w.EnvironCommand.Init(args)
+			} else {
+				return errors.Trace(ErrNoEnvironmentSpecified)
+			}
 		}
 	}
 	w.SetEnvName(w.envName)
