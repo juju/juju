@@ -6,6 +6,7 @@ package common
 import (
 	stderrors "errors"
 	"fmt"
+	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -115,6 +116,28 @@ func singletonCode(err error) (string, bool) {
 	return code, ok
 }
 
+// ServerErrorAndStatus is like ServerError but also
+// returns an HTTP status code appropriate for using
+// in a response holding the given error.
+func ServerErrorAndStatus(err error) (*params.Error, int) {
+	err1 := ServerError(err)
+	if err1 == nil {
+		return nil, http.StatusOK
+	}
+	status := http.StatusInternalServerError
+	switch err1.Code {
+	case params.CodeUnauthorized:
+		status = http.StatusUnauthorized
+	case params.CodeNotFound:
+		status = http.StatusNotFound
+	case params.CodeBadRequest:
+		status = http.StatusBadRequest
+	case params.CodeMethodNotAllowed:
+		status = http.StatusMethodNotAllowed
+	}
+	return err1, status
+}
+
 // ServerError returns an error suitable for returning to an API
 // client, with an error code suitable for various kinds of errors
 // generated in packages outside the API.
@@ -150,6 +173,10 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotFound
 	case errors.IsNotSupported(err):
 		code = params.CodeNotSupported
+	case errors.IsBadRequest(err):
+		code = params.CodeBadRequest
+	case errors.IsMethodNotAllowed(err):
+		code = params.CodeMethodNotAllowed
 	default:
 		code = params.ErrCode(err)
 	}
