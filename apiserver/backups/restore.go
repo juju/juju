@@ -28,18 +28,11 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	addr, err := machine.PrivateAddress()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "error fetching internal address for machine %q", machine)
 	}
-	if addr.Value == "" {
-		return errors.Errorf("machine %q has no internal address", machine)
-	}
-
 	publicAddress, err := machine.PublicAddress()
 	if err != nil {
-		return errors.Trace(err)
-	}
-	if publicAddress.Value == "" {
-		return errors.Errorf("machine %q has no public address", machine)
+		return errors.Annotatef(err, "error fetching public address for machine %q", machine)
 	}
 
 	info, err := a.st.RestoreInfoSetter()
