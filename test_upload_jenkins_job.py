@@ -219,7 +219,7 @@ class TestS3Uploader(TestCase):
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload()
         self.assertEqual(s3_mock.store.mock_calls, [
-            call(filename, json.dumps({"build_info": "1200"}),
+            call(filename, json.dumps({"build_info": "1200"}, indent=4),
                  headers={"Content-Type": "application/json"}),
             call('1200-console-consoleText.txt', 'console text',
                  headers={"Content-Type": "text/plain; charset=utf8"}),
@@ -246,8 +246,8 @@ class TestS3Uploader(TestCase):
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_test_results()
         s3_mock.store.assert_called_once_with(
-            filename, json.dumps(jenkins_mock.get_build_info.return_value),
-            headers=headers)
+            filename, json.dumps(jenkins_mock.get_build_info.return_value,
+                                 indent=4), headers=headers)
 
     def test_upload_console_log(self):
         filename = '1277-console-consoleText.txt'
@@ -355,7 +355,7 @@ class TestS3Uploader(TestCase):
                         h.jenkins_build.get_last_completed_build_number(),
                         BUILD_NUM)
         self.assertEqual(s3_mock.store.mock_calls, [
-            call('1277-result-results.json', json.dumps(build_info),
+            call('1277-result-results.json', json.dumps(build_info, indent=4),
                  headers={"Content-Type": "application/json"}),
             call('1277-console-consoleText.txt', Response.text,
                  headers={"Content-Type": "text/plain; charset=utf8"})

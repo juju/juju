@@ -244,7 +244,7 @@ class S3Uploader:
         filename = self._create_filename('result-results.json')
         headers = {"Content-Type": "application/json"}
         self.s3.store(filename, json.dumps(
-            self.jenkins_build.get_build_info()), headers=headers)
+            self.jenkins_build.get_build_info(), indent=4), headers=headers)
 
     def upload_console_log(self):
         filename = self._create_filename('console-consoleText.txt')
