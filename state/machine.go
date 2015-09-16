@@ -1050,7 +1050,8 @@ func containsAddress(addresses []network.Address, address network.Address) bool 
 	return false
 }
 
-// PublicAddress returns a public address for the machine.
+// PublicAddress returns a public address for the machine. If no address is
+// available it returns an error that satisfies network.IsNoAddress.
 func (m *Machine) PublicAddress() (network.Address, error) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	var err error
@@ -1083,7 +1084,8 @@ func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAd
 	return addr, false
 }
 
-// PrivateAddress returns a private address for the machine.
+// PrivateAddress returns a private address for the machine. If no address is
+// available it returns an error that satisfies network.IsNoAddress.
 func (m *Machine) PrivateAddress() (network.Address, error) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	var err error
