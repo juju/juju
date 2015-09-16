@@ -136,10 +136,11 @@ func (u *uniterBaseAPI) PublicAddress(args params.Entities) (params.StringResult
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				address, addrErr := unit.PublicAddress()
-				if addrErr == nil && address.Value != "" {
+				var address network.Address
+				address, err = unit.PublicAddress()
+				if err == nil {
 					result.Results[i].Result = address.Value
-				} else {
+				} else if network.IsNoAddress(err) {
 					err = common.NoAddressSetError(tag, "public")
 				}
 			}
