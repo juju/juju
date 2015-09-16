@@ -32,6 +32,20 @@ const (
 	ItemDeleted
 )
 
+type settingsDoc struct {
+	DocID    string `bson:"_id"`
+	EnvUUID  string `bson:"env-uuid"`
+	TxnRevno int64  `bson:"txn-revno"`
+	Settings map[string]interface{}
+
+	// TODO(axw) add a version field, which will be incremented
+	// whenever a change is made. This is managed separately
+	// from txn-revno so that we're not dependent on the workings
+	// if mgo/txn. Doing so is problematic, e.g. when upgrading
+	// from 1.20 we remove all documents and recreate them with
+	// new IDs (with environment UUID prepended).
+}
+
 // ItemChange represents the change of an item in a settings.
 type ItemChange struct {
 	Type     int
@@ -188,13 +202,8 @@ func newSettings(st *State, key string) *Settings {
 	}
 }
 
-// cleanSettingsMap cleans the map of version, env-uuid and _id fields and
-// also unescapes keys coming out of MongoDB.
+// cleanSettingsMap unescapes settings keys coming out of MongoDB.
 func cleanSettingsMap(in map[string]interface{}) {
-	delete(in, "env-uuid")
-	delete(in, "_id")
-	delete(in, "txn-revno")
-	delete(in, "txn-queue")
 	replaceKeys(in, unescapeReplacer.Replace)
 }
 
@@ -246,24 +255,22 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	settings, closer := st.getRawCollection(settingsC)
 	defer closer()
 
-	config := map[string]interface{}{}
-
-	err := settings.FindId(st.docID(key)).One(config)
+	var doc settingsDoc
+	err := settings.FindId(st.docID(key)).One(&doc)
 
 	// This is required to allow loading of environ settings before the
 	// environment UUID migration has been applied to the settings collection.
 	// Without this, an agent's version cannot be read, blocking the upgrade.
 	if err == mgo.ErrNotFound && key == environGlobalKey {
-		err := settings.FindId(environGlobalKey).One(config)
+		err := settings.FindId(environGlobalKey).One(&doc)
 		if err != nil {
 			return nil, 0, err
 		}
 	} else if err != nil {
 		return nil, 0, err
 	}
-	txnRevno := config["txn-revno"].(int64)
-	cleanSettingsMap(config)
-	return config, txnRevno, nil
+	cleanSettingsMap(doc.Settings)
+	return doc.Settings, doc.TxnRevno, nil
 }
 
 // ReadSettings returns the settings for the given key.
@@ -284,12 +291,13 @@ var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
 	newValues := copyMap(values, escapeReplacer.Replace)
-	newValues["env-uuid"] = st.EnvironUUID()
 	return txn.Op{
 		C:      settingsC,
 		Id:     st.docID(key),
 		Assert: txn.DocMissing,
-		Insert: newValues,
+		Insert: &settingsDoc{
+			Settings: newValues,
+		},
 	}
 }
 
@@ -330,16 +338,15 @@ func listSettings(st *State, keyPrefix string) (map[string]map[string]interface{
 	settings, closer := st.getRawCollection(settingsC)
 	defer closer()
 
-	var matchingSettings []map[string]interface{}
+	var matchingSettings []settingsDoc
 	findExpr := fmt.Sprintf("^%s.*$", st.docID(keyPrefix))
 	if err := settings.Find(bson.D{{"_id", bson.D{{"$regex", findExpr}}}}).All(&matchingSettings); err != nil {
 		return nil, err
 	}
 	result := make(map[string]map[string]interface{})
 	for i := range matchingSettings {
-		id := matchingSettings[i]["_id"].(string)
-		cleanSettingsMap(matchingSettings[i])
-		result[st.localID(id)] = matchingSettings[i]
+		cleanSettingsMap(matchingSettings[i].Settings)
+		result[st.localID(matchingSettings[i].DocID)] = matchingSettings[i].Settings
 	}
 	return result, nil
 }
@@ -380,6 +387,10 @@ func (s *Settings) assertUnchangedOp() txn.Op {
 	}
 }
 
+func inSettingsSubdoc(key string) string {
+	return "settings." + key
+}
+
 // setUnsetUpdate returns a bson.D for use in
 // a txn.Op's Update field, containing $set and
 // $unset operators if the corresponding operands
@@ -387,9 +398,11 @@ func (s *Settings) assertUnchangedOp() txn.Op {
 func setUnsetUpdate(set, unset bson.M) bson.D {
 	var update bson.D
 	if len(set) > 0 {
+		set = bson.M(copyMap(map[string]interface{}(set), inSettingsSubdoc))
 		update = append(update, bson.DocElem{"$set", set})
 	}
 	if len(unset) > 0 {
+		unset = bson.M(copyMap(map[string]interface{}(unset), inSettingsSubdoc))
 		update = append(update, bson.DocElem{"$unset", unset})
 	}
 	return update
