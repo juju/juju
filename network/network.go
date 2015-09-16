@@ -34,7 +34,7 @@ type noAddress struct {
 // NoAddressf returns an error which satisfies IsNoAddress().
 func NoAddressf(format string, args ...interface{}) error {
 	newErr := errors.NewErr(format+" no address", args...)
-	newErr.SetLocation(2)
+	newErr.SetLocation(1)
 	return &noAddress{newErr}
 }
 

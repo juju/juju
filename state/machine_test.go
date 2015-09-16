@@ -1991,7 +1991,7 @@ func (s *MachineSuite) TestPublicAddressEmptyAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
 	addr, err := machine.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
 	c.Assert(addr.Value, gc.Equals, "")
 }
 
@@ -2001,7 +2001,7 @@ func (s *MachineSuite) TestPrivateAddressEmptyAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
 	addr, err := machine.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
 	c.Assert(addr.Value, gc.Equals, "")
 }
 

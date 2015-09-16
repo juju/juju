@@ -1100,13 +1100,13 @@ func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool)
 		fieldName = "preferredpublicaddress"
 	}
 
-	// XXX instead assert the new address still exists in MachineAddresses
+	// XXX assert the new address still exists in MachineAddresses
 	// or Addresses
-	differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
+	//differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
-		Assert: append(notDeadDoc, differentAddress...),
+		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
 	}}
 	return ops

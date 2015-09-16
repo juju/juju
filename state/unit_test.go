@@ -212,9 +212,8 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err := s.unit.PublicAddress()
-	c.Check(address.Value, gc.Equals, "")
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.unit.PublicAddress()
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -222,7 +221,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err = s.unit.PublicAddress()
+	address, err := s.unit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(address.Value, gc.Equals, "8.8.8.8")
 }
@@ -310,9 +309,8 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err := s.unit.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(address.Value, gc.Equals, "")
+	_, err = s.unit.PrivateAddress()
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -320,7 +318,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	err = machine.SetProviderAddresses(public, private)
 	c.Assert(err, jc.ErrorIsNil)
 
-	address, err = s.unit.PrivateAddress()
+	address, err := s.unit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(address.Value, gc.Equals, "127.0.0.1")
 }

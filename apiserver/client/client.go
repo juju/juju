@@ -179,10 +179,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		}
 		addr, err := machine.PublicAddress()
 		if err != nil {
-			return results, errors.Annotatef(err, "machine %q has no public address", machine)
-		}
-		if addr.Value == "" {
-			return results, errors.Errorf("machine %q has no public address", machine)
+			return results, errors.Trace(err)
 		}
 		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 
@@ -193,10 +190,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		}
 		addr, err := unit.PublicAddress()
 		if err != nil {
-			return results, errors.Annotatef(err, "unit %q has no public address", unit)
-		}
-		if addr.Value == "" {
-			return results, errors.Errorf("unit %q has no public address", unit)
+			return results, errors.Trace(err)
 		}
 		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 	}
