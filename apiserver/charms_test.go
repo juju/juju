@@ -493,7 +493,7 @@ func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
 
 func (s *charmsSuite) assertUploadResponse(c *gc.C, resp *http.Response, expCharmURL string) {
 	body := assertResponse(c, resp, http.StatusOK, apihttp.CTypeJSON)
-	charmResponse := jsonResponse(c, body)
+	charmResponse := jsonCharmsResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.CharmURL, gc.Equals, expCharmURL)
 }
@@ -505,7 +505,7 @@ func (s *charmsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBod
 
 func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, expFiles []string) {
 	body := assertResponse(c, resp, http.StatusOK, apihttp.CTypeJSON)
-	charmResponse := jsonResponse(c, body)
+	charmResponse := jsonCharmsResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.Files, gc.DeepEquals, expFiles)
 }
@@ -520,8 +520,8 @@ func assertResponse(c *gc.C, resp *http.Response, expCode int, expContentType st
 	return body
 }
 
-func jsonResponse(c *gc.C, body []byte) (jsonResponse params.CharmsResponse) {
+func jsonCharmsResponse(c *gc.C, body []byte) (jsonResponse params.CharmsResponse) {
 	err := json.Unmarshal(body, &jsonResponse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
 	return
 }

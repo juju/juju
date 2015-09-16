@@ -34,7 +34,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// on the state connection that is determined during the validation.
 	stateWrapper, err := h.ctxt.validateEnvironUUID(req)
 	if err != nil {
-		h.sendError(resp, http.StatusNotFound, err.Error())
+		h.sendError(resp, http.StatusNotFound, err)
 		return
 	}
 
@@ -51,7 +51,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		logger.Infof("handling backups download request")
 		id, err := h.download(backups, resp, req)
 		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			h.sendError(resp, http.StatusInternalServerError, err)
 			return
 		}
 		logger.Infof("backups download request successful for %q", id)
@@ -59,12 +59,12 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		logger.Infof("handling backups upload request")
 		id, err := h.upload(backups, resp, req)
 		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			h.sendError(resp, http.StatusInternalServerError, err)
 			return
 		}
 		logger.Infof("backups upload request successful for %q", id)
 	default:
-		h.sendError(resp, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", req.Method))
+		h.sendError(resp, http.StatusMethodNotAllowed, errors.Errorf("unsupported method: %q", req.Method))
 	}
 }
 
@@ -106,7 +106,7 @@ func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter
 		return "", err
 	}
 
-	h.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
+	h.ctxt.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
 	return id, nil
 }
 
@@ -161,27 +161,12 @@ func (h *backupHandler) sendFile(file io.Reader, checksum string, algorithm apih
 	return nil
 }
 
-// sendJSON sends a JSON-encoded result.
-func (h *backupHandler) sendJSON(w http.ResponseWriter, statusCode int, result interface{}) {
-	body, err := json.Marshal(result)
-	if err != nil {
-		logger.Errorf("failed to serialize the result (%v): %v", result, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", apihttp.CTypeJSON)
-	w.WriteHeader(statusCode)
-	w.Write(body)
-
-	logger.Infof("backups request successful")
-}
-
 // sendError sends a JSON-encoded error response.
-func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
+func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, err error) {
 	failure := params.Error{
-		Message: message,
+		Message: err.Error(),
 		// Leave Code empty.
 	}
 
-	h.sendJSON(w, statusCode, &failure)
+	h.ctxt.sendJSON(w, statusCode, &failure)
 }

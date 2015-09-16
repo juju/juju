@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -13,14 +14,10 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
-
-// errorSender implementations send errors back to the caller.
-type errorSender interface {
-	sendError(w http.ResponseWriter, statusCode int, message string)
-}
 
 // httpContext provides context for HTTP handlers.
 type httpContext struct {
@@ -32,19 +29,18 @@ type httpContext struct {
 	stateServerEnvOnly bool
 }
 
-// httpStateWrapper reflects a state connection for a given http connection.
-type httpStateWrapper struct {
-	state *state.State
-}
-
 func (h *httpContext) getEnvironUUID(r *http.Request) string {
 	return r.URL.Query().Get(":envuuid")
+}
+
+type errorSender interface {
+	sendError(w http.ResponseWriter, code int, err error)
 }
 
 // authError sends an unauthorized error.
 func (h *httpContext) authError(w http.ResponseWriter, sender errorSender) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	sender.sendError(w, http.StatusUnauthorized, "unauthorized")
+	sender.sendError(w, http.StatusUnauthorized, errors.New("unauthorized"))
 }
 
 func (h *httpContext) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
@@ -59,6 +55,49 @@ func (h *httpContext) validateEnvironUUID(r *http.Request) (*httpStateWrapper, e
 		return nil, errors.Trace(err)
 	}
 	return &httpStateWrapper{state: envState}, nil
+}
+
+// sendJSON sends a JSON-encoded response to the client.
+func (h *httpContext) sendJSON(w http.ResponseWriter, statusCode int, response interface{}) {
+	body, err := json.Marshal(response)
+	if err != nil {
+		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
+		return
+	}
+
+	if statusCode == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
+	}
+	w.Header().Set("Content-Type", apihttp.CTypeJSON)
+	w.WriteHeader(statusCode)
+	w.Write(body)
+}
+
+// sendError sends a JSON-encoded error response
+// for errors encountered during processing.
+func (h *httpContext) sendError(w http.ResponseWriter, statusCode int, err error) {
+	logger.Debugf("sending error: %v %v", statusCode, err)
+	h.sendJSON(w, statusCode, &params.ErrorResult{
+		Error: common.ServerError(err),
+	})
+}
+
+func authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
+	if tag == nil {
+		return nil, common.ErrBadRequest
+	}
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return &authentication.UserAuthenticator{}, nil
+	case names.MachineTagKind, names.UnitTagKind:
+		return &authentication.AgentAuthenticator{}, nil
+	}
+	return nil, common.ErrBadRequest
+}
+
+// httpStateWrapper reflects a state connection for a given http connection.
+type httpStateWrapper struct {
+	state *state.State
 }
 
 // authenticate parses HTTP basic authentication and authorizes the
@@ -90,19 +129,6 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 		Nonce:       r.Header.Get("X-Juju-Nonce"),
 	}, true, authenticatorForTag)
 	return tag, err
-}
-
-func authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
-	if tag == nil {
-		return nil, common.ErrBadRequest
-	}
-	switch tag.Kind() {
-	case names.UserTagKind:
-		return &authentication.UserAuthenticator{}, nil
-	case names.MachineTagKind, names.UnitTagKind:
-		return &authentication.AgentAuthenticator{}, nil
-	}
-	return nil, common.ErrBadRequest
 }
 
 func (h *httpStateWrapper) authenticateUser(r *http.Request) error {

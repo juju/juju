@@ -61,7 +61,7 @@ func (s *baseBackupsSuite) checkErrorResponse(c *gc.C, resp *http.Response, stat
 	var failure params.Error
 	err = json.Unmarshal(body, &failure)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(&failure, gc.ErrorMatches, msg)
+	c.Check(&failure, gc.ErrorMatches, msg, gc.Commentf("body: %s", body))
 }
 
 type backupsSuite struct {

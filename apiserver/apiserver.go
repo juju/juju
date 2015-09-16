@@ -393,19 +393,21 @@ func (srv *Server) run(lis net.Listener) {
 	mux := pat.New()
 
 	srvDying := srv.tomb.Dying()
-
+	httpCtxt := httpContext{
+		statePool: srv.statePool,
+	}
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpContext{statePool: srv.statePool}, srv.logDir))
+			newLogSinkHandler(httpCtxt, srv.logDir))
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(srv.statePool, srvDying))
+			newDebugLogDBHandler(httpCtxt, srvDying))
 	} else {
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
+			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
-			ctxt:    httpContext{statePool: srv.statePool},
+			ctxt:    httpCtxt,
 			dataDir: srv.dataDir},
 	)
 	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
@@ -413,51 +415,53 @@ func (srv *Server) run(lis net.Listener) {
 	// tests currently assert that errors come back as application/json and
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
-		&toolsUploadHandler{toolsHandler{
-			httpContext{statePool: srv.statePool},
-		}},
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/environment/:envuuid/tools/:version",
-		&toolsDownloadHandler{toolsHandler{
-			httpContext{statePool: srv.statePool},
-		}},
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
 	)
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.stateServerEnvOnly = true
 	handleAll(mux, "/environment/:envuuid/backups",
-		&backupHandler{httpContext{
-			statePool:          srv.statePool,
-			strictValidation:   true,
-			stateServerEnvOnly: true,
-		}},
+		&backupHandler{
+			ctxt: strictCtxt,
+		},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
 		&imagesDownloadHandler{
-			ctxt:    httpContext{statePool: srv.statePool},
-			dataDir: srv.dataDir},
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
+		},
 	)
 	// For backwards compatibility we register all the old paths
 
 	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(srv.statePool, srvDying))
+		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
 	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
+		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
 	}
 
 	handleAll(mux, "/charms",
 		&charmsHandler{
-			ctxt:    httpContext{statePool: srv.statePool},
+			ctxt:    httpCtxt,
 			dataDir: srv.dataDir,
 		},
 	)
 	handleAll(mux, "/tools",
-		&toolsUploadHandler{toolsHandler{
-			httpContext{statePool: srv.statePool},
-		}},
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/tools/:version",
-		&toolsDownloadHandler{toolsHandler{
-			httpContext{statePool: srv.statePool},
-		}},
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 

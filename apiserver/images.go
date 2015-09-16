@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,7 +35,7 @@ type imagesDownloadHandler struct {
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
-		h.sendError(w, http.StatusNotFound, err.Error())
+		h.sendError(w, http.StatusNotFound, err)
 		return
 	}
 	switch r.Method {
@@ -44,33 +43,20 @@ func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		err := h.processGet(r, w, stateWrapper.state)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			h.sendError(w, http.StatusInternalServerError, err.Error())
+			h.sendError(w, http.StatusInternalServerError, err)
 			return
 		}
 	default:
-		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
+		h.sendError(w, http.StatusMethodNotAllowed, errors.Errorf("unsupported method: %q", r.Method))
 	}
-}
-
-// sendJSON sends a JSON-encoded response to the client.
-func (h *imagesDownloadHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.ErrorResult) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	body, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
-	w.Write(body)
-	return nil
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *imagesDownloadHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
-	logger.Debugf("sending error: %v %v", statusCode, message)
-	err := common.ServerError(errors.New(message))
-	if err := h.sendJSON(w, statusCode, &params.ErrorResult{Error: err}); err != nil {
-		logger.Errorf("failed to send error: %v", err)
-	}
+func (h *imagesDownloadHandler) sendError(w http.ResponseWriter, statusCode int, err error) {
+	logger.Debugf("sending error: %v %v", statusCode, err)
+	h.ctxt.sendJSON(w, statusCode, &params.ErrorResult{
+		Error: common.ServerError(err),
+	})
 }
 
 // processGet handles an image GET request.
