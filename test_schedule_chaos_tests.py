@@ -49,10 +49,11 @@ class TestStartJob(TestCase):
     def test_start_job(self, j_mock):
         with temp_dir() as root:
             write_config(root, 'foo', 'token_str')
-            start_job(root, 'foo', '/some/path', 'me', 'pw')
+            start_job(root, 'foo', '/some/path', 'me', 'pw', 1)
         j_mock.assert_called_once_with('http://localhost:8080', 'me', 'pw')
         calls = j_mock.return_value.build_job.mock_calls
-        expected = [call('foo', {'juju_bin': '/some/path'}, token='token_str')]
+        expected = [call('foo', {'juju_bin': '/some/path', 'series_number': 1},
+                    token='token_str')]
         self.assertEqual(calls, expected)
 
 
@@ -67,7 +68,7 @@ class TestScheduleChaos(TestCase):
         juju_bin = os.path.join(root,
                                 'candidate', 'branch', 'usr', 'foo', 'juju')
         expected = [
-            call(root, 'chaos', juju_bin, 'me', 'pw'),
-            call(root, 'chaos', juju_bin, 'me', 'pw'),
-            call(root, 'chaos', juju_bin, 'me', 'pw')]
+            call(root, 'chaos', juju_bin, 'me', 'pw', 0),
+            call(root, 'chaos', juju_bin, 'me', 'pw', 1),
+            call(root, 'chaos', juju_bin, 'me', 'pw', 2)]
         self.assertEqual(calls, expected)
