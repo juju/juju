@@ -236,18 +236,13 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// We need to fetch the address to set the default.
-	addr, err := s.unit.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
-
 	// Now add an address that would previously have sorted before the
 	// default.
 	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"), network.NewAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
-	addr, err = s.unit.PrivateAddress()
+	addr, err := s.unit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 }
@@ -261,18 +256,13 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// We need to fetch the address to set the default.
-	addr, err := s.unit.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
-
 	// Now add an address that would previously have sorted before the
 	// default.
 	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"), network.NewAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
-	addr, err = s.unit.PublicAddress()
+	addr, err := s.unit.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 }
