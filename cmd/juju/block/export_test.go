@@ -9,6 +9,11 @@ var (
 	BlockClient   = &getBlockClientAPI
 	UnblockClient = &getUnblockClientAPI
 	ListClient    = &getBlockListAPI
+
+	NewDestroyCommand = newDestroyCommand
+	NewRemoveCommand  = newRemoveCommand
+	NewChangeCommand  = newChangeCommand
+	NewListCommand    = newListCommand
 )
 
 type MockBlockClient struct {

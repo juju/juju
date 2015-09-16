@@ -12,10 +12,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// CreateCommand calls the API to create a new subnet.
-type CreateCommand struct {
+func newCreateCommand() cmd.Command {
+	return envcmd.Wrap(&createCommand{})
+}
+
+// createCommand calls the API to create a new subnet.
+type createCommand struct {
 	SubnetCommandBase
 
 	CIDR      names.SubnetTag
@@ -55,7 +61,7 @@ supported.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *CreateCommand) Info() *cmd.Info {
+func (c *createCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create",
 		Args:    "<CIDR> <space> <zone1> [<zone2> <zone3> ...] [--public|--private]",
@@ -65,7 +71,7 @@ func (c *CreateCommand) Info() *cmd.Info {
 }
 
 // SetFlags is defined on the cmd.Command interface.
-func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
 	f.BoolVar(&c.IsPublic, "public", false, "enable public access with shadow addresses")
 	f.BoolVar(&c.IsPrivate, "private", true, "disable public access with shadow addresses")
@@ -79,7 +85,7 @@ func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *CreateCommand) Init(args []string) error {
+func (c *createCommand) Init(args []string) error {
 	// Ensure we have at least 3 arguments.
 	// TODO:(mfoord) we need to support VLANTag as an additional optional
 	// argument.
@@ -135,7 +141,7 @@ func (c *CreateCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *CreateCommand) Run(ctx *cmd.Context) error {
+func (c *createCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SubnetAPI, ctx *cmd.Context) error {
 		if !c.Zones.IsEmpty() {
 			// Fetch all zones to validate the given zones.

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
 
@@ -34,25 +35,33 @@ See Also:
   juju help user disable
 `
 
-// DisenableUserBase common code for enable/disable user commands
-type DisenableUserBase struct {
+// disenableUserBase common code for enable/disable user commands
+type disenableUserBase struct {
 	UserCommandBase
-	api  DisenableUserAPI
+	api  disenableUserAPI
 	User string
 }
 
-// DisableCommand disables users.
-type DisableCommand struct {
-	DisenableUserBase
+func newDisableCommand() cmd.Command {
+	return envcmd.WrapSystem(&disableCommand{})
 }
 
-// EnableCommand enables users.
-type EnableCommand struct {
-	DisenableUserBase
+// disableCommand disables users.
+type disableCommand struct {
+	disenableUserBase
+}
+
+func newEnableCommand() cmd.Command {
+	return envcmd.WrapSystem(&enableCommand{})
+}
+
+// enableCommand enables users.
+type enableCommand struct {
+	disenableUserBase
 }
 
 // Info implements Command.Info.
-func (c *DisableCommand) Info() *cmd.Info {
+func (c *disableCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "disable",
 		Args:    "<username>",
@@ -62,7 +71,7 @@ func (c *DisableCommand) Info() *cmd.Info {
 }
 
 // Info implements Command.Info.
-func (c *EnableCommand) Info() *cmd.Info {
+func (c *enableCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "enable",
 		Args:    "<username>",
@@ -72,7 +81,7 @@ func (c *EnableCommand) Info() *cmd.Info {
 }
 
 // Init implements Command.Init.
-func (c *DisenableUserBase) Init(args []string) error {
+func (c *disenableUserBase) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no username supplied")
 	}
@@ -83,28 +92,28 @@ func (c *DisenableUserBase) Init(args []string) error {
 }
 
 // Username is here entirely for testing purposes to allow both the
-// DisableCommand and EnableCommand to support a common interface that is able
+// disableCommand and enableCommand to support a common interface that is able
 // to ask for the command line supplied username.
-func (c *DisenableUserBase) Username() string {
+func (c *disenableUserBase) Username() string {
 	return c.User
 }
 
-// DisenableUserAPI defines the API methods that the disable and enable
+// disenableUserAPI defines the API methods that the disable and enable
 // commands use.
-type DisenableUserAPI interface {
+type disenableUserAPI interface {
 	EnableUser(username string) error
 	DisableUser(username string) error
 	Close() error
 }
 
-func (c *DisenableUserBase) getDisableUserAPI() (DisenableUserAPI, error) {
+func (c *disenableUserBase) getDisableUserAPI() (disenableUserAPI, error) {
 	return c.NewUserManagerAPIClient()
 }
 
-var getDisableUserAPI = (*DisenableUserBase).getDisableUserAPI
+var getDisableUserAPI = (*disenableUserBase).getDisableUserAPI
 
 // Run implements Command.Run.
-func (c *DisableCommand) Run(ctx *cmd.Context) error {
+func (c *disableCommand) Run(ctx *cmd.Context) error {
 	if c.api == nil {
 		api, err := c.NewUserManagerAPIClient()
 		if err != nil {
@@ -122,7 +131,7 @@ func (c *DisableCommand) Run(ctx *cmd.Context) error {
 }
 
 // Run implements Command.Run.
-func (c *EnableCommand) Run(ctx *cmd.Context) error {
+func (c *enableCommand) Run(ctx *cmd.Context) error {
 	if c.api == nil {
 		api, err := c.NewUserManagerAPIClient()
 		if err != nil {
