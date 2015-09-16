@@ -79,12 +79,15 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
 		return nil, dataURL, errors.NotFoundf("cannot find URL %q", dataURL)
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
 		return nil, dataURL, errors.Unauthorizedf("unauthorised access to URL %q", dataURL)
 	}
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
 		return nil, dataURL, fmt.Errorf("cannot access URL %q, %q", dataURL, resp.Status)
 	}
 	return resp.Body, dataURL, nil
