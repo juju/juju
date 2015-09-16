@@ -295,6 +295,10 @@ func readSettings(st *State, key string) (*Settings, error) {
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
+	// when creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so we simply ignore nils
+	// here.
+	values = removeNils(values)
 	newValues := copyMap(values, escapeReplacer.Replace)
 	newValues["env-uuid"] = st.EnvironUUID()
 	return txn.Op{
@@ -303,6 +307,16 @@ func createSettingsOp(st *State, key string, values map[string]interface{}) txn.
 		Assert: txn.DocMissing,
 		Insert: newValues,
 	}
+}
+
+func removeNils(m map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{}
+	for k, v := range m {
+		if v != nil {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // createSettings writes an initial config node.
