@@ -221,10 +221,10 @@ func setAgentAddressScript(stateAddr string) string {
 func runMachineUpdate(machine *state.Machine, sshArg string) error {
 	addr, err := machine.PublicAddress()
 	if err != nil {
+		if network.IsNoAddress(err) {
+			return errors.Annotatef(err, "no appropriate public address found")
+		}
 		return errors.Trace(err)
-	}
-	if addr.Value == "" {
-		return errors.Errorf("no appropriate public address found")
 	}
 	return runViaSSH(addr.Value, sshArg)
 }
