@@ -3,13 +3,13 @@ import errno
 import hashlib
 import logging
 import os
+import re
 import socket
 import sys
-import re
 import urlparse
 
-from utility import configure_logging
 from pipdeps import s3_auth_with_rc
+from utility import configure_logging
 
 
 def s3_download_files(s3_path, credential_path, dst_dir=None,
@@ -73,6 +73,7 @@ def _download(key, dst_path, retries=3):
 
 def get_md5(filename, size=65536):
     """Gets md5 hex digest of contents of given filename."""
+    # Copied from Juju Report
     md5 = hashlib.md5()
     with open(filename, "rb") as f:
         while True:
@@ -159,6 +160,7 @@ def main():
         download_released_juju(args)
     if args.revision:
         download_candidate_juju(args)
+
 
 if __name__ == '__main__':
     main()

@@ -24,6 +24,7 @@ from utility import temp_dir
 
 
 class SelectBuild(TestCase):
+
     def test_select_build(self):
         builds = [
             'j/p/r/build-win-client/build-829/c/juju-setup-1.25-alpha1.exe']
@@ -44,6 +45,7 @@ class SelectBuild(TestCase):
 
 
 class TestGetMD5(TestCase):
+
     def test_get_md5_empty(self):
         with temp_dir() as d:
             filename = os.path.join(d, "afile")
@@ -62,6 +64,7 @@ class TestGetMD5(TestCase):
 
 
 class TestMkdir(TestCase):
+
     def test_mkdir_p(self):
         with temp_dir() as d:
             path = os.path.join(d, 'a/b/c')
@@ -70,6 +73,7 @@ class TestMkdir(TestCase):
 
 
 class TestParseArgs(TestCase):
+
     def test_parse_args(self):
         with parse_error(self) as stderr:
             parse_args([])
@@ -206,6 +210,7 @@ class TestDownloadFiles(TestCase):
 
 
 class KeyStub():
+
     def __init__(self, name, content=""):
         self.name = name
         self.etag = '"{}"'.format(hashlib.md5(content).hexdigest())
