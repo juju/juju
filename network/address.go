@@ -220,15 +220,16 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 
 // SelectPublicAddress picks one address from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
-// are no suitable addresses, an empty address is returned.
-func SelectPublicAddress(addresses []Address) Address {
+// are no suitable addresses, then ok is false (and an empty address is
+// returned). If a suitable address is then ok is true.
+func SelectPublicAddress(addresses []Address) (Address, bool) {
 	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, publicMatch)
 	if index < 0 {
-		return Address{}
+		return Address{}, false
 	}
-	return addresses[index]
+	return addresses[index], true
 }
 
 // SelectPublicHostPort picks one HostPort from a slice that would be
@@ -246,15 +247,16 @@ func SelectPublicHostPort(hps []HostPort) string {
 
 // SelectInternalAddress picks one address from a slice that can be
 // used as an endpoint for juju internal communication. If there are
-// no suitable addresses, an empty address is returned.
-func SelectInternalAddress(addresses []Address, machineLocal bool) Address {
+// are no suitable addresses, then ok is false (and an empty address is
+// returned). If a suitable address is then ok is true.
+func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, bool) {
 	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
-		return Address{}
+		return Address{}, false
 	}
-	return addresses[index]
+	return addresses[index], true
 }
 
 // SelectInternalHostPort picks one HostPort from a slice that can be

@@ -1122,7 +1122,8 @@ func (m *Machine) getPublicAddressOps(addresses []network.Address) ([]txn.Op, ne
 	}
 	// Without an exact match, prefer a fallback match.
 	getAddr := func() network.Address {
-		return network.SelectPublicAddress(addresses)
+		addr, _ := network.SelectPublicAddress(addresses)
+		return addr
 	}
 
 	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
@@ -1142,7 +1143,8 @@ func (m *Machine) getPrivateAddressOps(addresses []network.Address) ([]txn.Op, n
 	}
 	// Without an exact match, prefer a fallback match.
 	getAddr := func() network.Address {
-		return network.SelectInternalAddress(addresses, false)
+		addr, _ := network.SelectInternalAddress(addresses, false)
+		return addr
 	}
 
 	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
