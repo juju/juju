@@ -20,7 +20,7 @@ import (
 type meterStatusIntegrationSuite struct {
 	jujutesting.JujuConnSuite
 
-	status *meterstatus.Client
+	status meterstatus.MeterStatusClient
 	unit   *state.Unit
 }
 
