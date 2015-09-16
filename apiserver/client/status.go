@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -427,9 +428,13 @@ func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 		if err != nil {
 			status.InstanceState = "error"
 		}
-		// In case of error addr.Value will be "".
 		addr, err := machine.PublicAddress()
-		logger.Warningf("error fetching public address: %q", err)
+		if err != nil {
+			// Usually this indicates that no addresses have been set on the
+			// machine yet.
+			addr = network.Address{}
+			logger.Warningf("error fetching public address: %q", err)
+		}
 		status.DNSName = addr.Value
 	} else {
 		if errors.IsNotProvisioned(err) {
@@ -611,7 +616,13 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) api.UnitStatus {
 	var result api.UnitStatus
-	addr, _ := unit.PublicAddress()
+	addr, err := unit.PublicAddress()
+	if err != nil {
+		// Usually this indicates that no addresses have been set on the
+		// machine yet.
+		addr = network.Address{}
+		logger.Warningf("error fetching public address: %q", err)
+	}
 	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
 	for _, port := range unitPorts {
