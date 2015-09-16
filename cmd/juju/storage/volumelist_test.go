@@ -105,19 +105,32 @@ func (s *volumeListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 	s.assertUnmarshalledOutput(c, goyaml.Unmarshal, "bad\nness\n", "--format", "yaml")
 }
 
-func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
-	s.assertValidList(
-		c,
-		[]string{}, // ignored by default mock
-		`
-MACHINE  UNIT         STORAGE      ID  PROVIDER-ID                 DEVICE      SIZE    STATE       MESSAGE
-0        abc/0        db-dir/1000  0   provider-supplied-volume-0  testdevice  1.0GiB  destroying  
-0        transcode/0  shared-fs/0  3   provider-supplied-volume-3  loop0       1.0GiB  attached    
-0                                  1   provider-supplied-volume-1              2.0GiB  attaching   failed to attach, will retry
-1        transcode/1  shared-fs/0  3   provider-supplied-volume-3  loop1       1.0GiB  attached    
-1                                  2                                           42MiB   pending     
+var expectedVolumeListTabular = `
+MACHINE  UNIT         STORAGE      ID   PROVIDER-ID                   DEVICE  SIZE    STATE       MESSAGE
+0        abc/0        db-dir/1000  0    provider-supplied-volume-0    sda     1.0GiB  destroying  
+0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached    
+0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached    
+0                                  1    provider-supplied-volume-1            2.0GiB  attaching   failed to attach, will retry
+1        transcode/1  shared-fs/0  4    provider-supplied-volume-4    xvdf3   1.0GiB  attached    
+1                                  2    provider-supplied-volume-2    xvdf1   3.0MiB  attached    
+1                                  3                                          42MiB   pending     
 
-`[1:])
+`[1:]
+
+func (s *volumeListSuite) TestVolumeListTabular(c *gc.C) {
+	s.assertValidList(c, []string{}, expectedVolumeListTabular)
+
+	// Do it again, reversing the results returned by the API.
+	// We should get everything sorted in the appropriate order.
+	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsResult, error) {
+		results, _ := mockVolumeListAPI{}.ListVolumes(nil)
+		n := len(results)
+		for i := 0; i < n/2; i++ {
+			results[i], results[n-i-1] = results[n-i-1], results[i]
+		}
+		return results, nil
+	}
+	s.assertValidList(c, []string{}, expectedVolumeListTabular)
 }
 
 func (s *volumeListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
@@ -187,6 +200,37 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 		return s.listVolumes(machines)
 	}
 	results := []params.VolumeDetailsResult{{
+		// volume 0/0 is attached to machine 0, assigned to
+		// storage db-dir/1001, which is attached to unit
+		// abc/0.
+		Details: &params.VolumeDetails{
+			VolumeTag: "volume-0-0",
+			Info: params.VolumeInfo{
+				VolumeId: "provider-supplied-volume-0-0",
+				Size:     512,
+			},
+			Status: createTestStatus(params.StatusAttached, ""),
+			MachineAttachments: map[string]params.VolumeAttachmentInfo{
+				"machine-0": params.VolumeAttachmentInfo{
+					DeviceName: "loop0",
+				},
+			},
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-db-dir-1001",
+				OwnerTag:   "unit-abc-0",
+				Kind:       params.StorageKindBlock,
+				Status:     createTestStatus(params.StatusAttached, ""),
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-abc-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-db-dir-1001",
+						UnitTag:    "unit-abc-0",
+						MachineTag: "machine-0",
+						Location:   "/dev/loop0",
+					},
+				},
+			},
+		},
+	}, {
 		// volume 0 is attached to machine 0, assigned to
 		// storage db-dir/1000, which is attached to unit
 		// abc/0.
@@ -206,7 +250,7 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 			VolumeTag:  "volume-0",
 			MachineTag: "machine-0",
 			Info: params.VolumeAttachmentInfo{
-				DeviceName: "testdevice",
+				DeviceName: "sda",
 				ReadOnly:   true,
 			},
 		}},
@@ -227,10 +271,10 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 			},
 		},
 	}, {
-		// volume 2 is due to be attached to machine 1, but is not
+		// volume 3 is due to be attached to machine 1, but is not
 		// assigned to any storage and has not yet been provisioned.
 		Details: &params.VolumeDetails{
-			VolumeTag: "volume-2",
+			VolumeTag: "volume-3",
 			Info: params.VolumeInfo{
 				Size: 42,
 			},
@@ -240,23 +284,39 @@ func (s mockVolumeListAPI) ListVolumes(machines []string) ([]params.VolumeDetail
 			},
 		},
 	}, {
-		// volume 3 is attached to machines 0 and 1, and is assigned
+		// volume 2 is due to be attached to machine 1, but is not
+		// assigned to any storage and has not yet been provisioned.
+		Details: &params.VolumeDetails{
+			VolumeTag: "volume-2",
+			Info: params.VolumeInfo{
+				VolumeId: "provider-supplied-volume-2",
+				Size:     3,
+			},
+			Status: createTestStatus(params.StatusAttached, ""),
+			MachineAttachments: map[string]params.VolumeAttachmentInfo{
+				"machine-1": params.VolumeAttachmentInfo{
+					DeviceName: "xvdf1",
+				},
+			},
+		},
+	}, {
+		// volume 4 is attached to machines 0 and 1, and is assigned
 		// to shared storage.
 		Details: &params.VolumeDetails{
-			VolumeTag: "volume-3",
+			VolumeTag: "volume-4",
 			Info: params.VolumeInfo{
-				VolumeId:   "provider-supplied-volume-3",
+				VolumeId:   "provider-supplied-volume-4",
 				Persistent: true,
 				Size:       1024,
 			},
 			Status: createTestStatus(params.StatusAttached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{
-					DeviceName: "loop0",
+					DeviceName: "xvdf2",
 					ReadOnly:   true,
 				},
 				"machine-1": params.VolumeAttachmentInfo{
-					DeviceName: "loop1",
+					DeviceName: "xvdf3",
 					ReadOnly:   true,
 				},
 			},
