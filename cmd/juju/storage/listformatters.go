@@ -146,11 +146,11 @@ func compareSlashSeparated(a, b string) int {
 
 	naIsNumeric, na := getInt(sa[1])
 	if !naIsNumeric {
-		return strings.Compare(sa[1], sb[1])
+		return compareStrings(sa[1], sb[1])
 	}
 	nbIsNumeric, nb := getInt(sb[1])
 	if !nbIsNumeric {
-		return strings.Compare(sa[1], sb[1])
+		return compareStrings(sa[1], sb[1])
 	}
 
 	switch {
@@ -158,6 +158,18 @@ func compareSlashSeparated(a, b string) int {
 		return -1
 	case na == nb:
 		return 0
+	}
+	return 1
+}
+
+// compareStrings does what strings.Compare does, but without using
+// strings.Compare as it does not exist in Go 1.2.
+func compareStrings(a, b string) int {
+	if a == b {
+		return 0
+	}
+	if a < b {
+		return -1
 	}
 	return 1
 }

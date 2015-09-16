@@ -107,7 +107,7 @@ func (v volumeAttachmentInfos) Swap(i, j int) {
 }
 
 func (v volumeAttachmentInfos) Less(i, j int) bool {
-	switch strings.Compare(v[i].MachineId, v[j].MachineId) {
+	switch compareStrings(v[i].MachineId, v[j].MachineId) {
 	case -1:
 		return true
 	case 1:
