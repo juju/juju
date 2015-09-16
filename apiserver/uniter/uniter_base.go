@@ -170,10 +170,11 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				address, addrErr := unit.PrivateAddress()
-				if addrErr == nil && address.Value != "" {
+				var address network.Address
+				address, err = unit.PrivateAddress()
+				if err == nil {
 					result.Results[i].Result = address.Value
-				} else {
+				} else if network.IsNoAddress(err) {
 					err = common.NoAddressSetError(tag, "private")
 				}
 			}
