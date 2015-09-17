@@ -93,6 +93,9 @@ networks
    network. Positive network constraints do not imply the networks will be enabled,
    use the --networks argument for that, just that they could be enabled.
 
+spaces
+   
+
 instance-type
    Instance-type is the provider-specific name of a type of machine to deploy,
    for example m1.small on EC2 or A4 on Azure.  Specifying this constraint may
