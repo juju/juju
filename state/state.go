@@ -468,7 +468,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 			}, {
 				C:      settingsC,
 				Id:     st.docID(environGlobalKey),
-				Assert: bson.D{{"txn-revno", settings.txnRevno}},
+				Assert: bson.D{{"version", settings.version}},
 				Update: bson.D{
 					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
 				},

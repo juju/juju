@@ -900,9 +900,9 @@ func emptyRelationUnitsChanges(changes *multiwatcher.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
-func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key string, revno int64) {
+func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key string, version int64) {
 	name := unitNameFromScopeKey(key)
-	settings := multiwatcher.UnitSettings{Version: revno}
+	settings := multiwatcher.UnitSettings{Version: version}
 	if changes.Changed == nil {
 		changes.Changed = map[string]multiwatcher.UnitSettings{}
 	}
@@ -917,7 +917,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *multiwatcher.RelationUnits
 	if err != nil {
 		return -1, err
 	}
-	setRelationUnitChangeVersion(changes, key, node.txnRevno)
+	setRelationUnitChangeVersion(changes, key, node.version)
 	return node.txnRevno, nil
 }
 
@@ -999,8 +999,16 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if !ok {
 				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
 			}
-			setRelationUnitChangeVersion(&changes, id, c.Revno)
-			out = w.out
+			revno, err := w.mergeSettings(&changes, id)
+			if err != nil {
+				return err
+			}
+			if revno == c.Revno {
+				// Only send if we read the revno we were notified
+				// about. If we read a newer revno, wait until the
+				// next notification before sending.
+				out = w.out
+			}
 		case out <- changes:
 			sentInitial = true
 			changes = multiwatcher.RelationUnitsChange{}

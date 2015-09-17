@@ -444,11 +444,11 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 	}
 	if needConfig {
-		var err error
-		info.Config, _, err = readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
+		doc, err := readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
+		info.Config = doc.Settings
 	}
 	store.Update(info)
 	return nil

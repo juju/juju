@@ -36,14 +36,13 @@ type settingsDoc struct {
 	DocID    string `bson:"_id"`
 	EnvUUID  string `bson:"env-uuid"`
 	TxnRevno int64  `bson:"txn-revno"`
-	Settings map[string]interface{}
 
-	// TODO(axw) add a version field, which will be incremented
-	// whenever a change is made. This is managed separately
-	// from txn-revno so that we're not dependent on the workings
-	// if mgo/txn. Doing so is problematic, e.g. when upgrading
-	// from 1.20 we remove all documents and recreate them with
-	// new IDs (with environment UUID prepended).
+	// Version is a version number for the settings,
+	// and is increased every time the settings change.
+	Version int64 `bson:"version"`
+
+	// Settings contains the settings.
+	Settings map[string]interface{}
 }
 
 // ItemChange represents the change of an item in a settings.
@@ -82,15 +81,27 @@ func (ics itemChangeSlice) Swap(i, j int)      { ics[i], ics[j] = ics[j], ics[i]
 type Settings struct {
 	st  *State
 	key string
+
 	// disk holds the values in the config node before
 	// any keys have been changed. It is reset on Read and Write
 	// operations.
 	disk map[string]interface{}
+
 	// cache holds the current values in the config node.
 	// The difference between disk and core
 	// determines the delta to be applied when Settings.Write
 	// is called.
-	core     map[string]interface{}
+	core map[string]interface{}
+
+	// version is the version corresponding to "disk"; i.e.
+	// the value of the version field in the status document
+	// when it was read.
+	version int64
+
+	// txnRevno is the mgo/txn revision number of the status
+	// document at the time it was read. This should only be
+	// used by the watchers, and must not leak outside this
+	// package.
 	txnRevno int64
 }
 
@@ -181,7 +192,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 		C:      settingsC,
 		Id:     c.key,
 		Assert: txn.DocExists,
-		Update: setUnsetUpdate(updates, deletions, "settings"),
+		Update: setUnsetUpdateSettings(updates, deletions),
 	}}
 	err := c.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -234,7 +245,7 @@ func copyMap(in map[string]interface{}, replace func(string) string) (out map[st
 
 // Read (re)reads the node data into c.
 func (c *Settings) Read() error {
-	config, txnRevno, err := readSettingsDoc(c.st, c.key)
+	doc, err := readSettingsDoc(c.st, c.key)
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})
@@ -243,15 +254,15 @@ func (c *Settings) Read() error {
 	if err != nil {
 		return fmt.Errorf("cannot read settings: %v", err)
 	}
-	c.txnRevno = txnRevno
-	c.disk = config
-	c.core = copyMap(config, nil)
+	c.version = doc.Version
+	c.txnRevno = doc.TxnRevno
+	c.disk = doc.Settings
+	c.core = copyMap(c.disk, nil)
 	return nil
 }
 
-// readSettingsDoc reads the settings with the given
-// key. It returns the settings and the current rxnRevno.
-func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, error) {
+// readSettingsDoc reads the settings doc with the given key.
+func readSettingsDoc(st *State, key string) (*settingsDoc, error) {
 	settings, closer := st.getRawCollection(settingsC)
 	defer closer()
 
@@ -264,13 +275,13 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	if err == mgo.ErrNotFound && key == environGlobalKey {
 		err := settings.FindId(environGlobalKey).One(&doc)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 	} else if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	cleanSettingsMap(doc.Settings)
-	return doc.Settings, doc.TxnRevno, nil
+	return &doc, nil
 }
 
 // ReadSettings returns the settings for the given key.
@@ -371,13 +382,13 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	}
 	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
-	op.Update = setUnsetUpdate(bson.M(newValues), deletes, "settings")
+	op.Update = setUnsetUpdateSettings(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {
 		latest, err := readSettings(st, key)
 		if err != nil {
 			return false, err
 		}
-		return latest.txnRevno != s.txnRevno, nil
+		return latest.version != s.version, nil
 	}
 	return op, assertFailed, nil
 }
@@ -386,7 +397,7 @@ func (s *Settings) assertUnchangedOp() txn.Op {
 	return txn.Op{
 		C:      settingsC,
 		Id:     s.key,
-		Assert: bson.D{{"txn-revno", s.txnRevno}},
+		Assert: bson.D{{"version", s.version}},
 	}
 }
 
@@ -396,13 +407,13 @@ func inSubdocReplacer(subdoc string) func(string) string {
 	}
 }
 
-// setUnsetUpdate returns a bson.D for use in
-// a txn.Op's Update field, containing $set and
-// $unset operators if the corresponding operands
-// are non-empty.
-func setUnsetUpdate(set, unset bson.M, subdocField string) bson.D {
+// setUnsetUpdateSettings returns a bson.D for use
+// in a settingsC txn.Op's Update field, containing
+// $set and $unset operators if the corresponding
+// operands are non-empty.
+func setUnsetUpdateSettings(set, unset bson.M) bson.D {
 	var update bson.D
-	replace := inSubdocReplacer(subdocField)
+	replace := inSubdocReplacer("settings")
 	if len(set) > 0 {
 		set = bson.M(copyMap(map[string]interface{}(set), replace))
 		update = append(update, bson.DocElem{"$set", set})
@@ -410,6 +421,9 @@ func setUnsetUpdate(set, unset bson.M, subdocField string) bson.D {
 	if len(unset) > 0 {
 		unset = bson.M(copyMap(map[string]interface{}(unset), replace))
 		update = append(update, bson.DocElem{"$unset", unset})
+	}
+	if len(update) > 0 {
+		update = append(update, bson.DocElem{"$inc", bson.D{{"version", 1}}})
 	}
 	return update
 }

@@ -978,14 +978,14 @@ func (s *Service) LeaderSettings() (map[string]string, error) {
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
-	rawMap, _, err := readSettingsDoc(s.st, leadershipSettingsKey(s.doc.Name))
+	doc, err := readSettingsDoc(s.st, leadershipSettingsKey(s.doc.Name))
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service")
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	result := make(map[string]string)
-	for escapedKey, interfaceValue := range rawMap {
+	for escapedKey, interfaceValue := range doc.Settings {
 		key := unescapeReplacer.Replace(escapedKey)
 		if value, _ := interfaceValue.(string); value != "" {
 			// Empty strings are technically bad data -- when set, they clear.
@@ -1020,7 +1020,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 			sets[key] = value
 		}
 	}
-	update := setUnsetUpdate(sets, unsets, "settings")
+	update := setUnsetUpdateSettings(sets, unsets)
 
 	isNullChange := func(rawMap map[string]interface{}) bool {
 		for key := range unsets {
@@ -1040,19 +1040,19 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 		// Read the current document state so we can abort if there's
 		// no actual change; and the txn-revno so we can assert on it
 		// and prevent these settings from landing late.
-		rawMap, txnRevno, err := readSettingsDoc(s.st, key)
+		doc, err := readSettingsDoc(s.st, key)
 		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("service")
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if isNullChange(rawMap) {
+		if isNullChange(doc.Settings) {
 			return nil, jujutxn.ErrNoOperations
 		}
 		return []txn.Op{{
 			C:      settingsC,
 			Id:     key,
-			Assert: bson.D{{"txn-revno", txnRevno}},
+			Assert: bson.D{{"version", doc.Version}},
 			Update: update,
 		}}, nil
 	}
