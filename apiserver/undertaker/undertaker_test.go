@@ -115,7 +115,7 @@ func (s *undertakerSuite) TestRemoveAliveEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
 }
 
 func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
@@ -128,7 +128,7 @@ func (s *undertakerSuite) TestRemoveDyingEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = hostedAPI.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
 }
 
 func (s *undertakerSuite) TestDeadRemoveEnviron(c *gc.C) {
