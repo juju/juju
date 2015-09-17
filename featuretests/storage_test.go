@@ -7,15 +7,12 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
-	cmdstorage "github.com/juju/juju/cmd/juju/storage"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
@@ -66,26 +63,28 @@ func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 	setupTestStorageSupport(c, s.State)
 }
 
-func runShow(c *gc.C, args ...string) *cmd.Context {
-	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), args...)
-	c.Assert(err, jc.ErrorIsNil)
-	return context
+func runShow(c *gc.C, expectedError string, args ...string) {
+	cmdArgs := append([]string{"storage", "show"}, args...)
+	context, err := runJujuCommand(c, cmdArgs...)
+	if expectedError == "" {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.NotNil)
+		c.Assert(testing.Stderr(context), jc.Contains, expectedError)
+	}
 }
 
 func (s *cmdStorageSuite) TestStorageShowEmpty(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}))
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*must specify storage id.*")
+	runShow(c, "must specify storage id")
 }
 
 func (s *cmdStorageSuite) TestStorageShowInvalidId(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), "fluff")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*invalid storage id.*")
+	runShow(c, "invalid storage id", "fluff")
 }
 
 func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
-	context := runShow(c, "data/0")
 	expected := `
 data/0:
   kind: block
@@ -98,44 +97,43 @@ data/0:
       storage-block/0:
         machine: "0"
 `[1:]
+	context, err := runJujuCommand(c, "storage", "show", "data/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
 
 func (s *cmdStorageSuite) TestStorageShowOneInvalid(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), "data/0", "fluff/0")
-	c.Assert(err, gc.ErrorMatches, "storage instance \"fluff/0\" not found")
+	runShow(c, "storage instance \"fluff/0\" not found", "data/0", "fluff/0")
 }
 
 func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), "data/0", "fluff/0")
-	c.Assert(err, gc.ErrorMatches, "storage instance \"fluff/0\" not found")
+	runShow(c, "storage instance \"fluff/0\" not found", "data/0", "fluff/0")
 }
 
-func runList(c *gc.C) *cmd.Context {
-	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ListCommand{}))
+func runList(c *gc.C, expectedOutput string, args ...string) {
+	cmdArgs := append([]string{"storage", "list"}, args...)
+	context, err := runJujuCommand(c, cmdArgs...)
 	c.Assert(err, jc.ErrorIsNil)
-	return context
+	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
 }
 
 func (s *cmdStorageSuite) TestStorageListEmpty(c *gc.C) {
-	context := runList(c)
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	runList(c, "")
 }
 
 func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
-	context := runList(c)
 	expected := `
 [Storage]       
 UNIT            ID     LOCATION STATUS  MESSAGE 
 storage-block/0 data/0          pending         
 
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	runList(c, expected)
 }
 
 func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
@@ -143,14 +141,13 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 
 	// There are currently no guarantees about whether storage
 	// will be persistent until it has been provisioned.
-	context := runList(c)
 	expected := `
 [Storage]       
 UNIT            ID     LOCATION STATUS  MESSAGE 
 storage-block/0 data/0          pending         
 
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	runList(c, expected)
 }
 
 func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
@@ -164,7 +161,6 @@ func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := runShow(c, "data/0")
 	expected := `
 data/0:
   kind: block
@@ -177,6 +173,8 @@ data/0:
       storage-block/0:
         machine: "0"
 `[1:]
+	context, err := runJujuCommand(c, "storage", "show", "data/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
 
@@ -185,7 +183,6 @@ func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 
 	// There are currently no guarantees about whether storage
 	// will be persistent until it has been provisioned.
-	context := runShow(c, "data/0")
 	expected := `
 data/0:
   kind: block
@@ -198,6 +195,8 @@ data/0:
       storage-block/0:
         machine: "0"
 `[1:]
+	context, err := runJujuCommand(c, "storage", "show", "data/0")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
 
@@ -455,7 +454,8 @@ MACHINE  UNIT             STORAGE  ID   PROVIDER-ID  DEVICE  SIZE  STATE    MESS
 }
 
 func runAddToUnit(c *gc.C, args ...string) *cmd.Context {
-	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.AddCommand{}), args...)
+	cmdArgs := append([]string{"storage", "add"}, args...)
+	context, err := runJujuCommand(c, cmdArgs...)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -508,7 +508,8 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesBefore, gc.HasLen, 1)
 
-	context := runList(c)
+	context, err := runJujuCommand(c, "storage", "list")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]            
 UNIT                 ID     LOCATION STATUS  MESSAGE 
@@ -529,7 +530,8 @@ storage-filesystem/0 data/0          pending
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesAfter, gc.HasLen, 2)
 
-	context = runList(c)
+	context, err = runJujuCommand(c, "storage", "list")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]            
 UNIT                 ID     LOCATION STATUS  MESSAGE 

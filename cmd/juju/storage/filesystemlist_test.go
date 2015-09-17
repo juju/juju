@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -32,10 +31,6 @@ func (s *filesystemListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockFilesystemListAPI{fillMountPoint: true, addErrItem: true}
-	s.PatchValue(storage.GetFilesystemListAPI,
-		func(c *storage.FilesystemListCommand) (storage.FilesystemListAPI, error) {
-			return s.mockAPI, nil
-		})
 }
 
 func (s *filesystemListSuite) TestFilesystemListEmpty(c *gc.C) {
@@ -51,7 +46,7 @@ func (s *filesystemListSuite) TestFilesystemListEmpty(c *gc.C) {
 func (s *filesystemListSuite) TestFilesystemListError(c *gc.C) {
 	s.mockAPI.errOut = "just my luck"
 
-	context, err := runFilesystemList(c, "--format", "yaml")
+	context, err := s.runFilesystemList(c, "--format", "yaml")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, s.mockAPI.errOut)
 	s.assertUserFacingOutput(c, context, "", "")
 }
@@ -151,7 +146,7 @@ filesystem item error
 
 func (s *filesystemListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, machine string, args ...string) {
 	all := []string{machine}
-	context, err := runFilesystemList(c, append(all, args...)...)
+	context, err := s.runFilesystemList(c, append(all, args...)...)
 	c.Assert(err, jc.ErrorIsNil)
 	var result map[string]map[string]map[string]storage.FilesystemInfo
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
@@ -176,14 +171,14 @@ func (s *filesystemListSuite) expect(c *gc.C, machines []string) map[string]map[
 }
 
 func (s *filesystemListSuite) assertValidList(c *gc.C, args []string, expectedOut, expectedErr string) {
-	context, err := runFilesystemList(c, args...)
+	context, err := s.runFilesystemList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, expectedErr)
 }
 
-func runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *filesystemListSuite) runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		envcmd.Wrap(&storage.FilesystemListCommand{}),
+		storage.NewFilesystemListCommand(s.mockAPI),
 		args...)
 }
 
