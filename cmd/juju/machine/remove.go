@@ -14,8 +14,12 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// RemoveCommand causes an existing machine to be destroyed.
-type RemoveCommand struct {
+func newRemoveCommand() cmd.Command {
+	return envcmd.Wrap(&removeCommand{})
+}
+
+// removeCommand causes an existing machine to be destroyed.
+type removeCommand struct {
 	envcmd.EnvCommandBase
 	api        RemoveMachineAPI
 	MachineIds []string
@@ -36,7 +40,7 @@ Examples:
 	$ juju machine remove 6 --force
 `
 
-func (c *RemoveCommand) Info() *cmd.Info {
+func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove",
 		Args:    "<machine> ...",
@@ -45,11 +49,11 @@ func (c *RemoveCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RemoveCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
 }
 
-func (c *RemoveCommand) Init(args []string) error {
+func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no machines specified")
 	}
@@ -68,14 +72,14 @@ type RemoveMachineAPI interface {
 	Close() error
 }
 
-func (c *RemoveCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
+func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
-func (c *RemoveCommand) Run(_ *cmd.Context) error {
+func (c *removeCommand) Run(_ *cmd.Context) error {
 	client, err := c.getRemoveMachineAPI()
 	if err != nil {
 		return err

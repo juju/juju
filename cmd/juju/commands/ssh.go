@@ -21,12 +21,16 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
-// SSHCommand is responsible for launching a ssh shell on a given unit or machine.
-type SSHCommand struct {
+func newSSHCommand() cmd.Command {
+	return envcmd.Wrap(&sshCommand{})
+}
+
+// sshCommand is responsible for launching a ssh shell on a given unit or machine.
+type sshCommand struct {
 	SSHCommon
 }
 
-// SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
+// SSHCommon provides common methods for sshCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
 	envcmd.EnvCommandBase
 	proxy     bool
@@ -85,7 +89,7 @@ Connect to the first jenkins unit as the user jenkins:
     juju ssh jenkins@jenkins/0
 `
 
-func (c *SSHCommand) Info() *cmd.Info {
+func (c *sshCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ssh",
 		Args:    "<target> [<ssh args>...]",
@@ -94,7 +98,7 @@ func (c *SSHCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *SSHCommand) Init(args []string) error {
+func (c *sshCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no target name specified")
 	}
@@ -131,7 +135,7 @@ func (c *SSHCommon) getSSHOptions(enablePty bool) (*ssh.Options, error) {
 
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
-func (c *SSHCommand) Run(ctx *cmd.Context) error {
+func (c *sshCommand) Run(ctx *cmd.Context) error {
 	if c.apiClient == nil {
 		// If the apClient is not already opened and it is opened
 		// by ensureAPIClient, then close it when we're done.

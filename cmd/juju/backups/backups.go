@@ -39,8 +39,8 @@ type Command struct {
 	cmd.SuperCommand
 }
 
-// NewCommand returns a new backups super-command.
-func NewCommand() cmd.Command {
+// NewSuperCommand returns a new backups super-command.
+func NewSuperCommand() cmd.Command {
 	if featureflag.Enabled(feature.JES) {
 		backupsDoc = jesBackupsDoc
 	}

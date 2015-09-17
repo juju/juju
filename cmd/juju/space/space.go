@@ -137,7 +137,7 @@ func ParseNameAndCIDRs(args []string, cidrsOptional bool) (
 	}
 
 	CIDRs, err = CheckCIDRs(args[1:], cidrsOptional)
-	return name, CIDRs, err
+	return name, CIDRs, errors.Trace(err)
 }
 
 // CheckName checks whether name is a valid space name.

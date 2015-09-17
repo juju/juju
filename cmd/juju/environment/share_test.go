@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/testing"
 )
@@ -22,22 +21,22 @@ type shareSuite struct {
 var _ = gc.Suite(&shareSuite{})
 
 func (s *shareSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := environment.NewShareCommand(s.fake)
-	return testing.RunCommand(c, envcmd.Wrap(command), args...)
+	command, _ := environment.NewShareCommand(s.fake)
+	return testing.RunCommand(c, command, args...)
 }
 
 func (s *shareSuite) TestInit(c *gc.C) {
-	shareCmd := &environment.ShareCommand{}
-	err := testing.InitCommand(shareCmd, []string{})
+	wrappedCmd, shareCmd := environment.NewShareCommand(s.fake)
+	err := testing.InitCommand(wrappedCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no users specified")
 
-	err = testing.InitCommand(shareCmd, []string{"bob@local", "sam"})
+	err = testing.InitCommand(wrappedCmd, []string{"bob@local", "sam"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(shareCmd.Users[0], gc.Equals, names.NewUserTag("bob@local"))
 	c.Assert(shareCmd.Users[1], gc.Equals, names.NewUserTag("sam"))
 
-	err = testing.InitCommand(shareCmd, []string{"not valid/0"})
+	err = testing.InitCommand(wrappedCmd, []string{"not valid/0"})
 	c.Assert(err, gc.ErrorMatches, `invalid username: "not valid/0"`)
 }
 

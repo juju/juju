@@ -19,8 +19,12 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// RunCommand is responsible for running arbitrary commands on remote machines.
-type RunCommand struct {
+func newRunCommand() cmd.Command {
+	return envcmd.Wrap(&runCommand{})
+}
+
+// runCommand is responsible for running arbitrary commands on remote machines.
+type runCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	all      bool
@@ -59,7 +63,7 @@ targets.
 
 `
 
-func (c *RunCommand) Info() *cmd.Info {
+func (c *runCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "run",
 		Args:    "<commands>",
@@ -68,7 +72,7 @@ func (c *RunCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.all, "all", false, "run the commands on all the machines")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "how long to wait before the remote command is considered to have failed")
@@ -77,7 +81,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "one or more unit ids")
 }
 
-func (c *RunCommand) Init(args []string) error {
+func (c *runCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no commands specified")
 	}
@@ -172,7 +176,7 @@ func ConvertRunResults(runResults []params.RunResult) interface{} {
 	return results
 }
 
-func (c *RunCommand) Run(ctx *cmd.Context) error {
+func (c *runCommand) Run(ctx *cmd.Context) error {
 	client, err := getRunAPIClient(c)
 	if err != nil {
 		return err
@@ -227,6 +231,6 @@ type RunClient interface {
 }
 
 // Here we need the signature to be correct for the interface.
-var getRunAPIClient = func(c *RunCommand) (RunClient, error) {
+var getRunAPIClient = func(c *runCommand) (RunClient, error) {
 	return c.NewAPIClient()
 }

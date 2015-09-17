@@ -137,7 +137,7 @@ func (s *BootstrapSuite) TestBootstrapAPIReadyRetries(c *gc.C) {
 
 		s.mockBlockClient.num_retries = t.num_retries
 		s.mockBlockClient.retry_count = 0
-		_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+		_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
 		if t.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -221,7 +221,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 	}
 
 	// Run command and check for uploads.
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), test.args...)
 	// Check for remaining operations/errors.
 	if test.err != "" {
 		err := <-errc
@@ -364,9 +364,9 @@ var bootstrapTests = []bootstrapTest{{
 }}
 
 func (s *BootstrapSuite) TestRunEnvNameMissing(c *gc.C) {
-	s.PatchValue(&getEnvName, func(*BootstrapCommand) string { return "" })
+	s.PatchValue(&getEnvName, func(*bootstrapCommand) string { return "" })
 
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
+	_, err := coretesting.RunCommand(c, newBootstrapCommand())
 
 	c.Check(err, gc.ErrorMatches, "the name of the environment must be specified")
 }
@@ -413,10 +413,10 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
@@ -450,7 +450,7 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 		return []instance.Instance{&mockBootstrapInstance{}}, nil
 	})
 
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--upload-tools", argVariant, "foo,bar")
+	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "--upload-tools", argVariant, "foo,bar")
 
 	c.Assert(err, jc.ErrorIsNil)
 	return ctx
@@ -475,7 +475,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Change permissions on the jenv file to simulate some kind of
@@ -485,7 +485,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The second bootstrap should fail b/c of the propogated error
-	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
 	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
 }
 
@@ -507,7 +507,7 @@ func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 	)
 
 	ctx := coretesting.Context(c)
-	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", "peckham")
 	c.Check(<-errc, gc.Not(gc.IsNil))
 	c.Check(cleanupRan, jc.IsTrue)
 }
@@ -572,7 +572,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	s.PatchValue(&destroyEnvInfo, mockDestroyEnvInfo)
 
 	ctx := coretesting.Context(c)
-	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", "peckham")
 	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
 	c.Check(destroyedEnvRan, jc.IsFalse)
 	c.Check(destroyedInfoRan, jc.IsTrue)
@@ -598,7 +598,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	loggo.RegisterWriter(logger, &testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
-	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "devenv")
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", "devenv")
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
@@ -609,7 +609,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", c.MkDir())
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "--metadata-source", c.MkDir())
 	c.Check(err, gc.ErrorMatches, `failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*`)
 
 	// Now check that there are no tools available.
@@ -652,7 +652,7 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 	})
 
 	coretesting.RunCommand(
-		c, envcmd.Wrap(&BootstrapCommand{}),
+		c, newBootstrapCommand(),
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 	)
 	c.Assert(_bootstrap.args.MetadataDir, gc.Equals, sourceDir)
@@ -671,7 +671,7 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string)
 	currentVersion.Minor = 3
 	s.PatchValue(&version.Current, currentVersion)
 	coretesting.RunCommand(
-		c, envcmd.Wrap(&BootstrapCommand{}),
+		c, newBootstrapCommand(),
 		"--agent-version", vers,
 	)
 	c.Assert(_bootstrap.args.AgentVersion, gc.NotNil)
@@ -702,7 +702,7 @@ func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
 	currentVersion.Arch = "amd64"
 	s.PatchValue(&version.Current, currentVersion)
 	coretesting.RunCommand(
-		c, envcmd.Wrap(&BootstrapCommand{}),
+		c, newBootstrapCommand(),
 		"--no-auto-upgrade",
 	)
 	c.Assert(*_bootstrap.args.AgentVersion, gc.Equals, version.MustParse("2.22.46"))
@@ -716,7 +716,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// Bootstrap the environment with the valid source.
 	// The bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir)
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "--metadata-source", sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -744,7 +744,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "devenv")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "devenv")
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
@@ -754,7 +754,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)))
+	_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand())
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches,
 		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
@@ -763,7 +763,7 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
 
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
+	_, err := coretesting.RunCommand(c, newBootstrapCommand())
 	c.Assert(err, gc.ErrorMatches,
 		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
@@ -777,7 +777,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
 
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", "devenv")
+	ctx, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Bootstrapping environment "devenv"
@@ -795,7 +795,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	// upload is only enabled for dev versions.
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
@@ -822,7 +822,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	// upload is only enabled for dev versions.
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
-	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv", "--keep-broken")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv", "--keep-broken")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
 	done := false
