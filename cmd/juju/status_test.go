@@ -3023,7 +3023,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
   - logging/1: dummyenv-2.dns (error)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
-- new available version: "1.24.7"
+- new available version: "` + nextVersion + `"
 `
 
 	code, stdout, stderr := runStatus(c, "--format", "oneline")
@@ -3128,7 +3128,7 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 			"\n"+
 			"[Juju]            \n"+
 			"UPGRADE-AVAILABLE \n"+
-			"1.24.7            \n"+
+			nextVersion+"            \n"+
 			"\n",
 	)
 }
