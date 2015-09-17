@@ -1104,13 +1104,16 @@ func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool)
 
 	// XXX assert the new address still exists in MachineAddresses
 	// or Addresses
+	// XXX actually just assert that the preferred address is unchanged. If
+	// it has changed we need to check the address is still in the *new*
+	// alladdresses, which has to be done in buildTxn not in the assert.
 	//differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
 	ops := []txn.Op{{
 		C:  machinesC,
 		Id: m.doc.DocID,
-		Assert: bson.D{{"$not", []bson.D{
-			bson.D{{"addresses.value", bson.D{{"$in", []string{addr.Value}}}}},
-			bson.D{{"machineaddresses.value", bson.D{{"$in", []string{addr.Value}}}}}}}},
+		//Assert: bson.D{{"$or", []bson.D{
+		//	bson.D{{"addresses.value", bson.D{{"$in", []string{addr.Value}}}}},
+		//	bson.D{{"machineaddresses.value", bson.D{{"$in", []string{addr.Value}}}}}}}},
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
 	}}
 	return ops
@@ -1274,6 +1277,8 @@ func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field 
 			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
 		}}
 		var setPrivateAddressOps, setPublicAddressOps []txn.Op
+		// XXX need to rebuild allAddresses for the assert to work
+		// correctly
 		setPrivateAddressOps, newPrivate, changedPrivate = machine.getPrivateAddressOps(allAddresses)
 		setPublicAddressOps, newPublic, changedPublic = machine.getPublicAddressOps(allAddresses)
 		ops = append(ops, setPrivateAddressOps...)
@@ -1287,6 +1292,14 @@ func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field 
 		}
 		return errors.Trace(err)
 	}
+	query := bson.D{{"$or", []bson.D{
+		bson.D{{"addresses.value", bson.D{{"$in", []string{newPrivate.Value}}}}},
+		bson.D{{"machineaddresses.value", bson.D{{"$in", []string{newPrivate.Value}}}}}}}}
+	machines, closer := m.st.getRawCollection(machinesC)
+	defer closer()
+	results := []interface{}{}
+	err = machines.Find(query).All(&results)
+	logger.Errorf("%v %v %#v", len(results), err, results)
 
 	*field = stateAddresses
 	if changedPrivate {
