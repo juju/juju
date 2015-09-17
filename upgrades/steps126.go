@@ -3,7 +3,14 @@
 
 package upgrades
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/juju/state"
+)
+
+// stepsFor126 returns upgrade steps for Juju 1.26.
+func stepsFor126() []Step {
+	return []Step{}
+}
 
 // stateStepsFor126 returns upgrade steps for Juju 1.26 that manipulate state directly.
 func stateStepsFor126() []Step {
@@ -13,6 +20,7 @@ func stateStepsFor126() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.AddFilesystemStatus(context.State())
-			}},
+			},
+		},
 	}
 }

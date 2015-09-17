@@ -4,11 +4,11 @@
 package jujuc
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 )
@@ -23,8 +23,8 @@ type JujuLogCommand struct {
 	formatFlag string // deprecated
 }
 
-func NewJujuLogCommand(ctx Context) cmd.Command {
-	return &JujuLogCommand{ctx: ctx}
+func NewJujuLogCommand(ctx Context) (cmd.Command, error) {
+	return &JujuLogCommand{ctx: ctx}, nil
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {
@@ -69,8 +69,10 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	}
 
 	prefix := ""
-	if r, found := c.ctx.HookRelation(); found {
+	if r, err := c.ctx.HookRelation(); err == nil {
 		prefix = r.FakeId() + ": "
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 
 	logger.Logf(logLevel, "%s%s", prefix, c.Message)

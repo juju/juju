@@ -3228,31 +3228,49 @@ func (s *upgradesSuite) removeEnvCountDoc(c *gc.C) {
 
 func (s *upgradesSuite) TestMigrateLastLoginAndLastConnection(c *gc.C) {
 	t := time.Now().Round(time.Second)
-	user := names.NewUserTag("foobar")
+	fooUser := names.NewUserTag("foobar")
+	barUser := names.NewUserTag("barfoo")
 
-	s.addUsersForLastLoginAndConnection(c, t, user)
+	s.addUsersForLastLoginAndConnection(c, &t, fooUser)
+	s.addUsersForLastLoginAndConnection(c, nil, barUser)
 
 	err := MigrateLastLoginAndLastConnection(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertLastLoginAndConnectionMigration(c, t, user)
+	s.assertLastLoginAndConnectionMigration(c, t, fooUser)
+
+	// assert that no documents were added for a user who has never logged in
+	// or connected.
+	_, err = s.getDocMap(c, barUser.Id(), "userLastLogin")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	_, err = s.getDocMap(c, envUserID(barUser), "envUserLastConnection")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 }
 
 func (s *upgradesSuite) TestMigrateLastLoginAndLastConnectionIdempotent(c *gc.C) {
 	t := time.Now().Round(time.Second)
-	user := names.NewUserTag("foobar")
+	fooUser := names.NewUserTag("foobar")
+	barUser := names.NewUserTag("barfoo")
 
-	s.addUsersForLastLoginAndConnection(c, t, user)
+	s.addUsersForLastLoginAndConnection(c, &t, fooUser)
+	s.addUsersForLastLoginAndConnection(c, nil, barUser)
 
 	err := MigrateLastLoginAndLastConnection(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 	err = MigrateLastLoginAndLastConnection(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertLastLoginAndConnectionMigration(c, t, user)
+	s.assertLastLoginAndConnectionMigration(c, t, fooUser)
+
+	// assert that no documents were added for a user who has never logged in
+	// or connected.
+	_, err = s.getDocMap(c, barUser.Id(), "userLastLogin")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	_, err = s.getDocMap(c, envUserID(barUser), "envUserLastConnection")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 }
 
-func (s *upgradesSuite) addUsersForLastLoginAndConnection(c *gc.C, t time.Time, user names.UserTag) {
+func (s *upgradesSuite) addUsersForLastLoginAndConnection(c *gc.C, t *time.Time, user names.UserTag) {
 	userID := user.Id()
 	oldEnvUserID := envUserID(user)
 
@@ -3301,17 +3319,20 @@ func (s *upgradesSuite) assertLastLoginAndConnectionMigration(c *gc.C, t time.Ti
 	oldEnvUserID := envUserID(user)
 
 	// check to see if lastlogin field is removed
-	userMap := s.getDocMap(c, userID, "users")
+	userMap, err := s.getDocMap(c, userID, "users")
+	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["lastlogin"]
 	c.Assert(keyExists, jc.IsFalse)
 
 	// check to see if lastconnection field is removed
-	envUserMap := s.getDocMap(c, oldEnvUserID, "envusers")
+	envUserMap, err := s.getDocMap(c, oldEnvUserID, "envusers")
+	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists = envUserMap["lastconnection"]
 	c.Assert(keyExists, jc.IsFalse)
 
 	// check to see if lastlogin doc is added
-	lastLoginMap := s.getDocMap(c, userID, "userLastLogin")
+	lastLoginMap, err := s.getDocMap(c, userID, "userLastLogin")
+	c.Assert(err, jc.ErrorIsNil)
 	lastLogin, keyExists := lastLoginMap["last-login"]
 	c.Assert(keyExists, jc.IsTrue)
 	c.Assert(lastLogin.(time.Time).UTC(), gc.Equals, t.UTC())
@@ -3320,7 +3341,8 @@ func (s *upgradesSuite) assertLastLoginAndConnectionMigration(c *gc.C, t time.Ti
 	c.Assert(envUUID, gc.Equals, "envuuid456")
 
 	// check to see if lastconnection doc is added
-	lastConnMap := s.getDocMap(c, oldEnvUserID, "envUserLastConnection")
+	lastConnMap, err := s.getDocMap(c, oldEnvUserID, "envUserLastConnection")
+	c.Assert(err, jc.ErrorIsNil)
 	lastConn, keyExists := lastConnMap["last-connection"]
 	c.Assert(keyExists, jc.IsTrue)
 	c.Assert(lastConn.(time.Time).UTC(), gc.Equals, t.UTC())
@@ -3332,13 +3354,12 @@ func (s *upgradesSuite) assertLastLoginAndConnectionMigration(c *gc.C, t time.Ti
 	c.Assert(username, gc.Equals, "username@local")
 }
 
-func (s *upgradesSuite) getDocMap(c *gc.C, docID, collection string) map[string]interface{} {
+func (s *upgradesSuite) getDocMap(c *gc.C, docID, collection string) (map[string]interface{}, error) {
 	docMap := map[string]interface{}{}
 	coll, closer := s.state.getRawCollection(collection)
 	defer closer()
 	err := coll.Find(bson.D{{"_id", docID}}).One(&docMap)
-	c.Assert(err, jc.ErrorIsNil)
-	return docMap
+	return docMap, err
 }
 
 func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
@@ -3912,7 +3933,9 @@ func (s *upgradesSuite) TestChangeIdsFromSeqToAuto(c *gc.C) {
 
 func (s *upgradesSuite) TestChangeStatusHistoryUpdatedFromTimeToInt64(c *gc.C) {
 	uuid0 := s.makeEnvironment(c)
+	c.Logf("UUID0 : %v", uuid0)
 	uuid1 := s.makeEnvironment(c)
+	c.Logf("UUID1 : %v", uuid1)
 	sHistory, closer := s.state.getRawCollection(statusesHistoryC)
 	defer closer()
 	epoch := time.Unix(0, 0).UTC()
@@ -4106,7 +4129,7 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 
 	err := sHistory.Insert(
 		bson.D{
-			{"_id", uuid0 + ":0"},
+			{"_id", "0"},
 			{"env-uuid", uuid0},
 			{"entityid", "global0"},
 		},
@@ -4161,13 +4184,22 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 0)
 
 	var doc bson.M
-	for i := 0; i < 8; i++ {
+
+	logger.Debugf("checking global key 0")
+	err = sHistory.FindId(fmt.Sprintf("%s:0", uuid0)).One(&doc)
+	c.Assert(err, gc.ErrorMatches, "not found")
+	err = sHistory.Find(bson.M{"globalkey": "global0"}).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	ID, ok := doc["_id"].(bson.ObjectId)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(ID, gc.Not(gc.Equals), "0")
+
+	for i := 1; i < 8; i++ {
 		u := uuid0
 		if i > 3 {
 			u = uuid1
 		}
 		logger.Debugf("checking global key %d", i)
-		logger.Debugf("doc has: %v", doc)
 		err := sHistory.FindId(fmt.Sprintf("%s:%d", u, i)).One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		globalKey, ok := doc["globalkey"].(string)

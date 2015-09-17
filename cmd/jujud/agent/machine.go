@@ -78,6 +78,7 @@ import (
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
@@ -96,6 +97,7 @@ import (
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -124,6 +126,7 @@ var (
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
+	newMetadataUpdater       = imagemetadataworker.NewWorker
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
@@ -684,6 +687,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
+
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -792,6 +796,13 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		), nil
 	})
 
+	if isEnvironManager {
+		// Start worker that stores missing published image metadata in state.
+		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
+			return newMetadataUpdater(st.MetadataUpdater()), nil
+		})
+	}
+
 	// Check if the network management is disabled.
 	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
 	if disableNetworkManagement {
@@ -844,6 +855,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return worker.NewSimpleWorker(inner), nil
 			})
+			runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
+				// 4 times a day seems a decent enough amount of checks.
+				checkerParams := toolsversionchecker.VersionCheckerParams{
+					CheckInterval: time.Hour * 6,
+				}
+				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+			})
+
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:

@@ -19,8 +19,8 @@ type ConfigGetCommand struct {
 	out cmd.Output
 }
 
-func NewConfigGetCommand(ctx Context) cmd.Command {
-	return &ConfigGetCommand{ctx: ctx}
+func NewConfigGetCommand(ctx Context) (cmd.Command, error) {
+	return &ConfigGetCommand{ctx: ctx}, nil
 }
 
 func (c *ConfigGetCommand) Info() *cmd.Info {

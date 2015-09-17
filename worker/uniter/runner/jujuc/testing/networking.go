@@ -56,25 +56,19 @@ type ContextNetworking struct {
 }
 
 // PublicAddress implements jujuc.ContextNetworking.
-func (c *ContextNetworking) PublicAddress() (string, bool) {
+func (c *ContextNetworking) PublicAddress() (string, error) {
 	c.stub.AddCall("PublicAddress")
-	c.stub.NextErr()
 
-	if c.info.PublicAddress == "" {
-		return "", false
-	}
-	return c.info.PublicAddress, true
+	return c.info.PublicAddress, c.stub.NextErr()
+
 }
 
 // PrivateAddress implements jujuc.ContextNetworking.
-func (c *ContextNetworking) PrivateAddress() (string, bool) {
+func (c *ContextNetworking) PrivateAddress() (string, error) {
 	c.stub.AddCall("PrivateAddress")
-	c.stub.NextErr()
 
-	if c.info.PrivateAddress == "" {
-		return "", false
-	}
-	return c.info.PrivateAddress, true
+	return c.info.PrivateAddress, c.stub.NextErr()
+
 }
 
 // OpenPorts implements jujuc.ContextNetworking.

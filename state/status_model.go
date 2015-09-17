@@ -33,6 +33,11 @@ type StatusGetter interface {
 	Status() (StatusInfo, error)
 }
 
+// StatusHistoryGetter instances can fetch their status history.
+type StatusHistoryGetter interface {
+	StatusHistory(size int) ([]StatusInfo, error)
+}
+
 // Status values common to machine and unit agents.
 const (
 

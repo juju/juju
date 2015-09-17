@@ -39,6 +39,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -151,8 +152,10 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
 	agentParams := agent.AgentConfigParams{
-		LogDir:            s.logDir,
-		DataDir:           s.dataDir,
+		Paths: agent.Paths{
+			LogDir:  s.logDir,
+			DataDir: s.dataDir,
+		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
@@ -577,13 +580,13 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	defer st.Close()
 	expectedSeries := make(set.Strings)
 	if exploded {
-		for _, series := range version.SupportedSeries() {
-			os, err := version.GetOSFromSeries(series)
+		for _, ser := range series.SupportedSeries() {
+			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := version.GetOSFromSeries(version.Current.Series)
+			hostos, err := series.GetOSFromSeries(version.Current.Series)
 			c.Assert(err, jc.ErrorIsNil)
 			if os == hostos {
-				expectedSeries.Add(series)
+				expectedSeries.Add(ser)
 			}
 		}
 	} else {

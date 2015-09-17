@@ -11,6 +11,7 @@ import (
 
 var (
 	NewActionAPIClient = &newAPIClient
+	AddValueToMap      = addValueToMap
 )
 
 func (c *DefinedCommand) ServiceTag() names.ServiceTag {

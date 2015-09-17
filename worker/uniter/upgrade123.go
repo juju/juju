@@ -23,12 +23,11 @@ func AddStoppedFieldToUniterState(tag names.UnitTag, dataDir string) error {
 	case nil:
 		return performUpgrade(opsFile, state)
 	case operation.ErrNoStateFile:
-		logger.Warningf("no uniter state file found for unit %s, skipping uniter upgrade step", tag)
+		logger.Debugf("no uniter state file found for unit %s, skipping uniter upgrade step", tag)
 		return nil
 	default:
 		return err
 	}
-
 }
 
 func getUniterStateFile(dataDir string, tag names.UnitTag) string {

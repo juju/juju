@@ -177,8 +177,10 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	configParams := agent.AgentConfigParams{
-		DataDir:           dataDir,
-		LogDir:            logDir,
+		Paths: agent.Paths{
+			DataDir: dataDir,
+			LogDir:  logDir,
+		},
 		UpgradedToVersion: version.Current.Number,
 		Tag:               machineTag,
 		Environment:       coretesting.EnvironmentTag,

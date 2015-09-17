@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/juju/arch"
 	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -293,19 +294,19 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
-	var series string
+	var ser string
 	var expected_initial []string
 
-	current_os, err := version.GetOSFromSeries(version.Current.Series)
+	current_os, err := series.GetOSFromSeries(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
 	switch current_os {
 	case jujuos.CentOS:
-		series = "centos7"
+		ser = "centos7"
 		expected_initial = []string{
 			"yum", "--assumeyes", "--debuglevel=1", "install"}
 	default:
-		series = "precise"
+		ser = "precise"
 		expected_initial = []string{
 			"apt-get", "--option=Dpkg::Options::=--force-confold",
 			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
@@ -314,7 +315,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      series, // precise requires special apt parameters, so we use that series here.
+		Series:      ser, // precise requires special apt parameters, so we use that series here.
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -524,7 +525,7 @@ func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 }
 
 func getContainerInstance() (cont []ContainerInstance, err error) {
-	current_os, err := version.GetOSFromSeries(version.Current.Series)
+	current_os, err := series.GetOSFromSeries(series.HostSeries())
 
 	if err != nil {
 		return nil, err

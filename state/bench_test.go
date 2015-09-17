@@ -88,7 +88,15 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		for n := 0; n < batches; n++ {
-			_, err := unit.AddMetrics(utils.MustNewUUID().String(), now, "", metrics)
+			_, err := s.State.AddMetrics(
+				state.BatchParam{
+					UUID:     utils.MustNewUUID().String(),
+					Created:  now,
+					CharmURL: serviceCharmURL.String(),
+					Metrics:  metrics,
+					Unit:     unit.UnitTag(),
+				},
+			)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
@@ -114,7 +122,15 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		for i := 0; i < numberOfMetrics; i++ {
-			m, err := unit.AddMetrics(utils.MustNewUUID().String(), oldTime, "", []state.Metric{{}})
+			m, err := s.State.AddMetrics(
+				state.BatchParam{
+					UUID:     utils.MustNewUUID().String(),
+					Created:  oldTime,
+					CharmURL: serviceCharmURL.String(),
+					Metrics:  []state.Metric{{}},
+					Unit:     unit.UnitTag(),
+				},
+			)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetSent()
 			c.Assert(err, jc.ErrorIsNil)

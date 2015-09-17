@@ -62,16 +62,22 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	sent := 0
 	for {
 		metrics, err := st.MetricsToSend(batchSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if len(metrics) == 0 {
-			logger.Infof("nothing to send")
+		lenM := len(metrics)
+		if lenM == 0 {
+			if sent == 0 {
+				logger.Infof("nothing to send")
+			} else {
+				logger.Infof("done sending")
+			}
 			break
 		}
-		wireData := make([]*wireformat.MetricBatch, len(metrics))
+		wireData := make([]*wireformat.MetricBatch, lenM)
 		for i, m := range metrics {
 			wireData[i] = wireformat.ToWire(m)
 		}
@@ -93,17 +99,18 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 				return errors.Trace(err)
 			}
 		}
+		sent += lenM
 	}
 
 	unsent, err := st.CountOfUnsentMetrics()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sent, err := st.CountOfSentMetrics()
+	sentStored, err := st.CountOfSentMetrics()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("metrics collection summary: sent:%d unsent:%d", sent, unsent)
+	logger.Infof("metrics collection summary: sent:%d unsent:%d (%d sent metrics stored)", sent, unsent, sentStored)
 
 	return nil
 }
