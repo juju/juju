@@ -71,6 +71,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		return nil, errors.Trace(err)
 	}
 
+	logger.Debugf("Key: %s", instSpec.sshKey)
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: instSpec.machineID,
 		PropertyMapping: []types.KeyValue{
@@ -188,7 +189,6 @@ func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-
 	file, err := os.Open(ovfFilePath)
 	defer file.Close()
 	if err != nil {

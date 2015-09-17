@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 type environInstance struct {
@@ -89,25 +90,25 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	_, sshClient, err := inst.getSshClient()
+	_, sshClient, err := inst.getInstanceConfigurator()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return sshClient.findOpenPorts()
+	return sshClient.FindOpenPorts()
 }
 
 func (inst *environInstance) changePorts(insert bool, ports []network.PortRange) error {
 	if inst.env.ecfg.externalNetwork() == "" {
 		return errors.New("Can't close/open ports without external network")
 	}
-	addresses, sshClient, err := inst.getSshClient()
+	addresses, sshClient, err := inst.getInstanceConfigurator()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for _, addr := range addresses {
 		if addr.Scope == network.ScopePublic {
-			err = sshClient.changePorts(addr.Value, insert, ports)
+			err = sshClient.ChangePorts(addr.Value, insert, ports)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -116,7 +117,7 @@ func (inst *environInstance) changePorts(insert bool, ports []network.PortRange)
 	return nil
 }
 
-func (inst *environInstance) getSshClient() ([]network.Address, *sshClient, error) {
+func (inst *environInstance) getInstanceConfigurator() ([]network.Address, common.InstanceConfigurator, error) {
 	addresses, err := inst.Addresses()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -130,6 +131,6 @@ func (inst *environInstance) getSshClient() ([]network.Address, *sshClient, erro
 		}
 	}
 
-	client := newSshClient(localAddr)
+	client := common.NewSshInstanceConfigurator(localAddr)
 	return addresses, client, err
 }
