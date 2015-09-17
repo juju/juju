@@ -1106,9 +1106,11 @@ func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool)
 	// or Addresses
 	//differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
 	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
+		C:  machinesC,
+		Id: m.doc.DocID,
+		Assert: bson.D{{"$not", []bson.D{
+			bson.D{{"addresses.value", bson.D{{"$in", []string{addr.Value}}}}},
+			bson.D{{"machineaddresses.value", bson.D{{"$in", []string{addr.Value}}}}}}}},
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
 	}}
 	return ops
@@ -1255,29 +1257,29 @@ func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field 
 
 	var newPrivate, newPublic network.Address
 	var changedPrivate, changedPublic bool
+	machine := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
-			if m, err = m.st.Machine(m.doc.Id); err != nil {
+			if machine, err = machine.st.Machine(machine.doc.Id); err != nil {
 				return nil, err
 			}
 		}
-		if m.doc.Life == Dead {
+		if machine.doc.Life == Dead {
 			return nil, errNotAlive
 		}
 		ops := []txn.Op{{
 			C:      machinesC,
-			Id:     m.doc.DocID,
+			Id:     machine.doc.DocID,
 			Assert: notDeadDoc,
 			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
 		}}
 		var setPrivateAddressOps, setPublicAddressOps []txn.Op
-		setPrivateAddressOps, newPrivate, changedPrivate = m.getPrivateAddressOps(allAddresses)
-		setPublicAddressOps, newPublic, changedPublic = m.getPublicAddressOps(allAddresses)
+		setPrivateAddressOps, newPrivate, changedPrivate = machine.getPrivateAddressOps(allAddresses)
+		setPublicAddressOps, newPublic, changedPublic = machine.getPublicAddressOps(allAddresses)
 		ops = append(ops, setPrivateAddressOps...)
 		ops = append(ops, setPublicAddressOps...)
 		return ops, nil
 	}
-	machine := m
 	err = m.st.run(buildTxn)
 	if err != nil {
 		if err == txn.ErrAborted {
@@ -1288,10 +1290,10 @@ func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field 
 
 	*field = stateAddresses
 	if changedPrivate {
-		machine.doc.PreferredPrivateAddress = fromNetworkAddress(newPrivate)
+		m.doc.PreferredPrivateAddress = fromNetworkAddress(newPrivate)
 	}
 	if changedPublic {
-		machine.doc.PreferredPublicAddress = fromNetworkAddress(newPublic)
+		m.doc.PreferredPublicAddress = fromNetworkAddress(newPublic)
 	}
 	return nil
 }
