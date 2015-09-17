@@ -1129,6 +1129,11 @@ func (st *State) AddService(
 		NeverSet: true,
 	}
 
+	// when creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	settings = removeNils(settings)
+
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
@@ -1179,6 +1184,18 @@ func (st *State) AddService(
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
+}
+
+// removeNils removes any nil values from the given map and returns an updated
+// map.
+func removeNils(m map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{}
+	for k, v := range m {
+		if v != nil {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an

@@ -118,18 +118,6 @@ func (c *Settings) Delete(key string) {
 	delete(c.core, key)
 }
 
-// apply updates the Settings with the provided changes. Any requested
-// setting with a nil value will be removed.
-func (c *Settings) apply(changes map[string]interface{}) {
-	for name, value := range changes {
-		if value == nil {
-			c.Delete(name)
-		} else {
-			c.Set(name, value)
-		}
-	}
-}
-
 // cacheKeys returns the keys of all caches as a key=>true map.
 func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	keys := make(map[string]bool)
@@ -295,10 +283,6 @@ func readSettings(st *State, key string) (*Settings, error) {
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
-	// when creating the settings, we ignore nils.  In other circumstances, nil
-	// means to delete the value (reset to default), so we simply ignore nils
-	// here.
-	values = removeNils(values)
 	newValues := copyMap(values, escapeReplacer.Replace)
 	newValues["env-uuid"] = st.EnvironUUID()
 	return txn.Op{
@@ -307,16 +291,6 @@ func createSettingsOp(st *State, key string, values map[string]interface{}) txn.
 		Assert: txn.DocMissing,
 		Insert: newValues,
 	}
-}
-
-func removeNils(m map[string]interface{}) map[string]interface{} {
-	out := map[string]interface{}{}
-	for k, v := range m {
-		if v != nil {
-			out[k] = v
-		}
-	}
-	return out
 }
 
 // createSettings writes an initial config node.
