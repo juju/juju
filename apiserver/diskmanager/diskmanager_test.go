@@ -84,9 +84,9 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}, {
-			Error: &params.Error{"permission denied", "unauthorized access"},
+			Error: &params.Error{Message: "permission denied", Code: "unauthorized access"},
 		}, {
-			Error: &params.Error{"permission denied", "unauthorized access"},
+			Error: &params.Error{Message: "permission denied", Code: "unauthorized access"},
 		}},
 	})
 	c.Assert(s.st.calls, gc.Equals, 1)
@@ -102,7 +102,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
-			Error: &params.Error{"boom", ""},
+			Error: &params.Error{Message: "boom", Code: ""},
 		}},
 	})
 }

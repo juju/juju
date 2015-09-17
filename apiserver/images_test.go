@@ -240,7 +240,7 @@ func (s *imageSuite) testDownload(c *gc.C, resp *http.Response) []byte {
 }
 
 func (s *imageSuite) downloadRequest(c *gc.C, url *url.URL) (*http.Response, error) {
-	return s.sendRequest(c, "", "", "GET", url.String(), "", nil)
+	return s.sendRequest(c, httpRequestParams{method: "GET", url: url.String()})
 }
 
 func (s *imageSuite) storeFakeImage(c *gc.C, st *state.State, kind, series, arch string) {

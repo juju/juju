@@ -52,18 +52,18 @@ func (s *toolsSuite) SetUpTest(c *gc.C) {
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 	info := s.APIInfo(c)
 	uri := "http://" + info.Addrs[0] + "/tools"
-	_, err := s.sendRequest(c, "", "", "PUT", uri, "", nil)
+	_, err := s.sendRequest(c, httpRequestParams{method: "PUT", url: uri})
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
 func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, "", "", "GET", s.toolsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, httpRequestParams{method: "GET", url: s.toolsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
 }
 
 func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
-	resp, err := s.authRequest(c, "PUT", s.toolsURI(c, ""), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "PUT", url: s.toolsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
@@ -79,18 +79,18 @@ func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag().String(), password, "POST", s.toolsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, httpRequestParams{tag: machine.Tag().String(), password: password, method: "POST", url: s.toolsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "machine 0 not provisioned")
 
 	// Now try a user login.
-	resp, err = s.authRequest(c, "POST", s.toolsURI(c, ""), "", nil)
+	resp, err = s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
-	resp, err := s.authRequest(c, "POST", s.toolsURI(c, ""), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
@@ -207,7 +207,7 @@ func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot access the tools at https://host:port/BADENVUUID/tools
 	url := s.toolsURL(c, "")
 	url.Path = "/environment/dead-beef-123456/tools"
-	resp, err := s.authRequest(c, "POST", url.String(), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
@@ -399,7 +399,7 @@ func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid strin
 	} else {
 		url.Path = fmt.Sprintf("/environment/%s/tools/%s", uuid, version)
 	}
-	return s.sendRequest(c, "", "", "GET", url.String(), "", nil)
+	return s.sendRequest(c, httpRequestParams{method: "GET", url: url.String()})
 }
 
 func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {

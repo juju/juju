@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/names"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -37,23 +37,20 @@ func (u *UserAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Ta
 // DischargeRequiredError is the error returned when a macaroon requires discharging
 // to complete authentication.
 type DischargeRequiredError struct {
+	Cause    error
 	Macaroon *macaroon.Macaroon
 }
 
 // Error implements the error interface.
 func (e *DischargeRequiredError) Error() string {
-	return "discharge required"
+	return e.Cause.Error()
 }
 
 // MacaroonAuthenticator performs authentication for users using macaroons.
-// Issue a macaroon or return pre-generated macaroon -> return ErrDischareReq
-//       TODO (mattyw, mhilton) - where should macaroons be stored? they shouldn't, except in mem (default bakery).
-//       - when should they be created?
-//       - root key generated on server startup. not reused among replica servers.
-//       - macaroon issued on demand, reuse same root key
-//       - how do we choose user tag coming in?
-//       - special username? placeholder? empty username. need to return with
-//         resolved entity in state so some refactoring of authenticators reqd?
+// If the authentication fails because provided macaroons are invalid,
+// and macaroon authentiction is enabled, it will return a
+// httpbakery.DischargeRequiredError holding a macaroon to be
+// discharged.
 type MacaroonAuthenticator struct {
 	Service          *bakery.Service
 	Macaroon         *macaroon.Macaroon
@@ -62,9 +59,9 @@ type MacaroonAuthenticator struct {
 
 var _ EntityAuthenticator = (*MacaroonAuthenticator)(nil)
 
-func (m *MacaroonAuthenticator) newDischargeRequiredError() error {
+func (m *MacaroonAuthenticator) newDischargeRequiredError(cause error) error {
 	if m.Service == nil || m.Macaroon == nil {
-		return errors.New("macaroon authentication not configured")
+		return errors.Trace(cause)
 	}
 	mac := m.Macaroon.Clone()
 	err := m.Service.AddCaveat(mac, checkers.TimeBeforeCaveat(time.Now().Add(time.Hour)))
@@ -81,21 +78,19 @@ func (m *MacaroonAuthenticator) newDischargeRequiredError() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create macaroon")
 	}
-	return &DischargeRequiredError{mac}
+	return &DischargeRequiredError{
+		Cause:    cause,
+		Macaroon: mac,
+	}
 }
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
 func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
-	if len(req.Macaroons) == 0 {
-		return nil, m.newDischargeRequiredError()
+	declared, err := m.Service.CheckAny(req.Macaroons, nil, checkers.New(checkers.TimeBefore))
+	if err != nil {
+		return nil, m.newDischargeRequiredError(err)
 	}
-
-	declared := checkers.InferDeclared(req.Macaroons)
-	err := m.Service.Check(req.Macaroons, checkers.New(
-		declared,
-		checkers.TimeBefore,
-	))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

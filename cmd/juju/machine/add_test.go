@@ -250,7 +250,7 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 		} else {
 			results = append(results, params.AddMachinesResult{
 				Machine: string(i),
-				Error:   &params.Error{"something went wrong", "1"},
+				Error:   &params.Error{Message: "something went wrong", Code: "1"},
 			})
 		}
 		f.currentOp++

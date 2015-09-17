@@ -74,27 +74,18 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(socket *websocket.Conn) {
 			defer socket.Close()
-			// Validate before authenticate because the authentication is
-			// dependent on the state connection that is determined during the
-			// validation.
-			stateWrapper, err := h.ctxt.validateEnvironUUID(req)
+			st, entity, err := h.ctxt.stateForRequestAuthenticatedAgent(req)
 			if err != nil {
 				h.sendError(socket, err)
 				return
 			}
-
-			tag, err := stateWrapper.authenticateAgent(req)
-			if err != nil {
-				h.sendError(socket, errors.Errorf("auth failed: %v", err))
-				return
-			}
+			tag := entity.Tag()
 
 			// If we get to here, no more errors to report, so we report a nil
 			// error.  This way the first line of the socket is always a json
 			// formatted simple error.
 			h.sendError(socket, nil)
 
-			st := stateWrapper.state
 			filePrefix := st.EnvironUUID() + " " + tag.String() + ":"
 			dbLogger := state.NewDbLogger(st, tag)
 			defer dbLogger.Close()

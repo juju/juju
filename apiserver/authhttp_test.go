@@ -104,19 +104,6 @@ func (s *userAuthHttpSuite) SetUpTest(c *gc.C) {
 	s.userTag = user.UserTag()
 }
 
-func (s *userAuthHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
-	c.Logf("sendRequest: %s", uri)
-	req, err := http.NewRequest(method, uri, body)
-	c.Assert(err, jc.ErrorIsNil)
-	if tag != "" && password != "" {
-		req.SetBasicAuth(tag, password)
-	}
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-	return utils.GetNonValidatingHTTPClient().Do(req)
-}
-
 func (s *userAuthHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
 	envState := s.Factory.MakeEnvironment(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
@@ -129,8 +116,53 @@ func (s *userAuthHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
 	return envState
 }
 
-func (s *userAuthHttpSuite) authRequest(c *gc.C, method, uri, contentType string, body io.Reader) (*http.Response, error) {
-	return s.sendRequest(c, s.userTag.String(), s.password, method, uri, contentType, body)
+// httpRequestParams holds parameters for the authRequest and sendRequest
+// methods.
+type httpRequestParams struct {
+	// tag holds the tag to authenticate as.
+	tag string
+
+	// password holds the password associated with the tag.
+	password string
+
+	// method holds the HTTP method to use for the request.
+	method string
+
+	// url holds the URL to send the HTTP request to.
+	url string
+
+	// contentType holds the content type of the request.
+	contentType string
+
+	// body holds the body of the request.
+	body io.Reader
+
+	// nonce holds the machine nonce to provide in the header.
+	nonce string
+}
+
+func (s *userAuthHttpSuite) sendRequest(c *gc.C, p httpRequestParams) (*http.Response, error) {
+	c.Logf("sendRequest: %s", p.url)
+	req, err := http.NewRequest(p.method, p.url, p.body)
+	c.Assert(err, jc.ErrorIsNil)
+	if p.tag != "" && p.password != "" {
+		req.SetBasicAuth(p.tag, p.password)
+	}
+	if p.contentType != "" {
+		req.Header.Set("Content-Type", p.contentType)
+	}
+	if p.nonce != "" {
+		req.Header.Set("X-Juju-Nonce", p.nonce)
+	}
+	return utils.GetNonValidatingHTTPClient().Do(req)
+}
+
+// authRequest is like sendRequest but fills out p.tag and p.password
+// from the userTag and password fields in the suite.
+func (s *userAuthHttpSuite) authRequest(c *gc.C, p httpRequestParams) (*http.Response, error) {
+	p.tag = s.userTag.String()
+	p.password = s.password
+	return s.sendRequest(c, p)
 }
 
 func (s *userAuthHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string) (*http.Response, error) {
@@ -140,13 +172,18 @@ func (s *userAuthHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path 
 	}
 
 	if path == "" {
-		return s.authRequest(c, "POST", uri, contentType, nil)
+		return s.authRequest(c, httpRequestParams{method: "POST", url: uri, contentType: contentType})
 	}
 
 	file, err := os.Open(path)
 	c.Assert(err, jc.ErrorIsNil)
 	defer file.Close()
-	return s.authRequest(c, "POST", uri, contentType, file)
+	return s.authRequest(c, httpRequestParams{
+		method:      "POST",
+		url:         uri,
+		contentType: contentType,
+		body:        file,
+	})
 }
 
 // assertJSONError checks the JSON encoded error returned by the log

@@ -44,24 +44,24 @@ func (s *charmsSuite) SetUpSuite(c *gc.C) {
 func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 	info := s.APIInfo(c)
 	uri := "http://" + info.Addrs[0] + "/charms"
-	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
+	_, err := s.sendRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
 func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, "", "", "POST", s.charmsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
 }
 
 func (s *charmsSuite) TestGETDoesNotRequireAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, "", "", "GET", s.charmsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, httpRequestParams{method: "GET", url: s.charmsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument")
 }
 
 func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
-	resp, err := s.authRequest(c, "PUT", s.charmsURI(c, ""), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "PUT", url: s.charmsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
@@ -77,18 +77,24 @@ func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag().String(), password, "POST", s.charmsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, httpRequestParams{
+		tag:      machine.Tag().String(),
+		password: password,
+		method:   "POST",
+		url:      s.charmsURI(c, ""),
+		nonce:    "fake_nonce",
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "invalid entity name or password")
 
 	// Now try a user login.
-	resp, err = s.authRequest(c, "POST", s.charmsURI(c, ""), "", nil)
+	resp, err = s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
 }
 
 func (s *charmsSuite) TestUploadRequiresSeries(c *gc.C) {
-	resp, err := s.authRequest(c, "POST", s.charmsURI(c, ""), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
 }
@@ -216,7 +222,7 @@ func (s *charmsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
 	url := s.charmsURL(c, "series=quantal")
 	url.Path = "/environment/dead-beef-123456/charms"
-	resp, err := s.authRequest(c, "POST", url.String(), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
@@ -278,7 +284,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 
 func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 	uri := s.charmsURI(c, "?file=hooks/install")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
@@ -288,7 +294,7 @@ func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 
 func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	uri := s.charmsURI(c, "?url=local:precise/no-such")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
@@ -309,7 +315,7 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, file)
 		uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file="+file)
-		resp, err := s.authRequest(c, "GET", uri, "", nil)
+		resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
 	}
@@ -324,7 +330,7 @@ func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 
 	// Ensure a 403 is returned if the requested file is a directory.
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=hooks")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
 }
@@ -357,7 +363,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, t.summary)
 		uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file="+t.file)
-		resp, err := s.authRequest(c, "GET", uri, "", nil)
+		resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertGetFileResponse(c, resp, t.response, "text/plain; charset=utf-8")
 	}
@@ -374,7 +380,7 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=*")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertGetFileResponse(c, resp, string(data), "application/zip")
 }
@@ -388,7 +394,7 @@ func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = "/charms"
-	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
@@ -400,7 +406,7 @@ func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
-	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
@@ -414,7 +420,7 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
-	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
@@ -422,7 +428,7 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = "/environment/dead-beef-123456/charms"
-	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
@@ -436,7 +442,7 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 
 	// Ensure charm files are properly listed.
 	uri := s.charmsURI(c, "?url=local:quantal/dummy-1")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, jc.ErrorIsNil)
 	manifest, err := ch.Manifest()
 	c.Assert(err, jc.ErrorIsNil)
@@ -468,7 +474,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 
 	// Ensure the cached contents are properly retrieved.
 	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
-	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertGetFileResponse(c, resp, contents, "application/javascript")
 }

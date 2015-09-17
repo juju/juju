@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
@@ -28,10 +28,8 @@ type httpContext struct {
 	strictValidation bool
 	// stateServerEnvOnly only validates the state server environment
 	stateServerEnvOnly bool
-}
 
-func (h *httpContext) getEnvironUUID(r *http.Request) string {
-	return r.URL.Query().Get(":envuuid")
+	authCtxt *authContext
 }
 
 type errorSender interface {
@@ -40,95 +38,112 @@ type errorSender interface {
 
 var errUnauthorized = errors.NewUnauthorized(nil, "unauthorized")
 
-func (h *httpContext) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
-	envUUID := h.getEnvironUUID(r)
-	envState, err := validateEnvironUUID(validateArgs{
-		statePool:          h.statePool,
-		envUUID:            envUUID,
-		strict:             h.strictValidation,
-		stateServerEnvOnly: h.stateServerEnvOnly,
+// stateForRequestUnauthenticated returns a state instance appropriate for
+// using for the environment implicit in the given request
+// without checking any authentication information.
+func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.State, error) {
+	envUUID, err := validateEnvironUUID(validateArgs{
+		statePool:          ctxt.statePool,
+		envUUID:            r.URL.Query().Get(":envuuid"),
+		strict:             ctxt.strictValidation,
+		stateServerEnvOnly: ctxt.stateServerEnvOnly,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &httpStateWrapper{state: envState}, nil
-}
-
-func authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
-	if tag == nil {
-		return nil, common.ErrBadRequest
+	st, err := ctxt.statePool.Get(envUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	switch tag.Kind() {
-	case names.UserTagKind:
-		return &authentication.UserAuthenticator{}, nil
-	case names.MachineTagKind, names.UnitTagKind:
-		return &authentication.AgentAuthenticator{}, nil
+	return st, nil
+}
+
+// stateForRequestAuthenticated returns a state instance appropriate for
+// using for the environment implicit in the given request.
+// It also returns the authenticated entity.
+func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.State, state.Entity, error) {
+	st, err := ctxt.stateForRequestUnauthenticated(r)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-	return nil, common.ErrBadRequest
+	req, err := ctxt.loginRequest(r)
+	if err != nil {
+		return nil, nil, errors.NewUnauthorized(err, "")
+	}
+	entity, _, err := checkCreds(st, req, true, ctxt.authCtxt.authenticatorForTag)
+	if err != nil {
+		return nil, nil, errors.NewUnauthorized(err, "")
+	}
+	return st, entity, nil
 }
 
-// httpStateWrapper reflects a state connection for a given http connection.
-type httpStateWrapper struct {
-	state *state.State
+// stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
+// except that it also verifies that the authenticated entity is a user.
+func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.State, state.Entity, error) {
+	st, entity, err := ctxt.stateForRequestAuthenticated(r)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	switch entity.Tag().(type) {
+	case names.UserTag:
+		return st, entity, nil
+	default:
+		return nil, nil, common.ErrBadCreds
+	}
 }
 
-// authenticate parses HTTP basic authentication and authorizes the
-// request by looking up the provided tag and password against state.
-func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
-	parts := strings.Fields(r.Header.Get("Authorization"))
+// stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
+// except that it also verifies that the authenticated entity is a user.
+func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.Entity, error) {
+	st, entity, err := ctxt.stateForRequestAuthenticated(r)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	switch entity.Tag().(type) {
+	case names.MachineTag, names.UnitTag:
+		return st, entity, nil
+	default:
+		return nil, nil, common.ErrBadCreds
+	}
+}
+
+// loginRequest forms a LoginRequest from the information
+// in the given HTTP request.
+func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		if ctxt.authCtxt.macaroon != nil {
+			return params.LoginRequest{
+				Macaroons: httpbakery.RequestMacaroons(r),
+			}, nil
+		}
+		return params.LoginRequest{}, errors.New("no authorization header found")
+	}
+	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
-		return nil, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.New("invalid request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.New("invalid request format")
 	}
 	tagPass := strings.SplitN(string(challenge), ":", 2)
 	if len(tagPass) != 2 {
-		return nil, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.New("invalid request format")
 	}
 	// Ensure that a sensible tag was passed.
-	tag, err := names.ParseTag(tagPass[0])
+	_, err = names.ParseTag(tagPass[0])
 	if err != nil {
-		return nil, common.ErrBadCreds
+		return params.LoginRequest{}, common.ErrBadCreds
 	}
-	_, _, err = checkCreds(h.state, params.LoginRequest{
+	return params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
 		Nonce:       r.Header.Get("X-Juju-Nonce"),
-	}, true, authenticatorForTag)
-	return tag, err
-}
-
-func (h *httpStateWrapper) authenticateUser(r *http.Request) error {
-	tag, err := h.authenticate(r)
-	if err != nil {
-		return err
-	}
-	switch tag.(type) {
-	case names.UserTag:
-		return nil
-	default:
-		return common.ErrBadCreds
-	}
-}
-
-func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error) {
-	tag, err := h.authenticate(r)
-	if err != nil {
-		return nil, err
-	}
-	switch tag.(type) {
-	case names.MachineTag:
-		return tag, nil
-	case names.UnitTag:
-		return tag, nil
-	default:
-		return nil, common.ErrBadCreds
-	}
+	}, nil
 }
 
 // sendJSON writes a JSON-encoded response value

@@ -114,7 +114,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{"DestroySystem", params.CodeNotImplemented}
+	s.api.err = &params.Error{Message: "DestroySystem", Code: params.CodeNotImplemented}
 	_, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
@@ -122,7 +122,7 @@ func (s *KillSuite) TestKillFallsBackToClient(c *gc.C) {
 }
 
 func (s *KillSuite) TestClientKillDestroysSystemWithAPIError(c *gc.C) {
-	s.api.err = &params.Error{"DestroySystem", params.CodeNotImplemented}
+	s.api.err = &params.Error{Message: "DestroySystem", Code: params.CodeNotImplemented}
 	s.clientapi.err = errors.New("some destroy error")
 	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)

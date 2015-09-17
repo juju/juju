@@ -30,13 +30,13 @@ func (s *debugLogBaseSuite) TestBadParams(c *gc.C) {
 
 func (s *debugLogBaseSuite) TestWithHTTP(c *gc.C) {
 	uri := s.logURL(c, "http", nil).String()
-	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
+	_, err := s.sendRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
 func (s *debugLogBaseSuite) TestWithHTTPS(c *gc.C) {
 	uri := s.logURL(c, "https", nil).String()
-	response, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
+	response, err := s.sendRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 }
@@ -46,7 +46,7 @@ func (s *debugLogBaseSuite) TestNoAuth(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "auth failed: invalid request format")
+	assertJSONError(c, reader, "no authorization header found")
 	s.assertWebsocketClosed(c, reader)
 }
 
@@ -60,7 +60,7 @@ func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "auth failed: invalid entity name or password")
+	assertJSONError(c, reader, "invalid entity name or password")
 	s.assertWebsocketClosed(c, reader)
 }
 

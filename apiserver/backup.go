@@ -33,18 +33,13 @@ type backupHandler struct {
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	stateWrapper, err := h.ctxt.validateEnvironUUID(req)
+	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		h.sendError(resp, err)
 		return
 	}
 
-	if err := stateWrapper.authenticateUser(req); err != nil {
-		h.sendError(resp, errUnauthorized)
-		return
-	}
-
-	backups, closer := newBackups(stateWrapper.state)
+	backups, closer := newBackups(st)
 	defer closer.Close()
 
 	switch req.Method {

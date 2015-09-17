@@ -14,6 +14,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"
@@ -175,7 +176,7 @@ func (s *macaroonAuthenticatorSuite) TestReturnDischargeRequiredErrorIfNoMacaroo
 		Macaroon:         mac,
 	}
 	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{})
-	c.Assert(err, gc.ErrorMatches, "discharge required")
+	c.Assert(err, gc.ErrorMatches, "verification failed: no macaroons")
 	dischargeErr, ok := err.(*authentication.DischargeRequiredError)
 	if !ok {
 		c.Fatalf("DischargeRequiredError expected")
@@ -215,7 +216,7 @@ func (s *macaroonAuthenticatorSuite) TestAuthenticateSuccess(c *gc.C) {
 	entity, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
 		Credentials: "",
 		Nonce:       "",
-		Macaroons:   ms,
+		Macaroons:   []macaroon.Slice{ms},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Tag(), gc.Equals, user.Tag())
@@ -249,7 +250,7 @@ func (s *macaroonAuthenticatorSuite) TestAuthenticateFailsWithNonExistentUser(c 
 	_, err = authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
 		Credentials: "",
 		Nonce:       "",
-		Macaroons:   ms,
+		Macaroons:   []macaroon.Slice{ms},
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 }
@@ -274,11 +275,7 @@ func (s *macaroonAuthenticatorSuite) TestInvalidUserName(c *gc.C) {
 		IdentityLocation: s.discharger.Location(),
 		Macaroon:         mac,
 	}
-	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{
-		Credentials: "",
-		Nonce:       "",
-		Macaroons:   nil,
-	})
+	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{})
 	dischargeErr := err.(*authentication.DischargeRequiredError)
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(dischargeErr.Macaroon)
@@ -286,7 +283,7 @@ func (s *macaroonAuthenticatorSuite) TestInvalidUserName(c *gc.C) {
 	entity, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
 		Credentials: "",
 		Nonce:       "",
-		Macaroons:   ms,
+		Macaroons:   []macaroon.Slice{ms},
 	})
 	c.Assert(err, gc.ErrorMatches, `"--" is an invalid user name`)
 	c.Assert(entity, gc.IsNil)

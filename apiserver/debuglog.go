@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -79,30 +78,26 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
-			stateWrapper, err := h.ctxt.validateEnvironUUID(req)
+			st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 			if err != nil {
 				socket.sendError(err)
 				return
 			}
-			if err := stateWrapper.authenticateUser(req); err != nil {
-				socket.sendError(fmt.Errorf("auth failed: %v", err))
-				return
-			}
-
 			params, err := readDebugLogParams(req.URL.Query())
 			if err != nil {
 				socket.sendError(err)
 				return
 			}
 
-			if err := h.handle(stateWrapper.state, params, socket, h.stop); err != nil {
+			if err := h.handle(st, params, socket, h.stop); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("debug-log handler stopped (client disconnected)")
 				} else {
 					logger.Errorf("debug-log handler error: %v", err)
 				}
 			}
-		}}
+		},
+	}
 	server.ServeHTTP(w, req)
 }
 
