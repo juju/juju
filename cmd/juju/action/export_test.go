@@ -15,6 +15,7 @@ var (
 	NewActionAPIClient = &newAPIClient
 	NewFetchCommand    = newFetchCommand
 	NewStatusCommand   = newStatusCommand
+	AddValueToMap      = addValueToMap
 )
 
 type DoCommand struct {

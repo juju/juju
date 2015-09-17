@@ -8,8 +8,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -326,11 +326,10 @@ func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 			newDeploy,
 			overwriteState,
 			operation.State{
-				Kind:             operation.Upgrade,
-				Step:             operation.Pending,
-				CharmURL:         curl("cs:quantal/nyancat-4"),
-				Started:          true,
-				UpdateStatusTime: 1234567,
+				Kind:     operation.Upgrade,
+				Step:     operation.Pending,
+				CharmURL: curl("cs:quantal/nyancat-4"),
+				Started:  true,
 			},
 		)
 	}
@@ -527,11 +526,10 @@ func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 			newDeploy,
 			overwriteState,
 			operation.State{
-				Kind:             operation.Upgrade,
-				Step:             operation.Done,
-				CharmURL:         curl("cs:quantal/lol-1"),
-				Started:          true,
-				UpdateStatusTime: 1234567,
+				Kind:     operation.Upgrade,
+				Step:     operation.Done,
+				CharmURL: curl("cs:quantal/lol-1"),
+				Started:  true,
 			},
 		)
 	}

@@ -4,12 +4,13 @@
 package collect_test
 
 import (
+	"runtime"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/worker/metrics/collect"
 )
@@ -62,5 +63,9 @@ func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(varMap["JUJU_AGENT_SOCKET"], gc.Equals, "/dummy/jujuc.sock")
 	c.Assert(varMap["JUJU_UNIT_NAME"], gc.Equals, "u/0")
-	c.Assert(varMap["PATH"], gc.Not(gc.Equals), "")
+	key := "PATH"
+	if runtime.GOOS == "windows" {
+		key = "Path"
+	}
+	c.Assert(varMap[key], gc.Not(gc.Equals), "")
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/paths"
@@ -30,7 +29,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/proxyupdater"
 )
 
@@ -101,7 +99,7 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
 		return newDummyWorker()
 	})
-	s.PatchValue(&newMetadataUpdater, func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+	s.PatchValue(&newMetadataUpdater, func(cl *imagemetadata.Client) worker.Worker {
 		return worker.NewNoOpWorker()
 	})
 }

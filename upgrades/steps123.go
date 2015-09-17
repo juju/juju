@@ -4,10 +4,7 @@
 package upgrades
 
 import (
-	"github.com/juju/names"
-
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/uniter"
 )
 
 // stateStepsFor123 returns upgrade steps for Juju 1.23 that manipulate state directly.
@@ -86,19 +83,6 @@ func stepsFor123() []Step {
 			description: "add environment UUID to agent config",
 			targets:     []Target{AllMachines},
 			run:         addEnvironmentUUIDToAgentConfig,
-		},
-		&upgradeStep{
-			description: "add Stopped field to uniter state",
-			targets:     []Target{AllMachines},
-			run: func(context Context) error {
-				config := context.AgentConfig()
-				tag, ok := config.Tag().(names.UnitTag)
-				if !ok {
-					// not a Unit; skipping
-					return nil
-				}
-				return uniter.AddStoppedFieldToUniterState(tag, config.DataDir())
-			},
 		},
 	}
 }

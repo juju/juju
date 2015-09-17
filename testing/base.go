@@ -43,12 +43,6 @@ type JujuOSEnvSuite struct {
 	oldRegEntryValue    string
 }
 
-func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
-}
-
-func (s *JujuOSEnvSuite) TearDownSuite(c *gc.C) {
-}
-
 func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
@@ -65,14 +59,19 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	utils.SetHome("")
 
 	// Update the feature flag set to be the requested initial set.
-	s.setUpFeatureFlags(c)
+	// This works for both windows and unix, even though normally
+	// the feature flags on windows are determined using the registry.
+	// For tests, setting with the environment variable isolates us
+	// from a single resource that was hitting contention during parallel
+	// test runs.
+	os.Setenv(osenv.JujuFeatureFlagEnvKey, s.initialFeatureFlags)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
-	s.tearDownFeatureFlags(c)
 	utils.SetHome(s.oldHomeEnv)
 	osenv.SetJujuHome(s.oldJujuHome)
 }
@@ -134,12 +133,12 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
-	s.JujuOSEnvSuite.SetUpSuite(c)
+	// JujuOSEnvSuite does not have a suite setup.
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
-	s.JujuOSEnvSuite.TearDownSuite(c)
+	// JujuOSEnvSuite does not have a suite teardown.
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }

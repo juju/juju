@@ -8,8 +8,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -292,7 +292,11 @@ func nextRelationHook(
 		if !found {
 			continue
 		}
-		if remoteChangeVersion > localChangeVersion {
+		// NOTE(axw) we use != and not > to cater due to the
+		// use of the relation settings document's txn-revno
+		// as the version. When env-uuid migration occurs, the
+		// document is recreated, resetting txn-revno.
+		if remoteChangeVersion != localChangeVersion {
 			return hook.Info{
 				Kind:          hooks.RelationChanged,
 				RelationId:    relationId,

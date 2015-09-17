@@ -185,15 +185,15 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now turn it off.
-	current := e.(testing.SpacesEnabler).SetSupportsSpaces(false)
-	c.Assert(current, jc.IsTrue)
+	isEnabled := dummy.SetSupportsSpaces(false)
+	c.Assert(isEnabled, jc.IsTrue)
 	ok, err = e.SupportsSpaces()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 
 	// And finally turn it on again.
-	current = e.(testing.SpacesEnabler).SetSupportsSpaces(current)
-	c.Assert(current, jc.IsFalse)
+	isEnabled = dummy.SetSupportsSpaces(true)
+	c.Assert(isEnabled, jc.IsFalse)
 	ok, err = e.SupportsSpaces()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)

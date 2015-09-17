@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -51,8 +53,9 @@ func (s *baseImageMetadataSuite) assertCalls(c *gc.C, expectedCalls []string) {
 }
 
 const (
-	findMetadata = "findMetadata"
-	saveMetadata = "saveMetadata"
+	findMetadata  = "findMetadata"
+	saveMetadata  = "saveMetadata"
+	environConfig = "environConfig"
 )
 
 func (s *baseImageMetadataSuite) constructState(c *gc.C) *mockState {
@@ -65,12 +68,17 @@ func (s *baseImageMetadataSuite) constructState(c *gc.C) *mockState {
 			s.calls = append(s.calls, saveMetadata)
 			return nil
 		},
+		environConfig: func() (*config.Config, error) {
+			s.calls = append(s.calls, environConfig)
+			return testConfig(), nil
+		},
 	}
 }
 
 type mockState struct {
-	findMetadata func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error)
-	saveMetadata func(m cloudimagemetadata.Metadata) error
+	findMetadata  func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error)
+	saveMetadata  func(m cloudimagemetadata.Metadata) error
+	environConfig func() (*config.Config, error)
 }
 
 func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
@@ -79,4 +87,16 @@ func (st *mockState) FindMetadata(f cloudimagemetadata.MetadataFilter) (map[clou
 
 func (st *mockState) SaveMetadata(m cloudimagemetadata.Metadata) error {
 	return st.saveMetadata(m)
+}
+
+func (st *mockState) EnvironConfig() (*config.Config, error) {
+	return st.environConfig()
+}
+
+func testConfig() *config.Config {
+	attrs := dummy.SampleConfig().Merge(coretesting.Attrs{
+		"type": "nonex",
+	})
+	cfg, _ := config.New(config.NoDefaults, attrs)
+	return cfg
 }

@@ -5,8 +5,8 @@ package resolver
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker/charmdir"

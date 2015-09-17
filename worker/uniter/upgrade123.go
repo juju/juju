@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/operation"
 )
@@ -23,7 +23,7 @@ func AddStoppedFieldToUniterState(tag names.UnitTag, dataDir string) error {
 	case nil:
 		return performUpgrade(opsFile, state)
 	case operation.ErrNoStateFile:
-		logger.Warningf("no uniter state file found for unit %s, skipping uniter upgrade step", tag)
+		logger.Debugf("no uniter state file found for unit %s, skipping uniter upgrade step", tag)
 		return nil
 	default:
 		return err

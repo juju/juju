@@ -63,6 +63,9 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		// TODO(dimitern): Accept --public|--private and pass it here.
 		err := api.CreateSpace(c.Name, subnetIds, true)
 		if err != nil {
+			if errors.IsNotSupported(err) {
+				ctx.Infof("cannot create space %q: %v", c.Name, err)
+			}
 			return errors.Annotatef(err, "cannot create space %q", c.Name)
 		}
 

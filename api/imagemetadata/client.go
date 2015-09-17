@@ -57,3 +57,13 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) ([]params.ErrorResul
 	}
 	return out.Results, nil
 }
+
+// UpdateFromPublishedImages retrieves currently published image metadata and
+// updates stored ones accordingly.
+// This method is primarily intended for a worker.
+func (c *Client) UpdateFromPublishedImages() error {
+	// TODO(wallyworld) - this is a temp "fix" to unblock master lp:1495542
+	return nil
+	//	return errors.Trace(
+	//		c.facade.FacadeCall("UpdateFromPublishedImages", nil, nil))
+}
