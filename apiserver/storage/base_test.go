@@ -51,10 +51,10 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 	s.calls = []string{}
-	s.state = s.constructState(c)
+	s.state = s.constructState()
 
 	s.pools = make(map[string]*jujustorage.Config)
-	s.poolManager = s.constructPoolManager(c)
+	s.poolManager = s.constructPoolManager()
 
 	var err error
 	s.api, err = storage.CreateAPI(s.state, s.poolManager, s.resources, s.authorizer)
@@ -85,7 +85,7 @@ const (
 	getBlockForTypeCall                     = "getBlockForType"
 )
 
-func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
+func (s *baseStorageSuite) constructState() *mockState {
 	s.unitTag = names.NewUnitTag("mysql/0")
 	s.storageTag = names.NewStorageTag("data/0")
 
@@ -122,49 +122,66 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 		},
 		storageInstance: func(sTag names.StorageTag) (state.StorageInstance, error) {
 			s.calls = append(s.calls, storageInstanceCall)
-			c.Assert(sTag, gc.DeepEquals, s.storageTag)
-			return s.storageInstance, nil
+			if sTag == s.storageTag {
+				return s.storageInstance, nil
+			}
+			return nil, errors.NotFoundf("%s", names.ReadableString(sTag))
 		},
 		storageInstanceAttachments: func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 			s.calls = append(s.calls, storageInstanceAttachmentsCall)
-			c.Assert(tag, gc.DeepEquals, s.storageTag)
-			return []state.StorageAttachment{storageInstanceAttachment}, nil
+			if tag == s.storageTag {
+				return []state.StorageAttachment{storageInstanceAttachment}, nil
+			}
+			return nil, errors.NotFoundf("%s", names.ReadableString(tag))
 		},
 		storageInstanceFilesystem: func(sTag names.StorageTag) (state.Filesystem, error) {
 			s.calls = append(s.calls, storageInstanceFilesystemCall)
-			c.Assert(sTag, gc.DeepEquals, s.storageTag)
-			return s.filesystem, nil
+			if sTag == s.storageTag {
+				return s.filesystem, nil
+			}
+			return nil, errors.NotFoundf("%s", names.ReadableString(sTag))
 		},
 		storageInstanceFilesystemAttachment: func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
 			s.calls = append(s.calls, storageInstanceFilesystemAttachmentCall)
-			c.Assert(m, gc.DeepEquals, s.machineTag)
-			c.Assert(f, gc.DeepEquals, s.filesystemTag)
-			return s.filesystemAttachment, nil
+			if m == s.machineTag && f == s.filesystemTag {
+				return s.filesystemAttachment, nil
+			}
+			return nil, errors.NotFoundf("filesystem attachment %s:%s", m, f)
 		},
 		storageInstanceVolume: func(t names.StorageTag) (state.Volume, error) {
 			s.calls = append(s.calls, storageInstanceVolumeCall)
-			c.Assert(t, gc.DeepEquals, s.storageTag)
-			return s.volume, nil
+			if t == s.storageTag {
+				return s.volume, nil
+			}
+			return nil, errors.NotFoundf("%s", names.ReadableString(t))
 		},
 		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
 			s.calls = append(s.calls, unitAssignedMachineCall)
-			c.Assert(u, gc.DeepEquals, s.unitTag)
-			return s.machineTag, nil
+			if u == s.unitTag {
+				return s.machineTag, nil
+			}
+			return names.MachineTag{}, errors.NotFoundf("%s", names.ReadableString(u))
 		},
 		volume: func(tag names.VolumeTag) (state.Volume, error) {
 			s.calls = append(s.calls, volumeCall)
-			c.Assert(tag, gc.DeepEquals, s.volumeTag)
-			return s.volume, nil
+			if tag == s.volumeTag {
+				return s.volume, nil
+			}
+			return nil, errors.NotFoundf("%s", names.ReadableString(tag))
 		},
 		machineVolumeAttachments: func(machine names.MachineTag) ([]state.VolumeAttachment, error) {
 			s.calls = append(s.calls, machineVolumeAttachmentsCall)
-			c.Assert(machine, gc.DeepEquals, s.machineTag)
-			return []state.VolumeAttachment{s.volumeAttachment}, nil
+			if machine == s.machineTag {
+				return []state.VolumeAttachment{s.volumeAttachment}, nil
+			}
+			return nil, nil
 		},
 		volumeAttachments: func(volume names.VolumeTag) ([]state.VolumeAttachment, error) {
 			s.calls = append(s.calls, volumeAttachmentsCall)
-			c.Assert(volume, gc.DeepEquals, s.volumeTag)
-			return []state.VolumeAttachment{s.volumeAttachment}, nil
+			if volume == s.volumeTag {
+				return []state.VolumeAttachment{s.volumeAttachment}, nil
+			}
+			return nil, nil
 		},
 		allVolumes: func() ([]state.Volume, error) {
 			s.calls = append(s.calls, allVolumesCall)
@@ -172,18 +189,24 @@ func (s *baseStorageSuite) constructState(c *gc.C) *mockState {
 		},
 		filesystem: func(tag names.FilesystemTag) (state.Filesystem, error) {
 			s.calls = append(s.calls, filesystemCall)
-			c.Assert(tag, gc.DeepEquals, s.filesystemTag)
-			return s.filesystem, nil
+			if tag == s.filesystemTag {
+				return s.filesystem, nil
+			}
+			return nil, errors.NotFoundf("%s", names.ReadableString(tag))
 		},
 		machineFilesystemAttachments: func(machine names.MachineTag) ([]state.FilesystemAttachment, error) {
 			s.calls = append(s.calls, machineFilesystemAttachmentsCall)
-			c.Assert(machine, gc.DeepEquals, s.machineTag)
-			return []state.FilesystemAttachment{s.filesystemAttachment}, nil
+			if machine == s.machineTag {
+				return []state.FilesystemAttachment{s.filesystemAttachment}, nil
+			}
+			return nil, nil
 		},
 		filesystemAttachments: func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error) {
 			s.calls = append(s.calls, filesystemAttachmentsCall)
-			c.Assert(filesystem, gc.DeepEquals, s.filesystemTag)
-			return []state.FilesystemAttachment{s.filesystemAttachment}, nil
+			if filesystem == s.filesystemTag {
+				return []state.FilesystemAttachment{s.filesystemAttachment}, nil
+			}
+			return nil, nil
 		},
 		allFilesystems: func() ([]state.Filesystem, error) {
 			s.calls = append(s.calls, allFilesystemsCall)
@@ -226,7 +249,7 @@ func (s *baseStorageSuite) assertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
-func (s *baseStorageSuite) constructPoolManager(c *gc.C) *mockPoolManager {
+func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {
 	return &mockPoolManager{
 		getPool: func(name string) (*jujustorage.Config, error) {
 			if one, ok := s.pools[name]; ok {

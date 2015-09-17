@@ -7,7 +7,6 @@ package storage
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
@@ -19,8 +18,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/registry"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.storage")
 
 func init() {
 	common.RegisterStandardFacade("Storage", 1, NewAPI)
