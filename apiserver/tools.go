@@ -36,14 +36,10 @@ type toolsDownloadHandler struct {
 	ctxt httpContext
 }
 
-func (h *toolsDownloadHandler) sendError(w http.ResponseWriter, statusCode int, err error) {
-	h.ctxt.sendError(w, statusCode, err)
-}
-
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
-		h.ctxt.sendError(w, http.StatusNotFound, err)
+		sendError(w, err)
 		return
 	}
 
@@ -52,12 +48,12 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		tarball, err := h.processGet(r, stateWrapper.state)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			h.ctxt.sendError(w, http.StatusBadRequest, err)
+			sendError(w, errors.NewBadRequest(err, ""))
 			return
 		}
 		h.sendTools(w, http.StatusOK, tarball)
 	default:
-		h.ctxt.sendError(w, http.StatusMethodNotAllowed, errors.Errorf("unsupported method: %q", r.Method))
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}
 }
 
@@ -66,12 +62,12 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// on the state connection that is determined during the validation.
 	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
-		h.ctxt.sendError(w, http.StatusNotFound, err)
+		sendError(w, err)
 		return
 	}
 
 	if err := stateWrapper.authenticateUser(r); err != nil {
-		h.ctxt.authError(w, h)
+		sendError(w, errUnauthorized)
 		return
 	}
 
@@ -80,12 +76,12 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Add tools to storage.
 		agentTools, err := h.processPost(r, stateWrapper.state)
 		if err != nil {
-			h.sendError(w, http.StatusBadRequest, err)
+			sendError(w, err)
 			return
 		}
-		h.ctxt.sendJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
+		sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
 	default:
-		h.ctxt.sendError(w, http.StatusMethodNotAllowed, errors.Errorf("unsupported method: %q", r.Method))
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}
 }
 
@@ -182,13 +178,9 @@ func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, 
 	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(tarball); err != nil {
-		h.ctxt.sendError(w, http.StatusBadRequest, errors.Annotatef(err, "failed to write tools"))
+		sendError(w, errors.NewBadRequest(errors.Annotatef(err, "failed to write tools"), ""))
 		return
 	}
-}
-
-func (h *toolsUploadHandler) sendError(w http.ResponseWriter, statusCode int, err error) {
-	h.ctxt.sendError(w, statusCode, err)
 }
 
 // processPost handles a tools upload POST request after authentication.
@@ -197,23 +189,23 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 
 	binaryVersionParam := query.Get("binaryVersion")
 	if binaryVersionParam == "" {
-		return nil, errors.New("expected binaryVersion argument")
+		return nil, errors.BadRequestf("expected binaryVersion argument")
 	}
 	toolsVersion, err := version.ParseBinary(binaryVersionParam)
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid tools version %q", binaryVersionParam)
+		return nil, errors.NewBadRequest(err, fmt.Sprintf("invalid tools version %q", binaryVersionParam))
 	}
 
 	// Make sure the content type is x-tar-gz.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/x-tar-gz" {
-		return nil, errors.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
+		return nil, errors.BadRequestf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
 
 	// Get the server root, so we know how to form the URL in the Tools returned.
 	serverRoot, err := h.getServerRoot(r, query, st)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot to determine server root")
+		return nil, errors.NewBadRequest(err, "cannot to determine server root")
 	}
 
 	// We'll clone the tools for each additional series specified.
@@ -263,7 +255,7 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 		return nil, err
 	}
 	if len(data) == 0 {
-		return nil, errors.New("no tools uploaded")
+		return nil, errors.BadRequestf("no tools uploaded")
 	}
 
 	// TODO(wallyworld): check integrity of tools tarball.

@@ -117,7 +117,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestBlockEnsureAvailability(c *gc.C) {
-	s.fake.err = common.ErrOperationBlocked("TestBlockEnsureAvailability")
+	s.fake.err = common.OperationBlockedError("TestBlockEnsureAvailability")
 	_, err := s.runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 

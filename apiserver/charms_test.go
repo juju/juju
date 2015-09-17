@@ -511,10 +511,10 @@ func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, ex
 }
 
 func assertResponse(c *gc.C, resp *http.Response, expCode int, expContentType string) []byte {
-	c.Check(resp.StatusCode, gc.Equals, expCode)
 	body, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
+	resp.Body.Close()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resp.StatusCode, gc.Equals, expCode, gc.Commentf("body: %s", body))
 	ctype := resp.Header.Get("Content-Type")
 	c.Assert(ctype, gc.Equals, expContentType)
 	return body

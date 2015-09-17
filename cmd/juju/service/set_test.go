@@ -142,7 +142,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockSetConfig")
+	s.fake.err = common.OperationBlockedError("TestBlockSetConfig")
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(service.NewSetCommandWithAPI(s.fake), ctx, []string{
 		"dummy-service",

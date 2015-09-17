@@ -832,6 +832,7 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		return nil, errors.Annotate(err, "cannot read tools upload response")
 	}
 	if resp.StatusCode != http.StatusOK {
+		// TODO (2015/09/15, bug #1499277) parse as JSON not as text.
 		message := fmt.Sprintf("%s", bytes.TrimSpace(body))
 		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, params.CodeOperationBlocked) {
 			// Operation Blocked errors must contain correct error code and message.

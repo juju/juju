@@ -264,7 +264,7 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 	syncTools = func(sctx *sync.SyncContext) error {
 		// Block operation
-		return common.ErrOperationBlocked("TestAPIAdapterBlockUploadTools")
+		return common.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
 	_, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", c.MkDir(), "--stream", "released")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())

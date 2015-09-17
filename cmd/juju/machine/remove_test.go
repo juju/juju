@@ -91,7 +91,7 @@ func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
-	s.fake.removeError = common.ErrOperationBlocked("TestBlockedError")
+	s.fake.removeError = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsFalse)
@@ -101,7 +101,7 @@ func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
-	s.fake.removeError = common.ErrOperationBlocked("TestForceBlockedError")
+	s.fake.removeError = common.OperationBlockedError("TestForceBlockedError")
 	_, err := s.run(c, "--force", "1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsTrue)

@@ -68,7 +68,7 @@ func (s *SetSuite) TestSettingKnownValue(c *gc.C) {
 }
 
 func (s *SetSuite) TestBlockedError(c *gc.C) {
-	s.fake.err = common.ErrOperationBlocked("TestBlockedError")
+	s.fake.err = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "special=extra")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged

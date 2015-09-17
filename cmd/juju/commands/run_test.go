@@ -443,7 +443,7 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	var result []params.RunResult
 
 	if m.block {
-		return result, common.ErrOperationBlocked("The operation has been blocked.")
+		return result, common.OperationBlockedError("the operation has been blocked")
 	}
 	sortedMachineIds := make([]string, 0, len(m.machines))
 	for machineId := range m.machines {
@@ -467,7 +467,7 @@ func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.RunResult, error)
 	var result []params.RunResult
 
 	if m.block {
-		return result, common.ErrOperationBlocked("The operation has been blocked.")
+		return result, common.OperationBlockedError("the operation has been blocked")
 	}
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {

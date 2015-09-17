@@ -141,7 +141,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 
 func (s *ConstraintsCommandsSuite) TestBlockSetEnviron(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockSetEnviron")
+	s.fake.err = common.OperationBlockedError("TestBlockSetEnviron")
 	// Set constraints.
 	s.assertSetBlocked(c, "mem=4G", "cpu-power=250")
 }
@@ -167,7 +167,7 @@ func (s *ConstraintsCommandsSuite) TestBlockSetService(c *gc.C) {
 	s.fake.addTestingService("svc")
 
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockSetService")
+	s.fake.err = common.OperationBlockedError("TestBlockSetService")
 	// Set constraints.
 	s.assertSetBlocked(c, "-s", "svc", "mem=4G", "cpu-power=250")
 }

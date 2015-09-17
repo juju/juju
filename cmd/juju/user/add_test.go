@@ -149,7 +149,7 @@ type mockAddUserAPI struct {
 
 func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, error) {
 	if m.blocked {
-		return names.UserTag{}, common.ErrOperationBlocked("The operation has been blocked.")
+		return names.UserTag{}, common.OperationBlockedError("the operation has been blocked")
 	}
 
 	m.username = username

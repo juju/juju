@@ -24,6 +24,7 @@ import (
 	ziputil "github.com/juju/utils/zip"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/state"
@@ -43,24 +44,24 @@ type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
-		h.sendError(w, http.StatusNotFound, err)
+		h.sendError(w, err)
 		return
 	}
 
 	switch r.Method {
 	case "POST":
 		if err := stateWrapper.authenticateUser(r); err != nil {
-			h.ctxt.authError(w, h)
+			h.sendError(w, errUnauthorized)
 			return
 		}
 		// Add a local charm to the store provider.
 		// Requires a "series" query specifying the series to use for the charm.
 		charmURL, err := h.processPost(r, stateWrapper.state)
 		if err != nil {
-			h.sendError(w, http.StatusBadRequest, err)
+			h.sendError(w, errors.NewBadRequest(err, ""))
 			return
 		}
-		h.ctxt.sendJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
+		sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
 	case "GET":
 		// Retrieve or list charm files.
 		// Requires "url" (charm URL) and an optional "file" (the path to the
@@ -68,9 +69,9 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if charmArchivePath, filePath, err := h.processGet(r, stateWrapper.state); err != nil {
 			// An error occurred retrieving the charm bundle.
 			if errors.IsNotFound(err) {
-				h.sendError(w, http.StatusNotFound, err)
+				h.sendError(w, err)
 			} else {
-				h.sendError(w, http.StatusBadRequest, err)
+				h.sendError(w, errors.NewBadRequest(err, ""))
 			}
 		} else if filePath == "" {
 			// The client requested the list of charm files.
@@ -83,7 +84,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sendBundleContent(w, r, charmArchivePath, h.archiveEntrySender(filePath))
 		}
 	default:
-		h.sendError(w, http.StatusMethodNotAllowed, errors.Errorf("unsupported method: %q", r.Method))
+		h.sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}
 }
 
@@ -111,9 +112,10 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 			http.StatusInternalServerError)
 		return
 	}
-	h.ctxt.sendJSON(w, http.StatusOK, &params.CharmsResponse{
+	sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{
 		Files: manifest.SortedValues(),
 	})
+
 }
 
 // archiveEntrySender returns a bundleContentSenderFunc which is responsible for
@@ -171,10 +173,16 @@ func (h *charmsHandler) archiveSender(w http.ResponseWriter, r *http.Request, bu
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, err error) {
-	h.ctxt.sendJSON(w, statusCode, &params.CharmsResponse{
+// Note the difference from the error response sent by
+// the sendError function - the error is encoded in the
+// Error field as a string, not an Error object.
+func (h *charmsHandler) sendError(w http.ResponseWriter, err error) {
+	err, status := common.ServerErrorAndStatus(err)
+	// Unfortunately there's no way to send the error code back.
+	sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error: err.Error(),
 	})
+
 }
 
 // processPost handles a charm upload POST request after authentication.

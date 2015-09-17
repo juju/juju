@@ -28,9 +28,7 @@ func handleDebugLogDBRequest(
 	defer tailer.Stop()
 
 	// Indicate that all is well.
-	if err := socket.sendOk(); err != nil {
-		return errors.Trace(err)
-	}
+	socket.sendOk()
 
 	var lineCount uint
 	for {

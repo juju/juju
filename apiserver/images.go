@@ -16,9 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/fslock"
 
-	"github.com/juju/juju/apiserver/common"
 	apihttp "github.com/juju/juju/apiserver/http"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -35,7 +33,7 @@ type imagesDownloadHandler struct {
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
 	if err != nil {
-		h.sendError(w, http.StatusNotFound, err)
+		sendError(w, err)
 		return
 	}
 	switch r.Method {
@@ -43,20 +41,12 @@ func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		err := h.processGet(r, w, stateWrapper.state)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			h.sendError(w, http.StatusInternalServerError, err)
+			sendError(w, err)
 			return
 		}
 	default:
-		h.sendError(w, http.StatusMethodNotAllowed, errors.Errorf("unsupported method: %q", r.Method))
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}
-}
-
-// sendError sends a JSON-encoded error response.
-func (h *imagesDownloadHandler) sendError(w http.ResponseWriter, statusCode int, err error) {
-	logger.Debugf("sending error: %v %v", statusCode, err)
-	h.ctxt.sendJSON(w, statusCode, &params.ErrorResult{
-		Error: common.ServerError(err),
-	})
 }
 
 // processGet handles an image GET request.

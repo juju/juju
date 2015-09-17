@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"golang.org/x/net/websocket"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -79,31 +79,20 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// validation.
 			stateWrapper, err := h.ctxt.validateEnvironUUID(req)
 			if err != nil {
-				if errErr := h.sendError(socket, err); errErr != nil {
-					// Log at DEBUG so that in a standard environment
-					// logs cant't fill up with auth errors for
-					// unauthenticated connections.
-					logger.Debugf("error sending logsink error: %v", errErr)
-				}
+				h.sendError(socket, err)
 				return
 			}
 
 			tag, err := stateWrapper.authenticateAgent(req)
 			if err != nil {
-				if errErr := h.sendError(socket, errors.Errorf("auth failed: %v", err)); errErr != nil {
-					// DEBUG used as above.
-					logger.Debugf("error sending logsink error: %v", errErr)
-				}
+				h.sendError(socket, errors.Errorf("auth failed: %v", err))
 				return
 			}
 
 			// If we get to here, no more errors to report, so we report a nil
 			// error.  This way the first line of the socket is always a json
 			// formatted simple error.
-			if err := h.sendError(socket, nil); err != nil {
-				logger.Errorf("failed to send nil error at start of connection")
-				return
-			}
+			h.sendError(socket, nil)
 
 			st := stateWrapper.state
 			filePrefix := st.EnvironUUID() + " " + tag.String() + ":"
@@ -137,20 +126,10 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *logSinkHandler) sendError(w io.Writer, err error) error {
-	response := &params.ErrorResult{}
-	if err != nil {
-		response.Error = &params.Error{Message: err.Error()}
-	}
-	message, err := json.Marshal(response)
-	if err != nil {
-		// If we are having trouble marshalling the error, we are in big trouble.
-		logger.Errorf("failure to marshal SimpleError: %v", err)
-		return errors.Trace(err)
-	}
-	message = append(message, []byte("\n")...)
-	_, err = w.Write(message)
-	return errors.Trace(err)
+func (h *logSinkHandler) sendError(w io.Writer, err error) {
+	sendJSON(w, &params.ErrorResult{
+		Error: common.ServerError(err),
+	})
 }
 
 // logToFile writes a single log message to the logsink log file.

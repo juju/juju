@@ -76,17 +76,20 @@ var (
 	ErrBadRequest         = stderrors.New("invalid request")
 	ErrTryAgain           = stderrors.New("try again")
 	ErrActionNotAvailable = stderrors.New("action no longer available")
-
-	ErrOperationBlocked = func(msg string) *params.Error {
-		if msg == "" {
-			msg = "The operation has been blocked."
-		}
-		return &params.Error{
-			Code:    params.CodeOperationBlocked,
-			Message: msg,
-		}
-	}
 )
+
+// OperationBlockedError returns an error which signifies that
+// an operation has been blocked; the message should describe
+// what has been blocked.
+func OperationBlockedError(msg string) error {
+	if msg == "" {
+		msg = "the operation has been blocked"
+	}
+	return &params.Error{
+		Code:    params.CodeOperationBlocked,
+		Message: msg,
+	}
+}
 
 var singletonErrorCodes = map[error]string{
 	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
@@ -134,6 +137,10 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusBadRequest
 	case params.CodeMethodNotAllowed:
 		status = http.StatusMethodNotAllowed
+	case params.CodeOperationBlocked:
+		// This should really be http.StatusForbidden but earlier versions
+		// of juju clients rely on the 400 status, so we leave it like that.
+		status = http.StatusBadRequest
 	}
 	return err1, status
 }

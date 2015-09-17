@@ -50,7 +50,7 @@ func (s *UnsetSuite) TestUnsettingKnownValue(c *gc.C) {
 }
 
 func (s *UnsetSuite) TestBlockedError(c *gc.C) {
-	s.fake.err = common.ErrOperationBlocked("TestBlockedError")
+	s.fake.err = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "special")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged
