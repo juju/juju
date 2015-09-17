@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func newDebugLogFileHandler(statePool *state.StatePool, stop <-chan struct{}, logDir string) http.Handler {
+func newDebugLogFileHandler(ctxt httpContext, stop <-chan struct{}, logDir string) http.Handler {
 	fileHandler := &debugLogFileHandler{logDir: logDir}
-	return newDebugLogHandler(statePool, stop, fileHandler.handle)
+	return newDebugLogHandler(ctxt, stop, fileHandler.handle)
 }
 
 // debugLogFileHandler handles requests to watch all-machines.log.

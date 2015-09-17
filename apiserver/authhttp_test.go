@@ -49,7 +49,7 @@ func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
 
 func (s *authHttpSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
 	body := assertResponse(c, resp, expCode, apihttp.CTypeJSON)
-	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
+	c.Check(jsonCharmsResponse(c, body).Error, gc.Matches, expError)
 }
 
 func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
