@@ -158,6 +158,9 @@ func runUpgrades(tag names.Tag, dataDir string) {
 	if err := uniter.AddStoppedFieldToUniterState(unitTag, dataDir); err != nil {
 		logger.Errorf("Upgrade step failed - add Stopped field to uniter state: %v", err)
 	}
+	if err := uniter.AddInstalledToUniterState(unitTag, dataDir); err != nil {
+		logger.Errorf("Upgrade step failed - installed boolean needs to be set in the uniter local state: %v", err)
+	}
 }
 
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
