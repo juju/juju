@@ -15,7 +15,7 @@ def start_job(root, job, juju_bin, user, password, number):
     """Use Jenkins API to start a job."""
     jenkins = Jenkins('http://localhost:8080', user, password)
     token = get_auth_token(root, job)
-    job_params = {'juju_bin': juju_bin, 'series_number': number}
+    job_params = {'juju_bin': juju_bin, 'sequence_number': number}
     jenkins.build_job(job, job_params, token=token)
 
 

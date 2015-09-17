@@ -52,7 +52,8 @@ class TestStartJob(TestCase):
             start_job(root, 'foo', '/some/path', 'me', 'pw', 1)
         j_mock.assert_called_once_with('http://localhost:8080', 'me', 'pw')
         calls = j_mock.return_value.build_job.mock_calls
-        expected = [call('foo', {'juju_bin': '/some/path', 'series_number': 1},
+        expected = [call('foo', {'juju_bin': '/some/path',
+                         'sequence_number': 1},
                     token='token_str')]
         self.assertEqual(calls, expected)
 
