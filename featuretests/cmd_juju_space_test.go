@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	cmdspace "github.com/juju/juju/cmd/juju/space"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -86,9 +87,29 @@ func (s *cmdSpaceSuite) RunCreate(c *gc.C, expectedError string, args ...string)
 	return s.Run(c, createCommand, expectedError, args...)
 }
 
+func (s *cmdSpaceSuite) RunList(c *gc.C, expectedError string, args ...string) *cmd.Context {
+	// To capture subcommand errors, we must *NOT* to run it through
+	// the supercommand, otherwise there error is logged and
+	// swallowed!
+	listCommand := envcmd.Wrap(&cmdspace.ListCommand{})
+	return s.Run(c, listCommand, expectedError, args...)
+}
+
 func (s *cmdSpaceSuite) AssertOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOut)
 	c.Assert(testing.Stderr(context), gc.Equals, expectedErr)
+}
+
+func (s *cmdSpaceSuite) TestSpaceCreateNotSupported(c *gc.C) {
+	isEnabled := dummy.SetSupportsSpaces(false)
+	defer dummy.SetSupportsSpaces(isEnabled)
+
+	expectedError := "cannot create space \"foo\": spaces not supported"
+	context := s.RunCreate(c, expectedError, "foo")
+	s.AssertOutput(c, context,
+		"", // No stdout output.
+		expectedError+"\n",
+	)
 }
 
 func (s *cmdSpaceSuite) TestSpaceCreateNoName(c *gc.C) {
@@ -197,4 +218,16 @@ func (s *cmdSpaceSuite) TestSpaceListMoreResults(c *gc.C) {
 	c.Assert(stdout, jc.Contains, "10.20.0.0/24:")
 	c.Assert(stdout, jc.Contains, "zones:")
 	c.Assert(stdout, jc.Contains, "zone1")
+}
+
+func (s *cmdSpaceSuite) TestSpaceListNotSupported(c *gc.C) {
+	isEnabled := dummy.SetSupportsSpaces(false)
+	defer dummy.SetSupportsSpaces(isEnabled)
+
+	expectedError := "cannot list spaces: spaces not supported"
+	context := s.RunList(c, expectedError)
+	s.AssertOutput(c, context,
+		"", // No stdout output.
+		expectedError+"\n",
+	)
 }
