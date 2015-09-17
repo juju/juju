@@ -241,16 +241,10 @@ func getUnitAddresses(st *State, unitName string) (string, string, error) {
 	publicAddress, err := u.PublicAddress()
 	if err != nil {
 		logger.Warningf("getting a public address for unit %q failed: %q", u.Name(), err)
-		if !network.IsNoAddress(err) {
-			return "", "", errors.Trace(err)
-		}
 	}
 	privateAddress, err := u.PrivateAddress()
 	if err != nil {
 		logger.Warningf("getting a private address for unit %q failed: %q", u.Name(), err)
-		if !network.IsNoAddress(err) {
-			return "", "", errors.Trace(err)
-		}
 	}
 	return publicAddress.Value, privateAddress.Value, nil
 }
