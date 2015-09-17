@@ -2,6 +2,9 @@ test:
 	TMPDIR=/tmp python -m unittest discover -vv ./tests
 lint:
 	flake8 *.py
+cover:
+	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
+	python -m coverage report
 clean:
 	find . -name '*.pyc' -delete
 apt-update:
