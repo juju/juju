@@ -32,17 +32,20 @@ const (
 	ItemDeleted
 )
 
+// settingsDoc is the mongo document representation for
+// a settings.
 type settingsDoc struct {
 	DocID    string `bson:"_id"`
 	EnvUUID  string `bson:"env-uuid"`
 	TxnRevno int64  `bson:"txn-revno"`
 
+	// Settings contains the settings. This must not be
+	// omitempty, or migration cannot work correctly.
+	Settings map[string]interface{} `bson:"settings"`
+
 	// Version is a version number for the settings,
 	// and is increased every time the settings change.
 	Version int64 `bson:"version"`
-
-	// Settings contains the settings.
-	Settings map[string]interface{}
 }
 
 // ItemChange represents the change of an item in a settings.
