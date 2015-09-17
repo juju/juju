@@ -1,5 +1,3 @@
-__metaclass__ = type
-
 from argparse import Namespace
 import os
 from unittest import TestCase
@@ -20,6 +18,9 @@ from jujupy import (
 from utility import (
     temp_dir,
 )
+
+
+__metaclass__ = type
 
 
 class TestDumping_env(TestCase):

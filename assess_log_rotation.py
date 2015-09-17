@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-__metaclass__ = type
-
 from argparse import ArgumentParser
 from datetime import datetime
 import logging
@@ -25,6 +23,9 @@ from jujupy import (
 from utility import (
     print_now,
 )
+
+
+__metaclass__ = type
 
 
 class LogRotateError(Exception):

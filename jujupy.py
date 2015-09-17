@@ -1,7 +1,5 @@
 from __future__ import print_function
 
-__metaclass__ = type
-
 from collections import defaultdict
 from contextlib import (
     contextmanager,
@@ -37,6 +35,9 @@ from utility import (
     temp_dir,
     until_timeout,
 )
+
+
+__metaclass__ = type
 
 
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
@@ -273,9 +274,9 @@ class EnvJujuClient:
             except subprocess.CalledProcessError as e:
                 stderr.seek(0)
                 e.stderr = stderr.read()
-                if ('Unable to connect to environment' in e.stderr
-                        or 'MissingOrIncorrectVersionHeader' in e.stderr
-                        or '307: Temporary Redirect' in e.stderr):
+                if ('Unable to connect to environment' in e.stderr or
+                        'MissingOrIncorrectVersionHeader' in e.stderr or
+                        '307: Temporary Redirect' in e.stderr):
                     raise CannotConnectEnv(e)
                 print('!!! ' + e.stderr)
                 raise

@@ -1,5 +1,3 @@
-__metaclass__ = type
-
 from contextlib import (
     contextmanager,
 )
@@ -23,6 +21,9 @@ from utility import (
     print_now,
     until_timeout,
 )
+
+
+__metaclass__ = type
 
 
 LIBVIRT_DOMAIN_RUNNING = 'running'
@@ -565,8 +566,8 @@ def run_instances(count, job_name, series):
             names = dict(describe_instances(machine_ids, env=environ))
             if '' not in names.values():
                 subprocess.check_call(
-                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
-                    + machine_ids, env=environ)
+                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name] +
+                    machine_ids, env=environ)
                 return names.items()
         except subprocess.CalledProcessError:
             subprocess.call(['euca-terminate-instances'] + machine_ids)

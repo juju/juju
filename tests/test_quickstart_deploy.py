@@ -14,7 +14,8 @@ from quickstart_deploy import QuickstartTest
 class TestQuickstartTest(TestCase):
 
     def test_from_args(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
+        def side_effect(x, y=None, debug=False):
+            return x, y
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -24,13 +25,18 @@ class TestQuickstartTest(TestCase):
                 )
         self.assertIs(type(quickstart), QuickstartTest)
         self.assertEqual(quickstart.client[0].environment, 'temp_env_name')
+        self.assertEqual(quickstart.client[0].config, {
+            'agent_url': None,
+            'series': None,
+            })
         self.assertIs(quickstart.client[1], '/foo/bin/juju')
         self.assertEqual(quickstart.bundle_path, '/tmp/bundle.yaml')
         self.assertEqual(quickstart.log_dir, '/tmp/tmp')
         self.assertEqual(quickstart.service_count, 2)
 
     def test_from_args_agent_url(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
+        def side_effect(x, y=None, debug=False):
+            return (x, y)
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -42,7 +48,8 @@ class TestQuickstartTest(TestCase):
                          'http://agent_url.com')
 
     def test_from_args_series(self):
-        side_effect = lambda x, y=None, debug=False: (x, y)
+        def side_effect(x, y=None, debug=False):
+            return (x, y)
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -63,6 +70,16 @@ class TestQuickstartTest(TestCase):
                     '/tmp/bundle.yaml', 2, debug_flag=True
                 )
         self.assertEqual(quickstart.client.debug, True)
+
+    def test_from_args_region(self):
+        with patch('jujupy.EnvJujuClient.get_version',
+                   side_effect=lambda x, juju_path=None: ''):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                quickstart = QuickstartTest.from_args(
+                    'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                    '/tmp/bundle.yaml', 2, region='region-foo')
+        self.assertEqual(quickstart.client.env.config['region'], 'region-foo')
 
     def test_run_finally(self):
         def fake_iter_steps():

@@ -1,7 +1,4 @@
 """Remote helper class for communicating with juju machines."""
-
-__metaclass__ = type
-
 import abc
 import logging
 import os
@@ -12,6 +9,9 @@ import winrm
 
 import jujupy
 import utility
+
+
+__metaclass__ = type
 
 
 def _remote_for_series(series):

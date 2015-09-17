@@ -195,7 +195,7 @@ class TestWaitForPort(TestCase):
                 'socket.getaddrinfo', autospec=True,
                 return_value=[('foo', 'bar', 'baz', 'qux', ('0.0.0.0', 27))]
                 ) as gai_mock:
-            with patch('socket.socket', autospec=True) as socket_mock:
+            with patch('socket.socket') as socket_mock:
                 wait_for_port('asdf', 26, closed=True)
         gai_mock.assert_called_once_with('asdf', 26, socket.AF_INET,
                                          socket.SOCK_STREAM)
@@ -213,7 +213,7 @@ class TestWaitForPort(TestCase):
 
         with patch('socket.getaddrinfo', autospec=True, side_effect=gai_stub,
                    ) as gai_mock:
-            with patch('socket.socket', autospec=True) as socket_mock:
+            with patch('socket.socket') as socket_mock:
                 with self.assertRaises(ValueError):
                     wait_for_port('asdf', 26, closed=False)
         self.assertEqual(gai_mock.mock_calls, [
@@ -227,7 +227,7 @@ class TestWaitForPort(TestCase):
                 'socket.getaddrinfo', autospec=True, return_value=[
                     ('foo', 'bar', 'baz', 'qux', ('192.168.8.3', 27))
                     ]) as gai_mock:
-            with patch('socket.socket', autospec=True) as socket_mock:
+            with patch('socket.socket') as socket_mock:
                 wait_for_port('asdf', 26, closed=False)
         gai_mock.assert_called_once_with(
             'asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
@@ -238,7 +238,7 @@ class TestWaitForPort(TestCase):
     def test_wait_for_port_no_address_closed(self):
         with patch('socket.getaddrinfo', autospec=True,
                    side_effect=socket.error(-5, None)) as gai_mock:
-            with patch('socket.socket', autospec=True) as socket_mock:
+            with patch('socket.socket') as socket_mock:
                 wait_for_port('asdf', 26, closed=True)
         gai_mock.assert_called_once_with('asdf', 26, socket.AF_INET,
                                          socket.SOCK_STREAM)
@@ -256,7 +256,7 @@ class TestWaitForPort(TestCase):
 
         with patch('socket.getaddrinfo', autospec=True, side_effect=gai_stub,
                    ) as gai_mock:
-            with patch('socket.socket', autospec=True) as socket_mock:
+            with patch('socket.socket') as socket_mock:
                 with self.assertRaises(ValueError):
                     wait_for_port('asdf', 26, closed=False)
         self.assertEqual(gai_mock.mock_calls, [
@@ -294,7 +294,7 @@ class TestAddBasicTestingArguments(TestCase):
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
             verbose=logging.INFO, agent_stream=None, keep_env=False,
-            upload_tools=False, bootstrap_host=None, machine=[])
+            upload_tools=False, bootstrap_host=None, machine=[], region=None)
         self.assertEqual(args, expected)
 
     def test_debug(self):
@@ -366,6 +366,13 @@ class TestAddBasicTestingArguments(TestCase):
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertTrue(args.keep_env)
+
+    def test_region(self):
+        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+                    '--region', 'foo-bar']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual('foo-bar', args.region)
 
 
 class TestRunCommand(TestCase):

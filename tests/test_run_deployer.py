@@ -11,6 +11,7 @@ from mock import patch
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
+    _temp_env as temp_env,
     )
 from run_deployer import (
     check_health,
@@ -54,7 +55,7 @@ class TestRunDeployer(TestCase):
                                    juju_bin='', logs=None, keep_env=False,
                                    health_cmd=None, debug=False,
                                    bundle_path='', bundle_name='',
-                                   verbose=logging.INFO)):
+                                   verbose=logging.INFO, region=None)):
                         with patch(
                                 'run_deployer.EnvJujuClient.deployer') as dm:
                             with patch('run_deployer.check_health') as hm:
@@ -75,11 +76,23 @@ class TestRunDeployer(TestCase):
                                    juju_bin='', logs=None, keep_env=False,
                                    health_cmd='/tmp/check', debug=False,
                                    bundle_path='', bundle_name='',
-                                   verbose=logging.INFO)):
+                                   verbose=logging.INFO, region=None)):
                         with patch('run_deployer.EnvJujuClient.deployer'):
                             with patch('run_deployer.check_health') as hm:
                                 run_deployer()
         self.assertEqual(hm.call_count, 1)
+
+    def test_run_deployer_region(self):
+        with temp_env({'environments': {'bar': {'type': 'bar'}}}):
+            with patch('subprocess.check_output', return_value='foo'):
+                with patch('subprocess.check_call', return_value='foo'):
+                    with patch('run_deployer.boot_context') as bc_mock:
+                        run_deployer(['foo', 'bar', 'baz', 'qux', 'quxx',
+                                      '--region', 'region-foo'])
+        client = bc_mock.mock_calls[0][1][1]
+        bc_mock.assert_called_once_with(
+            'quxx', client, None, [], None, None, None, 'qux', False, False,
+            region='region-foo')
 
 
 class TestIsHealthy(TestCase):

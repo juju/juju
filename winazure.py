@@ -31,8 +31,8 @@ SUCCEEDED = 'Succeeded'
 
 def delete_unused_disks(sms, dry_run=False, verbose=False):
     for disk in sms.list_disks():
-        unused = (not disk.attached_to
-                  or disk.attached_to.hosted_service_name == '')
+        unused = (not disk.attached_to or
+                  disk.attached_to.hosted_service_name == '')
         if unused:
             if verbose:
                 print("Deleting {}".format(disk.name))

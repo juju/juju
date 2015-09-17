@@ -1,5 +1,3 @@
-__metaclass__ = type
-
 from status import (
     ErrNoStatus,
     StatusYamlParser,
@@ -8,6 +6,10 @@ from status import (
 )
 
 from unittest import TestCase
+
+
+__metaclass__ = type
+
 
 SAMPLE_YAML_OUTPUT = """environment: bogusec2
 machines:
@@ -56,8 +58,8 @@ services:
 # This could be replaced by a json.dumps({}) but the text is kept to
 # make this test about status output as accurate as possible.
 SAMPLE_JSON_OUTPUT = \
-    """{"environment":"perritoec2","machines":{"0":{"agent-state":"started","""\
-    """"agent-version":"1.25-alpha1","dns-name":"54.82.51.4","""\
+    """{"environment":"perritoec2","machines":{"0":{"agent-state":"""\
+    """"started","agent-version":"1.25-alpha1","dns-name":"54.82.51.4","""\
     """"instance-id":"i-c0dadd10","instance-state":"running","""\
     """"series":"trusty","hardware":"arch=amd64 cpu-cores=1 cpu-power=100 """\
     """mem=1740M root-disk=8192M availability-zone=us-east-1c","""\
