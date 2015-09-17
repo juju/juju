@@ -7,7 +7,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"launchpad.net/loggo"
+
+	"github.com/juju/loggo"
 )
 
 func init() {
