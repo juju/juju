@@ -1250,32 +1250,48 @@ func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field 
 	stateAddresses := fromNetworkAddresses(addressesToSet)
 
 	if addressesEqual(addressesToSet, networkAddresses(*field)) {
-		// XXX presumably this means the preferred address can't have
-		// changed!
 		return nil
 	}
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
-	}}
-	setPrivateAddressOps, newPrivate, changedPrivate := m.getPrivateAddressOps(allAddresses)
-	setPublicAddressOps, newPublic, changedPublic := m.getPublicAddressOps(allAddresses)
-	ops = append(ops, setPrivateAddressOps...)
-	ops = append(ops, setPublicAddressOps...)
-	if err := m.st.runTransaction(ops); err != nil {
+
+	var newPrivate, newPublic network.Address
+	var changedPrivate, changedPublic bool
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			if m, err = m.st.Machine(m.doc.Id); err != nil {
+				return nil, err
+			}
+		}
+		if m.doc.Life == Dead {
+			return nil, errNotAlive
+		}
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: notDeadDoc,
+			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
+		}}
+		var setPrivateAddressOps, setPublicAddressOps []txn.Op
+		setPrivateAddressOps, newPrivate, changedPrivate = m.getPrivateAddressOps(allAddresses)
+		setPublicAddressOps, newPublic, changedPublic = m.getPublicAddressOps(allAddresses)
+		ops = append(ops, setPrivateAddressOps...)
+		ops = append(ops, setPublicAddressOps...)
+		return ops, nil
+	}
+	machine := m
+	err = m.st.run(buildTxn)
+	if err != nil {
 		if err == txn.ErrAborted {
 			return ErrDead
 		}
 		return errors.Trace(err)
 	}
+
 	*field = stateAddresses
 	if changedPrivate {
-		m.doc.PreferredPrivateAddress = fromNetworkAddress(newPrivate)
+		machine.doc.PreferredPrivateAddress = fromNetworkAddress(newPrivate)
 	}
 	if changedPublic {
-		m.doc.PreferredPublicAddress = fromNetworkAddress(newPublic)
+		machine.doc.PreferredPublicAddress = fromNetworkAddress(newPublic)
 	}
 	return nil
 }
