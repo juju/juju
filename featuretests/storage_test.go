@@ -85,35 +85,31 @@ func (s *cmdStorageSuite) TestStorageShow(c *gc.C) {
 
 	context := runShow(c, "data/0")
 	expected := `
-storage-block/0:
-  data/0:
-    storage: data
-    kind: block
-    status: pending
-    persistent: false
+data/0:
+  kind: block
+  status:
+    current: pending
+    since: .*
+  persistent: false
+  attachments:
+    units:
+      storage-block/0:
+        machine: "0"
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
 
-func (s *cmdStorageSuite) TestStorageShowOneMatchingFilter(c *gc.C) {
+func (s *cmdStorageSuite) TestStorageShowOneInvalid(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
-	context := runShow(c, "data/0", "fluff/0")
-	expected := `
-storage-block/0:
-  data/0:
-    storage: data
-    kind: block
-    status: pending
-    persistent: false
-`[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), "data/0", "fluff/0")
+	c.Assert(err, gc.ErrorMatches, "storage instance \"fluff/0\" not found")
 }
 
 func (s *cmdStorageSuite) TestStorageShowNoMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	context := runShow(c, "fluff/0")
-	c.Assert(testing.Stdout(context), gc.Equals, "{}\n")
+	_, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), "data/0", "fluff/0")
+	c.Assert(err, gc.ErrorMatches, "storage instance \"fluff/0\" not found")
 }
 
 func runList(c *gc.C) *cmd.Context {
@@ -133,8 +129,8 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION STATUS  PERSISTENT 
-storage-block/0 data/0          pending false      
+UNIT            ID     LOCATION STATUS  MESSAGE 
+storage-block/0 data/0          pending         
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -143,11 +139,13 @@ storage-block/0 data/0          pending false
 func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
+	// There are currently no guarantees about whether storage
+	// will be persistent until it has been provisioned.
 	context := runList(c)
 	expected := `
 [Storage]       
-UNIT            ID     LOCATION STATUS  PERSISTENT 
-storage-block/0 data/0          pending false      
+UNIT            ID     LOCATION STATUS  MESSAGE 
+storage-block/0 data/0          pending         
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -166,29 +164,39 @@ func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 
 	context := runShow(c, "data/0")
 	expected := `
-storage-block/0:
-  data/0:
-    storage: data
-    kind: block
-    status: pending
-    persistent: true
+data/0:
+  kind: block
+  status:
+    current: pending
+    since: .*
+  persistent: true
+  attachments:
+    units:
+      storage-block/0:
+        machine: "0"
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
 
 func (s *cmdStorageSuite) TestStoragePersistentUnprovisioned(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 
+	// There are currently no guarantees about whether storage
+	// will be persistent until it has been provisioned.
 	context := runShow(c, "data/0")
 	expected := `
-storage-block/0:
-  data/0:
-    storage: data
-    kind: block
-    status: pending
-    persistent: false
+data/0:
+  kind: block
+  status:
+    current: pending
+    since: .*
+  persistent: false
+  attachments:
+    units:
+      storage-block/0:
+        machine: "0"
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stdout(context), gc.Matches, expected)
 }
 
 func runPoolList(c *gc.C, args ...string) *cmd.Context {
@@ -394,8 +402,8 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
 	context := runVolumeList(c, "0")
 	expected := `
-MACHINE  UNIT             STORAGE  DEVICE  VOLUME  ID  SIZE  STATE    MESSAGE
-0        storage-block/0  data/0           0/0               pending  
+MACHINE  UNIT             STORAGE  ID   PROVIDER-ID  DEVICE  SIZE  STATE    MESSAGE
+0        storage-block/0  data/0   0/0                             pending  
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
@@ -459,8 +467,8 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	context := runList(c)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]            
-UNIT                 ID     LOCATION STATUS  PERSISTENT 
-storage-filesystem/0 data/0          pending false      
+UNIT                 ID     LOCATION STATUS  MESSAGE 
+storage-filesystem/0 data/0          pending         
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
@@ -480,9 +488,9 @@ storage-filesystem/0 data/0          pending false
 	context = runList(c)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]            
-UNIT                 ID     LOCATION STATUS  PERSISTENT 
-storage-filesystem/0 data/0          pending false      
-storage-filesystem/0 data/1          pending false      
+UNIT                 ID     LOCATION STATUS  MESSAGE 
+storage-filesystem/0 data/0          pending         
+storage-filesystem/0 data/1          pending         
 
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
