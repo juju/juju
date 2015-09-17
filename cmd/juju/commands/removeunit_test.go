@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

@@ -27,10 +27,27 @@ type CreateEnvironmentCommand struct {
 	*createEnvironmentCommand
 }
 
+func (c *CreateEnvironmentCommand) Name() string {
+	return c.name
+}
+
+func (c *CreateEnvironmentCommand) Owner() string {
+	return c.owner
+}
+
+func (c *CreateEnvironmentCommand) ConfigFile() *cmd.FileVar {
+	return &c.configFile
+}
+
+func (c *CreateEnvironmentCommand) ConfValues() map[string]string {
+	return c.confValues
+}
+
 // NewCreateEnvironmentCommand returns a CreateEnvironmentCommand with the api provided as specified.
-func NewCreateEnvironmentCommand(api CreateEnvironmentAPI) (cmd.Command, *CreateEnvironmentCommand) {
+func NewCreateEnvironmentCommand(api CreateEnvironmentAPI, parser func(interface{}) (interface{}, error)) (cmd.Command, *CreateEnvironmentCommand) {
 	c := &createEnvironmentCommand{
-		api: api,
+		api:          api,
+		configParser: parser,
 	}
 	return envcmd.WrapSystem(c), &CreateEnvironmentCommand{c}
 }

@@ -14,8 +14,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
@@ -285,9 +285,12 @@ func (s *relationsSuite) TestHookRelationJoined(c *gc.C) {
 	s.assertHookRelationJoined(c, &numCalls, relationJoinedApiCalls()...)
 }
 
-func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
-	r := s.assertHookRelationJoined(c, numCalls, apiCalls...)
-
+func (s *relationsSuite) assertHookRelationChanged(
+	c *gc.C, r relation.Relations,
+	remoteRelationSnapshot remotestate.RelationSnapshot,
+	numCalls *int32,
+) {
+	numCallsBefore := *numCalls
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
@@ -295,15 +298,13 @@ func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int32, api
 	}
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
-			1: remotestate.RelationSnapshot{
-				Life: params.Alive,
-			},
+			1: remoteRelationSnapshot,
 		},
 	}
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 9)
+	assertNumCalls(c, numCalls, numCallsBefore+1)
 	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
@@ -311,7 +312,6 @@ func (s *relationsSuite) assertHookRelationChanged(c *gc.C, numCalls *int32, api
 	c.Assert(err, jc.ErrorIsNil)
 	err = r.CommitHook(op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	return r
 }
 
 func getPrincipalApiCalls(numCalls int32) []apiCall {
@@ -326,13 +326,45 @@ func getPrincipalApiCalls(numCalls int32) []apiCall {
 func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	var numCalls int32
 	apiCalls := relationJoinedApiCalls()
+	apiCalls = append(apiCalls, getPrincipalApiCalls(3)...)
+	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
 
-	apiCalls = append(apiCalls, getPrincipalApiCalls(int32(1))...)
-	s.assertHookRelationChanged(c, &numCalls, apiCalls...)
+	// There will be an initial relation-changed regardless of
+	// members, due to the "changed pending" local persistent
+	// state.
+	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
+		Life: params.Alive,
+	}, &numCalls)
+
+	// wordpress starts at 1, changing to 2 should trigger a
+	// relation-changed hook.
+	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
+		Life: params.Alive,
+		Members: map[string]int64{
+			"wordpress": 2,
+		},
+	}, &numCalls)
+
+	// NOTE(axw) this is a test for the temporary to fix lp:1495542.
+	//
+	// wordpress is at 2, changing to 1 should trigger a
+	// relation-changed hook. This is to cater for the scenario
+	// where the relation settings document is removed and
+	// recreated, thus resetting the txn-revno.
+	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
+		Life: params.Alive,
+		Members: map[string]int64{
+			"wordpress": 1,
+		},
+	}, &numCalls)
 }
 
 func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
-	r := s.assertHookRelationChanged(c, numCalls, apiCalls...)
+	r := s.assertHookRelationJoined(c, numCalls, apiCalls...)
+	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
+		Life: params.Alive,
+	}, numCalls)
+	numCallsBefore := *numCalls
 
 	localState := resolver.LocalState{
 		State: operation.State{
@@ -352,7 +384,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 	relationsResolver := relation.NewRelationsResolver(r)
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	assertNumCalls(c, numCalls, 10)
+	assertNumCalls(c, numCalls, numCallsBefore+1)
 	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
 
 	// Commit the operation so we save local state for any next operation.

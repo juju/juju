@@ -23,17 +23,36 @@ type SwitchSimpleSuite struct {
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
-func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
+func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = testing.RunCommand(c, newSwitchCommand())
-	c.Assert(err, gc.ErrorMatches, "couldn't read the environment")
+	s.addTestSystem(c)
+	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, "a-system (system)\n")
+}
+
+func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	err := os.Chmod(envPath, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addTestSystem(c)
+	_, err = testing.RunCommand(c, newSwitchCommand(), "--list")
+	c.Assert(err, gc.ErrorMatches, "couldn't read the environment: open .*: permission denied")
 }
 
 func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 	_, err := testing.RunCommand(c, newSwitchCommand())
+	c.Assert(err, gc.ErrorMatches, "no currently specified environment")
+}
+
+func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, gc.ErrorMatches, "no currently specified environment")
 }
 

@@ -25,7 +25,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -799,11 +799,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if isEnvironManager {
 		// Start worker that stores missing published image metadata in state.
 		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			env, err := environs.New(envConfig)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newMetadataUpdater(st.MetadataUpdater(), imagemetadataworker.DefaultListPublishedMetadata, env), nil
+			return newMetadataUpdater(st.MetadataUpdater()), nil
 		})
 	}
 

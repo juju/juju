@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
@@ -186,7 +187,7 @@ func (c *doCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 
-		conformantParams, err := conform(actionParams)
+		conformantParams, err := common.ConformYAML(actionParams)
 		if err != nil {
 			return err
 		}
@@ -216,7 +217,7 @@ func (c *doCommand) Run(ctx *cmd.Context) error {
 		addValueToMap(keys, cleansedValue, actionParams)
 	}
 
-	conformantParams, err := conform(actionParams)
+	conformantParams, err := common.ConformYAML(actionParams)
 	if err != nil {
 		return err
 	}

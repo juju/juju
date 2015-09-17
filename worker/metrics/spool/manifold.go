@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v5"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"

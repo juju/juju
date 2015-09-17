@@ -69,7 +69,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	}, {
 		summary: "invalid keys are an error",
 		command: []string{"result-Value=5"},
-		errMsg:  "error: key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens\n",
+		errMsg:  "error: key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods\n",
 		code:    2,
 	}, {
 		summary: "empty values are not an error",
@@ -147,7 +147,9 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 purpose: set action results
 
 action-set adds the given values to the results map of the Action.  This map
-is returned to the user after the completion of the Action.
+is returned to the user after the completion of the Action.  Keys must start
+and end with lowercase alphanumeric, and contain only lowercase alphanumeric,
+hyphens and periods.
 
 Example usage:
  action-set outfile.size=10G

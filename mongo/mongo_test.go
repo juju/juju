@@ -312,7 +312,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 		} else {
 			c.Assert(service.Conf().ExtraScript, gc.Equals, "")
 		}
-		c.Assert(service.Conf().ExecStart, gc.Matches, `($MULTI_NODE)?.*tmp/check-.*/mongod.*`)
+		c.Assert(service.Conf().ExecStart, gc.Matches, `.*/check-.*/mongod.*`)
 		c.Assert(service.Conf().Logfile, gc.Equals, "")
 	}
 	assertInstalled()

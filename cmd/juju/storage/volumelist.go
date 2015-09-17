@@ -98,9 +98,18 @@ func (c *volumeListCommand) Run(ctx *cmd.Context) (err error) {
 	if len(valid) == 0 {
 		return nil
 	}
-	output, err := convertToVolumeInfo(valid)
+
+	info, err := convertToVolumeInfo(valid)
 	if err != nil {
 		return err
+	}
+
+	var output interface{}
+	switch c.out.Name() {
+	case "json", "yaml":
+		output = map[string]map[string]VolumeInfo{"volumes": info}
+	default:
+		output = info
 	}
 	return c.out.Write(ctx, output)
 }

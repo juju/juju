@@ -6,7 +6,7 @@ package storage_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/state"
 	jujustorage "github.com/juju/juju/storage"
