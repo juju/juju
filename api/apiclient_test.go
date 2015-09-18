@@ -10,12 +10,11 @@ import (
 	"net"
 	"strconv"
 
-	"golang.org/x/net/websocket"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
+	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"

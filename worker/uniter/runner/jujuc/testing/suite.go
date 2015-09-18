@@ -6,7 +6,7 @@ package testing
 import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 // ContextSuite is the base suite for testing jujuc.Context-related code.

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/names"
 	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils"
@@ -18,6 +17,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
