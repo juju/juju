@@ -776,7 +776,6 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 			break
 		}
 		newInfo := *info
-		cleanSettingsMap(s.Settings)
 		newInfo.Config = s.Settings
 		info0 = &newInfo
 	default:
@@ -798,7 +797,6 @@ func (s *backingSettings) removed(store *multiwatcherStore, envUUID, id string, 
 			return nil
 		}
 		newInfo := *info
-		cleanSettingsMap(s.Settings)
 		newInfo.Config = s.Settings
 		parent = &newInfo
 		store.Update(parent)

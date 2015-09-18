@@ -35,17 +35,28 @@ const (
 // settingsDoc is the mongo document representation for
 // a settings.
 type settingsDoc struct {
-	DocID    string `bson:"_id"`
-	EnvUUID  string `bson:"env-uuid"`
-	TxnRevno int64  `bson:"txn-revno"`
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
 
 	// Settings contains the settings. This must not be
 	// omitempty, or migration cannot work correctly.
-	Settings map[string]interface{} `bson:"settings"`
+	Settings settingsMap `bson:"settings"`
 
 	// Version is a version number for the settings,
 	// and is increased every time the settings change.
 	Version int64 `bson:"version"`
+}
+
+type settingsMap map[string]interface{}
+
+func (m *settingsMap) SetBSON(raw bson.Raw) error {
+	rawMap := make(map[string]interface{})
+	if err := raw.Unmarshal(rawMap); err != nil {
+		return err
+	}
+	replaceKeys(rawMap, unescapeReplacer.Replace)
+	*m = settingsMap(rawMap)
+	return nil
 }
 
 // ItemChange represents the change of an item in a settings.
@@ -100,12 +111,6 @@ type Settings struct {
 	// the value of the version field in the status document
 	// when it was read.
 	version int64
-
-	// txnRevno is the mgo/txn revision number of the status
-	// document at the time it was read. This should only be
-	// used by the watchers, and must not leak outside this
-	// package.
-	txnRevno int64
 }
 
 // Keys returns the current keys in alphabetical order.
@@ -216,9 +221,14 @@ func newSettings(st *State, key string) *Settings {
 	}
 }
 
-// cleanSettingsMap unescapes settings keys coming out of MongoDB.
-func cleanSettingsMap(in map[string]interface{}) {
-	replaceKeys(in, unescapeReplacer.Replace)
+func newSettingsWithDoc(st *State, key string, doc *settingsDoc) *Settings {
+	return &Settings{
+		st:      st,
+		key:     key,
+		version: doc.Version,
+		disk:    doc.Settings,
+		core:    copyMap(doc.Settings, nil),
+	}
 }
 
 // replaceKeys will modify the provided map in place by replacing keys with
@@ -249,16 +259,15 @@ func copyMap(in map[string]interface{}, replace func(string) string) (out map[st
 // Read (re)reads the node data into c.
 func (c *Settings) Read() error {
 	doc, err := readSettingsDoc(c.st, c.key)
-	if err == mgo.ErrNotFound {
+	if errors.IsNotFound(err) {
 		c.disk = nil
 		c.core = make(map[string]interface{})
-		return errors.NotFoundf("settings")
+		return err
 	}
 	if err != nil {
-		return fmt.Errorf("cannot read settings: %v", err)
+		return errors.Annotate(err, "cannot read settings")
 	}
 	c.version = doc.Version
-	c.txnRevno = doc.TxnRevno
 	c.disk = doc.Settings
 	c.core = copyMap(c.disk, nil)
 	return nil
@@ -266,25 +275,31 @@ func (c *Settings) Read() error {
 
 // readSettingsDoc reads the settings doc with the given key.
 func readSettingsDoc(st *State, key string) (*settingsDoc, error) {
+	var doc settingsDoc
+	if err := readSettingsDocInto(st, key, &doc); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &doc, nil
+}
+
+// readSettingsDocInto reads the settings doc with the given key
+// into the provided output structure.
+func readSettingsDocInto(st *State, key string, out interface{}) error {
 	settings, closer := st.getRawCollection(settingsC)
 	defer closer()
 
-	var doc settingsDoc
-	err := settings.FindId(st.docID(key)).One(&doc)
+	err := settings.FindId(st.docID(key)).One(out)
 
 	// This is required to allow loading of environ settings before the
 	// environment UUID migration has been applied to the settings collection.
 	// Without this, an agent's version cannot be read, blocking the upgrade.
 	if err == mgo.ErrNotFound && key == environGlobalKey {
-		err := settings.FindId(environGlobalKey).One(&doc)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
-		return nil, err
+		err = settings.FindId(environGlobalKey).One(out)
 	}
-	cleanSettingsMap(doc.Settings)
-	return &doc, nil
+	if err == mgo.ErrNotFound {
+		err = errors.NotFoundf("settings")
+	}
+	return err
 }
 
 // ReadSettings returns the settings for the given key.
@@ -362,7 +377,6 @@ func listSettings(st *State, keyPrefix string) (map[string]map[string]interface{
 	}
 	result := make(map[string]map[string]interface{})
 	for i := range matchingSettings {
-		cleanSettingsMap(matchingSettings[i].Settings)
 		result[st.localID(matchingSettings[i].DocID)] = matchingSettings[i].Settings
 	}
 	return result, nil

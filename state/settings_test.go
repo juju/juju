@@ -71,14 +71,13 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 
 	// Check MongoDB state.
 	var mgoData struct {
-		Settings map[string]interface{}
+		Settings settingsMap
 	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanSettingsMap(mgoData.Settings)
-	c.Assert(mgoData.Settings, gc.DeepEquals, options)
+	c.Assert(map[string]interface{}(mgoData.Settings), gc.DeepEquals, options)
 }
 
 func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
@@ -157,14 +156,13 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	c.Assert(node.Map(), gc.DeepEquals, options)
 	// Check MongoDB state.
 	var mgoData struct {
-		Settings map[string]interface{}
+		Settings settingsMap
 	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanSettingsMap(mgoData.Settings)
-	c.Assert(mgoData.Settings, gc.DeepEquals, options)
+	c.Assert(map[string]interface{}(mgoData.Settings), gc.DeepEquals, options)
 }
 
 func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {

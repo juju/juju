@@ -910,15 +910,18 @@ func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key
 }
 
 // mergeSettings reads the relation settings node for the unit with the
-// supplied id, and sets a value in the Changed field keyed on the unit's
+// supplied key, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
 func (w *relationUnitsWatcher) mergeSettings(changes *multiwatcher.RelationUnitsChange, key string) (int64, error) {
-	node, err := readSettings(w.st, key)
-	if err != nil {
+	var doc struct {
+		TxnRevno int64 `bson:"txn-revno"`
+		Version  int64 `bson:"version"`
+	}
+	if err := readSettingsDocInto(w.st, key, &doc); err != nil {
 		return -1, err
 	}
-	setRelationUnitChangeVersion(changes, key, node.version)
-	return node.txnRevno, nil
+	setRelationUnitChangeVersion(changes, key, doc.Version)
+	return doc.TxnRevno, nil
 }
 
 // mergeScope starts and stops settings watches on the units entering and
@@ -1334,12 +1337,26 @@ func (w *settingsWatcher) Changes() <-chan *Settings {
 func (w *settingsWatcher) loop(key string) (err error) {
 	ch := make(chan watcher.Change)
 	revno := int64(-1)
-	settings, err := readSettings(w.st, key)
-	if err == nil {
-		revno = settings.txnRevno
+
+	var settings *Settings
+	var rawDoc bson.Raw
+	if err := readSettingsDocInto(w.st, key, &rawDoc); err == nil {
+		var revnoDoc struct {
+			TxnRevno int64 `bson:"txn-revno"`
+		}
+		if err := rawDoc.Unmarshal(&revnoDoc); err != nil {
+			return err
+		}
+		revno = revnoDoc.TxnRevno
+		var doc settingsDoc
+		if err := rawDoc.Unmarshal(&doc); err != nil {
+			return err
+		}
+		settings = newSettingsWithDoc(w.st, key, &doc)
 	} else if !errors.IsNotFound(err) {
 		return err
 	}
+
 	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
 	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
 	out := w.out

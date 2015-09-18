@@ -979,7 +979,7 @@ func (s *Service) LeaderSettings() (map[string]string, error) {
 	// type getting even more cluttered.
 
 	doc, err := readSettingsDoc(s.st, leadershipSettingsKey(s.doc.Name))
-	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
+	if errors.IsNotFound(err) {
 		return nil, errors.NotFoundf("service")
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -1041,7 +1041,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 		// no actual change; and the version number so we can assert
 		// on it and prevent these settings from landing late.
 		doc, err := readSettingsDoc(s.st, key)
-		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
+		if errors.IsNotFound(err) {
 			return nil, errors.NotFoundf("service")
 		} else if err != nil {
 			return nil, errors.Trace(err)
