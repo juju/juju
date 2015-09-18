@@ -627,12 +627,15 @@ func createFilesystemDetails(
 	details.Status = common.EntityStatusFromState(status)
 
 	if storageTag, err := f.Storage(); err == nil {
-		details.StorageTag = storageTag.String()
 		storageInstance, err := st.StorageInstance(storageTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		details.StorageOwnerTag = storageInstance.Owner().String()
+		storageDetails, err := createStorageDetails(st, storageInstance)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		details.Storage = storageDetails
 	}
 
 	return details, nil
