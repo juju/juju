@@ -235,10 +235,11 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu          sync.Mutex
-	ops         chan<- Operation
-	statePolicy state.Policy
-	// We have one state for each environment name
+	mu             sync.Mutex
+	ops            chan<- Operation
+	statePolicy    state.Policy
+	supportsSpaces bool
+	// We have one state for each environment name.
 	state      map[int]*environState
 	maxStateId int
 }
@@ -275,11 +276,10 @@ type environState struct {
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
-	name           string
-	ecfgMutex      sync.Mutex
-	ecfgUnlocked   *environConfig
-	spacesMutex    sync.RWMutex
-	supportsSpaces bool
+	name         string
+	ecfgMutex    sync.Mutex
+	ecfgUnlocked *environConfig
+	spacesMutex  sync.RWMutex
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -325,6 +325,7 @@ func Reset() {
 		gitjujutesting.MgoServer.Reset()
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
+	providerInstance.supportsSpaces = true
 }
 
 func (state *environState) destroy() {
@@ -414,6 +415,16 @@ func SetStatePolicy(policy state.Policy) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.statePolicy = policy
+}
+
+// SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
+func SetSupportsSpaces(supports bool) bool {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	current := p.supportsSpaces
+	p.supportsSpaces = supports
+	return current
 }
 
 // Listen closes the previously registered listener (if any).
@@ -572,9 +583,8 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, ErrNotPrepared
 	}
 	env := &environ{
-		name:           ecfg.Name(),
-		ecfgUnlocked:   ecfg,
-		supportsSpaces: true,
+		name:         ecfg.Name(),
+		ecfgUnlocked: ecfg,
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -1061,21 +1071,12 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	return
 }
 
-// SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
-// It can be used by myEnviron.(testing.SpacesEnabler).SetSupportsSpaces.
-func (env *environ) SetSupportsSpaces(supports bool) bool {
-	env.spacesMutex.Lock()
-	defer env.spacesMutex.Unlock()
-	current := env.supportsSpaces
-	env.supportsSpaces = supports
-	return current
-}
-
 // SupportsSpaces is specified on environs.Networking.
 func (env *environ) SupportsSpaces() (bool, error) {
-	env.spacesMutex.RLock()
-	defer env.spacesMutex.RUnlock()
-	if !env.supportsSpaces {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.supportsSpaces {
 		return false, errors.NotSupportedf("spaces")
 	}
 	return true, nil
