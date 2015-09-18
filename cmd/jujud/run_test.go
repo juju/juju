@@ -21,9 +21,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
+	jujuos "github.com/juju/utils/os"
 )
 
 type RunTestSuite struct {

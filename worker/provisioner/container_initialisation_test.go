@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/provider/dummy"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
+	jujuos "github.com/juju/utils/os"
 )
 
 type ContainerSetupSuite struct {

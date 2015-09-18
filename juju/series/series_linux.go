@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	jujuos "github.com/juju/juju/juju/os"
+	jujuos "github.com/juju/utils/os"
 )
 
 var (
