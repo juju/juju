@@ -3,6 +3,6 @@
 
 package envworkermanager
 
-func UndertakerWorkerId(uuid string) string {
-	return undertakerWorkerId(uuid)
+func DyingEnvWorkerId(uuid string) string {
+	return dyingEnvWorkerId(uuid)
 }
