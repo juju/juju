@@ -18,6 +18,7 @@ from mock import (
 )
 import yaml
 
+import deploy_stack
 from deploy_stack import (
     archive_logs,
     assess_juju_run,
@@ -573,39 +574,54 @@ def fake_EnvJujuClient(env, path=None, debug=None):
 
 class TestDeployJob(TestCase):
 
+    @contextmanager
+    def ds_cxt(self):
+        env = fake_SimpleEnvironment('foo')
+        client = fake_EnvJujuClient(env)
+        bc_cxt = patch('jujupy.EnvJujuClient.by_version',
+                       return_value=client)
+        fc_cxt = patch('jujupy.SimpleEnvironment.from_config',
+                       return_value=env)
+        boot_cxt = patch('deploy_stack.boot_context', autospec=True)
+        juju_cxt = patch('deploy_stack.EnvJujuClient.juju', autospec=True)
+        ajr_cxt = patch('deploy_stack.assess_juju_run', autospec=True)
+        dds_cxt = patch('deploy_stack.deploy_dummy_stack', autospec=True)
+        with bc_cxt, fc_cxt, boot_cxt, juju_cxt, ajr_cxt, dds_cxt:
+            yield client
+
     @skipIf(sys.platform in ('win32', 'darwin'),
             'Not supported on Windown and OS X')
-    @patch('jujupy.EnvJujuClient.by_version', side_effect=fake_EnvJujuClient)
-    @patch('jujupy.SimpleEnvironment.from_config',
-           side_effect=fake_SimpleEnvironment)
-    @patch('deploy_stack.boot_context', autospec=True)
-    @patch('deploy_stack.EnvJujuClient.juju', autospec=True)
-    def test_background_chaos_used(self, *args):
-        with patch('deploy_stack.background_chaos', autospec=True) as bc_mock:
-            with patch('deploy_stack.deploy_dummy_stack', autospec=True):
-                with patch('deploy_stack.assess_juju_run', autospec=True):
-                    _deploy_job('foo', None, None, '', None, None, None, 'log',
-                                None, None, None, None, None, None, 1, False,
-                                False,)
+    def test_background_chaos_used(self):
+        with self.ds_cxt():
+            with patch('deploy_stack.background_chaos',
+                       autospec=True) as bc_mock:
+                _deploy_job('foo', None, None, '', None, None, None,
+                            'log', None, None, None, None, None, None,
+                            1, False, False, None)
         self.assertEqual(bc_mock.mock_calls[0][1][0], 'foo')
         self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
         self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
 
     @skipIf(sys.platform in ('win32', 'darwin'),
             'Not supported on Windown and OS X')
-    @patch('jujupy.EnvJujuClient.by_version', side_effect=fake_EnvJujuClient)
-    @patch('jujupy.SimpleEnvironment.from_config',
-           side_effect=fake_SimpleEnvironment)
-    @patch('deploy_stack.boot_context', autospec=True)
-    @patch('deploy_stack.EnvJujuClient.juju', autospec=True)
-    def test_background_chaos_not_used(self, *args):
-        with patch('deploy_stack.background_chaos', autospec=True) as bc_mock:
-            with patch('deploy_stack.deploy_dummy_stack', autospec=True):
-                with patch('deploy_stack.assess_juju_run', autospec=True):
-                    _deploy_job('foo', None, None, '', None, None, None, None,
-                                None, None, None, None, None, None, 0, False,
-                                False)
+    def test_background_chaos_not_used(self):
+        with self.ds_cxt():
+            with patch('deploy_stack.background_chaos',
+                       autospec=True) as bc_mock:
+                _deploy_job('foo', None, None, '', None, None, None, None,
+                            None, None, None, None, None, None, 0, False,
+                            False, None)
         self.assertEqual(bc_mock.call_count, 0)
+
+    def test_region(self):
+        with self.ds_cxt() as client:
+            bc_mock = deploy_stack.boot_context
+            _deploy_job('foo', None, None, '', None, None, None, None,
+                        None, None, None, None, None, None, 0, False,
+                        False, 'region-foo')
+        bc_mock.assert_called_once_with(
+            'foo', client, None, None, None, None, None, None, None, None,
+            permanent=False, region='region-foo')
 
 
 class TestTestUpgrade(TestCase):

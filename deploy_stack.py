@@ -344,7 +344,7 @@ def deploy_job():
                        series, args.logs, args.debug, args.juju_bin,
                        args.agent_url, args.agent_stream,
                        args.keep_env, args.upload_tools, args.with_chaos,
-                       args.jes, args.pre_destroy)
+                       args.jes, args.pre_destroy, args.region)
 
 
 def update_env(env, new_env_name, series=None, bootstrap_host=None,
@@ -505,7 +505,7 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
 def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
                 machines, series, log_dir, debug, juju_path, agent_url,
                 agent_stream, keep_env, upload_tools, with_chaos, use_jes,
-                pre_destroy):
+                pre_destroy, region):
     start_juju_path = None if upgrade else juju_path
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
@@ -523,7 +523,7 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
         client.enable_jes()
     with boot_context(temp_env_name, client, bootstrap_host, machines,
                       series, agent_url, agent_stream, log_dir, keep_env,
-                      upload_tools, permanent=use_jes):
+                      upload_tools, permanent=use_jes, region=region):
         if machines is not None:
             client.add_ssh_machines(machines)
         if sys.platform in ('win32', 'darwin'):
