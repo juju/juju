@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -819,7 +820,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
 			Number:       version.Current.Number,
-			Series:       version.Current.Series,
+			Series:       series.HostSeries(),
 			Arch:         a,
 			MinorVersion: -1,
 			MajorVersion: -1,
@@ -832,7 +833,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, a)
+	apiList, err := s.provisioner.FindTools(version.Current.Number, series.HostSeries(), a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

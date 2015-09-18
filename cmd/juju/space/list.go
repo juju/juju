@@ -9,15 +9,20 @@ import (
 	"net"
 	"strings"
 
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"launchpad.net/gnuflag"
+
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// ListCommand displays a list of all spaces known to Juju.
-type ListCommand struct {
+func newListCommand() cmd.Command {
+	return envcmd.Wrap(&listCommand{})
+}
+
+// listCommand displays a list of all spaces known to Juju.
+type listCommand struct {
 	SpaceCommandBase
 	Short bool
 	out   cmd.Output
@@ -31,7 +36,7 @@ their subnets are displayed, otherwise just a list of spaces. The
 output to be redirected to a file. `
 
 // Info is defined on the cmd.Command interface.
-func (c *ListCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Args:    "[--short] [--format yaml|json] [--output <path>]",
@@ -41,7 +46,7 @@ func (c *ListCommand) Info() *cmd.Info {
 }
 
 // SetFlags is defined on the cmd.Command interface.
-func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
@@ -53,7 +58,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *ListCommand) Init(args []string) error {
+func (c *listCommand) Init(args []string) error {
 	// No arguments are accepted, just flags.
 	if err := cmd.CheckEmpty(args); err != nil {
 		return errors.Trace(err)
@@ -63,10 +68,13 @@ func (c *ListCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *ListCommand) Run(ctx *cmd.Context) error {
+func (c *listCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		spaces, err := api.ListSpaces()
 		if err != nil {
+			if errors.IsNotSupported(err) {
+				ctx.Infof("cannot list spaces: %v", err)
+			}
 			return errors.Annotate(err, "cannot list spaces")
 		}
 		if len(spaces) == 0 {

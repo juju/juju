@@ -32,7 +32,7 @@ func (s *EnvConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 			args: []string{"cpu-power=250"},
 		},
 	} {
-		err := testing.InitCommand(&environment.EnvSetConstraintsCommand{}, test.args)
+		err := testing.InitCommand(environment.NewEnvSetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -56,7 +56,7 @@ func (s *EnvConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 			args: []string{},
 		},
 	} {
-		err := testing.InitCommand(&environment.EnvGetConstraintsCommand{}, test.args)
+		err := testing.InitCommand(environment.NewEnvGetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

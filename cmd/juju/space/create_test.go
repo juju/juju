@@ -5,6 +5,7 @@ package space_test
 
 import (
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
@@ -47,6 +48,19 @@ func (s *CreateSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
 	)
 }
 
+func (s *CreateSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
+	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
+
+	err := s.AssertRunSpacesNotSupported(c,
+		`cannot create space "foo": spaces not supported`,
+		"foo", "10.1.2.0/24",
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+
+	s.api.CheckCallNames(c, "CreateSpace", "Close")
+	s.api.CheckCall(c, 0, "CreateSpace", "foo", s.Strings("10.1.2.0/24"), true)
+}
+
 func (s *CreateSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.SetErrors(errors.New("API error"))
 
@@ -57,14 +71,4 @@ func (s *CreateSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "CreateSpace", "Close")
 	s.api.CheckCall(c, 0, "CreateSpace", "foo", s.Strings("10.1.2.0/24"), true)
-}
-
-func (s *CreateSuite) TestRunAPIConnectFails(c *gc.C) {
-	s.command = space.NewCreateCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"myspace", "10.20.30.0/24",
-	)
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
 }

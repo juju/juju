@@ -14,7 +14,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
@@ -131,7 +131,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		ctx := coretesting.Context(c)
-		scpcmd := &SCPCommand{}
+		scpcmd := &scpCommand{}
 		scpcmd.proxy = t.proxy
 
 		err := envcmd.Wrap(scpcmd).Init(t.args)

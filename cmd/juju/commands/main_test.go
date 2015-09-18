@@ -34,15 +34,15 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
+	return cmdtesting.HelpText(newDeployCommand(), "juju deploy")
 }
 
 func setHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&service.SetCommand{}), "juju service set")
+	return cmdtesting.HelpText(service.NewSetCommand(), "juju service set")
 }
 
 func syncToolsHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
+	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-tools")
 }
 
 func blockHelpText() string {
@@ -402,7 +402,7 @@ func (s *MainSuite) TestEnvironCommands(c *gc.C) {
 	// EnvironCommands must be wrapped using envcmd.Wrap.
 	for _, cmd := range commands {
 		c.Logf("%v", cmd.Info().Name)
-		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&bootstrapCommand{}))
 	}
 }
 

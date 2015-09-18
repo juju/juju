@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -171,7 +172,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
-	c.Assert(m.Series(), gc.Equals, version.Current.Series)
+	c.Assert(m.Series(), gc.Equals, series.HostSeries())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotConstraints, err := m.Constraints()

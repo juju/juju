@@ -17,7 +17,11 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-type SwitchCommand struct {
+func newSwitchCommand() cmd.Command {
+	return &switchCommand{}
+}
+
+type switchCommand struct {
 	cmd.CommandBase
 	EnvName string
 	List    bool
@@ -36,7 +40,7 @@ specified in the environments.yaml file.
 
 const systemSuffix = " (system)"
 
-func (c *SwitchCommand) Info() *cmd.Info {
+func (c *switchCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "switch",
 		Args:    "[environment name]",
@@ -46,12 +50,12 @@ func (c *SwitchCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *SwitchCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *switchCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.List, "l", false, "list the environment names")
 	f.BoolVar(&c.List, "list", false, "")
 }
 
-func (c *SwitchCommand) Init(args []string) (err error) {
+func (c *switchCommand) Init(args []string) (err error) {
 	c.EnvName, err = cmd.ZeroOrOneArgs(args)
 	return
 }
@@ -73,19 +77,29 @@ func getConfigstoreOptions() (set.Strings, set.Strings, error) {
 	return set.NewStrings(environmentNames...), set.NewStrings(systemNames...), nil
 }
 
-func (c *SwitchCommand) Run(ctx *cmd.Context) error {
+func (c *switchCommand) Run(ctx *cmd.Context) error {
 	// Switch is an alternative way of dealing with environments than using
 	// the JUJU_ENV environment setting, and as such, doesn't play too well.
 	// If JUJU_ENV is set we should report that as the current environment,
 	// and not allow switching when it is set.
 
 	// Passing through the empty string reads the default environments.yaml file.
+	// If the environments.yaml file doesn't exist, just list environments in
+	// the configstore.
+	envFileExists := true
+	names := set.NewStrings()
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
-		return errors.Errorf("couldn't read the environment")
+		if !environs.IsNoEnv(err) {
+			return errors.Annotate(err, "couldn't read the environment")
+		}
+		envFileExists = false
+	} else {
+		for _, name := range environments.Names() {
+			names.Add(name)
+		}
 	}
 
-	names := set.NewStrings(environments.Names()...)
 	configEnvirons, configSystems, err := getConfigstoreOptions()
 	if err != nil {
 		return err
@@ -122,7 +136,9 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if current == "" {
-		current = environments.Default
+		if envFileExists {
+			current = environments.Default
+		}
 	} else if isSystem {
 		current += systemSuffix
 	}

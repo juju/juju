@@ -10,9 +10,13 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// RemoveBlocksCommand returns the list of all systems the user is
+func newRemoveBlocksCommand() cmd.Command {
+	return envcmd.WrapSystem(&removeBlocksCommand{})
+}
+
+// removeBlocksCommand returns the list of all systems the user is
 // currently logged in to on the current machine.
-type RemoveBlocksCommand struct {
+type removeBlocksCommand struct {
 	envcmd.SysCommandBase
 	api removeBlocksAPI
 }
@@ -34,7 +38,7 @@ See Also:
 `
 
 // Info implements Command.Info
-func (c *RemoveBlocksCommand) Info() *cmd.Info {
+func (c *removeBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-blocks",
 		Purpose: "remove all blocks in the Juju system",
@@ -42,7 +46,7 @@ func (c *RemoveBlocksCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RemoveBlocksCommand) getAPI() (removeBlocksAPI, error) {
+func (c *removeBlocksCommand) getAPI() (removeBlocksAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -50,7 +54,7 @@ func (c *RemoveBlocksCommand) getAPI() (removeBlocksAPI, error) {
 }
 
 // Run implements Command.Run
-func (c *RemoveBlocksCommand) Run(ctx *cmd.Context) error {
+func (c *removeBlocksCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)

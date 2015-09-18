@@ -6,17 +6,16 @@ package commands
 import (
 	"bytes"
 	"io/ioutil"
-	"net/http/httptest"
 	"os"
 	"path"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v1"
-	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmstore.v4"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
 
-	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -25,33 +24,23 @@ import (
 
 type UpgradeCharmErrorsSuite struct {
 	jujutesting.RepoSuite
-	handler charmstore.HTTPCloseHandler
-	srv     *httptest.Server
+	srv *charmstoretesting.Server
 }
 
 func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	// Set up the charm store testing server.
-	handler, err := charmstore.NewServer(s.Session.DB("juju-testing"), nil, "", charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
-	}, charmstore.V4)
-	c.Assert(err, jc.ErrorIsNil)
-	s.handler = handler
-	s.srv = httptest.NewServer(handler)
-
+	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	original := newCharmStoreClient
 	s.PatchValue(&newCharmStoreClient, func() (*csClient, error) {
 		csclient, err := original()
 		c.Assert(err, jc.ErrorIsNil)
-		csclient.params.URL = s.srv.URL
+		csclient.params.URL = s.srv.URL()
 		return csclient, nil
 	})
 }
 
 func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
-	s.handler.Close()
 	s.srv.Close()
 	s.RepoSuite.TearDownTest(c)
 }
@@ -59,7 +48,7 @@ func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&UpgradeCharmCommand{}), args...)
+	_, err := testing.RunCommand(c, newUpgradeCharmCommand(), args...)
 	return err
 }
 
@@ -83,7 +72,7 @@ func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *gc.C) {
 	// overwrites it (TearDownTest will revert it again).
 	os.Setenv("JUJU_REPOSITORY", "")
 	err = runUpgradeCharm(c, "riak", "--repository=")
-	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:trusty/riak`)
+	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/riak`)
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *gc.C) {
@@ -326,12 +315,12 @@ var upgradeCharmAuthorizationTests = []struct {
 }}
 
 func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmAuthorization(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress")
+	s.uploadCharm(c, "cs:~other/trusty/wordpress-0", "wordpress")
 	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 	for i, test := range upgradeCharmAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+		url, _ := s.uploadCharm(c, test.uploadURL, "wordpress")
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
@@ -67,7 +68,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
-		"default-series":  version.Current.Series,
+		"default-series":  series.HostSeries(),
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

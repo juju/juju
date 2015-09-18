@@ -86,6 +86,17 @@ func (s *BaseSpaceSuite) RunSubCommand(c *gc.C, args ...string) (string, string,
 	return "", "", err
 }
 
+// AssertRunSpacesNotSupported is a shortcut for calling RunSubCommand with the
+// passed args then asserting the output is empty and the error is the
+// spaces not supported, finally returning the error.
+func (s *BaseSpaceSuite) AssertRunSpacesNotSupported(c *gc.C, expectErr string, args ...string) error {
+	stdout, stderr, err := s.RunSubCommand(c, args...)
+	c.Assert(err, gc.ErrorMatches, expectErr)
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, expectErr+"\n")
+	return err
+}
+
 // AssertRunFails is a shortcut for calling RunSubCommand with the
 // passed args then asserting the output is empty and the error is as
 // expected, finally returning the error.

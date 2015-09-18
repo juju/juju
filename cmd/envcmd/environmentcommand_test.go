@@ -148,6 +148,13 @@ func (s *EnvironmentCommandSuite) TestCompatVersionInvalid(c *gc.C) {
 	c.Assert(cmd.CompatVersion(), gc.Equals, 1)
 }
 
+func (s *EnvironmentCommandSuite) TestWrapWithoutFlags(c *gc.C) {
+	cmd := new(testCommand)
+	wrapped := envcmd.Wrap(cmd, envcmd.EnvSkipFlags)
+	err := cmdtesting.InitCommand(wrapped, []string{"-e", "testenv"})
+	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -e")
+}
+
 type testCommand struct {
 	envcmd.EnvCommandBase
 }

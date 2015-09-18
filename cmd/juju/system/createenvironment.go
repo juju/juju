@@ -17,20 +17,26 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	localProvider "github.com/juju/juju/provider/local"
 )
 
-// CreateEnvironmentCommand calls the API to create a new environment.
-type CreateEnvironmentCommand struct {
+func newCreateEnvironmentCommand() cmd.Command {
+	return envcmd.WrapSystem(&createEnvironmentCommand{})
+}
+
+// createEnvironmentCommand calls the API to create a new environment.
+type createEnvironmentCommand struct {
 	envcmd.SysCommandBase
 	api CreateEnvironmentAPI
 
-	name       string
-	owner      string
-	configFile cmd.FileVar
-	confValues map[string]string
+	name         string
+	owner        string
+	configFile   cmd.FileVar
+	confValues   map[string]string
+	configParser func(interface{}) (interface{}, error)
 }
 
 const createEnvHelpDoc = `
@@ -53,7 +59,7 @@ See Also:
     juju help environment share
 `
 
-func (c *CreateEnvironmentCommand) Info() *cmd.Info {
+func (c *createEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create-environment",
 		Args:    "<name> [key=[value] ...]",
@@ -63,12 +69,12 @@ func (c *CreateEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *CreateEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *createEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.owner, "owner", "", "the owner of the new environment if not the current user")
 	f.Var(&c.configFile, "config", "path to yaml-formatted file containing environment config values")
 }
 
-func (c *CreateEnvironmentCommand) Init(args []string) error {
+func (c *createEnvironmentCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("environment name is required")
 	}
@@ -84,6 +90,10 @@ func (c *CreateEnvironmentCommand) Init(args []string) error {
 		return errors.Errorf("%q is not a valid user", c.owner)
 	}
 
+	if c.configParser == nil {
+		c.configParser = common.ConformYAML
+	}
+
 	return nil
 }
 
@@ -93,14 +103,14 @@ type CreateEnvironmentAPI interface {
 	CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error)
 }
 
-func (c *CreateEnvironmentCommand) getAPI() (CreateEnvironmentAPI, error) {
+func (c *createEnvironmentCommand) getAPI() (CreateEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewEnvironmentManagerAPIClient()
 }
 
-func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
+func (c *createEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
@@ -191,7 +201,7 @@ func (c *CreateEnvironmentCommand) Run(ctx *cmd.Context) (return_err error) {
 	return nil
 }
 
-func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.EnvironConfig) (map[string]interface{}, error) {
+func (c *createEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.EnvironConfig) (map[string]interface{}, error) {
 	// The reading of the config YAML is done in the Run
 	// method because the Read method requires the cmd Context
 	// for the current directory.
@@ -199,12 +209,25 @@ func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkele
 	if c.configFile.Path != "" {
 		configYAML, err := c.configFile.Read(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "unable to read config file")
 		}
-		err = yaml.Unmarshal(configYAML, &fileConfig)
+
+		rawFileConfig := make(map[string]interface{})
+		err = yaml.Unmarshal(configYAML, &rawFileConfig)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "unable to parse config file")
 		}
+
+		conformantConfig, err := c.configParser(rawFileConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "unable to parse config file")
+		}
+		betterConfig, ok := conformantConfig.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("config must contain a YAML map with string keys")
+		}
+
+		fileConfig = betterConfig
 	}
 
 	configValues := make(map[string]interface{})

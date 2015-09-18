@@ -12,11 +12,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/tailer"
-
-	"github.com/juju/juju/state"
 )
 
 func newDebugLogFileHandler(ctxt httpContext, stop <-chan struct{}, logDir string) http.Handler {

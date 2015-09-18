@@ -16,25 +16,29 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
+func newListCommand() cmd.Command {
+	return envcmd.Wrap(&listCommand{})
+}
+
 const listCommandDoc = `
 List blocks for Juju environment.
 This command shows if each block type is enabled. 
 For enabled blocks, block message is shown if it was specified.
 `
 
-// ListCommand list blocks.
-type ListCommand struct {
+// listCommand list blocks.
+type listCommand struct {
 	envcmd.EnvCommandBase
 	out cmd.Output
 }
 
 // Init implements Command.Init.
-func (c *ListCommand) Init(args []string) (err error) {
+func (c *listCommand) Init(args []string) (err error) {
 	return nil
 }
 
 // Info implements Command.Info.
-func (c *ListCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "list juju blocks",
@@ -43,7 +47,7 @@ func (c *ListCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "blocks", map[string]cmd.Formatter{
 		"yaml":   cmd.FormatYaml,
@@ -53,8 +57,8 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Run implements Command.Run.
-func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := getBlockListAPI(c)
+func (c *listCommand) Run(ctx *cmd.Context) (err error) {
+	api, err := getBlockListAPI(&c.EnvCommandBase)
 	if err != nil {
 		return err
 	}
@@ -73,8 +77,8 @@ type BlockListAPI interface {
 	List() ([]params.Block, error)
 }
 
-var getBlockListAPI = func(p *ListCommand) (BlockListAPI, error) {
-	return getBlockAPI(&p.EnvCommandBase)
+var getBlockListAPI = func(cmd *envcmd.EnvCommandBase) (BlockListAPI, error) {
+	return getBlockAPI(cmd)
 }
 
 // BlockInfo defines the serialization behaviour of the block information.

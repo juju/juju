@@ -39,8 +39,8 @@ type Command struct {
 	cmd.SuperCommand
 }
 
-// NewCommand returns a new backups super-command.
-func NewCommand() cmd.Command {
+// NewSuperCommand returns a new backups super-command.
+func NewSuperCommand() cmd.Command {
 	if featureflag.Enabled(feature.JES) {
 		backupsDoc = jesBackupsDoc
 	}
@@ -55,13 +55,13 @@ func NewCommand() cmd.Command {
 			},
 		),
 	}
-	backupsCmd.Register(envcmd.Wrap(&CreateCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&InfoCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&ListCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&DownloadCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&UploadCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&RemoveCommand{}))
-	backupsCmd.Register(envcmd.Wrap(&RestoreCommand{}))
+	backupsCmd.Register(newCreateCommand())
+	backupsCmd.Register(newInfoCommand())
+	backupsCmd.Register(newListCommand())
+	backupsCmd.Register(newDownloadCommand())
+	backupsCmd.Register(newUploadCommand())
+	backupsCmd.Register(newRemoveCommand())
+	backupsCmd.Register(newRestoreCommand())
 	return &backupsCmd
 }
 

@@ -1,14 +1,15 @@
 package windows_test
 
 import (
-	"github.com/juju/errors"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
+
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/windows"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type serviceSuite struct {

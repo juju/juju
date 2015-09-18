@@ -14,9 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type prereqsSuite struct {
@@ -66,7 +66,7 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	err = symlink.New("/bin/true", filepath.Join(s.tmpdir, pm.PackageQuery))
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&isPackageInstalled, func(pack string) bool {
-		pacman, err := manager.NewPackageManager(version.Current.Series)
+		pacman, err := manager.NewPackageManager(series.HostSeries())
 		c.Assert(err, jc.ErrorIsNil)
 		return pacman.IsInstalled(pack)
 	})

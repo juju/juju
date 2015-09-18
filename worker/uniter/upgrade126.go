@@ -5,7 +5,7 @@ package uniter
 
 import (
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/operation"
 )
@@ -38,7 +38,9 @@ func addInstalled(opsFile string, state *operation.State) error {
 	if state.Kind == operation.RunHook && state.Hook.Kind == hooks.Install {
 		return nil
 	}
-	state.Installed = true
-	return statefile.Write(state)
+	if !state.Installed {
+		state.Installed = true
+		return statefile.Write(state)
+	}
 	return nil
 }

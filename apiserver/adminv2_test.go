@@ -7,13 +7,13 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"

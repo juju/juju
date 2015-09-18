@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -390,7 +391,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+var logDir = paths.MustSucceed(paths.LogDir(series.HostSeries()))
 
 // DefaultBridgeName is the network bridge device name used for LXC and KVM
 // containers
