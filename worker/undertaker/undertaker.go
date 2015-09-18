@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	uc "github.com/juju/utils/clock"
-	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	apiundertaker "github.com/juju/juju/api/undertaker"
