@@ -147,16 +147,6 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeNotSupported,
 }, {
-	err:        errors.BadRequestf("something"),
-	code:       params.CodeBadRequest,
-	status:     http.StatusBadRequest,
-	helperFunc: params.IsBadRequest,
-}, {
-	err:        errors.MethodNotAllowedf("something"),
-	code:       params.CodeMethodNotAllowed,
-	status:     http.StatusMethodNotAllowed,
-	helperFunc: params.IsMethodNotAllowed,
-}, {
 	err:    stderrors.New("an error"),
 	status: http.StatusInternalServerError,
 	code:   "",
