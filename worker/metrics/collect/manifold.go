@@ -134,6 +134,8 @@ type collect struct {
 	charmdir        charmdir.Consumer
 }
 
+var errMetricsNotDefined = errors.New("no metrics defined")
+
 var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm UnitCharmLookup, metricFactory spool.MetricFactory) (spool.MetricRecorder, error) {
 	ch, err := corecharm.ReadCharm(paths.GetCharmDir())
 	if err != nil {
@@ -148,6 +150,9 @@ var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm Uni
 	charmMetrics := map[string]corecharm.Metric{}
 	if ch.Metrics() != nil {
 		charmMetrics = ch.Metrics().Metrics
+	}
+	if len(charmMetrics) == 0 {
+		return nil, errMetricsNotDefined
 	}
 	return metricFactory.Recorder(charmMetrics, chURL.String(), unitTag.String())
 }
@@ -174,7 +179,10 @@ func (w *collect) do() error {
 	paths := uniter.NewPaths(config.DataDir(), unitTag)
 
 	recorder, err := newRecorder(unitTag, paths, w.unitCharmLookup, w.metricFactory)
-	if err != nil {
+	if errors.Cause(err) == errMetricsNotDefined {
+		logger.Tracef("%v", err)
+		return nil
+	} else if err != nil {
 		return errors.Annotate(err, "failed to instantiate metric recorder")
 	}
 
