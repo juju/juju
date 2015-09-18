@@ -15,13 +15,7 @@ import (
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
-	"github.com/juju/juju/version"
 )
-
-// This exists to allow patching during tests.
-var getVersion = func() version.Binary {
-	return version.Current
-}
 
 // DiscoverService returns an interface to a service appropriate
 // for the current system
@@ -31,8 +25,7 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 		return nil, errors.Trace(err)
 	}
 
-	jujuVersion := getVersion()
-	service, err := newService(name, conf, initName, jujuVersion.Series)
+	service, err := newService(name, conf, initName, series.HostSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -43,8 +36,7 @@ func discoverInitSystem() (string, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
-		jujuVersion := getVersion()
-		versionInitName, err2 := VersionInitSystem(jujuVersion.Series)
+		versionInitName, err2 := VersionInitSystem(series.HostSeries())
 		if err2 != nil {
 			// The key error is the one from discoverLocalInitSystem so
 			// that is what we return.

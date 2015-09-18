@@ -23,12 +23,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	environs "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type MongoSuite struct {
@@ -138,6 +138,10 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 
 	s.data = svctesting.NewFakeServiceData()
 	mongo.PatchService(s.PatchValue, s.data)
+}
+
+func (s *MongoSuite) patchSeries(ser string) {
+	s.PatchValue(&series.HostSeries, func() string { return ser })
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
@@ -312,7 +316,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 		} else {
 			c.Assert(service.Conf().ExtraScript, gc.Equals, "")
 		}
-		c.Assert(service.Conf().ExecStart, gc.Matches, `($MULTI_NODE)?.*tmp/check-.*/mongod.*`)
+		c.Assert(service.Conf().ExecStart, gc.Matches, `.*/check-.*/mongod.*`)
 		c.Assert(service.Conf().Logfile, gc.Equals, "")
 	}
 	assertInstalled()
@@ -339,7 +343,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 	for _, test := range tests {
 		dataDir := c.MkDir()
 		namespace := "namespace" + test.series
-		s.PatchValue(&version.Current.Series, test.series)
+		s.patchSeries(test.series)
 		err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -411,7 +415,7 @@ func (s *MongoSuite) assertSuccessWithInstallStepFailCentOS(c *gc.C, exec []stri
 
 	dataDir := c.MkDir()
 	namespace := "namespace" + test.series
-	s.PatchValue(&version.Current.Series, test.series)
+	s.patchSeries(test.series)
 
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("mongosuite", &tw, loggo.INFO), jc.ErrorIsNil)
@@ -437,7 +441,7 @@ func (s *MongoSuite) TestInstallSuccessMongodCentOS(c *gc.C) {
 
 	dataDir := c.MkDir()
 	namespace := "namespace" + test.series
-	s.PatchValue(&version.Current.Series, test.series)
+	s.patchSeries(test.series)
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
@@ -460,7 +464,7 @@ func (s *MongoSuite) TestMongoYumFails(c *gc.C) {
 }
 
 func (s *MongoSuite) assertTestMongoGetFails(c *gc.C, series string, packageManager string) {
-	s.PatchValue(&version.Current.Series, series)
+	s.patchSeries(series)
 
 	// Any exit code from apt-get that isn't 0 or 100 will be treated
 	// as unexpected, skipping the normal retry loop. failCmd causes
@@ -594,7 +598,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 
 	// test that we call add-apt-repository only for quantal
 	// (and that if it fails, we log the error)
-	s.PatchValue(&version.Current.Series, "quantal")
+	s.patchSeries("quantal")
 	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -605,7 +609,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	s.PatchValue(&manager.RunCommandWithRetry, func(string) (string, int, error) {
 		return "", 0, nil
 	})
-	s.PatchValue(&version.Current.Series, "trusty")
+	s.patchSeries("trusty")
 	failCmd(filepath.Join(dir, "mongod"))
 	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
 	c.Assert(err, jc.ErrorIsNil)
@@ -682,7 +686,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "apt-get")
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
-	s.PatchValue(&version.Current.Series, "quantal")
+	s.patchSeries("quantal")
 
 	dataDir := c.MkDir()
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
@@ -713,7 +717,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 func (s *MongoSuite) TestAddEpelInCentOS(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "yum")
 
-	s.PatchValue(&version.Current.Series, "centos7")
+	s.patchSeries("centos7")
 
 	testing.PatchExecutableAsEchoArgs(c, s, "chcon")
 	testing.PatchExecutableAsEchoArgs(c, s, "semanage")

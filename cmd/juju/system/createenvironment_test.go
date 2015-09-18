@@ -26,6 +26,7 @@ import (
 type createSuite struct {
 	testing.FakeJujuHomeSuite
 	fake       *fakeCreateClient
+	parser     func(interface{}) (interface{}, error)
 	store      configstore.Storage
 	serverUUID string
 	server     configstore.EnvironInfo
@@ -37,6 +38,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.JES)
 	s.fake = &fakeCreateClient{}
+	s.parser = nil
 	store := configstore.Default
 	s.AddCleanup(func(*gc.C) {
 		configstore.Default = store
@@ -65,8 +67,8 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := system.NewCreateEnvironmentCommand(s.fake)
-	return testing.RunCommand(c, envcmd.WrapSystem(command), args...)
+	cmd, _ := system.NewCreateEnvironmentCommand(s.fake, s.parser)
+	return testing.RunCommand(c, cmd, args...)
 }
 
 func (s *createSuite) TestInit(c *gc.C) {
@@ -108,23 +110,23 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		create := &system.CreateEnvironmentCommand{}
-		err := testing.InitCommand(create, test.args)
+		wrappedCommand, command := system.NewCreateEnvironmentCommand(nil, nil)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 			continue
 		}
 
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(create.Name(), gc.Equals, test.name)
-		c.Assert(create.Owner(), gc.Equals, test.owner)
-		c.Assert(create.ConfigFile().Path, gc.Equals, test.path)
+		c.Assert(command.Name(), gc.Equals, test.name)
+		c.Assert(command.Owner(), gc.Equals, test.owner)
+		c.Assert(command.ConfigFile().Path, gc.Equals, test.path)
 		// The config value parse method returns an empty map
 		// if there were no values
 		if len(test.values) == 0 {
-			c.Assert(create.ConfValues(), gc.HasLen, 0)
+			c.Assert(command.ConfValues(), gc.HasLen, 0)
 		} else {
-			c.Assert(create.ConfValues(), jc.DeepEquals, test.values)
+			c.Assert(command.ConfValues(), jc.DeepEquals, test.values)
 		}
 	}
 }
@@ -165,6 +167,66 @@ func (s *createSuite) TestConfigFileValuesPassedThrough(c *gc.C) {
 	c.Assert(s.fake.config["cloud"], gc.Equals, "9")
 }
 
+func (s *createSuite) TestConfigFileWithNestedMaps(c *gc.C) {
+	nestedConfig := map[string]interface{}{
+		"account": "magic",
+		"cloud":   "9",
+	}
+	config := map[string]interface{}{
+		"foo":    "bar",
+		"nested": nestedConfig,
+	}
+
+	bytes, err := yaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	file.Write(bytes)
+	file.Close()
+
+	_, err = s.run(c, "test", "--config", file.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.config["foo"], gc.Equals, "bar")
+	c.Assert(s.fake.config["nested"], jc.DeepEquals, nestedConfig)
+}
+
+func (s *createSuite) TestConfigFileFailsToConform(c *gc.C) {
+	nestedConfig := map[int]interface{}{
+		9: "9",
+	}
+	config := map[string]interface{}{
+		"foo":    "bar",
+		"nested": nestedConfig,
+	}
+	bytes, err := yaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	file.Write(bytes)
+	file.Close()
+
+	_, err = s.run(c, "test", "--config", file.Name())
+	c.Assert(err, gc.ErrorMatches, `unable to parse config file: map keyed with non-string value`)
+}
+
+func (s *createSuite) TestConfigFileFailsWithUnknownType(c *gc.C) {
+	config := map[string]interface{}{
+		"account": "magic",
+		"cloud":   "9",
+	}
+
+	bytes, err := yaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	file.Write(bytes)
+	file.Close()
+
+	s.parser = func(interface{}) (interface{}, error) { return "not a map", nil }
+	_, err = s.run(c, "test", "--config", file.Name())
+	c.Assert(err, gc.ErrorMatches, `config must contain a YAML map with string keys`)
+}
+
 func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file, err := ioutil.TempFile(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,7 +234,7 @@ func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, gc.ErrorMatches, `YAML error: .*`)
+	c.Assert(err, gc.ErrorMatches, `unable to parse config file: YAML error: .*`)
 }
 
 func (s *createSuite) TestConfigFileDoesntExist(c *gc.C) {

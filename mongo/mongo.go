@@ -24,9 +24,9 @@ import (
 	"gopkg.in/mgo.v2"
 
 	environs "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/version"
 )
 
 var (
@@ -187,7 +187,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	operatingsystem := version.Current.Series
+	operatingsystem := series.HostSeries()
 	if err := installMongod(operatingsystem, args.SetNumaControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There

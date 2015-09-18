@@ -590,7 +590,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 			}
 		}
 	} else {
-		expectedSeries.Add(version.Current.Series)
+		expectedSeries.Add(series.HostSeries())
 	}
 
 	storage, err := st.ToolsStorage()

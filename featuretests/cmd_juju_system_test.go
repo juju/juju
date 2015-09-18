@@ -5,9 +5,10 @@ package featuretests
 
 import (
 	"fmt"
+	"strings"
+
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -95,7 +96,7 @@ func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("just-a-system")
+	api, err := juju.NewAPIFromName("just-a-system", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
@@ -114,7 +115,7 @@ dummyenv (system) -> new-env
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("new-env")
+	api, err := juju.NewAPIFromName("new-env", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }

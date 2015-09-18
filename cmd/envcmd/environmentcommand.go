@@ -6,18 +6,19 @@ package envcmd
 import (
 	"io"
 	"os"
+	"path"
 	"strconv"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )
@@ -68,12 +69,19 @@ type EnvironCommand interface {
 	// with the active environment name. The environment name is guaranteed
 	// to be non-empty at entry of Init.
 	SetEnvName(envName string)
+
+	// EnvName returns the name of the environment.
+	EnvName() string
+
+	setAPIContext(*apiContext)
 }
 
 // EnvCommandBase is a convenience type for embedding in commands
 // that wish to implement EnvironCommand.
 type EnvCommandBase struct {
 	cmd.CommandBase
+	*apiContext
+
 	// EnvName will very soon be package visible only as we want to be able
 	// to specify an environment in multiple ways, and not always referencing
 	// a file on disk based on the EnvName or the environemnts.yaml file.
@@ -87,8 +95,19 @@ type EnvCommandBase struct {
 	envGetterErr    error
 }
 
+// setAPIContext implements the EvnironCommand interface.
+func (c *EnvCommandBase) setAPIContext(ctx *apiContext) {
+	c.apiContext = ctx
+}
+
+// SetEnvName implements the EnvironCommand interface.
 func (c *EnvCommandBase) SetEnvName(envName string) {
 	c.envName = envName
+}
+
+// EnvName implements the EnvironCommand interface.
+func (c *EnvCommandBase) EnvName() string {
+	return c.envName
 }
 
 func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
@@ -113,6 +132,7 @@ func (c *EnvCommandBase) NewEnvironmentGetter() (EnvironmentGetter, error) {
 	return c.NewAPIClient()
 }
 
+// NewAPIRoot returns a new connection to the API server for the environment.
 func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	// This is work in progress as we remove the EnvName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
@@ -120,7 +140,7 @@ func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	return juju.NewAPIFromName(c.envName)
+	return c.apiContext.NewAPIRoot(c.envName)
 }
 
 // Config returns the configuration for the environment; obtaining bootstrap
@@ -282,34 +302,95 @@ func (c *EnvCommandBase) ConnectionName() string {
 	return c.envName
 }
 
+// WrapSystemOption sets various parameters of the
+// EnvironCommand wrapper.
+type WrapEnvOption func(*environCommandWrapper)
+
+// EnvSkipFlags instructs the wrapper to skip --e and
+// --environment flag definition.
+func EnvSkipFlags(w *environCommandWrapper) {
+	w.skipFlags = true
+}
+
+// EnvSkipDefault instructs the wrapper not to
+// use the default environment.
+func EnvSkipDefault(w *environCommandWrapper) {
+	w.useDefaultEnvironment = false
+}
+
+// EnvAllowEmpty instructs the wrapper
+// that it is OK for an environment not to
+// be specified.
+func EnvAllowEmpty(w *environCommandWrapper) {
+	w.allowEmptyEnv = true
+}
+
 // Wrap wraps the specified EnvironCommand, returning a Command
 // that proxies to each of the EnvironCommand methods.
-func Wrap(c EnvironCommand) cmd.Command {
-	return &environCommandWrapper{EnvironCommand: c}
+// Any provided options are applied to the wrapped command
+// before it is returned.
+func Wrap(c EnvironCommand, options ...WrapEnvOption) cmd.Command {
+	wrapper := &environCommandWrapper{
+		EnvironCommand:        c,
+		skipFlags:             false,
+		useDefaultEnvironment: true,
+		allowEmptyEnv:         false,
+	}
+	for _, option := range options {
+		option(wrapper)
+	}
+	return wrapper
 }
 
 type environCommandWrapper struct {
 	EnvironCommand
-	envName string
+	*apiContext
+	skipFlags             bool
+	useDefaultEnvironment bool
+	allowEmptyEnv         bool
+	envName               string
 }
 
 func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&w.envName, "e", "", "juju environment to operate in")
-	f.StringVar(&w.envName, "environment", "", "")
+	if !w.skipFlags {
+		f.StringVar(&w.envName, "e", "", "juju environment to operate in")
+		f.StringVar(&w.envName, "environment", "", "")
+	}
 	w.EnvironCommand.SetFlags(f)
 }
 
 func (w *environCommandWrapper) Init(args []string) error {
-	if w.envName == "" {
-		// Look for the default.
-		defaultEnv, err := GetDefaultEnvironment()
-		if err != nil {
-			return err
+	if !w.skipFlags {
+		if w.envName == "" && w.useDefaultEnvironment {
+			// Look for the default.
+			defaultEnv, err := GetDefaultEnvironment()
+			if err != nil {
+				return err
+			}
+			w.envName = defaultEnv
 		}
-		w.envName = defaultEnv
+		if w.envName == "" && !w.useDefaultEnvironment {
+			if w.allowEmptyEnv {
+				return w.EnvironCommand.Init(args)
+			} else {
+				return errors.Trace(ErrNoEnvironmentSpecified)
+			}
+		}
 	}
 	w.SetEnvName(w.envName)
 	return w.EnvironCommand.Init(args)
+}
+
+func (w *environCommandWrapper) Run(ctx *cmd.Context) error {
+	apiCtx, err := newAPIContext()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.apiContext = apiCtx
+	w.EnvironCommand.setAPIContext(w.apiContext)
+	defer w.apiContext.Close()
+
+	return w.EnvironCommand.Run(ctx)
 }
 
 type bootstrapContext struct {
@@ -365,4 +446,14 @@ func GetEnvironmentVersion(client EnvironmentGetter) (version.Number, error) {
 		return noVersion, errors.Annotate(err, "unable to parse environment version")
 	}
 	return v, nil
+}
+
+// cookieFile returns the path to the cookie used to store authorization
+// macaroons. The returned value can be overridden by setting the
+// JUJU_COOKIEFILE environment variable.
+func cookieFile() string {
+	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
+		return file
+	}
+	return path.Join(utils.Home(), ".go-cookies")
 }

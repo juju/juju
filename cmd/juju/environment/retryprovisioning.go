@@ -15,9 +15,13 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// RetryProvisioningCommand updates machines' error status to tell
+func newRetryProvisioningCommand() cmd.Command {
+	return envcmd.Wrap(&retryProvisioningCommand{})
+}
+
+// retryProvisioningCommand updates machines' error status to tell
 // the provisoner that it should try to re-provision the machine.
-type RetryProvisioningCommand struct {
+type retryProvisioningCommand struct {
 	envcmd.EnvCommandBase
 	Machines []names.MachineTag
 	api      RetryProvisioningAPI
@@ -30,7 +34,7 @@ type RetryProvisioningAPI interface {
 	RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error)
 }
 
-func (c *RetryProvisioningCommand) Info() *cmd.Info {
+func (c *retryProvisioningCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "retry-provisioning",
 		Args:    "<machine> [...]",
@@ -38,7 +42,7 @@ func (c *RetryProvisioningCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RetryProvisioningCommand) Init(args []string) error {
+func (c *retryProvisioningCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no machine specified")
 	}
@@ -55,14 +59,14 @@ func (c *RetryProvisioningCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *RetryProvisioningCommand) getAPI() (RetryProvisioningAPI, error) {
+func (c *retryProvisioningCommand) getAPI() (RetryProvisioningAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
-func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
+func (c *retryProvisioningCommand) Run(context *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
@@ -32,10 +32,10 @@ func NewSuperCommand() cmd.Command {
 			UsagePrefix: "juju",
 			Purpose:     actionPurpose,
 		})
-	actionCmd.Register(envcmd.Wrap(&DefinedCommand{}))
-	actionCmd.Register(envcmd.Wrap(&DoCommand{}))
-	actionCmd.Register(envcmd.Wrap(&FetchCommand{}))
-	actionCmd.Register(envcmd.Wrap(&StatusCommand{}))
+	actionCmd.Register(newDefinedCommand())
+	actionCmd.Register(newDoCommand())
+	actionCmd.Register(newFetchCommand())
+	actionCmd.Register(newStatusCommand())
 	return actionCmd
 }
 

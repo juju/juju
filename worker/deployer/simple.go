@@ -108,9 +108,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
-	// TODO(dfc)
 	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
-	// TODO(dfc)
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
 

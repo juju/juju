@@ -94,12 +94,12 @@ func NewSuperCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Purpose:     "manage subnets",
 	})
-	subnetCmd.Register(envcmd.Wrap(&AddCommand{}))
-	subnetCmd.Register(envcmd.Wrap(&ListCommand{}))
+	subnetCmd.Register(newAddCommand())
+	subnetCmd.Register(newListCommand())
 	if featureflag.Enabled(feature.PostNetCLIMVP) {
 		// The following commands are not part of the MVP.
-		subnetCmd.Register(envcmd.Wrap(&CreateCommand{}))
-		subnetCmd.Register(envcmd.Wrap(&RemoveCommand{}))
+		subnetCmd.Register(newCreateCommand())
+		subnetCmd.Register(newRemoveCommand())
 	}
 
 	return subnetCmd

@@ -18,8 +18,16 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// DestroyCommand destroys the specified environment.
-type DestroyCommand struct {
+func newDestroyCommand() cmd.Command {
+	return envcmd.Wrap(
+		&destroyCommand{},
+		envcmd.EnvSkipDefault,
+		envcmd.EnvSkipFlags,
+	)
+}
+
+// destroyCommand destroys the specified environment.
+type destroyCommand struct {
 	envcmd.EnvCommandBase
 	envName   string
 	assumeYes bool
@@ -41,7 +49,7 @@ type DestroyEnvironmentAPI interface {
 }
 
 // Info implements Command.Info.
-func (c *DestroyCommand) Info() *cmd.Info {
+func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy",
 		Args:    "<environment name>",
@@ -51,13 +59,13 @@ func (c *DestroyCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *DestroyCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
 // Init implements Command.Init.
-func (c *DestroyCommand) Init(args []string) error {
+func (c *destroyCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no environment specified")
@@ -70,7 +78,7 @@ func (c *DestroyCommand) Init(args []string) error {
 	}
 }
 
-func (c *DestroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
+func (c *destroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -78,7 +86,7 @@ func (c *DestroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
 }
 
 // Run implements Command.Run
-func (c *DestroyCommand) Run(ctx *cmd.Context) error {
+func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Annotate(err, "cannot open environment info storage")
@@ -119,7 +127,7 @@ func (c *DestroyCommand) Run(ctx *cmd.Context) error {
 	return environs.DestroyInfo(c.envName, store)
 }
 
-func (c *DestroyCommand) handleError(err error) error {
+func (c *destroyCommand) handleError(err error) error {
 	if err == nil {
 		return nil
 	}

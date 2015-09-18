@@ -14,10 +14,17 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// UnblockCommand removes the block from desired operation.
-type UnblockCommand struct {
+// NewUnblockCommand returns a new command that removes the block from
+// the specified operation.
+func NewUnblockCommand() cmd.Command {
+	return envcmd.Wrap(&unblockCommand{})
+}
+
+// unblockCommand removes the block from desired operation.
+type unblockCommand struct {
 	envcmd.EnvCommandBase
 	operation string
+	client    UnblockClientAPI
 }
 
 var (
@@ -94,7 +101,7 @@ See Also:
 )
 
 // assignValidOperation verifies that supplied operation is supported.
-func (p *UnblockCommand) assignValidOperation(cmd string, args []string) error {
+func (p *unblockCommand) assignValidOperation(cmd string, args []string) error {
 	if len(args) < 1 {
 		return errors.Trace(errors.Errorf("must specify one of [%v] to %v", blockArgsFmt, cmd))
 	}
@@ -106,7 +113,7 @@ func (p *UnblockCommand) assignValidOperation(cmd string, args []string) error {
 // obtainValidArgument returns polished argument:
 // it checks that the argument is a supported operation and
 // forces it into lower case for consistency.
-func (p *UnblockCommand) obtainValidArgument(arg string) (string, error) {
+func (p *unblockCommand) obtainValidArgument(arg string) (string, error) {
 	for _, valid := range blockArgs {
 		if strings.EqualFold(valid, arg) {
 			return strings.ToLower(arg), nil
@@ -117,7 +124,7 @@ func (p *UnblockCommand) obtainValidArgument(arg string) (string, error) {
 
 // Info provides information about command.
 // Satisfying Command interface.
-func (c *UnblockCommand) Info() *cmd.Info {
+func (c *unblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
 		Args:    blockArgsFmt,
@@ -128,7 +135,7 @@ func (c *UnblockCommand) Info() *cmd.Info {
 
 // Init initializes the command.
 // Satisfying Command interface.
-func (c *UnblockCommand) Init(args []string) error {
+func (c *unblockCommand) Init(args []string) error {
 	if len(args) > 1 {
 		return errors.Trace(errors.New("can only specify block type"))
 	}
@@ -137,18 +144,21 @@ func (c *UnblockCommand) Init(args []string) error {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *UnblockCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 }
 
 // Run unblocks previously blocked commands.
 // Satisfying Command interface.
-func (c *UnblockCommand) Run(_ *cmd.Context) error {
-	client, err := getUnblockClientAPI(c)
-	if err != nil {
-		return errors.Trace(err)
+func (c *unblockCommand) Run(_ *cmd.Context) error {
+	client := c.client
+	if client == nil {
+		client, err := getBlockAPI(&c.EnvCommandBase)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer client.Close()
 	}
-	defer client.Close()
 
 	return client.SwitchBlockOff(TypeFromOperation(c.operation))
 }
@@ -159,6 +169,6 @@ type UnblockClientAPI interface {
 	SwitchBlockOff(blockType string) error
 }
 
-var getUnblockClientAPI = func(p *UnblockCommand) (UnblockClientAPI, error) {
+var getUnblockClientAPI = func(p *unblockCommand) (UnblockClientAPI, error) {
 	return getBlockAPI(&p.EnvCommandBase)
 }

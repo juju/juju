@@ -13,7 +13,11 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-type UnsetCommand struct {
+func newUnsetCommand() cmd.Command {
+	return envcmd.Wrap(&unsetCommand{})
+}
+
+type unsetCommand struct {
 	envcmd.EnvCommandBase
 	api  UnsetEnvironmentAPI
 	keys []string
@@ -28,7 +32,7 @@ in an error.
 Multiple attributes may be removed at once; keys should be space-separated.
 `
 
-func (c *UnsetCommand) Info() *cmd.Info {
+func (c *unsetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unset",
 		Args:    "<environment key> ...",
@@ -37,7 +41,7 @@ func (c *UnsetCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UnsetCommand) Init(args []string) (err error) {
+func (c *unsetCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("no keys specified")
 	}
@@ -51,14 +55,14 @@ type UnsetEnvironmentAPI interface {
 	EnvironmentUnset(keys ...string) error
 }
 
-func (c *UnsetCommand) getAPI() (UnsetEnvironmentAPI, error) {
+func (c *unsetCommand) getAPI() (UnsetEnvironmentAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewAPIClient()
 }
 
-func (c *UnsetCommand) Run(ctx *cmd.Context) error {
+func (c *unsetCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err

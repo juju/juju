@@ -21,14 +21,27 @@ var _ = gc.Suite(&filesystemSuite{})
 func (s *filesystemSuite) expectedFilesystemDetailsResult() params.FilesystemDetailsResult {
 	return params.FilesystemDetailsResult{
 		Result: &params.FilesystemDetails{
-			FilesystemTag:   s.filesystemTag.String(),
-			StorageTag:      "storage-data-0",
-			StorageOwnerTag: "unit-mysql-0",
+			FilesystemTag: s.filesystemTag.String(),
 			Status: params.EntityStatus{
 				Status: "attached",
 			},
 			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
 				s.machineTag.String(): params.FilesystemAttachmentInfo{},
+			},
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-data-0",
+				OwnerTag:   "unit-mysql-0",
+				Kind:       params.StorageKindFilesystem,
+				Status: params.EntityStatus{
+					Status: "attached",
+				},
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-mysql-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-data-0",
+						UnitTag:    "unit-mysql-0",
+						MachineTag: "machine-66",
+					},
+				},
 			},
 		},
 	}
@@ -100,6 +113,9 @@ func (s *filesystemSuite) TestListFilesystemsAttachmentInfo(c *gc.C) {
 		MountPoint: "/tmp",
 		ReadOnly:   true,
 	}
+	expectedStorageAttachmentDetails := expected.Result.Storage.Attachments["unit-mysql-0"]
+	expectedStorageAttachmentDetails.Location = "/tmp"
+	expected.Result.Storage.Attachments["unit-mysql-0"] = expectedStorageAttachmentDetails
 	found, err := s.api.ListFilesystems(params.FilesystemFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)

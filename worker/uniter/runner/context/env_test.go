@@ -6,6 +6,7 @@ package context_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 
 	"github.com/juju/names"
@@ -98,7 +99,11 @@ func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 	c.Assert(paths, gc.Not(gc.HasLen), 0)
 	vars, err := keyvalues.Parse(paths, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vars["PATH"], gc.Not(gc.Equals), "")
+	key := "PATH"
+	if runtime.GOOS == "windows" {
+		key = "Path"
+	}
+	c.Assert(vars[key], gc.Not(gc.Equals), "")
 }
 
 func (s *EnvSuite) TestEnvWindows(c *gc.C) {

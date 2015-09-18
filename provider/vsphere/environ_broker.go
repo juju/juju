@@ -8,7 +8,6 @@ package vsphere
 import (
 	"github.com/juju/errors"
 	"github.com/juju/govmomi/vim25/mo"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils"
 )
 
 const (

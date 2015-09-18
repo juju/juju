@@ -33,12 +33,18 @@ func (s *KillSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := system.NewKillCommand(s.api, s.clientapi, s.apierror, juju.NewAPIFromName)
+	cmd := s.newKillCommand()
 	return testing.RunCommand(c, cmd, args...)
 }
 
-func (s *KillSuite) newKillCommand() *system.KillCommand {
-	return system.NewKillCommand(s.api, s.clientapi, s.apierror, juju.NewAPIFromName)
+func (s *KillSuite) newKillCommand() cmd.Command {
+	return system.NewKillCommand(
+		s.api,
+		s.clientapi,
+		s.apierror,
+		func(name string) (api.Connection, error) {
+			return juju.NewAPIFromName(name, nil)
+		})
 }
 
 func (s *KillSuite) TestKillNoSystemNameError(c *gc.C) {
@@ -54,12 +60,6 @@ func (s *KillSuite) TestKillBadFlags(c *gc.C) {
 func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
 	_, err := s.runKillCommand(c, "environment", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
-}
-
-func (s *KillSuite) TestKillNoDialer(c *gc.C) {
-	cmd := system.NewKillCommand(nil, nil, nil, nil)
-	_, err := testing.RunCommand(c, cmd, "test1", "-y")
-	c.Assert(err, gc.ErrorMatches, "no api dialer specified")
 }
 
 func (s *KillSuite) TestKillUnknownSystem(c *gc.C) {
