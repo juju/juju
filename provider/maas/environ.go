@@ -933,7 +933,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{maasObject: node, environ: environ}
+	inst := &maasInstance{node}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -1322,10 +1322,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{
-			maasObject: &node,
-			environ:    environ,
-		}
+		instances[index] = &maasInstance{&node}
 	}
 	return instances, nil
 }

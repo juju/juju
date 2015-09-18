@@ -33,16 +33,6 @@ func (i sigmaInstance) Status() string {
 	return status
 }
 
-// Refresh refreshes local knowledge of the instance from the provider.
-func (i sigmaInstance) Refresh() error {
-	if i.server == nil {
-		return errors.New("invalid instance")
-	}
-	err := i.server.Refresh()
-	logger.Tracef("sigmaInstance.Refresh: %s", err)
-	return err
-}
-
 // Addresses returns a list of hostnames or ip addresses
 // associated with the instance. This will supercede DNSName
 // which can be implemented by selecting a preferred address.

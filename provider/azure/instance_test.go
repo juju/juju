@@ -136,34 +136,28 @@ func assertPortChangeConversation(c *gc.C, record []*gwacl.X509Request, expected
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {
-	vnn := s.env.getVirtualNetworkName()
-	responses := prepareDeploymentInfoResponse(c, gwacl.Deployment{
-		RoleInstanceList: []gwacl.RoleInstance{{
-			RoleName:  s.role.RoleName,
-			IPAddress: "1.2.3.4",
-		}},
-		VirtualNetworkName: vnn,
-	})
-	gwacl.PatchManagementAPIResponses(responses)
-
-	expected := []network.Address{
-		{
-			"1.2.3.4",
-			network.IPv4Address,
-			vnn,
-			network.ScopeCloudLocal,
-		},
-		{
-			s.service.ServiceName + "." + AzureDomainName,
-			network.HostName,
-			"",
-			network.ScopePublic,
-		},
+	hostName := network.Address{
+		s.service.ServiceName + "." + AzureDomainName,
+		network.HostName,
+		"",
+		network.ScopePublic,
 	}
-
 	addrs, err := s.instance.Addresses()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(addrs, jc.SameContents, expected)
+	c.Check(addrs, jc.DeepEquals, []network.Address{hostName})
+
+	ipAddress := network.Address{
+		"1.2.3.4",
+		network.IPv4Address,
+		s.env.getVirtualNetworkName(),
+		network.ScopeCloudLocal,
+	}
+	s.instance.roleInstance = &gwacl.RoleInstance{
+		IPAddress: "1.2.3.4",
+	}
+	addrs, err = s.instance.Addresses()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(addrs, jc.DeepEquals, []network.Address{ipAddress, hostName})
 }
 
 func (s *instanceSuite) TestOpenPorts(c *gc.C) {
