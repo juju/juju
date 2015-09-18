@@ -7,7 +7,7 @@ import (
 	"gopkg.in/amz.v3/aws"
 
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/juju/arch"
+	"github.com/juju/utils/arch"
 )
 
 // Type of virtualisation used.

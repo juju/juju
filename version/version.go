@@ -16,11 +16,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/series"
-	jujuos "github.com/juju/utils/os"
 )
 
 // The presence and format of this constant is very important.

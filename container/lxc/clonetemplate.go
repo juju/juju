@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 )
 
 var (

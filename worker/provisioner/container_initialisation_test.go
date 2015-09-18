@@ -14,8 +14,10 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/manager"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +28,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/provider/dummy"
@@ -36,7 +37,6 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
-	jujuos "github.com/juju/utils/os"
 )
 
 type ContainerSetupSuite struct {

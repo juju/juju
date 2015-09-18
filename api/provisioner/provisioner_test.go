@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"

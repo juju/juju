@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/containerinit"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 )
 
 var (

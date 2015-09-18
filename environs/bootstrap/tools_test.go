@@ -6,11 +6,11 @@ package bootstrap_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/series"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
