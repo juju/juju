@@ -16,9 +16,11 @@ var (
 	// If true, only inline PGP signed image metadata will be used.
 	signedImageDataOnly = true
 
-	// defaultType is the default EC2 instance we'd like to use if no
-	// constraints are specified.
-	defaultInstanceType = findInstanceTypeWithName("m3.medium", allInstanceTypes...)
+	// defaultInstanceTypeRef is the default EC2 instance we'd like to
+	// use as a reference when specifying default CpuPower and Mem
+	// constraints. This is only referenced if InstanceType is not
+	// specified.
+	defaultInstanceTypeRef = findInstanceTypeWithName("m3.medium", allInstanceTypes...)
 )
 
 // filterImages returns only that subset of the input (in the same order) that
@@ -52,10 +54,10 @@ func findInstanceSpec(
 	cons := ic.Constraints
 	if cons.InstanceType == nil || *cons.InstanceType == "" {
 		if cons.CpuPower == nil {
-			cons.CpuPower = defaultInstanceType.CpuPower
+			cons.CpuPower = defaultInstanceTypeRef.CpuPower
 		}
 		if cons.Mem == nil {
-			cons.Mem = &defaultInstanceType.Mem
+			cons.Mem = &defaultInstanceTypeRef.Mem
 		}
 	}
 
