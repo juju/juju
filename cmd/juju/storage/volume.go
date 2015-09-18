@@ -82,8 +82,7 @@ type MachineVolumeAttachment struct {
 	// TODO(axw) add machine volume attachment status when we have it
 }
 
-// convertToVolumeInfo returns map of maps with volume info
-// keyed first on machine ID and then on volume ID.
+// convertToVolumeInfo returns a map of volume IDs to volume info.
 func convertToVolumeInfo(all []params.VolumeDetailsResult) (map[string]VolumeInfo, error) {
 	result := make(map[string]VolumeInfo)
 	for _, one := range all {
