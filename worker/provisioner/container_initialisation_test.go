@@ -219,7 +219,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
-		toolsFinder.FindTools(version.Current.Number, version.Current.Series, arch.AMD64)
+		toolsFinder.FindTools(version.Current.Number, series.HostSeries(), arch.AMD64)
 		return nil
 	})
 
@@ -294,12 +294,11 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
-	var ser string
-	var expected_initial []string
-
 	current_os, err := series.GetOSFromSeries(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
+	var ser string
+	var expected_initial []string
 	switch current_os {
 	case jujuos.CentOS:
 		ser = "centos7"
@@ -526,7 +525,6 @@ func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 
 func getContainerInstance() (cont []ContainerInstance, err error) {
 	current_os, err := series.GetOSFromSeries(series.HostSeries())
-
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/feature"
 	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -69,7 +70,7 @@ func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
 	vers := dt.version()
-	s.PatchVersion(vers)
+	s.PatchSeries(vers.Series)
 	return vers
 }
 
@@ -180,13 +181,13 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		localInitSystem, err = service.VersionInitSystem(version.Current.Series)
+		localInitSystem, err = service.VersionInitSystem(series.HostSeries())
 	}
 	c.Assert(err, gc.IsNil)
 
 	test := discoveryTest{
 		os:       version.Current.OS,
-		series:   version.Current.Series,
+		series:   series.HostSeries(),
 		expected: localInitSystem,
 	}
 	test.disableVersionDiscovery(s)

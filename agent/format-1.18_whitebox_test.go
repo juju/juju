@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -30,9 +31,9 @@ var _ = gc.Suite(&format_1_18Suite{})
 var configData1_18WithoutUpgradedToVersion = "# format 1.18\n" + configDataWithoutNewAttributes
 
 func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
-	logDir, err := paths.LogDir(version.Current.Series)
+	logDir, err := paths.LogDir(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
-	realDataDir, err := paths.DataDir(version.Current.Series)
+	realDataDir, err := paths.DataDir(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
 	realDataDir = filepath.FromSlash(realDataDir)

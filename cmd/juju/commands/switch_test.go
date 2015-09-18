@@ -5,6 +5,7 @@ package commands
 
 import (
 	"os"
+	"runtime"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -34,6 +35,10 @@ func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
 }
 
 func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1496997: os.Chmod doesn't exist on windows, checking this on one platform is sufficent to test this case")
+	}
+
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Chmod(envPath, 0)
 	c.Assert(err, jc.ErrorIsNil)

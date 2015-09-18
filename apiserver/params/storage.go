@@ -643,21 +643,9 @@ type FilesystemDetails struct {
 	// machine tag to filesystem attachment information.
 	MachineAttachments map[string]FilesystemAttachmentInfo `json:"machineattachments,omitempty"`
 
-	// NOTE(axw): below should really be StorageDetails, but
-	// StorageDetails is pretty broken at the moment.
-	// StorageDetails is really *StorageAttachmentDetails*,
-	// but also includes information about the storage
-	// instance. We need to rev the storage API and fix
-	// this all up in one go.
-
-	// StorageTag is the tag of the storage instance
-	// that the filesystem is assigned to, if any.
-	StorageTag string `json:"storagetag,omitempty"`
-
-	// StorageOwnerTag is the tag of the entity that
-	// owns the filesystem's assigned storage instance,
-	// if any.
-	StorageOwnerTag string `json:"ownertag,omitempty"`
+	// Storage contains details about the storage instance
+	// that the volume is assigned to, if any.
+	Storage *StorageDetails `json:"storage,omitempty"`
 }
 
 // FilesystemDetailsResult contains details about a filesystem, its attachments or

@@ -17,9 +17,9 @@ import (
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
@@ -27,7 +27,7 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud.util")
-	DataDir           = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	DataDir           = paths.MustSucceed(paths.DataDir(series.HostSeries()))
 	EnsureMongoServer = mongo.EnsureServer
 )
 

@@ -6,6 +6,7 @@ package storage
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -40,116 +41,101 @@ type FilesystemCommandBase struct {
 // FilesystemInfo defines the serialization behaviour for storage filesystem.
 type FilesystemInfo struct {
 	// from params.Filesystem. This is provider-supplied unique filesystem id.
-	FilesystemId string `yaml:"id,omitempty" json:"id,omitempty"`
+	ProviderFilesystemId string `yaml:"provider-id,omitempty" json:"provider-id,omitempty"`
+
+	// Volume is the ID of the volume that the filesystem is backed by, if any.
+	Volume string
+
+	// Storage is the ID of the storage instance that the filesystem is
+	// assigned to, if any.
+	Storage string
+
+	// Attachments is the set of entities attached to the filesystem.
+	Attachments *FilesystemAttachments
 
 	// from params.FilesystemInfo
 	Size uint64 `yaml:"size" json:"size"`
-
-	// from params.FilesystemAttachmentInfo
-	MountPoint string `yaml:"mountpoint,omitempty" json:"mountpoint,omitempty"`
-
-	// from params.FilesystemAttachmentInfo
-	ReadOnly bool `yaml:"read-only" json:"read-only"`
-
-	// from params.FilesystemInfo. This is juju-supplied filesystem ID.
-	Filesystem string `yaml:"filesystem" json:"filesystem"`
-
-	// from params.FilesystemDetails. This is the juju-supplied ID of the
-	// volume backing the filesystem if any.
-	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
 
 	// from params.FilesystemInfo.
 	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
-// convertToFilesystemInfo returns map of maps with filesystem info
-// keyed first on machine ID and then on filesystem ID.
-func convertToFilesystemInfo(all []params.FilesystemDetailsResult) (map[string]map[string]map[string]FilesystemInfo, error) {
-	result := map[string]map[string]map[string]FilesystemInfo{}
+type FilesystemAttachments struct {
+	Machines map[string]MachineFilesystemAttachment `yaml:"machines,omitempty" json:"machines,omitempty"`
+	Units    map[string]UnitStorageAttachment       `yaml:"units,omitempty" json:"units,omitempty"`
+}
+
+type MachineFilesystemAttachment struct {
+	MountPoint string `yaml:"mount-point" json:"mount-point"`
+	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+}
+
+// convertToFilesystemInfo returns a map of filesystem IDs to filesystem info.
+func convertToFilesystemInfo(all []params.FilesystemDetailsResult) (map[string]FilesystemInfo, error) {
+	result := make(map[string]FilesystemInfo)
 	for _, one := range all {
-		if err := convertFilesystemDetailsResult(one, result); err != nil {
+		filesystemTag, info, err := createFilesystemInfo(one)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		result[filesystemTag.Id()] = info
 	}
 	return result, nil
 }
 
-func convertFilesystemDetailsResult(item params.FilesystemDetailsResult, all map[string]map[string]map[string]FilesystemInfo) error {
-	info, attachments, storage, storageOwner, err := createFilesystemInfo(item)
+func createFilesystemInfo(result params.FilesystemDetailsResult) (names.FilesystemTag, FilesystemInfo, error) {
+	details := result.Result
+
+	filesystemTag, err := names.ParseFilesystemTag(details.FilesystemTag)
 	if err != nil {
-		return errors.Trace(err)
+		return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
 	}
-	for machineTag, attachmentInfo := range attachments {
-		machineId, err := idFromTag(machineTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		info.MountPoint = attachmentInfo.MountPoint
-		info.ReadOnly = attachmentInfo.ReadOnly
-		addOneFilesystemToAll(machineId, storage, storageOwner, info, all)
-	}
-	if len(attachments) == 0 {
-		addOneFilesystemToAll("unattached", storage, storageOwner, info, all)
-	}
-	return nil
-}
 
-func addOneFilesystemToAll(machineId, storageId, storageOwnerId string, item FilesystemInfo, all map[string]map[string]map[string]FilesystemInfo) {
-	machineFilesystems, ok := all[machineId]
-	if !ok {
-		machineFilesystems = map[string]map[string]FilesystemInfo{}
-		all[machineId] = machineFilesystems
-	}
-	storageOwnerFilesystems, ok := machineFilesystems[storageOwnerId]
-	if !ok {
-		storageOwnerFilesystems = map[string]FilesystemInfo{}
-		machineFilesystems[storageOwnerId] = storageOwnerFilesystems
-	}
-	storageOwnerFilesystems[storageId] = item
-}
-
-func createFilesystemInfo(result params.FilesystemDetailsResult) (
-	info FilesystemInfo,
-	attachments map[string]params.FilesystemAttachmentInfo,
-	storageId string,
-	storageOwnerId string,
-	err error,
-) {
-	info.FilesystemId = result.Result.Info.FilesystemId
-	info.Size = result.Result.Info.Size
+	var info FilesystemInfo
+	info.ProviderFilesystemId = details.Info.FilesystemId
+	info.Size = details.Info.Size
 	info.Status = EntityStatus{
-		result.Result.Status.Status,
-		result.Result.Status.Info,
+		details.Status.Status,
+		details.Status.Info,
 		// TODO(axw) we should support formatting as ISO time
-		common.FormatTime(result.Result.Status.Since, false),
+		common.FormatTime(details.Status.Since, false),
 	}
 
-	if f, err := idFromTag(result.Result.FilesystemTag); err != nil {
-		return FilesystemInfo{}, nil, "", "", errors.Trace(err)
-	} else {
-		info.Filesystem = f
+	if details.VolumeTag != "" {
+		volumeId, err := idFromTag(details.VolumeTag)
+		if err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+		}
+		info.Volume = volumeId
 	}
 
-	if result.Result.VolumeTag != "" {
-		if v, err := idFromTag(result.Result.VolumeTag); err == nil {
-			info.Volume = v
+	if len(details.MachineAttachments) > 0 {
+		machineAttachments := make(map[string]MachineFilesystemAttachment)
+		for machineTag, attachment := range details.MachineAttachments {
+			machineId, err := idFromTag(machineTag)
+			if err != nil {
+				return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+			}
+			machineAttachments[machineId] = MachineFilesystemAttachment{
+				attachment.MountPoint,
+				attachment.ReadOnly,
+			}
+		}
+		info.Attachments = &FilesystemAttachments{
+			Machines: machineAttachments,
 		}
 	}
 
-	storageId = "unassigned"
-	if result.Result.StorageTag != "" {
-		if storageId, err = idFromTag(result.Result.StorageTag); err != nil {
-			return FilesystemInfo{}, nil, "", "", errors.Trace(err)
+	if details.Storage != nil {
+		storageTag, storageInfo, err := createStorageInfo(*details.Storage)
+		if err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+		}
+		info.Storage = storageTag.Id()
+		if storageInfo.Attachments != nil {
+			info.Attachments.Units = storageInfo.Attachments.Units
 		}
 	}
 
-	storageOwnerId = "unattached"
-	if result.Result.StorageOwnerTag != "" {
-		if storageOwnerId, err = idFromTag(result.Result.StorageOwnerTag); err != nil {
-			return FilesystemInfo{}, nil, "", "", errors.Trace(err)
-		}
-	}
-
-	attachments = result.Result.MachineAttachments
-	return info, attachments, storageId, storageOwnerId, nil
+	return filesystemTag, info, nil
 }
