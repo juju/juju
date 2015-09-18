@@ -155,8 +155,9 @@ var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm Uni
 // Do satisfies the worker.PeriodWorkerCall function type.
 func (w *collect) Do(stop <-chan struct{}) error {
 	err := w.charmdir.Run(w.do)
-	if err != nil {
-		logger.Debugf("%v", errors.Details(err))
+	if err == charmdir.ErrNotAvailable {
+		logger.Debugf("cannot execute collect-metrics - charmdir locked")
+		return nil
 	}
 	return err
 }
