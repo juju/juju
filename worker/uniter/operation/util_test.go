@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	corecharm "gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v5/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -458,13 +458,12 @@ var curl = corecharm.MustParseURL
 var someActionId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 var randomActionId = "9f484882-2f18-4fd2-967d-db9663db7bea"
 var overwriteState = operation.State{
-	Kind:             operation.Continue,
-	Step:             operation.Pending,
-	Started:          true,
-	UpdateStatusTime: 1234567,
-	CharmURL:         curl("cs:quantal/wordpress-2"),
-	ActionId:         &randomActionId,
-	Hook:             &hook.Info{Kind: hooks.Install},
+	Kind:     operation.Continue,
+	Step:     operation.Pending,
+	Started:  true,
+	CharmURL: curl("cs:quantal/wordpress-2"),
+	ActionId: &randomActionId,
+	Hook:     &hook.Info{Kind: hooks.Install},
 }
 var someCommandArgs = operation.CommandArgs{
 	Commands:        "do something",

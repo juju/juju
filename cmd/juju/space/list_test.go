@@ -263,11 +263,20 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSpaces")
 }
 
-func (s *ListSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
-	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported by the provider"))
+func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
+	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
 
-	err := s.AssertRunFails(c, "cannot list spaces: spaces not supported by the provider")
+	err := s.AssertRunSpacesNotSupported(c, "cannot list spaces: spaces not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+
+	s.api.CheckCallNames(c, "ListSpaces", "Close")
+	s.api.CheckCall(c, 0, "ListSpaces")
+}
+
+func (s *ListSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
+	s.api.SetErrors(errors.New("boom"))
+
+	s.AssertRunFails(c, "cannot list spaces: boom")
 
 	s.api.CheckCallNames(c, "ListSpaces", "Close")
 	s.api.CheckCall(c, 0, "ListSpaces")

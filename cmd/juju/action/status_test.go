@@ -18,7 +18,7 @@ import (
 
 type StatusSuite struct {
 	BaseActionSuite
-	subcommand cmd.Command
+	subcommand *action.StatusCommand
 }
 
 var _ = gc.Suite(&StatusSuite{})

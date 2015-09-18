@@ -20,9 +20,8 @@ import (
 	"github.com/juju/govmomi/vim25/progress"
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
-	"golang.org/x/net/context"
-
 	"github.com/juju/juju/juju/osenv"
+	"golang.org/x/net/context"
 )
 
 /*

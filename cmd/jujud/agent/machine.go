@@ -25,7 +25,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -107,7 +108,7 @@ const bootstrapMachineId = "0"
 var (
 	logger     = loggo.GetLogger("juju.cmd.jujud")
 	retryDelay = 3 * time.Second
-	JujuRun    = paths.MustSucceed(paths.JujuRun(version.Current.Series))
+	JujuRun    = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
@@ -799,11 +800,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if isEnvironManager {
 		// Start worker that stores missing published image metadata in state.
 		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-			env, err := environs.New(envConfig)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return newMetadataUpdater(st.MetadataUpdater(), imagemetadataworker.DefaultListPublishedMetadata, env), nil
+			return newMetadataUpdater(st.MetadataUpdater()), nil
 		})
 	}
 

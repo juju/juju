@@ -176,3 +176,48 @@ func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 	c.Assert(found, gc.HasLen, 0)
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *imagemetadataSuite) TestUpdateFromPublishedImages(c *gc.C) {
+	c.Skip("temp disable to unblock master - lp:1495542")
+	called := false
+
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdateFromPublishedImages")
+			return nil
+		})
+
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.UpdateFromPublishedImages()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *imagemetadataSuite) TestUpdateFromPublishedImagesFacadeCallError(c *gc.C) {
+	c.Skip("temp disable to unblock master - lp:1495542")
+	called := false
+	msg := "facade failure"
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdateFromPublishedImages")
+			return errors.New(msg)
+		})
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.UpdateFromPublishedImages()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(called, jc.IsTrue)
+}
