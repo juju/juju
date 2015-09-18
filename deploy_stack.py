@@ -215,7 +215,9 @@ def iter_remote_machines(client):
 
 def archive_logs(log_dir):
     """Compress log files in given log_dir using gzip."""
-    log_files = glob.glob(os.path.join(log_dir, '*.log'))
+    log_files = []
+    for r, ds, fs in os.walk(log_dir):
+        log_files.extend(os.path.join(r, f) for f in fs if f.endswith(".log"))
     if log_files:
         subprocess.check_call(['gzip', '--best', '-f'] + log_files)
 
