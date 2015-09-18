@@ -87,6 +87,17 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 
 // TestCollectWorkerStarts ensures that the manifold correctly sets up the worker.
 func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			// Return a dummyRecorder here, because otherwise a real one
+			// *might* get instantiated and error out, if the periodic worker
+			// happens to fire before the worker shuts down (as seen in
+			// LP:#1497355).
+			return &dummyRecorder{
+				charmURL: "cs:ubuntu-1",
+				unitTag:  "ubuntu/0",
+			}, nil
+		})
 	getResource := dt.StubGetResource(s.dummyResources)
 	worker, err := s.manifold.Start(getResource)
 	c.Assert(err, jc.ErrorIsNil)
