@@ -1003,7 +1003,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if err != nil {
 				return err
 			}
-			if revno == c.Revno {
+			if true || revno == c.Revno {
 				// Only send if we read the revno we were notified
 				// about. If we read a newer revno, wait until the
 				// next notification before sending.

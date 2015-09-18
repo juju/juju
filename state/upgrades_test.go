@@ -4217,7 +4217,7 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 			{"env-uuid", "env-uuid"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
-			{"setting", int64(123)},
+			{"settings", int64(123)},
 			{"version", "onetwothree"},
 		},
 		bson.D{
@@ -4231,7 +4231,7 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 			{"_id", "4"},
 			{"txn-revno", int64(99)},
 			{"txn-queue", []string{}},
-			{"setting", int64(123)},
+			{"settings", int64(123)},
 			{"version", "onetwothree"},
 		},
 		bson.D{
@@ -4251,7 +4251,7 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 			{"txn-queue", []string{}},
 			{"version", int64(98)},
 			{"settings", bson.D{
-				{"setting", int64(123)},
+				{"settings", int64(123)},
 				{"version", "onetwothree"},
 			}},
 		},
@@ -4268,10 +4268,10 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 	}, {
 		"_id":       "2",
 		"env-uuid":  "env-uuid",
-		"txn-revno": int64(100),
+		"txn-revno": int64(101),
 		"settings": bson.M{
-			"setting": int64(123),
-			"version": "onetwothree",
+			"settings": int64(123),
+			"version":  "onetwothree",
 		},
 		"version": int64(99),
 	}, {
@@ -4281,10 +4281,10 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 		"version":   int64(99),
 	}, {
 		"_id":       "4",
-		"txn-revno": int64(100),
+		"txn-revno": int64(101),
 		"settings": bson.M{
-			"setting": int64(123),
-			"version": "onetwothree",
+			"settings": int64(123),
+			"version":  "onetwothree",
 		},
 		"version": int64(99),
 	}, {
@@ -4299,8 +4299,8 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 		"txn-revno": int64(99),
 		"version":   int64(98),
 		"settings": bson.M{
-			"setting": int64(123),
-			"version": "onetwothree",
+			"settings": int64(123),
+			"version":  "onetwothree",
 		},
 	}}
 

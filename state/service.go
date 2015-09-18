@@ -1038,8 +1038,8 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 
 	buildTxn := func(_ int) ([]txn.Op, error) {
 		// Read the current document state so we can abort if there's
-		// no actual change; and the txn-revno so we can assert on it
-		// and prevent these settings from landing late.
+		// no actual change; and the version number so we can assert
+		// on it and prevent these settings from landing late.
 		doc, err := readSettingsDoc(s.st, key)
 		if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("service")
