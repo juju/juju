@@ -449,10 +449,11 @@ var deployAuthorizationTests = []struct {
 	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
-adding charm cs:trusty/mysql-0
-deploying service mysql (charm: cs:trusty/mysql-0)
-adding charm cs:trusty/wordpress-1
-deploying service wordpress (charm: cs:trusty/wordpress-1)
+added charm cs:trusty/mysql-0
+service mysql deployed (charm: cs:trusty/mysql-0)
+added charm cs:trusty/wordpress-1
+service wordpress deployed (charm: cs:trusty/wordpress-1)
+related wordpress:db and mysql:server
 deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 }, {
 	about:        "non-public bundle, success",
@@ -460,10 +461,11 @@ deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 	deployURL:    "cs:~bob/bundle/wordpress-simple2-0",
 	readPermUser: clientUserName,
 	expectOutput: `
-adding charm cs:trusty/mysql-0
+added charm cs:trusty/mysql-0
 reusing service mysql (charm: cs:trusty/mysql-0)
-adding charm cs:trusty/wordpress-1
+added charm cs:trusty/wordpress-1
 reusing service wordpress (charm: cs:trusty/wordpress-1)
+wordpress:db and mysql:server are already related
 deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 }, {
 	about:        "non-public bundle, access denied",
@@ -641,6 +643,17 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)
+}
+
+// assertRelationsEstablished checks that the given relations have been set.
+func (s *charmStoreSuite) assertRelationsEstablished(c *gc.C, relations ...string) {
+	rs, err := s.State.AllRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	established := make([]string, len(rs))
+	for i, r := range rs {
+		established[i] = r.String()
+	}
+	c.Assert(established, jc.SameContents, relations)
 }
 
 type testMetricCredentialsSetter struct {
