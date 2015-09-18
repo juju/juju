@@ -25,6 +25,10 @@ func (s *InstanceSuite) TestParseContainerType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
 
+	ctype, err = instance.ParseContainerType("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctype, gc.Equals, instance.LXD)
+
 	ctype, err = instance.ParseContainerType("kvm")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.KVM)
@@ -40,6 +44,10 @@ func (s *InstanceSuite) TestParseContainerTypeOrNone(c *gc.C) {
 	ctype, err := instance.ParseContainerTypeOrNone("lxc")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
+
+	ctype, err = instance.ParseContainerTypeOrNone("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctype, gc.Equals, instance.LXD)
 
 	ctype, err = instance.ParseContainerTypeOrNone("kvm")
 	c.Assert(err, jc.ErrorIsNil)
