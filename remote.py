@@ -135,7 +135,7 @@ class SSHRemote(_Remote):
     def copy(self, destination_dir, source_globs):
         """Copy files from the remote machine."""
         self._ensure_address()
-        args = ["scp", "-C"]
+        args = ["scp", "-rC"]
         args.extend(self._ssh_opts)
         args.extend(["{}:{}".format(self.address, f) for f in source_globs])
         args.append(destination_dir)
@@ -256,6 +256,9 @@ class WinRmRemote(_Remote):
             logging.warning("winrm cat failed %r", result)
         return result.std_out
 
+    # TODO(gz): Unlike SSHRemote.copy this only supports copying files, not
+    #           directories and their content. Both the powershell script and
+    #           the unpacking method will need updating to support that.
     def copy(self, destination_dir, source_globs):
         """Copy files from the remote machine."""
         # Encode globs into script to run on remote machine and return result.

@@ -198,7 +198,7 @@ class TestRemote(unittest.TestCase):
             remote.copy(dest, ["/var/log/*", "~/.config"])
         mock_run.assert_called_once_with([
             "scp",
-            "-C",
+            "-rC",
             "-o", "User ubuntu",
             "-o", "UserKnownHostsFile /dev/null",
             "-o", "StrictHostKeyChecking no",
