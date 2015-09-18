@@ -11,9 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/names"
-	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
