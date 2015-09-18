@@ -24,10 +24,12 @@ var logger = loggo.GetLogger("juju.worker.envworkermanager")
 func NewEnvWorkerManager(
 	st InitialState,
 	startEnvWorker func(InitialState, *state.State) (worker.Worker, error),
+	undertakerWorker func(InitialState, *state.State) (worker.Worker, error),
 ) worker.Worker {
 	m := &envWorkerManager{
-		st:             st,
-		startEnvWorker: startEnvWorker,
+		st:               st,
+		startEnvWorker:   startEnvWorker,
+		undertakerWorker: undertakerWorker,
 	}
 	m.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
 	go func() {
@@ -50,10 +52,11 @@ type InitialState interface {
 }
 
 type envWorkerManager struct {
-	runner         worker.Runner
-	tomb           tomb.Tomb
-	st             InitialState
-	startEnvWorker func(InitialState, *state.State) (worker.Worker, error)
+	runner           worker.Runner
+	tomb             tomb.Tomb
+	st               InitialState
+	startEnvWorker   func(InitialState, *state.State) (worker.Worker, error)
+	undertakerWorker func(InitialState, *state.State) (worker.Worker, error)
 }
 
 // Kill satisfies the Worker interface.
@@ -96,15 +99,22 @@ func (m *envWorkerManager) loop() error {
 
 func (m *envWorkerManager) envHasChanged(uuid string) error {
 	envTag := names.NewEnvironTag(uuid)
-	envAlive, err := m.isEnvAlive(envTag)
-	if err != nil {
-		return errors.Trace(err)
+	env, err := m.st.GetEnvironment(envTag)
+	if errors.IsNotFound(err) {
+		return m.envNotFound(envTag)
+	} else if err != nil {
+		return errors.Annotatef(err, "error loading environment %s", envTag.Id())
 	}
-	if envAlive {
+
+	switch env.Life() {
+	case state.Alive:
 		err = m.envIsAlive(envTag)
-	} else {
+	case state.Dying:
+		err = m.envIsDying(envTag)
+	case state.Dead:
 		err = m.envIsDead(envTag)
 	}
+
 	return errors.Trace(err)
 }
 
@@ -137,9 +147,63 @@ func (m *envWorkerManager) envIsAlive(envTag names.EnvironTag) error {
 	})
 }
 
+func undertakerWorkerId(uuid string) string {
+	return uuid + ":" + "undertaker"
+}
+
+// envNotFound stops all workers for that environment.
+func (m *envWorkerManager) envNotFound(envTag names.EnvironTag) error {
+	uuid := envTag.Id()
+	if err := m.runner.StopWorker(uuid); err != nil {
+		return errors.Trace(err)
+	}
+	if err := m.runner.StopWorker(undertakerWorkerId(uuid)); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (m *envWorkerManager) envIsDying(envTag names.EnvironTag) error {
+	id := undertakerWorkerId(envTag.Id())
+	return m.runner.StartWorker(id, func() (worker.Worker, error) {
+		st, err := m.st.ForEnviron(envTag)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to open state for environment %s", envTag.Id())
+		}
+		closeState := func() {
+			err := st.Close()
+			if err != nil {
+				logger.Errorf("error closing state for env %s: %v", envTag.Id(), err)
+			}
+		}
+
+		undertakerRunner, err := m.undertakerWorker(m.st, st)
+		if err != nil {
+			closeState()
+			return nil, errors.Trace(err)
+		}
+
+		// Close State when the undertaker for the environment is done.
+		go func() {
+			undertakerRunner.Wait()
+			closeState()
+		}()
+
+		return undertakerRunner, nil
+	})
+}
+
 func (m *envWorkerManager) envIsDead(envTag names.EnvironTag) error {
-	err := m.runner.StopWorker(envTag.Id())
-	return errors.Trace(err)
+	uuid := envTag.Id()
+	err := m.runner.StopWorker(uuid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Note, we do not stop the undertaker worker here as it will kill itself
+	// once it has finished removing the environment.
+
+	return nil
 }
 
 func (m *envWorkerManager) isEnvAlive(tag names.EnvironTag) (bool, error) {
