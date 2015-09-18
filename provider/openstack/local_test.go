@@ -282,7 +282,13 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 	// Floating IP address is 10.0.0.1
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(
+		ctx environs.BootstrapContext,
+		client ssh.Client,
+		env environs.Environ,
+		inst instance.Instance,
+		instanceConfig *instancecfg.InstanceConfig,
+	) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
@@ -310,7 +316,13 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(
+		ctx environs.BootstrapContext,
+		client ssh.Client,
+		env environs.Environ,
+		inst instance.Instance,
+		instanceConfig *instancecfg.InstanceConfig,
+	) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
