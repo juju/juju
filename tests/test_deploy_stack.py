@@ -279,6 +279,17 @@ class DumpEnvLogsTestCase(TestCase):
             log_path = os.path.join(log_dir, 'fake.log')
             cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
 
+    def test_archive_logs_subdir(self):
+        with temp_dir() as log_dir:
+            subdir = os.path.join(log_dir, "subdir")
+            os.mkdir(subdir)
+            with open(os.path.join(subdir, 'fake.log'), 'w') as f:
+                f.write('log contents')
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            log_path = os.path.join(subdir, 'fake.log')
+            cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
+
     def test_archive_logs_none(self):
         with temp_dir() as log_dir:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
