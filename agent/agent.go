@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -34,10 +35,10 @@ var logger = loggo.GetLogger("juju.agent")
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir          = paths.MustSucceed(paths.LogDir(version.Current.Series))
-	dataDir         = paths.MustSucceed(paths.DataDir(version.Current.Series))
-	confDir         = paths.MustSucceed(paths.ConfDir(version.Current.Series))
-	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
+	logDir          = paths.MustSucceed(paths.LogDir(series.HostSeries()))
+	dataDir         = paths.MustSucceed(paths.DataDir(series.HostSeries()))
+	confDir         = paths.MustSucceed(paths.ConfDir(series.HostSeries()))
+	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(series.HostSeries()))
 )
 
 // Agent exposes the agent's configuration to other components. This
