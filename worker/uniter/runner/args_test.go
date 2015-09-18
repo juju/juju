@@ -9,9 +9,9 @@ import (
 
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 

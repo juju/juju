@@ -17,10 +17,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/arch"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.testing")

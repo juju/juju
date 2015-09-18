@@ -9,8 +9,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/series"
+	"github.com/juju/utils/os"
 )
 
 type CurrentSuite struct{}

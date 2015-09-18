@@ -6,8 +6,8 @@ import (
 
 	"github.com/juju/errors"
 
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/series"
+	jujuos "github.com/juju/utils/os"
 )
 
 type osVarType int

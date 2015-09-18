@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"

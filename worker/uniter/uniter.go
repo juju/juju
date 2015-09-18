@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/charmdir"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")

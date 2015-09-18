@@ -12,9 +12,9 @@ import (
 
 	"github.com/coreos/go-systemd/unit"
 	"github.com/juju/errors"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/service/common"
 )
 

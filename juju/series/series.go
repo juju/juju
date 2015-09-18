@@ -10,8 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/juju/os"
+	"github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.juju.series")

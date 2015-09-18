@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/juju/juju/os"
+	jujuos "github.com/juju/utils/os"
 )
 
 type unknownOSForSeriesError string

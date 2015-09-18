@@ -26,9 +26,9 @@ import (
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/cert"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/utils/syslog"
 	"github.com/juju/juju/worker"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.rsyslog")
