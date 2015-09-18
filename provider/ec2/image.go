@@ -11,15 +11,15 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 )
 
-// signedImageDataOnly is defined here to allow tests to override the content.
-// If true, only inline PGP signed image metadata will be used.
-var signedImageDataOnly = true
+var (
+	// signedImageDataOnly is defined here to allow tests to override the content.
+	// If true, only inline PGP signed image metadata will be used.
+	signedImageDataOnly = true
 
-// defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
-// any other instance type's cpuPower. It is used when no explicit CpuPower
-// constraint exists, preventing the smallest instance from being chosen unless
-// the user has clearly indicated that they are willing to accept poor performance.
-const defaultCpuPower = 100
+	// defaultType is the default EC2 instance we'd like to use if no
+	// constraints are specified.
+	defaultInstanceType = findInstanceTypeWithName("m3.medium", allInstanceTypes...)
+)
 
 // filterImages returns only that subset of the input (in the same order) that
 // this provider finds suitable.
@@ -50,9 +50,15 @@ func findInstanceSpec(
 	// If the instance type is set, don't also set a default CPU power
 	// as this is implied.
 	cons := ic.Constraints
-	if cons.CpuPower == nil && (cons.InstanceType == nil || *cons.InstanceType == "") {
-		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
+	if cons.InstanceType == nil || *cons.InstanceType == "" {
+		if cons.CpuPower == nil {
+			cons.CpuPower = defaultInstanceType.CpuPower
+		}
+		if cons.Mem == nil {
+			cons.Mem = &defaultInstanceType.Mem
+		}
 	}
+
 	ec2Region := allRegions[ic.Region]
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},

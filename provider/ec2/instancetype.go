@@ -24,6 +24,15 @@ var (
 // allRegions is defined here to allow tests to override the content.
 var allRegions = aws.Regions
 
+func findInstanceTypeWithName(name string, instanceTypes ...instances.InstanceType) *instances.InstanceType {
+	for _, i := range instanceTypes {
+		if i.Name == name {
+			return &i
+		}
+	}
+	return nil
+}
+
 // allInstanceTypes holds the relevant attributes of every known
 // instance type.
 //
