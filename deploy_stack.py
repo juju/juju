@@ -253,6 +253,8 @@ def copy_remote_logs(remote, directory):
         log_paths = [
             '/var/log/cloud-init*.log',
             '/var/log/juju/*.log',
+            # TODO(gz): Also capture kvm container logs?
+            '/var/lib/juju/containers/juju-*-lxc-*/',
         ]
 
         try:
@@ -262,7 +264,7 @@ def copy_remote_logs(remote, directory):
             return
 
         try:
-            remote.run('sudo chmod go+r /var/log/juju/*')
+            remote.run('sudo chmod -Rf go+r ' + ' '.join(log_paths))
         except subprocess.CalledProcessError as e:
             # The juju log dir is not created until after cloud-init succeeds.
             logging.warning("Could not allow access to the juju logs:")

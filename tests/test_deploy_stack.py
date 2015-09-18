@@ -353,16 +353,19 @@ class DumpEnvLogsTestCase(TestCase):
                 '-o', 'UserKnownHostsFile /dev/null',
                 '-o', 'StrictHostKeyChecking no',
                 '10.10.0.1',
-                'sudo chmod go+r /var/log/juju/*'),),
+                'sudo chmod -Rf go+r /var/log/cloud-init*.log'
+                ' /var/log/juju/*.log'
+                ' /var/lib/juju/containers/juju-*-lxc-*/'),),
             cc_mock.call_args_list[0][0])
         self.assertEqual(
             (get_timeout_prefix(120) + (
-                'scp', '-C',
+                'scp', '-rC',
                 '-o', 'User ubuntu',
                 '-o', 'UserKnownHostsFile /dev/null',
                 '-o', 'StrictHostKeyChecking no',
                 '10.10.0.1:/var/log/cloud-init*.log',
                 '10.10.0.1:/var/log/juju/*.log',
+                '10.10.0.1:/var/lib/juju/containers/juju-*-lxc-*/',
                 '/foo'),),
             cc_mock.call_args_list[1][0])
 
