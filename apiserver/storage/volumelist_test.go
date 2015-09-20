@@ -21,14 +21,27 @@ var _ = gc.Suite(&volumeSuite{})
 func (s *volumeSuite) expectedVolumeDetailsResult() params.VolumeDetailsResult {
 	return params.VolumeDetailsResult{
 		Details: &params.VolumeDetails{
-			VolumeTag:       s.volumeTag.String(),
-			StorageTag:      "storage-data-0",
-			StorageOwnerTag: "unit-mysql-0",
+			VolumeTag: s.volumeTag.String(),
 			Status: params.EntityStatus{
 				Status: "attached",
 			},
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				s.machineTag.String(): params.VolumeAttachmentInfo{},
+			},
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-data-0",
+				OwnerTag:   "unit-mysql-0",
+				Kind:       params.StorageKindFilesystem,
+				Status: params.EntityStatus{
+					Status: "attached",
+				},
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-mysql-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-data-0",
+						UnitTag:    "unit-mysql-0",
+						MachineTag: "machine-66",
+					},
+				},
 			},
 		},
 		LegacyVolume: &params.LegacyVolumeDetails{

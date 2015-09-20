@@ -53,11 +53,14 @@ func makeCreateSpaceParams(name string, subnetIds []string, public bool) params.
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpace(name string, subnetIds []string, public bool) error {
 	var response params.ErrorResults
-	params := params.CreateSpacesParams{
+	createSpacesParams := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{makeCreateSpaceParams(name, subnetIds, public)},
 	}
-	err := api.facade.FacadeCall("CreateSpaces", params, &response)
+	err := api.facade.FacadeCall("CreateSpaces", createSpacesParams, &response)
 	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return errors.NewNotSupported(nil, err.Error())
+		}
 		return errors.Trace(err)
 	}
 	return response.OneError()
@@ -67,5 +70,8 @@ func (api *API) CreateSpace(name string, subnetIds []string, public bool) error 
 func (api *API) ListSpaces() ([]params.Space, error) {
 	var response params.ListSpacesResults
 	err := api.facade.FacadeCall("ListSpaces", nil, &response)
+	if params.IsCodeNotSupported(err) {
+		return response.Results, errors.NewNotSupported(nil, err.Error())
+	}
 	return response.Results, err
 }

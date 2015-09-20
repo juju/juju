@@ -51,10 +51,6 @@ type WatcherConfig struct {
 	UnitTag             names.UnitTag
 }
 
-// TimedSignal is the signature of a function used to generate a
-// hook signal.
-type TimedSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
-
 // NewWatcher returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
 func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {

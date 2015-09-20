@@ -38,7 +38,9 @@ func addInstalled(opsFile string, state *operation.State) error {
 	if state.Kind == operation.RunHook && state.Hook.Kind == hooks.Install {
 		return nil
 	}
-	state.Installed = true
-	return statefile.Write(state)
+	if !state.Installed {
+		state.Installed = true
+		return statefile.Write(state)
+	}
 	return nil
 }

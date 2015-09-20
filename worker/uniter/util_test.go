@@ -1828,8 +1828,8 @@ func (t *manualTicker) Tick() error {
 	return nil
 }
 
-// ReturnTimer can be used to replace the metrics signal generator.
-func (t *manualTicker) ReturnTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
+// ReturnTimer can be used to replace the update status signal generator.
+func (t *manualTicker) ReturnTimer() <-chan time.Time {
 	return t.c
 }
 

@@ -347,7 +347,7 @@ type EntityStatus struct {
 	Since  *time.Time
 }
 
-// EntityStatusArgs holds parameters for setting the status of a single entity.
+// EntityStatus holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
 	Tag    string
 	Status Status

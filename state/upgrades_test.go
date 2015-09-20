@@ -3933,7 +3933,9 @@ func (s *upgradesSuite) TestChangeIdsFromSeqToAuto(c *gc.C) {
 
 func (s *upgradesSuite) TestChangeStatusHistoryUpdatedFromTimeToInt64(c *gc.C) {
 	uuid0 := s.makeEnvironment(c)
+	c.Logf("UUID0 : %v", uuid0)
 	uuid1 := s.makeEnvironment(c)
+	c.Logf("UUID1 : %v", uuid1)
 	sHistory, closer := s.state.getRawCollection(statusesHistoryC)
 	defer closer()
 	epoch := time.Unix(0, 0).UTC()
@@ -4127,7 +4129,7 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 
 	err := sHistory.Insert(
 		bson.D{
-			{"_id", uuid0 + ":0"},
+			{"_id", "0"},
 			{"env-uuid", uuid0},
 			{"entityid", "global0"},
 		},
@@ -4182,13 +4184,22 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 0)
 
 	var doc bson.M
-	for i := 0; i < 8; i++ {
+
+	logger.Debugf("checking global key 0")
+	err = sHistory.FindId(fmt.Sprintf("%s:0", uuid0)).One(&doc)
+	c.Assert(err, gc.ErrorMatches, "not found")
+	err = sHistory.Find(bson.M{"globalkey": "global0"}).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	ID, ok := doc["_id"].(bson.ObjectId)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(ID, gc.Not(gc.Equals), "0")
+
+	for i := 1; i < 8; i++ {
 		u := uuid0
 		if i > 3 {
 			u = uuid1
 		}
 		logger.Debugf("checking global key %d", i)
-		logger.Debugf("doc has: %v", doc)
 		err := sHistory.FindId(fmt.Sprintf("%s:%d", u, i)).One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		globalKey, ok := doc["globalkey"].(string)

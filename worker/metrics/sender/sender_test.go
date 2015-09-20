@@ -127,7 +127,7 @@ func (s *senderSuite) TestNoSpoolDirectory(c *gc.C) {
 	metricSender := sender.NewSender(apiSender, metricfactory)
 	stopCh := make(chan struct{})
 	err := metricSender.Do(stopCh)
-	c.Assert(err, gc.ErrorMatches, `failed to open spool directory "/some/random/spool/dir": stat /some/random/spool/dir: no such file or directory`)
+	c.Assert(err, gc.ErrorMatches, `failed to open spool directory "/some/random/spool/dir": .*`)
 
 	c.Assert(apiSender.batches, gc.HasLen, 0)
 }

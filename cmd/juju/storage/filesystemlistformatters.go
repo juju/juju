@@ -6,24 +6,24 @@ package storage
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // formatFilesystemListTabular returns a tabular summary of filesystem instances.
 func formatFilesystemListTabular(value interface{}) ([]byte, error) {
-	infos, ok := value.(map[string]map[string]map[string]FilesystemInfo)
+	infos, ok := value.(map[string]FilesystemInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", infos, value)
 	}
 	return formatFilesystemListTabularTyped(infos), nil
 }
 
-func formatFilesystemListTabularTyped(infos map[string]map[string]map[string]FilesystemInfo) []byte {
+func formatFilesystemListTabularTyped(infos map[string]FilesystemInfo) []byte {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -38,51 +38,98 @@ func formatFilesystemListTabularTyped(infos map[string]map[string]map[string]Fil
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("MACHINE", "UNIT", "STORAGE", "FILESYSTEM", "VOLUME", "ID", "MOUNTPOINT", "SIZE", "STATE", "MESSAGE")
+	print("MACHINE", "UNIT", "STORAGE", "ID", "VOLUME", "PROVIDER-ID", "MOUNTPOINT", "SIZE", "STATE", "MESSAGE")
 
-	// 1. sort by machines
-	machines := set.NewStrings()
-	for machine := range infos {
-		if !machines.Contains(machine) {
-			machines.Add(machine)
+	filesystemAttachmentInfos := make(filesystemAttachmentInfos, 0, len(infos))
+	for filesystemId, info := range infos {
+		filesystemAttachmentInfo := filesystemAttachmentInfo{
+			FilesystemId:   filesystemId,
+			FilesystemInfo: info,
 		}
-	}
-	for _, machine := range machines.SortedValues() {
-		machineUnits := infos[machine]
-
-		// 2. sort by unit
-		units := set.NewStrings()
-		for unit := range machineUnits {
-			if !units.Contains(unit) {
-				units.Add(unit)
-			}
+		if info.Attachments == nil {
+			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
+			continue
 		}
-		for _, unit := range units.SortedValues() {
-			unitStorages := machineUnits[unit]
-
-			// 3. sort by storage
-			storages := set.NewStrings()
-			for storage := range unitStorages {
-				if !storages.Contains(storage) {
-					storages.Add(storage)
+		// Each unit attachment must have a corresponding filesystem
+		// attachment. Enumerate each of the filesystem attachments,
+		// and locate the corresponding unit attachment if any.
+		// Each filesystem attachment has at most one corresponding
+		// unit attachment.
+		for machineId, machineInfo := range info.Attachments.Machines {
+			filesystemAttachmentInfo := filesystemAttachmentInfo
+			filesystemAttachmentInfo.MachineId = machineId
+			filesystemAttachmentInfo.MachineFilesystemAttachment = machineInfo
+			for unitId, unitInfo := range info.Attachments.Units {
+				if unitInfo.MachineId == machineId {
+					filesystemAttachmentInfo.UnitId = unitId
+					filesystemAttachmentInfo.UnitStorageAttachment = unitInfo
+					break
 				}
 			}
-			for _, storage := range storages.SortedValues() {
-				info := unitStorages[storage]
-				var size string
-				if info.Size > 0 {
-					size = humanize.IBytes(info.Size * humanize.MiByte)
-				}
-				print(
-					machine, unit, storage,
-					info.Filesystem, info.Volume,
-					info.FilesystemId,
-					info.MountPoint, size,
-					string(info.Status.Current), info.Status.Message,
-				)
-			}
+			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
 		}
 	}
+	sort.Sort(filesystemAttachmentInfos)
+
+	for _, info := range filesystemAttachmentInfos {
+		var size string
+		if info.Size > 0 {
+			size = humanize.IBytes(info.Size * humanize.MiByte)
+		}
+		print(
+			info.MachineId, info.UnitId, info.Storage,
+			info.FilesystemId, info.Volume, info.ProviderFilesystemId,
+			info.MountPoint, size,
+			string(info.Status.Current), info.Status.Message,
+		)
+	}
+
 	tw.Flush()
 	return out.Bytes()
+}
+
+type filesystemAttachmentInfo struct {
+	FilesystemId string
+	FilesystemInfo
+
+	MachineId string
+	MachineFilesystemAttachment
+
+	UnitId string
+	UnitStorageAttachment
+}
+
+type filesystemAttachmentInfos []filesystemAttachmentInfo
+
+func (v filesystemAttachmentInfos) Len() int {
+	return len(v)
+}
+
+func (v filesystemAttachmentInfos) Swap(i, j int) {
+	v[i], v[j] = v[j], v[i]
+}
+
+func (v filesystemAttachmentInfos) Less(i, j int) bool {
+	switch compareStrings(v[i].MachineId, v[j].MachineId) {
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+
+	switch compareSlashSeparated(v[i].UnitId, v[j].UnitId) {
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+
+	switch compareSlashSeparated(v[i].Storage, v[j].Storage) {
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+
+	return v[i].FilesystemId < v[j].FilesystemId
 }

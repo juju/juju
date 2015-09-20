@@ -25,6 +25,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -288,10 +289,11 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	currentVersion := version.Current
 	currentVersion.Major = clientMajor
 	currentVersion.Minor = clientMinor
-	currentVersion.Series = "trusty"
+	currentVersion.Series = "incorrect" // callers should be consulting series.HostSeries
 	currentVersion.Arch = "amd64"
 	currentVersion.Tag = ""
 	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -425,7 +427,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 		e.instanceConfig = icfg
 		return nil
 	}
-	return arch.HostArch(), version.Current.Series, finalizer, nil
+	return arch.HostArch(), series.HostSeries(), finalizer, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {

@@ -5,7 +5,6 @@ package operation
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
@@ -221,8 +220,6 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		newState.Started = true
 	case hooks.Stop:
 		newState.Stopped = true
-	case hooks.UpdateStatus:
-		newState.UpdateStatusTime = time.Now().Unix()
 	}
 
 	return newState, nil

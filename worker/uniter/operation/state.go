@@ -93,10 +93,6 @@ type State struct {
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
-
-	// UpdateStatusTime records the time the update status hook was last run.
-	// It's set to nil if the hook was not run at all.
-	UpdateStatusTime int64 `yaml:"updatestatustime,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.
