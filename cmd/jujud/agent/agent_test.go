@@ -16,11 +16,11 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apienvironment "github.com/juju/juju/api/environment"
-	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
@@ -99,9 +99,7 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
 		return newDummyWorker()
 	})
-	s.PatchValue(&newMetadataUpdater, func(cl *imagemetadata.Client) worker.Worker {
-		return worker.NewNoOpWorker()
-	})
+	imagemetadata.DefaultBaseURL = ""
 }
 
 func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
