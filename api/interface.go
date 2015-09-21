@@ -95,8 +95,6 @@ type DialOpts struct {
 	BakeryClient *httpbakery.Client
 }
 
-var defaultBakeryClient = httpbakery.NewClient()
-
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
@@ -104,7 +102,6 @@ func DefaultDialOpts() DialOpts {
 		DialAddressInterval: 50 * time.Millisecond,
 		Timeout:             10 * time.Minute,
 		RetryDelay:          2 * time.Second,
-		BakeryClient:        defaultBakeryClient,
 	}
 }
 

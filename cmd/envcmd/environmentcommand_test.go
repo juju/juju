@@ -5,20 +5,34 @@ package envcmd_test
 
 import (
 	"io"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
+	coretesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -430,4 +444,132 @@ func (s *EnvConfigSuite) TestConfigEnvDoesntExist(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(s.client.getCalled, jc.IsFalse)
 	c.Check(s.client.closeCalled, jc.IsFalse)
+}
+
+var _ = gc.Suite(&macaroonLoginSuite{})
+
+type macaroonLoginSuite struct {
+	coretesting.JujuConnSuite
+	discharger     *bakerytest.Discharger
+	checker        func(string, string) ([]checkers.Caveat, error)
+	srv            *apiserver.Server
+	client         api.Connection
+	serverFilePath string
+	envName        string
+}
+
+func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+		return s.checker(cond, arg)
+	})
+
+	environTag := names.NewEnvironTag(s.State.EnvironUUID())
+	s.envName = environTag.Id()
+
+	// Make a new version of the state that doesn't object to us
+	// changing the identity URL, so we can create a state server
+	// that will see that.
+	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.UpdateEnvironConfig(map[string]interface{}{
+		config.IdentityURL: s.discharger.Location(),
+	}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.client, s.srv = s.newClientAndServer(c)
+
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "test",
+	})
+
+	var serverDetails envcmd.ServerFile
+	serverDetails.Addresses = []string{s.srv.Addr().String()}
+	serverDetails.CACert = testing.CACert
+	content, err := goyaml.Marshal(serverDetails)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.serverFilePath = filepath.Join(c.MkDir(), "server.yaml")
+
+	err = ioutil.WriteFile(s.serverFilePath, content, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	store, err := configstore.Default()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := store.CreateInfo(s.envName)
+	cfg.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses:   []string{s.srv.Addr().String()},
+		Hostnames:   []string{"test"},
+		CACert:      testing.CACert,
+		EnvironUUID: s.envName,
+	})
+	err = cfg.Write()
+	cfg.SetAPICredentials(configstore.APICredentials{
+		User:     "",
+		Password: "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		if cond == "is-authenticated-user" {
+			return []checkers.Caveat{checkers.DeclaredCaveat("username", "test")}, nil
+		}
+		return nil, errors.New("unknown caveat")
+	}
+
+	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	_, err := cmd.NewAPIRoot()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		return nil, errors.New("unknown caveat")
+	}
+
+	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	_, err := cmd.NewAPIRoot()
+	c.Assert(err, gc.ErrorMatches, "environment \""+s.envName+"\" not found")
+}
+
+func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		if cond == "is-authenticated-user" {
+			return []checkers.Caveat{checkers.DeclaredCaveat("username", "testUnknown")}, nil
+		}
+		return nil, errors.New("unknown caveat")
+	}
+
+	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
+	_, err := cmd.NewAPIRoot()
+	c.Assert(err, gc.ErrorMatches, "environment \""+s.envName+"\" not found")
+}
+
+// newClientAndServer returns a new running API server.
+func (s *macaroonLoginSuite) newClientAndServer(c *gc.C) (api.Connection, *apiserver.Server) {
+	listener, err := net.Listen("tcp", "localhost:0")
+	c.Assert(err, jc.ErrorIsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+		Cert: []byte(testing.ServerCert),
+		Key:  []byte(testing.ServerKey),
+		Tag:  names.NewMachineTag("0"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	client, err := api.Open(&api.Info{
+		Addrs:  []string{srv.Addr().String()},
+		CACert: testing.CACert,
+	}, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return client, srv
 }

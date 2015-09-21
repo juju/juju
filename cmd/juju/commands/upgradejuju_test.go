@@ -342,7 +342,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
-		err = com.Run(coretesting.Context(c))
+		err = envcmd.Wrap(com).Run(coretesting.Context(c))
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 			continue
@@ -550,7 +550,7 @@ upgrade to this version by running
 		}
 
 		ctx := coretesting.Context(c)
-		err = com.Run(ctx)
+		err = envcmd.Wrap(com).Run(ctx)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
@@ -573,7 +573,7 @@ func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = cmd.Run(coretesting.Context(c))
+	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
 	c.Assert(err, gc.IsNil)
 
 	// ensure find tools was called
@@ -592,7 +592,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = cmd.Run(coretesting.Context(c))
+	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
 		"\n"+
 		"Please wait for the upgrade to complete or if there was a problem with\n"+
@@ -611,7 +611,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
-	err = cmd.Run(coretesting.Context(c))
+	err = envcmd.Wrap(cmd).Run(coretesting.Context(c))
 	s.AssertBlocked(c, err, ".*To unblock changes.*")
 }
 
@@ -635,7 +635,7 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 		err := coretesting.InitCommand(envcmd.Wrap(cmd),
 			append([]string{"--reset-previous-upgrade"}, args...))
 		c.Assert(err, jc.ErrorIsNil)
-		err = cmd.Run(ctx)
+		err = envcmd.Wrap(cmd).Run(ctx)
 		if expect {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {

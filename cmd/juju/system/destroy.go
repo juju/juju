@@ -22,14 +22,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 func newDestroyCommand() cmd.Command {
-	return envcmd.WrapSystem(
-		&destroyCommand{},
-		envcmd.SystemSkipFlags,
-		envcmd.SystemSkipDefault)
+	return envcmd.WrapBase(&destroyCommand{})
 }
 
 // destroyCommand destroys the specified system.
@@ -82,7 +78,7 @@ func (c *destroyCommand) getSystemAPI() (destroySystemAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
-	root, err := juju.NewAPIFromName(c.systemName)
+	root, err := c.NewAPIRoot(c.systemName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -240,7 +236,7 @@ func blocksToStr(blocks []string) string {
 // destroyCommandBase provides common attributes and methods that both the system
 // destroy and system kill commands require.
 type destroyCommandBase struct {
-	envcmd.SysCommandBase
+	envcmd.JujuCommandBase
 	systemName string
 	assumeYes  bool
 
@@ -255,7 +251,7 @@ func (c *destroyCommandBase) getClientAPI() (destroyClientAPI, error) {
 	if c.clientapi != nil {
 		return c.clientapi, nil
 	}
-	root, err := juju.NewAPIFromName(c.systemName)
+	root, err := c.NewAPIRoot(c.systemName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

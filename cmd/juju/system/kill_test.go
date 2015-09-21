@@ -33,12 +33,24 @@ func (s *KillSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := system.NewKillCommand(s.api, s.clientapi, s.apierror, juju.NewAPIFromName)
+	cmd := system.NewKillCommand(
+		s.api,
+		s.clientapi,
+		s.apierror,
+		func(name string) (api.Connection, error) {
+			return juju.NewAPIFromName(name, nil)
+		})
 	return testing.RunCommand(c, cmd, args...)
 }
 
 func (s *KillSuite) newKillCommand() cmd.Command {
-	return system.NewKillCommand(s.api, s.clientapi, s.apierror, juju.NewAPIFromName)
+	return system.NewKillCommand(
+		s.api,
+		s.clientapi,
+		s.apierror,
+		func(name string) (api.Connection, error) {
+			return juju.NewAPIFromName(name, nil)
+		})
 }
 
 func (s *KillSuite) TestKillNoSystemNameError(c *gc.C) {

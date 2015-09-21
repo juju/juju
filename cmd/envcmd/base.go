@@ -4,8 +4,14 @@
 package envcmd
 
 import (
+	"os"
+	"path"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/persistent-cookiejar"
+	"github.com/juju/utils"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -42,11 +48,19 @@ func WrapBase(c CommandBase) cmd.Command {
 
 type baseCommandWrapper struct {
 	CommandBase
+	*apiContext
 }
 
 // Run implements Command.Run.
 func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
-	w.CommandBase.setAPIContext(&apiContext{})
+	apiCtx, err := newAPIContext()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.apiContext = apiCtx
+	w.CommandBase.setAPIContext(w.apiContext)
+	defer w.apiContext.Close()
+
 	return w.CommandBase.Run(ctx)
 }
 
@@ -60,9 +74,50 @@ func (w *baseCommandWrapper) Init(args []string) error {
 	return w.CommandBase.Init(args)
 }
 
+// cookieFile returns the path to the cookie used to store authorization
+// macaroons. The returned value can be overridden by setting the
+// JUJU_COOKIEFILE environment variable.
+func cookieFile() string {
+	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
+		return file
+	}
+	return path.Join(utils.Home(), ".go-cookies")
+}
+
+// newAPIContext returns a new api context, which should be closed
+// when done with.
+func newAPIContext() (*apiContext, error) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = jar.Load(cookieFile())
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to load cookies")
+	}
+	client := httpbakery.NewClient()
+	client.Jar = jar
+	client.VisitWebPage = httpbakery.OpenWebBrowser
+
+	return &apiContext{
+		jar:    jar,
+		client: client,
+	}, nil
+}
+
 // apiContext is a convenience type that can be embedded wherever
 // we need an API connection.
+// It also stores a bakery bakery client allowing the API
+// to be used using macaroons to authenticate. It stores
+// obtained macaroons and discharges in a cookie jar file.
 type apiContext struct {
+	jar    *cookiejar.Jar
+	client *httpbakery.Client
+}
+
+// Close saves the embedded cookie jar.
+func (c *apiContext) Close() error {
+	return c.jar.Save()
 }
 
 // APIOpen establishes a connection to the API server using the
@@ -77,7 +132,7 @@ func (ctx *apiContext) NewAPIRoot(name string) (api.Connection, error) {
 	if name == "" {
 		return nil, errors.Trace(errNoNameSpecified)
 	}
-	return juju.NewAPIFromName(name)
+	return juju.NewAPIFromName(name, ctx.client)
 }
 
 // NewAPIClient returns an api.Client connecte to the API server

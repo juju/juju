@@ -131,7 +131,7 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag names.Tag, pw
 		tag:          tagToString(info.Tag),
 		password:     info.Password,
 		certPool:     conn.Config().TlsConfig.RootCAs,
-		bakeryClient: httpbakery.NewClient(),
+		bakeryClient: bakeryClient,
 	}
 	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
 		if err := loginFunc(st, info.Tag, info.Password, info.Nonce); err != nil {

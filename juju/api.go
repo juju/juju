@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -40,7 +41,7 @@ var errAborted = fmt.Errorf("aborted")
 // NewAPIState creates an api.State object from an Environ
 // This is almost certainly the wrong thing to do as it assumes
 // the old admin password (stored as admin-secret in the config).
-func NewAPIState(user names.UserTag, environ environs.Environ, dialOpts api.DialOpts) (api.Connection, error) {
+func NewAPIState(user names.Tag, environ environs.Environ, dialOpts api.DialOpts) (api.Connection, error) {
 	info, err := environAPIInfo(environ, user)
 	if err != nil {
 		return nil, err
@@ -56,8 +57,8 @@ func NewAPIState(user names.UserTag, environ environs.Environ, dialOpts api.Dial
 // NewAPIClientFromName returns an api.Client connected to the API Server for
 // the named environment. If envName is "", the default environment
 // will be used.
-func NewAPIClientFromName(envName string) (*api.Client, error) {
-	st, err := newAPIClient(envName)
+func NewAPIClientFromName(envName string, bClient *httpbakery.Client) (*api.Client, error) {
+	st, err := newAPIClient(envName, bClient)
 	if err != nil {
 		return nil, err
 	}
@@ -67,18 +68,18 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 // NewAPIFromName returns an api.State connected to the API Server for
 // the named environment. If envName is "", the default environment will
 // be used.
-func NewAPIFromName(envName string) (api.Connection, error) {
-	return newAPIClient(envName)
+func NewAPIFromName(envName string, bClient *httpbakery.Client) (api.Connection, error) {
+	return newAPIClient(envName, bClient)
 }
 
 var defaultAPIOpen = api.Open
 
-func newAPIClient(envName string) (api.Connection, error) {
+func newAPIClient(envName string, bClient *httpbakery.Client) (api.Connection, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := newAPIFromStore(envName, store, defaultAPIOpen)
+	st, err := newAPIFromStore(envName, store, defaultAPIOpen, bClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -97,7 +98,7 @@ var serverAddress = func(hostPort string) (network.HostPort, error) {
 
 // newAPIFromStore implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
-func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.OpenFunc) (api.Connection, error) {
+func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
 	// Try to read the default environment configuration file.
 	// If it doesn't exist, we carry on in case
 	// there's some environment info for that environment.
@@ -153,7 +154,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 			info.APIEndpoint().Addresses,
 		)
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			return apiInfoConnect(info, apiOpen, stop)
+			return apiInfoConnect(info, apiOpen, stop, bClient)
 		})
 		// Delay the config connection until we've spent
 		// some time trying to connect to the cached info.
@@ -245,20 +246,20 @@ type infoConnectError struct {
 	error
 }
 
-func environInfoUserTag(info configstore.EnvironInfo) names.UserTag {
+func environInfoUserTag(info configstore.EnvironInfo) names.Tag {
 	var username string
 	if info != nil {
 		username = info.APICredentials().User
 	}
 	if username == "" {
-		username = configstore.DefaultAdminUsername
+		return nil
 	}
 	return names.NewUserTag(username)
 }
 
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-chan struct{}) (api.Connection, error) {
+func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-chan struct{}, bClient *httpbakery.Client) (api.Connection, error) {
 	endpoint := info.APIEndpoint()
 	if info == nil || len(endpoint.Addresses) == 0 {
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
@@ -276,7 +277,14 @@ func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-c
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}
-	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
+	if apiInfo.Tag == nil {
+		apiInfo.UseMacaroons = true
+	}
+
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.BakeryClient = bClient
+
+	st, err := apiOpen(apiInfo, dialOpts)
 	if err != nil {
 		return nil, &infoConnectError{err}
 	}
@@ -288,7 +296,7 @@ func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-c
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
 // It returns nil if there was no configuration information found.
-func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan struct{}, delay time.Duration, user names.UserTag) (api.Connection, error) {
+func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan struct{}, delay time.Duration, user names.Tag) (api.Connection, error) {
 	select {
 	case <-time.After(delay):
 	case <-stop:
@@ -330,18 +338,18 @@ func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName st
 	return nil, errors.NotFoundf("environment %q", envName)
 }
 
-func environAPIInfo(environ environs.Environ, user names.UserTag) (*api.Info, error) {
+func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error) {
 	config := environ.Config()
 	password := config.AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("cannot connect to API servers without admin-secret")
-	}
 	info, err := environs.APIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
 	info.Tag = user
 	info.Password = password
+	if info.Tag == nil {
+		info.UseMacaroons = true
+	}
 	return info, nil
 }
 

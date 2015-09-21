@@ -174,6 +174,7 @@ func WrapSystem(c SystemCommand, options ...WrapSystemOption) cmd.Command {
 
 type sysCommandWrapper struct {
 	SystemCommand
+	*apiContext
 	setFlags             bool
 	useDefaultSystemName bool
 	systemName           string
@@ -221,6 +222,13 @@ func (w *sysCommandWrapper) Init(args []string) error {
 }
 
 func (w *sysCommandWrapper) Run(ctx *cmd.Context) error {
-	w.SystemCommand.setAPIContext(&apiContext{})
+	apiCtx, err := newAPIContext()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.apiContext = apiCtx
+	w.SystemCommand.setAPIContext(w.apiContext)
+	defer w.apiContext.Close()
+
 	return w.SystemCommand.Run(ctx)
 }
