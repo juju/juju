@@ -1098,7 +1098,6 @@ type stateWorkerCloser struct {
 }
 
 func (s stateWorkerCloser) Close() error {
-	// Bug#1497829
 	// This state-dependent data source will be useless once state is closed -
 	// un-register it before closing state.
 	unregisterSimplestreamsDataSource()

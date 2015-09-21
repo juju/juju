@@ -180,7 +180,6 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		stor := storage.NewStorage(c.st.EnvironUUID(), c.st.MongoSession())
 		registerSimplestreamsDataSource(stor)
 
-		// Bug#1497829
 		// This state-dependent data source will be useless
 		// once state is closed in previous defer - un-register it.
 		defer unregisterSimplestreamsDataSource()

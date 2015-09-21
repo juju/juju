@@ -99,6 +99,8 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
 		return newDummyWorker()
 	})
+
+	// Tests should not try to use internet. Ensure base url is empty.
 	imagemetadata.DefaultBaseURL = ""
 }
 
