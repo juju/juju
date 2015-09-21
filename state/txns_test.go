@@ -102,24 +102,6 @@ func getTestCases() []multiEnvRunnerTestCase {
 				},
 			},
 		}, {
-			"_id added to doc if missing",
-			txn.Op{
-				C:  machinesC,
-				Id: "1",
-				Insert: &testDoc{
-					Id: "1",
-				},
-			},
-			txn.Op{
-				C:  machinesC,
-				Id: "uuid:1",
-				Insert: bson.D{
-					{"_id", "uuid:1"},
-					{"thingid", "1"},
-					{"env-uuid", "uuid"},
-				},
-			},
-		}, {
 			"fields matched by struct tag, not field name",
 			txn.Op{
 				C:  machinesC,
@@ -162,7 +144,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 			txn.Op{
 				C:      machinesC,
 				Id:     "4",
-				Insert: bson.D{},
+				Insert: bson.D{{"_id", "4"}},
 			},
 			txn.Op{
 				C:  machinesC,
@@ -177,7 +159,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 			txn.Op{
 				C:      machinesC,
 				Id:     "5",
-				Insert: bson.M{},
+				Insert: bson.M{"_id": "5"},
 			},
 			txn.Op{
 				C:  machinesC,
@@ -198,7 +180,6 @@ func getTestCases() []multiEnvRunnerTestCase {
 				C:  machinesC,
 				Id: "uuid:5",
 				Insert: bson.D{
-					{"_id", "uuid:5"},
 					{"env-uuid", "uuid"},
 				},
 			},
@@ -208,7 +189,8 @@ func getTestCases() []multiEnvRunnerTestCase {
 				C:  machinesC,
 				Id: "1",
 				Update: bson.D{{"$set", &testDoc{
-					Id: "1",
+					DocID: "1",
+					Id:    "1",
 				}}},
 			},
 			txn.Op{
@@ -252,7 +234,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 				C:  machinesC,
 				Id: "1",
 				Update: bson.M{
-					"$set": &testDoc{Id: "1"},
+					"$set": bson.M{"_id": "1"},
 					"$foo": "bar",
 				},
 			},
@@ -260,11 +242,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 				C:  machinesC,
 				Id: "uuid:1",
 				Update: bson.M{
-					"$set": bson.D{
-						{"_id", "uuid:1"},
-						{"thingid", "1"},
-						{"env-uuid", "uuid"},
-					},
+					"$set": bson.D{{"_id", "uuid:1"}},
 					"$foo": "bar",
 				},
 			},
