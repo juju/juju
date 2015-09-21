@@ -11,6 +11,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/state"

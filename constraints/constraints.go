@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 )
 
 // The following constants list the supported constraint attribute names, as defined

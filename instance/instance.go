@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
+	"github.com/juju/utils/arch"
 )
 
 // An instance Id is a provider-specific identifier associated with an
