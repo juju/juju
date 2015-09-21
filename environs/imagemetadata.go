@@ -47,21 +47,6 @@ func RegisterUserImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 	datasourceFuncs = append([]datasourceFuncId{datasourceFuncId{id, f}}, datasourceFuncs...)
 }
 
-// UnregisterUserImageDataSourceFunc unregisters an ImageDataSourceFunc
-// with the specified id.
-func UnregisterUserImageDataSourceFunc(id string) {
-	datasourceFuncsMu.Lock()
-	defer datasourceFuncsMu.Unlock()
-	for i, f := range datasourceFuncs {
-		if f.id == id {
-			head := datasourceFuncs[:i]
-			tail := datasourceFuncs[i+1:]
-			datasourceFuncs = append(head, tail...)
-			return
-		}
-	}
-}
-
 // RegisterImageDataSourceFunc registers an ImageDataSourceFunc
 // with the specified id, overwriting any function previously registered
 // with the same id.
