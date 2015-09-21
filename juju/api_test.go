@@ -6,7 +6,6 @@ package juju_test
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -17,8 +16,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -192,7 +189,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	s.bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
-	apiclient, err := juju.NewAPIClientFromName("")
+	apiclient, err := juju.NewAPIClientFromName("", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiclient.Close()
 	c.Assert(time.Since(startTime), jc.LessThan, coretesting.LongWait)
@@ -206,7 +203,7 @@ func (s *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig, envName)
 	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, envName, defaultConfigStore(c))
-	apiclient, err := juju.NewAPIClientFromName(envName)
+	apiclient, err := juju.NewAPIClientFromName(envName, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiclient.Close()
 	assertEnvironmentName(c, apiclient, envName)

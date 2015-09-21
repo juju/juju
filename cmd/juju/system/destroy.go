@@ -25,10 +25,7 @@ import (
 )
 
 func newDestroyCommand() cmd.Command {
-	return envcmd.WrapSystem(
-		&destroyCommand{},
-		envcmd.SystemSkipFlags,
-		envcmd.SystemSkipDefault)
+	return envcmd.WrapBase(&destroyCommand{})
 }
 
 // destroyCommand destroys the specified system.
@@ -239,7 +236,7 @@ func blocksToStr(blocks []string) string {
 // destroyCommandBase provides common attributes and methods that both the system
 // destroy and system kill commands require.
 type destroyCommandBase struct {
-	envcmd.SysCommandBase
+	envcmd.JujuCommandBase
 	systemName string
 	assumeYes  bool
 

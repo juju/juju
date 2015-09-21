@@ -12,6 +12,7 @@ var (
 
 // NewEnvCommandBase returns a new EnvCommandBase with the environment name, client,
 // and error as specified for testing purposes.
+// If getterErr != nil then the NewEnvironmentGetter returns the specified error.
 func NewEnvCommandBase(name string, client EnvironmentGetter, getterErr error) *EnvCommandBase {
 	ctx, err := newAPIContext()
 	if err != nil {

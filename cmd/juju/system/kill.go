@@ -37,10 +37,7 @@ destroyed.
 `
 
 func newKillCommand() cmd.Command {
-	return envcmd.WrapSystem(
-		&killCommand{},
-		envcmd.SystemSkipFlags,
-		envcmd.SystemSkipDefault)
+	return envcmd.WrapBase(&killCommand{})
 }
 
 // killCommand kills the specified system.
@@ -70,10 +67,6 @@ func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements Command.Init.
 func (c *killCommand) Init(args []string) error {
-	if c.apiDialerFunc == nil {
-		c.apiDialerFunc = c.NewAPIRoot
-	}
-
 	return c.destroyCommandBase.Init(args)
 }
 
@@ -108,6 +101,10 @@ func (c *killCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemA
 
 // Run implements Command.Run
 func (c *killCommand) Run(ctx *cmd.Context) error {
+	if c.apiDialerFunc == nil {
+		c.apiDialerFunc = c.NewAPIRoot
+	}
+
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Annotate(err, "cannot open system info storage")

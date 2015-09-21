@@ -136,7 +136,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 
 		err := envcmd.Wrap(scpcmd).Init(t.args)
 		c.Check(err, jc.ErrorIsNil)
-		err = scpcmd.Run(ctx)
+		err = envcmd.Wrap(scpcmd).Run(ctx)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 			c.Check(t.result, gc.Equals, "")
