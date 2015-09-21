@@ -67,3 +67,9 @@ func registerSimplestreamsDataSource(stor storage.Storage) {
 		return ds, nil
 	})
 }
+
+// unregisterSimplestreamsDataSource de-registers an environmentStorageDataSource.
+func unregisterSimplestreamsDataSource(stor storage.Storage) {
+	ds := NewEnvironmentStorageDataSource(stor)
+	environs.UnregisterImageDataSourceFunc(ds.Description())
+}
