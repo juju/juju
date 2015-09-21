@@ -4,27 +4,24 @@
 package series_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/series"
-	"github.com/juju/juju/testing"
 )
 
 type supportedSeriesSuite struct {
-	testing.BaseSuite
-	cleanup func()
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&supportedSeriesSuite{})
 
 func (s *supportedSeriesSuite) SetUpTest(c *gc.C) {
-	s.cleanup = series.SetSeriesVersions(make(map[string]string))
-}
-
-func (s *supportedSeriesSuite) TearDownTest(c *gc.C) {
-	s.cleanup()
+	s.CleanupSuite.SetUpTest(c)
+	cleanup := series.SetSeriesVersions(make(map[string]string))
+	s.AddCleanup(func(*gc.C) { cleanup() })
 }
 
 var getOSFromSeriesTests = []struct {
