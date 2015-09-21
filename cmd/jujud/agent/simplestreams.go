@@ -30,7 +30,7 @@ func NewEnvironmentStorageDataSource(stor storage.Storage) simplestreams.DataSou
 
 // Description is defined in simplestreams.DataSource.
 func (d environmentStorageDataSource) Description() string {
-	return "environment storage"
+	return storageDataStoreDescription
 }
 
 // Fetch is defined in simplestreams.DataSource.
@@ -68,8 +68,9 @@ func registerSimplestreamsDataSource(stor storage.Storage) {
 	})
 }
 
+const storageDataStoreDescription = "environment storage"
+
 // unregisterSimplestreamsDataSource de-registers an environmentStorageDataSource.
-func unregisterSimplestreamsDataSource(stor storage.Storage) {
-	ds := NewEnvironmentStorageDataSource(stor)
-	environs.UnregisterImageDataSourceFunc(ds.Description())
+func unregisterSimplestreamsDataSource() {
+	environs.UnregisterImageDataSourceFunc(storageDataStoreDescription)
 }

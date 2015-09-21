@@ -1090,18 +1090,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			logger.Warningf("ignoring unknown job %q", job)
 		}
 	}
-	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st, stor}), nil
+	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
 }
 
 type stateWorkerCloser struct {
 	stateCloser io.Closer
-	storage     statestorage.Storage
 }
 
 func (s stateWorkerCloser) Close() error {
-	// (anastasiamac 2015-09-21) Bug#1497829
-	// Un-register state dependent data source before closing state.
-	unregisterSimplestreamsDataSource(s.storage)
+	// Bug#1497829
+	// This state-dependent data source will be useless once state is closed -
+	// un-register it before closing state.
+	unregisterSimplestreamsDataSource()
 	return s.stateCloser.Close()
 }
 

@@ -35,14 +35,47 @@ type ImageDataSourceFunc func(Environ) (simplestreams.DataSource, error)
 // with the specified id at the start of the search path, overwriting
 // any function previously registered with the same id.
 func RegisterUserImageDataSourceFunc(id string, f ImageDataSourceFunc) {
-	register(id, f, "user")
+	datasourceFuncsMu.Lock()
+	defer datasourceFuncsMu.Unlock()
+	for i := range datasourceFuncs {
+		if datasourceFuncs[i].id == id {
+			datasourceFuncs[i].f = f
+			return
+		}
+	}
+	logger.Debugf("new user image datasource registered: %v", id)
+	datasourceFuncs = append([]datasourceFuncId{datasourceFuncId{id, f}}, datasourceFuncs...)
+}
+
+// UnregisterUserImageDataSourceFunc unregisters an ImageDataSourceFunc
+// with the specified id.
+func UnregisterUserImageDataSourceFunc(id string) {
+	datasourceFuncsMu.Lock()
+	defer datasourceFuncsMu.Unlock()
+	for i, f := range datasourceFuncs {
+		if f.id == id {
+			head := datasourceFuncs[:i]
+			tail := datasourceFuncs[i+1:]
+			datasourceFuncs = append(head, tail...)
+			return
+		}
+	}
 }
 
 // RegisterImageDataSourceFunc registers an ImageDataSourceFunc
 // with the specified id, overwriting any function previously registered
 // with the same id.
 func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
-	register(id, f, "environment")
+	datasourceFuncsMu.Lock()
+	defer datasourceFuncsMu.Unlock()
+	for i := range datasourceFuncs {
+		if datasourceFuncs[i].id == id {
+			datasourceFuncs[i].f = f
+			return
+		}
+	}
+	logger.Debugf("new environment image datasource registered: %v", id)
+	datasourceFuncs = append(datasourceFuncs, datasourceFuncId{id, f})
 }
 
 // UnregisterImageDataSourceFunc unregisters an ImageDataSourceFunc
@@ -114,19 +147,4 @@ func environmentDataSources(env Environ) ([]simplestreams.DataSource, error) {
 		datasources = append(datasources, datasource)
 	}
 	return datasources, nil
-}
-
-// register registers an ImageDataSourceFunc with the specified id,
-// overwriting any function previously registered with the same id.
-func register(id string, f ImageDataSourceFunc, msg string) {
-	datasourceFuncsMu.Lock()
-	defer datasourceFuncsMu.Unlock()
-	for i := range datasourceFuncs {
-		if datasourceFuncs[i].id == id {
-			datasourceFuncs[i].f = f
-			return
-		}
-	}
-	logger.Debugf("new %v image datasource registered: %v", msg, id)
-	datasourceFuncs = append([]datasourceFuncId{datasourceFuncId{id, f}}, datasourceFuncs...)
 }
