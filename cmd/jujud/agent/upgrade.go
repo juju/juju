@@ -171,7 +171,6 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		if c.st, err = openStateForUpgrade(c.agent, c.agentConfig); err != nil {
 			return err
 		}
-		defer c.st.Close()
 
 		if c.isMaster, err = isMachineMaster(c.st, c.machineId); err != nil {
 			return errors.Trace(err)
@@ -179,6 +178,14 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 
 		stor := storage.NewStorage(c.st.EnvironUUID(), c.st.MongoSession())
 		registerSimplestreamsDataSource(stor)
+
+		// (anastasiamac 2015-09-21) moved the defer until after
+		// storage is defined as data source needs to be un-registered
+		// before state is closed - Bug#1497829
+		defer func() {
+			unregisterSimplestreamsDataSource(stor)
+			c.st.Close()
+		}()
 	}
 	if err := c.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to
