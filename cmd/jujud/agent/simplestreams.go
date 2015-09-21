@@ -16,7 +16,10 @@ import (
 	"github.com/juju/juju/state/storage"
 )
 
-const storageDataSourceDescription = "environment storage"
+const (
+	storageDataSourceId          = "environment storage"
+	storageDataSourceDescription = storageDataSourceId
+)
 
 // environmentStorageDataSource is a simplestreams.DataSource that
 // retrieves simplestreams metadata from environment storage.
@@ -65,12 +68,12 @@ func (d environmentStorageDataSource) SetAllowRetry(allow bool) {
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
 func registerSimplestreamsDataSource(stor storage.Storage) {
 	ds := NewEnvironmentStorageDataSource(stor)
-	environs.RegisterUserImageDataSourceFunc(ds.Description(), func(environs.Environ) (simplestreams.DataSource, error) {
+	environs.RegisterUserImageDataSourceFunc(storageDataSourceId, func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})
 }
 
 // unregisterSimplestreamsDataSource de-registers an environmentStorageDataSource.
 func unregisterSimplestreamsDataSource() {
-	environs.UnregisterImageDataSourceFunc(storageDataSourceDescription)
+	environs.UnregisterImageDataSourceFunc(storageDataSourceId)
 }
