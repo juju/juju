@@ -8,7 +8,9 @@ package state
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1221,6 +1223,12 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
+
+	mgo.SetDebug(true)
+
+	var aLogger *log.Logger
+	aLogger = log.New(os.Stderr, "", log.LstdFlags)
+	mgo.SetLogger(aLogger)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		if err := checkEnvLife(st); err != nil {

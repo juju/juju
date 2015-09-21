@@ -4,8 +4,6 @@
 package unitassigner
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -39,15 +37,11 @@ func (a API) AssignUnits() error {
 // WatchUnitAssignments watches the server for new unit assignments to be
 // created.
 func (a API) WatchUnitAssignments() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	err := a.facade.FacadeCall("WatchUnitAssignments", nil, &results)
+	var result params.NotifyWatchResult
+	err := a.facade.FacadeCall("WatchUnitAssignments", nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("UnitAssigner", 1, New)
+	common.RegisterStandardFacade("UnitAssigner", 0, New)
 }
 
 // st defines the state methods this facade needs, so they can be mocked
@@ -29,7 +29,7 @@ func New(st *state.State, res *common.Resources, auth common.Authorizer) (*API, 
 	return &API{st: st, res: res, auth: auth}, nil
 }
 
-func (a API) AssignUnits() (params.AssignUnitsResult, error) {
+func (a *API) AssignUnits() (params.AssignUnitsResult, error) {
 	var result params.AssignUnitsResult
 	if err := a.st.AssignStagedUnits(); err != nil {
 		result.Error = common.ServerError(err)
@@ -37,7 +37,7 @@ func (a API) AssignUnits() (params.AssignUnitsResult, error) {
 	return result, nil
 }
 
-func (a API) WatchUnitAssignments() (params.NotifyWatchResult, error) {
+func (a *API) WatchUnitAssignments() (params.NotifyWatchResult, error) {
 	watch := a.st.WatchForUnitAssignment()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
