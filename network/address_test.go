@@ -12,12 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 )
 
-type AddressSuite struct {
-	testing.BaseSuite
-}
+type AddressSuite struct{}
 
 var _ = gc.Suite(&AddressSuite{})
 

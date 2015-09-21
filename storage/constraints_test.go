@@ -4,15 +4,15 @@
 package storage_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
 type ConstraintsSuite struct {
-	testing.BaseSuite
+	testing.LoggingSuite // quench warnings to console
 }
 
 var _ = gc.Suite(&ConstraintsSuite{})

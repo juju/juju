@@ -20,9 +20,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type formatSuite struct {
-	testing.BaseSuite
-}
+type formatSuite struct{}
 
 var _ = gc.Suite(&formatSuite{})
 

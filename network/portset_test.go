@@ -10,12 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 )
 
 type PortSetSuite struct {
-	testing.BaseSuite
-
 	portRange1 network.PortRange
 	portRange2 network.PortRange
 	portRange3 network.PortRange
@@ -25,8 +22,6 @@ type PortSetSuite struct {
 var _ = gc.Suite(&PortSetSuite{})
 
 func (s *PortSetSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
 	portRange1, err := network.ParsePortRange("8000-8099/tcp")
 	c.Assert(err, jc.ErrorIsNil)
 	portRange2, err := network.ParsePortRange("80/tcp")

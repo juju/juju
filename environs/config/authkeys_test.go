@@ -9,24 +9,25 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/ssh"
 )
 
 type AuthKeysSuite struct {
-	testing.BaseSuite
+	testing.CleanupSuite
 	dotssh string // ~/.ssh
 }
 
 var _ = gc.Suite(&AuthKeysSuite{})
 
 func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.CleanupSuite.SetUpTest(c)
 	old := utils.Home()
 	newhome := c.MkDir()
 	utils.SetHome(newhome)
@@ -38,7 +39,7 @@ func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
 
 func (s *AuthKeysSuite) TearDownTest(c *gc.C) {
 	ssh.ClearClientKeys()
-	s.BaseSuite.TearDownTest(c)
+	s.CleanupSuite.TearDownTest(c)
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *gc.C) {

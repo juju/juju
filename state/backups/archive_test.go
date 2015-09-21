@@ -8,12 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/testing"
 )
 
-type archiveSuite struct {
-	testing.BaseSuite
-}
+type archiveSuite struct{}
 
 var _ = gc.Suite(&archiveSuite{})
 

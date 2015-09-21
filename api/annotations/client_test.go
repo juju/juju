@@ -8,13 +8,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/annotations"
-	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type annotationsMockSuite struct {
-	coretesting.BaseSuite
 	annotationsClient *annotations.Client
 }
 
@@ -28,7 +26,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 		"charmA":   annts,
 		"serviceB": annts2,
 	}
-	apiCaller := basetesting.APICallerFunc(
+	apiCaller := testing.APICallerFunc(
 		func(objType string,
 			version int,
 			id, request string,
@@ -60,7 +58,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 
 func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	var called bool
-	apiCaller := basetesting.APICallerFunc(
+	apiCaller := testing.APICallerFunc(
 		func(
 			objType string,
 			version int,

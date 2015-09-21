@@ -10,15 +10,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/testing"
 )
 
 // We test rpcreflect in this package, so that the
 // tests can all share the same testing Root type.
 
-type reflectSuite struct {
-	testing.BaseSuite
-}
+type reflectSuite struct{}
 
 var _ = gc.Suite(&reflectSuite{})
 

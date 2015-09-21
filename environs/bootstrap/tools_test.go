@@ -5,6 +5,7 @@ package bootstrap_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
@@ -13,13 +14,13 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
 type toolsSuite struct {
-	coretesting.BaseSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&toolsSuite{})

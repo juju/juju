@@ -11,12 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage/looputil"
-	"github.com/juju/juju/testing"
 )
 
-type LoopUtilSuite struct {
-	testing.BaseSuite
-}
+type LoopUtilSuite struct{}
 
 var _ = gc.Suite(&LoopUtilSuite{})
 
