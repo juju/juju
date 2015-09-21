@@ -89,73 +89,13 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		Placement: args.Placement,
 	}
 
+	if !args.Charm.Meta().Subordinate {
+		asa.Constraints = args.Constraints
+	}
+
 	// TODO(dimitern): In a follow-up drop Networks and use spaces
 	// constraints for this when possible.
-	service, err := st.AddService(asa)
-	if err != nil {
-		return nil, err
-	}
-	if args.Charm.Meta().Subordinate {
-		return service, nil
-	}
-	if !constraints.IsEmpty(&args.Constraints) {
-		if err := service.SetConstraints(args.Constraints); err != nil {
-			return nil, err
-		}
-	}
-	return service, nil
-}
-
-func addMachineForUnit(st *state.State, unit *state.Unit, placement *instance.Placement, networks []string) (*state.Machine, error) {
-	unitCons, err := unit.Constraints()
-	if err != nil {
-		return nil, err
-	}
-	var containerType instance.ContainerType
-	var mid, placementDirective string
-	// Extract container type and parent from container placement directives.
-	if containerType, err = instance.ParseContainerType(placement.Scope); err == nil {
-		mid = placement.Directive
-	} else {
-		switch placement.Scope {
-		case st.EnvironUUID():
-			placementDirective = placement.Directive
-		case instance.MachineScope:
-			mid = placement.Directive
-		default:
-			return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
-		}
-	}
-
-	// Create any new machine marked as dirty so that
-	// nothing else will grab it before we assign the unit to it.
-
-	// If a container is to be used, create it.
-	if containerType != "" {
-		template := state.MachineTemplate{
-			Series:            unit.Series(),
-			Jobs:              []state.MachineJob{state.JobHostUnits},
-			Dirty:             true,
-			Constraints:       *unitCons,
-			RequestedNetworks: networks,
-		}
-		return st.AddMachineInsideMachine(template, mid, containerType)
-	}
-	// If a placement directive is to be used, do that here.
-	if placementDirective != "" {
-		template := state.MachineTemplate{
-			Series:            unit.Series(),
-			Jobs:              []state.MachineJob{state.JobHostUnits},
-			Dirty:             true,
-			Constraints:       *unitCons,
-			RequestedNetworks: networks,
-			Placement:         placementDirective,
-		}
-		return st.AddOneMachine(template)
-	}
-
-	// Otherwise use an existing machine.
-	return st.Machine(mid)
+	return st.AddService(asa)
 }
 
 // AddUnits starts n units of the given service and allocates machines
@@ -224,12 +164,8 @@ func AddUnitsWithPlacement(st *state.State, svc *state.Service, n int, placement
 			units[i] = unit
 			continue
 		}
-		m, err := addMachineForUnit(st, unit, placement[i], networks)
-		if err != nil {
+		if err := st.AssignUnitWithPlacement(unit, placement[i], networks); err != nil {
 			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.Name())
-		}
-		if err = unit.AssignToMachine(m); err != nil {
-			return nil, errors.Trace(err)
 		}
 		units[i] = unit
 	}

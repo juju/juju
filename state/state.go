@@ -1093,14 +1093,15 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 }
 
 type AddServiceArgs struct {
-	Name      string
-	Owner     string
-	Charm     *Charm
-	Networks  []string
-	Storage   map[string]StorageConstraints
-	Settings  charm.Settings
-	NumUnits  int
-	Placement []*instance.Placement
+	Name        string
+	Owner       string
+	Charm       *Charm
+	Networks    []string
+	Storage     map[string]StorageConstraints
+	Settings    charm.Settings
+	NumUnits    int
+	Placement   []*instance.Placement
+	Constraints constraints.Value
 }
 
 // AddService creates a new service, running the supplied charm, with the
@@ -1174,7 +1175,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 
 	ops := []txn.Op{
 		env.assertAliveOp(),
-		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
+		createConstraintsOp(st, svc.globalKey(), args.Constraints),
 		// TODO(dimitern) 2014-04-04 bug #1302498
 		// Once we can add networks independently of machine
 		// provisioning, we should check the given networks are valid
@@ -1207,14 +1208,14 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addUnitOps("", nil)
+		unit, unitOps, err := svc.addUnitOpsWithCons("", nil, args.Constraints)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, unitOps...)
-		var placement *instance.Placement
+		placement := instance.Placement{}
 		if x < len(args.Placement) {
-			placement = args.Placement[x]
+			placement = *args.Placement[x]
 		}
 		ops = append(ops, assignUnitOps(st, unit, placement)...)
 	}
@@ -1236,7 +1237,9 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	return svc, nil
 }
 
-func assignUnitOps(st *State, unit string, placement *instance.Placement) []txn.Op {
+// assignUnitOps returns the db ops to save unit assignment for use by the
+// UnitAssigner worker.
+func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
 	udoc := assignUnitDoc{
 		DocId:     st.docID(utils.MustNewUUID().String()),
 		Unit:      unit,
@@ -1251,6 +1254,102 @@ func assignUnitOps(st *State, unit string, placement *instance.Placement) []txn.
 			Insert: udoc,
 		},
 	}
+}
+
+// AssignStagedUnits gets called by the UnitAssigner worker, and simply runs the
+// assignments stored in the DB that have not yet been run.
+func (st *State) AssignStagedUnits() error {
+	col, close := st.getCollection(assignUnitC)
+	defer close()
+	docs := []assignUnitDoc{}
+	if err := col.Find(nil).All(&docs); err != nil {
+		return errors.Annotatef(err, "cannot get all assign unit docs")
+	}
+	for _, doc := range docs {
+		// TODO(natefinch): what if the unit/service doesn't exist anymore?
+		u, err := st.Unit(doc.Unit)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		svc, err := u.Service()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		networks, err := svc.Networks()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		placement := &instance.Placement{Scope: doc.Scope, Directive: doc.Directive}
+
+		// units always have the same networks as their service.
+		if err := st.AssignUnitWithPlacement(u, placement, networks); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// AssignUnitWithPlacement chooses a machine using the given placement directive
+// and then assigns the unit to it.
+func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement, networks []string) error {
+	m, err := st.addMachineWithPlacement(unit, placement, networks)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return unit.AssignToMachine(m)
+}
+
+// addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
+func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
+	unitCons, err := unit.Constraints()
+	if err != nil {
+		return nil, err
+	}
+	var containerType instance.ContainerType
+	var mid, placementDirective string
+	// Extract container type and parent from container placement directives.
+	if containerType, err = instance.ParseContainerType(placement.Scope); err == nil {
+		mid = placement.Directive
+	} else {
+		switch placement.Scope {
+		case st.EnvironUUID():
+			placementDirective = placement.Directive
+		case instance.MachineScope:
+			mid = placement.Directive
+		default:
+			return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
+		}
+	}
+
+	// Create any new machine marked as dirty so that
+	// nothing else will grab it before we assign the unit to it.
+
+	// If a container is to be used, create it.
+	if containerType != "" {
+		template := MachineTemplate{
+			Series:            unit.Series(),
+			Jobs:              []MachineJob{JobHostUnits},
+			Dirty:             true,
+			Constraints:       *unitCons,
+			RequestedNetworks: networks,
+		}
+		return st.AddMachineInsideMachine(template, mid, containerType)
+	}
+	// If a placement directive is to be used, do that here.
+	if placementDirective != "" {
+		template := MachineTemplate{
+			Series:            unit.Series(),
+			Jobs:              []MachineJob{JobHostUnits},
+			Dirty:             true,
+			Constraints:       *unitCons,
+			RequestedNetworks: networks,
+			Placement:         placementDirective,
+		}
+		return st.AddOneMachine(template)
+	}
+
+	// Otherwise use an existing machine.
+	return st.Machine(mid)
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an
@@ -1469,6 +1568,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sdoc := &serviceDoc{}
 	err = services.FindId(name).One(sdoc)
 	if err == mgo.ErrNotFound {
+		panic("Can't find service " + name)
 		return nil, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {

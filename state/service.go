@@ -634,6 +634,7 @@ func (s *Service) Refresh() error {
 
 	err := services.FindId(s.doc.DocID).One(&s.doc)
 	if err == mgo.ErrNotFound {
+		panic("Can't find service " + s.Name())
 		return errors.NotFoundf("service %q", s)
 	}
 	if err != nil {
@@ -644,13 +645,14 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	services, closer := s.st.getCollection(servicesC)
-	defer closer()
+	// services, closer := s.st.getCollection(servicesC)
+	// defer closer()
 
-	result := &serviceDoc{}
-	if err := services.FindId(s.doc.DocID).One(&result); err == mgo.ErrNotFound {
-		return "", errors.NotFoundf("service %q", s)
-	}
+	// result := &serviceDoc{}
+	// if err := services.FindId(s.doc.DocID).One(&result); err == mgo.ErrNotFound {
+	// 	panic("Can't find service " + s.Name())
+	// 	return "", errors.NotFoundf("service %q", s)
+	// }
 
 	unitSeq, err := s.st.sequence(s.Tag().String())
 	if err != nil {
@@ -668,6 +670,23 @@ const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
 // service will be assigned to a given principal. The asserts param can be used
 // to include additional assertions for the service document.
 func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
+	var cons constraints.Value
+	if !s.doc.Subordinate {
+		scons, err := s.Constraints()
+		if err != nil {
+			return "", nil, err
+		}
+		cons, err = s.st.resolveConstraints(scons)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+	return s.addUnitOpsWithCons(principalName, asserts, cons)
+}
+
+// addUnitOpsWithConstraints is just like addUnitOps but explicitly takes a
+// constraints value (this is useful at service creation time)
+func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons constraints.Value) (string, []txn.Op, error) {
 	if s.doc.Subordinate && principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !s.doc.Subordinate && principalName != "" {
@@ -740,14 +759,6 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
 	} else {
-		scons, err := s.Constraints()
-		if err != nil {
-			return "", nil, err
-		}
-		cons, err := s.st.resolveConstraints(scons)
-		if err != nil {
-			return "", nil, err
-		}
 		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
 	}
 

@@ -1431,6 +1431,12 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, settingsC, st.docID(environGlobalKey))
 }
 
+// WatchForUnitAssignment watches for new services that request units to be
+// assigned to machines.
+func (st *State) WatchForUnitAssignment() NotifyWatcher {
+	return newEntityWatcher(st, assignUnitC, st.docID(environGlobalKey))
+}
+
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {

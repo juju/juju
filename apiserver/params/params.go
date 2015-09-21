@@ -800,3 +800,8 @@ type BundleChangesChange struct {
 	// before this change is applied.
 	Requires []string `json:"requires"`
 }
+
+// AssignUnitsResult holds the result of a call to UnitAssigner.Assign.
+type AssignUnitsResult struct {
+	Error *Error
+}
