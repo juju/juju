@@ -314,7 +314,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		// Set up apparent CLI version and initialize the command.
 		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
-		com := &UpgradeJujuCommand{}
+		com := &upgradeJujuCommand{}
 		if err := coretesting.InitCommand(envcmd.Wrap(com), test.args); err != nil {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
@@ -437,7 +437,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
+	cmd := envcmd.Wrap(&upgradeJujuCommand{})
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := version.Current
@@ -447,7 +447,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
+	cmd := envcmd.Wrap(&upgradeJujuCommand{})
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
@@ -525,7 +525,7 @@ upgrade to this version by running
 		tools.DefaultBaseURL = ""
 
 		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
-		com := &UpgradeJujuCommand{}
+		com := &upgradeJujuCommand{}
 		err := coretesting.InitCommand(envcmd.Wrap(com), test.cmdArgs)
 		c.Assert(err, jc.ErrorIsNil)
 		toolsDir := c.MkDir()
@@ -569,7 +569,7 @@ func (s *UpgradeJujuSuite) TestUpgradeUnknownSeriesInStreams(c *gc.C) {
 	fakeAPI.addTools("2.1.0-weird-amd64")
 	fakeAPI.patch(s)
 
-	cmd := &UpgradeJujuCommand{}
+	cmd := &upgradeJujuCommand{}
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -588,7 +588,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 		Code:    params.CodeUpgradeInProgress,
 	}
 	fakeAPI.patch(s)
-	cmd := &UpgradeJujuCommand{}
+	cmd := &upgradeJujuCommand{}
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -605,7 +605,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
 	fakeAPI.setVersionErr = common.ErrOperationBlocked("The operation has been blocked.")
 	fakeAPI.patch(s)
-	cmd := &UpgradeJujuCommand{}
+	cmd := &upgradeJujuCommand{}
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -631,7 +631,7 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 
 		fakeAPI.reset()
 
-		cmd := &UpgradeJujuCommand{}
+		cmd := &upgradeJujuCommand{}
 		err := coretesting.InitCommand(envcmd.Wrap(cmd),
 			append([]string{"--reset-previous-upgrade"}, args...))
 		c.Assert(err, jc.ErrorIsNil)
@@ -703,7 +703,7 @@ func (a *fakeUpgradeJujuAPI) reset() {
 }
 
 func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
-	s.PatchValue(&getUpgradeJujuAPI, func(*UpgradeJujuCommand) (upgradeJujuAPI, error) {
+	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
 		return a, nil
 	})
 }

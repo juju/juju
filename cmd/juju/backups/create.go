@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -42,8 +43,12 @@ This local copy can then be used to restore an environment even if that
 environment was already destroyed or is otherwise unavailable.
 `
 
-// CreateCommand is the sub-command for creating a new backup.
-type CreateCommand struct {
+func newCreateCommand() cmd.Command {
+	return envcmd.Wrap(&createCommand{})
+}
+
+// createCommand is the sub-command for creating a new backup.
+type createCommand struct {
 	CommandBase
 	// Quiet indicates that the full metadata should not be dumped.
 	Quiet bool
@@ -56,7 +61,7 @@ type CreateCommand struct {
 }
 
 // Info implements Command.Info.
-func (c *CreateCommand) Info() *cmd.Info {
+func (c *createCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create",
 		Args:    "[<notes>]",
@@ -66,14 +71,14 @@ func (c *CreateCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
 	f.BoolVar(&c.NoDownload, "no-download", false, "do not download the archive")
 	f.StringVar(&c.Filename, "filename", notset, "download to this file")
 }
 
 // Init implements Command.Init.
-func (c *CreateCommand) Init(args []string) error {
+func (c *createCommand) Init(args []string) error {
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return err
@@ -91,7 +96,7 @@ func (c *CreateCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *CreateCommand) Run(ctx *cmd.Context) error {
+func (c *createCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -123,7 +128,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timestamp time.Time) string {
+func (c *createCommand) decideFilename(ctx *cmd.Context, filename string, timestamp time.Time) string {
 	if filename != notset {
 		return filename
 	}
@@ -135,7 +140,7 @@ func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timest
 	return timestamp.Format(backups.FilenameTemplate)
 }
 
-func (c *CreateCommand) download(ctx *cmd.Context, id string, filename string) error {
+func (c *createCommand) download(ctx *cmd.Context, id string, filename string) error {
 	fmt.Fprintln(ctx.Stdout, "downloading to "+filename)
 
 	// TODO(ericsnow) lp-1399722 This needs further investigation:

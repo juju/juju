@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/constraints"
 )
@@ -52,14 +53,18 @@ See Also:
    juju help add-unit
 `
 
-// EnvGetConstraintsCommand shows the constraints for an environment.
+func newEnvGetConstraintsCommand() cmd.Command {
+	return envcmd.Wrap(&envGetConstraintsCommand{})
+}
+
+// envGetConstraintsCommand shows the constraints for an environment.
 // It is just a wrapper for the common GetConstraintsCommand and
 // enforces that no service arguments are passed in.
-type EnvGetConstraintsCommand struct {
+type envGetConstraintsCommand struct {
 	common.GetConstraintsCommand
 }
 
-func (c *EnvGetConstraintsCommand) Info() *cmd.Info {
+func (c *envGetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-constraints",
 		Purpose: "view constraints on the environment",
@@ -67,18 +72,22 @@ func (c *EnvGetConstraintsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *EnvGetConstraintsCommand) Init(args []string) error {
+func (c *envGetConstraintsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-// EnvSetConstraintsCommand sets the constraints for an environment.
+func newEnvSetConstraintsCommand() cmd.Command {
+	return envcmd.Wrap(&envSetConstraintsCommand{})
+}
+
+// envSetConstraintsCommand sets the constraints for an environment.
 // It is just a wrapper for the common SetConstraintsCommand and
 // enforces that no service arguments are passed in.
-type EnvSetConstraintsCommand struct {
+type envSetConstraintsCommand struct {
 	common.SetConstraintsCommand
 }
 
-func (c *EnvSetConstraintsCommand) Info() *cmd.Info {
+func (c *envSetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-constraints",
 		Args:    "[key=[value] ...]",
@@ -89,9 +98,9 @@ func (c *EnvSetConstraintsCommand) Info() *cmd.Info {
 
 // SetFlags overrides SetFlags for SetConstraintsCommand since that
 // will register a flag to specify the service.
-func (c *EnvSetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {}
+func (c *envSetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {}
 
-func (c *EnvSetConstraintsCommand) Init(args []string) (err error) {
+func (c *envSetConstraintsCommand) Init(args []string) (err error) {
 	c.Constraints, err = constraints.Parse(args...)
 	return err
 }

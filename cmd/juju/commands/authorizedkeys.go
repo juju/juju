@@ -35,7 +35,7 @@ func (c *AuthorizedKeysBase) NewKeyManagerClient() (*keymanager.Client, error) {
 	return keymanager.NewClient(root), nil
 }
 
-func NewAuthorizedKeysCommand() cmd.Command {
+func newAuthorizedKeysCommand() cmd.Command {
 	sshkeyscmd := &AuthorizedKeysCommand{
 		SuperCommand: cmd.NewSuperCommand(cmd.SuperCommandParams{
 			Name:        "authorized-keys",
@@ -45,10 +45,10 @@ func NewAuthorizedKeysCommand() cmd.Command {
 			Aliases:     []string{"authorised-keys"},
 		}),
 	}
-	sshkeyscmd.Register(envcmd.Wrap(&AddKeysCommand{}))
-	sshkeyscmd.Register(envcmd.Wrap(&DeleteKeysCommand{}))
-	sshkeyscmd.Register(envcmd.Wrap(&ImportKeysCommand{}))
-	sshkeyscmd.Register(envcmd.Wrap(&ListKeysCommand{}))
+	sshkeyscmd.Register(newAddKeysCommand())
+	sshkeyscmd.Register(newDeleteKeysCommand())
+	sshkeyscmd.Register(newImportKeysCommand())
+	sshkeyscmd.Register(newListKeysCommand())
 	return sshkeyscmd
 }
 

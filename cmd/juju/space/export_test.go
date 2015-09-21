@@ -3,36 +3,63 @@
 
 package space
 
-func NewCreateCommand(api SpaceAPI) *CreateCommand {
-	createCmd := &CreateCommand{}
-	createCmd.api = api
-	return createCmd
+import (
+	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/envcmd"
+)
+
+func NewCreateCommand(api SpaceAPI) cmd.Command {
+	createCmd := &createCommand{
+		SpaceCommandBase: SpaceCommandBase{api: api},
+	}
+	return envcmd.Wrap(createCmd)
 }
 
-func NewRemoveCommand(api SpaceAPI) *RemoveCommand {
-	removeCmd := &RemoveCommand{}
-	removeCmd.api = api
-	return removeCmd
+type RemoveCommand struct {
+	*removeCommand
 }
 
-func NewUpdateCommand(api SpaceAPI) *UpdateCommand {
-	updateCmd := &UpdateCommand{}
-	updateCmd.api = api
-	return updateCmd
+func (c *RemoveCommand) Name() string {
+	return c.name
 }
 
-func NewRenameCommand(api SpaceAPI) *RenameCommand {
-	renameCmd := &RenameCommand{}
-	renameCmd.api = api
-	return renameCmd
+func NewRemoveCommand(api SpaceAPI) (cmd.Command, *RemoveCommand) {
+	removeCmd := &removeCommand{
+		SpaceCommandBase: SpaceCommandBase{api: api},
+	}
+	return envcmd.Wrap(removeCmd), &RemoveCommand{removeCmd}
 }
 
-func NewListCommand(api SpaceAPI) *ListCommand {
-	listCmd := &ListCommand{}
-	listCmd.api = api
-	return listCmd
+func NewUpdateCommand(api SpaceAPI) cmd.Command {
+	updateCmd := &updateCommand{
+		SpaceCommandBase: SpaceCommandBase{api: api},
+	}
+	return envcmd.Wrap(updateCmd)
 }
 
-func ListFormat(cmd *ListCommand) string {
-	return cmd.out.Name()
+type RenameCommand struct {
+	*renameCommand
+}
+
+func NewRenameCommand(api SpaceAPI) (cmd.Command, *RenameCommand) {
+	renameCmd := &renameCommand{
+		SpaceCommandBase: SpaceCommandBase{api: api},
+	}
+	return envcmd.Wrap(renameCmd), &RenameCommand{renameCmd}
+}
+
+type ListCommand struct {
+	*listCommand
+}
+
+func (c *ListCommand) ListFormat() string {
+	return c.out.Name()
+}
+
+func NewListCommand(api SpaceAPI) (cmd.Command, *ListCommand) {
+	listCmd := &listCommand{
+		SpaceCommandBase: SpaceCommandBase{api: api},
+	}
+	return envcmd.Wrap(listCmd), &ListCommand{listCmd}
 }

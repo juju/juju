@@ -24,7 +24,11 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-type DeployCommand struct {
+func newDeployCommand() cmd.Command {
+	return envcmd.Wrap(&deployCommand{})
+}
+
+type deployCommand struct {
 	envcmd.EnvCommandBase
 	service.UnitCommandBase
 	CharmName    string
@@ -105,7 +109,7 @@ See Also:
    juju help get-constraints
 `
 
-func (c *DeployCommand) Info() *cmd.Info {
+func (c *deployCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "deploy",
 		Args:    "<charm name> [<service name>]",
@@ -114,7 +118,7 @@ func (c *DeployCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *deployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
@@ -126,7 +130,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
 
-func (c *DeployCommand) Init(args []string) error {
+func (c *deployCommand) Init(args []string) error {
 	switch len(args) {
 	case 2:
 		if !names.IsValidService(args[1]) {
@@ -147,7 +151,7 @@ func (c *DeployCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
+func (c *deployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -155,7 +159,7 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	return apiservice.NewClient(root), nil
 }
 
-func (c *DeployCommand) Run(ctx *cmd.Context) error {
+func (c *deployCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err

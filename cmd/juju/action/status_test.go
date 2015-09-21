@@ -25,7 +25,7 @@ var _ = gc.Suite(&StatusSuite{})
 
 func (s *StatusSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
-	s.subcommand = &action.StatusCommand{}
+	s.subcommand = action.NewStatusCommand()
 }
 
 func (s *StatusSuite) TestHelp(c *gc.C) {
@@ -82,12 +82,13 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	s.subcommand = &action.StatusCommand{}
-	ctx, err := testing.RunCommand(c, s.subcommand, tc.args...)
+	s.subcommand = action.NewStatusCommand()
+	args := append([]string{"-e", "dummyenv"}, tc.args...)
+	ctx, err := testing.RunCommand(c, s.subcommand, args...)
 	if tc.expectError == "" {
-		c.Check(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Check(err, gc.ErrorMatches, tc.expectError)
+		c.Assert(err, gc.ErrorMatches, tc.expectError)
 	}
 	if len(tc.results) > 0 {
 		buf, err := cmd.DefaultFormatters["yaml"](action.ActionResultsToMap(tc.results))

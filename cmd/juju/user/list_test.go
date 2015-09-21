@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
@@ -27,7 +26,7 @@ type UserListCommandSuite struct {
 var _ = gc.Suite(&UserListCommandSuite{})
 
 func newUserListCommand() cmd.Command {
-	return envcmd.WrapSystem(user.NewListCommand(&fakeUserListAPI{}))
+	return user.NewListCommand(&fakeUserListAPI{})
 }
 
 type fakeUserListAPI struct{}

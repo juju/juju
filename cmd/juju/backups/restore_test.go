@@ -4,7 +4,7 @@
 package backups_test
 
 import (
-	//jc "github.com/juju/testing/checkers"
+	"github.com/juju/cmd"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
@@ -13,14 +13,14 @@ import (
 
 type restoreSuite struct {
 	BaseBackupsSuite
-	subcommand *backups.RestoreCommand
+	command cmd.Command
 }
 
 var _ = gc.Suite(&restoreSuite{})
 
 func (s *restoreSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = &backups.RestoreCommand{}
+	s.command = backups.NewRestoreCommand()
 }
 
 func (s *restoreSuite) TestRestoreArgs(c *gc.C) {

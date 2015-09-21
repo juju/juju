@@ -101,8 +101,12 @@ var GetClientConfig = func(client ServiceAddUnitAPI) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-// AddUnitCommand is responsible adding additional units to a service.
-type AddUnitCommand struct {
+func newAddUnitCommand() cmd.Command {
+	return envcmd.Wrap(&addUnitCommand{})
+}
+
+// addUnitCommand is responsible adding additional units to a service.
+type addUnitCommand struct {
 	envcmd.EnvCommandBase
 	UnitCommandBase
 	ServiceName string
@@ -125,7 +129,7 @@ Examples:
  juju service add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
 `
 
-func (c *AddUnitCommand) Info() *cmd.Info {
+func (c *addUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-unit",
 		Args:    "<service name>",
@@ -134,12 +138,12 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *addUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 }
 
-func (c *AddUnitCommand) Init(args []string) error {
+func (c *addUnitCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
 		c.ServiceName = args[0]
@@ -162,7 +166,7 @@ type ServiceAddUnitAPI interface {
 	EnvironmentGet() (map[string]interface{}, error)
 }
 
-func (c *AddUnitCommand) getAPI() (ServiceAddUnitAPI, error) {
+func (c *addUnitCommand) getAPI() (ServiceAddUnitAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -171,7 +175,7 @@ func (c *AddUnitCommand) getAPI() (ServiceAddUnitAPI, error) {
 
 // Run connects to the environment specified on the command line
 // and calls AddServiceUnits for the given service.
-func (c *AddUnitCommand) Run(_ *cmd.Context) error {
+func (c *addUnitCommand) Run(_ *cmd.Context) error {
 	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
