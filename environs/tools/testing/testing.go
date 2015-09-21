@@ -18,6 +18,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/series"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"

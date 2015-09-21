@@ -15,10 +15,10 @@ import (
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/worker"
 )
 

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils/fslock"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"

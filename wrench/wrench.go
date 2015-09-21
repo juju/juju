@@ -12,9 +12,9 @@ import (
 	"sync"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/juju/series"
 )
 
 var (

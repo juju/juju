@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )

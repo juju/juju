@@ -18,9 +18,8 @@ import (
 
 	"github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2/bson"
-
-	"github.com/juju/juju/juju/series"
 )
 
 // The presence and format of this constant is very important.
