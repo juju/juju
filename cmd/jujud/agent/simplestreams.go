@@ -16,10 +16,7 @@ import (
 	"github.com/juju/juju/state/storage"
 )
 
-const (
-	storageDataSourceId          = "environment storage"
-	storageDataSourceDescription = storageDataSourceId
-)
+const storageDataSourceDescription = "environment storage"
 
 // environmentStorageDataSource is a simplestreams.DataSource that
 // retrieves simplestreams metadata from environment storage.
