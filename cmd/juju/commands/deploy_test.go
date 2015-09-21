@@ -454,6 +454,8 @@ service mysql deployed (charm: cs:trusty/mysql-0)
 added charm cs:trusty/wordpress-1
 service wordpress deployed (charm: cs:trusty/wordpress-1)
 related wordpress:db and mysql:server
+added mysql/0 unit to new machine
+added wordpress/0 unit to new machine
 deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 }, {
 	about:        "non-public bundle, success",
@@ -466,6 +468,8 @@ reusing service mysql (charm: cs:trusty/mysql-0)
 added charm cs:trusty/wordpress-1
 reusing service wordpress (charm: cs:trusty/wordpress-1)
 wordpress:db and mysql:server are already related
+avoid adding new units to service mysql: 1 unit already present
+avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 }, {
 	about:        "non-public bundle, access denied",
@@ -654,6 +658,23 @@ func (s *charmStoreSuite) assertRelationsEstablished(c *gc.C, relations ...strin
 		established[i] = r.String()
 	}
 	c.Assert(established, jc.SameContents, relations)
+}
+
+// assertUnitsCreated checks that the given units have been created. The
+// expectedUnits argument maps unit names to machine names.
+func (s *charmStoreSuite) assertUnitsCreated(c *gc.C, expectedUnits map[string]string) {
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	created := make(map[string]string)
+	for _, m := range machines {
+		id := m.Id()
+		units, err := s.State.UnitsFor(id)
+		c.Assert(err, jc.ErrorIsNil)
+		for _, u := range units {
+			created[u.Name()] = id
+		}
+	}
+	c.Assert(created, jc.DeepEquals, expectedUnits)
 }
 
 type testMetricCredentialsSetter struct {
