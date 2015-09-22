@@ -1248,20 +1248,8 @@ func (a *MachineAgent) newRunnersForAPIConn(
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
-	return singularRunner, runner, apiSt, nil
-}
 
-func isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
-	envConfig, err := apiConn.Environment().EnvironConfig()
-	if err != nil {
-		return false, errors.Annotate(err, "cannot read environment config")
-	}
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return false, errors.Annotate(err, "cannot get environment")
-	}
-	_, ok := environs.SupportsNetworking(env)
-	return ok, nil
+	return singularRunner, runner, apiSt, nil
 }
 
 var getFirewallMode = _getFirewallMode
