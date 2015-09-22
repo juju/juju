@@ -121,8 +121,8 @@ class CalculateJobs(TestCase):
         return jobs
 
 
-def make_build_var_file(dir_path, version):
-    build_vars = {"version": version, "revision_build": "2870"}
+def make_build_var_file(dir_path, version, revision_build="2870"):
+    build_vars = {"version": version, "revision_build": revision_build}
     file_path = os.path.join(dir_path, 'buildvars.json')
     with open(file_path, 'w') as json_file:
         json.dump(build_vars, json_file)
