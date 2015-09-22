@@ -86,11 +86,41 @@ class TestGetCandidateInfo(TestCase):
                       'Administrator@win-slave.vapour.ws']),
                 call(['workspace-run', temp_file.name,
                       'jenkins@osx-slave.vapour.ws'])]
-            with open(temp_file.name) as f:
-                print f.read()
         set_env('JUJU_HOME', org)
         self.assertEqual(sco_mock.call_args_list, calls)
         ntf_mock.assert_called_once_with()
+
+    def test_main_expected_arguments(self):
+        org = os.environ.get('JUJU_HOME')
+        with temp_dir() as juju_home:
+            set_env('JUJU_HOME', juju_home)
+            temp_file = NamedTemporaryFile(delete=False)
+            with patch('run_download_juju.get_revisions',
+                       autospec=True) as gr_mock:
+                with patch('run_download_juju.create_workspace_yaml',
+                           autospec=True) as cwy_mock:
+                    with patch('run_download_juju.NamedTemporaryFile',
+                               autospec=True,
+                               return_value=temp_file) as ntf_mock:
+                        with patch('subprocess.check_output') as sco_mock:
+                            main([])
+            sco_calls = [
+                call(['workspace-run', temp_file.name,
+                      'Administrator@win-slave.vapour.ws']),
+                call(['workspace-run', temp_file.name,
+                      'jenkins@osx-slave.vapour.ws'])]
+            cwy_calls = [
+                call(juju_home,
+                     ('C:\\\Users\\\Administrator\\\juju-ci-tools\\\download_'
+                      'juju.py'),
+                     temp_file, gr_mock.return_value),
+                call(juju_home, '$HOME/juju-ci-tools/download_juju.py',
+                     temp_file, gr_mock.return_value)]
+        set_env('JUJU_HOME', org)
+        self.assertEqual(sco_mock.call_args_list, sco_calls)
+        ntf_mock.assert_called_once_with()
+        gr_mock.assert_called_once_with(os.environ['HOME'])
+        self.assertEqual(cwy_mock.call_args_list, cwy_calls)
 
     def expected(self, rev="''"):
         return ("command: [python, /script/path, cloud-city, -r, -v, {}]\n"
