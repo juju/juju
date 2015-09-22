@@ -46,6 +46,8 @@ var (
 	runtimeGOOS      = runtime.GOOS
 	runningInsideLXC = lxcutils.RunningInsideLXC
 	writeWgetTmpFile = ioutil.WriteFile
+	lxcRetryCount    = 3
+	lxcRetryDelay    = 10
 )
 
 const (
@@ -268,7 +270,8 @@ func (manager *containerManager) CreateContainer(
 
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
-			return nil, nil, errors.Annotate(err, "lxc container cloning failed")
+			// Bug 1485784 - Treat this as a transient error and retry with a short delay.
+			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("lxc container cloning failed", lxcRetryCount, lxcRetryDelay))
 		}
 	} else {
 		// Note here that the lxcObjectFacotry only returns a valid container
@@ -378,7 +381,7 @@ func (manager *containerManager) CreateContainer(
 				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: manual cleanup of containers needed")
 			}
 			logger.Warningf("container failed to start and was destroyed - safe to retry")
-			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name()))
+			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name(), 1, 0))
 		}
 		logger.Warningf("container failed to start: %v", err)
 		return nil, nil, errors.Annotate(err, "container failed to start")
@@ -422,7 +425,8 @@ func createContainer(
 	logger.Debugf("creating lxc container %q", lxcContainer.Name())
 	logger.Debugf("lxc-create template params: %v", templateParams)
 	if err := lxcContainer.Create(configPath, defaultTemplate, extraCreateArgs, templateParams, execEnv); err != nil {
-		return errors.Annotatef(err, "lxc container creation failed")
+		// Bug 1485784 - Treat this as a transient error and retry with a short delay.
+		return errors.Wrap(err, instance.NewRetryableCreationError("lxc container creation failed: "+lxcContainer.Name(), lxcRetryCount, lxcRetryDelay))
 	}
 	return nil
 }

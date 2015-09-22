@@ -71,13 +71,32 @@ func uintStr(i uint64) string {
 // that it is safe to restart instance creation
 type RetryableCreationError struct {
 	message string
+
+	// retryCount is the number of follow on attempts that should be
+	// made to create the instance.
+	retryCount int
+
+	// retryDelay is the delay, in seconds, between retry attempts.
+	retryDelay int
 }
 
-// Returns the error message
+// Error returns the error message.
 func (e RetryableCreationError) Error() string { return e.message }
 
-func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
-	return &RetryableCreationError{errorMessage}
+// RetryCount returns the retryCount.
+func (e RetryableCreationError) RetryCount() int { return e.retryCount }
+
+// RetryDelay returns the retryDelay.
+func (e RetryableCreationError) RetryDelay() int { return e.retryDelay }
+
+// NewRetryableCreationError returns a new RetryableCreationError with
+// the message, retry count and retry delay as specified.
+func NewRetryableCreationError(errorMessage string, count int, delay int) *RetryableCreationError {
+	return &RetryableCreationError{
+		message:    errorMessage,
+		retryCount: count,
+		retryDelay: delay,
+	}
 }
 
 // IsRetryableCreationError returns true if the given error is
@@ -85,6 +104,17 @@ func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
 func IsRetryableCreationError(err error) bool {
 	_, ok := err.(*RetryableCreationError)
 	return ok
+}
+
+// GetRetryableCreationError returns the RetryableCreationError wrapped
+// in the specified error, and a bool indicating whether or not the error
+// was a *RetryableCreationError.
+func GetRetryableCreationError(err error) (*RetryableCreationError, bool) {
+	retryErr, ok := err.(*RetryableCreationError)
+	if !ok {
+		return nil, false
+	}
+	return retryErr, true
 }
 
 func (hc HardwareCharacteristics) String() string {
