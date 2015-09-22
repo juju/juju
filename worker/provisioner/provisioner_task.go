@@ -56,6 +56,11 @@ type ToolsFinder interface {
 	FindTools(version version.Number, series string, arch *string) (coretools.List, error)
 }
 
+var (
+	maxInstanceRetryDelay = 60
+	maxInstanceRetryCount = 5
+)
+
 var _ MachineGetter = (*apiprovisioner.State)(nil)
 var _ ToolsFinder = (*apiprovisioner.State)(nil)
 
@@ -675,26 +680,51 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 	return networks, ifaces, nil
 }
 
+func min(a, b int) int {
+	if a <= b {
+		return a
+	}
+	return b
+}
+
 func (task *provisionerTask) startMachine(
 	machine *apiprovisioner.Machine,
 	provisioningInfo *params.ProvisioningInfo,
 	startInstanceParams environs.StartInstanceParams,
 ) error {
-
 	result, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
-		// If this is a retryable error, we retry once
-		if instance.IsRetryableCreationError(errors.Cause(err)) {
-			logger.Infof("retryable error received on start instance - retrying instance creation")
+		// If this is a retryable error, we retry as requested.
+		retryErr, ok := instance.GetRetryableCreationError(errors.Cause(err))
+		if !ok || retryErr.RetryCount() <= 0 {
+			// Not a retryable error. Set the state to error, so the
+			// machine will be skipped next time until the error is
+			// resolved, but don't return an error; just keep going with
+			// the other machines.
+			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		}
+
+		count := min(retryErr.RetryCount(), maxInstanceRetryCount)
+		delay := min(retryErr.RetryDelay(), maxInstanceRetryDelay)
+
+		logger.Infof("retryable error received on start instance - retrying instance creation %d times with a %ds delay", count, delay)
+		for ; count > 0; count-- {
+			if delay > 0 {
+				select {
+				case <-task.tomb.Dying():
+					return task.setErrorStatus("cannot start instance for machine %q: %v", machine, tomb.ErrDying)
+				case <-time.After(time.Duration(delay) * time.Second):
+				}
+
+			}
 			result, err = task.broker.StartInstance(startInstanceParams)
-			if err != nil {
+			if err == nil {
+				break
+			} else if !instance.IsRetryableCreationError(errors.Cause(err)) || count == 1 {
+				// If we encountered a non-retryable error, or this is our last attempt,
+				// report that starting the instance failed.
 				return task.setErrorStatus("cannot start instance for machine after a retry %q: %v", machine, err)
 			}
-		} else {
-			// Set the state to error, so the machine will be skipped next
-			// time until the error is resolved, but don't return an
-			// error; just keep going with the other machines.
-			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 	}
 
