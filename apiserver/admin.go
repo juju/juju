@@ -319,15 +319,15 @@ func (p *machinePinger) Stop() error {
 	if err := p.Pinger.Stop(); err != nil {
 		return err
 	}
-	if !*p.mongoUnavailable {
+	if *p.mongoUnavailable {
 		// Kill marks the agent as not-present. If the
 		// Mongo server is known to be unavailable, then
 		// we do not perform this operation; the agent
 		// will naturally become "not present" when its
 		// presence expires.
-		return p.Pinger.Kill()
+		return nil
 	}
-	return nil
+	return p.Pinger.Kill()
 }
 
 func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
