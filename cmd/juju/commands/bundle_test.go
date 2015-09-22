@@ -722,6 +722,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C) {
 added charm cs:trusty/django-42
 service django deployed (charm: cs:trusty/django-42)
 created new machine 0 for holding django unit
+annotations set for machine 0
 added django/0 unit to machine 0
 created new machine 1 for holding django unit
 added django/1 unit to machine 1
@@ -743,6 +744,9 @@ deployment of bundle "local:bundle/example-0" completed`
 	expectedCons, err := constraints.Parse("cpu-cores=4 mem=4G")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, expectedCons)
+	ann, err := s.State.Annotations(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
@@ -1070,5 +1074,89 @@ deployment of bundle "local:bundle/example-0" completed`
 		"ror/0":       "0",
 		"ror/1":       "2/kvm/0",
 		"ror/2":       "2/kvm/1",
+	})
+}
+
+func (s *deployRepoCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "trusty/mem-47", "dummy")
+	output, err := s.deployBundleYAML(c, `
+        services:
+            django:
+                charm: cs:django
+                num_units: 1
+                annotations:
+                    key1: value1
+                    key2: value2
+                to: [1]
+            memcached:
+                charm: trusty/mem-47
+                num_units: 1
+        machines:
+            1:
+                annotations: {foo: bar}
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:trusty/django-42
+service django deployed (charm: cs:trusty/django-42)
+annotations set for service django
+added charm cs:trusty/mem-47
+service memcached deployed (charm: cs:trusty/mem-47)
+created new machine 0 for holding django unit
+annotations set for machine 0
+added django/0 unit to machine 0
+added memcached/0 unit to new machine
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	svc, err := s.State.Service("django")
+	c.Assert(err, jc.ErrorIsNil)
+	ann, err := s.State.Annotations(svc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+	})
+	m, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	ann, err = s.State.Annotations(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{"foo": "bar"})
+
+	// Update the annotations and deploy the bundle again.
+	output, err = s.deployBundleYAML(c, `
+        services:
+            django:
+                charm: cs:django
+                num_units: 1
+                annotations:
+                    key1: new value!
+                    key2: value2
+                to: [1]
+        machines:
+            1:
+                annotations: {answer: 42}
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput = `
+added charm cs:trusty/django-42
+reusing service django (charm: cs:trusty/django-42)
+annotations set for service django
+avoid creating other machines to host django units
+annotations set for machine 0
+avoid adding new units to service django: 1 unit already present
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	ann, err = s.State.Annotations(svc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{
+		"key1": "new value!",
+		"key2": "value2",
+	})
+	ann, err = s.State.Annotations(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ann, jc.DeepEquals, map[string]string{
+		"foo":    "bar",
+		"answer": "42",
 	})
 }

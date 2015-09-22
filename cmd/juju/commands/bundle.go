@@ -350,7 +350,20 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 
 // setAnnotations sets annotations for a service or a machine.
 func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotationsParams) error {
-	// TODO frankban: implement this method.
+	eid := resolve(p.Id, h.results)
+	var tag string
+	switch p.EntityType {
+	case "machine":
+		tag = names.NewMachineTag(eid).String()
+	case "service":
+		tag = names.NewServiceTag(eid).String()
+	default:
+		return errors.Errorf("unexpected annotation entity type %q", p.EntityType)
+	}
+	if err := h.client.SetAnnotations(tag, p.Annotations); err != nil {
+		return errors.Annotatef(err, "cannot set annotations for %s %q", p.EntityType, eid)
+	}
+	h.log.Infof("annotations set for %s %s", p.EntityType, eid)
 	return nil
 }
 
