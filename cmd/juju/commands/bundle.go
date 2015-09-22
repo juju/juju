@@ -399,12 +399,12 @@ mainloop:
 	return results
 }
 
-// chooseMachine returns the id of a machine suitable for holding a unit
-// belonging to one of the given services. If one of the services still
-// requires units to be added, an empty string is returned, meaning that a new
-// machine must be created for holding the unit. If instead all units are
-// already placed, return the id of the machine which already holds units of
-// the given services and which hosts the least number of units.
+// chooseMachine returns the id of a machine that will be used to host a unit
+// of all the given services. If one of the services still requires units to be
+// added, an empty string is returned, meaning that a new machine must be
+// created for holding the unit. If instead all units are already placed,
+// return the id of the machine which already holds units of the given services
+// and which hosts the least number of units.
 func (h *bundleHandler) chooseMachine(services ...string) string {
 	candidateMachines := make(map[string]bool, len(h.unitStatus))
 	numUnitsPerMachine := make(map[string]int, len(h.unitStatus))
@@ -417,7 +417,8 @@ func (h *bundleHandler) chooseMachine(services ...string) string {
 		numUnitsPerMachine[machine]++
 		svc, err := names.UnitService(unit)
 		if err != nil {
-			// Should never happen.
+			// Should never happen because the bundle logic has already checked
+			// that unit names are well formed.
 			panic(err)
 		}
 		for _, service := range services {
@@ -448,7 +449,7 @@ func (h *bundleHandler) chooseMachine(services ...string) string {
 
 // updateUnitStatusPeriod is the time duration used to wait for a mega-watcher
 // change to be available.
-var updateUnitStatusPeriod = watcher.Period + 100*time.Millisecond
+var updateUnitStatusPeriod = watcher.Period + 5*time.Second
 
 // updateUnitStatus uses the mega-watcher to update units and machines info
 // (h.unitStatus) so that it reflects the current environment status.
@@ -456,22 +457,19 @@ var updateUnitStatusPeriod = watcher.Period + 100*time.Millisecond
 // will be available within the watcher time period. Otherwise, the function
 // unblocks and an error is returned.
 func (h *bundleHandler) updateUnitStatus() error {
-	type result struct {
-		delta []multiwatcher.Delta
-		err   error
-	}
-	ch := make(chan result, 1)
+	var delta []multiwatcher.Delta
+	var err error
+	ch := make(chan struct{})
 	go func() {
-		var r result
-		r.delta, r.err = h.watcher.Next()
-		ch <- r
+		delta, err = h.watcher.Next()
+		close(ch)
 	}()
 	select {
-	case r := <-ch:
-		if r.err != nil {
-			return errors.Annotate(r.err, "cannot update environment status")
+	case <-ch:
+		if err != nil {
+			return errors.Annotate(err, "cannot update environment status")
 		}
-		for _, d := range r.delta {
+		for _, d := range delta {
 			switch entityInfo := d.Entity.(type) {
 			case *multiwatcher.UnitInfo:
 				h.unitStatus[entityInfo.Name] = entityInfo.MachineId
