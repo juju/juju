@@ -188,6 +188,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		watcherMu sync.Mutex
 	)
 
+	// TODO extract constants
+	retryHookTimer := NewBackoffTimer(10*time.Second, 20*time.Minute, true, 2)
+
 	restartWatcher := func() error {
 		watcherMu.Lock()
 		defer watcherMu.Unlock()
@@ -205,6 +208,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				UnitTag:             unitTag,
 				UpdateStatusChannel: u.updateStatusAt,
 				CommandChannel:      u.commandChannel,
+				RetryHookChannel:    retryHookTimer.Channel(),
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -258,13 +262,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 
 		uniterResolver := NewUniterResolver(ResolverConfig{
-			ClearResolved:   clearResolved,
-			ReportHookError: u.reportHookError,
-			FixDeployer:     u.deployer.Fix,
-			Actions:         actions.NewResolver(),
-			Leadership:      uniterleadership.NewResolver(),
-			Relations:       relation.NewRelationsResolver(u.relations),
-			Storage:         storage.NewResolver(u.storage),
+			ClearResolved:       clearResolved,
+			ReportHookError:     u.reportHookError,
+			FixDeployer:         u.deployer.Fix,
+			StartRetryHookTimer: retryHookTimer.Signal,
+			StopRetryHookTimer:  retryHookTimer.Reset,
+			Actions:             actions.NewResolver(),
+			Leadership:          uniterleadership.NewResolver(),
+			Relations:           relation.NewRelationsResolver(u.relations),
+			Storage:             storage.NewResolver(u.storage),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),

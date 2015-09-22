@@ -119,17 +119,22 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 			s.LocalState.LeaderSettingsVersion = v
 		}}
 	}
-	// No matter what has finished running, we reset the UpdateStatusVersion so that
-	// the update-status hook only fires after the next timer.
-	v := s.RemoteState.UpdateStatusVersion
+	updateStatusVersion := s.RemoteState.UpdateStatusVersion
+	retryHookVersion := s.RemoteState.RetryHookVersion
 	return onCommitWrapper{op, func() {
-		s.LocalState.UpdateStatusVersion = v
+		// Update UpdateStatusVersion so that the update-status
+		// hook only fires after the next timer.
+		s.LocalState.UpdateStatusVersion = updateStatusVersion
+
+		// Update RetryHookVersion so that we don't attempt to
+		// retry a hook more than once between timers signals.
+		s.LocalState.RetryHookVersion = retryHookVersion
 	}}
 }
 
 type onCommitWrapper struct {
 	operation.Operation
-	f func()
+	onCommit func()
 }
 
 func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error) {
@@ -137,13 +142,6 @@ func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error
 	if err != nil {
 		return nil, err
 	}
-	onCommit(op)
+	op.onCommit()
 	return st, nil
-}
-
-func onCommit(op operation.Operation) {
-	if wrapper, ok := op.(onCommitWrapper); ok {
-		wrapper.f()
-		onCommit(wrapper.Operation)
-	}
 }

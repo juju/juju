@@ -35,6 +35,7 @@ type RemoteStateWatcher struct {
 	leadershipTracker         leadership.Tracker
 	updateStatusChannel       func() <-chan time.Time
 	commandChannel            <-chan string
+	retryHookChannel          <-chan struct{}
 
 	tomb tomb.Tomb
 
@@ -50,6 +51,7 @@ type WatcherConfig struct {
 	LeadershipTracker   leadership.Tracker
 	UpdateStatusChannel func() <-chan time.Time
 	CommandChannel      <-chan string
+	RetryHookChannel    <-chan struct{}
 	UnitTag             names.UnitTag
 }
 
@@ -65,6 +67,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		leadershipTracker:         config.LeadershipTracker,
 		updateStatusChannel:       config.UpdateStatusChannel,
 		commandChannel:            config.CommandChannel,
+		retryHookChannel:          config.RetryHookChannel,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -414,6 +417,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.commandsChanged(id); err != nil {
 				return err
 			}
+
+		case <-w.retryHookChannel:
+			logger.Debugf("retry hook timer triggered")
+			if err := w.retryHookTimerTriggered(); err != nil {
+				return err
+			}
 		}
 
 		// Something changed.
@@ -433,6 +442,12 @@ func (w *RemoteStateWatcher) updateStatusChanged() error {
 func (w *RemoteStateWatcher) commandsChanged(id string) error {
 	w.mu.Lock()
 	w.current.Commands = append(w.current.Commands, id)
+}
+
+// retryHookTimerTriggered is called when the retry hook timer expires.
+func (w *RemoteStateWatcher) retryHookTimerTriggered() error {
+	w.mu.Lock()
+	w.current.RetryHookVersion++
 	w.mu.Unlock()
 	return nil
 }

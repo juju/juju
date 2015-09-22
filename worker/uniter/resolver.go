@@ -16,21 +16,23 @@ import (
 
 // ResolverConfig defines configuration for the uniter resolver.
 type ResolverConfig struct {
-	ClearResolved   func() error
-	ReportHookError func(hook.Info) error
-	FixDeployer     func() error
-	Leadership      resolver.Resolver
-	Actions         resolver.Resolver
-	Relations       resolver.Resolver
-	Storage         resolver.Resolver
-	Commands        resolver.Resolver
+	ClearResolved       func() error
+	ReportHookError     func(hook.Info) error
+	FixDeployer         func() error
+	StartRetryHookTimer func()
+	StopRetryHookTimer  func()
+	Leadership          resolver.Resolver
+	Actions             resolver.Resolver
+	Relations           resolver.Resolver
+	Storage             resolver.Resolver
+	Commands            resolver.Resolver
 }
 
 type uniterResolver struct {
-	config ResolverConfig
+	config                ResolverConfig
+	retryHookTimerStarted bool
 }
 
-// NewUniterResolver returns a new resolver.Resolver for the uniter.
 func NewUniterResolver(cfg ResolverConfig) resolver.Resolver {
 	return &uniterResolver{cfg}
 }
@@ -158,14 +160,36 @@ func (s *uniterResolver) nextOpHookError(
 
 	switch remoteState.ResolvedMode {
 	case params.ResolvedNone:
+		if remoteState.RetryHookVersion > localState.RetryHookVersion {
+			// We've been asked to retry: clear the hook timer
+			// started state so we'll restart it if this fails.
+			//
+			// If the hook fails again, we'll re-enter this method
+			// with the retry hook versions equal and restart the
+			// timer. If the hook succeeds, we'll enter nextOp
+			// and stop the timer.
+			s.retryHookTimerStarted = false
+			return opFactory.NewRunHook(*localState.Hook)
+		}
+		if !s.retryHookTimerStarted {
+			// We haven't yet started a retry timer, so start one
+			// now. If we retry and fail, retryHookTimerStarted is
+			// cleared so that we'll still start it again.
+			s.config.StartRetryHookTimer()
+			s.config.RetryHookTimerStarted = true
+		}
 		return nil, resolver.ErrNoOperation
 	case params.ResolvedRetryHooks:
-		if err := s.config.ClearResolved(); err != nil {
+		s.config.StopRetryHookTimer()
+		s.config.RetryHookTimerStarted = false
+		if err := s.config.clearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewRunHook(*localState.Hook)
 	case params.ResolvedNoHooks:
-		if err := s.config.ClearResolved(); err != nil {
+		s.config.StopRetryHookTimer()
+		s.config.RetryHookTimerStarted = false
+		if err := s.config.clearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewSkipHook(*localState.Hook)
@@ -181,6 +205,12 @@ func (s *uniterResolver) nextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
+
+	// Stop the hook-retry timer in case we've just retried a
+	// failed hook. This is necessary to reset the backoff state.
+	s.stopRetryHookTimer()
+	s.retryHookTimerStarted = false
+
 	switch remoteState.Life {
 	case params.Alive:
 	case params.Dying:
