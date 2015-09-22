@@ -700,7 +700,8 @@ func (task *provisionerTask) startMachine(
 ) error {
 	result, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
-		// If this is a retryable error, we retry as requested.
+		// If the broker has indicated that the error encountered is temporary and
+		// subsequent attempts may succeed, then retry as requested.
 		retryErr, ok := instance.GetRetryableCreationError(errors.Cause(err))
 		if !ok || retryErr.RetryCount() <= 0 {
 			// Not a retryable error. Set the state to error, so the
@@ -726,7 +727,8 @@ func (task *provisionerTask) startMachine(
 			result, err = task.broker.StartInstance(startInstanceParams)
 			if err == nil {
 				break
-			} else if !instance.IsRetryableCreationError(errors.Cause(err)) || count == 1 {
+			}
+			if !instance.IsRetryableCreationError(errors.Cause(err)) || count == 1 {
 				// If we encountered a non-retryable error, or this is our last attempt,
 				// report that starting the instance failed.
 				return task.setErrorStatus("cannot start instance for machine after a retry %q: %v", machine, err)
