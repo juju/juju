@@ -291,6 +291,16 @@ type ServiceMetricCredentials struct {
 	Creds []ServiceMetricCredential
 }
 
+type AddDynamicEndpointArgs struct {
+	Tag       string
+	Name      string
+	Interface string
+}
+
+type AddDynamicEndpoint struct {
+	Entities []AddDynamicEndpointArgs
+}
+
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
 	Target string

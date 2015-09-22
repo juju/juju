@@ -213,8 +213,12 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
-func (ctx *HookContext) AddCharmRelation(name, iface string) error {
-	return ctx.unit.AddCharmRelation(name, iface)
+func (ctx *HookContext) AddDynamicEndpoint(name, iface string) error {
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return service.AddDynamicEndpoint(name, iface)
 }
 
 // UnitStatus will return the status for the current Unit.

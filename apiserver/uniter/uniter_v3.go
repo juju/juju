@@ -20,17 +20,17 @@ type UniterAPIV3 struct {
 	UniterAPIV2
 }
 
-func (u *UniterAPIV3) AddCharmRelation(args params.AddCharmRelation) (params.ErrorResults, error) {
+func (u *UniterAPIV3) AddDynamicEndpoint(args params.AddDynamicEndpoint) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessService()
 	if err != nil {
-		logger.Warningf("failed to check unit access: %v", err)
+		logger.Warningf("failed to check service access: %v", err)
 		return params.ErrorResults{}, common.ErrPerm
 	}
 	for i, batch := range args.Entities {
-		tag, err := names.ParseUnitTag(batch.Tag)
+		tag, err := names.ParseServiceTag(batch.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -39,12 +39,12 @@ func (u *UniterAPIV3) AddCharmRelation(args params.AddCharmRelation) (params.Err
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		unit, err := u.getUnit(tag)
+		service, err := u.getService(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = unit.AddCharmRelation(batch.Name, batch.Interface)
+		err = service.AddDynamicEndpoint(batch.Name, batch.Interface)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

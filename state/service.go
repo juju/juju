@@ -290,8 +290,28 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
 }
 
+func (s *Service) AddDynamicEndpoint(name, iface string) error {
+	logger.Debugf("calling st.Service AddDynamicEndpoint")
+	return nil
+}
+
+func (s *Service) DynamicEndpoints() []Endpoint {
+	r := charm.Relation{
+		Name:      "db",
+		Interface: "mysql",
+		Role:      charm.RoleProvider,
+		Scope:     charm.ScopeGlobal,
+	}
+	return []Endpoint{{
+		ServiceName: s.doc.Name,
+		Relation:    r,
+		Dynamic:     true,
+	}}
+}
+
 // Endpoints returns the service's currently available relation endpoints.
 func (s *Service) Endpoints() (eps []Endpoint, err error) {
+	logger.Debugf("AddDyn .. calling Endpoints")
 	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
@@ -316,7 +336,9 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	eps = append(eps, s.DynamicEndpoints()...)
 	sort.Sort(epSlice(eps))
+	logger.Debugf("%+v", eps)
 	return eps, nil
 }
 

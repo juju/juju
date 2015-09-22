@@ -208,9 +208,6 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 }
 
 func (c *Charm) AddRelation(relation charm.Relation) error {
-	if !relation.Dynamic {
-		return errors.New("Relation must be dynamic")
-	}
 	if err := c.verifyRelation(relation); err != nil {
 		return errors.Trace(err)
 	}

@@ -1,4 +1,3 @@
-// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The uniter package implements the API interface used by the uniter

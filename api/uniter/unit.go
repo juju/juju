@@ -70,20 +70,6 @@ func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]
 	return result.OneError()
 }
 
-func (u *Unit) AddCharmRelation(name, iface string) error {
-	var results params.ErrorResults
-	args := params.AddCharmRelation{
-		Entities: []params.AddCharmRelationArgs{
-			{Tag: u.tag.String(), Name: name, Interface: iface},
-		},
-	}
-	err := u.st.facade.FacadeCall("AddCharmRelation", args, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return results.OneError()
-}
-
 // UnitStatus gets the status details of the unit.
 func (u *Unit) UnitStatus() (params.StatusResult, error) {
 	var results params.StatusResults

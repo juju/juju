@@ -1059,7 +1059,9 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 	return st.Charm(curl)
 }
 
-func (st *State) AddCharmRelation(curl *charm.URL, relation charm.Relation) error {
+func (st *State) AddDynamicEndpoint(curl *charm.URL, relation charm.Relation) error {
+	return nil
+
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
@@ -1071,9 +1073,6 @@ func (st *State) AddCharmRelation(curl *charm.URL, relation charm.Relation) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !doc.PendingUpload {
-		return errors.Trace(&ErrCharmAlreadyUploaded{curl})
-	}
 
 	ch, err := st.Charm(curl)
 	if err != nil {
@@ -1084,13 +1083,16 @@ func (st *State) AddCharmRelation(curl *charm.URL, relation charm.Relation) erro
 		return errors.Trace(err)
 	}
 
+	curl.Revision += 1
 	ops, err := updateCharmOps(st, ch, curl, ch.StoragePath(), ch.BundleSha256(), stillPending)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Debugf("AddDynamicEndpoint running transaction")
 	if err := st.runTransaction(ops); err != nil {
-		return onAbort(err, ErrCharmRevisionAlreadyModified)
+		return errors.Annotatef(err, "AddDynamicEndpoint failed")
 	}
+
 	return nil
 }
 
@@ -1726,7 +1728,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if !ep.ImplementedBy(ch) {
+			if !ep.Dynamic && !ep.ImplementedBy(ch) {
 				return nil, errors.Errorf("%q does not implement %q", ep.ServiceName, ep)
 			}
 			ops = append(ops, txn.Op{

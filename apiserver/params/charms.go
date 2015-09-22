@@ -22,13 +22,3 @@ type CharmsListResult struct {
 type IsMeteredResult struct {
 	Metered bool
 }
-
-type AddCharmRelationArgs struct {
-	Tag       string
-	Name      string
-	Interface string
-}
-
-type AddCharmRelation struct {
-	Entities []AddCharmRelationArgs
-}

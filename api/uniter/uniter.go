@@ -80,9 +80,11 @@ var newStateV1 = newStateForVersionFn(1)
 // newStateV2 creates a new client-side Uniter facade, version 2.
 var newStateV2 = newStateForVersionFn(2)
 
+var newStateV3 = newStateForVersionFn(3)
+
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV2
+var NewState = newStateV3
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.

@@ -115,6 +115,21 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
+func (s *Service) AddDynamicEndpoint(name, iface string) error {
+	var results params.ErrorResults
+	args := params.AddDynamicEndpoint{
+		Entities: []params.AddDynamicEndpointArgs{
+			{Tag: s.tag.String(), Name: name, Interface: iface},
+		},
+	}
+	err := s.st.facade.FacadeCall("AddDynamicEndpoint", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+
+}
+
 // OwnerTag returns the service's owner user tag.
 func (s *Service) OwnerTag() (names.UserTag, error) {
 	if s.st.BestAPIVersion() > 0 {
