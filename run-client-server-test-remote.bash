@@ -5,15 +5,22 @@ export JUJU_HOME=$HOME/cloud-city
 export JUJU_REPOSITORY=$HOME/repository
 export SCRIPT=$HOME/juju-ci-tools
 export PATH=$HOME/juju-ci-tools:$PATH
-set -x
 usage() {
-    echo "usage: $0 server client [--agent-stream stream | --agent-url url]"
+    echo "usage: $0 candidate-version old-juju-version new-to-old [--agent-stream stream | --agent-url url]"
     exit 1
 }
-test $# -ge 2 || usage
-server="$1"
-client="$2"
-shift 2
+test $# -ge 3 || usage
+candidate_version="$1"
+old_juju_version="$2"
+new_to_old="$3"
+shift 3
+
+set -x
+# Extract the client and the server.
+mkdir candidate
+mkdir old-juju
+tar zxf $HOME/candidate/osx/juju-$candidate_version-osx.tar.gz -C candidate
+tar zxf $HOME/old-juju/osx/juju-$old_juju_version-osx.tar.gz -C old-juju
 
 # Create ssh home.
 ssh_home="/tmp/sshhome"
@@ -22,14 +29,19 @@ cp $JUJU_HOME/staging-juju-rsa $ssh_home/.ssh/id_rsa
 cp $JUJU_HOME/staging-juju-rsa.pub $ssh_home/.ssh/id_rsa.pub
 export HOME=$ssh_home
 
-# Extract the client and the server.
-tar zxf $server -C server
-tar zxf $client -C client
-server_juju=$(find server -name juju)
-client_juju=$(find client -name juju)
+
+if [[ "$new_to_old" == "true" ]]; then
+  server=$(find candidate -name juju)
+  client=$(find old-juju -name juju)
+else
+  server=$(find old-juju -name juju)
+  client=$(find candidate -name juju)
+fi
+echo "Server: " `$server --version`
+echo "Client: " `$client --version`
 
 mkdir logs
 env=compatibility-control
-~/Bin/juju destroy-environment --force -y $env || true
-$SCRIPT/assess_heterogeneous_control.py $server_juju $client_juju \
-    test-reliability-aws $env logs "$@"
+/Users/jenkins/Bin/juju destroy-environment --force -y $env || true
+$SCRIPT/assess_heterogeneous_control.py $server $client \
+  test-reliability-aws $env logs "$@"
