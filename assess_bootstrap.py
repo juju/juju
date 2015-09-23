@@ -9,7 +9,6 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     temp_bootstrap_env,
-    until_timeout,
     )
 from utility import scoped_environ
 
