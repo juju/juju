@@ -22,3 +22,9 @@ type assignUnitDoc struct {
 	// Directive is the placement directive to apply to the unit.
 	Directive string `bson:"scope`
 }
+
+// UnitAssignmentResult is the result of running a staged unit assignment.
+type UnitAssignmentResult struct {
+	Unit  string
+	Error error
+}

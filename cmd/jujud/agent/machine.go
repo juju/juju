@@ -786,9 +786,11 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		addressUpdater := agent.APIHostPortsSetter{a}
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), addressUpdater), nil
 	})
+
 	runner.StartWorker("unitassigner", func() (worker.Worker, error) {
 		return unitassigner.New(st.UnitAssigner()), nil
 	})
+
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})

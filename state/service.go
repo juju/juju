@@ -668,7 +668,8 @@ const MessageWaitForAgentInit = "Waiting for agent initialization to finish"
 // necessary to create that unit. The principalName param must be non-empty if
 // and only if s is a subordinate service. Only one subordinate of a given
 // service will be assigned to a given principal. The asserts param can be used
-// to include additional assertions for the service document.
+// to include additional assertions for the service document.  This method
+// assumes that the service already exists in the db.
 func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
 	var cons constraints.Value
 	if !s.doc.Subordinate {
@@ -681,12 +682,17 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			return "", nil, err
 		}
 	}
-	return s.addUnitOpsWithCons(principalName, asserts, cons)
+	return s.addUnitOpsWithCons(principalName, asserts, cons, false)
 }
 
-// addUnitOpsWithConstraints is just like addUnitOps but explicitly takes a
-// constraints value (this is useful at service creation time)
-func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons constraints.Value) (string, []txn.Op, error) {
+// addServiceUnitOps is just like addUnitOps but explicitly takes a
+// constraints value (this is useful at service creation time).
+func (s *Service) addServiceUnitOps(principalName string, asserts bson.D, cons constraints.Value) (string, []txn.Op, error) {
+	return s.addUnitOpsWithCons(principalName, asserts, cons, true)
+}
+
+// addUnitOpsWithCons is a helper method for returning addUnitOps.
+func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons constraints.Value, duringAddService bool) (string, []txn.Op, error) {
 	if s.doc.Subordinate && principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !s.doc.Subordinate && principalName != "" {
@@ -730,6 +736,21 @@ func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons 
 		Updated:    now.UnixNano(),
 		EnvUUID:    s.st.EnvironUUID(),
 	}
+
+	unitcntOp := txn.Op{
+		C:      servicesC,
+		Id:     s.doc.DocID,
+		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+	}
+
+	if !duringAddService {
+		// if we're performing this add unit during the service creation process,
+		// we can't assert that the service is alive yet... because it's not.
+		unitcntOp.Assert = append(isAliveDoc, asserts...)
+	} else if len(asserts) > 0 {
+		unitcntOp.Assert = asserts
+	}
+
 	ops := []txn.Op{
 		createStatusOp(s.st, globalKey, unitStatusDoc),
 		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
@@ -740,12 +761,7 @@ func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons 
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		{
-			C:      servicesC,
-			Id:     s.doc.DocID,
-			Assert: append(isAliveDoc, asserts...),
-			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-		},
+		unitcntOp,
 	}
 	ops = append(ops, storageOps...)
 

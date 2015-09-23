@@ -15,7 +15,7 @@ func init() {
 // for testing.
 type st interface {
 	WatchForUnitAssignment() state.NotifyWatcher
-	AssignStagedUnits() error
+	AssignStagedUnits() ([]state.UnitAssignmentResult, error)
 }
 
 // API implements the functionality for assigning units to machines.
@@ -29,10 +29,16 @@ func New(st *state.State, res *common.Resources, auth common.Authorizer) (*API, 
 	return &API{st: st, res: res, auth: auth}, nil
 }
 
-func (a *API) AssignUnits() (params.AssignUnitsResult, error) {
-	var result params.AssignUnitsResult
-	if err := a.st.AssignStagedUnits(); err != nil {
+func (a *API) AssignUnits() (params.AssignUnitsResults, error) {
+	var result params.AssignUnitsResults
+	res, err := a.st.AssignStagedUnits()
+	if err != nil {
 		result.Error = common.ServerError(err)
+	}
+	result.Results = make([]params.AssignUnitsResult, len(res))
+	for i, r := range res {
+		result.Results[i].Unit = r.Unit
+		result.Results[i].Error = common.ServerError(r.Error)
 	}
 	return result, nil
 }

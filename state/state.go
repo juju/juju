@@ -8,9 +8,7 @@ package state
 
 import (
 	"fmt"
-	"log"
 	"net"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1210,7 +1208,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	ops = append(ops, peerOps...)
 
 	for x := 0; x < args.NumUnits; x++ {
-		unit, unitOps, err := svc.addUnitOpsWithCons("", nil, args.Constraints)
+		unit, unitOps, err := svc.addServiceUnitOps("", nil, args.Constraints)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1223,12 +1221,6 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	}
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
-
-	mgo.SetDebug(true)
-
-	var aLogger *log.Logger
-	aLogger = log.New(os.Stderr, "", log.LstdFlags)
-	mgo.SetLogger(aLogger)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		if err := checkEnvLife(st); err != nil {
@@ -1266,33 +1258,47 @@ func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.O
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and simply runs the
 // assignments stored in the DB that have not yet been run.
-func (st *State) AssignStagedUnits() error {
+func (st *State) AssignStagedUnits() ([]UnitAssignmentResult, error) {
 	col, close := st.getCollection(assignUnitC)
 	defer close()
 	docs := []assignUnitDoc{}
 	if err := col.Find(nil).All(&docs); err != nil {
-		return errors.Annotatef(err, "cannot get all assign unit docs")
+		return nil, errors.Annotatef(err, "cannot get all assign unit docs")
 	}
-	for _, doc := range docs {
-		// TODO(natefinch): what if the unit/service doesn't exist anymore?
-		u, err := st.Unit(doc.Unit)
-		if err != nil {
-			return errors.Trace(err)
+	results := make([]UnitAssignmentResult, len(docs))
+	for i, doc := range docs {
+		err := st.assignStagedUnit(doc)
+		if err == nil || errors.IsNotFound(err) {
+			err = st.runTransaction([]txn.Op{{
+				C:      assignUnitC,
+				Id:     doc.DocId,
+				Remove: true,
+			}})
 		}
-		svc, err := u.Service()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		networks, err := svc.Networks()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		placement := &instance.Placement{Scope: doc.Scope, Directive: doc.Directive}
+		results[i].Unit = doc.Unit
+		results[i].Error = err
+	}
+	return results, nil
+}
 
-		// units always have the same networks as their service.
-		if err := st.AssignUnitWithPlacement(u, placement, networks); err != nil {
-			return errors.Trace(err)
-		}
+func (st *State) assignStagedUnit(doc assignUnitDoc) error {
+	u, err := st.Unit(doc.Unit)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	svc, err := u.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	networks, err := svc.Networks()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	placement := &instance.Placement{Scope: doc.Scope, Directive: doc.Directive}
+
+	// units always have the same networks as their service.
+	if err := st.AssignUnitWithPlacement(u, placement, networks); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

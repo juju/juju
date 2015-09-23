@@ -23,15 +23,12 @@ func New(caller base.APICaller) API {
 }
 
 // AssignUnits tells the state server to run whatever unit assignments it has.
-func (a API) AssignUnits() error {
-	var result params.AssignUnitsResult
+func (a API) AssignUnits() (params.AssignUnitsResults, error) {
+	var result params.AssignUnitsResults
 	if err := a.facade.FacadeCall("AssignUnits", nil, &result); err != nil {
-		return err
+		return result, err
 	}
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
+	return result, nil
 }
 
 // WatchUnitAssignments watches the server for new unit assignments to be

@@ -5,11 +5,12 @@ package unitassigner
 
 import (
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 )
 
 type UnitAssigner interface {
-	AssignUnits() error
+	AssignUnits() (params.AssignUnitsResults, error)
 	WatchUnitAssignments() (watcher.NotifyWatcher, error)
 }
 
@@ -26,7 +27,10 @@ func (u unitAssigner) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 func (u unitAssigner) Handle(_ <-chan struct{}) error {
-	return u.api.AssignUnits()
+	// ignore the actual results for now, they'll have been logged on the server
+	// side.
+	_, err := u.api.AssignUnits()
+	return err
 }
 func (unitAssigner) TearDown() error {
 	return nil
