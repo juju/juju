@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/agent"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/tools"

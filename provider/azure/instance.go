@@ -6,9 +6,7 @@ package azure
 import (
 	"fmt"
 	"strings"
-	"sync"
 
-	"github.com/juju/errors"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/instance"
@@ -20,13 +18,11 @@ const AzureDomainName = "cloudapp.net"
 type azureInstance struct {
 	environ              *azureEnviron
 	hostedService        *gwacl.HostedServiceDescriptor
+	roleInstance         *gwacl.RoleInstance
 	instanceId           instance.Id
 	deploymentName       string
 	roleName             string
 	maskStateServerPorts bool
-
-	mu           sync.Mutex
-	roleInstance *gwacl.RoleInstance
 }
 
 // azureInstance implements Instance.
@@ -47,8 +43,6 @@ func (azInstance *azureInstance) supportsLoadBalancing() bool {
 
 // Status is specified in the Instance interface.
 func (azInstance *azureInstance) Status() string {
-	azInstance.mu.Lock()
-	defer azInstance.mu.Unlock()
 	if azInstance.roleInstance == nil {
 		return ""
 	}
@@ -59,45 +53,16 @@ func (azInstance *azureInstance) serviceName() string {
 	return azInstance.hostedService.ServiceName
 }
 
-// Refresh is specified in the Instance interface.
-func (azInstance *azureInstance) Refresh() error {
-	return azInstance.apiCall(false, func(api *gwacl.ManagementAPI) error {
-		d, err := api.GetDeployment(&gwacl.GetDeploymentRequest{
-			ServiceName:    azInstance.serviceName(),
-			DeploymentName: azInstance.deploymentName,
-		})
-		if err != nil {
-			return err
-		}
-		// Look for the role instance.
-		for _, role := range d.RoleInstanceList {
-			if role.RoleName == azInstance.roleName {
-				azInstance.mu.Lock()
-				azInstance.roleInstance = &role
-				azInstance.mu.Unlock()
-				return nil
-			}
-		}
-		return errors.NotFoundf("role instance %q", azInstance.roleName)
-	})
-}
-
 // Addresses is specified in the Instance interface.
 func (azInstance *azureInstance) Addresses() ([]network.Address, error) {
 	var addrs []network.Address
-	for i := 0; i < 2; i++ {
-		if ip := azInstance.ipAddress(); ip != "" {
-			addrs = append(addrs, network.Address{
-				Value:       ip,
-				Type:        network.IPv4Address,
-				NetworkName: azInstance.environ.getVirtualNetworkName(),
-				Scope:       network.ScopeCloudLocal,
-			})
-			break
-		}
-		if err := azInstance.Refresh(); err != nil {
-			return nil, err
-		}
+	if ip := azInstance.ipAddress(); ip != "" {
+		addrs = append(addrs, network.Address{
+			Value:       ip,
+			Type:        network.IPv4Address,
+			NetworkName: azInstance.environ.getVirtualNetworkName(),
+			Scope:       network.ScopeCloudLocal,
+		})
 	}
 	name := fmt.Sprintf("%s.%s", azInstance.serviceName(), AzureDomainName)
 	host := network.Address{
@@ -111,8 +76,6 @@ func (azInstance *azureInstance) Addresses() ([]network.Address, error) {
 }
 
 func (azInstance *azureInstance) ipAddress() string {
-	azInstance.mu.Lock()
-	defer azInstance.mu.Unlock()
 	if azInstance.roleInstance == nil {
 		// RoleInstance hasn't finished deploying.
 		return ""

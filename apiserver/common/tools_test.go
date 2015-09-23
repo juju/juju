@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -206,6 +206,7 @@ func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22-beta1-trusty-amd64"))
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22.0-trusty-amd64"))

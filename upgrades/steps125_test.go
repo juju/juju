@@ -11,9 +11,9 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/os"
 
 	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"

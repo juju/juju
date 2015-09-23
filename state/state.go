@@ -1483,27 +1483,6 @@ func (st *State) strictLocalID(ID string) (string, error) {
 	return localID, nil
 }
 
-// ensureEnvUUID returns an environment UUID prefixed document ID. The
-// prefix is only added if it isn't already there.
-func ensureEnvUUID(envUUID, id string) string {
-	prefix := envUUID + ":"
-	if strings.HasPrefix(id, prefix) {
-		return id
-	}
-	return prefix + id
-}
-
-// splitDocID returns the 2 parts of environment UUID prefixed
-// document ID. If the id is not in the expected format the final
-// return value will be false.
-func splitDocID(id string) (string, string, bool) {
-	parts := strings.SplitN(id, ":", 2)
-	if len(parts) != 2 {
-		return "", "", false
-	}
-	return parts[0], parts[1], true
-}
-
 // InferEndpoints returns the endpoints corresponding to the supplied names.
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they

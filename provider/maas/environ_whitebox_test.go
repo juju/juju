@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
@@ -34,7 +35,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -551,7 +551,7 @@ func (*environSuite) TestConvertNetworks(c *gc.C) {
 func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	return &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
+	return &maasInstance{&node}
 }
 
 func (suite *environSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {
@@ -959,7 +959,8 @@ func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("testInstance", lshwXML)
-	interfaces, primaryIface, err := inst.environ.getInstanceNetworkInterfaces(inst)
+	env := suite.makeEnviron()
+	interfaces, primaryIface, err := env.getInstanceNetworkInterfaces(inst)
 	c.Assert(err, jc.ErrorIsNil)
 	// Both wlan0 and eth0 are disabled in lshw output.
 	c.Check(primaryIface, gc.Equals, "vnet1")
