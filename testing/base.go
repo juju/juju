@@ -13,11 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
+	jujuos "github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/arch"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"

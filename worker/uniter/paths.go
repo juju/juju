@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/names"
+	"github.com/juju/utils/os"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/juju/os"
 )
 
 // Paths represents the set of filesystem paths a uniter worker has reason to

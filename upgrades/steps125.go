@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/os"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 )

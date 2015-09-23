@@ -8,13 +8,13 @@ import (
 
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
 )
 

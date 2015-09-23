@@ -14,10 +14,10 @@ import (
 	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
 
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.runner")

@@ -9,7 +9,7 @@ import (
 
 	"github.com/gabriel-samfira/sys/windows/registry"
 	"github.com/juju/juju/juju/series"
-	"github.com/juju/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -19,7 +19,7 @@ import (
 )
 
 type windowsSeriesSuite struct {
-	testing.BaseSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&windowsSeriesSuite{})
@@ -79,7 +79,7 @@ var versionTests = []struct {
 }
 
 func (s *windowsSeriesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.CleanupSuite.SetUpTest(c)
 	salt, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	regKey := fmt.Sprintf(`SOFTWARE\JUJU\%s`, salt)

@@ -11,13 +11,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/worker"
 )

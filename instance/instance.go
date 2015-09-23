@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
+	"github.com/juju/utils/arch"
 )
 
 // An instance Id is a provider-specific identifier associated with an
@@ -27,9 +27,6 @@ type Instance interface {
 
 	// Status returns the provider-specific status for the instance.
 	Status() string
-
-	// Refresh refreshes local knowledge of the instance from the provider.
-	Refresh() error
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.

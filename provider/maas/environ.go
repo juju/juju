@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -933,7 +933,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{maasObject: node, environ: environ}
+	inst := &maasInstance{node}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -1322,10 +1322,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{
-			maasObject: &node,
-			environ:    environ,
-		}
+		instances[index] = &maasInstance{&node}
 	}
 	return instances, nil
 }

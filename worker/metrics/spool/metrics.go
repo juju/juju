@@ -129,13 +129,7 @@ type MetricRecorderConfig struct {
 }
 
 // NewJSONMetricRecorder creates a new JSON metrics recorder.
-// It checks if the metrics spool directory exists, if it does not - it is created. Then
-// it tries to find an unused metric batch UUID 3 times.
 func NewJSONMetricRecorder(config MetricRecorderConfig) (rec *JSONMetricRecorder, rErr error) {
-	if err := checkSpoolDir(config.SpoolDir); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	mbUUID, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)

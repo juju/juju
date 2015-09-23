@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	coretesting "github.com/juju/juju/testing"
+	jujuos "github.com/juju/utils/os"
 )
 
 type baseProviderSuite struct {

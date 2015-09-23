@@ -6,10 +6,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
