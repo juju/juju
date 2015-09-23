@@ -192,6 +192,10 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
+		case creator := <-u.runCommands:
+			if err := u.runOperation(creator); err != nil {
+				return nil, errors.Trace(err)
+			}
 		case actionId := <-u.f.ActionEvents():
 			creator := newActionOp(actionId)
 			if err := u.runOperation(creator); err != nil {
@@ -308,6 +312,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return ModeUpgrading(curl), nil
 		case ids := <-u.f.RelationsEvents():
 			creator = newUpdateRelationsOp(ids)
+		case creator = <-u.runCommands:
 		case actionId := <-u.f.ActionEvents():
 			creator = newActionOp(actionId)
 		case tags := <-u.f.StorageEvents():
@@ -371,6 +376,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
+		case creator = <-u.runCommands:
 		case actionId := <-u.f.ActionEvents():
 			creator = newActionOp(actionId)
 		case <-u.f.ConfigEvents():
@@ -491,6 +497,10 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 				return nil, errors.Trace(err)
 			}
 			return ModeContinue, nil
+		case creator := <-u.runCommands:
+			if err := u.runOperation(creator); err != nil {
+				return nil, errors.Trace(err)
+			}
 		case actionId := <-u.f.ActionEvents():
 			if err := u.runOperation(newActionOp(actionId)); err != nil {
 				return nil, errors.Trace(err)
