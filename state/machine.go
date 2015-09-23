@@ -1163,12 +1163,11 @@ func (m *Machine) getPrivateAddressOps(addresses []network.Address) ([]txn.Op, n
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
 func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
-	allAddresses := mergedAddresses(m.doc.MachineAddresses, fromNetworkAddresses(addresses))
 	mdoc, err := m.st.getMachineDoc(m.Id())
 	if err != nil {
 		return errors.Annotatef(err, "cannot refresh provider addresses for machine %s", m)
 	}
-	if err = m.setAddresses(addresses, allAddresses, &mdoc.Addresses, "addresses"); err != nil {
+	if err = m.setAddresses(addresses, &mdoc.Addresses, "addresses"); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
 	}
 	m.doc.Addresses = mdoc.Addresses
@@ -1196,12 +1195,11 @@ func (m *Machine) MachineAddresses() (addresses []network.Address) {
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
 func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
-	allAddresses := mergedAddresses(fromNetworkAddresses(addresses), m.doc.Addresses)
 	mdoc, err := m.st.getMachineDoc(m.Id())
 	if err != nil {
 		return errors.Annotatef(err, "cannot refresh machine addresses for machine %s", m)
 	}
-	if err = m.setAddresses(addresses, allAddresses, &mdoc.MachineAddresses, "machineaddresses"); err != nil {
+	if err = m.setAddresses(addresses, &mdoc.MachineAddresses, "machineaddresses"); err != nil {
 		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, err)
 	}
 	m.doc.MachineAddresses = mdoc.MachineAddresses
@@ -1212,7 +1210,7 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // MachineAddresses, depending on the field argument). Changes are
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
-func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field *[]address, fieldName string) error {
+func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
 	var addressesToSet []network.Address
 	if !m.IsContainer() {
 		// Check addresses first. We'll only add those addresses
@@ -1251,7 +1249,6 @@ func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field 
 		return err
 	}
 	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
-	network.SortAddresses(allAddresses, envConfig.PreferIPv6())
 	stateAddresses := fromNetworkAddresses(addressesToSet)
 
 	if addressesEqual(addressesToSet, networkAddresses(*field)) {
@@ -1270,6 +1267,15 @@ func (m *Machine) setAddresses(addresses, allAddresses []network.Address, field 
 		if machine.doc.Life == Dead {
 			return nil, errNotAlive
 		}
+
+		var notChanging []address
+		if fieldName == "machineaddresses" {
+			notChanging = machine.doc.Addresses
+		} else {
+			notChanging = machine.doc.MachineAddresses
+		}
+		allAddresses := mergedAddresses(notChanging, fromNetworkAddresses(addressesToSet))
+		network.SortAddresses(allAddresses, envConfig.PreferIPv6())
 		ops := []txn.Op{{
 			C:      machinesC,
 			Id:     machine.doc.DocID,
