@@ -74,6 +74,7 @@ type Uniter struct {
 
 	hookLock    *fslock.Lock
 	runListener *RunListener
+	runCommands chan creator
 
 	ranLeaderSettingsChanged bool
 	ranConfigChanged         bool
@@ -127,6 +128,7 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		sendMetricsAt:        uniterParams.MetricsTimerChooser.inactive,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
+		runCommands:          make(chan creator),
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -372,23 +374,26 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		RemoteUnitName:  args.RemoteUnitName,
 		ForceRemoteUnit: args.ForceRemoteUnit,
 	}
-	err = u.runOperation(newCommandsOp(commandArgs, sendResponse))
-	if err == nil {
-		select {
-		case response := <-responseChan:
-			results, err = response.response, response.err
-		default:
-			err = errors.New("command response never sent")
+
+	select {
+	case <-u.tomb.Dying():
+		return nil, tomb.ErrDying
+	case u.runCommands <- newCommandsOp(commandArgs, sendResponse):
+	}
+
+	select {
+	case <-u.tomb.Dying():
+		return nil, tomb.ErrDying
+	case response := <-responseChan:
+		results, err := response.response, response.err
+		if errors.Cause(err) == operation.ErrNeedsReboot {
+			u.tomb.Kill(worker.ErrRebootMachine)
+			err = nil
+		} else if err != nil {
+			u.tomb.Kill(err)
 		}
+		return results, err
 	}
-	if errors.Cause(err) == operation.ErrNeedsReboot {
-		u.tomb.Kill(worker.ErrRebootMachine)
-		err = nil
-	}
-	if err != nil {
-		u.tomb.Kill(err)
-	}
-	return results, err
 }
 
 // runOperation uses the uniter's operation factory to run the supplied creation
