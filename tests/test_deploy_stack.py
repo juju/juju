@@ -280,6 +280,17 @@ class DumpEnvLogsTestCase(TestCase):
             log_path = os.path.join(log_dir, 'fake.log')
             cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
 
+    def test_archive_logs_subdir(self):
+        with temp_dir() as log_dir:
+            subdir = os.path.join(log_dir, "subdir")
+            os.mkdir(subdir)
+            with open(os.path.join(subdir, 'fake.log'), 'w') as f:
+                f.write('log contents')
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            log_path = os.path.join(subdir, 'fake.log')
+            cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
+
     def test_archive_logs_none(self):
         with temp_dir() as log_dir:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
@@ -343,16 +354,19 @@ class DumpEnvLogsTestCase(TestCase):
                 '-o', 'UserKnownHostsFile /dev/null',
                 '-o', 'StrictHostKeyChecking no',
                 '10.10.0.1',
-                'sudo chmod go+r /var/log/juju/*'),),
+                'sudo chmod -Rf go+r /var/log/cloud-init*.log'
+                ' /var/log/juju/*.log'
+                ' /var/lib/juju/containers/juju-*-lxc-*/'),),
             cc_mock.call_args_list[0][0])
         self.assertEqual(
             (get_timeout_prefix(120) + (
-                'scp', '-C',
+                'scp', '-rC',
                 '-o', 'User ubuntu',
                 '-o', 'UserKnownHostsFile /dev/null',
                 '-o', 'StrictHostKeyChecking no',
                 '10.10.0.1:/var/log/cloud-init*.log',
                 '10.10.0.1:/var/log/juju/*.log',
+                '10.10.0.1:/var/lib/juju/containers/juju-*-lxc-*/',
                 '/foo'),),
             cc_mock.call_args_list[1][0])
 
