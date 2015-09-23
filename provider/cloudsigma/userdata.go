@@ -6,18 +6,18 @@ package cloudsigma
 
 import (
 	"github.com/juju/errors"
+	jujuos "github.com/juju/utils/os"
 
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/version"
 )
 
 type CloudSigmaRenderer struct{}
 
-func (CloudSigmaRenderer) EncodeUserdata(udata []byte, vers version.OSType) ([]byte, error) {
-	switch vers {
-	case version.Ubuntu, version.CentOS:
+func (CloudSigmaRenderer) EncodeUserdata(udata []byte, os jujuos.OSType) ([]byte, error) {
+	switch os {
+	case jujuos.Ubuntu, jujuos.CentOS:
 		return renderers.ToBase64(udata), nil
 	default:
-		return nil, errors.Errorf("Cannot encode userdata for OS: %s", vers)
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}
 }

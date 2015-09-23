@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
@@ -29,11 +30,11 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
 )
 
 const (
@@ -844,19 +845,19 @@ func (env *azureEnviron) getInstance(hostedService *gwacl.HostedService, roleNam
 
 // newOSDisk creates a gwacl.OSVirtualHardDisk object suitable for an
 // Azure Virtual Machine.
-func (env *azureEnviron) newOSDisk(sourceImageName string, series string) (*gwacl.OSVirtualHardDisk, error) {
+func (env *azureEnviron) newOSDisk(sourceImageName string, ser string) (*gwacl.OSVirtualHardDisk, error) {
 	vhdName := gwacl.MakeRandomDiskName("juju")
 	vhdPath := fmt.Sprintf("vhds/%s", vhdName)
 	snap := env.getSnapshot()
 	storageAccount := snap.ecfg.storageAccountName()
 	mediaLink := gwacl.CreateVirtualHardDiskMediaLink(storageAccount, vhdPath)
-	os, err := version.GetOSFromSeries(series)
+	os, err := series.GetOSFromSeries(ser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var OSType string
 	switch os {
-	case version.Windows:
+	case jujuos.Windows:
 		OSType = "Windows"
 	default:
 		OSType = "Linux"
@@ -900,13 +901,13 @@ func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndp
 //
 // roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
 // Large, A6 etc.
-func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, stateServer bool, userdata, series string, snapshot *azureEnviron) (*gwacl.Role, error) {
+func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, stateServer bool, userdata, ser string, snapshot *azureEnviron) (*gwacl.Role, error) {
 	// Do some common initialization
 	roleName := gwacl.MakeRandomRoleName("juju")
 	hostname := roleName
 	password := gwacl.MakeRandomPassword()
 
-	os, err := version.GetOSFromSeries(series)
+	os, err := series.GetOSFromSeries(ser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -915,7 +916,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 
 	var role *gwacl.Role
 	switch os {
-	case version.Windows:
+	case jujuos.Windows:
 		role, err = makeWindowsRole(password, roleSize, roleName, userdata, vhd, networkConfigurationSet, snapshot)
 	default:
 		role, err = makeLinuxRole(hostname, password, roleSize, roleName, userdata, vhd, networkConfigurationSet)

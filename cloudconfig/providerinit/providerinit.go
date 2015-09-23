@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/series"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.providerinit")
@@ -59,7 +59,7 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	operatingSystem, err := version.GetOSFromSeries(icfg.Series)
+	operatingSystem, err := series.GetOSFromSeries(icfg.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

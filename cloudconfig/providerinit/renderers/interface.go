@@ -9,7 +9,7 @@
 package renderers
 
 import (
-	"github.com/juju/juju/version"
+	"github.com/juju/utils/os"
 )
 
 // ProviderRenderer defines a method to encode userdata depending on
@@ -21,5 +21,5 @@ type ProviderRenderer interface {
 
 	// EncodeUserdata takes a []byte and encodes it in the right format.
 	// The implementations are based on the different providers and OSTypes.
-	EncodeUserdata([]byte, version.OSType) ([]byte, error)
+	EncodeUserdata([]byte, os.OSType) ([]byte, error)
 }

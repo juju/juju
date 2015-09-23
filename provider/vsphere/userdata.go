@@ -8,16 +8,16 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 type VsphereRenderer struct{}
 
-func (VsphereRenderer) EncodeUserdata(udata []byte, vers version.OSType) ([]byte, error) {
-	switch vers {
-	case version.Ubuntu, version.CentOS:
+func (VsphereRenderer) EncodeUserdata(udata []byte, os jujuos.OSType) ([]byte, error) {
+	switch os {
+	case jujuos.Ubuntu, jujuos.CentOS:
 		return renderers.ToBase64(udata), nil
 	default:
-		return nil, errors.Errorf("Cannot encode userdata for OS: %s", vers)
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}
 }

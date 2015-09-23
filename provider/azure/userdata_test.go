@@ -9,12 +9,12 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type UserdataSuite struct {
@@ -26,13 +26,13 @@ var _ = gc.Suite(&UserdataSuite{})
 func (s *UserdataSuite) TestAzureUnix(c *gc.C) {
 	renderer := azure.AzureRenderer{}
 	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, version.Ubuntu)
+	result, err := renderer.EncodeUserdata(data, os.Ubuntu)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := base64.StdEncoding.EncodeToString(utils.Gzip(data))
 	c.Assert(string(result), jc.DeepEquals, expected)
 
 	data = []byte("test")
-	result, err = renderer.EncodeUserdata(data, version.CentOS)
+	result, err = renderer.EncodeUserdata(data, os.CentOS)
 	c.Assert(err, jc.ErrorIsNil)
 	expected = base64.StdEncoding.EncodeToString(utils.Gzip(data))
 	c.Assert(string(result), jc.DeepEquals, expected)
@@ -41,14 +41,14 @@ func (s *UserdataSuite) TestAzureUnix(c *gc.C) {
 func (s *UserdataSuite) TestAzureWindows(c *gc.C) {
 	renderer := azure.AzureRenderer{}
 	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, version.Windows)
+	result, err := renderer.EncodeUserdata(data, os.Windows)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, renderers.WinEmbedInScript(data))
 }
 
 func (s *UserdataSuite) TestAzureUnknownOS(c *gc.C) {
 	renderer := azure.AzureRenderer{}
-	result, err := renderer.EncodeUserdata(nil, version.Arch)
+	result, err := renderer.EncodeUserdata(nil, os.Arch)
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: Arch")
 }

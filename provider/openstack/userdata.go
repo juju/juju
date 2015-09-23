@@ -9,18 +9,18 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 type OpenstackRenderer struct{}
 
-func (OpenstackRenderer) EncodeUserdata(udata []byte, vers version.OSType) ([]byte, error) {
-	switch vers {
-	case version.Ubuntu, version.CentOS:
+func (OpenstackRenderer) EncodeUserdata(udata []byte, os jujuos.OSType) ([]byte, error) {
+	switch os {
+	case jujuos.Ubuntu, jujuos.CentOS:
 		return utils.Gzip(udata), nil
-	case version.Windows:
+	case jujuos.Windows:
 		return renderers.WinEmbedInScript(udata), nil
 	default:
-		return nil, errors.Errorf("Cannot encode userdata for OS: %s", vers)
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
 	}
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/provider/joyent"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	"github.com/juju/utils/os"
 )
 
 type UserdataSuite struct {
@@ -22,19 +22,19 @@ var _ = gc.Suite(&UserdataSuite{})
 func (s *UserdataSuite) TestJoyentUnix(c *gc.C) {
 	renderer := joyent.JoyentRenderer{}
 	data := []byte("test")
-	result, err := renderer.EncodeUserdata(data, version.Ubuntu)
+	result, err := renderer.EncodeUserdata(data, os.Ubuntu)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, data)
 
 	data = []byte("test")
-	result, err = renderer.EncodeUserdata(data, version.CentOS)
+	result, err = renderer.EncodeUserdata(data, os.CentOS)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, data)
 }
 
 func (s *UserdataSuite) TestJoyentUnknownOS(c *gc.C) {
 	renderer := joyent.JoyentRenderer{}
-	result, err := renderer.EncodeUserdata(nil, version.Windows)
+	result, err := renderer.EncodeUserdata(nil, os.Windows)
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "Cannot encode userdata for OS: Windows")
 }
