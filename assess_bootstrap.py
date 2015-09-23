@@ -29,9 +29,9 @@ def assess_bootstrap(juju, env, debug, region, temp_env_name):
             client.bootstrap()
         except:
             client.destroy_environment()
+            raise
     try:
-        for ignored in until_timeout(30):
-            client.get_status(1)
+        client.get_status(1)
         print('Environment successfully bootstrapped.')
     finally:
         client.destroy_environment()
