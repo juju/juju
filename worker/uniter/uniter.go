@@ -349,14 +349,6 @@ func (u *Uniter) initializeMetricsTimers() error {
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
-	// goroutine-safe, but that's not what I'm fixing at the moment. We could
-	// address this by:
-	//  1) implementing an operation to encapsulate the relations.Update call
-	//  2) (quick+dirty) mutex runOperation until we can
-	//  3) (correct) feed RunCommands requests into the mode funcs (or any queue
-	//     that replaces them) such that they're handled and prioritised like
-	//     every other operation.
 	logger.Tracef("run commands: %s", args.Commands)
 
 	type responseInfo struct {
