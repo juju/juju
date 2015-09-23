@@ -1091,7 +1091,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			logger.Warningf("ignoring unknown job %q", job)
 		}
 	}
-	return cmdutil.NewCloseWorker(logger, runner, st), nil
+	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
+}
+
+type stateWorkerCloser struct {
+	stateCloser io.Closer
+}
+
+func (s stateWorkerCloser) Close() error {
+	// This state-dependent data source will be useless once state is closed -
+	// un-register it before closing state.
+	unregisterSimplestreamsDataSource()
+	return s.stateCloser.Close()
 }
 
 // startEnvWorkers starts state server workers that need to run per
