@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/utils/ssh"
 )

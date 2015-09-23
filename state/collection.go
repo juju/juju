@@ -88,7 +88,7 @@ func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 func (c *envStateCollection) Insert(docs ...interface{}) error {
 	var mungedDocs []interface{}
 	for _, doc := range docs {
-		mungedDoc, err := c.mungeInsert(doc)
+		mungedDoc, err := mungeDocForMultiEnv(doc, c.envUUID, envUUIDRequired)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -146,80 +146,10 @@ func (c *envStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, erro
 	return c.WriteCollection.RemoveAll(c.mungeQuery(query))
 }
 
-func (c *envStateCollection) mungeInsert(inDoc interface{}) (bson.D, error) {
-	outDoc, err := toBsonD(inDoc)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	uuidSeen := false
-	for i, item := range outDoc {
-		switch item.Name {
-		case "_id":
-			docId, ok := item.Value.(string)
-			if ok { // tolerate non-string ids
-				outDoc[i].Value = ensureEnvUUID(c.envUUID, docId)
-			}
-		case "env-uuid":
-			docEnvUUID, ok := outDoc[i].Value.(string)
-			if !ok {
-				return nil, errors.Errorf("env-uuid is not a string: %v", outDoc[i].Value)
-			}
-			if docEnvUUID == "" {
-				outDoc[i].Value = c.envUUID
-			} else if docEnvUUID != c.envUUID {
-				return nil, errors.Errorf("insert env-uuid is not correct: %q != %q", docEnvUUID, c.envUUID)
-			}
-			uuidSeen = true
-		}
-	}
-	if !uuidSeen {
-		outDoc = append(outDoc, bson.DocElem{"env-uuid", c.envUUID})
-	}
-	return outDoc, nil
-}
-
 func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
-	outq := bson.D{{"env-uuid", c.envUUID}}
-	var add = func(name string, value interface{}) {
-		switch name {
-		case "_id":
-			if id, ok := value.(string); ok {
-				value = ensureEnvUUID(c.envUUID, id)
-			}
-		case "env-uuid":
-			panic("env-uuid is added automatically and should not be provided")
-		}
-		outq = append(outq, bson.DocElem{name, value})
-	}
-
-	switch inq := inq.(type) {
-	case bson.D:
-		for _, elem := range inq {
-			add(elem.Name, elem.Value)
-		}
-	case bson.M:
-		for name, value := range inq {
-			add(name, value)
-		}
-	case nil:
-	default:
-		panic("query must be bson.D, bson.M, or nil")
+	outq, err := mungeDocForMultiEnv(inq, c.envUUID, envUUIDRequired|noEnvUUIDInInput)
+	if err != nil {
+		panic(err)
 	}
 	return outq
-}
-
-// toBsonD converts an arbitrary value to a bson.D via marshaling
-// through BSON. This is still done even if the input is already a
-// bson.D so that we end up with a copy of the input.
-func toBsonD(doc interface{}) (bson.D, error) {
-	bytes, err := bson.Marshal(doc)
-	if err != nil {
-		return nil, errors.Annotate(err, "bson marshaling failed")
-	}
-	var out bson.D
-	err = bson.Unmarshal(bytes, &out)
-	if err != nil {
-		return nil, errors.Annotate(err, "bson unmarshaling failed")
-	}
-	return out, nil
 }

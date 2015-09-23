@@ -29,10 +29,6 @@ func (inst *localInstance) Status() string {
 	return ""
 }
 
-func (*localInstance) Refresh() error {
-	return nil
-}
-
 func (inst *localInstance) Addresses() ([]network.Address, error) {
 	if inst.id == bootstrapInstanceId {
 		addrs := []network.Address{{

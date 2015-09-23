@@ -16,10 +16,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/juju/arch"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/series"
 )
 

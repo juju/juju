@@ -11,8 +11,8 @@ import (
 	"sort"
 
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/series"
+	"github.com/juju/utils/arch"
 )
 
 func init() {

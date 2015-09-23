@@ -260,20 +260,19 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1,
 		},
 		{
+			label: "Find works with maps",
+			test: func() (int, error) {
+				return machines0.Find(map[string]string{"_id": m0.Id()}).Count()
+			},
+			expectedCount: 1,
+		},
+		{
 			label: "Find panics if env-uuid is included",
 			test: func() (int, error) {
 				machines0.Find(bson.D{{"env-uuid", "whatever"}})
 				return 0, nil
 			},
 			expectedPanic: "env-uuid is added automatically and should not be provided",
-		},
-		{
-			label: "Find panics if query type is unsupported",
-			test: func() (int, error) {
-				machines0.Find(map[string]string{"foo": "bar"})
-				return 0, nil
-			},
-			expectedPanic: "query must be bson.D, bson.M, or nil",
 		},
 		{
 			label: "FindId adds env UUID prefix",
@@ -365,7 +364,7 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 				})
 				return 0, err
 			},
-			expectedError: "insert env-uuid is not correct: .+",
+			expectedError: "bad \"env-uuid\" value: .+",
 		},
 		{
 			label: "Remove adds env UUID prefix to _id",
@@ -469,14 +468,6 @@ func (s *collectionSuite) TestEnvStateCollection(c *gc.C) {
 				return 0, nil
 			},
 			expectedPanic: "env-uuid is added automatically and should not be provided",
-		},
-		{
-			label: "RemoveAll panics if query type is unsupported",
-			test: func() (int, error) {
-				machines0.Writeable().RemoveAll(map[string]string{"foo": "bar"})
-				return 0, nil
-			},
-			expectedPanic: "query must be bson.D, bson.M, or nil",
 		},
 		{
 			label: "Update",
