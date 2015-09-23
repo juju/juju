@@ -304,6 +304,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 
 func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	series := "win8"
+	metricsSpoolDir := must(paths.MetricsSpoolDir("win8"))
 	tools := &tools.Tools{
 		URL:     "http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-win8-amd64"),
@@ -341,6 +342,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 		MachineAgentServiceName: "jujud-machine-10",
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
+		MetricsSpoolDir:         metricsSpoolDir,
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 	}
 
