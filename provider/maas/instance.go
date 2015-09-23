@@ -6,7 +6,6 @@ package maas
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/juju/errors"
 	"launchpad.net/gomaasapi"
@@ -16,9 +15,6 @@ import (
 )
 
 type maasInstance struct {
-	environ *maasEnviron
-
-	mu         sync.Mutex
 	maasObject *gomaasapi.MAASObject
 }
 
@@ -34,7 +30,7 @@ func (mi *maasInstance) String() string {
 }
 
 func (mi *maasInstance) Id() instance.Id {
-	return maasObjectId(mi.getMaasObject())
+	return maasObjectId(mi.maasObject)
 }
 
 func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
@@ -49,25 +45,6 @@ func (mi *maasInstance) Status() string {
 	// state unless we obtain it through some means other than
 	// through the MAAS API.
 	return ""
-}
-
-// Refresh refreshes the instance with the most up-to-date information
-// from the MAAS server.
-func (mi *maasInstance) Refresh() error {
-	mi.mu.Lock()
-	defer mi.mu.Unlock()
-	insts, err := mi.environ.Instances([]instance.Id{maasObjectId(mi.maasObject)})
-	if err != nil {
-		return err
-	}
-	mi.maasObject = insts[0].(*maasInstance).maasObject
-	return nil
-}
-
-func (mi *maasInstance) getMaasObject() *gomaasapi.MAASObject {
-	mi.mu.Lock()
-	defer mi.mu.Unlock()
-	return mi.maasObject
 }
 
 func (mi *maasInstance) Addresses() ([]network.Address, error) {
@@ -95,7 +72,7 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 
 func (mi *maasInstance) ipAddresses() ([]string, error) {
 	// we have to do this the hard way, since maasObject doesn't have this built-in yet
-	addressArray := mi.getMaasObject().GetMap()["ip_addresses"]
+	addressArray := mi.maasObject.GetMap()["ip_addresses"]
 	if addressArray.IsNil() {
 		// Older MAAS versions do not return ip_addresses.
 		return nil, nil
@@ -118,7 +95,7 @@ func (mi *maasInstance) ipAddresses() ([]string, error) {
 func (mi *maasInstance) architecture() (arch, subarch string, err error) {
 	// MAAS may return an architecture of the form, for example,
 	// "amd64/generic"; we only care about the major part.
-	arch, err = mi.getMaasObject().GetField("architecture")
+	arch, err = mi.maasObject.GetField("architecture")
 	if err != nil {
 		return "", "", err
 	}
@@ -131,12 +108,12 @@ func (mi *maasInstance) architecture() (arch, subarch string, err error) {
 }
 
 func (mi *maasInstance) zone() string {
-	zone, _ := mi.getMaasObject().GetField("zone")
+	zone, _ := mi.maasObject.GetField("zone")
 	return zone
 }
 
 func (mi *maasInstance) cpuCount() (uint64, error) {
-	count, err := mi.getMaasObject().GetMap()["cpu_count"].GetFloat64()
+	count, err := mi.maasObject.GetMap()["cpu_count"].GetFloat64()
 	if err != nil {
 		return 0, err
 	}
@@ -144,7 +121,7 @@ func (mi *maasInstance) cpuCount() (uint64, error) {
 }
 
 func (mi *maasInstance) memory() (uint64, error) {
-	mem, err := mi.getMaasObject().GetMap()["memory"].GetFloat64()
+	mem, err := mi.maasObject.GetMap()["memory"].GetFloat64()
 	if err != nil {
 		return 0, err
 	}
@@ -152,7 +129,7 @@ func (mi *maasInstance) memory() (uint64, error) {
 }
 
 func (mi *maasInstance) tagNames() ([]string, error) {
-	obj := mi.getMaasObject().GetMap()["tag_names"]
+	obj := mi.maasObject.GetMap()["tag_names"]
 	if obj.IsNil() {
 		return nil, errors.NotFoundf("tag_names")
 	}
@@ -203,7 +180,7 @@ func (mi *maasInstance) hardwareCharacteristics() (*instance.HardwareCharacteris
 
 func (mi *maasInstance) hostname() (string, error) {
 	// A MAAS instance has its DNS name immediately.
-	return mi.getMaasObject().GetField("hostname")
+	return mi.maasObject.GetField("hostname")
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/juju/juju/os"
+	"github.com/juju/utils/os"
 )
 
 type unknownOSForSeriesError string
@@ -116,30 +116,30 @@ var windowsVersions = map[string]string{
 
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
-func GetOSFromSeries(series string) (jujuos.OSType, error) {
+func GetOSFromSeries(series string) (os.OSType, error) {
 	if series == "" {
-		return jujuos.Unknown, errors.NotValidf("series %q", series)
+		return os.Unknown, errors.NotValidf("series %q", series)
 	}
 	if _, ok := ubuntuSeries[series]; ok {
-		return jujuos.Ubuntu, nil
+		return os.Ubuntu, nil
 	}
 	if _, ok := centosSeries[series]; ok {
-		return jujuos.CentOS, nil
+		return os.CentOS, nil
 	}
 	if _, ok := archSeries[series]; ok {
-		return jujuos.Arch, nil
+		return os.Arch, nil
 	}
 	for _, val := range windowsVersions {
 		if val == series {
-			return jujuos.Windows, nil
+			return os.Windows, nil
 		}
 	}
 	for _, val := range macOSXSeries {
 		if val == series {
-			return jujuos.OSX, nil
+			return os.OSX, nil
 		}
 	}
-	return jujuos.Unknown, errors.Trace(unknownOSForSeriesError(series))
+	return os.Unknown, errors.Trace(unknownOSForSeriesError(series))
 }
 
 var (
@@ -178,7 +178,7 @@ func SupportedSeries() []string {
 
 // OSSupportedSeries returns the series of the specified OS on which we
 // can run Juju workloads.
-func OSSupportedSeries(os jujuos.OSType) []string {
+func OSSupportedSeries(os os.OSType) []string {
 	var osSeries []string
 	for _, series := range SupportedSeries() {
 		seriesOS, err := GetOSFromSeries(series)

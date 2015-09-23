@@ -8,10 +8,10 @@ import (
 	"sort"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/juju/arch"
 )
 
 var logger = loggo.GetLogger("juju.environs.instances")

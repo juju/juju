@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/series"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
