@@ -42,6 +42,24 @@ func (s *serverSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
 	})
 }
 
+func (s *serverSuite) TestGetBundleChangesBundleConstraintsError(c *gc.C) {
+	args := params.GetBundleChangesParams{
+		BundleDataYAML: `
+            services:
+                django:
+                    charm: django
+                    num_units: 1
+                    constraints: bad=wolf
+        `,
+	}
+	r, err := s.client.GetBundleChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid constraints "bad=wolf" in service "django": unknown constraint "bad"`,
+	})
+}
+
 func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	args := params.GetBundleChangesParams{
 		BundleDataYAML: `

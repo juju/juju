@@ -353,9 +353,9 @@ func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotations
 	eid := resolve(p.Id, h.results)
 	var tag string
 	switch p.EntityType {
-	case "machine":
+	case bundlechanges.MachineType:
 		tag = names.NewMachineTag(eid).String()
-	case "service":
+	case bundlechanges.ServiceType:
 		tag = names.NewServiceTag(eid).String()
 	default:
 		return errors.Errorf("unexpected annotation entity type %q", p.EntityType)

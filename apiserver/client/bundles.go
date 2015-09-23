@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 )
 
 // GetBundleChanges returns the list of changes required to deploy the given
@@ -22,8 +23,10 @@ func (c *Client) GetBundleChanges(args params.GetBundleChangesParams) (params.Ge
 	if err != nil {
 		return results, errors.Annotate(err, "cannot read bundle YAML")
 	}
-	// TODO frankban: provide a verifyConstraints function.
-	if err := data.Verify(nil); err != nil {
+	if err := data.Verify(func(s string) error {
+		_, err := constraints.Parse(s)
+		return err
+	}); err != nil {
 		if err, ok := err.(*charm.VerificationError); ok {
 			results.Errors = make([]string, len(err.Errors))
 			for i, e := range err.Errors {
