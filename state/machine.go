@@ -1103,12 +1103,15 @@ func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool)
 		fieldName = "preferredpublicaddress"
 		current = m.doc.PreferredPublicAddress
 	}
+	// Assert that the field is either missing (never been set) or is
+	// unchanged from its previous value.
+	assert := bson.D{{"$or", []bson.D{{{fieldName, current}}, {{fieldName, nil}}}}}
 
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
-		Assert: bson.D{{fieldName, current}},
+		Assert: assert,
 	}}
 	return ops
 }
