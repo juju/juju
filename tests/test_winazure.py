@@ -16,7 +16,7 @@ sys.path.insert(0, AZURE_PACKAGE)
 from azure.servicemanagement import (
     Deployment,
     HostedService,
-)
+)  # nopep8 We have to put code before imports in this case.
 
 from winazure import (
     DATETIME_PATTERN,
@@ -29,7 +29,7 @@ from winazure import (
     ServiceManagementService,
     SUCCEEDED,
     wait_for_success,
-)
+)  # nopep8 (as above)
 
 
 class WinAzureTestCase(TestCase):
