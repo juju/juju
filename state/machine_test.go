@@ -2179,6 +2179,50 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 }
 
+func (s *MachineSuite) TestPublicAddressRace(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changeAddresses := jujutxn.TestHook{
+		Before: func() {
+			err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+			c.Assert(err, jc.ErrorIsNil)
+		},
+	}
+	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
+
+	err = machine.SetMachineAddresses(network.NewAddress("8.8.4.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err = s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	address, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+}
+
+func (s *MachineSuite) TestPrivateAddressRace(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changeAddresses := jujutxn.TestHook{
+		Before: func() {
+			err = machine.SetProviderAddresses(network.NewAddress("10.0.0.1"))
+			c.Assert(err, jc.ErrorIsNil)
+		},
+	}
+	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err = s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	address, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+}
+
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
