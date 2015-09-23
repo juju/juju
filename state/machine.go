@@ -1251,10 +1251,6 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
 	stateAddresses := fromNetworkAddresses(addressesToSet)
 
-	if addressesEqual(addressesToSet, networkAddresses(*field)) {
-		return nil
-	}
-
 	var newPrivate, newPublic network.Address
 	var changedPrivate, changedPublic bool
 	machine := m
@@ -1267,7 +1263,16 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		if machine.doc.Life == Dead {
 			return nil, errNotAlive
 		}
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     machine.doc.DocID,
+			Assert: notDeadDoc,
+			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
+		}}
 
+		// Create the full list of addresses, to pick preferred
+		// addresses from, by merging the ones we're updating with the
+		// ones that aren't changing.
 		var notChanging []address
 		if fieldName == "machineaddresses" {
 			notChanging = machine.doc.Addresses
@@ -1276,15 +1281,8 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		}
 		allAddresses := mergedAddresses(notChanging, fromNetworkAddresses(addressesToSet))
 		network.SortAddresses(allAddresses, envConfig.PreferIPv6())
-		ops := []txn.Op{{
-			C:      machinesC,
-			Id:     machine.doc.DocID,
-			Assert: notDeadDoc,
-			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
-		}}
+
 		var setPrivateAddressOps, setPublicAddressOps []txn.Op
-		// XXX need to rebuild allAddresses for the assert to work
-		// correctly
 		setPrivateAddressOps, newPrivate, changedPrivate = machine.getPrivateAddressOps(allAddresses)
 		setPublicAddressOps, newPublic, changedPublic = machine.getPublicAddressOps(allAddresses)
 		ops = append(ops, setPrivateAddressOps...)
@@ -1298,14 +1296,6 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		}
 		return errors.Trace(err)
 	}
-	query := bson.D{{"$or", []bson.D{
-		bson.D{{"addresses.value", bson.D{{"$in", []string{newPrivate.Value}}}}},
-		bson.D{{"machineaddresses.value", bson.D{{"$in", []string{newPrivate.Value}}}}}}}}
-	machines, closer := m.st.getRawCollection(machinesC)
-	defer closer()
-	results := []interface{}{}
-	err = machines.Find(query).All(&results)
-	logger.Errorf("%v %v %#v", len(results), err, results)
 
 	*field = stateAddresses
 	if changedPrivate {
