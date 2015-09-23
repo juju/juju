@@ -1098,23 +1098,17 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
 	addr := fromNetworkAddress(netAddr)
 	fieldName := "preferredprivateaddress"
+	current := m.doc.PreferredPrivateAddress
 	if isPublic {
 		fieldName = "preferredpublicaddress"
+		current = m.doc.PreferredPublicAddress
 	}
 
-	// XXX assert the new address still exists in MachineAddresses
-	// or Addresses
-	// XXX actually just assert that the preferred address is unchanged. If
-	// it has changed we need to check the address is still in the *new*
-	// alladdresses, which has to be done in buildTxn not in the assert.
-	//differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
 	ops := []txn.Op{{
-		C:  machinesC,
-		Id: m.doc.DocID,
-		//Assert: bson.D{{"$or", []bson.D{
-		//	bson.D{{"addresses.value", bson.D{{"$in", []string{addr.Value}}}}},
-		//	bson.D{{"machineaddresses.value", bson.D{{"$in", []string{addr.Value}}}}}}}},
+		C:      machinesC,
+		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
+		Assert: bson.D{{fieldName, current}},
 	}}
 	return ops
 }
@@ -1137,7 +1131,8 @@ func (m *Machine) getPublicAddressOps(addresses []network.Address) ([]txn.Op, ne
 		return []txn.Op{}, publicAddress, false
 	}
 
-	return m.getPreferredAddressOps(newAddr, true), newAddr, true
+	ops := m.getPreferredAddressOps(newAddr, true)
+	return ops, newAddr, true
 }
 
 func (m *Machine) getPrivateAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
@@ -1157,7 +1152,8 @@ func (m *Machine) getPrivateAddressOps(addresses []network.Address) ([]txn.Op, n
 		// No change, so no ops.
 		return []txn.Op{}, privateAddress, false
 	}
-	return m.getPreferredAddressOps(newAddr, false), newAddr, true
+	ops := m.getPreferredAddressOps(newAddr, false)
+	return ops, newAddr, true
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
@@ -1287,6 +1283,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		setPublicAddressOps, newPublic, changedPublic = machine.getPublicAddressOps(allAddresses)
 		ops = append(ops, setPrivateAddressOps...)
 		ops = append(ops, setPublicAddressOps...)
+		logger.Errorf("%v\n%#v\n\n", attempt, ops)
 		return ops, nil
 	}
 	err = m.st.run(buildTxn)
