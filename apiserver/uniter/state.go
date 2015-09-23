@@ -27,6 +27,7 @@ type storageStateInterface interface {
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error
 	UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error)
+	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 type storageStateShim struct {
