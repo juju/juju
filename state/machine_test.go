@@ -2224,6 +2224,9 @@ func (s *MachineSuite) TestPublicAddressRaceFallbackScope(c *gc.C) {
 	address, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.4.4"))
+	address, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
 }
 
 func (s *MachineSuite) TestPrivateAddressRaceExactScope(c *gc.C) {
@@ -2271,6 +2274,9 @@ func (s *MachineSuite) TestPrivateAddressRaceFallbackScope(c *gc.C) {
 	address, err := machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.2"))
+	address, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
