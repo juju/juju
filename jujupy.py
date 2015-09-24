@@ -174,7 +174,7 @@ class EnvJujuClient:
 
         # If args is a string, make it a tuple. This makes writing commands
         # with one argument a bit nicer.
-        if not isinstance(args, tuple) and isinstance(args, basestring):
+        if isinstance(args, basestring):
             args = (args,)
         # we split the command here so that the caller can control where the -e
         # <env> flag goes.  Everything in the command string is put before the
@@ -286,6 +286,7 @@ class EnvJujuClient:
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
+        e = None
         for ignored in until_timeout(timeout):
             try:
                 if raw:
@@ -522,32 +523,53 @@ class EnvJujuClient:
             raise Exception('Timed out waiting for services to start.')
 
     def wait_for(self, thing, search_type, timeout=300):
-        for status in self.status_until(timeout):
-            hit = False
-            miss = False
+        """ Wait for a something (thing) matching none/all/some machines.
 
-            for machine, details in status.status['machines'].iteritems():
-                if thing == 'containers':
-                    if 'containers' in details:
-                        hit = True
+        Examples:
+          wait_for('containers', 'all')
+          This will wait for a container to appear on all machines.
+
+          wait_for('machines-not-0', 'none')
+          This will wait for all machines other than 0 to be removed.
+
+        :param thing: string, either 'containers' or 'not-machine-0'
+        :param search_type: string containing none, some or all
+        :param timeout: number of seconds to wait for condition to be true.
+        :return:
+        """
+        try:
+            for status in self.status_until(timeout):
+                hit = False
+                miss = False
+
+                for machine, details in status.status['machines'].iteritems():
+                    if thing == 'containers':
+                        if 'containers' in details:
+                            hit = True
+                        else:
+                            miss = True
+
+                    elif thing == 'machines-not-0':
+                        if machine != '0':
+                            hit = True
+                        else:
+                            miss = True
+
                     else:
-                        miss = True
+                        raise ValueError("Unrecognised thing to wait for: %s",
+                                         thing)
 
-                if thing == 'not-machine-0':
-                    if machine != '0':
-                        hit = True
-                    else:
-                        miss = True
-
-            if search_type == 'none':
-                if not hit:
-                    return
-            elif search_type == 'some':
-                if hit:
-                    return
-            elif search_type == 'all':
-                if not miss:
-                    return
+                if search_type == 'none':
+                    if not hit:
+                        return
+                elif search_type == 'some':
+                    if hit:
+                        return
+                elif search_type == 'all':
+                    if not miss:
+                        return
+        except Exception:
+            raise Exception("Timed out waiting for %s" % thing)
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.

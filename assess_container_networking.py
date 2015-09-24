@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import subprocess
+from copy import (
+    copy,
+    deepcopy,
+)
 
 __metaclass__ = type
 
@@ -16,6 +21,13 @@ def clean_environment(client, services_only=False):
 
     :param client: a Juju client
     """
+    try:
+        client.get_juju_output('status')
+    except subprocess.CalledProcessError:
+        # If we fail to get status then the environment doesn't exist. Since
+        # there is nothing to clean, we return False to say that we failed.
+        return False
+
     status = client.get_status()
     for service in status.status['services']:
         client.juju('remove-service', service)
@@ -35,116 +47,50 @@ def clean_environment(client, services_only=False):
         client.wait_for('machines-not-0', 'none')
 
     client.wait_for_started()
+    return True
 
 
-class MachineGetter:
-    def __init__(self, client):
-        """Get or allocate machines in this Juju environment
-        :param client: Juju client
-        """
-        self.client = client
-        self.count = None
-        self.requested_machines = []
-        self.allocated_machines = []
+def make_machines(client, container_types):
+    """Make a test environment consisting of:
+       Two host machines.
+       Two of each container_type on one host machine.
+       One of each container_type on one host machine.
+    :param client: An EnvJujuClient
+    :param container_types: list of containers to create
+    :return: hosts (list), containers {container_type}{host}[containers]
+    """
+    # Find existing host machines
+    old_hosts = client.get_status().status['machines']
+    machines_to_add = 2 - len(old_hosts)
 
-    def get(self, container_type=None, machine=None, container=None, count=1):
-        """Get one or more machines or containers that match the given spec.
-        :param container_type: machine type ('machine', KVM_MACHINE,
-                LXC_MACHINE)
-        :param machine: obtain a specific machine if available
-        :param container: obtain a specific container on the given machine if
-                available
-        :param count: number of machines to allocate/create
-        :return: list of machine IDs
-        """
+    # Allocate more hosts as needed
+    if machines_to_add > 0:
+        client.juju('add-machine', ('-n', str(machines_to_add)))
+    status = client.wait_for_started()
+    hosts = sorted(status.status['machines'].keys())[:2]
 
-        # Allow user to send integers for ease of calling
-        if machine is not None:
-            machine = str(machine)
-        if container is not None:
-            container = str(container)
+    # Find existing containers
+    required = dict(zip(hosts, [copy(container_types) for h in hosts]))
+    required[hosts[0]] += container_types
+    for c in status.iter_machines(containers=True, machines=False):
+        host, type, id = c[0].split('/')
+        if type in required[host]:
+            required[host].remove(type)
 
-        self.count = count
-        self.requested_machines = []
-        self.allocated_machines = []
+    # Start any new containers we need
+    for host, containers in required.iteritems():
+        for container in containers:
+            client.juju('add-machine', ('{}:{}'.format(container, host)))
 
-        status = self.client.get_status().status
+    status = client.wait_for_started()
 
-        for s in status['services'].values():
-            for u in s['units'].values():
-                self.allocated_machines.append(u['machine'])
+    # Build a list of containers, now they have all started
+    tmp = dict(zip(hosts, [[] for h in hosts]))
+    containers = dict(zip(container_types,
+                          [deepcopy(tmp) for t in container_types]))
+    for c in status.iter_machines(containers=True, machines=False):
+        host, type, id = c[0].split('/')
+        if type in containers and host in containers[type]:
+            containers[type][host].append(c[0])
 
-        if container_type in [KVM_MACHINE, LXC_MACHINE]:
-            self._get_container(status, machine, container, container_type)
-        elif container_type is None:
-            self._get_machine(status, machine)
-        else:
-            raise ValueError("Unrecognised container type %r" % container_type)
-
-        return self.requested_machines
-
-    def _add_new_machines(self, machine_spec):
-        req_machines = [machine_spec for _ in range(self._new_machine_count())]
-        self._add_machines_worker(req_machines)
-        self.client.wait_for_started(60 * 10)
-
-    def _add_machines_worker(self, machines):
-        if len(machines) > 0:
-            with self.client.juju_async('add-machine', machines[0]):
-                if len(machines) > 1:
-                    self._add_machines_worker(machines[1:])
-
-    def _new_machine_count(self):
-        return self.count - len(self.requested_machines)
-
-    def _get_machine(self, status, machine):
-        # If we have the requested machine, return it if it exists
-        if machine:
-            if machine in status['machines']:
-                self.requested_machines.append(machine)
-            return
-
-        self._allocate_free_machines()
-        self._add_new_machines('')
-        self._allocate_free_machines()
-
-    def _get_container(self, status, machine, container, container_type):
-        if machine is not None and machine in status['machines']:
-            hosts = [machine]
-
-            if container is not None:
-                name = '/'.join([machine, container_type, container])
-                m = status['machines'][machine]
-                if 'containers' in m and name in m['containers']:
-                    self.requested_machines.append(name)
-                return
-        else:
-            hosts = sorted(status['machines'].keys())
-
-        self._allocate_free_containers(hosts, container_type)
-        req = container_type + ':' + (machine or '0')
-        self._add_new_machines(req)
-        self._allocate_free_containers(hosts, container_type)
-
-    def _allocate_free_containers(self, hosts, container_type):
-        status = self.client.get_status().status
-        for m in hosts:
-            if 'containers' in status['machines'][m]:
-                for c in status['machines'][m]['containers']:
-                    self._try_allocation(c, container_type)
-
-    def _allocate_free_machines(self):
-        status = self.client.get_status().status
-        for m in status['machines']:
-            self._try_allocation(m)
-
-    def _try_allocation(self, machine, container_type=None):
-        if (machine not in self.requested_machines and
-                machine not in self.allocated_machines):
-            if container_type is not None:
-                if container_type != machine.split('/')[1]:
-                    return
-
-            self.requested_machines.append(machine)
-            if self._new_machine_count() == 0:
-                return
+    return hosts, containers
