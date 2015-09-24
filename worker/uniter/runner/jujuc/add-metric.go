@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"gopkg.in/juju/charm.v5"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 // Metric represents a single metric set by the charm.

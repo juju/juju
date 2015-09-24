@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
-
 	"github.com/juju/juju/testing"
 )
 

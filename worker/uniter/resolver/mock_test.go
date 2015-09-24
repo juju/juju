@@ -5,7 +5,7 @@ package resolver_test
 
 import (
 	"github.com/juju/testing"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/uniter/hook"

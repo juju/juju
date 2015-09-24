@@ -5,7 +5,7 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 // Unit holds the values for the hook context.
