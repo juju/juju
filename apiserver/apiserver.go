@@ -52,6 +52,7 @@ type Server struct {
 	limiter           utils.Limiter
 	validator         LoginValidator
 	adminApiFactories map[int]adminApiFactory
+	mongoUnavailable  bool
 
 	// bakeryService holds the service that is
 	// used to verify macaroon authorization. It
@@ -383,6 +384,11 @@ func (srv *Server) run(lis net.Listener) {
 	srv.wg.Add(1)
 	go func() {
 		err := srv.mongoPinger()
+		// Before killing the tomb, inform the API handlers that
+		// Mongo is unavailable. API handlers can use this to decide
+		// not to perform non-critical Mongo-related operations when
+		// tearing down.
+		srv.mongoUnavailable = true
 		srv.tomb.Kill(err)
 		srv.wg.Done()
 	}()

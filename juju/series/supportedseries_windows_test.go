@@ -11,11 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/series"
-	"github.com/juju/juju/testing"
 )
 
 type supportedSeriesWindowsSuite struct {
-	testing.BaseSuite
 }
 
 var _ = gc.Suite(&supportedSeriesWindowsSuite{})

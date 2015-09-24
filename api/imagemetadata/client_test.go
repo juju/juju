@@ -178,7 +178,6 @@ func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 }
 
 func (s *imagemetadataSuite) TestUpdateFromPublishedImages(c *gc.C) {
-	c.Skip("temp disable to unblock master - lp:1495542")
 	called := false
 
 	apiCaller := testing.APICallerFunc(
@@ -201,7 +200,6 @@ func (s *imagemetadataSuite) TestUpdateFromPublishedImages(c *gc.C) {
 }
 
 func (s *imagemetadataSuite) TestUpdateFromPublishedImagesFacadeCallError(c *gc.C) {
-	c.Skip("temp disable to unblock master - lp:1495542")
 	called := false
 	msg := "facade failure"
 	apiCaller := testing.APICallerFunc(

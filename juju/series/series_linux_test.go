@@ -7,15 +7,15 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/series"
-	"github.com/juju/juju/testing"
 )
 
 type linuxVersionSuite struct {
-	testing.BaseSuite
+	testing.CleanupSuite
 }
 
 var futureReleaseFileContents = `NAME="Ubuntu"
@@ -34,6 +34,8 @@ var distroInfoContents = `version,codename,series,created,release,eol,eol-server
 var _ = gc.Suite(&linuxVersionSuite{})
 
 func (s *linuxVersionSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
+
 	cleanup := series.SetSeriesVersions(make(map[string]string))
 	s.AddCleanup(func(*gc.C) { cleanup() })
 }
@@ -126,7 +128,7 @@ VERSION_ID="9.10"
 }
 
 type readSeriesSuite struct {
-	testing.BaseSuite
+	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&readSeriesSuite{})
