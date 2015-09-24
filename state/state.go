@@ -118,13 +118,9 @@ func (st *State) RemoveAllEnvironDocs() error {
 		Id:     id,
 		Remove: true,
 	}, {
-		C:  environmentsC,
-		Id: st.EnvironUUID(),
-		// TODO(waigani) assert dead only before landing in master.
-		Assert: bson.D{{"$or", []bson.D{
-			bson.D{{"life", Dying}},
-			bson.D{{"life", Dead}},
-		}}},
+		C:      environmentsC,
+		Id:     st.EnvironUUID(),
+		Assert: bson.D{{"life", Dead}},
 		Remove: true,
 	}}
 

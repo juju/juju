@@ -52,6 +52,10 @@ func (u *UndertakerAPI) EnvironInfo() (params.UndertakerEnvironInfoResult, error
 		Life:        params.Life(env.Life().String()),
 		TimeOfDeath: &tod,
 	}
+	if tod.IsZero() {
+		result.Result.TimeOfDeath = nil
+	}
+
 	return result, nil
 }
 
