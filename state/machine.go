@@ -1286,7 +1286,6 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		setPublicAddressOps, newPublic, changedPublic = machine.getPublicAddressOps(allAddresses)
 		ops = append(ops, setPrivateAddressOps...)
 		ops = append(ops, setPublicAddressOps...)
-		logger.Errorf("%v\n%#v\n\n", attempt, ops)
 		return ops, nil
 	}
 	err = m.st.run(buildTxn)
