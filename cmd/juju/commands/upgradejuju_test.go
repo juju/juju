@@ -603,7 +603,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
-	fakeAPI.setVersionErr = common.ErrOperationBlocked("The operation has been blocked.")
+	fakeAPI.setVersionErr = common.OperationBlockedError("the operation has been blocked")
 	fakeAPI.patch(s)
 	cmd := &upgradeJujuCommand{}
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})

@@ -52,11 +52,11 @@ func (s *baseBackupsSuite) backupURL(c *gc.C) string {
 }
 
 func (s *baseBackupsSuite) checkErrorResponse(c *gc.C, resp *http.Response, statusCode int, msg string) {
-	c.Check(resp.StatusCode, gc.Equals, statusCode)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeJSON)
-
 	body, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(resp.StatusCode, gc.Equals, statusCode, gc.Commentf("body: %s", body))
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeJSON)
 
 	var failure params.Error
 	err = json.Unmarshal(body, &failure)

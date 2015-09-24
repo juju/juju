@@ -165,7 +165,7 @@ func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
 
 func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockAddUnit")
+	s.fake.err = common.OperationBlockedError("TestBlockAddUnit")
 	s.runAddUnit(c, "some-service-name")
 
 	// msg is logged

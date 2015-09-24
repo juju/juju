@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"golang.org/x/net/websocket"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -120,10 +120,10 @@ type debugLogSocket interface {
 	io.Writer
 
 	// sendOk sends a nil error response, indicating there were no errors.
-	sendOk() error
+	sendOk()
 
 	// sendError sends a JSON-encoded error response.
-	sendError(err error) error
+	sendError(err error)
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
@@ -133,26 +133,16 @@ type debugLogSocketImpl struct {
 	*websocket.Conn
 }
 
-// sendOK implements debugLogSocket.
-func (s *debugLogSocketImpl) sendOk() error {
-	return s.sendError(nil)
+// sendOk implements debugLogSocket.
+func (s *debugLogSocketImpl) sendOk() {
+	s.sendError(nil)
 }
 
-// sendErr implements debugLogSocket.
-func (s *debugLogSocketImpl) sendError(err error) error {
-	response := &params.ErrorResult{}
-	if err != nil {
-		response.Error = &params.Error{Message: fmt.Sprint(err)}
-	}
-	message, err := json.Marshal(response)
-	if err != nil {
-		// If we are having trouble marshalling the error, we are in big trouble.
-		logger.Errorf("failure to marshal SimpleError: %v", err)
-		return err
-	}
-	message = append(message, []byte("\n")...)
-	_, err = s.Conn.Write(message)
-	return err
+// sendError implements debugLogSocket.
+func (s *debugLogSocketImpl) sendError(err error) {
+	sendJSON(s.Conn, &params.ErrorResult{
+		Error: common.ServerError(err),
+	})
 }
 
 // debugLogParams contains the parsed debuglog API request parameters.

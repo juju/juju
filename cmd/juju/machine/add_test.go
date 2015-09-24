@@ -181,7 +181,7 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fakeAddMachine.addError = common.ErrOperationBlocked("TestBlockedError")
+	s.fakeAddMachine.addError = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged

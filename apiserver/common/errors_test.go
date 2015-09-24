@@ -137,9 +137,9 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeLeadershipClaimDenied,
 }, {
-	err:        common.ErrOperationBlocked("test"),
+	err:        common.OperationBlockedError("test"),
 	code:       params.CodeOperationBlocked,
-	status:     http.StatusInternalServerError,
+	status:     http.StatusBadRequest,
 	helperFunc: params.IsCodeOperationBlocked,
 }, {
 	err:        errors.NotSupportedf("needed feature"),

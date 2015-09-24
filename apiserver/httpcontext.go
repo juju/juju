@@ -6,6 +6,7 @@ package apiserver
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -37,11 +38,7 @@ type errorSender interface {
 	sendError(w http.ResponseWriter, code int, err error)
 }
 
-// authError sends an unauthorized error.
-func (h *httpContext) authError(w http.ResponseWriter, sender errorSender) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	sender.sendError(w, http.StatusUnauthorized, errors.New("unauthorized"))
-}
+var errUnauthorized = errors.NewUnauthorized(nil, "unauthorized")
 
 func (h *httpContext) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
 	envUUID := h.getEnvironUUID(r)
@@ -55,31 +52,6 @@ func (h *httpContext) validateEnvironUUID(r *http.Request) (*httpStateWrapper, e
 		return nil, errors.Trace(err)
 	}
 	return &httpStateWrapper{state: envState}, nil
-}
-
-// sendJSON sends a JSON-encoded response to the client.
-func (h *httpContext) sendJSON(w http.ResponseWriter, statusCode int, response interface{}) {
-	body, err := json.Marshal(response)
-	if err != nil {
-		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
-		return
-	}
-
-	if statusCode == http.StatusUnauthorized {
-		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	}
-	w.Header().Set("Content-Type", apihttp.CTypeJSON)
-	w.WriteHeader(statusCode)
-	w.Write(body)
-}
-
-// sendError sends a JSON-encoded error response
-// for errors encountered during processing.
-func (h *httpContext) sendError(w http.ResponseWriter, statusCode int, err error) {
-	logger.Debugf("sending error: %v %v", statusCode, err)
-	h.sendJSON(w, statusCode, &params.ErrorResult{
-		Error: common.ServerError(err),
-	})
 }
 
 func authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
@@ -157,4 +129,43 @@ func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error)
 	default:
 		return nil, common.ErrBadCreds
 	}
+}
+
+// sendJSON writes a JSON-encoded response value
+// to the given writer along with a trailing newline.
+func sendJSON(w io.Writer, response interface{}) {
+	body, err := json.Marshal(response)
+	if err != nil {
+		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
+		return
+	}
+	body = append(body, '\n')
+	w.Write(body)
+}
+
+// sendStatusAndJSON sends an HTTP status code and
+// a JSON-encoded response to a client.
+func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
+	body, err := json.Marshal(response)
+	if err != nil {
+		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
+		return
+	}
+
+	if statusCode == http.StatusUnauthorized {
+		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
+	}
+	w.Header().Set("Content-Type", apihttp.CTypeJSON)
+	w.WriteHeader(statusCode)
+	w.Write(body)
+}
+
+// sendError sends a JSON-encoded error response
+// for errors encountered during processing.
+func sendError(w http.ResponseWriter, err error) {
+	err1, statusCode := common.ServerErrorAndStatus(err)
+	logger.Debugf("sending error: %d %v", statusCode, err1)
+	sendStatusAndJSON(w, statusCode, &params.ErrorResult{
+		Error: err1,
+	})
 }

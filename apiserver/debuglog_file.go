@@ -52,9 +52,7 @@ func (h *debugLogFileHandler) handle(
 	}
 
 	// If we get to here, no more errors to report.
-	if err := socket.sendOk(); err != nil {
-		return err
-	}
+	socket.sendOk()
 
 	stream.start(logFile, socket)
 	return stream.wait(stop)

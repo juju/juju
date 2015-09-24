@@ -143,7 +143,7 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 }
 
 func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
-	s.fake.err = common.ErrOperationBlocked("TestBlockRetryProvisioning")
+	s.fake.err = common.OperationBlockedError("TestBlockRetryProvisioning")
 	command := environment.NewRetryProvisioningCommand(s.fake)
 
 	for i, t := range resolvedMachineTests {

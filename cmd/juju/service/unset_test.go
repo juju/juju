@@ -50,7 +50,7 @@ func (s *UnsetSuite) TestUnsetOptionOneByOneSuccess(c *gc.C) {
 
 func (s *UnsetSuite) TestBlockUnset(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockUnset")
+	s.fake.err = common.OperationBlockedError("TestBlockUnset")
 	ctx := coretesting.ContextForDir(c, s.dir)
 	code := cmd.Main(service.NewUnsetCommand(s.fake), ctx, []string{
 		"dummy-service",

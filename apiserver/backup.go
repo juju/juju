@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
+	"github.com/juju/juju/apiserver/common"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -34,12 +35,12 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// on the state connection that is determined during the validation.
 	stateWrapper, err := h.ctxt.validateEnvironUUID(req)
 	if err != nil {
-		h.sendError(resp, http.StatusNotFound, err)
+		h.sendError(resp, err)
 		return
 	}
 
 	if err := stateWrapper.authenticateUser(req); err != nil {
-		h.ctxt.authError(resp, h)
+		h.sendError(resp, errUnauthorized)
 		return
 	}
 
@@ -51,7 +52,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		logger.Infof("handling backups download request")
 		id, err := h.download(backups, resp, req)
 		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err)
+			h.sendError(resp, err)
 			return
 		}
 		logger.Infof("backups download request successful for %q", id)
@@ -59,12 +60,12 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		logger.Infof("handling backups upload request")
 		id, err := h.upload(backups, resp, req)
 		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err)
+			h.sendError(resp, err)
 			return
 		}
 		logger.Infof("backups upload request successful for %q", id)
 	default:
-		h.sendError(resp, http.StatusMethodNotAllowed, errors.Errorf("unsupported method: %q", req.Method))
+		h.sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
 }
 
@@ -106,7 +107,7 @@ func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter
 		return "", err
 	}
 
-	h.ctxt.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
+	sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
 	return id, nil
 }
 
@@ -162,11 +163,11 @@ func (h *backupHandler) sendFile(file io.Reader, checksum string, algorithm apih
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, err error) {
-	failure := params.Error{
-		Message: err.Error(),
-		// Leave Code empty.
-	}
+// Note the difference from the error response sent by
+// the sendError function - the error is encoded directly
+// rather than in the Error field.
+func (h *backupHandler) sendError(w http.ResponseWriter, err error) {
+	err, status := common.ServerErrorAndStatus(err)
 
-	h.ctxt.sendJSON(w, statusCode, &failure)
+	sendStatusAndJSON(w, status, err)
 }
