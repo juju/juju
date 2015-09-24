@@ -205,6 +205,7 @@ var (
 				"series":      "quantal",
 			},
 			"1/lxc/1": M{
+				"agent-state": "pending",
 				"instance-id": "pending",
 				"series":      "quantal",
 			},
@@ -277,6 +278,7 @@ var statusTests = []testCase{
 				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
+						"agent-state":                "pending",
 						"instance-id":                "pending",
 						"series":                     "quantal",
 						"state-server-member-status": "adding-vote",
@@ -405,6 +407,7 @@ var statusTests = []testCase{
 				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
+						"agent-state":                "pending",
 						"instance-id":                "pending",
 						"series":                     "quantal",
 						"state-server-member-status": "adding-vote",
@@ -613,7 +616,7 @@ var statusTests = []testCase{
 					"3": M{
 						"dns-name":         "dummyenv-3.dns",
 						"instance-id":      "dummyenv-3",
-						"agent-state":      "down",
+						"agent-state":      "stopped",
 						"agent-state-info": "(stopped: Really?)",
 						"series":           "quantal",
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
@@ -627,6 +630,7 @@ var statusTests = []testCase{
 						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
+						"agent-state": "pending",
 						"life":        "dead",
 						"instance-id": "pending",
 						"series":      "quantal",
@@ -1125,6 +1129,7 @@ var statusTests = []testCase{
 				"available-version": nextVersion,
 				"machines": M{
 					"0": M{
+						"agent-state": "pending",
 						"instance-id": "pending",
 						"series":      "quantal",
 					},
@@ -3751,4 +3756,40 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 		defer s.resetContext(c, ctx)
 		ctx.run(c, t.steps)
 	}(statusTimeTest)
+}
+
+func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
+	status := &params.FullStatus{
+		Machines: map[string]params.MachineStatus{
+			"1": params.MachineStatus{
+				Agent: params.AgentStatus{
+					Status: "error",
+					Info:   "<error while provisioning>",
+				},
+				AgentState:     "",
+				AgentStateInfo: "<error while provisioning>",
+				InstanceId:     "pending",
+				InstanceState:  "",
+				Series:         "trusty",
+				Id:             "1",
+				Jobs:           []multiwatcher.MachineJob{"JobHostUnits"},
+			},
+		},
+	}
+	formatter := newStatusFormatter(status, 0, true)
+	formatted := formatter.format()
+
+	c.Check(formatted, jc.DeepEquals, formattedStatus{
+		Machines: map[string]machineStatus{
+			"1": machineStatus{
+				AgentState:     "error",
+				AgentStateInfo: "<error while provisioning>",
+				InstanceId:     "pending",
+				Series:         "trusty",
+				Id:             "1",
+				Containers:     map[string]machineStatus{},
+			},
+		},
+		Services: map[string]serviceStatus{},
+	})
 }
