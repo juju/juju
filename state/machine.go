@@ -1095,7 +1095,7 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 	return privateAddress, err
 }
 
-func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
+func (m *Machine) setPreferredAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
 	addr := fromNetworkAddress(netAddr)
 	fieldName := "preferredprivateaddress"
 	current := m.doc.PreferredPrivateAddress
@@ -1116,7 +1116,7 @@ func (m *Machine) getPreferredAddressOps(netAddr network.Address, isPublic bool)
 	return ops
 }
 
-func (m *Machine) getPublicAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
+func (m *Machine) setPublicAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	// Always prefer an exact match if available.
 	checkScope := func(addr network.Address) bool {
@@ -1134,11 +1134,11 @@ func (m *Machine) getPublicAddressOps(addresses []network.Address) ([]txn.Op, ne
 		return []txn.Op{}, publicAddress, false
 	}
 
-	ops := m.getPreferredAddressOps(newAddr, true)
+	ops := m.setPreferredAddressOps(newAddr, true)
 	return ops, newAddr, true
 }
 
-func (m *Machine) getPrivateAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
+func (m *Machine) setPrivateAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	// Always prefer an exact match if available.
 	checkScope := func(addr network.Address) bool {
@@ -1155,7 +1155,7 @@ func (m *Machine) getPrivateAddressOps(addresses []network.Address) ([]txn.Op, n
 		// No change, so no ops.
 		return []txn.Op{}, privateAddress, false
 	}
-	ops := m.getPreferredAddressOps(newAddr, false)
+	ops := m.setPreferredAddressOps(newAddr, false)
 	return ops, newAddr, true
 }
 
@@ -1282,8 +1282,8 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		network.SortAddresses(allAddresses, envConfig.PreferIPv6())
 
 		var setPrivateAddressOps, setPublicAddressOps []txn.Op
-		setPrivateAddressOps, newPrivate, changedPrivate = machine.getPrivateAddressOps(allAddresses)
-		setPublicAddressOps, newPublic, changedPublic = machine.getPublicAddressOps(allAddresses)
+		setPrivateAddressOps, newPrivate, changedPrivate = machine.setPrivateAddressOps(allAddresses)
+		setPublicAddressOps, newPublic, changedPublic = machine.setPublicAddressOps(allAddresses)
 		ops = append(ops, setPrivateAddressOps...)
 		ops = append(ops, setPublicAddressOps...)
 		return ops, nil
