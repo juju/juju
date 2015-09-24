@@ -295,8 +295,9 @@ def get_args(argv=None):
         's3_directory',
         help="Directory under the bucket name to store files.")
     parser.add_argument(
-        '--unique-id', action='store_true',
-        help='Let this script generate unique ID to be used for filenames.')
+        '--unique-id',
+        help='Unique ID to be used to generate file names. If this is not '
+             'set, the parent build number will be used as a unique ID.')
     add_credential_args(parser)
     args = parser.parse_args(argv)
     args.all = False
@@ -315,10 +316,9 @@ def get_args(argv=None):
 def main(argv=None):
     args = get_args(argv)
     cred = get_credentials(args)
-    unique_id = os.getenv('BUILD_NUMBER') if args.unque_id else None
     uploader = S3Uploader.factory(
         cred, args.jenkins_job, args.build_number, args.s3_bucket,
-        args.s3_directory, unique_id=unique_id)
+        args.s3_directory, unique_id=args.unique_id)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
         uploader.upload()

@@ -499,7 +499,7 @@ class OtherTests(TestCase):
         self.assertEqual(args, Namespace(
             all=False, build_number=1277, jenkins_job=JOB_NAME, latest=False,
             password=None, s3_bucket=BUCKET, s3_directory=DIRECTORY,
-            unique_id=False, user=None))
+            unique_id=None, user=None))
 
     def test_get_s3_access(self):
         path = '/u/home'
