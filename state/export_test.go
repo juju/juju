@@ -63,6 +63,28 @@ type (
 	BlockDevicesDoc blockDevicesDoc
 )
 
+// ensure watchers meet interface requirements
+var (
+	_ Watcher = (*cleanupWatcher)(nil)
+	_ Watcher = (*docWatcher)(nil)
+	_ Watcher = (*EnvironConfigWatcher)(nil)
+	_ Watcher = (*lifecycleWatcher)(nil)
+	_ Watcher = (*machineAddressesWatcher)(nil)
+	_ Watcher = (*machineUnitsWatcher)(nil)
+	_ Watcher = (*minUnitsWatcher)(nil)
+	_ Watcher = (*openedPortsWatcher)(nil)
+	_ Watcher = (*RelationScopeWatcher)(nil)
+	_ Watcher = (*relationUnitsWatcher)(nil)
+	_ Watcher = (*settingsWatcher)(nil)
+	_ Watcher = (*unitsWatcher)(nil)
+
+	_ NotifyWatcher = (*blockDevicesWatcher)(nil)
+	_ NotifyWatcher = (*machineInterfacesWatcher)(nil)
+
+	_ StringsWatcher = (*actionStatusWatcher)(nil)
+	_ StringsWatcher = (*idPrefixWatcher)(nil)
+)
+
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
 }

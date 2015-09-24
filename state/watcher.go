@@ -131,8 +131,6 @@ func hasString(changes []string, name string) bool {
 	return false
 }
 
-var _ Watcher = (*lifecycleWatcher)(nil)
-
 // lifecycleWatcher notifies about lifecycle changes for a set of entities of
 // the same kind. The first event emitted will contain the ids of all
 // entities; subsequent events are emitted whenever one or more entities are
@@ -562,8 +560,6 @@ type minUnitsWatcher struct {
 	out   chan []string
 }
 
-var _ Watcher = (*minUnitsWatcher)(nil)
-
 func newMinUnitsWatcher(st *State) StringsWatcher {
 	w := &minUnitsWatcher{
 		commonWatcher: commonWatcher{st: st},
@@ -705,8 +701,6 @@ func (info *scopeInfo) changes() *RelationScopeChange {
 	}
 	return ch
 }
-
-var _ Watcher = (*RelationScopeWatcher)(nil)
 
 // RelationScopeChange contains information about units that have
 // entered or left a particular scope.
@@ -863,9 +857,6 @@ type relationUnitsWatcher struct {
 	updates  chan watcher.Change
 	out      chan multiwatcher.RelationUnitsChange
 }
-
-// TODO(dfc) this belongs in a test
-var _ Watcher = (*relationUnitsWatcher)(nil)
 
 // Watch returns a watcher that notifies of changes to conterpart units in
 // the relation.
@@ -1027,8 +1018,6 @@ type unitsWatcher struct {
 	in       chan watcher.Change
 	out      chan []string
 }
-
-var _ Watcher = (*unitsWatcher)(nil)
 
 // WatchSubordinateUnits returns a StringsWatcher tracking the unit's subordinate units.
 func (u *Unit) WatchSubordinateUnits() StringsWatcher {
@@ -1241,8 +1230,6 @@ type EnvironConfigWatcher struct {
 	out chan *config.Config
 }
 
-var _ Watcher = (*EnvironConfigWatcher)(nil)
-
 // WatchEnvironConfig returns a watcher for observing changes
 // to the environment configuration.
 func (st *State) WatchEnvironConfig() *EnvironConfigWatcher {
@@ -1301,8 +1288,6 @@ type settingsWatcher struct {
 	commonWatcher
 	out chan *Settings
 }
-
-var _ Watcher = (*settingsWatcher)(nil)
 
 // watchSettings creates a watcher for observing changes to settings.
 func (st *State) watchSettings(key string) *settingsWatcher {
@@ -1497,8 +1482,6 @@ type docWatcher struct {
 	out chan struct{}
 }
 
-var _ Watcher = (*docWatcher)(nil)
-
 type docKey struct {
 	coll string
 	key  interface{}
@@ -1587,8 +1570,6 @@ type machineUnitsWatcher struct {
 	in      chan watcher.Change
 	known   map[string]Life
 }
-
-var _ Watcher = (*machineUnitsWatcher)(nil)
 
 // WatchUnits returns a new StringsWatcher watching m's units.
 func (m *Machine) WatchUnits() StringsWatcher {
@@ -1740,8 +1721,6 @@ type machineAddressesWatcher struct {
 	out     chan struct{}
 }
 
-var _ Watcher = (*machineAddressesWatcher)(nil)
-
 // WatchAddresses returns a new NotifyWatcher watching m's addresses.
 func (m *Machine) WatchAddresses() NotifyWatcher {
 	return newMachineAddressesWatcher(m)
@@ -1805,8 +1784,6 @@ type cleanupWatcher struct {
 	out chan struct{}
 }
 
-var _ Watcher = (*cleanupWatcher)(nil)
-
 // WatchCleanups starts and returns a CleanupWatcher.
 func (st *State) WatchCleanups() NotifyWatcher {
 	return newCleanupWatcher(st)
@@ -1863,8 +1840,6 @@ type actionStatusWatcher struct {
 	receiverFilter bson.D
 	statusFilter   bson.D
 }
-
-var _ StringsWatcher = (*actionStatusWatcher)(nil)
 
 // newActionStatusWatcher returns the StringsWatcher that will notify
 // on changes to Actions with the given ActionReceiver and ActionStatus
@@ -2068,10 +2043,6 @@ type idPrefixWatcher struct {
 	filterFn prefixFilter
 	targetC  string
 }
-
-// ensure idPrefixWatcher is a StringsWatcher
-// TODO(dfc) this needs to move to a test
-var _ StringsWatcher = (*idPrefixWatcher)(nil)
 
 // newIdPrefixWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
@@ -2320,8 +2291,6 @@ type machineInterfacesWatcher struct {
 	in        chan watcher.Change
 }
 
-var _ NotifyWatcher = (*machineInterfacesWatcher)(nil)
-
 // WatchInterfaces returns a new NotifyWatcher watching m's network interfaces.
 func (m *Machine) WatchInterfaces() NotifyWatcher {
 	return newMachineInterfacesWatcher(m)
@@ -2450,8 +2419,6 @@ type openedPortsWatcher struct {
 	known map[string]int64
 	out   chan []string
 }
-
-var _ Watcher = (*openedPortsWatcher)(nil)
 
 // WatchOpenedPorts starts and returns a StringsWatcher notifying of
 // changes to the openedPorts collection. Reported changes have the
@@ -2659,8 +2626,6 @@ type blockDevicesWatcher struct {
 	machineId string
 	out       chan struct{}
 }
-
-var _ NotifyWatcher = (*blockDevicesWatcher)(nil)
 
 func newBlockDevicesWatcher(st *State, machineId string) NotifyWatcher {
 	w := &blockDevicesWatcher{
