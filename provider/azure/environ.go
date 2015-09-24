@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
