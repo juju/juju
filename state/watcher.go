@@ -1002,16 +1002,10 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if !ok {
 				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
 			}
-			revno, err := w.mergeSettings(&changes, id)
-			if err != nil {
+			if _, err := w.mergeSettings(&changes, id); err != nil {
 				return err
 			}
-			if true || revno == c.Revno {
-				// Only send if we read the revno we were notified
-				// about. If we read a newer revno, wait until the
-				// next notification before sending.
-				out = w.out
-			}
+			out = w.out
 		case out <- changes:
 			sentInitial = true
 			changes = multiwatcher.RelationUnitsChange{}
