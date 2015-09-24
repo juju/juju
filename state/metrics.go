@@ -38,6 +38,7 @@ type metricBatchDoc struct {
 	Unit        string    `bson:"unit"`
 	CharmUrl    string    `bson:"charmurl"`
 	Sent        bool      `bson:"sent"`
+	DeleteTime  time.Time `bson:"delete-time"`
 	Created     time.Time `bson:"created"`
 	Metrics     []Metric  `bson:"metrics"`
 	Credentials []byte    `bson:"credentials"`
@@ -188,17 +189,17 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	age := time.Now().Add(-(CleanupAge))
-	metricsLogger.Tracef("cleaning up metrics created before %v", age)
+	now := time.Now()
 	metrics, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
 	// to watch them either; so in this instance it's safe to do an end run around the
 	// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
 	metricsW := metrics.Writeable()
+	// TODO (mattyw) iter over this.
 	info, err := metricsW.RemoveAll(bson.M{
-		"sent":    true,
-		"created": bson.M{"$lte": age},
+		"sent":        true,
+		"delete-time": bson.M{"$lte": now},
 	})
 	metricsLogger.Tracef("cleanup removed %d metrics", info.Removed)
 	return errors.Trace(err)
@@ -291,14 +292,17 @@ func (m *MetricBatch) Metrics() []Metric {
 	return result
 }
 
-// SetSent sets the sent flag to true
-func (m *MetricBatch) SetSent() error {
-	ops := setSentOps([]string{m.UUID()})
+// SetSent marks the metric has having been sent at
+// the specified time.
+func (m *MetricBatch) SetSent(t time.Time) error {
+	deleteTime := t.UTC().Add(CleanupAge)
+	ops := setSentOps([]string{m.UUID()}, deleteTime)
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
 	}
 
 	m.doc.Sent = true
+	m.doc.DeleteTime = deleteTime
 	return nil
 }
 
@@ -307,14 +311,14 @@ func (m *MetricBatch) Credentials() []byte {
 	return m.doc.Credentials
 }
 
-func setSentOps(batchUUIDs []string) []txn.Op {
+func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 	ops := make([]txn.Op, len(batchUUIDs))
 	for i, u := range batchUUIDs {
 		ops[i] = txn.Op{
 			C:      metricsC,
 			Id:     u,
 			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"sent": true}},
+			Update: bson.M{"$set": bson.M{"sent": true, "delete-time": deleteTime}},
 		}
 	}
 	return ops
@@ -322,7 +326,8 @@ func setSentOps(batchUUIDs []string) []txn.Op {
 
 // SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
 func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
-	ops := setSentOps(batchUUIDs)
+	deleteTime := time.Now().UTC().Add(CleanupAge)
+	ops := setSentOps(batchUUIDs, deleteTime)
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")
 	}

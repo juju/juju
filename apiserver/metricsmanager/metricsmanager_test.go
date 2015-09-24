@@ -77,8 +77,8 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
 	metric := state.Metric{"pings", "5", newTime}
-	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &oldTime, Metrics: []state.Metric{metric}})
-	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &newTime, Metrics: []state.Metric{metric}})
+	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &oldTime, Metrics: []state.Metric{metric}})
+	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &newTime, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
 		{s.State.EnvironTag().String()},
 	}}
