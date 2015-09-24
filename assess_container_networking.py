@@ -1,20 +1,23 @@
 #!/usr/bin/env python
 from __future__ import print_function
-
-__metaclass__ = type
-
+import subprocess
+from copy import (
+    copy,
+    deepcopy,
+)
 import logging
+import time
 import re
 import tempfile
 import os
 import socket
 from textwrap import dedent
+from argparse import ArgumentParser
 
 from jujuconfig import (
     get_juju_home,
 )
 from jujupy import (
-    make_client,
     parse_new_state_server_from_error,
     temp_bootstrap_env,
     SimpleEnvironment,
@@ -29,11 +32,10 @@ from deploy_stack import (
     dump_env_logs,
 )
 
-from argparse import ArgumentParser
-
-
 KVM_MACHINE = 'kvm'
 LXC_MACHINE = 'lxc'
+
+__metaclass__ = type
 
 
 def parse_args(argv=None):
@@ -75,7 +77,17 @@ def ssh(client, machine, cmd):
     :param cmd: the command to run
     :return: text output of the command
     """
-    return client.get_juju_output('ssh', machine, cmd)
+    try:
+        return client.get_juju_output('ssh', machine, cmd)
+    except subprocess.CalledProcessError as e:
+        # If the connection to the host failed, try again in a couple of
+        # seconds. This is usually due to heavy load.
+        if e.returncode == 255:
+            if re.search('ssh_exchange_identification: '
+                         'Connection closed by remote host', e.stderr):
+                time.sleep(2)
+                return client.get_juju_output('ssh', machine, cmd)
+        raise
 
 
 def clean_environment(client, services_only=False):
@@ -86,6 +98,13 @@ def clean_environment(client, services_only=False):
 
     :param client: a Juju client
     """
+    try:
+        client.get_juju_output('status')
+    except subprocess.CalledProcessError:
+        # If we fail to get status then the environment doesn't exist. Since
+        # there is nothing to clean, we return False to say that we failed.
+        return False
+
     status = client.get_status()
     for service in status.status['services']:
         client.juju('remove-service', service)
@@ -105,119 +124,53 @@ def clean_environment(client, services_only=False):
         client.wait_for('machines-not-0', 'none')
 
     client.wait_for_started()
+    return True
 
 
-class MachineGetter:
-    def __init__(self, client):
-        """Get or allocate machines in this Juju environment
-        :param client: Juju client
-        """
-        self.client = client
-        self.count = None
-        self.requested_machines = []
-        self.allocated_machines = []
+def make_machines(client, container_types):
+    """Make a test environment consisting of:
+       Two host machines.
+       Two of each container_type on one host machine.
+       One of each container_type on one host machine.
+    :param client: An EnvJujuClient
+    :param container_types: list of containers to create
+    :return: hosts (list), containers {container_type}{host}[containers]
+    """
+    # Find existing host machines
+    old_hosts = client.get_status().status['machines']
+    machines_to_add = 2 - len(old_hosts)
 
-    def get(self, container_type=None, machine=None, container=None, count=1):
-        """Get one or more machines or containers that match the given spec.
-        :param container_type: machine type ('machine', KVM_MACHINE,
-                LXC_MACHINE)
-        :param machine: obtain a specific machine if available
-        :param container: obtain a specific container on the given machine if
-                available
-        :param count: number of machines to allocate/create
-        :return: list of machine IDs
-        """
+    # Allocate more hosts as needed
+    if machines_to_add > 0:
+        client.juju('add-machine', ('-n', str(machines_to_add)))
+    status = client.wait_for_started()
+    hosts = sorted(status.status['machines'].keys())[:2]
 
-        # Allow user to send integers for ease of calling
-        if machine is not None:
-            machine = str(machine)
-        if container is not None:
-            container = str(container)
+    # Find existing containers
+    required = dict(zip(hosts, [copy(container_types) for h in hosts]))
+    required[hosts[0]] += container_types
+    for c in status.iter_machines(containers=True, machines=False):
+        host, type, id = c[0].split('/')
+        if type in required[host]:
+            required[host].remove(type)
 
-        self.count = count
-        self.requested_machines = []
-        self.allocated_machines = []
+    # Start any new containers we need
+    for host, containers in required.iteritems():
+        for container in containers:
+            client.juju('add-machine', ('{}:{}'.format(container, host)))
 
-        status = self.client.get_status().status
+    status = client.wait_for_started()
 
-        for s in status['services'].values():
-            for u in s['units'].values():
-                self.allocated_machines.append(u['machine'])
+    # Build a list of containers, now they have all started
+    tmp = dict(zip(hosts, [[] for h in hosts]))
+    containers = dict(zip(container_types,
+                          [deepcopy(tmp) for t in container_types]))
+    for c in status.iter_machines(containers=True, machines=False):
+        host, type, id = c[0].split('/')
+        if type in containers and host in containers[type]:
+            containers[type][host].append(c[0])
 
-        if container_type in [KVM_MACHINE, LXC_MACHINE]:
-            self._get_container(status, machine, container, container_type)
-        elif container_type is None:
-            self._get_machine(status, machine)
-        else:
-            raise ValueError("Unrecognised container type %r" % container_type)
-
-        return self.requested_machines
-
-    def _add_new_machines(self, machine_spec):
-        req_machines = [machine_spec for _ in range(self._new_machine_count())]
-        self._add_machines_worker(req_machines)
-        self.client.wait_for_started(60 * 10)
-
-    def _add_machines_worker(self, machines):
-        if len(machines) > 0:
-            with self.client.juju_async('add-machine', machines[0]):
-                if len(machines) > 1:
-                    self._add_machines_worker(machines[1:])
-
-    def _new_machine_count(self):
-        return self.count - len(self.requested_machines)
-
-    def _get_machine(self, status, machine):
-        # If we have the requested machine, return it if it exists
-        if machine:
-            if machine in status['machines']:
-                self.requested_machines.append(machine)
-            return
-
-        self._allocate_free_machines()
-        self._add_new_machines('')
-        self._allocate_free_machines()
-
-    def _get_container(self, status, machine, container, container_type):
-        if machine is not None and machine in status['machines']:
-            hosts = [machine]
-
-            if container is not None:
-                name = '/'.join([machine, container_type, container])
-                m = status['machines'][machine]
-                if 'containers' in m and name in m['containers']:
-                    self.requested_machines.append(name)
-                return
-        else:
-            hosts = sorted(status['machines'].keys())
-
-        self._allocate_free_containers(hosts, container_type)
-        req = container_type + ':' + (machine or '0')
-        self._add_new_machines(req)
-        self._allocate_free_containers(hosts, container_type)
-
-    def _allocate_free_containers(self, hosts, container_type):
-        status = self.client.get_status().status
-        for m in hosts:
-            if 'containers' in status['machines'][m]:
-                for c in status['machines'][m]['containers']:
-                    self._try_allocation(c, container_type)
-
-    def _allocate_free_machines(self):
-        status = self.client.get_status().status
-        for m in status['machines']:
-            self._try_allocation(m)
-
-    def _try_allocation(self, machine, container_type=None):
-        if (machine not in self.requested_machines and
-                machine not in self.allocated_machines):
-            if container_type is not None:
-                if container_type != machine.split('/')[1]:
-                    return
-
-            self.requested_machines.append(machine)
-            if self._new_machine_count() == 0:
-                return
+    return hosts, containers
 
 
 def find_network(client, machine, addr):
@@ -322,8 +275,40 @@ def _assessment_iteration(client, containers):
     assess_network_traffic(client, containers)
 
 
-def _assess_container_networking(client, args):
+def _assess_container_networking(client, types, hosts, containers):
     """Run _assessment_iteration on all useful combinations of containers
+    :param client: Juju client
+    :param args: Parsed command line arguments
+    :return: None
+    """
+    for container_type in types:
+        # Test with two containers on the same host
+        _assessment_iteration(client, containers[container_type][hosts[0]])
+
+        # Now test with two containers on two different hosts
+        test_containers = [
+            containers[container_type][hosts[0]][0],
+            containers[container_type][hosts[1]][0],
+            ]
+        _assessment_iteration(client, test_containers)
+
+    if KVM_MACHINE in types and LXC_MACHINE in types:
+        test_containers = [
+            containers[LXC_MACHINE][hosts[0]][0],
+            containers[KVM_MACHINE][hosts[0]][0],
+            ]
+        _assessment_iteration(client, test_containers)
+
+        # Test with an LXC and a KVM on different machines
+        test_containers = [
+            containers[LXC_MACHINE][hosts[0]][0],
+            containers[KVM_MACHINE][hosts[1]][0],
+            ]
+        _assessment_iteration(client, test_containers)
+
+
+def assess_container_networking(client, args):
+    """Runs _assess_address_allocation, reboots hosts, repeat.
     :param client: Juju client
     :param args: Parsed command line arguments
     :return: None
@@ -334,67 +319,41 @@ def _assess_container_networking(client, args):
     else:
         types = [KVM_MACHINE, LXC_MACHINE]
 
-    mg = MachineGetter(client)
-    hosts = mg.get(count=2)
-
-    for container_type in types:
-        # Test with two containers on the same host
-        containers = mg.get(container_type, count=2)
-        _assessment_iteration(client, containers)
-
-        # Now test with two containers on two different hosts
-        containers = [mg.get(container_type, machine=hosts[0])[0],
-                      mg.get(container_type, machine=hosts[1])[0]]
-        _assessment_iteration(client, containers)
-
-    if args.machine_type is None:
-        # Test with an LXC and a KVM on the same machine
-        containers = [mg.get(LXC_MACHINE, machine=hosts[0])[0],
-                      mg.get(KVM_MACHINE, machine=hosts[0])[0]]
-        _assessment_iteration(client, containers)
-
-        # Test with an LXC and a KVM on different machines
-        containers = [mg.get(LXC_MACHINE, machine=hosts[0])[0],
-                      mg.get(KVM_MACHINE, machine=hosts[1])[0]]
-        _assessment_iteration(client, containers)
-
-
-def assess_container_networking(client, args):
-    """Runs _assess_address_allocation, reboots hosts, repeat.
-    :param client: Juju client
-    :param args: Parsed command line arguments
-    :return: None
-    """
-    _assess_container_networking(client, args)
-    mg = MachineGetter(client)
-    hosts = mg.get(count=2)
+    hosts, containers = make_machines(client, types)
+    _assess_container_networking(client, types, hosts, containers)
     for host in hosts:
         ssh(client, host, 'sudo reboot')
     client.wait_for_started()
-    _assess_container_networking(client, args)
+    _assess_container_networking(client, types, hosts, containers)
 
 
-def main():
-    args = parse_args()
+def get_client(args):
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(args.env),
         os.path.join(args.juju_bin, 'juju'), args.debug)
     client.enable_container_address_allocation()
     update_env(client.env, args.temp_env_name)
+    return client
+
+
+def main():
+    args = parse_args()
+    client = get_client(args)
     juju_home = get_juju_home()
     bootstrap_host = None
     try:
         if args.clean_environment:
             try:
-                clean_environment(client, services_only=True)
+                if not clean_environment(client, services_only=True):
+                    with temp_bootstrap_env(juju_home, client):
+                        client.bootstrap(args.upload_tools)
             except Exception as e:
                 logging.exception(e)
                 with temp_bootstrap_env(juju_home, client):
                     client.bootstrap(args.upload_tools)
         else:
             client.destroy_environment()
-            client = make_client(
-                args.juju_bin, args.debug, args.env, args.temp_env_name)
+            client = get_client(args)
             with temp_bootstrap_env(juju_home, client):
                 client.bootstrap(args.upload_tools)
 

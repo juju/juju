@@ -27,7 +27,14 @@ class JujuMock(object):
         self.next_machine = 1
         self._ssh_output = []
 
-    def add_machine(self, name):
+    def add_machine(self, args):
+        if isinstance(args, tuple) and args[0] == '-n':
+            for n in range(int(args[1])):
+                self._add_machine('')
+        else:
+            self._add_machine(args)
+
+    def _add_machine(self, name):
         if name == '':
             name = str(self.next_machine)
             self.next_machine += 1
@@ -228,8 +235,8 @@ class TestContainerNetworking(TestCase):
         self.juju_mock.add_service('name')
 
         jcnet.clean_environment(self.client)
-        self.assertEqual(3, len(self.juju_mock.commands))
         self.assertItemsEqual(self.juju_mock.commands, [
+            ('status', ()),
             ('remove-service', 'name'),
             ('remove-machine', '1'),
             ('remove-machine', '2'),
@@ -242,8 +249,8 @@ class TestContainerNetworking(TestCase):
         self.juju_mock.add_machine('kvm:0')
 
         jcnet.clean_environment(self.client)
-        self.assertEqual(4, len(self.juju_mock.commands))
         self.assertItemsEqual(self.juju_mock.commands, [
+            ('status', ()),
             ('remove-machine', '0/lxc/0'),
             ('remove-machine', '0/kvm/0'),
             ('remove-machine', '1'),
@@ -258,72 +265,40 @@ class TestContainerNetworking(TestCase):
         self.juju_mock.add_service('name')
 
         jcnet.clean_environment(self.client, True)
-        self.assertEqual(1, len(self.juju_mock.commands))
         self.assertEqual(self.juju_mock.commands, [
+            ('status', ()),
             ('remove-service', 'name'),
         ])
 
-    def test_request_machines(self):
-        mg = jcnet.MachineGetter(self.client)
-        # Requesting a machine with none have been allocated will always
-        # return machine 0, which always exists if we have an environment.
-        self.assertEqual(mg.get(), ['0'])
+    def test_make_machines(self):
+        hosts, containers = jcnet.make_machines(
+            self.client, [jcnet.LXC_MACHINE, jcnet.KVM_MACHINE])
+        self.assertEqual(hosts, ['0', '1'])
+        expected = {
+            'kvm': {'0': ['0/kvm/1', '0/kvm/0'],
+                    '1': ['1/kvm/0']},
+            'lxc': {'0': ['0/lxc/0', '0/lxc/1'],
+                    '1': ['1/lxc/0']}
+        }
+        self.assertDictEqual(containers, expected)
 
-        # Since we haven't done anything with machine 0, we will still get
-        # it back
-        self.assertEqual(mg.get(), ['0'])
+        hosts, containers = jcnet.make_machines(
+            self.client, [jcnet.LXC_MACHINE])
+        self.assertEqual(hosts, ['0', '1'])
+        expected = {
+            'lxc': {'0': ['0/lxc/0', '0/lxc/1'],
+                    '1': ['1/lxc/0']}
+        }
+        self.assertDictEqual(containers, expected)
 
-        # Adding a service will remove the machine it is on from the
-        # available pool. Requesting a machine will allocate a new one.
-        self.juju_mock.add_service('name', 0)
-        self.assertEqual(mg.get(), ['1'])
-
-        # Request a specific machine without services allocated to it.
-        self.assertEqual(mg.get(machine=1), ['1'])
-
-        # Request a specific machine with services allocated to it
-        self.assertEqual(mg.get(machine=0), ['0'])
-
-        # Requesting a specific machine that doesn't exist returns nothing
-        self.assertEqual(mg.get(machine=2), [])
-
-        # Request more machines than are allocated - a new one appears
-        self.assertEqual(mg.get(count=2), ['1', '2'])
-
-        # Still there!
-        self.assertEqual(mg.get(count=2), ['1', '2'])
-
-        # Now containers (kvm). Ask for a kvm
-        self.assertEqual(mg.get(jcnet.KVM_MACHINE), ['0/kvm/0'])
-
-        # Ask for a kvm on machine 1
-        self.assertEqual(mg.get(jcnet.KVM_MACHINE, '1'), ['1/kvm/0'])
-
-        # Ask for two kvms on machine 1
-        machines = mg.get(jcnet.KVM_MACHINE, '1', count=2)
-        self.assertEqual(machines, ['1/kvm/0', '1/kvm/1'])
-
-        # Ask for a specific kvm
-        self.assertEqual(mg.get(jcnet.KVM_MACHINE, '1', '1'), ['1/kvm/1'])
-
-        # Ask for a specific kvm that doesn't exist
-        self.assertEqual(mg.get(jcnet.KVM_MACHINE, '1', '2'), [])
-
-        # Now containers (lxc). Ask for an lxc
-        self.assertEqual(mg.get(jcnet.LXC_MACHINE), ['0/lxc/0'])
-
-        # Ask for a lxc on machine 1
-        self.assertEqual(mg.get(jcnet.LXC_MACHINE, '1'), ['1/lxc/0'])
-
-        # Ask for two lxcs on machine 1
-        machines = mg.get(jcnet.LXC_MACHINE, '1', count=2)
-        self.assertEqual(machines, ['1/lxc/0', '1/lxc/1'])
-
-        # Ask for a specific lxc
-        self.assertEqual(mg.get(jcnet.LXC_MACHINE, '1', '1'), ['1/lxc/1'])
-
-        # Ask for a specific lxc that doesn't exist
-        self.assertEqual(mg.get(jcnet.LXC_MACHINE, '1', '2'), [])
+        hosts, containers = jcnet.make_machines(
+            self.client, [jcnet.KVM_MACHINE])
+        self.assertEqual(hosts, ['0', '1'])
+        expected = {
+            'kvm': {'0': ['0/kvm/1', '0/kvm/0'],
+                    '1': ['1/kvm/0']},
+        }
+        self.assertDictEqual(containers, expected)
 
     def test_test_network_traffic(self):
         targets = ['0/lxc/0', '0/lxc/1']
