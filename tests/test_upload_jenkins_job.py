@@ -1,3 +1,4 @@
+from argparse import Namespace
 from ConfigParser import NoOptionError
 import json
 from time import sleep
@@ -207,24 +208,42 @@ class TestS3Uploader(TestCase):
                                  j_mock.mock_calls[0][2]['build_number'])
 
     def test_upload(self):
-        filename = '1200-result-results.json'
-        s3_mock = MagicMock()
-        jenkins_mock = MagicMock()
-        jenkins_mock.get_last_completed_build_number.return_value = 1200
-        jenkins_mock.get_build_number.return_value = 1200
-        jenkins_mock.get_build_info.return_value = {"build_info": "1200"}
-        jenkins_mock.get_console_text.return_value = "console text"
-        jenkins_mock._create_filename.return_value = filename
-        jenkins_mock.artifacts.return_value = fake_artifacts(2)
+        filename, s3_mock, jenkins_mock = (
+            self._make_upload(file_prefix=BUILD_NUM))
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload()
         self.assertEqual(s3_mock.store.mock_calls, [
-            call(filename, json.dumps({"build_info": "1200"}, indent=4),
+            call(filename, json.dumps({"build_info": BUILD_NUM}, indent=4),
                  headers={"Content-Type": "application/json"}),
-            call('1200-console-consoleText.txt', 'console text',
+            call('{}-console-consoleText.txt'.format(BUILD_NUM),
+                 'console text',
                  headers={"Content-Type": "text/plain; charset=utf8"}),
-            call('1200-log-filename', 'artifact data 1',
+            call('{}-log-filename'.format(BUILD_NUM), 'artifact data 1',
                  headers={"Content-Type": "application/octet-stream"})])
+
+    def test_upload_unique_id(self):
+        filename, s3_mock, jenkins_mock = self._make_upload(file_prefix='9999')
+        h = S3Uploader(s3_mock, jenkins_mock, unique_id='9999')
+        h.upload()
+        self.assertEqual(s3_mock.store.mock_calls, [
+            call(filename, json.dumps({"build_info": BUILD_NUM}, indent=4),
+                 headers={"Content-Type": "application/json"}),
+            call('9999-console-consoleText.txt', 'console text',
+                 headers={"Content-Type": "text/plain; charset=utf8"}),
+            call('9999-log-filename', 'artifact data 1',
+                 headers={"Content-Type": "application/octet-stream"})])
+
+    def _make_upload(self, file_prefix):
+        filename = '{}-result-results.json'.format(file_prefix)
+        s3_mock = MagicMock()
+        jenkins_mock = MagicMock()
+        jenkins_mock.get_last_completed_build_number.return_value = BUILD_NUM
+        jenkins_mock.get_build_number.return_value = BUILD_NUM
+        jenkins_mock.get_build_info.return_value = {"build_info": BUILD_NUM}
+        jenkins_mock.get_console_text.return_value = "console text"
+        jenkins_mock._create_filename.return_value = filename
+        jenkins_mock.artifacts.return_value = fake_artifacts(2)
+        return filename, s3_mock, jenkins_mock
 
     def test_upload_all_test_results(self):
         s3_mock = MagicMock()
@@ -237,38 +256,62 @@ class TestS3Uploader(TestCase):
                          [call(1), call(2), call(3)])
 
     def test_upload_test_results(self):
-        filename = '1277-result-results.json'
-        headers = {"Content-Type": "application/json"}
-        s3_mock = MagicMock()
-        jenkins_mock = MagicMock()
-        jenkins_mock.get_build_info.return_value = BUILD_INFO
-        jenkins_mock.get_build_number.return_value = BUILD_NUM
+        filename, headers, s3_mock, jenkins_mock = (
+            self._make_upload_test_results(file_prefix=BUILD_NUM))
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_test_results()
         s3_mock.store.assert_called_once_with(
             filename, json.dumps(jenkins_mock.get_build_info.return_value,
                                  indent=4), headers=headers)
 
-    def test_upload_console_log(self):
-        filename = '1277-console-consoleText.txt'
-        headers = {"Content-Type": "text/plain; charset=utf8"}
+    def test_upload_test_results_unique_id(self):
+        filename, headers, s3_mock, jenkins_mock = (
+            self._make_upload_test_results(file_prefix='9999'))
+        h = S3Uploader(s3_mock, jenkins_mock, unique_id='9999')
+        h.upload_test_results()
+        s3_mock.store.assert_called_once_with(
+            filename, json.dumps(jenkins_mock.get_build_info.return_value,
+                                 indent=4), headers=headers)
+
+    def _make_upload_test_results(self, file_prefix):
+        filename = '{}-result-results.json'.format(file_prefix)
+        headers = {"Content-Type": "application/json"}
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
+        jenkins_mock.get_build_info.return_value = BUILD_INFO
         jenkins_mock.get_build_number.return_value = BUILD_NUM
-        jenkins_mock.get_console_text.return_value = "log text"
+        return filename, headers, s3_mock, jenkins_mock
+
+    def test_upload_console_log_444444(self):
+        filename, headers, s3_mock, jenkins_mock = (
+            self._make_upload_console_log(file_prefix=BUILD_NUM))
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_console_log()
         s3_mock.store.assert_called_once_with(
             filename, 'log text', headers=headers)
         jenkins_mock.get_console_text.assert_called_once_with()
 
-    def test_upload_artifacts(self):
-        filename = '1277-log-filename'
-        headers = {"Content-Type": "application/octet-stream"}
+    def test_upload_console_log_unique_id(self):
+        filename, headers, s3_mock, jenkins_mock = (
+            self._make_upload_console_log(file_prefix='9999'))
+        h = S3Uploader(s3_mock, jenkins_mock, unique_id='9999')
+        h.upload_console_log()
+        s3_mock.store.assert_called_once_with(
+            filename, 'log text', headers=headers)
+        jenkins_mock.get_console_text.assert_called_once_with()
+
+    def _make_upload_console_log(self, file_prefix):
+        filename = '{}-console-consoleText.txt'.format(file_prefix)
+        headers = {"Content-Type": "text/plain; charset=utf8"}
         s3_mock = MagicMock()
         jenkins_mock = MagicMock()
         jenkins_mock.get_build_number.return_value = BUILD_NUM
-        jenkins_mock.artifacts.return_value = fake_artifacts(4)
+        jenkins_mock.get_console_text.return_value = "log text"
+        return filename, headers, s3_mock, jenkins_mock
+
+    def test_upload_artifacts(self):
+        filename, headers, s3_mock, jenkins_mock = (
+            self._make_upload_artifacts(BUILD_NUM))
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload_artifacts()
         calls = [call(filename, 'artifact data 1', headers=headers),
@@ -276,6 +319,26 @@ class TestS3Uploader(TestCase):
                  call(filename, 'artifact data 3', headers=headers)]
         self.assertEqual(s3_mock.store.mock_calls, calls)
         jenkins_mock.artifacts.assert_called_once_with()
+
+    def test_upload_artifacts_unique_id(self):
+        filename, headers, s3_mock, jenkins_mock = (
+            self._make_upload_artifacts('9999'))
+        h = S3Uploader(s3_mock, jenkins_mock, unique_id='9999')
+        h.upload_artifacts()
+        calls = [call(filename, 'artifact data 1', headers=headers),
+                 call(filename, 'artifact data 2', headers=headers),
+                 call(filename, 'artifact data 3', headers=headers)]
+        self.assertEqual(s3_mock.store.mock_calls, calls)
+        jenkins_mock.artifacts.assert_called_once_with()
+
+    def _make_upload_artifacts(self, file_prefix):
+        filename = '{}-log-filename'.format(file_prefix)
+        headers = {"Content-Type": "application/octet-stream"}
+        s3_mock = MagicMock()
+        jenkins_mock = MagicMock()
+        jenkins_mock.get_build_number.return_value = BUILD_NUM
+        jenkins_mock.artifacts.return_value = fake_artifacts(4)
+        return filename, headers, s3_mock, jenkins_mock
 
     def test_upload_by_build_number(self):
         credentials = fake_credentials()
@@ -369,6 +432,20 @@ class TestS3Uploader(TestCase):
             call(None, cred, None, BUILD_NUM)
         ])
 
+    def test_create_file(self):
+        filename, s3_mock, jenkins_mock = (
+            self._make_upload(file_prefix=BUILD_NUM))
+        h = S3Uploader(s3_mock, jenkins_mock)
+        filename = h._create_filename("myfile")
+        self.assertEqual(filename, "{}-myfile".format(BUILD_NUM))
+
+    def test_create_file_unique_id(self):
+        filename, s3_mock, jenkins_mock = (
+            self._make_upload(file_prefix=BUILD_NUM))
+        h = S3Uploader(s3_mock, jenkins_mock, unique_id='9999')
+        filename = h._create_filename("myfile")
+        self.assertEqual(filename, "9999-myfile")
+
 
 class OtherTests(TestCase):
 
@@ -416,6 +493,13 @@ class OtherTests(TestCase):
         self.assertFalse(args.latest)
         self.assertEqual(args.user, 'me')
         self.assertEqual(args.password, 'passwd')
+
+    def test_get_args_default(self):
+        args = get_args([JOB_NAME, str(BUILD_NUM), BUCKET, DIRECTORY])
+        self.assertEqual(args, Namespace(
+            all=False, build_number=1277, jenkins_job=JOB_NAME, latest=False,
+            password=None, s3_bucket=BUCKET, s3_directory=DIRECTORY,
+            unique_id=False, user=None))
 
     def test_get_s3_access(self):
         path = '/u/home'

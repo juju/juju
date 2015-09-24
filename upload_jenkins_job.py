@@ -170,13 +170,14 @@ class S3Uploader:
     Uploads the result of a Jenkins job to S3.
     """
 
-    def __init__(self, s3, jenkins_build):
+    def __init__(self, s3, jenkins_build, unique_id=None):
         self.s3 = s3
         self.jenkins_build = jenkins_build
+        self.unique_id = unique_id
 
     @classmethod
     def factory(cls, credentials, jenkins_job, build_number, bucket,
-                directory):
+                directory, unique_id=None):
         """
         Creates S3Uploader.
         :param credentials: Jenkins credential
@@ -191,7 +192,7 @@ class S3Uploader:
         jenkins_build = JenkinsBuild.factory(
             credentials=credentials, job_name=jenkins_job,
             build_number=build_number)
-        return cls(s3, jenkins_build)
+        return cls(s3, jenkins_build, unique_id)
 
     def upload(self):
         """Uploads Jenkins job results, console logs and artifacts to S3.
@@ -265,6 +266,8 @@ class S3Uploader:
         :return: Filename
         :rtype: str
         """
+        if self.unique_id:
+            return "{}-{}".format(self.unique_id, filename)
         return str(self.jenkins_build.get_build_number()) + '-' + filename
 
 
@@ -291,6 +294,9 @@ def get_args(argv=None):
     parser.add_argument(
         's3_directory',
         help="Directory under the bucket name to store files.")
+    parser.add_argument(
+        '--unique-id', action='store_true',
+        help='Let this script generate unique ID to be used for filenames.')
     add_credential_args(parser)
     args = parser.parse_args(argv)
     args.all = False
@@ -309,10 +315,10 @@ def get_args(argv=None):
 def main(argv=None):
     args = get_args(argv)
     cred = get_credentials(args)
-
+    unique_id = os.getenv('BUILD_NUMBER') if args.unque_id else None
     uploader = S3Uploader.factory(
         cred, args.jenkins_job, args.build_number, args.s3_bucket,
-        args.s3_directory)
+        args.s3_directory, unique_id=unique_id)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
         uploader.upload()
