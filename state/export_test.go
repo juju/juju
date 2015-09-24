@@ -247,16 +247,16 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
-	return mergeIds(st, changeset, updates)
+func WatcherMakeMergeIds(localIdFn func(string) string, filterFn func(string) (string, bool)) func(changeset *[]string, updates map[interface{}]bool) error {
+	return makeMergeFn(localIdFn, filterFn)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
 	return ensureSuffixFn(marker)
 }
 
-func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
-	return makeIdFilter(st, marker, receivers...)
+func WatcherMakeActionPrefixFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) (string, bool) {
+	return makeActionPrefixFilter(st, marker, receivers...)
 }
 
 func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
