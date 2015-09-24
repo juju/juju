@@ -4,15 +4,17 @@
 package instance_test
 
 import (
+	"errors"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
 )
 
-type HardwareSuite struct{}
+type instanceSuite struct{}
 
-var _ = gc.Suite(&HardwareSuite{})
+var _ = gc.Suite(&instanceSuite{})
 
 type parseHardwareTestSpec struct {
 	summary string
@@ -271,9 +273,30 @@ var parseHardwareTests = []parseHardwareTestSpec{
 	},
 }
 
-func (s *HardwareSuite) TestParseHardware(c *gc.C) {
+func (s *instanceSuite) TestParseHardware(c *gc.C) {
 	for i, t := range parseHardwareTests {
 		c.Logf("test %d: %s", i, t.summary)
 		t.check(c)
 	}
+}
+
+func (s *instanceSuite) TestNewRetryErr(c *gc.C) {
+	retErr := instance.NewRetryableCreationError("test error message", 10, 20)
+	c.Check(retErr.Error(), gc.Equals, "test error message")
+	c.Check(retErr.RetryCount(), gc.Equals, 10)
+	c.Check(retErr.RetryDelay(), gc.Equals, 20)
+}
+
+func (s *instanceSuite) TestRetryErrCheckers(c *gc.C) {
+	retErr := instance.NewRetryableCreationError("test error message", 10, 20)
+	err := errors.New("non-retryable error")
+	c.Check(instance.IsRetryableCreationError(retErr), jc.IsTrue)
+	c.Check(instance.IsRetryableCreationError(err), jc.IsFalse)
+
+	retrievedErr, ok := instance.GetRetryableCreationError(retErr)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(retrievedErr.Error(), gc.Equals, "test error message")
+
+	_, ok = instance.GetRetryableCreationError(err)
+	c.Assert(ok, jc.IsFalse)
 }
