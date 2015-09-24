@@ -4,7 +4,6 @@
 package gce
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -131,16 +130,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig.Tools = tools[0]
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
-	userData, err := providerinit.ComposeUserData(instanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})
 	c.Assert(err, jc.ErrorIsNil)
-	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
 
 	authKeys, err := google.FormatAuthorizedKeys(instanceConfig.AuthorizedKeys, "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Metadata = map[string]string{
 		metadataKeyIsState:   metadataValueTrue,
-		metadataKeyCloudInit: b64UserData,
+		metadataKeyCloudInit: string(userData),
 		metadataKeyEncoding:  "base64",
 		metadataKeySSHKeys:   authKeys,
 	}
