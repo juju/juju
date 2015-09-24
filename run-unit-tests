@@ -53,7 +53,7 @@ while [[ "${1-}" != "" ]]; do
             USE_TMPFS="true"
             ;;
         --race)
-            GOTESTCMD="$GOTESTCMD -race -test.timeout=1200s"
+            GOTESTCMD="$GOTESTCMD -race -test.timeout=1800s"
             ;;
     esac
     shift
