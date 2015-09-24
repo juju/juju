@@ -26,6 +26,7 @@ var _ = gc.Suite(&steps125Suite{})
 
 func (s *steps125Suite) TestStateStepsFor125(c *gc.C) {
 	expected := []string{
+		"add the version field to all settings docs",
 		"set hosted environment count to number of hosted environments",
 		"tag machine instances",
 		"add missing env-uuid to statuses",

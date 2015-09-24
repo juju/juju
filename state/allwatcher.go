@@ -445,11 +445,11 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 	}
 	if needConfig {
-		var err error
-		info.Config, _, err = readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
+		doc, err := readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
+		info.Config = doc.Settings
 	}
 	store.Update(info)
 	return nil
@@ -755,7 +755,7 @@ func (c *backingConstraints) mongoId() string {
 	panic("cannot find mongo id from constraints document")
 }
 
-type backingSettings map[string]interface{}
+type backingSettings settingsDoc
 
 func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string) error {
 	parentID, url, ok := backingEntityIdForSettingsKey(st.EnvironUUID(), id)
@@ -777,8 +777,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 			break
 		}
 		newInfo := *info
-		cleanSettingsMap(*s)
-		newInfo.Config = *s
+		newInfo.Config = s.Settings
 		info0 = &newInfo
 	default:
 		return nil
@@ -799,8 +798,7 @@ func (s *backingSettings) removed(store *multiwatcherStore, envUUID, id string, 
 			return nil
 		}
 		newInfo := *info
-		cleanSettingsMap(*s)
-		newInfo.Config = *s
+		newInfo.Config = s.Settings
 		parent = &newInfo
 		store.Update(parent)
 	}

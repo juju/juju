@@ -2850,7 +2850,7 @@ func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]stri
 			"name":     name,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		expectedDocIDs = append(expectedDocIDs, envUUID+":"+leadershipSettingsDocId(name))
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+leadershipSettingsKey(name))
 	}
 
 	// Use the helpers to set up the environments.
@@ -4205,5 +4205,126 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 		globalKey, ok := doc["globalkey"].(string)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(globalKey, gc.Equals, fmt.Sprintf("global%d", i))
+	}
+}
+
+func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
+	// Insert test documents.
+	settingsColl, closer := s.state.getRawCollection(settingsC)
+	defer closer()
+	err := settingsColl.Insert(
+		bson.D{
+			// Post-env-uuid migration, with no settings.
+			{"_id", "1"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+		},
+		bson.D{
+			// Post-env-uuid migration, with settings. One
+			// of the settings is called "settings", and
+			// one "version".
+			{"_id", "2"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"settings", int64(123)},
+			{"version", "onetwothree"},
+		},
+		bson.D{
+			// Pre-env-uuid migration, with no settings.
+			{"_id", "3"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+		},
+		bson.D{
+			// Pre-env-uuid migration, with settings.
+			{"_id", "4"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"settings", int64(123)},
+			{"version", "onetwothree"},
+		},
+		bson.D{
+			// Already migrated, with no settings.
+			{"_id", "5"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"version", int64(98)},
+			{"settings", map[string]interface{}{}},
+		},
+		bson.D{
+			// Already migrated, with settings.
+			{"_id", "6"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"version", int64(98)},
+			{"settings", bson.D{
+				{"settings", int64(123)},
+				{"version", "onetwothree"},
+			}},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Expected docs, excluding txn-queu which we cannot predict.
+	expected := []bson.M{{
+		"_id":       "1",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(100),
+		"settings":  bson.M{},
+		"version":   int64(99),
+	}, {
+		"_id":       "2",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(101),
+		"settings": bson.M{
+			"settings": int64(123),
+			"version":  "onetwothree",
+		},
+		"version": int64(99),
+	}, {
+		"_id":       "3",
+		"txn-revno": int64(100),
+		"settings":  bson.M{},
+		"version":   int64(99),
+	}, {
+		"_id":       "4",
+		"txn-revno": int64(101),
+		"settings": bson.M{
+			"settings": int64(123),
+			"version":  "onetwothree",
+		},
+		"version": int64(99),
+	}, {
+		"_id":       "5",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(99),
+		"version":   int64(98),
+		"settings":  bson.M{},
+	}, {
+		"_id":       "6",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(99),
+		"version":   int64(98),
+		"settings": bson.M{
+			"settings": int64(123),
+			"version":  "onetwothree",
+		},
+	}}
+
+	// Two rounds to check idempotency.
+	for i := 0; i < 2; i++ {
+		err = MigrateSettingsSchema(s.state)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var docs []bson.M
+		err = settingsColl.Find(
+			bson.D{{"env-uuid", bson.D{{"$ne", s.state.EnvironUUID()}}}},
+		).Sort("_id").Select(bson.M{"txn-queue": 0}).All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(docs, jc.DeepEquals, expected)
 	}
 }

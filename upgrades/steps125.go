@@ -20,6 +20,13 @@ import (
 func stateStepsFor125() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "add the version field to all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateSettingsSchema(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "set hosted environment count to number of hosted environments",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
