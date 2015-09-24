@@ -166,12 +166,18 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
-	pub, pubOK := u.PublicAddress()
-	priv, privOK := u.PrivateAddress()
-	if !pubOK && !privOK {
+	pub, pubErr := u.PublicAddress()
+	if pubErr != nil && !network.IsNoAddress(pubErr) {
+		return true, false, errors.Trace(pubErr)
+	}
+	priv, privErr := u.PrivateAddress()
+	if privErr != nil && !network.IsNoAddress(privErr) {
+		return true, false, errors.Trace(privErr)
+	}
+	if pubErr != nil && privErr != nil {
 		return true, false, nil
 	}
-	return matchSubnet(patterns, pub, priv)
+	return matchSubnet(patterns, pub.Value, priv.Value)
 }
 
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
