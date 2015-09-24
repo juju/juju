@@ -1938,6 +1938,24 @@ func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": environment user "notAuser@local" not found`)
 }
 
+func (s *StateSuite) TestAddServiceSettingsNilValue(c *gc.C) {
+	insettings := charm.Settings{
+		"tuning": nil,
+		"fork":   "spoon",
+	}
+
+	ch := s.AddTestingCharm(c, "dummy")
+	wordpress, err := s.State.AddService("wordpress", s.Owner.String(), ch, nil, nil, insettings)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
+	outsettings, err := wordpress.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Settings with nil values should be pruned from the settings.
+	delete(insettings, "tuning")
+	c.Assert(outsettings, gc.DeepEquals, insettings)
+}
+
 func (s *StateSuite) TestAllServices(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	services, err := s.State.AllServices()
