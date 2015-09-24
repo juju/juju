@@ -21,10 +21,10 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 
 	environs "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 )

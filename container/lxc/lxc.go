@@ -23,6 +23,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/storage/looputil"
 )
 

@@ -21,12 +21,12 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"

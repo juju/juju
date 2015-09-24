@@ -5,8 +5,7 @@ package upgrades
 
 import (
 	"github.com/juju/utils/packaging/manager"
-
-	"github.com/juju/juju/juju/series"
+	"github.com/juju/utils/series"
 )
 
 // getPackageManager is a helper function which returns the

@@ -5,9 +5,8 @@ import (
 	"os/exec"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/juju/series"
 	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 )
 
 type osVarType int

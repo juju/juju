@@ -9,6 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/testing"
 )
 

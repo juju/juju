@@ -7,10 +7,9 @@ import (
 	"os/exec"
 	"runtime"
 
-	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
+	gc "gopkg.in/check.v1"
 )
 
 type CurrentSuite struct{}
