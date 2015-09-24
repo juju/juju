@@ -1490,7 +1490,7 @@ func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher
 	return newDocWatcher(st, []docKey{{collName, key}})
 }
 
-// docWatcher is a watcher that watchers for changes in 1 or more mongo documents
+// docWatcher watches for changes in 1 or more mongo documents
 // across collections.
 type docWatcher struct {
 	commonWatcher
@@ -1499,12 +1499,16 @@ type docWatcher struct {
 
 var _ Watcher = (*docWatcher)(nil)
 
+// docKey identifies a single item in a single collection.
+// It's used as a parameter to newDocWatcher to specify
+// which documents should be watched.
 type docKey struct {
-	coll string
-	key  interface{}
+	coll  string
+	docId interface{}
 }
 
-// newDocWatcher returns a new docWatcher
+// newDocWatcher returns a new docWatcher.
+// docKeys identifies the documents that should be watched (their id and which collection they are in)
 func newDocWatcher(st *State, docKeys []docKey) NotifyWatcher {
 	w := &docWatcher{
 		commonWatcher: commonWatcher{st: st},
@@ -1524,15 +1528,15 @@ func (w *docWatcher) Changes() <-chan struct{} {
 }
 
 // getTxnRevno returns the transaction revision number of the
-// given key in the given collection. It is useful to enable
+// given document id in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.
-func getTxnRevno(coll mongo.Collection, key interface{}) (int64, error) {
+func getTxnRevno(coll mongo.Collection, id interface{}) (int64, error) {
 	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
 	fields := bson.D{{"txn-revno", 1}}
-	if err := coll.FindId(key).Select(fields).One(&doc); err == mgo.ErrNotFound {
+	if err := coll.FindId(id).Select(fields).One(&doc); err == mgo.ErrNotFound {
 		return -1, nil
 	} else if err != nil {
 		return 0, err
@@ -1544,13 +1548,13 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
 	for _, k := range docKeys {
 		coll, closer := w.st.getCollection(k.coll)
-		txnRevno, err := getTxnRevno(coll, k.key)
+		txnRevno, err := getTxnRevno(coll, k.docId)
 		closer()
 		if err != nil {
 			return err
 		}
-		w.st.watcher.Watch(coll.Name(), k.key, txnRevno, in)
-		defer w.st.watcher.Unwatch(coll.Name(), k.key, in)
+		w.st.watcher.Watch(coll.Name(), k.docId, txnRevno, in)
+		defer w.st.watcher.Unwatch(coll.Name(), k.docId, in)
 	}
 	out := w.out
 	for {
