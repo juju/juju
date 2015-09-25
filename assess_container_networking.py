@@ -10,6 +10,7 @@ import re
 import tempfile
 import os
 import socket
+import subprocess
 from textwrap import dedent
 from argparse import ArgumentParser
 
@@ -29,6 +30,7 @@ from utility import (
 from deploy_stack import (
     update_env,
     dump_env_logs,
+    get_random_string,
 )
 
 KVM_MACHINE = 'kvm'
@@ -76,17 +78,19 @@ def ssh(client, machine, cmd):
     :param cmd: the command to run
     :return: text output of the command
     """
-    try:
-        return client.get_juju_output('ssh', machine, cmd)
-    except subprocess.CalledProcessError as e:
-        # If the connection to the host failed, try again in a couple of
-        # seconds. This is usually due to heavy load.
-        if e.returncode == 255:
+    back_off = 2
+    for attempt in range(10):
+        try:
+            return client.get_juju_output('ssh', machine, cmd)
+        except subprocess.CalledProcessError as e:
+            # If the connection to the host failed, try again in a couple of
+            # seconds. This is usually due to heavy load.
             if re.search('ssh_exchange_identification: '
                          'Connection closed by remote host', e.stderr):
-                time.sleep(2)
+                time.sleep(back_off)
+                back_off *= 2
                 return client.get_juju_output('ssh', machine, cmd)
-        raise
+            raise
 
 
 def clean_environment(client, services_only=False):
@@ -97,14 +101,11 @@ def clean_environment(client, services_only=False):
 
     :param client: a Juju client
     """
-    try:
-        client.get_juju_output('status')
-    except subprocess.CalledProcessError:
-        # If we fail to get status then the environment doesn't exist. Since
-        # there is nothing to clean, we return False to say that we failed.
-        return False
+    # A short timeout is used for get_status here because if we don't get a
+    # response from  get_status quickly then the environment almost
+    # certainly doesn't exist or needs recreating.
+    status = client.get_status(5)
 
-    status = client.get_status()
     for service in status.status['services']:
         client.juju('remove-service', service)
 
@@ -118,7 +119,17 @@ def clean_environment(client, services_only=False):
 
         for m, _ in status.iter_machines(containers=False, machines=True):
             if m != '0':
-                client.juju('remove-machine', m)
+                try:
+                    client.juju('remove-machine', m)
+                except subprocess.CalledProcessError:
+                    # Sometimes this fails because while we have asked Juju
+                    # to remove a container and it says that it has, when we
+                    # ask it to remove the host Juju thinks it still has
+                    # containers on it. Normally a small pause and trying
+                    # again is all that is needed to resolve this issue.
+                    time.sleep(2)
+                    s = client.wait_for_started()
+                    client.juju('remove-machine', m)
 
         client.wait_for('machines-not-0', 'none')
 
@@ -214,10 +225,12 @@ def assess_network_traffic(client, targets):
     address = status['machines'][host]['containers'][source]['dns-name']
 
     for dest in dests:
+        msg = get_random_string()
         ssh(client, source, 'rm nc_listen.out; bash ./listen.sh')
-        ssh(client, dest, 'echo "hello" | nc ' + address + ' 6778')
+        ssh(client, dest,
+            'echo "{msg}" | nc {addr} 6778'.format(msg=msg, addr=address))
         result = ssh(client, source, 'more nc_listen.out')
-        if result.rstrip() != 'hello':
+        if result.rstrip() != msg:
             raise ValueError("Wrong or missing message: %r" % result.rstrip())
 
 
@@ -225,7 +238,7 @@ def assess_address_range(client, targets):
     """Test that two containers are in the same subnet as their host
     :param client: Juju client
     :param targets: machine IDs of machines to test
-    :return: None; will assert failures
+    :return: None; raises ValueError on failure
     """
     status = client.wait_for_started().status
 
@@ -237,16 +250,17 @@ def assess_address_range(client, targets):
         vm_host = target.split('/')[0]
         addr = status['machines'][vm_host]['containers'][target]['dns-name']
         subnet = find_network(client, host, addr)
-        assert host_subnet == subnet, \
-            '{} ({}) not on the same subnet as {} ({})'.format(
-                target, subnet, host, host_subnet)
+        if host_subnet != subnet:
+            raise ValueError(
+                '{} ({}) not on the same subnet as {} ({})'.format(
+                    target, subnet, host, host_subnet))
 
 
 def assess_internet_connection(client, targets):
     """Test that targets can ping Google's DNS server, google.com
     :param client: Juju client
     :param targets: machine IDs of machines to test
-    :return: None; will assert failures
+    :return: None; raises ValueError on failure
     """
 
     for target in targets:
@@ -329,7 +343,8 @@ def assess_container_networking(client, args):
 def get_client(args):
     client = EnvJujuClient.by_version(
         SimpleEnvironment.from_config(args.env),
-        os.path.join(args.juju_bin, 'juju'), args.debug)
+        args.juju_bin, args.debug
+    )
     client.enable_container_address_allocation()
     update_env(client.env, args.temp_env_name)
     return client
@@ -343,11 +358,13 @@ def main():
     try:
         if args.clean_environment:
             try:
-                if not clean_environment(client, services_only=True):
+                if not clean_environment(client):
                     with temp_bootstrap_env(juju_home, client):
                         client.bootstrap(args.upload_tools)
             except Exception as e:
                 logging.exception(e)
+                client.destroy_environment()
+                client = get_client(args)
                 with temp_bootstrap_env(juju_home, client):
                     client.bootstrap(args.upload_tools)
         else:
@@ -367,16 +384,17 @@ def main():
         logging.exception(e)
         try:
             if bootstrap_host is None:
-                parse_new_state_server_from_error(e)
-            else:
-                dump_env_logs(client, bootstrap_host, args.logs)
+                bootstrap_host = parse_new_state_server_from_error(e)
         except Exception as e:
             print_now('exception while dumping logs:\n')
             logging.exception(e)
         exit(1)
     finally:
+        if bootstrap_host is not None:
+            dump_env_logs(client, bootstrap_host, args.logs)
+
         if args.clean_environment:
-            clean_environment(client, services_only=True)
+            clean_environment(client)
         else:
             client.destroy_environment()
 

@@ -286,16 +286,15 @@ class EnvJujuClient:
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
-        e = None
         for ignored in until_timeout(timeout):
             try:
                 if raw:
                     return self.get_juju_output('status', *args)
                 return Status.from_text(self.get_juju_output('status'))
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError:
                 pass
         raise Exception(
-            'Timed out waiting for juju status to succeed: %s' % e)
+            'Timed out waiting for juju status to succeed')
 
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):

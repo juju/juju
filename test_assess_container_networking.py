@@ -14,6 +14,7 @@ from StringIO import StringIO
 import assess_container_networking as jcnet
 from copy import deepcopy
 from contextlib import contextmanager
+from test_utility import parse_error
 
 
 class JujuMock(object):
@@ -196,15 +197,11 @@ class TestContainerNetworking(TestCase):
 
         # Set up an error (bob is invalid)
         opts = ['--machine-type', 'bob']
-
-        # Kill stderr so the test doesn't print anything (calling the tests
-        # with buffer=True would also do this, but I am trying not to be
-        # invasive)
-        sys.stderr = StringIO()
-        self.assertRaises(SystemExit, jcnet.parse_args, cmdline + opts)
-
-        # Restore stderr
-        sys.stderr = sys.__stderr__
+        with parse_error(self) as stderr:
+            jcnet.parse_args(cmdline + opts)
+        self.assertRegexpMatches(
+            stderr.getvalue(),
+            ".*error: argument --machine-type: invalid choice: 'bob'.*")
 
     def test_ssh(self):
         machine, addr = '0', 'foobar'
@@ -216,8 +213,9 @@ class TestContainerNetworking(TestCase):
 
     def test_find_network(self):
         machine, addr = '0', '1.1.1.1'
-        self.assertRaises(ValueError,
-                          jcnet.find_network, self.client, machine, addr)
+        self.assertRaisesRegexp(
+            ValueError, "Unable to find route to '1.1.1.1'",
+            jcnet.find_network, self.client, machine, addr)
 
         self.juju_mock.set_ssh_output([
             'default via 192.168.0.1 dev eth3\n'
@@ -236,7 +234,6 @@ class TestContainerNetworking(TestCase):
 
         jcnet.clean_environment(self.client)
         self.assertItemsEqual(self.juju_mock.commands, [
-            ('status', ()),
             ('remove-service', 'name'),
             ('remove-machine', '1'),
             ('remove-machine', '2'),
@@ -250,7 +247,6 @@ class TestContainerNetworking(TestCase):
 
         jcnet.clean_environment(self.client)
         self.assertItemsEqual(self.juju_mock.commands, [
-            ('status', ()),
             ('remove-machine', '0/lxc/0'),
             ('remove-machine', '0/kvm/0'),
             ('remove-machine', '1'),
@@ -266,7 +262,6 @@ class TestContainerNetworking(TestCase):
 
         jcnet.clean_environment(self.client, True)
         self.assertEqual(self.juju_mock.commands, [
-            ('status', ()),
             ('remove-service', 'name'),
         ])
 
@@ -305,13 +300,17 @@ class TestContainerNetworking(TestCase):
         self.juju_mock.set_status({'machines': {'0': {
             'containers': {targets[0]: {'dns-name': '0-dns-name'}}}}})
 
-        self.juju_mock.set_ssh_output(['', '', 'hello'])
-        jcnet.assess_network_traffic(self.client, targets)
+        with patch('assess_container_networking.get_random_string',
+                   lambda *args, **kw: 'hello'):
 
-        self.juju_mock.reset_calls()
-        self.juju_mock.set_ssh_output(['', '', 'fail'])
-        self.assertRaises(ValueError,
-                          jcnet.assess_network_traffic, self.client, targets)
+            self.juju_mock.set_ssh_output(['', '', 'hello'])
+            jcnet.assess_network_traffic(self.client, targets)
+
+            self.juju_mock.reset_calls()
+            self.juju_mock.set_ssh_output(['', '', 'fail'])
+            self.assertRaisesRegexp(
+                ValueError, "Wrong or missing message: 'fail'",
+                jcnet.assess_network_traffic, self.client, targets)
 
     def test_test_address_range(self):
         rtn = Mock(**{'r.side_effect': [
@@ -350,8 +349,9 @@ class TestContainerNetworking(TestCase):
                 '192.168.3.0/24',
             ])
 
-            self.assertRaises(AssertionError,
-                              jcnet.assess_address_range, self.client, targets)
+            self.assertRaisesRegexp(
+                ValueError, '0/lxc/0 \S+ not on the same subnet as 0 \S+',
+                jcnet.assess_address_range, self.client, targets)
 
     def test_test_internet_connection(self):
         targets = ['0/lxc/0', '0/lxc/1']
