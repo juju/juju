@@ -208,29 +208,15 @@ var convertToParams = func(published []*envmetadata.ImageMetadata) params.Metada
 			RootStorageType: p.Storage,
 		}
 		// Translate version (eg.14.04) to a series (eg. "trusty")
-		metadata[i].Series = versionSeries(p.Version)
+		s, err := series.VersionSeries(p.Version)
+		if err != nil {
+			logger.Warningf("could not determine series %v", err)
+			continue
+		}
+		metadata[i].Series = s
 	}
 
 	return params.MetadataSaveParams{Metadata: metadata}
-}
-
-// TODO(dfc) why is this like this ?
-var seriesVersion = series.SeriesVersion
-
-func versionSeries(v string) string {
-	if v == "" {
-		return v
-	}
-	for _, s := range series.SupportedSeries() {
-		sv, err := seriesVersion(s)
-		if err != nil {
-			logger.Errorf("cannot determine version for series %v: %v", s, err)
-		}
-		if v == sv {
-			return s
-		}
-	}
-	return v
 }
 
 func processErrors(errs []params.ErrorResult) error {
