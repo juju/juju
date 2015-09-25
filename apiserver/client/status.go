@@ -457,7 +457,14 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 		if err != nil {
 			status.InstanceState = "error"
 		}
-		status.DNSName = network.SelectPublicAddress(machine.Addresses())
+		addr, err := machine.PublicAddress()
+		if err != nil {
+			// Usually this indicates that no addresses have been set on the
+			// machine yet.
+			addr = network.Address{}
+			logger.Warningf("error fetching public address: %q", err)
+		}
+		status.DNSName = addr.Value
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
@@ -662,7 +669,14 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) params.UnitStatus {
 	var result params.UnitStatus
-	result.PublicAddress, _ = unit.PublicAddress()
+	addr, err := unit.PublicAddress()
+	if err != nil {
+		// Usually this indicates that no addresses have been set on the
+		// machine yet.
+		addr = network.Address{}
+		logger.Warningf("error fetching public address: %q", err)
+	}
+	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
 	for _, port := range unitPorts {
 		result.OpenedPorts = append(result.OpenedPorts, port.String())

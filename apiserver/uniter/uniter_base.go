@@ -137,10 +137,11 @@ func (u *uniterBaseAPI) PublicAddress(args params.Entities) (params.StringResult
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				address, ok := unit.PublicAddress()
-				if ok {
-					result.Results[i].Result = address
-				} else {
+				var address network.Address
+				address, err = unit.PublicAddress()
+				if err == nil {
+					result.Results[i].Result = address.Value
+				} else if network.IsNoAddress(err) {
 					err = common.NoAddressSetError(tag, "public")
 				}
 			}
@@ -170,10 +171,11 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				address, ok := unit.PrivateAddress()
-				if ok {
-					result.Results[i].Result = address
-				} else {
+				var address network.Address
+				address, err = unit.PrivateAddress()
+				if err == nil {
+					result.Results[i].Result = address.Value
+				} else if network.IsNoAddress(err) {
 					err = common.NoAddressSetError(tag, "private")
 				}
 			}
@@ -1025,7 +1027,7 @@ func (u *uniterBaseAPI) EnterScope(args params.RelationUnits) (params.ErrorResul
 			// private address (we already know it).
 			privateAddress, _ := relUnit.PrivateAddress()
 			settings := map[string]interface{}{
-				"private-address": privateAddress,
+				"private-address": privateAddress.Value,
 			}
 			err = relUnit.EnterScope(settings)
 		}
