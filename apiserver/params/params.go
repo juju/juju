@@ -357,14 +357,16 @@ type Creds struct {
 
 // LoginRequest holds credentials for identifying an entity to the Login v1
 // facade. AuthTag holds the tag of the user to connect as. If it is empty,
-// then the provided Macaroons will be used for authentication. These may be
-// empty, in which case LoginResponse will contain a macaroon that when
+// then the provided macaroon slices will be used for authentication (if
+// any one is valid, the authentication succeeds). If there are no
+// valid macaroons and macaroon authentication is configured,
+// the LoginResponse will contain a macaroon that when
 // discharged, may allow access.
 type LoginRequest struct {
-	AuthTag     string         `json:"auth-tag"`
-	Credentials string         `json:"credentials"`
-	Nonce       string         `json:"nonce"`
-	Macaroons   macaroon.Slice `json:"macaroons"`
+	AuthTag     string           `json:"auth-tag"`
+	Credentials string           `json:"credentials"`
+	Nonce       string           `json:"nonce"`
+	Macaroons   []macaroon.Slice `json:"macaroons"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1

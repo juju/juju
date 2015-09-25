@@ -84,7 +84,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.AuthenticatorForTag)
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt.authenticatorForTag)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*authentication.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
@@ -195,7 +195,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 // run API workers for that environment to do things like provisioning
 // machines.
 func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
-	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.AuthenticatorForTag)
+	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.authCtxt.authenticatorForTag)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
@@ -33,7 +34,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	authenticator, err := srv.AuthenticatorForTag(user.Tag())
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authenticator, gc.NotNil)
 	userFinder := userFinder{user}
@@ -49,7 +50,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTagGetsMacaroonAuthenticator(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	authenticator, err := srv.AuthenticatorForTag(nil)
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.MacaroonAuthenticator)
 	c.Assert(ok, jc.IsTrue)
@@ -58,7 +59,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTagGetsMacaroonAuthenticat
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthentictor(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	authenticator, err := srv.AuthenticatorForTag(names.NewMachineTag("0"))
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
@@ -66,7 +67,7 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthentictor(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthentictor(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	authenticator, err := srv.AuthenticatorForTag(names.NewUnitTag("wordpress/0"))
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
@@ -74,7 +75,7 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthentictor(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	authenticator, err := srv.AuthenticatorForTag(names.NewServiceTag("not-support"))
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewServiceTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "invalid request")
 	c.Assert(authenticator, gc.IsNil)
 }

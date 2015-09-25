@@ -24,7 +24,6 @@ import (
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
@@ -68,29 +67,9 @@ type Server struct {
 	// identityURL to address discharge macaroons to.
 	identityURL string
 
+	authCtxt authContext
+
 	environUUID string
-}
-
-// AuthenticatorForTag returns the authenticator appropriate
-// to use for a login with the given tag, which may be nil.
-// If no appropriate authenticator is found, it returns nil.
-func (s *Server) AuthenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
-	if tag == nil {
-		return &authentication.MacaroonAuthenticator{
-			Service:          s.bakeryService,
-			Macaroon:         s.macaroon,
-			IdentityLocation: s.identityURL,
-		}, nil
-	}
-
-	switch tag.Kind() {
-	case names.UnitTagKind, names.MachineTagKind:
-		return &authentication.AgentAuthenticator{}, nil
-	case names.UserTagKind:
-		return &authentication.UserAuthenticator{}, nil
-	}
-	return nil, common.ErrBadRequest
-
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -248,12 +227,12 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot make bakery service")
 		}
-		srv.bakeryService = svc
-		srv.macaroon, err = svc.NewMacaroon("api-login", nil, nil)
+		srv.authCtxt.bakeryService = svc
+		srv.authCtxt.macaroon, err = svc.NewMacaroon("api-login", nil, nil)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot make macaroon")
 		}
-		srv.identityURL = idURL
+		srv.authCtxt.identityURL = idURL
 	}
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
@@ -401,6 +380,7 @@ func (srv *Server) run(lis net.Listener) {
 	srvDying := srv.tomb.Dying()
 	httpCtxt := httpContext{
 		statePool: srv.statePool,
+		authCtxt:  &srv.authCtxt,
 	}
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
@@ -523,11 +503,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	}
 	conn := rpc.NewConn(codec, notifier)
 
-	var h *apiHandler
-	st, err := validateEnvironUUID(validateArgs{statePool: srv.statePool, envUUID: envUUID})
-	if err == nil {
-		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
-	}
+	h, err := srv.newAPIHandler(conn, reqNotifier, envUUID)
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
@@ -543,6 +519,24 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
+}
+
+func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
+	// Note that we don't overwrite envUUID here because
+	// newAPIHandler treats an empty envUUID as signifying
+	// the API version used.
+	resolvedEnvUUID, err := validateEnvironUUID(validateArgs{
+		statePool: srv.statePool,
+		envUUID:   envUUID,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	st, err := srv.statePool.Get(resolvedEnvUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newApiHandler(srv, st, conn, reqNotifier, envUUID)
 }
 
 func (srv *Server) mongoPinger() error {

@@ -37,7 +37,7 @@ type toolsDownloadHandler struct {
 }
 
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
+	st, err := h.ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
 		sendError(w, err)
 		return
@@ -45,7 +45,7 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	switch r.Method {
 	case "GET":
-		tarball, err := h.processGet(r, stateWrapper.state)
+		tarball, err := h.processGet(r, st)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			sendError(w, errors.NewBadRequest(err, ""))
@@ -60,21 +60,16 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
+	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
 	if err != nil {
 		sendError(w, err)
-		return
-	}
-
-	if err := stateWrapper.authenticateUser(r); err != nil {
-		sendError(w, errUnauthorized)
 		return
 	}
 
 	switch r.Method {
 	case "POST":
 		// Add tools to storage.
-		agentTools, err := h.processPost(r, stateWrapper.state)
+		agentTools, err := h.processPost(r, st)
 		if err != nil {
 			sendError(w, err)
 			return

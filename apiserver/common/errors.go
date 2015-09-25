@@ -141,6 +141,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		// This should really be http.StatusForbidden but earlier versions
 		// of juju clients rely on the 400 status, so we leave it like that.
 		status = http.StatusBadRequest
+	case params.CodeForbidden:
+		status = http.StatusForbidden
 	}
 	return err1, status
 }

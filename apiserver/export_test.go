@@ -33,15 +33,19 @@ var (
 )
 
 func ServerMacaroon(srv *Server) *macaroon.Macaroon {
-	return srv.macaroon
+	return srv.authCtxt.macaroon
 }
 
 func ServerBakeryService(srv *Server) *bakery.Service {
-	return srv.bakeryService
+	return srv.authCtxt.bakeryService
 }
 
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
+}
+
+func ServerAuthenticatorForTag(srv *Server, tag names.Tag) (authentication.EntityAuthenticator, error) {
+	return srv.authCtxt.authenticatorForTag(tag)
 }
 
 const LoginRateLimit = loginRateLimit

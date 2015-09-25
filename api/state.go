@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
@@ -90,7 +91,7 @@ func (st *State) loginV2(tag names.Tag, password, nonce string) error {
 		if err != nil {
 			return errors.Annotate(err, "failed to obtain the macaroon discharge")
 		}
-		request.Macaroons = discharge
+		request.Macaroons = []macaroon.Slice{discharge}
 		err = st.APICall("Admin", 2, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)

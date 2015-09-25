@@ -4,9 +4,10 @@
 package authentication
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 // EntityAuthenticator is the interface all entity authenticators need to implement

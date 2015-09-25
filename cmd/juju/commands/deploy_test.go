@@ -654,7 +654,10 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
 	s.PatchValue(&registerMeteredCharm, func(r string, s api.Connection, j *cookiejar.Jar, c string, sv, e string) error {
-		return &params.Error{"IsMetered", params.CodeNotImplemented}
+		return &params.Error{
+			Message: "IsMetered",
+			Code:    params.CodeNotImplemented,
+		}
 	})
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")

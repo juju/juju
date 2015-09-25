@@ -71,13 +71,13 @@ type backupsSuite struct {
 var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, "", "", "GET", s.backupURL(c), "", nil)
+	resp, err := s.sendRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c)})
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
 }
 
 func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
-	resp, err := s.authRequest(c, method, url, "", nil)
+	resp, err := s.authRequest(c, httpRequestParams{method: method, url: url})
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
@@ -101,12 +101,18 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag().String(), password, "GET", s.backupURL(c), "", nil)
+	resp, err := s.sendRequest(c, httpRequestParams{
+		tag:      machine.Tag().String(),
+		password: password,
+		method:   "GET",
+		url:      s.backupURL(c),
+		nonce:    "fake_nonce",
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "invalid entity name or password")
 
 	// Now try a user login.
-	resp, err = s.authRequest(c, "POST", s.backupURL(c), "", nil)
+	resp, err = s.authRequest(c, httpRequestParams{method: "POST", url: s.backupURL(c)})
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
 }
@@ -137,7 +143,7 @@ func (s *backupsDownloadSuite) sendValid(c *gc.C) *http.Response {
 
 	ctype := apihttp.CTypeJSON
 	body := s.newBody(c, meta.ID())
-	resp, err := s.authRequest(c, "GET", s.backupURL(c), ctype, body)
+	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c), contentType: ctype, body: body})
 	c.Assert(err, jc.ErrorIsNil)
 	return resp
 }
@@ -211,7 +217,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 
 	// Send the request.
 	ctype := writer.FormDataContentType()
-	resp, err := s.authRequest(c, "PUT", s.backupURL(c), ctype, &parts)
+	resp, err := s.authRequest(c, httpRequestParams{method: "PUT", url: s.backupURL(c), contentType: ctype, body: &parts})
 	c.Assert(err, jc.ErrorIsNil)
 	return resp
 }

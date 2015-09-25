@@ -19,6 +19,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -33,10 +37,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
 func TestAll(t *stdtesting.T) {

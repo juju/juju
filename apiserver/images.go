@@ -31,14 +31,14 @@ type imagesDownloadHandler struct {
 }
 
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stateWrapper, err := h.ctxt.validateEnvironUUID(r)
+	st, err := h.ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
 		sendError(w, err)
 		return
 	}
 	switch r.Method {
 	case "GET":
-		err := h.processGet(r, w, stateWrapper.state)
+		err := h.processGet(r, w, st)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			sendError(w, err)

@@ -130,7 +130,7 @@ func (s *serviceSuite) TestSetMetricCredentials(c *gc.C) {
 			}},
 			params.ErrorResults{[]params.ErrorResult{
 				{Error: nil},
-				{Error: &params.Error{`service "not-a-service" not found`, "not found"}},
+				{Error: &params.Error{Message: `service "not-a-service" not found`, Code: "not found"}},
 			}},
 		},
 	}

@@ -66,7 +66,7 @@ func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
-	s.checkAuthFails(c, nil, "invalid request format")
+	s.checkAuthFails(c, nil, "no authorization header found")
 }
 
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
@@ -95,7 +95,7 @@ func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message strin
 	conn := s.dialWebsocketInternal(c, header)
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
-	assertJSONError(c, reader, "auth failed: "+message)
+	assertJSONError(c, reader, message)
 	s.assertWebsocketClosed(c, reader)
 }
 
