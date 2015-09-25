@@ -298,7 +298,10 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 }
 
 func (s *Service) AddDynamicEndpoint(name, iface string) error {
-	logger.Debugf("Adding dynamic endpoint")
+	if ep, err := s.Endpoint(name); err == nil {
+		return fmt.Errorf("cannot add dynamic endpoint for service %q: %v endpoint exists", s, ep)
+	}
+
 	endpointId := "e#" + name + "#" + iface
 	id := s.globalKey() + "-" + endpointId
 
@@ -320,6 +323,7 @@ func (s *Service) AddDynamicEndpoint(name, iface string) error {
 		return fmt.Errorf("cannot add dynamic endpoint %v:%v for service %q: %v", name, iface, s, onAbort(err, errNotAlive))
 	}
 
+	logger.Debugf("added dynamic endpoint %v for service %q", endpointId, s)
 	return nil
 }
 
@@ -333,8 +337,6 @@ func (s *Service) IsDynamicEndpoint(name, iface string) bool {
 }
 
 func (s *Service) DynamicEndpoints() []Endpoint {
-	logger.Debugf("listing dynamic endpoints")
-
 	var endpoints []Endpoint
 
 	dynamicEndpoints, closer := s.st.getCollection(dynamicEndpointsC)
@@ -356,13 +358,12 @@ func (s *Service) DynamicEndpoints() []Endpoint {
 			Dynamic:     true,
 		})
 	}
-	logger.Debugf("endpoints: %v", endpoints)
+	logger.Debugf("dynamic endpoints for service %q: %v", s, endpoints)
 	return endpoints
 }
 
 // Endpoints returns the service's currently available relation endpoints.
 func (s *Service) Endpoints() (eps []Endpoint, err error) {
-	logger.Debugf("AddDyn .. calling Endpoints")
 	ch, _, err := s.Charm()
 	if err != nil {
 		return nil, err
