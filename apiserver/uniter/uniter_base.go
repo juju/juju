@@ -36,6 +36,7 @@ type uniterBaseAPI struct {
 	*common.EnvironWatcher
 	*common.RebootRequester
 	*leadershipapiserver.LeadershipSettingsAccessor
+	meterstatus.MeterStatus
 
 	st            *state.State
 	auth          common.Authorizer
@@ -93,7 +94,10 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 			return tag == machine.Tag()
 		}, nil
 	}
-
+	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not create meter status API handler")
+	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	return &uniterBaseAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
@@ -103,7 +107,7 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 		EnvironWatcher:             common.NewEnvironWatcher(st, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
-
+		MeterStatus:                msAPI,
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its service's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(st, accessUnitOrService),
@@ -594,33 +598,6 @@ func (u *uniterBaseAPI) WatchConfigSettings(args params.Entities) (params.Notify
 		watcherId := ""
 		if canAccess(tag) {
 			watcherId, err = u.watchOneUnitConfigSettings(tag)
-		}
-		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// WatchMeterStatus returns a NotifyWatcher for observing changes
-// to each unit's meter status.
-func (u *uniterBaseAPI) WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error) {
-	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.NotifyWatchResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		err = common.ErrPerm
-		watcherId := ""
-		if canAccess(tag) {
-			watcherId, err = u.watchOneUnitMeterStatus(tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
 		result.Results[i].Error = common.ServerError(err)
@@ -1213,37 +1190,6 @@ func (u *uniterBaseAPI) WatchUnitAddresses(args params.Entities) (params.NotifyW
 	return result, nil
 }
 
-// GetMeterStatus returns meter status information for each unit.
-func (u *uniterBaseAPI) GetMeterStatus(args params.Entities) (params.MeterStatusResults, error) {
-	result := params.MeterStatusResults{
-		Results: make([]params.MeterStatusResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.MeterStatusResults{}, common.ErrPerm
-	}
-	for i, entity := range args.Entities {
-		unitTag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		err = common.ErrPerm
-		var status state.MeterStatus
-		if canAccess(unitTag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(unitTag)
-			if err == nil {
-				status, err = meterstatus.MeterStatusWrapper(unit.GetMeterStatus)
-			}
-			result.Results[i].Code = status.Code.String()
-			result.Results[i].Info = status.Info
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 func (u *uniterBaseAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }
@@ -1442,18 +1388,6 @@ func (u *uniterBaseAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (param
 		}, nil
 	}
 	return params.RelationUnitsWatchResult{}, watcher.EnsureErr(watch)
-}
-
-func (u *uniterBaseAPI) watchOneUnitMeterStatus(tag names.UnitTag) (string, error) {
-	unit, err := u.getUnit(tag)
-	if err != nil {
-		return "", err
-	}
-	watch := unit.WatchMeterStatus()
-	if _, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), nil
-	}
-	return "", watcher.EnsureErr(watch)
 }
 
 func (u *uniterBaseAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
