@@ -232,22 +232,22 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(context.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
-	expect, expectOk := s.unit.PrivateAddress()
+	expect, expectErr := s.unit.PrivateAddress()
 	actual, actualErr := ctx.PrivateAddress()
-	c.Assert(actual, gc.Equals, expect)
-	if expectOk {
+	c.Assert(actual, gc.Equals, expect.Value)
+	if expectErr == nil {
 		c.Assert(actualErr, jc.ErrorIsNil)
 	} else {
 		c.Assert(actualErr, jc.Satisfies, errors.IsNotFound)
 	}
 
-	expect, expectOk = s.unit.PublicAddress()
+	expect, expectErr = s.unit.PublicAddress()
 	actual, actualErr = ctx.PublicAddress()
-	c.Assert(actual, gc.Equals, expect)
-	if expectOk {
+	c.Assert(actual, gc.Equals, expect.Value)
+	if expectErr == nil {
 		c.Assert(actualErr, jc.ErrorIsNil)
 	} else {
-		c.Assert(actualErr, gc.NotNil)
+		c.Assert(actualErr, gc.ErrorMatches, expectErr)
 	}
 
 	env, err := s.State.Environment()

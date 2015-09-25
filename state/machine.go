@@ -117,12 +117,23 @@ type machineDoc struct {
 	Volumes []string `bson:"volumes,omitempty"`
 	// Filesystems contains the names of filesystems attached to the machine.
 	Filesystems []string `bson:"filesystems,omitempty"`
+
 	// We store 2 different sets of addresses for the machine, obtained
 	// from different sources.
 	// Addresses is the set of addresses obtained by asking the provider.
 	Addresses []address
+
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
+
+	// DefaultPublicAddress, if set, is the default address to be used for
+	// the machine when a public address is requested.
+	DefaultPublicAddress address `bson:",omitempty"`
+
+	// DefaultPrivateAddress, if set, is the default address to be used for
+	// the machine when a private address is requested.
+	DefaultPrivateAddress address `bson:",omitempty"`
+
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
 	SupportedContainersKnown bool
@@ -1147,6 +1158,158 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 // addresses. Duplicates are removed.
 func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
+}
+
+func containsAddress(addresses []network.Address, address network.Address) bool {
+	for _, addr := range addresses {
+		if addr.Value == address.Value {
+			return true
+		}
+	}
+	return false
+}
+
+// PublicAddress returns a public address for the machine. The address returned
+// is stored as the default address on first use, and that address is always
+// returned unless it becomes unavilable (or a better match for scope and type
+// becomes avaialable).
+func (m *Machine) PublicAddress() (network.Address, error) {
+	publicAddress := m.doc.DefaultPublicAddress.networkAddress()
+	addresses := m.Addresses()
+	if len(addresses) == 0 {
+		// No addresses to return.
+		logger.Warningf("getting PublicAddress: no addresses for machine %q", m.Id())
+		return network.Address{}, nil
+	}
+	// Always prefer an exact match if available.
+	checkScope := func(addr network.Address) bool {
+		return network.ExactScopeMatch(addr, network.ScopePublic)
+	}
+	// Without an exact match, prefer a fallback match.
+	getAddr := func() network.Address {
+		return network.SelectPublicAddress(addresses)
+	}
+
+	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
+	if !changed {
+		return publicAddress, nil
+	}
+	err := m.setDefaultAddress(newAddr, true)
+	if err != nil {
+		if err != errNotAlive {
+			return network.Address{}, errors.Trace(err)
+		} else {
+			// Dead machines cannot change address, report the last
+			// known address.
+			return publicAddress, nil
+		}
+	}
+	return newAddr, nil
+}
+
+// maybeGetNewAddress determines if the current address is the most appropriate
+// match, and if not it selects the best from the slice of all available
+// addresses. It returns the new address and a bool indicating if a different
+// one was picked.
+func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAddr func() network.Address, checkScope func(network.Address) bool) (network.Address, bool) {
+	newAddr := getAddr()
+	// The order of these checks is important. If the stored address is
+	// empty we *always* want to check for a new address so we do that
+	// first. If the stored address is unavilable we also *must* check for
+	// a new address so we do that next. Finally we check to see if a
+	// better match on scope is available.
+	if addr.Value == "" {
+		return newAddr, newAddr.Value != ""
+	}
+	if !containsAddress(addresses, addr) {
+		return newAddr, true
+	}
+	if !checkScope(addr) {
+		return newAddr, checkScope(newAddr)
+	}
+	return addr, false
+}
+
+// PrivateAddress returns a private address for the machine. The address returned
+// is stored as the default address on first use, and that address is always
+// returned unless it becomes unavilable (or a better match for scope and type
+// becomes avaialable).
+func (m *Machine) PrivateAddress() (network.Address, error) {
+	privateAddress := m.doc.DefaultPrivateAddress.networkAddress()
+	addresses := m.Addresses()
+	if len(addresses) == 0 {
+		// No addresses to return.
+		logger.Warningf("getting PrivateAddress: no addresses for machine %q", m.Id())
+		return network.Address{}, nil
+	}
+	// Always prefer an exact match if available.
+	checkScope := func(addr network.Address) bool {
+		return network.ExactScopeMatch(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
+	}
+	// Without an exact match, prefer a fallback match.
+	getAddr := func() network.Address {
+		return network.SelectInternalAddress(addresses, false)
+	}
+
+	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
+	if !changed {
+		return privateAddress, nil
+	}
+	err := m.setDefaultAddress(newAddr, false)
+	if err != nil {
+		if err != errNotAlive {
+			return network.Address{}, errors.Trace(err)
+		} else {
+			// Dead machines cannot change address, report the last
+			// known address.
+			return privateAddress, nil
+		}
+	}
+	return newAddr, nil
+
+}
+
+func (m *Machine) setDefaultAddress(netAddr network.Address, isPublic bool) error {
+	if m.doc.Life == Dead {
+		// Don't allow changing the address of dead machines.
+		return errNotAlive
+	}
+	addr := fromNetworkAddress(netAddr)
+	fieldName := "defaultprivateaddress"
+	if isPublic {
+		fieldName = "defaultpublicaddress"
+	}
+
+	differentAddress := bson.D{{fieldName, bson.D{{"$ne", addr}}}}
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: append(notDeadDoc, differentAddress...),
+		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
+	}}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, err
+			}
+
+			if m.doc.Life == Dead {
+				return nil, errNotAlive
+			}
+			// Address has already been set.
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ops, nil
+	}
+	err := m.st.run(buildTxn)
+	if err == nil {
+		if isPublic {
+			m.doc.DefaultPublicAddress = addr
+		} else {
+			m.doc.DefaultPrivateAddress = addr
+		}
+	}
+	return err
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced

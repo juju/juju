@@ -80,7 +80,7 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 // SelectPeerAddress returns the address to use as the
 // mongo replica set peer address by selecting it from the given addresses.
 func SelectPeerAddress(addrs []network.Address) string {
-	return network.SelectInternalAddress(addrs, false)
+	return network.SelectInternalAddress(addrs, false).Value
 }
 
 // SelectPeerHostPort returns the HostPort to use as the
