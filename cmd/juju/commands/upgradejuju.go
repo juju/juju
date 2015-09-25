@@ -318,7 +318,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 
 	builtTools, err := sync.BuildToolsTarball(&context.chosen, "upgrade")
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	defer os.RemoveAll(builtTools.Dir)
 
@@ -327,17 +327,13 @@ func (context *upgradeContext) uploadTools() (err error) {
 	logger.Infof("uploading tools %v (%dkB) to Juju state server", builtTools.Version, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	defer f.Close()
-	os, err := series.GetOSFromSeries(builtTools.Version.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	additionalSeries := series.OSSupportedSeries(os)
+	additionalSeries := series.OSSupportedSeries(builtTools.Version.OS)
 	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	context.tools = coretools.List{uploaded}
 	return nil
