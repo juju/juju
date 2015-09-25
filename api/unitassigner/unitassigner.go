@@ -23,9 +23,10 @@ func New(caller base.APICaller) API {
 }
 
 // AssignUnits tells the state server to run whatever unit assignments it has.
-func (a API) AssignUnits() (params.AssignUnitsResults, error) {
+func (a API) AssignUnits(ids []string) (params.AssignUnitsResults, error) {
+	args := params.AssignUnitsParams{IDs: ids}
 	var result params.AssignUnitsResults
-	if err := a.facade.FacadeCall("AssignUnits", nil, &result); err != nil {
+	if err := a.facade.FacadeCall("AssignUnits", args, &result); err != nil {
 		return result, err
 	}
 	return result, nil
@@ -33,8 +34,8 @@ func (a API) AssignUnits() (params.AssignUnitsResults, error) {
 
 // WatchUnitAssignments watches the server for new unit assignments to be
 // created.
-func (a API) WatchUnitAssignments() (watcher.NotifyWatcher, error) {
-	var result params.NotifyWatchResult
+func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
 	err := a.facade.FacadeCall("WatchUnitAssignments", nil, &result)
 	if err != nil {
 		return nil, err
@@ -42,6 +43,6 @@ func (a API) WatchUnitAssignments() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(a.facade.RawAPICaller(), result)
+	w := watcher.NewStringsWatcher(a.facade.RawAPICaller(), result)
 	return w, nil
 }

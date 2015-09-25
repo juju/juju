@@ -1433,8 +1433,8 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 
 // WatchForUnitAssignment watches for new services that request units to be
 // assigned to machines.
-func (st *State) WatchForUnitAssignment() NotifyWatcher {
-	return newEntityWatcher(st, assignUnitC, st.docID(environGlobalKey))
+func (st *State) WatchForUnitAssignment() StringsWatcher {
+	return newcollectionWatcher(st, assignUnitC, nil, nil)
 }
 
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
@@ -2059,29 +2059,31 @@ func statusInCollectionOp(statusSet ...ActionStatus) bson.D {
 	return inCollectionOp("status", ids...)
 }
 
-// idPrefixWatcher is a StringsWatcher that watches for changes on the
-// specified collection that match common prefixes
-type idPrefixWatcher struct {
+// collectionWatcher is a StringsWatcher that watches for changes on the
+// specified collection that match a filter on the id.
+type collectionWatcher struct {
 	commonWatcher
 	source   chan watcher.Change
 	sink     chan []string
 	filterFn func(interface{}) bool
 	targetC  string
+	idconv   func(string) string
 }
 
-// ensure idPrefixWatcher is a StringsWatcher
+// ensure collectionWatcher is a StringsWatcher
 // TODO(dfc) this needs to move to a test
-var _ StringsWatcher = (*idPrefixWatcher)(nil)
+var _ StringsWatcher = (*collectionWatcher)(nil)
 
-// newIdPrefixWatcher starts and returns a new StringsWatcher configured
+// newcollectionWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
-func newIdPrefixWatcher(st *State, collectionName string, filter func(interface{}) bool) StringsWatcher {
-	w := &idPrefixWatcher{
+func newcollectionWatcher(st *State, collectionName string, filter func(interface{}) bool, idconv func(string) string) StringsWatcher {
+	w := &collectionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		source:        make(chan watcher.Change),
 		sink:          make(chan []string),
 		filterFn:      filter,
 		targetC:       collectionName,
+		idconv:        idconv,
 	}
 
 	go func() {
@@ -2095,13 +2097,13 @@ func newIdPrefixWatcher(st *State, collectionName string, filter func(interface{
 }
 
 // Changes returns the event channel for this watcher
-func (w *idPrefixWatcher) Changes() <-chan []string {
+func (w *collectionWatcher) Changes() <-chan []string {
 	return w.sink
 }
 
 // loop performs the main event loop cycle, polling for changes and
 // responding to Changes requests
-func (w *idPrefixWatcher) loop() error {
+func (w *collectionWatcher) loop() error {
 	var (
 		changes []string
 		in      = (<-chan watcher.Change)(w.source)
@@ -2127,7 +2129,7 @@ func (w *idPrefixWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := mergeIds(w.st, &changes, updates); err != nil {
+			if err := w.mergeIds(w.st, &changes, updates); err != nil {
 				return err
 			}
 			if len(changes) > 0 {
@@ -2170,7 +2172,7 @@ func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(in
 
 // initial pre-loads the id's that have already been added to the
 // collection that would otherwise not normally trigger the watcher
-func (w *idPrefixWatcher) initial() ([]string, error) {
+func (w *collectionWatcher) initial() ([]string, error) {
 	var ids []string
 	var doc struct {
 		DocId string `bson:"_id"`
@@ -2180,8 +2182,11 @@ func (w *idPrefixWatcher) initial() ([]string, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filterFn == nil || w.filterFn(doc.DocId) {
-			actionId := actionNotificationIdToActionId(w.st.localID(doc.DocId))
-			ids = append(ids, actionId)
+			id := w.st.localID(doc.DocId)
+			if w.idconv != nil {
+				id = w.idconv(id)
+			}
+			ids = append(ids, id)
 		}
 	}
 	return ids, iter.Close()
@@ -2195,25 +2200,31 @@ func (w *idPrefixWatcher) initial() ([]string, error) {
 // watcher.
 // Additionally, mergeIds strips the environment UUID prefix from the id
 // before emitting it through the watcher.
-func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
-	for id, idExists := range updates {
-		switch id := id.(type) {
-		case string:
-			localId := st.localID(id)
-			actionId := actionNotificationIdToActionId(localId)
-			chIx, idAlreadyInChangeset := indexOf(actionId, *changes)
-			if idExists {
-				if !idAlreadyInChangeset {
-					*changes = append(*changes, actionId)
-				}
-			} else {
-				if idAlreadyInChangeset {
-					// remove id from changes
-					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
-				}
+func (w *collectionWatcher) mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, changes, updates, w.idconv)
+}
+
+func mergeIds(st *State, changes *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+	for val, idExists := range updates {
+		id, ok := val.(string)
+		if !ok {
+			return errors.Errorf("id is not of type string, got %T", val)
+		}
+		id = st.localID(id)
+		if idconv != nil {
+			id = idconv(id)
+		}
+
+		chIx, idAlreadyInChangeset := indexOf(id, *changes)
+		if idExists {
+			if !idAlreadyInChangeset {
+				*changes = append(*changes, id)
 			}
-		default:
-			return errors.Errorf("id is not of type string, got %T", id)
+		} else {
+			if idAlreadyInChangeset {
+				// remove id from changes
+				*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+			}
 		}
 	}
 	return nil
@@ -2250,14 +2261,14 @@ func ensureSuffixFn(marker string) func(string) string {
 // watchEnqueuedActions starts and returns a StringsWatcher that
 // notifies on new Actions being enqueued.
 func (st *State) watchEnqueuedActions() StringsWatcher {
-	return newIdPrefixWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker))
+	return newcollectionWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker), actionNotificationIdToActionId)
 }
 
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
 // that notifies on new Actions being enqueued on the ActionRecevers
 // being watched.
 func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newIdPrefixWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker, receivers...))
+	return newcollectionWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker, receivers...), actionNotificationIdToActionId)
 }
 
 // WatchActionResults starts and returns a StringsWatcher that

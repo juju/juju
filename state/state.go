@@ -1258,12 +1258,14 @@ func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.O
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and simply runs the
 // assignments stored in the DB that have not yet been run.
-func (st *State) AssignStagedUnits() ([]UnitAssignmentResult, error) {
+func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error) {
 	col, close := st.getCollection(assignUnitC)
 	defer close()
 	docs := []assignUnitDoc{}
-	if err := col.Find(nil).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get all assign unit docs")
+
+	sel := bson.D{{"_id", bson.D{{"$in", ids}}}}
+	if err := col.Find(sel).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get assign unit docs")
 	}
 	results := make([]UnitAssignmentResult, len(docs))
 	for i, doc := range docs {
@@ -1294,13 +1296,14 @@ func (st *State) assignStagedUnit(doc assignUnitDoc) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if doc.Scope == "" && doc.Directive == "" {
+		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
+	}
+
 	placement := &instance.Placement{Scope: doc.Scope, Directive: doc.Directive}
 
 	// units always have the same networks as their service.
-	if err := st.AssignUnitWithPlacement(u, placement, networks); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(st.AssignUnitWithPlacement(u, placement, networks))
 }
 
 // AssignUnitWithPlacement chooses a machine using the given placement directive

@@ -246,8 +246,8 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
-	return mergeIds(st, changeset, updates)
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+	return mergeIds(st, changeset, updates, idconv)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
@@ -427,3 +427,5 @@ func MakeLogDoc(
 func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
 }
+
+var ActionNotificationIdToActionId = actionNotificationIdToActionId

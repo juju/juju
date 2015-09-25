@@ -801,6 +801,11 @@ type BundleChangesChange struct {
 	Requires []string `json:"requires"`
 }
 
+// AssignUnitsParams holds the list of staged unit assignments to run.
+type AssignUnitsParams struct {
+	IDs []string
+}
+
 // AssignUnitsResult holds the results of a call to UnitAssigner.Assign.
 type AssignUnitsResults struct {
 	Results []AssignUnitsResult

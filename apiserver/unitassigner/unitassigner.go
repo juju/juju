@@ -14,8 +14,8 @@ func init() {
 // st defines the state methods this facade needs, so they can be mocked
 // for testing.
 type st interface {
-	WatchForUnitAssignment() state.NotifyWatcher
-	AssignStagedUnits() ([]state.UnitAssignmentResult, error)
+	WatchForUnitAssignment() state.StringsWatcher
+	AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error)
 }
 
 // API implements the functionality for assigning units to machines.
@@ -29,9 +29,9 @@ func New(st *state.State, res *common.Resources, auth common.Authorizer) (*API, 
 	return &API{st: st, res: res, auth: auth}, nil
 }
 
-func (a *API) AssignUnits() (params.AssignUnitsResults, error) {
+func (a *API) AssignUnits(args params.AssignUnitsParams) (params.AssignUnitsResults, error) {
 	var result params.AssignUnitsResults
-	res, err := a.st.AssignStagedUnits()
+	res, err := a.st.AssignStagedUnits(args.IDs)
 	if err != nil {
 		result.Error = common.ServerError(err)
 	}
@@ -43,12 +43,13 @@ func (a *API) AssignUnits() (params.AssignUnitsResults, error) {
 	return result, nil
 }
 
-func (a *API) WatchUnitAssignments() (params.NotifyWatchResult, error) {
+func (a *API) WatchUnitAssignments() (params.StringsWatchResult, error) {
 	watch := a.st.WatchForUnitAssignment()
-	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{
-			NotifyWatcherId: a.res.Register(watch),
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: a.res.Register(watch),
+			Changes:          changes,
 		}, nil
 	}
-	return params.NotifyWatchResult{}, watcher.EnsureErr(watch)
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
