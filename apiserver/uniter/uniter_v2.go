@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The uniter package implements the API interface used by the uniter
 // worker. This file contains the API facade version 2.
 
