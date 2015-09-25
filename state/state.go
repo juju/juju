@@ -1585,7 +1585,6 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sdoc := &serviceDoc{}
 	err = services.FindId(name).One(sdoc)
 	if err == mgo.ErrNotFound {
-		panic("Can't find service " + name)
 		return nil, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {

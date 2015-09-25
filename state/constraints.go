@@ -95,7 +95,6 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 
 	doc := constraintsDoc{}
 	if err := constraintsCollection.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		panic("can't find constraints")
 		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {
 		return constraints.Value{}, err

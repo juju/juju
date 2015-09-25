@@ -634,7 +634,6 @@ func (s *Service) Refresh() error {
 
 	err := services.FindId(s.doc.DocID).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		panic("Can't find service " + s.Name())
 		return errors.NotFoundf("service %q", s)
 	}
 	if err != nil {
