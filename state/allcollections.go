@@ -173,8 +173,9 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with services.
-		charmsC:   {},
-		servicesC: {},
+		charmsC:           {},
+		servicesC:         {},
+		dynamicEndpointsC: {},
 		unitsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"env-uuid", "service"},
@@ -344,6 +345,7 @@ const (
 	cloudimagemetadataC    = "cloudimagemetadata"
 	constraintsC           = "constraints"
 	containerRefsC         = "containerRefs"
+	dynamicEndpointsC      = "dynamicEndpoints"
 	envUsersC              = "envusers"
 	environmentsC          = "environments"
 	filesystemAttachmentsC = "filesystemAttachments"
