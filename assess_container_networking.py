@@ -5,6 +5,7 @@ from copy import (
     copy,
     deepcopy,
 )
+import time
 
 __metaclass__ = type
 
@@ -21,14 +22,11 @@ def clean_environment(client, services_only=False):
 
     :param client: a Juju client
     """
-    try:
-        client.get_juju_output('status')
-    except subprocess.CalledProcessError:
-        # If we fail to get status then the environment doesn't exist. Since
-        # there is nothing to clean, we return False to say that we failed.
-        return False
+    # A short timeout is used for get_status here because if we don't get a
+    # response from  get_status quickly then the environment almost
+    # certainly doesn't exist or needs recreating.
+    status = client.get_status(5)
 
-    status = client.get_status()
     for service in status.status['services']:
         client.juju('remove-service', service)
 
@@ -42,7 +40,17 @@ def clean_environment(client, services_only=False):
 
         for m, _ in status.iter_machines(containers=False, machines=True):
             if m != '0':
-                client.juju('remove-machine', m)
+                try:
+                    client.juju('remove-machine', m)
+                except subprocess.CalledProcessError:
+                    # Sometimes this fails because while we have asked Juju
+                    # to remove a container and it says that it has, when we
+                    # ask it to remove the host Juju thinks it still has
+                    # containers on it. Normally a small pause and trying
+                    # again is all that is needed to resolve this issue.
+                    time.sleep(2)
+                    s = client.wait_for_started()
+                    client.juju('remove-machine', m)
 
         client.wait_for('machines-not-0', 'none')
 
