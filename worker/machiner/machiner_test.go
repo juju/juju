@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/jujfu/juju/agent"
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"

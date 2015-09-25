@@ -562,7 +562,7 @@ func (s *unitSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change is reported for machine addresses.
-	err = s.wordpressMachine.SetMachineAddresses(network.NewAddress("0.1.2.5"))
+	err = s.wordpressMachine.SetMachineAddresses(network.NewAddress("0.1.2.5", network.ScopeUnknown))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
