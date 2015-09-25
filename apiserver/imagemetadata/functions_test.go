@@ -5,9 +5,7 @@ package imagemetadata_test
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -83,35 +81,6 @@ type funcMetadataSuite struct {
 }
 
 var _ = gc.Suite(&funcMetadataSuite{})
-
-func (s *funcMetadataSuite) TestVersionSeriesValid(c *gc.C) {
-	s.assertSeriesForVersion(c, "14.04", "trusty")
-}
-
-func (s *funcMetadataSuite) TestVersionSeriesEmpty(c *gc.C) {
-	s.assertSeriesForVersion(c, "", "")
-}
-
-func (s *funcMetadataSuite) TestVersionSeriesInvalid(c *gc.C) {
-	s.assertSeriesForVersion(c, "73655", "73655")
-}
-
-func (s *funcMetadataSuite) assertSeriesForVersion(c *gc.C, version, series string) {
-	c.Assert(series, gc.DeepEquals, imagemetadata.VersionSeries(version))
-}
-
-func (s *funcMetadataSuite) TestVersionSeriesError(c *gc.C) {
-	// Patch to return err
-	patchErr := func(series string) (string, error) {
-		return "", errors.New("oops")
-	}
-	s.PatchValue(imagemetadata.SeriesVersion, patchErr)
-
-	s.assertSeriesForVersion(c, "73655", "73655")
-	// warning displayed
-	logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Assert(logOutputText, gc.Matches, ".*cannot determine version for series.*")
-}
 
 func (s *funcMetadataSuite) TestProcessErrorsNil(c *gc.C) {
 	s.assertProcessErrorsNone(c, nil)
