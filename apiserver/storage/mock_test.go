@@ -41,7 +41,7 @@ type mockState struct {
 	storageInstanceAttachments          func(names.StorageTag) ([]state.StorageAttachment, error)
 	unitAssignedMachine                 func(u names.UnitTag) (names.MachineTag, error)
 	storageInstanceVolume               func(names.StorageTag) (state.Volume, error)
-	storageInstanceVolumeAttachment     func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	volumeAttachment                    func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	storageInstanceFilesystem           func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceFilesystemAttachment func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error)
 	watchStorageAttachment              func(names.StorageTag, names.UnitTag) state.NotifyWatcher
@@ -58,6 +58,7 @@ type mockState struct {
 	allFilesystems                      func() ([]state.Filesystem, error)
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
+	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
@@ -89,7 +90,7 @@ func (st *mockState) StorageInstanceVolume(s names.StorageTag) (state.Volume, er
 }
 
 func (st *mockState) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
-	return st.storageInstanceVolumeAttachment(m, v)
+	return st.volumeAttachment(m, v)
 }
 
 func (st *mockState) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
@@ -146,6 +147,13 @@ func (st *mockState) AddStorageForUnit(u names.UnitTag, name string, cons state.
 
 func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
 	return st.getBlockForType(t)
+}
+
+func (st *mockState) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
+	if st.blockDevices != nil {
+		return st.blockDevices(m)
+	}
+	return []state.BlockDeviceInfo{}, nil
 }
 
 type mockNotifyWatcher struct {

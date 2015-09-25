@@ -44,6 +44,9 @@ type storageAccess interface {
 	// WatchVolumeAttachment is required for storage functionality.
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 
+	// BlockDevices is required for storage functionality.
+	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
+
 	// EnvName is required for pool functionality.
 	EnvName() (string, error)
 
