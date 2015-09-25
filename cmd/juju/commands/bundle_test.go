@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -107,6 +108,31 @@ func (s *DeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 	s.assertCharmsUplodaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:trusty/mysql-42"},
+		"wordpress": {charm: "cs:trusty/wordpress-47"},
+	})
+}
+
+func (s *DeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	path := filepath.Join(c.MkDir(), "mybundle")
+	data := `
+        services:
+            wordpress:
+                charm: wordpress
+                num_units: 1
+    `
+	err := ioutil.WriteFile(path, []byte(data), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	output, err := runDeployCommand(c, path)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := fmt.Sprintf(`
+added charm cs:trusty/wordpress-47
+service wordpress deployed (charm: cs:trusty/wordpress-47)
+added wordpress/0 unit to new machine
+deployment of bundle %q completed`, path)
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:trusty/wordpress-47")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"wordpress": {charm: "cs:trusty/wordpress-47"},
 	})
 }

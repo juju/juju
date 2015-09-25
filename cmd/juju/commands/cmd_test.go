@@ -161,8 +161,8 @@ var deployTests = []struct {
 }
 
 func initExpectations(com *DeployCommand) {
-	if com.CharmName == "" {
-		com.CharmName = "charm-name"
+	if com.CharmOrBundle == "" {
+		com.CharmOrBundle = "charm-name"
 	}
 	if com.NumUnits == 0 {
 		com.NumUnits = 1
@@ -207,7 +207,7 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 
 	// missing args
 	_, err = initDeployCommand()
-	c.Assert(err, gc.ErrorMatches, "no charm specified")
+	c.Assert(err, gc.ErrorMatches, "no charm or bundle specified")
 
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")

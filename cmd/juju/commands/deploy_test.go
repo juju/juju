@@ -65,13 +65,10 @@ var initErrorTests = []struct {
 }{
 	{
 		args: nil,
-		err:  `no charm specified`,
+		err:  `no charm or bundle specified`,
 	}, {
 		args: []string{"charm-name", "service-name", "hotdog"},
 		err:  `unrecognized args: \["hotdog"\]`,
-	}, {
-		args: []string{"craz~ness"},
-		err:  `invalid charm name "craz~ness"`,
 	}, {
 		args: []string{"craziness", "burble-1"},
 		err:  `invalid service name "burble-1"`,

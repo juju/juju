@@ -28,14 +28,14 @@ import (
 type DeployCommand struct {
 	envcmd.EnvCommandBase
 	service.UnitCommandBase
-	CharmName    string
-	ServiceName  string
-	Config       cmd.FileVar
-	Constraints  constraints.Value
-	Networks     string
-	BumpRevision bool   // Remove this once the 1.16 support is dropped.
-	RepoPath     string // defaults to JUJU_REPOSITORY
-	RegisterURL  string
+	CharmOrBundle string
+	ServiceName   string
+	Config        cmd.FileVar
+	Constraints   constraints.Value
+	Networks      string
+	BumpRevision  bool   // Remove this once the 1.16 support is dropped.
+	RepoPath      string // defaults to JUJU_REPOSITORY
+	RegisterURL   string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -46,18 +46,23 @@ type DeployCommand struct {
 }
 
 const deployDoc = `
-<charm name> can be a charm URL, or an unambiguously condensed form of it;
-assuming a current series of "precise", the following forms will be accepted:
+<charm or bundle> can be a charm/bundle URL, or an unambiguously condensed
+form of it; assuming a current series of "trusty", the following forms will be
+accepted:
 
-For cs:precise/mysql
+For cs:trusty/mysql
   mysql
-  precise/mysql
+  trusty/mysql
 
-For cs:~user/precise/mysql
+For cs:~user/trusty/mysql
   cs:~user/mysql
 
-The current series is determined first by the default-series environment
-setting, followed by the preferred series for the charm in the charm store.
+For cs:bundle/mediawiki-single
+  mediawiki-single
+  bundle/mediawiki-single
+
+The current series for charms is determined first by the default-series
+environment setting, followed by the preferred series in the charm store.
 
 In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
@@ -65,6 +70,14 @@ mysql-33 becomes cs:precise/mysql-33).
 However, for local charms, when the default-series is not specified in the
 environment, one must specify the series. For example:
   local:precise/mysql
+
+For local bundles the bundle series must be always specified. For example:
+  local:bundle/openstack
+
+The path to the bundle YAML file can be alternatively provided, and the
+referenced file is not required to be placed in a local repository directory
+structure. For instance:
+  juju deploy /path/to/bundle.yaml
 
 <service name>, if omitted, will be derived from <charm name>.
 
@@ -122,8 +135,8 @@ See Also:
 func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "deploy",
-		Args:    "<charm name> [<service name>]",
-		Purpose: "deploy a new service",
+		Args:    "<charm or bundle> [<service name>]",
+		Purpose: "deploy a new service or bundle",
 		Doc:     deployDoc,
 	}
 }
@@ -149,12 +162,9 @@ func (c *DeployCommand) Init(args []string) error {
 		c.ServiceName = args[1]
 		fallthrough
 	case 1:
-		if _, err := charm.ParseReference(args[0]); err != nil {
-			return fmt.Errorf("invalid charm name %q", args[0])
-		}
-		c.CharmName = args[0]
+		c.CharmOrBundle = args[0]
 	case 0:
-		return errors.New("no charm specified")
+		return errors.New("no charm or bundle specified")
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
@@ -190,13 +200,31 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer csClient.jar.Save()
-
 	repoPath := ctx.AbsPath(c.RepoPath)
-	curl, repo, err := resolveCharmStoreEntityURL(c.CharmName, csClient.params, repoPath, conf)
+
+	// Handle local bundle paths.
+	f, err := os.Open(c.CharmOrBundle)
+	if err == nil {
+		defer f.Close()
+		bundleData, err := charm.ReadBundleData(f)
+		if err != nil {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
+		if err := deployBundle(bundleData, client, csClient, repoPath, conf, ctx); err != nil {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
+		ctx.Infof("deployment of bundle %q completed", f.Name())
+		return nil
+	} else if !os.IsNotExist(err) {
+		return block.ProcessBlockedError(err, block.BlockChange)
+	}
+
+	curl, repo, err := resolveCharmStoreEntityURL(c.CharmOrBundle, csClient.params, repoPath, conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// Handle bundle URLs.
 	if curl.Series == "bundle" {
 		// Deploy a bundle entity.
 		bundle, err := repo.GetBundle(curl)
