@@ -40,7 +40,7 @@ func (rg *resourceGetter) expire() {
 // getResource is intended for use as the GetResourceFunc passed into the Start
 // func of the client manifold.
 func (rg *resourceGetter) getResource(resourceName string, out interface{}) error {
-	logger.Debugf("%q manifold requested %q resource", rg.clientName, resourceName)
+	logger.Tracef("%q manifold requested %q resource", rg.clientName, resourceName)
 	select {
 	case <-rg.expired:
 		return errors.New("expired resourceGetter: cannot be used outside Start func")
