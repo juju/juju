@@ -27,6 +27,8 @@ func (s *storageListSuite) newHookContext() *jujuctesting.Context {
 	info.SetBlockStorage("data/0", "/dev/sda", s.Stub)
 	info.SetBlockStorage("data/1", "/dev/sdb", s.Stub)
 	info.SetBlockStorage("data/2", "/dev/sdc", s.Stub)
+	info.SetBlockStorage("other/0", "/dev/sdd", s.Stub)
+	info.SetBlockStorage("other/1", "/dev/sde", s.Stub)
 	return ctx
 }
 
@@ -34,7 +36,7 @@ func (s *storageListSuite) TestOutputFormatYAML(c *gc.C) {
 	s.testOutputFormat(c,
 		[]string{"--format", "yaml"},
 		formatYaml,
-		[]string{"data/0", "data/1", "data/2"},
+		[]string{"data/0", "data/1", "data/2", "other/0", "other/1"},
 	)
 }
 
@@ -42,7 +44,7 @@ func (s *storageListSuite) TestOutputFormatJSON(c *gc.C) {
 	s.testOutputFormat(c,
 		[]string{"--format", "json"},
 		formatJson,
-		[]string{"data/0", "data/1", "data/2"},
+		[]string{"data/0", "data/1", "data/2", "other/0", "other/1"},
 	)
 }
 
@@ -52,7 +54,23 @@ func (s *storageListSuite) TestOutputFormatDefault(c *gc.C) {
 	s.testOutputFormat(c,
 		[]string{},
 		-1, // don't specify format
-		"data/0\ndata/1\ndata/2\n",
+		"data/0\ndata/1\ndata/2\nother/0\nother/1\n",
+	)
+}
+
+func (s *storageListSuite) TestOutputFiltered(c *gc.C) {
+	s.testOutputFormat(c,
+		[]string{"--format", "yaml", "data"},
+		formatYaml,
+		[]string{"data/0", "data/1", "data/2"},
+	)
+}
+
+func (s *storageListSuite) TestOutputNoMatches(c *gc.C) {
+	s.testOutputFormat(c,
+		[]string{"--format", "yaml", "dat"},
+		formatYaml,
+		[]string{},
 	)
 }
 
@@ -87,7 +105,7 @@ func (s *storageListSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-list [options]
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-list [options] [<storage-name>]
 purpose: list storage attached to the unit
 
 options:
@@ -99,6 +117,9 @@ options:
 storage-list will list the names of all storage instances
 attached to the unit. These names can be passed to storage-get
 via the "-s" flag to query the storage attributes.
+
+A storage name may be specified, in which case only storage
+instances for that named storage will be returned.
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
