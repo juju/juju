@@ -117,8 +117,8 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 
 func (s *Service) AddDynamicEndpoint(name, iface string) error {
 	var results params.ErrorResults
-	args := params.AddDynamicEndpoint{
-		Entities: []params.AddDynamicEndpointArgs{
+	args := params.DynamicEndpoint{
+		Entities: []params.DynamicEndpointArgs{
 			{Tag: s.tag.String(), Name: name, Interface: iface},
 		},
 	}
@@ -128,6 +128,26 @@ func (s *Service) AddDynamicEndpoint(name, iface string) error {
 	}
 	return results.OneError()
 
+}
+
+func (s *Service) IsDynamicEndpoint(name, iface string) (bool, error) {
+	var results params.IsDynamicEndpointResults
+	args := params.DynamicEndpoint{
+		Entities: []params.DynamicEndpointArgs{
+			{Tag: s.tag.String(), Name: name, Interface: iface},
+		},
+	}
+	err := s.st.facade.FacadeCall("IsDynamicEndpoint", args, &results)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Dynamic, errors.Trace(result.Error)
+	}
+
+	return result.Dynamic, nil
 }
 
 // OwnerTag returns the service's owner user tag.

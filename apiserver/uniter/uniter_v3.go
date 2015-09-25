@@ -20,7 +20,40 @@ type UniterAPIV3 struct {
 	UniterAPIV2
 }
 
-func (u *UniterAPIV3) AddDynamicEndpoint(args params.AddDynamicEndpoint) (params.ErrorResults, error) {
+func (u *UniterAPIV3) IsDynamicEndpoint(args params.DynamicEndpoint) (params.IsDynamicEndpointResults, error) {
+	result := params.IsDynamicEndpointResults{
+		Results: make([]params.IsDynamicEndpoint, len(args.Entities)),
+	}
+	canAccess, err := u.accessService()
+	if err != nil {
+		logger.Warningf("failed to check service access: %v", err)
+		return params.IsDynamicEndpointResults{}, common.ErrPerm
+	}
+
+	for i, batch := range args.Entities {
+		tag, err := names.ParseServiceTag(batch.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		service, err := u.getService(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		dynamic := service.IsDynamicEndpoint(batch.Name, batch.Interface)
+		result.Results[i].Dynamic = dynamic
+		result.Results[i].Error = common.ServerError(nil)
+	}
+
+	return result, nil
+}
+
+func (u *UniterAPIV3) AddDynamicEndpoint(args params.DynamicEndpoint) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

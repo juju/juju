@@ -22,8 +22,8 @@ type EndpointAddCommand struct {
 	Interface string
 }
 
-func NewEndpointAddCommand(ctx Context) cmd.Command {
-	return &EndpointAddCommand{ctx: ctx}
+func NewEndpointAddCommand(ctx Context) (cmd.Command, error) {
+	return &EndpointAddCommand{ctx: ctx}, nil
 }
 
 func (c *EndpointAddCommand) Info() *cmd.Info {

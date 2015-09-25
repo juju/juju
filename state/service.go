@@ -295,6 +295,15 @@ func (s *Service) AddDynamicEndpoint(name, iface string) error {
 	return nil
 }
 
+func (s *Service) IsDynamicEndpoint(name, iface string) bool {
+	for _, d := range s.DynamicEndpoints() {
+		if d.Relation.Name == name && d.Relation.Interface == iface && d.Dynamic {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Service) DynamicEndpoints() []Endpoint {
 	r := charm.Relation{
 		Name:      "db",

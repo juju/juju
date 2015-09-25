@@ -88,3 +88,7 @@ func (ctx *hookContext) Id() string { return ctx.id }
 func (ctx *hookContext) Prepare() error {
 	return jujuc.ErrRestrictedContext
 }
+
+func (ctx *hookContext) AddDynamicEndpoint(name, iface string) error {
+	return jujuc.ErrRestrictedContext
+}
