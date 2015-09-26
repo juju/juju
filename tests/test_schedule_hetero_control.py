@@ -1,12 +1,17 @@
 from __future__ import print_function
 
+__metaclass__ = type
+
 from datetime import timedelta
 import json
 import os
 from time import time
 from unittest import TestCase
 
-from mock import patch
+from mock import (
+    call,
+    patch,
+)
 
 from jujuci import Credentials
 from schedule_hetero_control import (
@@ -18,9 +23,6 @@ from schedule_hetero_control import (
     )
 from utility import temp_dir
 from test_utility import write_config
-
-
-__metaclass__ = type
 
 
 class TestScheduleHeteroControl(TestCase):
@@ -55,6 +57,43 @@ class TestBuildJobs(TestCase):
                 build_jobs(credentials, root, [])
             jenkins_mock.assert_called_once_with(
                 'http://localhost:8080', 'jrandom', 'password1')
+
+    def test_build_jobs(self):
+        credentials = Credentials('jrandom', 'password1')
+        jobs = []
+        for os_str in ('ubuntu', 'osx', 'windows'):
+            jobs.append({
+                'old_version': "1.18.4",
+                'candidate': "1.24.5",
+                'new_to_old': 'true',
+                'candidate_path': "1.24.5",
+                'client_os': os_str,
+                'revision_build': "2999"
+            })
+        calls = [
+            call('compatibility-control',
+                 {'candidate_path': '1.24.5', 'candidate': '1.24.5',
+                  'new_to_old': 'true', 'revision_build': '2999',
+                  'old_version': '1.18.4', 'client_os': 'ubuntu'},
+                 token='asdf'),
+            call('compatibility-control-osx',
+                 {'candidate_path': '1.24.5', 'candidate': '1.24.5',
+                  'new_to_old': 'true', 'revision_build': '2999',
+                  'old_version': '1.18.4', 'client_os': 'osx'}, token='asdf'),
+            call('compatibility-control-windows',
+                 {'candidate_path': '1.24.5', 'candidate': '1.24.5',
+                  'new_to_old': 'true', 'revision_build': '2999',
+                  'old_version': '1.18.4', 'client_os': 'windows'},
+                 token='asdf')]
+        with temp_dir() as root:
+            write_config(root, 'compatibility-control', 'asdf')
+            with patch('schedule_hetero_control.Jenkins',
+                       autospec=True) as jenkins_mock:
+                build_jobs(credentials, root, jobs)
+            jenkins_mock.assert_called_once_with(
+                'http://localhost:8080', 'jrandom', 'password1')
+            self.assertEqual(
+                jenkins_mock.return_value.build_job.call_args_list, calls)
 
 
 class TestGetCandidateInfo(TestCase):
