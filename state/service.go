@@ -673,6 +673,9 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	var cons constraints.Value
 	if !s.doc.Subordinate {
 		scons, err := s.Constraints()
+		if errors.IsNotFound(err) {
+			return "", nil, errors.NotFoundf("service %q", s.Name())
+		}
 		if err != nil {
 			return "", nil, err
 		}
