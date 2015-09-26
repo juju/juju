@@ -244,8 +244,13 @@ class S3Uploader:
     def upload_test_results(self):
         filename = self._create_filename('result-results.json')
         headers = {"Content-Type": "application/json"}
-        self.s3.store(filename, json.dumps(
-            self.jenkins_build.get_build_info(), indent=4), headers=headers)
+        build_info = self.jenkins_build.get_build_info()
+        if self.unique_id:
+            build_info['origin_number'] = int(build_info['number'])
+            build_info['number'] = int(self.unique_id)
+        self.s3.store(
+            filename, json.dumps(build_info, indent=4),
+            headers=headers)
 
     def upload_console_log(self):
         filename = self._create_filename('console-consoleText.txt')
