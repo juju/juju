@@ -71,13 +71,16 @@ However, for local charms, when the default-series is not specified in the
 environment, one must specify the series. For example:
   local:precise/mysql
 
-For local bundles the bundle series must be always specified. For example:
-  local:bundle/openstack
+Local bundles can be specified either with a local:bundle/<name> URL, which is
+interpreted relative to $JUJU_REPOSITORY, or with a direct path to a
+bundle.yaml file. For example, to deploy the bundle in
+$JUJU_REPOSITORY/bundle/openstack:
 
-The path to the bundle YAML file can be alternatively provided, and the
-referenced file is not required to be placed in a local repository directory
-structure. For instance:
-  juju deploy /path/to/bundle.yaml
+  juju deploy local:bundle/openstack
+
+To deploy this using a direct path:
+
+  juju deploy $JUJU_REPOSITORY/bundle/openstack/bundle.yaml
 
 <service name>, if omitted, will be derived from <charm name>.
 
@@ -206,6 +209,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	f, err := os.Open(c.CharmOrBundle)
 	if err == nil {
 		defer f.Close()
+		info, err := f.Stat()
+		if err != nil {
+			return block.ProcessBlockedError(err, block.BlockChange)
+		}
+		if info.IsDir() {
+			return errors.New("deployment of bundle directories not yet supported")
+		}
 		bundleData, err := charm.ReadBundleData(f)
 		if err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
