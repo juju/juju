@@ -14,6 +14,7 @@
 #   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public
 #   License for more details.
 #
+from argparse import ArgumentParser
 import json
 import os
 import sys
@@ -82,7 +83,16 @@ def write_streams(out_d, trees, updated, sign):
             toolutil.signjson_file(filef)
 
 
+def parse_args(argv=None):
+    parser = ArgumentParser()
+    parser.add_argument(
+        'out_d', metavar='output-dir',
+        help='The directory to write stream files to.')
+    return parser.parse_args(argv)
+
+
 def main():
+    args = parse_args()
     items = [
         ('com.ubuntu.juju:released:tools',
          'com.ubuntu.juju:14.04:ppc64el',
@@ -102,7 +112,7 @@ def main():
 
     data = {'updated': updated, 'datatype': 'content-download'}
     trees = items2content_trees(items, data)
-    write_streams('outdir', trees, updated, False)
+    write_streams(args.out_d, trees, updated, False)
 
 
 if __name__ == '__main__':
