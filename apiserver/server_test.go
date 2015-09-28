@@ -406,7 +406,7 @@ func newClientAndServer(c *gc.C, st *state.State) (api.Connection, *apiserver.Se
 	c.Assert(err, jc.ErrorIsNil)
 
 	client, err := api.Open(&api.Info{
-		Addrs:  []string{srv.Addr().String()},
+		Addrs:  []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},
 		CACert: coretesting.CACert,
 	}, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)

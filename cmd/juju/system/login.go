@@ -97,9 +97,6 @@ func (c *loginCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // SetFlags implements Command.Init.
 func (c *loginCommand) Init(args []string) error {
-	if c.loginAPIOpen == nil {
-		c.loginAPIOpen = c.JujuCommandBase.APIOpen
-	}
 	if c.GetUserManager == nil {
 		c.GetUserManager = getUserManager
 	}
@@ -123,6 +120,9 @@ func cookieFile() string {
 
 // Run implements Command.Run
 func (c *loginCommand) Run(ctx *cmd.Context) error {
+	if c.loginAPIOpen == nil {
+		c.loginAPIOpen = c.JujuCommandBase.APIOpen
+	}
 	// TODO(thumper): as we support the user and address
 	// change this check here.
 	if c.Server.Path == "" {
