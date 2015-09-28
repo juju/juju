@@ -8,6 +8,8 @@
 package collect
 
 import (
+	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,15 +19,16 @@ import (
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/base"
 	uniterapi "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/utils/os"
 )
 
 const defaultPeriod = 5 * time.Minute
@@ -167,6 +170,34 @@ func (w *collect) Do(stop <-chan struct{}) error {
 	return err
 }
 
+type collectPaths struct {
+	dataDir string
+	unitTag names.UnitTag
+}
+
+func (p *collectPaths) GetToolsDir() string {
+	return filepath.FromSlash(tools.ToolsDir(p.dataDir, p.unitTag.String()))
+}
+
+func (p *collectPaths) GetCharmDir() string {
+	return filepath.Join(p.baseDir(), "charm")
+}
+
+func (p *collectPaths) GetJujucSocket() string {
+	if os.HostOS() == os.Windows {
+		return fmt.Sprintf(`\\.\pipe\%s-metrics`, p.unitTag)
+	}
+	return filepath.Join(p.baseDir(), "metrics.socket@")
+}
+
+func (p *collectPaths) GetMetricsSpoolDir() string {
+	return ""
+}
+
+func (p *collectPaths) baseDir() string {
+	return filepath.Join(p.dataDir, "agents", p.unitTag.String())
+}
+
 func (w *collect) do() error {
 	logger.Tracef("recording metrics")
 
@@ -176,7 +207,7 @@ func (w *collect) do() error {
 	if !ok {
 		return errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewPaths(config.DataDir(), unitTag)
+	paths := &collectPaths{dataDir: config.DataDir(), unitTag: unitTag}
 
 	recorder, err := newRecorder(unitTag, paths, w.unitCharmLookup, w.metricFactory)
 	if errors.Cause(err) == errMetricsNotDefined {
