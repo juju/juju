@@ -2422,9 +2422,9 @@ func countOldIndexes(c *gc.C, coll *mgo.Collection) (foundCount, oldCount int) {
 	return
 }
 
-func (s *upgradesSuite) addMachineWithLife(c *gc.C, machineID int, life Life) {
+func (s *upgradesSuite) addMachineWithLife(c *gc.C, machineID string, life Life) {
 	mDoc := bson.M{
-		"_id":        machineID,
+		"_id":        s.state.docID(machineID),
 		"instanceid": "foobar",
 		"life":       life,
 	}
@@ -2440,13 +2440,82 @@ func (s *upgradesSuite) addMachineWithLife(c *gc.C, machineID int, life Life) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
+	machinesCol, closer := s.state.getRawCollection(machinesC)
+	defer closer()
+
+	machines, err := s.state.AddMachines([]MachineTemplate{
+		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
+		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
+		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
+	}...)
+
+	ms, err := s.state.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.HasLen, 3)
+
+	m1 := machines[0]
+	m2 := machines[1]
+	m3 := machines[2]
+	err = m1.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.SetMachineAddresses(network.NewAddress("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Delete the preferred address fields.
+	for _, machine := range machines {
+		err := machinesCol.Update(
+			bson.D{{"_id", s.state.docID(machine.Id())}},
+			bson.D{{"$unset", bson.DocElem{"preferredpublicaddress", ""}}},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		err = machinesCol.Update(
+			bson.D{{"_id", s.state.docID(machine.Id())}},
+			bson.D{{"$unset", bson.DocElem{"preferredprivateaddress", ""}}},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err = AddPreferredAddressesToMachines(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m1.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m3.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := m1.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+	addr, err = m1.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+
+	addr, err = m2.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+	addr, err = m2.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
+
+	addr, err = m3.PublicAddress()
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(addr.Value, gc.Equals, "")
+	addr, err = m3.PrivateAddress()
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(addr.Value, gc.Equals, "")
+}
+
 func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
 
-	s.addMachineWithLife(c, 1, Alive)
-	s.addMachineWithLife(c, 2, Alive)
-	s.addMachineWithLife(c, 3, Dead)
+	s.addMachineWithLife(c, "1", Alive)
+	s.addMachineWithLife(c, "2", Alive)
+	s.addMachineWithLife(c, "3", Dead)
 
 	uuid := s.state.EnvironUUID()
 
@@ -2456,7 +2525,7 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 			{"_id", uuid + ":0.1.2.3"},
 			{"env-uuid", uuid},
 			{"subnetid", "foo"},
-			{"machineid", 1},
+			{"machineid", s.state.docID("1")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.3"},
 			{"state", ""},
@@ -2467,7 +2536,7 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 			{"env-uuid", uuid},
 			{"life", Dead},
 			{"subnetid", "foo"},
-			{"machineid", 2},
+			{"machineid", s.state.docID("2")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.4"},
 			{"state", ""},
@@ -2477,7 +2546,7 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 			{"_id", uuid + ":0.1.2.5"},
 			{"env-uuid", uuid},
 			{"subnetid", "foo"},
-			{"machineid", 3},
+			{"machineid", s.state.docID("3")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.5"},
 			{"state", AddressStateAllocated},
@@ -2487,7 +2556,7 @@ func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
 			{"_id", uuid + ":0.1.2.6"},
 			{"env-uuid", uuid},
 			{"subnetid", "foo"},
-			{"machineid", 4},
+			{"machineid", s.state.docID("4")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.6"},
 			{"state", AddressStateAllocated},
@@ -2520,7 +2589,7 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
 
-	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, "1", Alive)
 	uuid := s.state.EnvironUUID()
 
 	err := addresses.Insert(
@@ -2529,7 +2598,7 @@ func (s *upgradesSuite) TestIPAddressLifeIdempotent(c *gc.C) {
 			{"_id", uuid + ":0.1.2.3"},
 			{"env-uuid", uuid},
 			{"subnetid", "foo"},
-			{"machineid", 1},
+			{"machineid", s.state.docID("1")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.3"},
 			{"state", ""},
@@ -2556,8 +2625,8 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 	instances, closer2 := s.state.getRawCollection(instanceDataC)
 	defer closer2()
 
-	s.addMachineWithLife(c, 1, Alive)
-	s.addMachineWithLife(c, 2, Alive)
+	s.addMachineWithLife(c, "1", Alive)
+	s.addMachineWithLife(c, "2", Alive)
 
 	uuid := s.state.EnvironUUID()
 
@@ -2565,7 +2634,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 		bson.D{
 			{"_id", uuid + ":1"},
 			{"env-uuid", uuid},
-			{"machineid", "1"},
+			{"machineid", s.state.docID("1")},
 			{"instanceid", "instance"},
 		},
 	)
@@ -2578,7 +2647,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 			{"env-uuid", uuid},
 			{"life", Alive},
 			{"subnetid", "foo"},
-			{"machineid", "1"},
+			{"machineid", s.state.docID("1")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.3"},
 			{"state", AddressStateAllocated},
@@ -2590,7 +2659,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 			{"env-uuid", uuid},
 			{"life", Alive},
 			{"subnetid", "foo"},
-			{"machineid", "2"},
+			{"machineid", s.state.docID("2")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.4"},
 			{"state", AddressStateAllocated},
@@ -2612,7 +2681,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceId(c *gc.C) {
 			{"_id", uuid + ":0.1.2.6"},
 			{"env-uuid", uuid},
 			{"life", Alive},
-			{"machineid", "3"},
+			{"machineid", s.state.docID("3")},
 			{"subnetid", "foo"},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.6"},
@@ -2653,8 +2722,8 @@ func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
 	instances, closer2 := s.state.getRawCollection(instanceDataC)
 	defer closer2()
 
-	s.addMachineWithLife(c, 1, Alive)
-	s.addMachineWithLife(c, 2, Alive)
+	s.addMachineWithLife(c, "1", Alive)
+	s.addMachineWithLife(c, "2", Alive)
 
 	uuid := s.state.EnvironUUID()
 
@@ -2662,7 +2731,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
 		bson.D{
 			{"_id", uuid + ":1"},
 			{"env-uuid", uuid},
-			{"machineid", "1"},
+			{"machineid", s.state.docID("1")},
 			{"instanceid", "instance"},
 		},
 	)
@@ -2675,7 +2744,7 @@ func (s *upgradesSuite) TestIPAddressesInstanceIdIdempotent(c *gc.C) {
 			{"env-uuid", uuid},
 			{"life", Alive},
 			{"subnetid", "foo"},
-			{"machineid", "1"},
+			{"machineid", s.state.docID("1")},
 			{"interfaceid", "bam"},
 			{"value", "0.1.2.3"},
 			{"state", AddressStateAllocated},
