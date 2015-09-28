@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 #   Copyright (C) 2013,2015 Canonical Ltd.
 #
 #   Author: Scott Moser <scott.moser@canonical.com>,
