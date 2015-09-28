@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/bzr"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
