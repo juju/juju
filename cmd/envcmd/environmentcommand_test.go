@@ -29,8 +29,6 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -452,42 +450,30 @@ type macaroonLoginSuite struct {
 	coretesting.JujuConnSuite
 	discharger     *bakerytest.Discharger
 	checker        func(string, string) ([]checkers.Caveat, error)
-	srv            *apiserver.Server
-	client         api.Connection
 	serverFilePath string
 	envName        string
 }
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
 		return s.checker(cond, arg)
 	})
+	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
+		config.IdentityURL: s.discharger.Location(),
+	}
+	s.JujuConnSuite.SetUpTest(c)
 
 	environTag := names.NewEnvironTag(s.State.EnvironUUID())
 	s.envName = environTag.Id()
-
-	// Make a new version of the state that doesn't object to us
-	// changing the identity URL, so we can create a state server
-	// that will see that.
-	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	err = st.UpdateEnvironConfig(map[string]interface{}{
-		config.IdentityURL: s.discharger.Location(),
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.client, s.srv = s.newClientAndServer(c)
 
 	s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "test",
 	})
 
+	apiInfo := s.APIInfo(c)
 	var serverDetails envcmd.ServerFile
-	serverDetails.Addresses = []string{s.srv.Addr().String()}
-	serverDetails.CACert = testing.CACert
+	serverDetails.Addresses = apiInfo.Addrs
+	serverDetails.CACert = apiInfo.CACert
 	content, err := goyaml.Marshal(serverDetails)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -500,9 +486,9 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := store.CreateInfo(s.envName)
 	cfg.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{s.srv.Addr().String()},
+		Addresses:   apiInfo.Addrs,
 		Hostnames:   []string{"test"},
-		CACert:      testing.CACert,
+		CACert:      apiInfo.CACert,
 		EnvironUUID: s.envName,
 	})
 	err = cfg.Write()

@@ -34,22 +34,10 @@ func (u *UserAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Ta
 	return u.AgentAuthenticator.Authenticate(entityFinder, tag, req)
 }
 
-// DischargeRequiredError is the error returned when a macaroon requires discharging
-// to complete authentication.
-type DischargeRequiredError struct {
-	Cause    error
-	Macaroon *macaroon.Macaroon
-}
-
-// Error implements the error interface.
-func (e *DischargeRequiredError) Error() string {
-	return e.Cause.Error()
-}
-
 // MacaroonAuthenticator performs authentication for users using macaroons.
 // If the authentication fails because provided macaroons are invalid,
 // and macaroon authentiction is enabled, it will return a
-// httpbakery.DischargeRequiredError holding a macaroon to be
+// *common.DischargeRequiredError holding a macaroon to be
 // discharged.
 type MacaroonAuthenticator struct {
 	Service          *bakery.Service
@@ -78,7 +66,7 @@ func (m *MacaroonAuthenticator) newDischargeRequiredError(cause error) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create macaroon")
 	}
-	return &DischargeRequiredError{
+	return &common.DischargeRequiredError{
 		Cause:    cause,
 		Macaroon: mac,
 	}

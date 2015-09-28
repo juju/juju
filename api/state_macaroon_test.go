@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -35,27 +33,15 @@ type macaroonLoginSuite struct {
 }
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
 		return s.checker(cond, arg)
 	})
-
-	environTag := names.NewEnvironTag(s.State.EnvironUUID())
-
-	// Make a new version of the state that doesn't object to us
-	// changing the identity URL, so we can create a state server
-	// that will see that.
-	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	err = st.UpdateEnvironConfig(map[string]interface{}{
+	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
 		config.IdentityURL: s.discharger.Location(),
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	}
+	s.JujuConnSuite.SetUpTest(c)
 
 	s.client, s.srv = s.newServer(c)
-
 	s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "test",
 	})

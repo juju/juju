@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -984,41 +983,37 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 type macaroonLoginSuite struct {
 	jujutesting.JujuConnSuite
 	discharger *bakerytest.Discharger
-	checker    func(string, string) ([]checkers.Caveat, error)
-	srv        *apiserver.Server
-	client     api.Connection
+
+	// checker holds the checker used by the above discharger.
+	checker func(string, string) ([]checkers.Caveat, error)
+
+	// client holds an API connection that has not logged in.
+	client api.Connection
 }
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
 		return s.checker(cond, arg)
 	})
-
-	environTag := names.NewEnvironTag(s.State.EnvironUUID())
-
-	// Make a new version of the state that doesn't object to us
-	// changing the identity URL, so we can create a state server
-	// that will see that.
-	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	err = st.UpdateEnvironConfig(map[string]interface{}{
+	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
 		config.IdentityURL: s.discharger.Location(),
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.client, s.srv = newClientAndServer(c, s.State)
-
+	}
+	s.JujuConnSuite.SetUpTest(c)
 	s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "test",
 	})
+	apiInfo := s.APIInfo(c)
+	// Don't log in.
+	apiInfo.Tag = nil
+	apiInfo.Password = ""
+	client, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.client = client
 }
 
 func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
-	s.srv.Stop()
 	s.discharger.Close()
+	s.client.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 

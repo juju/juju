@@ -116,6 +116,7 @@ func (h *charmsHandler) sendError(w http.ResponseWriter, err error) {
 	sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
 		ErrorCode: perr.Code,
+		ErrorInfo: perr.Info,
 	})
 }
 

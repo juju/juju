@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/txn"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/leadership"
@@ -62,6 +63,25 @@ func UnknownEnvironmentError(uuid string) error {
 
 func IsUnknownEnviromentError(err error) bool {
 	_, ok := err.(*unknownEnvironmentError)
+	return ok
+}
+
+// DischargeRequiredError is the error returned when a macaroon requires discharging
+// to complete authentication.
+type DischargeRequiredError struct {
+	Cause    error
+	Macaroon *macaroon.Macaroon
+}
+
+// Error implements the error interface.
+func (e *DischargeRequiredError) Error() string {
+	return e.Cause.Error()
+}
+
+// IsDischargeRequiredError reports whether the cause
+// of the error is a *DischargeRequiredError.
+func IsDischargeRequiredError(err error) bool {
+	_, ok := errors.Cause(err).(*DischargeRequiredError)
 	return ok
 }
 
@@ -143,6 +163,8 @@ func ServerErrorAndStatus(err error) (*params.Error, int) {
 		status = http.StatusBadRequest
 	case params.CodeForbidden:
 		status = http.StatusForbidden
+	case params.CodeDischargeRequired:
+		status = http.StatusUnauthorized
 	}
 	return err1, status
 }
@@ -158,6 +180,7 @@ func ServerError(err error) *params.Error {
 	// Skip past annotations when looking for the code.
 	err = errors.Cause(err)
 	code, ok := singletonCode(err)
+	var info *params.ErrorInfo
 	switch {
 	case ok:
 	case errors.IsUnauthorized(err):
@@ -187,10 +210,20 @@ func ServerError(err error) *params.Error {
 	case errors.IsMethodNotAllowed(err):
 		code = params.CodeMethodNotAllowed
 	default:
+		if err, ok := err.(*DischargeRequiredError); ok {
+			code = params.CodeDischargeRequired
+			info = &params.ErrorInfo{
+				Macaroon: err.Macaroon,
+				// One macaroon fits all.
+				MacaroonPath: "/",
+			}
+			break
+		}
 		code = params.ErrCode(err)
 	}
 	return &params.Error{
 		Message: msg,
 		Code:    code,
+		Info:    info,
 	}
 }

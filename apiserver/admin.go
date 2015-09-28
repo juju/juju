@@ -86,7 +86,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt.authenticatorForTag)
 	if err != nil {
-		if err, ok := errors.Cause(err).(*authentication.DischargeRequiredError); ok {
+		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
 				DischargeRequired: err.Macaroon,
 			}
