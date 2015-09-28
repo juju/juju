@@ -470,7 +470,7 @@ class JujuCITestCase(TestCase):
         build_data = {
             'url': 'http://foo/',
             'artifacts': [{
-                'fileName': 'juju-core_fish.bar.1_foo.deb',
+                'fileName': 'juju-core_36.1~0ubuntu1~bar.1_foo.deb',
                 'relativePath': 'baz',
                 }]
             }
@@ -481,13 +481,14 @@ class JujuCITestCase(TestCase):
                        autospec=True) as gbd_mock:
                 with patch.object(PackageNamer, 'factory',
                                   return_value=package_namer):
-                    bin_loc = get_certification_bin(credentials, 'fish',
+                    bin_loc = get_certification_bin(credentials,
+                                                    '36.1~0ubuntu1',
                                                     workspace)
         self.assertEqual(bin_loc, os.path.join(
             workspace, 'extracted-bin', 'subdir', 'sub-subdir', 'juju'))
         ur_mock.assert_called_once_with(
             'http://jrandom:password1@foo/artifact/baz',
-            os.path.join(workspace, 'juju-core_fish.bar.1_foo.deb'))
+            os.path.join(workspace, 'juju-core_36.1~0ubuntu1~bar.1_foo.deb'))
         gbd_mock.assert_called_once_with(
             JENKINS_URL, credentials, CERTIFY_UBUNTU_PACKAGES, 'lastBuild')
 
@@ -715,8 +716,8 @@ class TestPackageNamer(TestNamer):
     def test_get_certification_package(self):
         package_namer = PackageNamer('amd42', '42.34', 'wacky')
         self.assertEqual(
-            package_namer.get_certification_package('27.6'),
-            'juju-core_27.6.42.34.1_amd42.deb')
+            package_namer.get_certification_package('27.6~0ubuntu1'),
+            'juju-core_27.6~0ubuntu1~42.34.1_amd42.deb')
 
 
 class TestJobNamer(TestNamer):
