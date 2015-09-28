@@ -70,13 +70,14 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 	c.Assert(node.Map(), gc.DeepEquals, options)
 
 	// Check MongoDB state.
-	mgoData := make(map[string]interface{}, 0)
+	var mgoData struct {
+		Settings settingsMap
+	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanSettingsMap(mgoData)
-	c.Assert(mgoData, gc.DeepEquals, options)
+	c.Assert(map[string]interface{}(mgoData.Settings), gc.DeepEquals, options)
 }
 
 func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
@@ -154,13 +155,14 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	// Check local state.
 	c.Assert(node.Map(), gc.DeepEquals, options)
 	// Check MongoDB state.
-	mgoData := make(map[string]interface{}, 0)
+	var mgoData struct {
+		Settings settingsMap
+	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanSettingsMap(mgoData)
-	c.Assert(mgoData, gc.DeepEquals, options)
+	c.Assert(map[string]interface{}(mgoData.Settings), gc.DeepEquals, options)
 }
 
 func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
@@ -181,13 +183,14 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 
 	// Check MongoDB state.
 	mgoOptions := map[string]interface{}{"\uff04bar": 1, "foo\uff0ealpha": "beta"}
-	mgoData := make(map[string]interface{}, 0)
+	var mgoData struct {
+		Settings map[string]interface{}
+	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanMgoSettings(mgoData)
-	c.Assert(mgoData, gc.DeepEquals, mgoOptions)
+	c.Assert(mgoData.Settings, gc.DeepEquals, mgoOptions)
 
 	// Now get another state by reading from the database instance and
 	// check read state has replaced '.' and '$' after fetching from
@@ -220,13 +223,14 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 
 	// Check MongoDB state.
 	mgoOptions := map[string]interface{}{"\uff04baz": 1, "foo\uff0ebar": "beta"}
-	mgoData := make(map[string]interface{}, 0)
+	var mgoData struct {
+		Settings map[string]interface{}
+	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanMgoSettings(mgoData)
-	c.Assert(mgoData, gc.DeepEquals, mgoOptions)
+	c.Assert(mgoData.Settings, gc.DeepEquals, mgoOptions)
 }
 
 func (s *SettingsSuite) TestcreateSettingsEscape(c *gc.C) {
@@ -240,13 +244,15 @@ func (s *SettingsSuite) TestcreateSettingsEscape(c *gc.C) {
 
 	// Check MongoDB state.
 	mgoOptions := map[string]interface{}{"\uff04baz": 1, "foo\uff0ebar": "beta"}
-	mgoData := make(map[string]interface{}, 0)
+	var mgoData struct {
+		Settings map[string]interface{}
+	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
+
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	cleanMgoSettings(mgoData)
-	c.Assert(mgoData, gc.DeepEquals, mgoOptions)
+	c.Assert(mgoData.Settings, gc.DeepEquals, mgoOptions)
 }
 
 func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
@@ -397,12 +403,14 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 	_, err = node.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	mgoData := make(map[string]interface{})
+	var mgoData struct {
+		Settings map[string]interface{}
+	}
 	settings, closer := s.state.getCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	version := mgoData["version"]
+	version := mgoData.Settings["version"]
 	for i := 0; i < 100; i++ {
 		node.Set("value", i)
 		node.Set("foo", "bar")
@@ -411,10 +419,10 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 		_, err := node.Write()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	mgoData = make(map[string]interface{})
+	mgoData.Settings = make(map[string]interface{})
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
-	newVersion := mgoData["version"]
+	newVersion := mgoData.Settings["version"]
 	c.Assert(version, gc.Equals, newVersion)
 }
 
@@ -465,13 +473,4 @@ func (s *SettingsSuite) TestList(c *gc.C) {
 		"key#1": {"foo1": "bar1"},
 		"key#2": {"foo2": "bar2"},
 	})
-}
-
-// cleanMgoSettings will remove MongoDB-specific settings but not unescape any
-// keys, as opposed to cleanSettingsMap which does unescape keys.
-func cleanMgoSettings(in map[string]interface{}) {
-	delete(in, "_id")
-	delete(in, "env-uuid")
-	delete(in, "txn-revno")
-	delete(in, "txn-queue")
 }

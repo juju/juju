@@ -4,12 +4,12 @@
 package gce
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
@@ -131,16 +130,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig.Tools = tools[0]
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
-	userData, err := providerinit.ComposeUserData(instanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})
 	c.Assert(err, jc.ErrorIsNil)
-	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
 
 	authKeys, err := google.FormatAuthorizedKeys(instanceConfig.AuthorizedKeys, "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Metadata = map[string]string{
 		metadataKeyIsState:   metadataValueTrue,
-		metadataKeyCloudInit: b64UserData,
+		metadataKeyCloudInit: string(userData),
 		metadataKeyEncoding:  "base64",
 		metadataKeySSHKeys:   authKeys,
 	}

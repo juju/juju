@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -87,6 +87,17 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 
 // TestCollectWorkerStarts ensures that the manifold correctly sets up the worker.
 func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			// Return a dummyRecorder here, because otherwise a real one
+			// *might* get instantiated and error out, if the periodic worker
+			// happens to fire before the worker shuts down (as seen in
+			// LP:#1497355).
+			return &dummyRecorder{
+				charmURL: "cs:ubuntu-1",
+				unitTag:  "ubuntu/0",
+			}, nil
+		})
 	getResource := dt.StubGetResource(s.dummyResources)
 	worker, err := s.manifold.Start(getResource)
 	c.Assert(err, jc.ErrorIsNil)

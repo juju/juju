@@ -47,7 +47,10 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 func findInstanceSpec(
 	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 
-	if ic.Constraints.CpuPower == nil {
+	// If the instance type is set, don't also set a default CPU power
+	// as this is implied.
+	cons := ic.Constraints
+	if cons.CpuPower == nil && (cons.InstanceType == nil || *cons.InstanceType == "") {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	ec2Region := allRegions[ic.Region]

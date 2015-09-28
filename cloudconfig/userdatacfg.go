@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/juju/os"
-	"github.com/juju/juju/juju/series"
 )
 
 const (

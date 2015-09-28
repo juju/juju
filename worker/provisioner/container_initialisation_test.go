@@ -14,9 +14,12 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -26,10 +29,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -219,7 +219,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
-		toolsFinder.FindTools(version.Current.Number, version.Current.Series, arch.AMD64)
+		toolsFinder.FindTools(version.Current.Number, series.HostSeries(), arch.AMD64)
 		return nil
 	})
 
@@ -294,12 +294,11 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
-	var ser string
-	var expected_initial []string
-
 	current_os, err := series.GetOSFromSeries(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
+	var ser string
+	var expected_initial []string
 	switch current_os {
 	case jujuos.CentOS:
 		ser = "centos7"
@@ -526,7 +525,6 @@ func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 
 func getContainerInstance() (cont []ContainerInstance, err error) {
 	current_os, err := series.GetOSFromSeries(series.HostSeries())
-
 	if err != nil {
 		return nil, err
 	}

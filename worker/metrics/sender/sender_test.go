@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/metrics/sender"
@@ -127,7 +127,7 @@ func (s *senderSuite) TestNoSpoolDirectory(c *gc.C) {
 	metricSender := sender.NewSender(apiSender, metricfactory)
 	stopCh := make(chan struct{})
 	err := metricSender.Do(stopCh)
-	c.Assert(err, gc.ErrorMatches, `failed to open spool directory "/some/random/spool/dir": stat /some/random/spool/dir: no such file or directory`)
+	c.Assert(err, gc.ErrorMatches, `failed to open spool directory "/some/random/spool/dir": .*`)
 
 	c.Assert(apiSender.batches, gc.HasLen, 0)
 }

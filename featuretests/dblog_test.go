@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -40,7 +39,6 @@ type dblogSuite struct {
 func (s *dblogSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags("db-log")
 	s.AgentSuite.SetUpTest(c)
-	s.PatchValue(&password.EnsureJujudPassword, func() error { return nil })
 
 	// Change the path to "juju-run", so that the
 	// tests don't try to write to /usr/local/bin.

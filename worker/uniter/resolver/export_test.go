@@ -10,7 +10,10 @@ type ResolverOpFactory struct {
 }
 
 func NewResolverOpFactory(f operation.Factory) ResolverOpFactory {
-	return ResolverOpFactory{&resolverOpFactory{Factory: f}}
+	return ResolverOpFactory{&resolverOpFactory{
+		Factory:    f,
+		LocalState: &LocalState{},
+	}}
 }
 
 var UpdateCharmDir = updateCharmDir

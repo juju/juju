@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -113,7 +113,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
-		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
+		ops = append(ops, createSettingsOp(ruKey, settings))
 	} else {
 		var rop txn.Op
 		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, settings)

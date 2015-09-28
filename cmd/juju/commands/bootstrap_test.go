@@ -15,6 +15,8 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -35,7 +37,6 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -698,9 +699,10 @@ func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
 	currentVersion.Major = 2
 	currentVersion.Minor = 22
 	currentVersion.Patch = 46
-	currentVersion.Series = "trusty"
+	currentVersion.Series = "incorrect"
 	currentVersion.Arch = "amd64"
 	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	coretesting.RunCommand(
 		c, envcmd.Wrap(&BootstrapCommand{}),
 		"--no-auto-upgrade",

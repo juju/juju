@@ -6,8 +6,6 @@
 package storagecommon
 
 import (
-	"path"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -52,6 +50,10 @@ type StorageInterface interface {
 	// WatchVolumeAttachment watches for changes to the volume attachment
 	// corresponding to the identfified machien and volume.
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+
+	// BlockDevices returns information about block devices published
+	// for the specified machine.
+	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 // StorageAttachmentInfo returns the StorageAttachmentInfo for the specified
@@ -98,10 +100,17 @@ func volumeStorageAttachmentInfo(
 		return nil, errors.Annotate(err, "getting volume attachment info")
 	}
 	devicePath, err := volumeAttachmentDevicePath(
+		st,
 		volumeInfo,
 		volumeAttachmentInfo,
+		machineTag,
 	)
-	if err != nil {
+	if err == errNoBlockDevice {
+		// We don't have enough information to describe the storage
+		// attachment yet, so we must say that it is not provisioned
+		// to prevent feeding clients with partial information.
+		return nil, errors.NotProvisionedf("%v", names.ReadableString(storageTag))
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &storage.StorageAttachmentInfo{
@@ -168,21 +177,38 @@ func WatchStorageAttachment(
 	return common.NewMultiNotifyWatcher(w, w2), nil
 }
 
-var errNoDevicePath = errors.New("cannot determine device path: no serial or persistent device name")
+var errNoBlockDevice = errors.New("cannot determine device path: no matching block device found")
 
 // volumeAttachmentDevicePath returns the absolute device path for
 // a volume attachment. The value is only meaningful in the context
 // of the machine that the volume is attached to.
 func volumeAttachmentDevicePath(
+	st StorageInterface,
 	volumeInfo state.VolumeInfo,
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
+	machineTag names.MachineTag,
 ) (string, error) {
-	if volumeInfo.HardwareId != "" {
-		return path.Join("/dev/disk/by-id", volumeInfo.HardwareId), nil
-	} else if volumeAttachmentInfo.DeviceName != "" {
-		return path.Join("/dev", volumeAttachmentInfo.DeviceName), nil
+	if volumeInfo.HardwareId != "" || volumeAttachmentInfo.DeviceName != "" {
+		// The storage provider has enough information
+		// to determine the device path.
+		return storage.BlockDevicePath(storage.BlockDevice{
+			HardwareId: volumeInfo.HardwareId,
+			DeviceName: volumeAttachmentInfo.DeviceName,
+		})
 	}
-	return "", errNoDevicePath
+	blockDevices, err := st.BlockDevices(machineTag)
+	if err != nil {
+		return "", errors.Annotate(err, "getting block devices")
+	}
+	blockDevice, ok := MatchingBlockDevice(
+		blockDevices,
+		volumeInfo,
+		volumeAttachmentInfo,
+	)
+	if !ok {
+		return "", errNoBlockDevice
+	}
+	return storage.BlockDevicePath(BlockDeviceFromState(*blockDevice))
 }
 
 // MaybeAssignedStorageInstance calls the provided function to get a

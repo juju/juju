@@ -5,7 +5,6 @@ package maas
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"net"
@@ -18,7 +17,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
@@ -32,13 +34,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/os"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
-	"github.com/juju/names"
 )
 
 const (
@@ -753,10 +752,9 @@ func (environ *maasEnviron) acquireNode(
 
 // startNode installs and boots a node.
 func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) error {
-	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {series},
-		"user_data":     {userDataParam},
+		"user_data":     {string(userdata)},
 	}
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
@@ -933,7 +931,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{maasObject: node, environ: environ}
+	inst := &maasInstance{node}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -983,7 +981,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, err
 	}
-	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
+	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
@@ -1322,10 +1320,7 @@ func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, e
 		if err != nil {
 			return nil, err
 		}
-		instances[index] = &maasInstance{
-			maasObject: &node,
-			environ:    environ,
-		}
+		instances[index] = &maasInstance{&node}
 	}
 	return instances, nil
 }

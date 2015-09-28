@@ -36,13 +36,6 @@ func (inst *environInstance) Status() string {
 	return inst.base.Status()
 }
 
-// Refresh implements instance.Instance.
-func (inst *environInstance) Refresh() error {
-	env := inst.env.getSnapshot()
-	err := inst.base.Refresh(env.gce)
-	return errors.Trace(err)
-}
-
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
 	return inst.base.Addresses(), nil

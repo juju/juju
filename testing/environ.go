@@ -180,8 +180,3 @@ func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
-
-// SpacesEnabler allows to call SetSupportsSpaces on the dummy environment.
-type SpacesEnabler interface {
-	SetSupportsSpaces(bool) bool
-}

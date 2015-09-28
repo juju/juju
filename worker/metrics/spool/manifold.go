@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
@@ -92,6 +92,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // spool directory path.
 func newWorker(a agent.Agent) (worker.Worker, error) {
 	metricsSpoolDir := a.CurrentConfig().MetricsSpoolDir()
+	err := checkSpoolDir(metricsSpoolDir)
+	if err != nil {
+		return nil, errors.Annotatef(err, "error checking spool directory %q", metricsSpoolDir)
+	}
 	w := &spoolWorker{factory: newFactory(metricsSpoolDir)}
 	go func() {
 		defer w.tomb.Done()

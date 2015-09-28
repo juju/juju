@@ -25,8 +25,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -45,11 +45,8 @@ import (
 	"github.com/juju/juju/cert"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envimagemetadata "github.com/juju/juju/environs/imagemetadata"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -60,7 +57,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -76,7 +72,6 @@ import (
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
@@ -118,8 +113,6 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	// We're not interested in whether EnsureJujudPassword works here since we test it somewhere else
-	s.PatchValue(&password.EnsureJujudPassword, func() error { return nil })
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -1496,7 +1489,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDep
 func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
-	newWorker := func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
@@ -1519,7 +1512,7 @@ func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, 
 func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})
-	newWorker := func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
@@ -1537,41 +1530,6 @@ func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for metadata update worker to start")
 	}
-}
-
-func (s *MachineSuite) TestMetadataWorkerUpdatesState(c *gc.C) {
-	expected := []*envimagemetadata.ImageMetadata{{Id: "whatever"}}
-
-	// Reset newMetadataUpdater to it original value to ensure that
-	// expected worker behaviour is tested - i.e. does worker write
-	// published image metadata to state?
-	s.PatchValue(&newMetadataUpdater, imagemetadataworker.NewWorker)
-	s.PatchValue(&imagemetadataworker.DefaultListPublishedMetadata, func(env environs.Environ) ([]*envimagemetadata.ImageMetadata, error) {
-		return expected, nil
-	})
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for state to be updated.
-	s.BackingState.StartSync()
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		metadata, err := s.BackingState.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
-		if errors.IsNotFound(err) {
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		if len(metadata) > 0 {
-			c.Assert(metadata, gc.HasLen, 1)
-			c.Assert(metadata[cloudimagemetadata.Public], gc.HasLen, 1)
-			c.Assert(metadata[cloudimagemetadata.Public][0].ImageId, gc.Equals, expected[0].Id)
-			return
-		}
-	}
-	c.Fatalf("timeout while waiting for public image metadata to be recorded")
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
@@ -1661,7 +1619,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1685,7 +1643,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1744,7 +1702,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	// Disable the certificate work so it doesn't update the certificate.
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		return worker.NewNoOpWorker()
 	}
@@ -2144,8 +2102,8 @@ func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.commonMachineSuite.TearDownSuite(c)
 	s.CharmSuite.TearDownSuite(c)
+	s.commonMachineSuite.TearDownSuite(c)
 }
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
@@ -2154,8 +2112,8 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
-	s.commonMachineSuite.TearDownTest(c)
 	s.CharmSuite.TearDownTest(c)
+	s.commonMachineSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {

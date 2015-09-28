@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -24,7 +25,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
@@ -307,18 +307,13 @@ var upgradeJujuTests = []struct {
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
-	oldVersion := version.Current
-	defer func() {
-		version.Current = oldVersion
-	}()
-
 	for i, test := range upgradeJujuTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
 		tools.DefaultBaseURL = ""
 
 		// Set up apparent CLI version and initialize the command.
-		version.Current = version.MustParseBinary(test.currentVersion)
+		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
 		com := &UpgradeJujuCommand{}
 		if err := coretesting.InitCommand(envcmd.Wrap(com), test.args); err != nil {
 			if test.expectInitErr != "" {

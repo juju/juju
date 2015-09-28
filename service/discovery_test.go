@@ -14,10 +14,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/feature"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 var maybeSystemd = service.InitSystemSystemd
@@ -69,7 +70,7 @@ func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
 	vers := dt.version()
-	s.PatchVersion(vers)
+	s.PatchSeries(vers.Series)
 	return vers
 }
 
@@ -180,13 +181,13 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		localInitSystem, err = service.VersionInitSystem(version.Current.Series)
+		localInitSystem, err = service.VersionInitSystem(series.HostSeries())
 	}
 	c.Assert(err, gc.IsNil)
 
 	test := discoveryTest{
 		os:       version.Current.OS,
-		series:   version.Current.Series,
+		series:   series.HostSeries(),
 		expected: localInitSystem,
 	}
 	test.disableVersionDiscovery(s)

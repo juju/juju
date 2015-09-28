@@ -18,6 +18,8 @@ import (
 	jujuerrors "github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
@@ -41,8 +43,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -282,7 +282,13 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 	// Floating IP address is 10.0.0.1
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(
+		ctx environs.BootstrapContext,
+		client ssh.Client,
+		env environs.Environ,
+		inst instance.Instance,
+		instanceConfig *instancecfg.InstanceConfig,
+	) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
@@ -310,7 +316,13 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 	bootstrapFinished := false
-	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
+	s.PatchValue(&common.FinishBootstrap, func(
+		ctx environs.BootstrapContext,
+		client ssh.Client,
+		env environs.Environ,
+		inst instance.Instance,
+		instanceConfig *instancecfg.InstanceConfig,
+	) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
