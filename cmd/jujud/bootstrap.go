@@ -396,6 +396,7 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 	})
 }
 
+// Override for testing.
 var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata reads the custom image metadata from disk,
