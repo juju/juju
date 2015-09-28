@@ -46,7 +46,7 @@ type apiHandler struct {
 	rpcConn          *rpc.Conn
 	resources        *common.Resources
 	entity           state.Entity
-	mongoUnavailable *bool
+	mongoUnavailable *uint32
 	// An empty envUUID means that the user has logged in through the
 	// root of the API server rather than the /environment/:env-uuid/api
 	// path, logins processed with v2 or later will only offer the
