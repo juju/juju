@@ -665,39 +665,7 @@ func writeTempFiles(c *gc.C, metadataDir string, expected []struct{ path, conten
 	}
 }
 
-func assertWrittenToStore(c *gc.C, stor statetesting.MapStorage, expected []struct{ path, content string }) {
-	for _, pair := range expected {
-		r, length, err := stor.Get(pair.path)
-		c.Assert(err, jc.ErrorIsNil)
-		data, err := ioutil.ReadAll(r)
-		r.Close()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(length, gc.Equals, int64(len(pair.content)))
-		c.Assert(data, gc.HasLen, int(length))
-		c.Assert(string(data), gc.Equals, pair.content)
-	}
-}
-
-func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
-	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPasswordHash(),
-	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	// find all image metadata in state
-	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.DeepEquals, map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
-		metadata.Source: []cloudimagemetadata.Metadata{metadata},
-	})
-}
-
-func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
+func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 	// setup data for this test
 	metadata := cloudimagemetadata.Metadata{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
@@ -722,6 +690,82 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 		content: "ghi",
 	}}
 	writeTempFiles(c, metadataDir, expected)
+	return metadataDir, metadata
+}
+
+func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
+	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	// find all image metadata in state
+	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.DeepEquals, map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+		metadata.Source: []cloudimagemetadata.Metadata{metadata},
+	})
+}
+
+func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
+	dir, m := createImageMetadata(c)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", dir,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// This metadata should have also been written to state...
+	assertWrittenToState(c, m)
+}
+
+func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
+	dir, _ := createImageMetadata(c)
+
+	msg := "my test error"
+	s.PatchValue(&seriesFromVersion, func(string) (string, error) {
+		return "", errors.New(msg)
+	})
+
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", dir,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
+}
+
+// TODO (anastasiamac 2015-09-26) This test will become obsolete when store
+// functionality will be removed.
+func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
+	metadataDir := c.MkDir()
+	expected := []struct{ path, content string }{{
+		path:    "images/streams/v1/index.json",
+		content: "abc",
+	}, {
+		path:    "images/streams/v1/products.json",
+		content: "def",
+	}, {
+		path:    "wayward/file.txt",
+		content: "ghi",
+	}}
+	for _, pair := range expected {
+		path := filepath.Join(metadataDir, pair.path)
+		err := os.MkdirAll(filepath.Dir(path), 0755)
+		c.Assert(err, jc.ErrorIsNil)
+		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	var stor statetesting.MapStorage
 	s.PatchValue(&newStateStorage, func(string, *mgo.Session) statestorage.Storage {
@@ -739,10 +783,16 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 
 	// The contents of the directory should have been added to
 	// environment storage.
-	assertWrittenToStore(c, stor, expected)
-
-	// This metadata should have also been written to state...
-	assertWrittenToState(c, metadata)
+	for _, pair := range expected {
+		r, length, err := stor.Get(pair.path)
+		c.Assert(err, jc.ErrorIsNil)
+		data, err := ioutil.ReadAll(r)
+		r.Close()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(length, gc.Equals, int64(len(pair.content)))
+		c.Assert(data, gc.HasLen, int(length))
+		c.Assert(string(data), gc.Equals, pair.content)
+	}
 }
 
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {

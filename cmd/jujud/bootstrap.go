@@ -396,6 +396,8 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 	})
 }
 
+var seriesFromVersion = series.VersionSeries
+
 // saveCustomImageMetadata reads the custom image metadata from disk,
 // and saves it in state server.
 func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
@@ -428,14 +430,14 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 			},
 			one.Id,
 		}
-		s, serr := series.VersionSeries(one.Version)
-		if serr != nil {
-			msg = fmt.Sprint("%v: %v", msg, serr)
+		s, err := seriesFromVersion(one.Version)
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
 		}
 		m.Series = s
-		saveErr := st.CloudImageMetadataStorage.SaveMetadata(m)
-		if saveErr != nil {
-			msg = fmt.Sprint("%v: %v", msg, saveErr)
+		err = st.CloudImageMetadataStorage.SaveMetadata(m)
+		if err != nil {
+			return errors.Annotatef(err, "cannot cache image metadata %v", m)
 		}
 	}
 	if len(msg) > 0 {
