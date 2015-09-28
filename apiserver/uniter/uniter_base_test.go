@@ -442,9 +442,9 @@ func (s *uniterBaseSuite) testPublicAddress(
 		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	address, ok := s.wordpressUnit.PublicAddress()
-	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, jc.IsTrue)
+	address, err := s.wordpressUnit.PublicAddress()
+	c.Assert(address.Value, gc.Equals, "1.2.3.4")
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = facade.PublicAddress(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,9 +487,9 @@ func (s *uniterBaseSuite) testPrivateAddress(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	address, ok := s.wordpressUnit.PrivateAddress()
-	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, jc.IsTrue)
+	address, err := s.wordpressUnit.PrivateAddress()
+	c.Assert(address.Value, gc.Equals, "1.2.3.4")
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = facade.PrivateAddress(args)
 	c.Assert(err, jc.ErrorIsNil)

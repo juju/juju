@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
 
@@ -27,6 +28,25 @@ const (
 	// Provider Id for the default network
 	DefaultProviderId = "juju-unknown"
 )
+
+// noAddress represents an error when an address is requested but not available.
+type noAddress struct {
+	errors.Err
+}
+
+// NoAddressf returns an error which satisfies IsNoAddress().
+func NoAddressf(format string, args ...interface{}) error {
+	newErr := errors.NewErr(format+" no address", args...)
+	newErr.SetLocation(1)
+	return &noAddress{newErr}
+}
+
+// IsNoAddress reports whether err was created with NoAddressf().
+func IsNoAddress(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*noAddress)
+	return ok
+}
 
 // Id defines a provider-specific network id.
 type Id string

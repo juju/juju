@@ -29,10 +29,10 @@ var (
 // bootstrap, agent startup, before any CLI command).
 var globalPreferIPv6 bool = false
 
-// ResetGobalPreferIPv6 resets the global variable back to the default,
+// ResetGlobalPreferIPv6 resets the global variable back to the default,
 // and is called only from the isolation test suite to make sure we have
 // a clean environment.
-func ResetGobalPreferIPv6() {
+func ResetGlobalPreferIPv6() {
 	globalPreferIPv6 = false
 }
 
@@ -203,17 +203,33 @@ func deriveScope(addr Address) Scope {
 	return addr.Scope
 }
 
+// ExactScopeMatch checks if an address exactly matches any of the specified
+// scopes. An address will not match if globalPreferIPv6 is set and it isn't an
+// IPv6 address.
+func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
+	if globalPreferIPv6 && addr.Type != IPv6Address {
+		return false
+	}
+	for _, scope := range addrScopes {
+		if addr.Scope == scope {
+			return true
+		}
+	}
+	return false
+}
+
 // SelectPublicAddress picks one address from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
-// are no suitable addresses, the empty string is returned.
-func SelectPublicAddress(addresses []Address) string {
+// are no suitable addresses, then ok is false (and an empty address is
+// returned). If a suitable address is then ok is true.
+func SelectPublicAddress(addresses []Address) (Address, bool) {
 	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, publicMatch)
 	if index < 0 {
-		return ""
+		return Address{}, false
 	}
-	return addresses[index].Value
+	return addresses[index], true
 }
 
 // SelectPublicHostPort picks one HostPort from a slice that would be
@@ -231,15 +247,16 @@ func SelectPublicHostPort(hps []HostPort) string {
 
 // SelectInternalAddress picks one address from a slice that can be
 // used as an endpoint for juju internal communication. If there are
-// no suitable addresses, the empty string is returned.
-func SelectInternalAddress(addresses []Address, machineLocal bool) string {
+// are no suitable addresses, then ok is false (and an empty address is
+// returned). If a suitable address is then ok is true.
+func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, bool) {
 	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
-		return ""
+		return Address{}, false
 	}
-	return addresses[index].Value
+	return addresses[index], true
 }
 
 // SelectInternalHostPort picks one HostPort from a slice that can be
