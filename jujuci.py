@@ -433,7 +433,7 @@ class PackageNamer(Namer):
 
     def get_certification_package(self, version):
         return (
-            'juju-core_{version}.{distro_release}.1_{arch}.deb'
+            'juju-core_{version}~{distro_release}.1_{arch}.deb'
             ).format(version=version, distro_release=self.distro_release,
                      arch=self.arch)
 
