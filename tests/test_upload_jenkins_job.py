@@ -213,8 +213,9 @@ class TestS3Uploader(TestCase):
         h = S3Uploader(s3_mock, jenkins_mock)
         h.upload()
         self.assertEqual(s3_mock.store.mock_calls, [
-            call(filename, json.dumps({"build_info": BUILD_NUM}, indent=4),
-                 headers={"Content-Type": "application/json"}),
+            call(filename, json.dumps(
+                {"build_info": BUILD_NUM, "number": "2222"}, indent=4),
+                headers={"Content-Type": "application/json"}),
             call('{}-console-consoleText.txt'.format(BUILD_NUM),
                  'console text',
                  headers={"Content-Type": "text/plain; charset=utf8"}),
@@ -226,7 +227,9 @@ class TestS3Uploader(TestCase):
         h = S3Uploader(s3_mock, jenkins_mock, unique_id='9999')
         h.upload()
         self.assertEqual(s3_mock.store.mock_calls, [
-            call(filename, json.dumps({"build_info": BUILD_NUM}, indent=4),
+            call(filename,
+                 ('{\n    "origin_number": 2222, \n    "build_info": 1277, \n '
+                  '   "number": 9999\n}'),
                  headers={"Content-Type": "application/json"}),
             call('9999-console-consoleText.txt', 'console text',
                  headers={"Content-Type": "text/plain; charset=utf8"}),
@@ -239,7 +242,8 @@ class TestS3Uploader(TestCase):
         jenkins_mock = MagicMock()
         jenkins_mock.get_last_completed_build_number.return_value = BUILD_NUM
         jenkins_mock.get_build_number.return_value = BUILD_NUM
-        jenkins_mock.get_build_info.return_value = {"build_info": BUILD_NUM}
+        jenkins_mock.get_build_info.return_value = {"build_info": BUILD_NUM,
+                                                    "number": "2222"}
         jenkins_mock.get_console_text.return_value = "console text"
         jenkins_mock._create_filename.return_value = filename
         jenkins_mock.artifacts.return_value = fake_artifacts(2)
