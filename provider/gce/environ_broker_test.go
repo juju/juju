@@ -4,8 +4,11 @@
 package gce_test
 
 import (
+	"errors"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -166,22 +169,54 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	c.Check(inst, gc.DeepEquals, s.BaseInstance)
 }
 
-func (s *environBrokerSuite) TestGetMetadata(c *gc.C) {
-	metadata, err := gce.GetMetadata(s.StartInstArgs)
+func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
+	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Ubuntu)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata, gc.DeepEquals, s.Metadata)
+	c.Check(metadata, gc.DeepEquals, s.UbuntuMetadata)
+
+}
+
+func (s *environBrokerSuite) TestGetMetadataWindows(c *gc.C) {
+	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Windows)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(metadata["windows-startup-script-ps1"], gc.Equals, s.WindowsMetadata["windows-startup-script-ps1"])
+	c.Check(metadata["sysprep-specialize-script-ps1"], gc.Matches, s.WindowsMetadata["sysprep-specialize-script-ps1"])
+}
+
+func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
+	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Arch)
+
+	c.Assert(metadata, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot pack metadata for os Arch on the gce provider")
+}
+
+var getDisksTests = []struct {
+	OS       jujuos.OSType
+	basePath string
+	error    error
+}{
+	{jujuos.Ubuntu, gce.UbuntuImageBasePath, nil},
+	{jujuos.Windows, gce.WindowsImageBasePath, nil},
+	{jujuos.Arch, "", errors.New("os Arch is not supported on the gce provider")},
 }
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
-	diskSpecs := gce.GetDisks(s.spec, s.StartInstArgs.Constraints)
+	for _, test := range getDisksTests {
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.OS)
+		if test.error != nil {
+			c.Assert(err, gc.Equals, err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(diskSpecs, gc.HasLen, 1)
 
-	c.Assert(diskSpecs, gc.HasLen, 1)
+			diskSpec := diskSpecs[0]
 
-	diskSpec := diskSpecs[0]
-
-	c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
-	c.Check(diskSpec.ImageURL, gc.Equals, "projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141212")
+			c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
+			c.Check(diskSpec.ImageURL, gc.Equals, test.basePath+s.spec.Image.Id)
+		}
+	}
 }
 
 func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
