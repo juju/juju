@@ -174,7 +174,7 @@ func (s *ListSuite) TestListMetadataFilterVirtType(c *gc.C) {
 		c.Assert(virtType, gc.DeepEquals, msg)
 		return nil, nil
 	}
-	s.assertValidList(c, "", "", "--virtType", msg)
+	s.assertValidList(c, "", "", "--virt-type", msg)
 }
 
 func (s *ListSuite) TestListMetadataFilterStorageType(c *gc.C) {
@@ -183,7 +183,7 @@ func (s *ListSuite) TestListMetadataFilterStorageType(c *gc.C) {
 		c.Assert(rootStorageType, gc.DeepEquals, msg)
 		return nil, nil
 	}
-	s.assertValidList(c, "", "", "--storageType", msg)
+	s.assertValidList(c, "", "", "--storage-type", msg)
 }
 
 func (s *ListSuite) assertValidList(c *gc.C, expectedValid, expectedErr string, args ...string) {

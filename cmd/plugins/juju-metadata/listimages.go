@@ -34,10 +34,10 @@ options:
    comma separated list of series
 --arch
    comma separated list of architectures
---virtType
+--virt-type
    virtualisation type, e.g. pv
---storageType
-   root storage type, e.g. ebs   
+--storage-type
+   root storage type, e.g. ebs
 `
 
 // ListImagesCommand returns stored image metadata.
@@ -46,12 +46,12 @@ type ListImagesCommand struct {
 
 	out cmd.Output
 
-	Stream         string
-	Region         string
-	Series         []string
-	Arches         []string
-	VirtType       string
-	RooStorageType string
+	Stream          string
+	Region          string
+	Series          []string
+	Arches          []string
+	VirtType        string
+	RootStorageType string
 }
 
 // Init implements Command.Init.
@@ -92,8 +92,8 @@ func (c *ListImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "only show cloud image metadata for these series")
 	f.Var(cmd.NewAppendStringsValue(&c.Arches), "arch", "only show cloud image metadata for these architectures")
 
-	f.StringVar(&c.VirtType, "virtType", "", "image metadata virtualisation type")
-	f.StringVar(&c.RooStorageType, "storageType", "", "image metadata root storage type")
+	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
+	f.StringVar(&c.RootStorageType, "storage-type", "", "image metadata root storage type")
 
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -110,7 +110,7 @@ func (c *ListImagesCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	found, err := api.List(c.Stream, c.Region, c.Series, c.Arches, c.VirtType, c.RooStorageType)
+	found, err := api.List(c.Stream, c.Region, c.Series, c.Arches, c.VirtType, c.RootStorageType)
 	if err != nil {
 		return err
 	}
@@ -235,9 +235,6 @@ func groupMetadata(metadata []MetadataInfo) map[string]map[string]map[string]map
 			seriesMap[m.Arch] = archMap
 		}
 
-		if len(archMap[m.Region]) == 0 {
-			archMap[m.Region] = []minMetadataInfo{}
-		}
 		archMap[m.Region] = append(archMap[m.Region], minMetadataInfo{m.ImageId, m.Stream, m.VirtType, m.RootStorageType})
 	}
 
