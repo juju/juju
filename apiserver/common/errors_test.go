@@ -118,6 +118,10 @@ var errorTransformTests = []struct {
 	code:       params.CodeOperationBlocked,
 	helperFunc: params.IsCodeOperationBlocked,
 }, {
+	err:        errors.NotSupportedf("needed feature"),
+	code:       params.CodeNotSupported,
+	helperFunc: params.IsCodeNotSupported,
+}, {
 	err:  stderrors.New("an error"),
 	code: "",
 }, {

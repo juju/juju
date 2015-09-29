@@ -30,6 +30,10 @@ func NewAttached(spec DiskSpec) *compute.AttachedDisk {
 	return spec.newAttached()
 }
 
+func NewDetached(spec DiskSpec) (*compute.Disk, error) {
+	return spec.newDetached()
+}
+
 func NewAvailabilityZone(zone *compute.Zone) AvailabilityZone {
 	return AvailabilityZone{zone: zone}
 }

@@ -19,6 +19,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -151,8 +152,10 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
 	agentParams := agent.AgentConfigParams{
-		LogDir:            s.logDir,
-		DataDir:           s.dataDir,
+		Paths: agent.Paths{
+			LogDir:  s.logDir,
+			DataDir: s.dataDir,
+		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
@@ -577,15 +580,17 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	defer st.Close()
 	expectedSeries := make(set.Strings)
 	if exploded {
-		for _, series := range version.SupportedSeries() {
-			os, err := version.GetOSFromSeries(series)
+		for _, ser := range series.SupportedSeries() {
+			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			if os == version.Current.OS {
-				expectedSeries.Add(series)
+			hostos, err := series.GetOSFromSeries(version.Current.Series)
+			c.Assert(err, jc.ErrorIsNil)
+			if os == hostos {
+				expectedSeries.Add(ser)
 			}
 		}
 	} else {
-		expectedSeries.Add(version.Current.Series)
+		expectedSeries.Add(series.HostSeries())
 	}
 
 	storage, err := st.ToolsStorage()

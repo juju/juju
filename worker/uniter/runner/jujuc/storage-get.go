@@ -15,14 +15,21 @@ import (
 // StorageGetCommand implements the storage-get command.
 type StorageGetCommand struct {
 	cmd.CommandBase
-	ctx        Context
-	storageTag names.StorageTag
-	key        string
-	out        cmd.Output
+	ctx             Context
+	storageTag      names.StorageTag
+	storageTagProxy gnuflag.Value
+	key             string
+	out             cmd.Output
 }
 
-func NewStorageGetCommand(ctx Context) cmd.Command {
-	return &StorageGetCommand{ctx: ctx}
+func NewStorageGetCommand(ctx Context) (cmd.Command, error) {
+	c := &StorageGetCommand{ctx: ctx}
+	sV, err := newStorageIdValue(ctx, &c.storageTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.storageTagProxy = sV
+	return c, nil
 }
 
 func (c *StorageGetCommand) Info() *cmd.Info {
@@ -38,9 +45,8 @@ When no <key> is supplied, all keys values are printed.
 }
 
 func (c *StorageGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	sV := newStorageIdValue(c.ctx, &c.storageTag)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(sV, "s", "specify a storage instance by id")
+	f.Var(c.storageTagProxy, "s", "specify a storage instance by id")
 }
 
 func (c *StorageGetCommand) Init(args []string) error {
@@ -66,9 +72,9 @@ func storageKindString(k params.StorageKind) string {
 }
 
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
-	storage, ok := c.ctx.Storage(c.storageTag)
-	if !ok {
-		return nil
+	storage, err := c.ctx.Storage(c.storageTag)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	values := map[string]interface{}{
 		"kind":     storage.Kind().String(),

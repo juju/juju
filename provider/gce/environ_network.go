@@ -6,35 +6,9 @@ package gce
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
-
-// AllocateAddress implements environs.Environ, but is not implmemented.
-func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address, macAddress, hostname string) error {
-	return errors.Trace(errNotImplemented)
-}
-
-// ReleaseAddress implements environs.Environ, but is not implmemented.
-func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address, macAddres string) error {
-	return errors.Trace(errNotImplemented)
-}
-
-// Subnets implements environs.Environ, but is not implmemented.
-func (env *environ) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.Trace(errNotImplemented)
-}
-
-// ListNetworks implements environs.Environ, but is not implmemented.
-func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.Trace(errNotImplemented)
-}
-
-// NetworkInterfaces implements environs.Environ, but is not implmemented.
-func (env *environ) NetworkInterfaces(inst instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, errors.Trace(errNotImplemented)
-}
 
 // globalFirewallName returns the name to use for the global firewall.
 func (env *environ) globalFirewallName() string {

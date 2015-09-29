@@ -21,12 +21,14 @@ type JujuRebootSuite struct {
 var _ = gc.Suite(&JujuRebootSuite{})
 
 func (s *JujuRebootSuite) TestNewJujuRebootCommand(c *gc.C) {
-	cmd := jujuc.NewJujuRebootCommand(nil)
+	cmd, err := jujuc.NewJujuRebootCommand(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd, gc.DeepEquals, &jujuc.JujuRebootCommand{})
 }
 
 func (s *JujuRebootSuite) TestInfo(c *gc.C) {
-	rebootCmd := jujuc.NewJujuRebootCommand(nil)
+	rebootCmd, err := jujuc.NewJujuRebootCommand(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	cmdInfo := rebootCmd.Info()
 
 	c.Assert(cmdInfo.Name, gc.Equals, "juju-reboot")

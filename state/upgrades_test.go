@@ -62,9 +62,6 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 
 	err = MigrateUserLastConnectionToLastLogin(s.state)
 	c.Assert(err, jc.ErrorIsNil)
-	user, err := s.state.User(names.NewLocalUserTag(userId))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*user.LastLogin(), gc.Equals, now)
 
 	// check to see if _id_ field is removed
 	userMap := map[string]interface{}{}
@@ -74,6 +71,10 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
+
+	lastLogin, keyExists := userMap["lastlogin"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(now.Equal(lastLogin.(time.Time)), jc.IsTrue)
 }
 
 func (s *upgradesSuite) TestLowerCaseEnvUsersID(c *gc.C) {
@@ -895,17 +896,18 @@ func (s *upgradesSuite) TestAddEnvUUIDToConstraints(c *gc.C) {
 			},
 		},
 		true)
-	// The test expects three records because there is a preexisting environment constraints doc in mongo.
+	// The test expects three records because there is a preexisting
+	// environment constraints doc in mongo.
 	c.Assert(count, gc.Equals, 3)
 
 	var newDoc constraintsDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
 	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(4))
-	c.Assert(*newDoc.Networks, gc.DeepEquals, networks1)
+	c.Assert(*newDoc.Networks, jc.DeepEquals, networks1)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
 	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(8))
-	c.Assert(*newDoc.Networks, gc.DeepEquals, networks2)
+	c.Assert(*newDoc.Networks, jc.DeepEquals, networks2)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToConstraintsIdempotent(c *gc.C) {
@@ -2848,7 +2850,7 @@ func (s *upgradesSuite) prepareEnvsForLeadership(c *gc.C, envs map[string][]stri
 			"name":     name,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		expectedDocIDs = append(expectedDocIDs, envUUID+":"+leadershipSettingsDocId(name))
+		expectedDocIDs = append(expectedDocIDs, envUUID+":"+leadershipSettingsKey(name))
 	}
 
 	// Use the helpers to set up the environments.
@@ -3224,6 +3226,142 @@ func (s *upgradesSuite) removeEnvCountDoc(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) TestMigrateLastLoginAndLastConnection(c *gc.C) {
+	t := time.Now().Round(time.Second)
+	fooUser := names.NewUserTag("foobar")
+	barUser := names.NewUserTag("barfoo")
+
+	s.addUsersForLastLoginAndConnection(c, &t, fooUser)
+	s.addUsersForLastLoginAndConnection(c, nil, barUser)
+
+	err := MigrateLastLoginAndLastConnection(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertLastLoginAndConnectionMigration(c, t, fooUser)
+
+	// assert that no documents were added for a user who has never logged in
+	// or connected.
+	_, err = s.getDocMap(c, barUser.Id(), "userLastLogin")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	_, err = s.getDocMap(c, envUserID(barUser), "envUserLastConnection")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+}
+
+func (s *upgradesSuite) TestMigrateLastLoginAndLastConnectionIdempotent(c *gc.C) {
+	t := time.Now().Round(time.Second)
+	fooUser := names.NewUserTag("foobar")
+	barUser := names.NewUserTag("barfoo")
+
+	s.addUsersForLastLoginAndConnection(c, &t, fooUser)
+	s.addUsersForLastLoginAndConnection(c, nil, barUser)
+
+	err := MigrateLastLoginAndLastConnection(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+	err = MigrateLastLoginAndLastConnection(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertLastLoginAndConnectionMigration(c, t, fooUser)
+
+	// assert that no documents were added for a user who has never logged in
+	// or connected.
+	_, err = s.getDocMap(c, barUser.Id(), "userLastLogin")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	_, err = s.getDocMap(c, envUserID(barUser), "envUserLastConnection")
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+}
+
+func (s *upgradesSuite) addUsersForLastLoginAndConnection(c *gc.C, t *time.Time, user names.UserTag) {
+	userID := user.Id()
+	oldEnvUserID := envUserID(user)
+
+	oldUserDoc := bson.M{
+		"_id":          userID,
+		"env-uuid":     "envuuid456",
+		"displayname":  "foo bar",
+		"deactivated":  false,
+		"passwordhash": "hash",
+		"passwordsalt": "salt",
+		"createdby":    "creator",
+		"datecreated":  t,
+		"lastlogin":    t,
+	}
+
+	oldEnvUserDoc := bson.M{
+		"_id":            oldEnvUserID,
+		"env-uuid":       "envuuid123",
+		"user":           "username@local",
+		"displayname":    "ignored",
+		"createdby":      "ignored@local",
+		"datecreated":    t,
+		"lastconnection": t,
+	}
+
+	ops := []txn.Op{
+		{
+			C:      "users",
+			Id:     userID,
+			Assert: txn.DocMissing,
+			Insert: oldUserDoc,
+		},
+		{
+			C:      "envusers",
+			Id:     oldEnvUserID,
+			Assert: txn.DocMissing,
+			Insert: oldEnvUserDoc,
+		},
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) assertLastLoginAndConnectionMigration(c *gc.C, t time.Time, user names.UserTag) {
+	userID := user.Id()
+	oldEnvUserID := envUserID(user)
+
+	// check to see if lastlogin field is removed
+	userMap, err := s.getDocMap(c, userID, "users")
+	c.Assert(err, jc.ErrorIsNil)
+	_, keyExists := userMap["lastlogin"]
+	c.Assert(keyExists, jc.IsFalse)
+
+	// check to see if lastconnection field is removed
+	envUserMap, err := s.getDocMap(c, oldEnvUserID, "envusers")
+	c.Assert(err, jc.ErrorIsNil)
+	_, keyExists = envUserMap["lastconnection"]
+	c.Assert(keyExists, jc.IsFalse)
+
+	// check to see if lastlogin doc is added
+	lastLoginMap, err := s.getDocMap(c, userID, "userLastLogin")
+	c.Assert(err, jc.ErrorIsNil)
+	lastLogin, keyExists := lastLoginMap["last-login"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(lastLogin.(time.Time).UTC(), gc.Equals, t.UTC())
+	envUUID, keyExists := lastLoginMap["env-uuid"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(envUUID, gc.Equals, "envuuid456")
+
+	// check to see if lastconnection doc is added
+	lastConnMap, err := s.getDocMap(c, oldEnvUserID, "envUserLastConnection")
+	c.Assert(err, jc.ErrorIsNil)
+	lastConn, keyExists := lastConnMap["last-connection"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(lastConn.(time.Time).UTC(), gc.Equals, t.UTC())
+	envUUID, keyExists = lastConnMap["env-uuid"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(envUUID, gc.Equals, "envuuid123")
+	username, keyExists := lastConnMap["user"]
+	c.Assert(keyExists, jc.IsTrue)
+	c.Assert(username, gc.Equals, "username@local")
+}
+
+func (s *upgradesSuite) getDocMap(c *gc.C, docID, collection string) (map[string]interface{}, error) {
+	docMap := map[string]interface{}{}
+	coll, closer := s.state.getRawCollection(collection)
+	defer closer()
+	err := coll.Find(bson.D{{"_id", docID}}).One(&docMap)
+	return docMap, err
+}
+
 func (s *upgradesSuite) TestAddMissingEnvUUIDOnStatuses(c *gc.C) {
 	statuses, closer := s.state.getRawCollection(statusesC)
 	defer closer()
@@ -3417,7 +3555,7 @@ func assertVolumeAttachments(s *State, c *gc.C, expected int) *volume {
 }
 
 func (s *upgradesSuite) TestAddAttachmentToVolumes(c *gc.C) {
-	cleanup := setupForStorageTesting(s, c, "block", "loop-pool")
+	cleanup := setupForStorageTesting(s, c, "block", "loop")
 	defer cleanup()
 	vol := assertVolumeAttachments(s.state, c, 1)
 
@@ -3444,7 +3582,7 @@ func assertFilesystemAttachments(s *State, c *gc.C, expected int) *filesystem {
 }
 
 func (s *upgradesSuite) TestAddAttachmentToFilesystems(c *gc.C) {
-	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop")
 	defer cleanup()
 
 	fs := assertFilesystemAttachments(s.state, c, 1)
@@ -3472,11 +3610,8 @@ func assertVolumeBinding(s *State, c *gc.C, expected string) *volume {
 	return vol
 }
 
-func setupMachineBoundStorageTests(c *gc.C, st *State) (*Machine, Volume, func() error) {
-	pm := poolmanager.New(NewStateSettings(st))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
+func setupMachineBoundStorageTests(c *gc.C, st *State) (*Machine, Volume, Filesystem, func() error) {
+	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType, provider.RootfsProviderType)
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
@@ -3484,20 +3619,31 @@ func setupMachineBoundStorageTests(c *gc.C, st *State) (*Machine, Volume, func()
 		Series: "quantal",
 		Jobs:   []MachineJob{JobHostUnits},
 		Volumes: []MachineVolumeParams{
-			{Volume: VolumeParams{Pool: "loop-pool", Size: 2048}},
+			{Volume: VolumeParams{Pool: "loop", Size: 2048}},
+		},
+		Filesystems: []MachineFilesystemParams{
+			{Filesystem: FilesystemParams{Pool: "rootfs", Size: 2048}},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := m.VolumeAttachments()
+
+	va, err := m.VolumeAttachments()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, gc.HasLen, 1)
-	v, err := st.Volume(a[0].Volume())
+	c.Assert(va, gc.HasLen, 1)
+	v, err := st.Volume(va[0].Volume())
 	c.Assert(err, jc.ErrorIsNil)
-	return m, v, m.Destroy
+
+	fa, err := st.MachineFilesystemAttachments(m.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fa, gc.HasLen, 1)
+	f, err := st.Filesystem(fa[0].Filesystem())
+	c.Assert(err, jc.ErrorIsNil)
+
+	return m, v, f, m.Destroy
 }
 
 func (s *upgradesSuite) TestAddBindingToVolumesFilesystemBound(c *gc.C) {
-	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop")
 	defer cleanup()
 	vol := assertVolumeBinding(s.state, c, "filesystem-0-0")
 
@@ -3514,7 +3660,7 @@ func (s *upgradesSuite) TestAddBindingToVolumesFilesystemBound(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddBindingToVolumesStorageBound(c *gc.C) {
-	cleanup := setupForStorageTesting(s, c, "block", "loop-pool")
+	cleanup := setupForStorageTesting(s, c, "block", "loop")
 	defer cleanup()
 	vol := assertVolumeBinding(s.state, c, "storage-data-0")
 
@@ -3531,7 +3677,7 @@ func (s *upgradesSuite) TestAddBindingToVolumesStorageBound(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddBindingToVolumesMachineBound(c *gc.C) {
-	_, _, cleanup := setupMachineBoundStorageTests(c, s.state)
+	_, _, _, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 	vol := assertVolumeBinding(s.state, c, "machine-0")
 
@@ -3559,7 +3705,7 @@ func assertFilesystemBinding(s *State, c *gc.C, expected string) *filesystem {
 }
 
 func (s *upgradesSuite) TestAddBindingToFilesystemsStorageBound(c *gc.C) {
-	cleanup := setupForStorageTesting(s, c, "filesystem", "loop-pool")
+	cleanup := setupForStorageTesting(s, c, "filesystem", "loop")
 	defer cleanup()
 	fs := assertFilesystemBinding(s.state, c, "storage-data-0")
 
@@ -3576,7 +3722,7 @@ func (s *upgradesSuite) TestAddBindingToFilesystemsStorageBound(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddVolumeStatus(c *gc.C) {
-	_, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	_, volume, _, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 
 	removeStatusDoc(c, s.state, volume)
@@ -3586,7 +3732,7 @@ func (s *upgradesSuite) TestAddVolumeStatus(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddVolumeStatusDoesNotOverwrite(c *gc.C) {
-	_, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	_, volume, _, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 
 	err := volume.SetStatus(StatusDestroying, "", nil)
@@ -3595,7 +3741,7 @@ func (s *upgradesSuite) TestAddVolumeStatusDoesNotOverwrite(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddVolumeStatusProvisioned(c *gc.C) {
-	_, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	_, volume, _, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 
 	err := s.state.SetVolumeInfo(volume.VolumeTag(), VolumeInfo{
@@ -3607,7 +3753,7 @@ func (s *upgradesSuite) TestAddVolumeStatusProvisioned(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddVolumeStatusAttached(c *gc.C) {
-	machine, volume, cleanup := setupMachineBoundStorageTests(c, s.state)
+	machine, volume, _, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 
 	err := machine.SetProvisioned("fake", "fake", nil)
@@ -3629,11 +3775,74 @@ func (s *upgradesSuite) TestAddVolumeStatusAttached(c *gc.C) {
 	s.assertAddVolumeStatus(c, volume, StatusAttached)
 }
 
+func (s *upgradesSuite) TestAddFilesystemStatus(c *gc.C) {
+	_, _, filesystem, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	removeStatusDoc(c, s.state, filesystem)
+	_, err := filesystem.Status()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	s.assertAddFilesystemStatus(c, filesystem, StatusPending)
+}
+
+func (s *upgradesSuite) TestAddFilesystemStatusDoesNotOverwrite(c *gc.C) {
+	_, _, filesystem, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	err := filesystem.SetStatus(StatusDestroying, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAddFilesystemStatus(c, filesystem, StatusDestroying)
+}
+
+func (s *upgradesSuite) TestAddFilesystemStatusProvisioned(c *gc.C) {
+	_, _, filesystem, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	err := s.state.SetFilesystemInfo(filesystem.FilesystemTag(), FilesystemInfo{
+		FilesystemId: "fs",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	removeStatusDoc(c, s.state, filesystem)
+	s.assertAddFilesystemStatus(c, filesystem, StatusAttaching)
+}
+
+func (s *upgradesSuite) TestAddFilesystemStatusAttached(c *gc.C) {
+	machine, _, filesystem, cleanup := setupMachineBoundStorageTests(c, s.state)
+	defer cleanup()
+
+	err := machine.SetProvisioned("fake", "fake", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetFilesystemInfo(filesystem.FilesystemTag(), FilesystemInfo{
+		FilesystemId: "fs",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetFilesystemAttachmentInfo(
+		machine.MachineTag(),
+		filesystem.FilesystemTag(),
+		FilesystemAttachmentInfo{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	removeStatusDoc(c, s.state, filesystem)
+	s.assertAddFilesystemStatus(c, filesystem, StatusAttached)
+}
+
 func (s *upgradesSuite) assertAddVolumeStatus(c *gc.C, volume Volume, expect Status) {
 	err := AddVolumeStatus(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := volume.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Status, gc.Equals, expect)
+}
+
+func (s *upgradesSuite) assertAddFilesystemStatus(c *gc.C, filesystem Filesystem, expect Status) {
+	err := AddFilesystemStatus(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := filesystem.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Status, gc.Equals, expect)
 }
@@ -3724,7 +3933,9 @@ func (s *upgradesSuite) TestChangeIdsFromSeqToAuto(c *gc.C) {
 
 func (s *upgradesSuite) TestChangeStatusHistoryUpdatedFromTimeToInt64(c *gc.C) {
 	uuid0 := s.makeEnvironment(c)
+	c.Logf("UUID0 : %v", uuid0)
 	uuid1 := s.makeEnvironment(c)
+	c.Logf("UUID1 : %v", uuid1)
 	sHistory, closer := s.state.getRawCollection(statusesHistoryC)
 	defer closer()
 	epoch := time.Unix(0, 0).UTC()
@@ -3918,7 +4129,7 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 
 	err := sHistory.Insert(
 		bson.D{
-			{"_id", uuid0 + ":0"},
+			{"_id", "0"},
 			{"env-uuid", uuid0},
 			{"entityid", "global0"},
 		},
@@ -3973,17 +4184,147 @@ func (s *upgradesSuite) TestChangeEntityIdToGlobalKey(c *gc.C) {
 	c.Assert(docs, gc.HasLen, 0)
 
 	var doc bson.M
-	for i := 0; i < 8; i++ {
+
+	logger.Debugf("checking global key 0")
+	err = sHistory.FindId(fmt.Sprintf("%s:0", uuid0)).One(&doc)
+	c.Assert(err, gc.ErrorMatches, "not found")
+	err = sHistory.Find(bson.M{"globalkey": "global0"}).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	ID, ok := doc["_id"].(bson.ObjectId)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(ID, gc.Not(gc.Equals), "0")
+
+	for i := 1; i < 8; i++ {
 		u := uuid0
 		if i > 3 {
 			u = uuid1
 		}
 		logger.Debugf("checking global key %d", i)
-		logger.Debugf("doc has: %v", doc)
 		err := sHistory.FindId(fmt.Sprintf("%s:%d", u, i)).One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
 		globalKey, ok := doc["globalkey"].(string)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(globalKey, gc.Equals, fmt.Sprintf("global%d", i))
+	}
+}
+
+func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
+	// Insert test documents.
+	settingsColl, closer := s.state.getRawCollection(settingsC)
+	defer closer()
+	err := settingsColl.Insert(
+		bson.D{
+			// Post-env-uuid migration, with no settings.
+			{"_id", "1"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+		},
+		bson.D{
+			// Post-env-uuid migration, with settings. One
+			// of the settings is called "settings", and
+			// one "version".
+			{"_id", "2"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"settings", int64(123)},
+			{"version", "onetwothree"},
+		},
+		bson.D{
+			// Pre-env-uuid migration, with no settings.
+			{"_id", "3"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+		},
+		bson.D{
+			// Pre-env-uuid migration, with settings.
+			{"_id", "4"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"settings", int64(123)},
+			{"version", "onetwothree"},
+		},
+		bson.D{
+			// Already migrated, with no settings.
+			{"_id", "5"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"version", int64(98)},
+			{"settings", map[string]interface{}{}},
+		},
+		bson.D{
+			// Already migrated, with settings.
+			{"_id", "6"},
+			{"env-uuid", "env-uuid"},
+			{"txn-revno", int64(99)},
+			{"txn-queue", []string{}},
+			{"version", int64(98)},
+			{"settings", bson.D{
+				{"settings", int64(123)},
+				{"version", "onetwothree"},
+			}},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Expected docs, excluding txn-queu which we cannot predict.
+	expected := []bson.M{{
+		"_id":       "1",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(100),
+		"settings":  bson.M{},
+		"version":   int64(99),
+	}, {
+		"_id":       "2",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(101),
+		"settings": bson.M{
+			"settings": int64(123),
+			"version":  "onetwothree",
+		},
+		"version": int64(99),
+	}, {
+		"_id":       "3",
+		"txn-revno": int64(100),
+		"settings":  bson.M{},
+		"version":   int64(99),
+	}, {
+		"_id":       "4",
+		"txn-revno": int64(101),
+		"settings": bson.M{
+			"settings": int64(123),
+			"version":  "onetwothree",
+		},
+		"version": int64(99),
+	}, {
+		"_id":       "5",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(99),
+		"version":   int64(98),
+		"settings":  bson.M{},
+	}, {
+		"_id":       "6",
+		"env-uuid":  "env-uuid",
+		"txn-revno": int64(99),
+		"version":   int64(98),
+		"settings": bson.M{
+			"settings": int64(123),
+			"version":  "onetwothree",
+		},
+	}}
+
+	// Two rounds to check idempotency.
+	for i := 0; i < 2; i++ {
+		err = MigrateSettingsSchema(s.state)
+		c.Assert(err, jc.ErrorIsNil)
+
+		var docs []bson.M
+		err = settingsColl.Find(
+			bson.D{{"env-uuid", bson.D{{"$ne", s.state.EnvironUUID()}}}},
+		).Sort("_id").Select(bson.M{"txn-queue": 0}).All(&docs)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(docs, jc.DeepEquals, expected)
 	}
 }

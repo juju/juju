@@ -2758,10 +2758,21 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		if collName == "constraints" || collName == "envusers" || collName == "settings" {
 			continue
 		}
-		ops = append(ops, mgotxn.Op{
-			C:      collName,
-			Id:     state.DocID(st, "arbitraryid"),
-			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+		if state.HasRawAccess(collName) {
+			coll, closer := state.GetRawCollection(st, collName)
+			defer closer()
+
+			err := coll.Insert(bson.M{
+				"_id":      state.DocID(st, "arbitraryid"),
+				"env-uuid": st.EnvironUUID(),
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			ops = append(ops, mgotxn.Op{
+				C:      collName,
+				Id:     state.DocID(st, "arbitraryid"),
+				Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+		}
 	}
 	err := state.RunTransaction(st, ops)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2896,7 +2907,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
-	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$unset", bson.D{{"name", 1}}}})
+	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$unset", bson.D{{"settings.name", 1}}}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.StartSync()
@@ -2928,7 +2939,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$set", bson.D{{"name", "foo"}}}})
+	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$set", bson.D{{"settings.name", "foo"}}}})
 	c.Assert(err, jc.ErrorIsNil)
 	fixed := cfg.AllAttrs()
 	err = s.State.UpdateEnvironConfig(fixed, nil, nil)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -100,7 +101,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	inst, hardware, err := manager.CreateContainer(instanceConfig, "precise", network, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
-	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", version.Current.Arch)
+	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", arch.HostArch())
 	c.Assert(hardware.String(), gc.Equals, expected)
 	return inst
 }

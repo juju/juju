@@ -108,9 +108,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
-	// TODO(dfc)
 	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
-	// TODO(dfc)
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
 
@@ -124,8 +122,11 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	namespace := ctx.agentConfig.Value(agent.Namespace)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           dataDir,
-			LogDir:            logDir,
+			Paths: agent.Paths{
+				DataDir:         dataDir,
+				LogDir:          logDir,
+				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
+			},
 			UpgradedToVersion: version.Current.Number,
 			Tag:               tag,
 			Password:          initialPassword,

@@ -21,19 +21,22 @@ type isLeaderSuite struct {
 var _ = gc.Suite(&isLeaderSuite{})
 
 func (s *isLeaderSuite) TestInitError(c *gc.C) {
-	command := jujuc.NewIsLeaderCommand(nil)
-	err := command.Init([]string{"blah"})
+	command, err := jujuc.NewIsLeaderCommand(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = command.Init([]string{"blah"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blah"\]`)
 }
 
 func (s *isLeaderSuite) TestInitSuccess(c *gc.C) {
-	command := jujuc.NewIsLeaderCommand(nil)
-	err := command.Init(nil)
+	command, err := jujuc.NewIsLeaderCommand(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = command.Init(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *isLeaderSuite) TestFormatError(c *gc.C) {
-	command := jujuc.NewIsLeaderCommand(nil)
+	command, err := jujuc.NewIsLeaderCommand(nil)
+	c.Assert(err, jc.ErrorIsNil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
@@ -43,7 +46,8 @@ func (s *isLeaderSuite) TestFormatError(c *gc.C) {
 
 func (s *isLeaderSuite) TestIsLeaderError(c *gc.C) {
 	jujucContext := &isLeaderContext{err: errors.New("pow")}
-	command := jujuc.NewIsLeaderCommand(jujucContext)
+	command, err := jujuc.NewIsLeaderCommand(jujucContext)
+	c.Assert(err, jc.ErrorIsNil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 1)
@@ -86,7 +90,8 @@ func (s *isLeaderSuite) TestFormatJsonNo(c *gc.C) {
 
 func (s *isLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect string) {
 	jujucContext := &isLeaderContext{leader: leader}
-	command := jujuc.NewIsLeaderCommand(jujucContext)
+	command, err := jujuc.NewIsLeaderCommand(jujucContext)
+	c.Assert(err, jc.ErrorIsNil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)
@@ -97,7 +102,8 @@ func (s *isLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect s
 
 func (s *isLeaderSuite) testParseOutput(c *gc.C, leader bool, args []string, checker gc.Checker) {
 	jujucContext := &isLeaderContext{leader: leader}
-	command := jujuc.NewIsLeaderCommand(jujucContext)
+	command, err := jujuc.NewIsLeaderCommand(jujucContext)
+	c.Assert(err, jc.ErrorIsNil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)

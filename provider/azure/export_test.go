@@ -9,6 +9,8 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+var MakeUserdataResourceScripts = makeUserdataResourceScripts
+
 func MakeEnvironForTest(c *gc.C) environs.Environ {
 	return makeEnviron(c)
 }

@@ -7,6 +7,17 @@ import (
 	"time"
 )
 
-// Signal is the signature of a function used to generate a
-// hook signal.
-type TimedSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
+const (
+	// interval at which the unit's status should be polled
+	statusPollInterval = 5 * time.Minute
+)
+
+// updateStatusSignal returns a time channel that fires after a given interval.
+func updateStatusSignal() <-chan time.Time {
+	return time.After(statusPollInterval)
+}
+
+// NewUpdateStatusTimer returns a timed signal suitable for update-status hook.
+func NewUpdateStatusTimer() func() <-chan time.Time {
+	return updateStatusSignal
+}

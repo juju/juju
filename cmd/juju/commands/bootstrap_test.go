@@ -15,6 +15,8 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -35,7 +37,6 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -322,10 +323,11 @@ var bootstrapTests = []bootstrapTest{{
 	args:     []string{"--upload-tools"},
 	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "mips64"`,
 }, {
-	info:    "--upload-tools always bumps build number",
-	version: "1.2.3.4-raring-amd64",
-	args:    []string{"--upload-tools"},
-	upload:  "1.2.3.5-raring-amd64",
+	info:     "--upload-tools always bumps build number",
+	version:  "1.2.3.4-raring-amd64",
+	hostArch: "amd64",
+	args:     []string{"--upload-tools"},
+	upload:   "1.2.3.5-raring-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
@@ -697,9 +699,10 @@ func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
 	currentVersion.Major = 2
 	currentVersion.Minor = 22
 	currentVersion.Patch = 46
-	currentVersion.Series = "trusty"
+	currentVersion.Series = "incorrect"
 	currentVersion.Arch = "amd64"
 	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	coretesting.RunCommand(
 		c, envcmd.Wrap(&BootstrapCommand{}),
 		"--no-auto-upgrade",
@@ -731,7 +734,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+version.Current.Arch))
+	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+arch.HostArch()))
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -748,7 +751,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
-	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
+	c.Assert(icfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
@@ -782,7 +785,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 Bootstrapping environment "devenv"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
-`[1:], version.Current.Arch))
+`[1:], arch.HostArch()))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }
 

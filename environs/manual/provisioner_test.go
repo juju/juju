@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 type provisionerSuite struct {
@@ -46,7 +47,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
-	const operatingSystem = version.Ubuntu
+	const operatingSystem = jujuos.Ubuntu
 
 	args := s.getArgs(c)
 	hostname := args.Host

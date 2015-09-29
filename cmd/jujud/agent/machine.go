@@ -22,6 +22,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
@@ -77,6 +77,8 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
+	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
@@ -95,6 +97,7 @@ import (
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -104,7 +107,7 @@ const bootstrapMachineId = "0"
 var (
 	logger     = loggo.GetLogger("juju.cmd.jujud")
 	retryDelay = 3 * time.Second
-	JujuRun    = paths.MustSucceed(paths.JujuRun(version.Current.Series))
+	JujuRun    = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
@@ -123,6 +126,7 @@ var (
 	newInstancePoller        = instancepoller.NewWorker
 	newCleaner               = cleaner.NewCleaner
 	newAddresser             = addresser.NewWorker
+	newMetadataUpdater       = imagemetadataworker.NewWorker
 	reportOpenedState        = func(io.Closer) {}
 	reportOpenedAPI          = func(io.Closer) {}
 	getMetricAPI             = metricAPI
@@ -683,6 +687,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
+
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -722,7 +727,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
+			return logsender.New(a.bufferedLogs, gate.AlreadyUnlocked{}, a), nil
 		})
 	}
 
@@ -791,6 +796,13 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		), nil
 	})
 
+	if isEnvironManager {
+		// Start worker that stores missing published image metadata in state.
+		runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
+			return newMetadataUpdater(st.MetadataUpdater()), nil
+		})
+	}
+
 	// Check if the network management is disabled.
 	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
 	if disableNetworkManagement {
@@ -843,6 +855,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return worker.NewSimpleWorker(inner), nil
 			})
+			runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
+				// 4 times a day seems a decent enough amount of checks.
+				checkerParams := toolsversionchecker.VersionCheckerParams{
+					CheckInterval: time.Hour * 6,
+				}
+				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+			})
+
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -1033,6 +1053,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
+
+			// certChangedChan is shared by multiple workers it's up
+			// to the agent to close it rather than any one of the
+			// workers.
+			//
+			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
@@ -1048,7 +1074,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
 			if feature.IsDbLogEnabled() {
@@ -1070,7 +1096,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			logger.Warningf("ignoring unknown job %q", job)
 		}
 	}
-	return cmdutil.NewCloseWorker(logger, runner, st), nil
+	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
+}
+
+type stateWorkerCloser struct {
+	stateCloser io.Closer
+}
+
+func (s stateWorkerCloser) Close() error {
+	// This state-dependent data source will be useless once state is closed -
+	// un-register it before closing state.
+	unregisterSimplestreamsDataSource()
+	return s.stateCloser.Close()
 }
 
 // startEnvWorkers starts state server workers that need to run per
@@ -1158,20 +1195,10 @@ func (a *MachineAgent) startEnvWorkers(
 	singularRunner.StartWorker("cleaner", func() (worker.Worker, error) {
 		return newCleaner(apiSt.Cleaner()), nil
 	})
+	singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
+		return newAddresser(apiSt.Addresser())
+	})
 
-	// Addresser Worker needs a networking environment. Check
-	// first before starting the worker.
-	isNetEnv, err := isNetworkingEnvironment(apiSt)
-	if err != nil {
-		return nil, errors.Annotate(err, "checking environment networking support")
-	}
-	if isNetEnv {
-		singularRunner.StartWorker("addresserworker", func() (worker.Worker, error) {
-			return newAddresser(apiSt.Addresser())
-		})
-	} else {
-		logger.Debugf("address deallocation not supported: not starting addresser worker")
-	}
 	// TODO(axw) 2013-09-24 bug #1229506
 	// Make another job to enable the firewaller. Not all
 	// environments are capable of managing ports
@@ -1189,19 +1216,6 @@ func (a *MachineAgent) startEnvWorkers(
 	}
 
 	return runner, nil
-}
-
-func isNetworkingEnvironment(apiConn api.Connection) (bool, error) {
-	envConfig, err := apiConn.Environment().EnvironConfig()
-	if err != nil {
-		return false, errors.Annotate(err, "cannot read environment config")
-	}
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return false, errors.Annotate(err, "cannot get environment")
-	}
-	_, ok := environs.SupportsNetworking(env)
-	return ok, nil
 }
 
 var getFirewallMode = _getFirewallMode
@@ -1615,19 +1629,6 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 			}
 		}
 		logger.Debugf("upgrades done, starting worker %q", name)
-
-		// For windows clients we need to make sure we set a random password in a
-		// registry file and use that password for the jujud user and its services
-		// before starting anything else.
-		// Services on windows need to know the user's password to start up. The only
-		// way to store that password securely is if the user running the services
-		// sets the password. This cannot be done during cloud-init so it is done here.
-		// This needs to get ran in between finishing the upgrades and starting
-		// the rest of the workers(in particular the deployer which should use
-		// the new password)
-		if err := password.EnsureJujudPassword(); err != nil {
-			return errors.Annotate(err, "Could not ensure jujud password")
-		}
 
 		// Upgrades are done, start the worker.
 		worker, err := start()

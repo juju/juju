@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
@@ -26,14 +27,14 @@ func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
 func (dummyHookContext) UnitName() string {
 	return ""
 }
-func (dummyHookContext) PublicAddress() (string, bool) {
-	return "", false
+func (dummyHookContext) PublicAddress() (string, error) {
+	return "", errors.NotFoundf("PublicAddress")
 }
-func (dummyHookContext) PrivateAddress() (string, bool) {
-	return "", false
+func (dummyHookContext) PrivateAddress() (string, error) {
+	return "", errors.NotFoundf("PrivateAddress")
 }
-func (dummyHookContext) AvailabilityZone() (string, bool) {
-	return "", false
+func (dummyHookContext) AvailabilityZone() (string, error) {
+	return "", errors.NotFoundf("AvailabilityZone")
 }
 func (dummyHookContext) OpenPort(protocol string, port int) error {
 	return nil
@@ -47,33 +48,33 @@ func (dummyHookContext) OpenedPorts() []network.PortRange {
 func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
 }
-func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
-	return nil, false
+func (dummyHookContext) HookRelation() (jujuc.ContextRelation, error) {
+	return nil, errors.NotFoundf("HookRelation")
 }
-func (dummyHookContext) RemoteUnitName() (string, bool) {
-	return "", false
+func (dummyHookContext) RemoteUnitName() (string, error) {
+	return "", errors.NotFoundf("RemoteUnitName")
 }
-func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, bool) {
-	return nil, false
+func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, error) {
+	return nil, errors.NotFoundf("Relation")
 }
-func (dummyHookContext) RelationIds() []int {
-	return []int{}
+func (dummyHookContext) RelationIds() ([]int, error) {
+	return []int{}, errors.NotFoundf("RelationIds")
 }
 
 func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
 	return nil
 }
 
-func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, bool) {
-	return nil, false
+func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, error) {
+	return nil, errors.NotFoundf("HookStorageInstance")
 }
 
-func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, bool) {
-	return nil, false
+func (dummyHookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
+	return nil, errors.NotFoundf("HookStorage")
 }
 
-func (dummyHookContext) OwnerTag() string {
-	return ""
+func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, error) {
+	return nil, errors.NotFoundf("StorageInstance")
 }
 
 func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
-	"github.com/juju/juju/juju/arch"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -89,7 +89,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           "/not/used/here",
+			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewMachineTag("1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",
@@ -112,7 +112,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 func (s *lxcBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
 	// To isolate the tests from the host's architecture, we override it here.
-	s.PatchValue(&version.Current.Arch, arch.AMD64)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
@@ -271,9 +271,8 @@ func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
 func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 
-	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
-	// because instanceConfig already has, so it will restore version.Current.Arch during TearDownTest
-	version.Current.Arch = arch.PPC64EL
+	// Patch the host's arch, so the LXC broker will filter tools.
+	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
@@ -293,9 +292,8 @@ func (s *lxcBrokerSuite) TestStartInstanceHostArch(c *gc.C) {
 func (s *lxcBrokerSuite) TestStartInstanceToolsArchNotFound(c *gc.C) {
 	instanceConfig := s.instanceConfig(c, "1/lxc/0")
 
-	// Patch the host's arch, so the LXC broker will filter tools. We don't use PatchValue
-	// because instanceConfig already has, so it will restore version.Current.Arch during TearDownTest
-	version.Current.Arch = arch.PPC64EL
+	// Patch the host's arch, so the LXC broker will filter tools.
+	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",

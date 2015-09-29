@@ -86,7 +86,7 @@ func checkArgs(c *gc.C, args *CheckArgs, facade string, version int, id, method 
 // APICall() method match the values given in args (if args itself is
 // not nil, otherwise no arguments are checked). The final error
 // result of the APICall() will be set to err.
-func CheckingAPICaller(c *gc.C, args *CheckArgs, numCalls *int, err error) base.APICaller {
+func CheckingAPICaller(c *gc.C, args *CheckArgs, numCalls *int, err error) base.APICallCloser {
 	return APICallerFunc(
 		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
 			if numCalls != nil {

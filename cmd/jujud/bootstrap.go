@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/series"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
@@ -330,10 +331,10 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	var toolsVersions []version.Binary
 	if strings.HasPrefix(tools.URL, "file://") {
 		// Tools were uploaded: clone for each series of the same OS.
-		osSeries := version.OSSupportedSeries(tools.Version.OS)
-		for _, series := range osSeries {
+		osSeries := series.OSSupportedSeries(tools.Version.OS)
+		for _, ser := range osSeries {
 			toolsVersion := tools.Version
-			toolsVersion.Series = series
+			toolsVersion.Series = ser
 			toolsVersions = append(toolsVersions, toolsVersion)
 		}
 	} else {

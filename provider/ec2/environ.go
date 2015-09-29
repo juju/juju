@@ -13,6 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -28,7 +30,6 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -51,8 +52,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
-
-var AssignPrivateIPAddress = assignPrivateIPAddress
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
@@ -90,6 +89,11 @@ type defaultVpc struct {
 	id            network.Id
 }
 
+// AssignPrivateIPAddress is a wrapper around ec2Inst.AssignPrivateIPAddresses.
+var AssignPrivateIPAddress = assignPrivateIPAddress
+
+// assignPrivateIPAddress should not be called directly so tests can patch it (use
+// AssignPrivateIPAddress).
 func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
 	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
 	return err
@@ -223,6 +227,11 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	})
 	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
 	return e.supportedArchitectures, err
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (e *environ) SupportsSpaces() (bool, error) {
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
@@ -482,6 +491,29 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}
 
+	// If spaces= constraints is also set, then filter availabilityZones to only
+	// contain zones matching the space's subnets' zones
+	if len(args.SubnetsToZones) > 0 {
+		// find all the available zones that match the subnets that match our
+		// space/subnet constraints
+		zonesSet := set.NewStrings(availabilityZones...)
+		subnetZones := set.NewStrings()
+
+		for _, zones := range args.SubnetsToZones {
+			for _, zone := range zones {
+				subnetZones.Add(zone)
+			}
+		}
+
+		if len(zonesSet.Intersection(subnetZones).SortedValues()) == 0 {
+			return nil, errors.Errorf(
+				"unable to resolve constraints: space and/or subnet unavailable in zones %v",
+				availabilityZones)
+		}
+
+		availabilityZones = zonesSet.Intersection(subnetZones).SortedValues()
+	}
+
 	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
@@ -512,7 +544,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, err
 	}
 
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -532,7 +564,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	for _, availZone := range availabilityZones {
 		instResp, err = runInstances(e.ec2(), &ec2.RunInstances{
-			AvailZone:           availZone,
+			AvailZone: availZone,
+			// TODO: SubnetId: <a subnet in the AZ that conforms to our constraints>
 			ImageId:             spec.Image.Id,
 			MinCount:            1,
 			MaxCount:            1,
@@ -960,20 +993,24 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 }
 
 // Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance. subnetIds must not be
-// empty. Implements NetworkingEnviron.Subnets.
-func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	// At some point in the future an empty subnetIds may mean "fetch
-	// all subnets" but until that functionality is needed it's an
-	// error.
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnetIds must not be empty")
+// by the provider for the specified instance or list of ids. instId
+// equal to instance.UnknownId is the only supported value, other ones
+// result in NotSupportedError. subnetIds can be empty, in which case
+// all known are returned. Implements NetworkingEnviron.Subnets.
+func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	if instId != instance.UnknownId {
+		return nil, errors.NotSupportedf("instId")
 	}
 	ec2Inst := e.ec2()
 	// We can't filter by instance id here, unfortunately.
 	resp, err := ec2Inst.Subnets(nil, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to retrieve subnets")
+	}
+	if len(subnetIds) == 0 {
+		for _, subnet := range resp.Subnets {
+			subnetIds = append(subnetIds, network.Id(subnet.Id))
+		}
 	}
 
 	subIdSet := make(map[string]bool)
@@ -1019,6 +1056,7 @@ func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.Subn
 			VLANTag:           0, // Not supported on EC2
 			AllocatableIPLow:  allocatableLow,
 			AllocatableIPHigh: allocatableHigh,
+			AvailabilityZones: []string{subnet.AvailZone},
 		}
 		logger.Tracef("found subnet with info %#v", info)
 		results = append(results, info)

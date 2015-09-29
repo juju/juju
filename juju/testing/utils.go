@@ -4,6 +4,11 @@
 package testing
 
 import (
+	"bytes"
+	"fmt"
+	"reflect"
+	"text/template"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -31,4 +36,67 @@ func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
 	c.Assert(err, jc.ErrorIsNil)
 
 	return machine
+}
+
+// AddSubnetsWithTemplate adds numSubnets subnets, using the given
+// infoTemplate. Any string field in the infoTemplate can be specified
+// as a text/template string containing {{.}}, which is the current
+// index of the subnet-to-add (between 0 and numSubnets-1).
+//
+// Example:
+//
+// AddSubnetsWithTemplate(c, st, 2, state.SubnetInfo{
+//     CIDR: "10.10.{{.}}.0/24",
+//     ProviderId: "subnet-{{.}}",
+//     SpaceName: "space1",
+//     AvailabilityZone: "zone-{{.}}",
+//     AllocatableIPLow: "{{if (gt . 0)}}10.10.{{.}}.5{{end}}",
+//     AllocatableIPHigh: "{{if (gt . 0)}}10.10.{{.}}.254{{end}}",
+//     VLANTag: 42,
+// })
+//
+// This is equivalent to the following calls:
+//
+// _, err := st.AddSubnet(state.SubnetInfo{
+//     CIDR: "10.10.0.0/24",
+//     ProviderId: "subnet-0",
+//     SpaceName: "space1",
+//     AvailabilityZone: "zone-0",
+//     VLANTag: 42,
+// })
+// c.Assert(err, jc.ErrorIsNil)
+// _, err = st.AddSubnet(state.SubnetInfo{
+//     CIDR: "10.10.1.0/24",
+//     ProviderId: "subnet-1",
+//     SpaceName: "space1",
+//     AvailabilityZone: "zone-1",
+//     AllocatableIPLow: "10.10.1.5",
+//     AllocatableIPHigh: "10.10.1.254",
+//     VLANTag: 42,
+// })
+func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate state.SubnetInfo) {
+	infot := reflect.TypeOf(infoTemplate)
+	for subnetIndex := 0; subnetIndex < int(numSubnets); subnetIndex++ {
+		info := infoTemplate // make a copy each time.
+
+		for fieldIndex := 0; fieldIndex < infot.NumField(); fieldIndex++ {
+			fieldv := reflect.ValueOf(&info).Elem().Field(fieldIndex)
+
+			if fieldv.Kind() != reflect.String {
+				// Skip non string fields.
+				continue
+			}
+
+			text := fmt.Sprint(fieldv.Interface())
+			t, err := template.New("").Parse(text)
+			c.Assert(err, jc.ErrorIsNil)
+
+			var buf bytes.Buffer
+			err = t.Execute(&buf, subnetIndex)
+			c.Assert(err, jc.ErrorIsNil)
+			fieldv.SetString(buf.String())
+		}
+		_, err := st.AddSubnet(info)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }

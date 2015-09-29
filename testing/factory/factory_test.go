@@ -48,8 +48,13 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	c.Assert(saved.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
-	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
 	c.Assert(saved.IsDisabled(), gc.Equals, user.IsDisabled())
+
+	savedLastLogin, err := saved.LastLogin()
+	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
+	lastLogin, err := user.LastLogin()
+	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
+	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 }
 
 func (s *factorySuite) TestMakeUserParams(c *gc.C) {
@@ -76,8 +81,13 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
-	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
 	c.Assert(saved.IsDisabled(), gc.Equals, user.IsDisabled())
+
+	savedLastLogin, err := saved.LastLogin()
+	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
+	lastLogin, err := user.LastLogin()
+	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
+	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 
 	_, err = s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)

@@ -11,16 +11,8 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
-
-type CommandInfo struct {
-	// RelationId is the relation context to execute the commands in.
-	RelationId int
-	// RemoteUnitName is the remote unit for the relation context.
-	RemoteUnitName string
-	// ForceRemoteUnit skips unit inference and existence validation.
-	ForceRemoteUnit bool
-}
 
 // Factory represents a long-lived object that can create runners
 // relevant to a specific unit.
@@ -28,7 +20,7 @@ type Factory interface {
 
 	// NewCommandRunner returns an execution context suitable for running
 	// an arbitrary script.
-	NewCommandRunner(commandInfo CommandInfo) (Runner, error)
+	NewCommandRunner(commandInfo context.CommandInfo) (Runner, error)
 
 	// NewHookRunner returns an execution context suitable for running the
 	// supplied hook definition (which must be valid).
@@ -43,8 +35,8 @@ type Factory interface {
 // charm hooks, actions and commands.
 func NewFactory(
 	state *uniter.State,
-	paths Paths,
-	contextFactory ContextFactory,
+	paths context.Paths,
+	contextFactory context.ContextFactory,
 ) (
 	Factory, error,
 ) {
@@ -58,17 +50,17 @@ func NewFactory(
 }
 
 type factory struct {
-	contextFactory ContextFactory
+	contextFactory context.ContextFactory
 
 	// API connection fields.
 	state *uniter.State
 
 	// Fields that shouldn't change in a factory's lifetime.
-	paths Paths
+	paths context.Paths
 }
 
 // NewCommandRunner exists to satisfy the Factory interface.
-func (f *factory) NewCommandRunner(commandInfo CommandInfo) (Runner, error) {
+func (f *factory) NewCommandRunner(commandInfo context.CommandInfo) (Runner, error) {
 	ctx, err := f.contextFactory.CommandContext(commandInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -122,7 +114,7 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 		return nil, &badActionError{name, err.Error()}
 	}
 
-	actionData := newActionData(name, &tag, params)
+	actionData := context.NewActionData(name, &tag, params)
 	ctx, err := f.contextFactory.ActionContext(actionData)
 	runner := NewRunner(ctx, f.paths)
 	return runner, nil

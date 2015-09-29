@@ -49,7 +49,9 @@ func (s *cmdEnvironmentSuite) TestEnvironmentShareCmdStack(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
-	c.Assert(envUser.LastConnection(), gc.IsNil)
+	lastConn, err := envUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
 func (s *cmdEnvironmentSuite) TestEnvironmentUnshareCmdStack(c *gc.C) {

@@ -232,7 +232,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	cfg, err := c.Config(store)
+	cfg, err := c.Config(store, nil)
 	if err != nil {
 		return err
 	}

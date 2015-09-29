@@ -11,13 +11,14 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/config"
 	proxyutils "github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -133,12 +134,13 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 }
 
 func (w *proxyWorker) writeEnvironment() error {
-	osystem, err := version.GetOSFromSeries(version.Current.Series)
+	// TODO(dfc) this should be replaced with a switch on os.HostOS()
+	osystem, err := series.GetOSFromSeries(series.HostSeries())
 	if err != nil {
 		return err
 	}
 	switch osystem {
-	case version.Windows:
+	case os.Windows:
 		return w.writeEnvironmentToRegistry()
 	default:
 		return w.writeEnvironmentFile()
@@ -162,7 +164,7 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 // getPackageCommander is a helper function which returns the
 // package commands implementation for the current system.
 func getPackageCommander() (commands.PackageCommander, error) {
-	return commands.NewPackageCommander(version.Current.Series)
+	return commands.NewPackageCommander(series.HostSeries())
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) error {

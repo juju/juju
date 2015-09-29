@@ -23,7 +23,7 @@ type UnsetCommand struct {
 
 const unsetDoc = `
 Set one or more configuration options for the specified service to their
-default. See also the set commmand to set one or more configuration options for
+default. See also the set command to set one or more configuration options for
 a specified service.
 `
 

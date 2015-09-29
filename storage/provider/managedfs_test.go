@@ -70,7 +70,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 		HardwareId: "weetbix",
 		Size:       3,
 	}
-	filesystems, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
@@ -80,31 +80,36 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 		Size:   3,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filesystems, jc.DeepEquals, []storage.Filesystem{{
-		names.NewFilesystemTag("0/0"),
-		names.NewVolumeTag("0"),
-		storage.FilesystemInfo{
-			FilesystemId: "filesystem-0-0",
-			Size:         2,
+	c.Assert(results, jc.DeepEquals, []storage.CreateFilesystemsResult{{
+		Filesystem: &storage.Filesystem{
+			names.NewFilesystemTag("0/0"),
+			names.NewVolumeTag("0"),
+			storage.FilesystemInfo{
+				FilesystemId: "filesystem-0-0",
+				Size:         2,
+			},
 		},
 	}, {
-		names.NewFilesystemTag("0/1"),
-		names.NewVolumeTag("1"),
-		storage.FilesystemInfo{
-			FilesystemId: "filesystem-0-1",
-			Size:         3,
+		Filesystem: &storage.Filesystem{
+			names.NewFilesystemTag("0/1"),
+			names.NewVolumeTag("1"),
+			storage.FilesystemInfo{
+				FilesystemId: "filesystem-0-1",
+				Size:         3,
+			},
 		},
 	}})
 }
 
 func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *gc.C) {
 	source := s.initSource(c)
-	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
 	}})
-	c.Assert(err, gc.ErrorMatches, "creating filesystem 0/0: backing-volume 0 is not yet attached")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results[0].Error, gc.ErrorMatches, "backing-volume 0 is not yet attached")
 }
 
 func (s *managedfsSuite) TestAttachFilesystems(c *gc.C) {
@@ -148,7 +153,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool)
 		Volume: names.NewVolumeTag("0"),
 	}
 
-	filesystemAttachments, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{
@@ -159,12 +164,14 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool)
 		Path: testMountPoint,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(filesystemAttachments, jc.DeepEquals, []storage.FilesystemAttachment{{
-		names.NewFilesystemTag("0/0"),
-		names.NewMachineTag("0"),
-		storage.FilesystemAttachmentInfo{
-			Path:     testMountPoint,
-			ReadOnly: readOnly,
+	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+		FilesystemAttachment: &storage.FilesystemAttachment{
+			names.NewFilesystemTag("0/0"),
+			names.NewMachineTag("0"),
+			storage.FilesystemAttachmentInfo{
+				Path:     testMountPoint,
+				ReadOnly: readOnly,
+			},
 		},
 	}})
 }

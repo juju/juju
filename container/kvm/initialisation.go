@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/utils"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/version"
 )
 
 var requiredPackages = []string{
@@ -38,7 +38,7 @@ func (ci *containerInitialiser) Initialise() error {
 // getPackageManager is a helper function which returns the
 // package manager implementation for the current system.
 func getPackageManager() (manager.PackageManager, error) {
-	return manager.NewPackageManager(version.Current.Series)
+	return manager.NewPackageManager(series.HostSeries())
 }
 
 func ensureDependencies() error {

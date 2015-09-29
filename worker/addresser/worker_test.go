@@ -194,6 +194,13 @@ func (s *workerEnabledSuite) SetUpTest(c *gc.C) {
 	s.workerSuite.SetUpTest(c)
 }
 
+func (s *workerEnabledSuite) TestWorkerIsStringsWorker(c *gc.C) {
+	// In case of an environment able to allocte/deallocate
+	// IP addresses the addresser worker is no finished worker.
+	// See also TestWorkerIsFinishedWorker.
+	c.Assert(s.Worker, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
+}
+
 func (s *workerEnabledSuite) TestWorkerReleasesAlreadyDead(c *gc.C) {
 	// Wait for releases of 0.1.2.4 and 0.1.2.6 first. It's
 	// explicitely needed for this test for the assertion.
@@ -324,6 +331,13 @@ func (s *workerDisabledSuite) SetUpTest(c *gc.C) {
 	s.workerSuite.Enabled = false
 
 	s.workerSuite.SetUpTest(c)
+}
+
+func (s *workerDisabledSuite) TestWorkerIsFinishedWorker(c *gc.C) {
+	// In case of an environment not able to allocte/deallocate
+	// IP addresses the worker is a finished worker.
+	// See also TestWorkerIsStringsWorker.
+	c.Assert(s.Worker, gc.FitsTypeOf, worker.FinishedWorker{})
 }
 
 func (s *workerDisabledSuite) TestWorkerIgnoresAddresses(c *gc.C) {

@@ -31,6 +31,19 @@ func NewAPI(caller base.APICaller) *API {
 	}
 }
 
+// CanDeallocateAddresses checks if the current environment can
+// deallocate IP addresses.
+func (api *API) CanDeallocateAddresses() (bool, error) {
+	var result params.BoolResult
+	if err := api.facade.FacadeCall("CanDeallocateAddresses", nil, &result); err != nil {
+		return false, errors.Trace(err)
+	}
+	if result.Error == nil {
+		return result.Result, nil
+	}
+	return false, errors.Trace(result.Error)
+}
+
 // CleanupIPAddresses releases and removes the dead IP addresses. If not
 // all IP addresses could be released and removed a params.ErrTryAgain
 // is returned.

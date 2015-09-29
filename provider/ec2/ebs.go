@@ -112,7 +112,6 @@ type ebsProvider struct{}
 var _ storage.Provider = (*ebsProvider)(nil)
 
 var ebsConfigFields = schema.Fields{
-	storage.Persistent: schema.Bool(),
 	EBS_VolumeType: schema.OneOf(
 		schema.Const(volumeTypeMagnetic),
 		schema.Const(volumeTypeSsd),
@@ -128,15 +127,13 @@ var ebsConfigFields = schema.Fields{
 var ebsConfigChecker = schema.FieldMap(
 	ebsConfigFields,
 	schema.Defaults{
-		storage.Persistent: false,
-		EBS_VolumeType:     volumeTypeMagnetic,
-		EBS_IOPS:           schema.Omit,
-		EBS_Encrypted:      false,
+		EBS_VolumeType: volumeTypeMagnetic,
+		EBS_IOPS:       schema.Omit,
+		EBS_Encrypted:  false,
 	},
 )
 
 type ebsConfig struct {
-	persistent bool
 	volumeType string
 	iops       int
 	encrypted  bool
@@ -151,7 +148,6 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	iops, _ := coerced[EBS_IOPS].(int)
 	volumeType := coerced[EBS_VolumeType].(string)
 	ebsConfig := &ebsConfig{
-		persistent: coerced[storage.Persistent].(bool),
 		volumeType: volumeType,
 		iops:       iops,
 		encrypted:  coerced[EBS_Encrypted].(bool),

@@ -148,6 +148,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeMachineHasAttachedStorage
 	case IsUnknownEnviromentError(err):
 		code = params.CodeNotFound
+	case errors.IsNotSupported(err):
+		code = params.CodeNotSupported
 	default:
 		code = params.ErrCode(err)
 	}

@@ -19,7 +19,7 @@ The keys to delete are found by specifying either the "comment" portion of the s
 typically something like "user@host", or the key fingerprint found by using ssh-keygen.
 `
 
-// DeleteKeysCommand is used to delete authorized ssh keys for a user.
+// DeleteKeysCommand is used to delete authorised ssh keys for a user.
 type DeleteKeysCommand struct {
 	AuthorizedKeysBase
 	user   string

@@ -10,11 +10,16 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machinelock"
+	"github.com/juju/juju/worker/metrics/collect"
+	"github.com/juju/juju/worker/metrics/sender"
+	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
@@ -62,15 +67,24 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// how this works when we consolidate the agents; might be best to
 		// handle the auth changes server-side..?
 		APICallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName: AgentName,
+			AgentName:       AgentName,
+			APIInfoGateName: APIInfoGateName,
 		}),
+
+		// This manifold is used to coordinate between the api caller and the
+		// log sender, which share the API credentials that the API caller may
+		// update. To avoid surprising races, the log sender waits for the api
+		// caller to unblock this, indicating that any password dance has been
+		// completed and the log-sender can now connect without confusion.
+		APIInfoGateName: gate.Manifold(),
 
 		// The log sender is a leaf worker that sends log messages to some
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			AgentName: AgentName,
-			LogSource: config.LogSource,
+			AgentName:       AgentName,
+			APIInfoGateName: APIInfoGateName,
+			LogSource:       config.LogSource,
 		}),
 
 		// The rsyslog config updater is a leaf worker that causes rsyslog
@@ -103,7 +117,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// TODO(fwereade): timing of this is suspicious. There was superstitious
 		// code trying to run this early; if that ever helped, it was only by
 		// coincidence. Probably we ought to be making components that might
-		// need proxy config into explicit dependenncies of the proxy updater...
+		// need proxy config into explicit dependencies of the proxy updater...
 		ProxyConfigUpdaterName: proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			APICallerName: APICallerName,
 		}),
@@ -139,6 +153,31 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:         APICallerName,
 			LeadershipTrackerName: LeadershipTrackerName,
 			MachineLockName:       MachineLockName,
+			CharmDirName:          CharmDirName,
+		}),
+
+		// TODO (mattyw) should be added to machine agent.
+		MetricSpoolName: spool.Manifold(spool.ManifoldConfig{
+			AgentName: AgentName,
+		}),
+
+		// The charmdir resource tracks whether the charm directory is available or
+		// not; after 'start' hook and before 'stop' hook executes, and not during
+		// upgrades.
+		CharmDirName: charmdir.Manifold(),
+
+		// The metric collect worker executes the collect-metrics hook in a
+		// restricted context that can safely run concurrently with other hooks.
+		MetricCollectName: collect.Manifold(collect.ManifoldConfig{
+			AgentName:       AgentName,
+			APICallerName:   APICallerName,
+			MetricSpoolName: MetricSpoolName,
+			CharmDirName:    CharmDirName,
+		}),
+
+		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
+			APICallerName:   APICallerName,
+			MetricSpoolName: MetricSpoolName,
 		}),
 	}
 }
@@ -147,6 +186,7 @@ const (
 	AgentName                = "agent"
 	APIAdddressUpdaterName   = "api-address-updater"
 	APICallerName            = "api-caller"
+	APIInfoGateName          = "api-info-gate"
 	LeadershipTrackerName    = "leadership-tracker"
 	LoggingConfigUpdaterName = "logging-config-updater"
 	LogSenderName            = "log-sender"
@@ -155,4 +195,8 @@ const (
 	RsyslogConfigUpdaterName = "rsyslog-config-updater"
 	UniterName               = "uniter"
 	UpgraderName             = "upgrader"
+	MetricSpoolName          = "metric-spool"
+	CharmDirName             = "charm-dir"
+	MetricCollectName        = "metric-collect"
+	MetricSenderName         = "metric-sender"
 )

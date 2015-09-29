@@ -40,18 +40,6 @@ func (s *instanceSuite) TestStatus(c *gc.C) {
 	s.CheckNoAPI(c)
 }
 
-func (s *instanceSuite) TestRefreshAPI(c *gc.C) {
-	s.FakeConn.Inst = s.BaseInstance
-
-	err := s.Instance.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Instance")
-	c.Check(s.FakeConn.Calls[0].ID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "home-zone")
-}
-
 func (s *instanceSuite) TestAddresses(c *gc.C) {
 	addresses, err := s.Instance.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
