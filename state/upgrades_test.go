@@ -2813,7 +2813,7 @@ func (s *upgradesSuite) TestIPAddressAddUUID(c *gc.C) {
 	instances, instanceCloser := s.state.getRawCollection(instanceDataC)
 	defer instanceCloser()
 
-	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, "1", Alive)
 
 	envUUID := s.state.EnvironUUID()
 
@@ -2907,7 +2907,7 @@ func (s *upgradesSuite) TestIPAddressAddUUIDIdempotent(c *gc.C) {
 	addresses, closer := s.state.getRawCollection(ipaddressesC)
 	defer closer()
 
-	s.addMachineWithLife(c, 1, Alive)
+	s.addMachineWithLife(c, "1", Alive)
 	envUUID := s.state.EnvironUUID()
 
 	err := addresses.Insert(
