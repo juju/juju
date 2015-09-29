@@ -211,33 +211,35 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 	gceDisk := gceDisks[0]
 	// TODO(perrito666) Tag, there are no tags in gce, how do we fix it?
 
-	// volume is a named return
+	attachedDisk, err := v.attachOneVolume(gceDisk.Name, google.ModeRW, inst.ID)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "attaching %q to %q", gceDisk.Name, instId)
+	}
+
 	volume = &storage.Volume{
 		p.Tag,
 		storage.VolumeInfo{
 			VolumeId:   gceDisk.Name,
 			Size:       gceDisk.Size,
 			Persistent: true,
+			HardwareId: fmt.Sprintf(
+				// TODO(axw) 2015-09-29 #1500803
+				//
+				// This should be "google-%s", but we currently
+				// only record a single /dev/disk/by-id path
+				// against block devices, and it happens to be
+				// the one below. We should record them all,
+				// and allow any of them to match.
+				"scsi-0Google_PersistentDisk_%s",
+				attachedDisk.DeviceName,
+			),
 		},
 	}
 
-	// there is no attachment information
-	if p.Attachment == nil {
-		return volume, nil, nil
-	}
-
-	attachedDisk, err := v.attachOneVolume(gceDisk.Name, google.ModeRW, inst.ID)
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "attaching %q to %q", gceDisk.Name, instId)
-	}
-
-	// volumeAttachment is a named return
 	volumeAttachment = &storage.VolumeAttachment{
 		p.Tag,
 		p.Attachment.Machine,
-		storage.VolumeAttachmentInfo{
-			DeviceName: attachedDisk.DeviceName,
-		},
+		storage.VolumeAttachmentInfo{},
 	}
 
 	return volume, volumeAttachment, nil
