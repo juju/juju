@@ -119,12 +119,18 @@ retract_tools() {
 init_tools_maybe() {
     echo "Phase 4: Checking for $PURPOSE tools in the tree."
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
+    echo "Found $count agents in $DESTINATION/juju-dist/tools/releases"
     if [[ $((count)) == 0 && -d $DESTINATION/tools/releases ]]; then
         # Migrate the old release cache to the new cache in juju-dist/.
+        echo "Copying $DESTINATION/tools/releases/*.tgz"
+        echo "     to $DESTINATION/juju-dist/tools/releases"
         cp $DESTINATION/tools/releases/*.tgz \
             $DESTINATION/juju-dist/tools/releases
+    else
+        echo "Not initing $DESTINATION/juju-dist/tools/releases"
     fi
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
+    echo "Found $count in $DESTINATION/juju-dist/tools/releases"
     if [[ $((count)) < 400  ]]; then
         echo "The tools in $DESTINATION/tools/releases looks incomplete"
         echo "Data will be lost if metadata is regenerated."
