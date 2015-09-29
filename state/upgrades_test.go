@@ -2482,6 +2482,7 @@ func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 	}...)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 4)
 
 	m1 := machines[0]
