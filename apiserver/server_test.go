@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -288,31 +287,37 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	c.Assert(conn, gc.IsNil)
 }
 
-func (s *serverSuite) TestServerBakery(c *gc.C) {
+func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
 	// By default, when there is no identity location, no
 	// bakery service or macaroon is created.
 	c.Assert(apiserver.ServerMacaroon(srv), gc.IsNil)
 	c.Assert(apiserver.ServerBakeryService(srv), gc.IsNil)
+}
 
-	discharger := bakerytest.NewDischarger(nil, noCheck)
+type macaroonServerSuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+}
 
-	environTag := names.NewEnvironTag(s.State.EnvironUUID())
-	// Make a new version of the state that doesn't object to us
-	// changing the identity URL, so we can create a state server
-	// that will see that.
-	st, err := state.Open(environTag, s.MongoInfo(c), mongo.DefaultDialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+var _ = gc.Suite(&macaroonServerSuite{})
 
-	err = st.UpdateEnvironConfig(map[string]interface{}{
-		config.IdentityURL: discharger.Location(),
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
+	s.discharger = bakerytest.NewDischarger(nil, noCheck)
+	s.ConfigAttrs = map[string]interface{}{
+		config.IdentityURL: s.discharger.Location(),
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
 
-	// Try again. The macaroon should have been created this time.
-	srv = newServer(c, s.State)
+func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
+	srv := newServer(c, s.State)
 	defer srv.Stop()
 	m := apiserver.ServerMacaroon(srv)
 	c.Assert(m, gc.NotNil)
@@ -321,10 +326,10 @@ func (s *serverSuite) TestServerBakery(c *gc.C) {
 
 	// Check that we can add a third party caveat addressed to the
 	// discharger, which indirectly ensures that the discharger's public
-	// key has been added to the bakery service's locator
+	// key has been added to the bakery service's locator.
 	m = m.Clone()
-	err = bsvc.AddCaveat(m, checkers.Caveat{
-		Location:  discharger.Location(),
+	err := bsvc.AddCaveat(m, checkers.Caveat{
+		Location:  s.discharger.Location(),
 		Condition: "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -337,25 +342,41 @@ func (s *serverSuite) TestServerBakery(c *gc.C) {
 
 	err = bsvc.Check(ms, checkers.New())
 	c.Assert(err, gc.IsNil)
+}
 
+type macaroonServerWrongPublicKeySuite struct {
+	jujutesting.JujuConnSuite
+	discharger *bakerytest.Discharger
+}
+
+var _ = gc.Suite(&macaroonServerWrongPublicKeySuite{})
+
+func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
+	s.discharger = bakerytest.NewDischarger(nil, noCheck)
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
-
-	// Change the public key in the config, create another
-	// server and check that the discharge fails.
-	err = st.UpdateEnvironConfig(map[string]interface{}{
+	s.ConfigAttrs = map[string]interface{}{
+		config.IdentityURL:       s.discharger.Location(),
 		config.IdentityPublicKey: wrongKey.Public.String(),
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
 
-	srv = newServer(c, s.State)
+func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
+	srv := newServer(c, s.State)
 	defer srv.Stop()
-	m = apiserver.ServerMacaroon(srv).Clone()
-	err = apiserver.ServerBakeryService(srv).AddCaveat(m, checkers.Caveat{
-		Location:  discharger.Location(),
+	m := apiserver.ServerMacaroon(srv).Clone()
+	err := apiserver.ServerBakeryService(srv).AddCaveat(m, checkers.Caveat{
+		Location:  s.discharger.Location(),
 		Condition: "true",
 	})
 	c.Assert(err, gc.IsNil)
+	client := httpbakery.NewClient()
 
 	_, err = client.DischargeAll(m)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)

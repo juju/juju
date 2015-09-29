@@ -17,6 +17,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -177,7 +178,7 @@ func (s *macaroonAuthenticatorSuite) TestReturnDischargeRequiredErrorIfNoMacaroo
 	}
 	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{})
 	c.Assert(err, gc.ErrorMatches, "verification failed: no macaroons")
-	dischargeErr, ok := err.(*authentication.DischargeRequiredError)
+	dischargeErr, ok := err.(*common.DischargeRequiredError)
 	if !ok {
 		c.Fatalf("DischargeRequiredError expected")
 	}
@@ -209,7 +210,7 @@ func (s *macaroonAuthenticatorSuite) TestAuthenticateSuccess(c *gc.C) {
 		Nonce:       "",
 		Macaroons:   nil,
 	})
-	dischargeErr := err.(*authentication.DischargeRequiredError)
+	dischargeErr := err.(*common.DischargeRequiredError)
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(dischargeErr.Macaroon)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,7 +244,7 @@ func (s *macaroonAuthenticatorSuite) TestAuthenticateFailsWithNonExistentUser(c 
 		Macaroon:         mac,
 	}
 	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{})
-	dischargeErr := err.(*authentication.DischargeRequiredError)
+	dischargeErr := err.(*common.DischargeRequiredError)
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(dischargeErr.Macaroon)
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,7 +277,7 @@ func (s *macaroonAuthenticatorSuite) TestInvalidUserName(c *gc.C) {
 		Macaroon:         mac,
 	}
 	_, err = authenticator.Authenticate(nil, user.Tag(), params.LoginRequest{})
-	dischargeErr := err.(*authentication.DischargeRequiredError)
+	dischargeErr := err.(*common.DischargeRequiredError)
 	client := httpbakery.NewClient()
 	ms, err := client.DischargeAll(dischargeErr.Macaroon)
 	c.Assert(err, jc.ErrorIsNil)

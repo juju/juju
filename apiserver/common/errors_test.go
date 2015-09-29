@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -161,6 +162,20 @@ var errorTransformTests = []struct {
 	status: http.StatusInternalServerError,
 	code:   "",
 }, {
+	err: &common.DischargeRequiredError{
+		Cause:    errors.New("something"),
+		Macaroon: sampleMacaroon,
+	},
+	status: http.StatusUnauthorized,
+	code:   params.CodeDischargeRequired,
+	helperFunc: func(err error) bool {
+		err1, ok := err.(*params.Error)
+		if !ok || err1.Info == nil || err1.Info.Macaroon != sampleMacaroon {
+			return false
+		}
+		return true
+	},
+}, {
 	err:    unhashableError{"foo"},
 	status: http.StatusInternalServerError,
 	code:   "",
@@ -174,6 +189,14 @@ var errorTransformTests = []struct {
 	code:   "",
 	status: http.StatusOK,
 }}
+
+var sampleMacaroon = func() *macaroon.Macaroon {
+	m, err := macaroon.New([]byte("key"), "id", "loc")
+	if err != nil {
+		panic(err)
+	}
+	return m
+}()
 
 type unhashableError []string
 
