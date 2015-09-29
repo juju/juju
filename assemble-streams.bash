@@ -131,8 +131,9 @@ init_tools_maybe() {
     fi
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
     echo "Found $count in $DESTINATION/juju-dist/tools/releases"
-    if [[ $((count)) < 400  ]]; then
+    if [[ $((count)) < $((400))  ]]; then
         echo "The tools in $DESTINATION/tools/releases looks incomplete"
+        echo "Because $count < 400 agents"
         echo "Data will be lost if metadata is regenerated."
         exit 7
     fi
