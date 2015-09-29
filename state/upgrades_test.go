@@ -2450,10 +2450,7 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 	}...)
-
-	ms, err := s.state.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.HasLen, 4)
+	c.Assert(machines, gc.HasLen, 4)
 
 	m1 := machines[0]
 	m2 := machines[1]
