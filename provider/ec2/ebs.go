@@ -554,16 +554,16 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	for i, params := range attachParams {
 		instId := string(params.InstanceId)
-		if err := instances.update(v.ec2, instId); err != nil {
-			results[i].Error = err
-			continue
-		}
-		inst, err := instances.get(instId)
-		if err != nil {
-			results[i].Error = err
-			continue
-		}
-		nextDeviceName := blockDeviceNamer(inst)
+		// By default we should allocate device names without the
+		// trailing number. Block devices with a trailing number are
+		// not liked by some applications, e.g. Ceph, which want full
+		// disks.
+		//
+		// TODO(axw) introduce a configuration option if and when
+		// someone asks for it to enable use of numbers. This option
+		// must error if used with an "hvm" instance type.
+		const numbers = false
+		nextDeviceName := blockDeviceNamer(numbers)
 		_, deviceName, err := v.attachOneVolume(nextDeviceName, params.VolumeId, instId)
 		if err != nil {
 			results[i].Error = err
@@ -767,7 +767,7 @@ var errTooManyVolumes = errors.New("too many EBS volumes to attach")
 // will appear on the machine.
 //
 // See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html
-func blockDeviceNamer(inst ec2.Instance) func() (requestName, actualName string, err error) {
+func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err error) {
 	const (
 		// deviceLetterMin is the first letter to use for EBS block device names.
 		deviceLetterMin = 'f'
@@ -778,7 +778,6 @@ func blockDeviceNamer(inst ec2.Instance) func() (requestName, actualName string,
 	)
 	var n int
 	letterRepeats := 1
-	numbers := inst.VirtType == "paravirtual"
 	if numbers {
 		letterRepeats = deviceNumMax
 	}
