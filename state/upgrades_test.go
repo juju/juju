@@ -2476,12 +2476,15 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 }
 
 func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
-	machines, err := s.state.AddMachines([]MachineTemplate{
-		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
+	_, err := s.state.AddMachine("quantal", JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.state.AddMachines([]MachineTemplate{
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 	}...)
+	c.Assert(err, jc.ErrorIsNil)
+	machines, err := s.state.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 4)
 
