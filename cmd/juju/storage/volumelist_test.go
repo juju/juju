@@ -5,7 +5,6 @@ package storage_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
@@ -108,13 +107,13 @@ func (s *volumeListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 
 var expectedVolumeListTabular = `
 MACHINE  UNIT         STORAGE      ID   PROVIDER-ID                   DEVICE  SIZE    STATE       MESSAGE
-0        abc/0        db-dir/1000  0    provider-supplied-volume-0    sda     1.0GiB  destroying
-0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached
-0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached
+0        abc/0        db-dir/1000  0    provider-supplied-volume-0    sda     1.0GiB  destroying  
+0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached    
+0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached    
 0                                  1    provider-supplied-volume-1            2.0GiB  attaching   failed to attach, will retry
-1        transcode/1  shared-fs/0  4    provider-supplied-volume-4    xvdf3   1.0GiB  attached
-1                                  2    provider-supplied-volume-2    xvdf1   3.0MiB  attached
-1                                  3                                          42MiB   pending
+1        transcode/1  shared-fs/0  4    provider-supplied-volume-4    xvdf3   1.0GiB  attached    
+1                                  2    provider-supplied-volume-2    xvdf1   3.0MiB  attached    
+1                                  3                                          42MiB   pending     
 
 `[1:]
 
