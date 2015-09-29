@@ -16,7 +16,7 @@ log_dir="$5"
 
 set -x
 
-if [[ "$new_to_old" == "true" ]]; then
+if [[ "$new_to_old" == "true"  && ! -d $HOME/old-juju/$candidate_version ]]; then
     echo "Using weekly streams for unreleased version"
     agent_arg="--agent-url http://juju-dist.s3.amazonaws.com/weekly/tools"
 else
@@ -24,12 +24,19 @@ else
     agent_arg="--agent-stream proposed"
 fi
 
+
 if [[ "$client_os" == "ubuntu" ]]; then
-    server=$(find $HOME/old-juju/$old_version -name juju)
-    client=$(find $HOME/candidate/$candidate_version -name juju)
+    if [[ -d $HOME/old-juju/$candidate_version ]]; then
+        candidate_juju=$(find $HOME/old-juju/$candidate_version -name juju)
+    else
+        candidate_juju=$(find $HOME/candidate/$candidate_version -name juju)
+    fi
+    old_juju=$(find $HOME/old-juju/$old_version -name juju)
+    server=$old_juju
+    client=$candidate_juju
     if [[ "$new_to_old" == "true" ]]; then
-        client=$(find $HOME/old-juju/$old_version -name juju)
-        server=$(find $HOME/candidate/$candidate_version -name juju)
+        server=$candidate_juju
+        client=$old_juju
     fi
     echo "Server: " `$server --version`
     echo "Client: " `$client --version`

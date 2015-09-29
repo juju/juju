@@ -10,16 +10,21 @@ usage() {
     exit 1
 }
 test $# -ge 3 || usage
+set -x
 candidate_version="$1"
 old_juju_version="$2"
 new_to_old="$3"
 shift 3
 
-set -x
 # Extract the client and the server.
 mkdir candidate
 mkdir old-juju
-tar zxf $HOME/candidate/osx/juju-$candidate_version-osx.tar.gz -C candidate
+if [[ -f $HOME/old-juju/osx/juju-$candidate_version-osx.tar.gz ]]; then
+    candidate_juju=$HOME/old-juju/osx/juju-$candidate_version-osx.tar.gz
+else
+    candidate_juju=$HOME/candidate/osx/juju-$candidate_version-osx.tar.gz
+fi
+tar zxf $candidate_juju -C candidate
 tar zxf $HOME/old-juju/osx/juju-$old_juju_version-osx.tar.gz -C old-juju
 
 # Create ssh home.
@@ -41,7 +46,7 @@ echo "Server: " `$server --version`
 echo "Client: " `$client --version`
 
 mkdir logs
-env=compatibility-control
+env=compatibility-control-osx
 /Users/jenkins/Bin/juju destroy-environment --force -y $env || true
 $SCRIPT/assess_heterogeneous_control.py $server $client \
   test-reliability-aws $env logs "$@"
