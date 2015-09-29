@@ -10,6 +10,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-2
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	337aa7d5d712728d181dbda2547a6556d4189626	2015-05-08T07:43:36Z
+github.com/juju/bundlechanges	git	4a00e08ecbec1cf5a90f20980842dd0f388ed39a	2015-09-23T07:52:40Z
 github.com/juju/cmd	git	4a5e8abce36462f89d92d28bd69b54c7845db818	2015-08-20T13:46:44Z
 github.com/juju/errors	git	4567a5e69fd3130ca0d89f69478e7ac025b67452	2015-03-27T19:24:31Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
@@ -27,7 +28,7 @@ github.com/juju/schema	git	afe1151cb49d1d7ed3c75592dfc6f38703f2e988	2015-08-07T0
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	31ee64312c3c64cc94a5b41ea7a200b42e0f9767	2015-09-02T15:44:51Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
-github.com/juju/utils	git	d4796e2159e8bf8457d4e79b616dc523452b3560	
+github.com/juju/utils	git	d4796e2159e8bf8457d4e79b616dc523452b3560	2015-09-25T07:04:06Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/julienschmidt/httprouter	git	8c199fb6259ffc1af525cc3ad52ee60ba8359669	2015-04-21T17:00:07Z
 golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
