@@ -27,6 +27,7 @@ def read_items_file(filename):
         item_list = json.load(items_file)
     for item in item_list:
         item.pop('item_url', None)
+        item['size'] = int(item['size'])
         content_id = item.pop('content_id')
         product_name = item.pop('product_name')
         version_name = item.pop('version_name')
@@ -88,7 +89,7 @@ def write_streams(out_d, trees, updated, sign):
         util.mkdir_p(os.path.dirname(filef))
         with open(filef, "w") as fp:
             sys.stderr.write("writing %s\n" % filef)
-            fp.write(json.dumps(data, indent=1) + "\n")
+            fp.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
 
         if sign:
             sys.stderr.write("signing %s\n" % filef)
