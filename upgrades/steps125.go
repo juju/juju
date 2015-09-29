@@ -96,6 +96,13 @@ func stateStepsFor125() []Step {
 			run: func(context Context) error {
 				return state.MigrateLastLoginAndLastConnection(context.State())
 			}},
+		&upgradeStep{
+			description: "add preferred addresses to machines",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddPreferredAddressesToMachines(context.State())
+			},
+		},
 	}
 }
 
