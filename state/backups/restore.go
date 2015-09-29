@@ -161,7 +161,7 @@ func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 		machineUpdating.Add(1)
 		go func() {
 			defer machineUpdating.Done()
-			err := runMachineUpdate(machine.Addresses(), setAgentAddressScript(privateAddress))
+			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress))
 			logger.Errorf("failed updating machine: %v", err)
 		}()
 	}
@@ -181,7 +181,7 @@ for agent in *
 do
 	status  jujud-$agent| grep -q "^jujud-$agent start" > /dev/null
 	if [ $? -eq 0 ]; then
-		initctl stop jujud-$agent 
+		initctl stop jujud-$agent
 	fi
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
@@ -218,12 +218,15 @@ func setAgentAddressScript(stateAddr string) string {
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script.
-func runMachineUpdate(allAddr []network.Address, sshArg string) error {
-	addr := network.SelectPublicAddress(allAddr)
-	if addr == "" {
-		return errors.Errorf("no appropriate public address found")
+func runMachineUpdate(machine *state.Machine, sshArg string) error {
+	addr, err := machine.PublicAddress()
+	if err != nil {
+		if network.IsNoAddress(err) {
+			return errors.Annotatef(err, "no appropriate public address found")
+		}
+		return errors.Trace(err)
 	}
-	return runViaSSH(addr, sshArg)
+	return runViaSSH(addr.Value, sshArg)
 }
 
 // sshCommand hods ssh.Command type for testing purposes.

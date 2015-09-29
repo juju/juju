@@ -109,6 +109,7 @@ type machineDoc struct {
 	HasVote       bool
 	PasswordHash  string
 	Clean         bool
+
 	// TODO(axw) 2015-06-22 #1467379
 	// We need an upgrade step to populate "volumes" and "filesystems"
 	// for entities created in 1.24.
@@ -117,12 +118,23 @@ type machineDoc struct {
 	Volumes []string `bson:"volumes,omitempty"`
 	// Filesystems contains the names of filesystems attached to the machine.
 	Filesystems []string `bson:"filesystems,omitempty"`
+
 	// We store 2 different sets of addresses for the machine, obtained
 	// from different sources.
 	// Addresses is the set of addresses obtained by asking the provider.
 	Addresses []address
+
 	// MachineAddresses is the set of addresses obtained from the machine itself.
 	MachineAddresses []address
+
+	// PreferredPublicAddress is the preferred address to be used for
+	// the machine when a public address is requested.
+	PreferredPublicAddress address `bson:",omitempty"`
+
+	// PreferredPrivateAddress is the preferred address to be used for
+	// the machine when a private address is requested.
+	PreferredPrivateAddress address `bson:",omitempty"`
+
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
 	SupportedContainersKnown bool
@@ -1149,6 +1161,124 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
+func containsAddress(addresses []network.Address, address network.Address) bool {
+	for _, addr := range addresses {
+		if addr.Value == address.Value {
+			return true
+		}
+	}
+	return false
+}
+
+// PublicAddress returns a public address for the machine. If no address is
+// available it returns an error that satisfies network.IsNoAddress.
+func (m *Machine) PublicAddress() (network.Address, error) {
+	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
+	var err error
+	if publicAddress.Value == "" {
+		err = network.NoAddressf("public")
+	}
+	return publicAddress, err
+}
+
+// maybeGetNewAddress determines if the current address is the most appropriate
+// match, and if not it selects the best from the slice of all available
+// addresses. It returns the new address and a bool indicating if a different
+// one was picked.
+func maybeGetNewAddress(addr network.Address, addresses []network.Address, getAddr func() network.Address, checkScope func(network.Address) bool) (network.Address, bool) {
+	newAddr := getAddr()
+	// The order of these checks is important. If the stored address is
+	// empty we *always* want to check for a new address so we do that
+	// first. If the stored address is unavilable we also *must* check for
+	// a new address so we do that next. Finally we check to see if a
+	// better match on scope is available.
+	if addr.Value == "" {
+		return newAddr, newAddr.Value != ""
+	}
+	if !containsAddress(addresses, addr) {
+		return newAddr, true
+	}
+	if !checkScope(addr) {
+		return newAddr, checkScope(newAddr)
+	}
+	return addr, false
+}
+
+// PrivateAddress returns a private address for the machine. If no address is
+// available it returns an error that satisfies network.IsNoAddress.
+func (m *Machine) PrivateAddress() (network.Address, error) {
+	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
+	var err error
+	if privateAddress.Value == "" {
+		err = network.NoAddressf("private")
+	}
+	return privateAddress, err
+}
+
+func (m *Machine) setPreferredAddressOps(netAddr network.Address, isPublic bool) []txn.Op {
+	addr := fromNetworkAddress(netAddr)
+	fieldName := "preferredprivateaddress"
+	current := m.doc.PreferredPrivateAddress
+	if isPublic {
+		fieldName = "preferredpublicaddress"
+		current = m.doc.PreferredPublicAddress
+	}
+	// Assert that the field is either missing (never been set) or is
+	// unchanged from its previous value.
+	assert := bson.D{{"$or", []bson.D{{{fieldName, current}}, {{fieldName, nil}}}}}
+
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
+		Assert: assert,
+	}}
+	return ops
+}
+
+func (m *Machine) setPublicAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
+	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
+	// Always prefer an exact match if available.
+	checkScope := func(addr network.Address) bool {
+		return network.ExactScopeMatch(addr, network.ScopePublic)
+	}
+	// Without an exact match, prefer a fallback match.
+	getAddr := func() network.Address {
+		addr, _ := network.SelectPublicAddress(addresses)
+		return addr
+	}
+
+	newAddr, changed := maybeGetNewAddress(publicAddress, addresses, getAddr, checkScope)
+	if !changed {
+		// No change, so no ops.
+		return []txn.Op{}, publicAddress, false
+	}
+
+	ops := m.setPreferredAddressOps(newAddr, true)
+	return ops, newAddr, true
+}
+
+func (m *Machine) setPrivateAddressOps(addresses []network.Address) ([]txn.Op, network.Address, bool) {
+	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
+	// Always prefer an exact match if available.
+	checkScope := func(addr network.Address) bool {
+		return network.ExactScopeMatch(addr, network.ScopeMachineLocal, network.ScopeCloudLocal)
+	}
+	// Without an exact match, prefer a fallback match.
+	getAddr := func() network.Address {
+		addr, _ := network.SelectInternalAddress(addresses, false)
+		return addr
+	}
+
+	newAddr, changed := maybeGetNewAddress(privateAddress, addresses, getAddr, checkScope)
+	if !changed {
+		// No change, so no ops.
+		return []txn.Op{}, privateAddress, false
+	}
+	ops := m.setPreferredAddressOps(newAddr, false)
+	return ops, newAddr, true
+}
+
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
 func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
@@ -1240,21 +1370,59 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
 	stateAddresses := fromNetworkAddresses(addressesToSet)
 
-	if addressesEqual(addressesToSet, networkAddresses(*field)) {
-		return nil
+	var newPrivate, newPublic network.Address
+	var changedPrivate, changedPublic bool
+	machine := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			if machine, err = machine.st.Machine(machine.doc.Id); err != nil {
+				return nil, err
+			}
+		}
+		if machine.doc.Life == Dead {
+			return nil, errNotAlive
+		}
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     machine.doc.DocID,
+			Assert: notDeadDoc,
+			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
+		}}
+
+		// Create the full list of addresses, to pick preferred
+		// addresses from, by merging the ones we're updating with the
+		// ones that aren't changing.
+		var notChanging []address
+		if fieldName == "machineaddresses" {
+			notChanging = machine.doc.Addresses
+		} else {
+			notChanging = machine.doc.MachineAddresses
+		}
+		allAddresses := mergedAddresses(notChanging, fromNetworkAddresses(addressesToSet))
+		network.SortAddresses(allAddresses, envConfig.PreferIPv6())
+
+		var setPrivateAddressOps, setPublicAddressOps []txn.Op
+		setPrivateAddressOps, newPrivate, changedPrivate = machine.setPrivateAddressOps(allAddresses)
+		setPublicAddressOps, newPublic, changedPublic = machine.setPublicAddressOps(allAddresses)
+		ops = append(ops, setPrivateAddressOps...)
+		ops = append(ops, setPublicAddressOps...)
+		return ops, nil
 	}
-	if err := m.st.runTransaction([]txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
-	}}); err != nil {
+	err = m.st.run(buildTxn)
+	if err != nil {
 		if err == txn.ErrAborted {
 			return ErrDead
 		}
 		return errors.Trace(err)
 	}
+
 	*field = stateAddresses
+	if changedPrivate {
+		m.doc.PreferredPrivateAddress = fromNetworkAddress(newPrivate)
+	}
+	if changedPublic {
+		m.doc.PreferredPublicAddress = fromNetworkAddress(newPublic)
+	}
 	return nil
 }
 
