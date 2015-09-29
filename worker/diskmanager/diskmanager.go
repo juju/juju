@@ -46,7 +46,7 @@ func NewWorker(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
 	f := func(stop <-chan struct{}) error {
 		return doWork(l, b, &old)
 	}
-	return worker.NewPeriodicWorker(f, listBlockDevicesPeriod)
+	return worker.NewPeriodicWorker(f, listBlockDevicesPeriod, worker.NewTimer)
 }
 
 func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.BlockDevice) error {

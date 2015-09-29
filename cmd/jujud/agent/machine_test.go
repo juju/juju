@@ -31,9 +31,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/imagemetadata"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
@@ -43,10 +45,10 @@ import (
 	"github.com/juju/juju/cert"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -64,6 +66,7 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
@@ -110,8 +113,6 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	// We're not interested in whether EnsureJujudPassword works here since we test it somewhere else
-	s.PatchValue(&password.EnsureJujudPassword, func() error { return nil })
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -667,7 +668,11 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
+		c, s.DefaultToolsStorage,
+		s.Environ.Config().AgentStream(),
+		s.Environ.Config().AgentStream(),
+		usefulVersion,
+	)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
@@ -724,6 +729,54 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for peergrouper worker to be started")
 	}
+}
+
+func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
+	// TODO(dimitern): Fix this in a follow-up.
+	c.Skip("Test temporarily disabled as flaky - see bug lp:1488576")
+
+	started := make(chan struct{})
+	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
+		close(started)
+		w, err := addresser.NewWorker(api)
+		c.Check(err, jc.ErrorIsNil)
+		if expectFinished {
+			// When the address-allocation feature flag is disabled.
+			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
+		} else {
+			// When the address-allocation feature flag is enabled.
+			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
+		}
+		return w, err
+	})
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the addresser to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "cleaner")
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for addresser to start")
+	}
+}
+
+func (s *MachineSuite) TestAddresserWorkerDoesNotStopWhenAddressDeallocationSupported(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.testAddresserNewWorkerResult(c, false)
+}
+
+func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupported(c *gc.C) {
+	s.SetFeatureFlags()
+	s.testAddresserNewWorkerResult(c, true)
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
@@ -1421,6 +1474,64 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	c.Fatalf("timeout while waiting for block devices to be recorded")
 }
 
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForHostUnits(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobHostUnits, "can host units")
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageNetworking(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageNetworking, "can manage networking")
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDeprecated(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageStateDeprecated, "can manage state (deprecated)")
+}
+
+func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
+	// Patch out the worker func before starting the agent.
+	started := make(chan struct{})
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newMetadataUpdater, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, job)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+		c.Fatalf("metadata update worker unexpectedly started for non-state server machine that %v", suffix)
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
+	// Patch out the worker func before starting the agent.
+	started := make(chan struct{})
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newMetadataUpdater, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for metadata update worker to start")
+	}
+}
+
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 
@@ -1508,7 +1619,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1532,7 +1643,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1591,7 +1702,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	// Disable the certificate work so it doesn't update the certificate.
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		return worker.NewNoOpWorker()
 	}

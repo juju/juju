@@ -48,7 +48,6 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	defer stateWrapper.cleanup()
 
 	switch r.Method {
 	case "POST":

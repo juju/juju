@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/containerinit"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/version"
 )
 
 var (
@@ -82,7 +82,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultLogDir
+		logDir = agent.DefaultPaths.LogDir
 	}
 	conf.WarnAboutUnused()
 	return &containerManager{name: name, logdir: logDir}, nil
@@ -136,7 +136,7 @@ func (manager *containerManager) CreateContainer(
 	}
 	// Create the container.
 	startParams = ParseConstraintsToStartParams(instanceConfig.Constraints)
-	startParams.Arch = version.Current.Arch
+	startParams.Arch = arch.HostArch()
 	startParams.Series = series
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename

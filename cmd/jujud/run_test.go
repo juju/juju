@@ -22,8 +22,8 @@ import (
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
+	jujuos "github.com/juju/utils/os"
 )
 
 type RunTestSuite struct {
@@ -303,8 +303,8 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	var socketPath string
-	switch version.Current.OS {
-	case version.Windows:
+	switch jujuos.HostOS() {
+	case jujuos.Windows:
 		socketPath = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
 	default:
 		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
@@ -313,7 +313,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
-		listener.Close()
+		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})
 }
 

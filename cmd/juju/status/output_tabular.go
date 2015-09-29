@@ -98,6 +98,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 	tw.Flush()
 
+	if fs.AvailableVersion != "" {
+		p("\n[Juju]")
+		p("UPGRADE-AVAILABLE")
+		p(fs.AvailableVersion)
+	}
+	tw.Flush()
+
 	return out.Bytes(), nil
 }
 

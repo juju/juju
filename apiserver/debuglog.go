@@ -40,12 +40,12 @@ type debugLogHandlerFunc func(
 ) error
 
 func newDebugLogHandler(
-	ssState *state.State,
+	statePool *state.StatePool,
 	stop <-chan struct{},
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
-		httpHandler: httpHandler{ssState: ssState},
+		httpHandler: httpHandler{statePool: statePool},
 		stop:        stop,
 		handle:      handle,
 	}
@@ -84,7 +84,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				socket.sendError(err)
 				return
 			}
-			defer stateWrapper.cleanup()
 			if err := stateWrapper.authenticateUser(req); err != nil {
 				socket.sendError(fmt.Errorf("auth failed: %v", err))
 				return

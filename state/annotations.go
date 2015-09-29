@@ -41,10 +41,10 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 			return fmt.Errorf("invalid key %q", key)
 		}
 		if value == "" {
-			toRemove["annotations."+key] = true
+			toRemove[key] = true
 		} else {
 			toInsert[key] = value
-			toUpdate["annotations."+key] = value
+			toUpdate[key] = value
 		}
 	}
 	// Set up and call the necessary transactions - if the document does not
@@ -143,7 +143,7 @@ func updateAnnotations(st *State, entity GlobalEntity, toUpdate, toRemove bson.M
 		C:      annotationsC,
 		Id:     st.docID(entity.globalKey()),
 		Assert: txn.DocExists,
-		Update: setUnsetUpdate(toUpdate, toRemove),
+		Update: setUnsetUpdateAnnotations(toUpdate, toRemove),
 	}}
 }
 
@@ -155,4 +155,22 @@ func annotationRemoveOp(st *State, id string) txn.Op {
 		Id:     st.docID(id),
 		Remove: true,
 	}
+}
+
+// setUnsetUpdateAnnotations returns a bson.D for use
+// in an annotationsC txn.Op's Update field, containing $set and
+// $unset operators if the corresponding operands
+// are non-empty.
+func setUnsetUpdateAnnotations(set, unset bson.M) bson.D {
+	var update bson.D
+	replace := inSubdocReplacer("annotations")
+	if len(set) > 0 {
+		set = bson.M(copyMap(map[string]interface{}(set), replace))
+		update = append(update, bson.DocElem{"$set", set})
+	}
+	if len(unset) > 0 {
+		unset = bson.M(copyMap(map[string]interface{}(unset), replace))
+		update = append(update, bson.DocElem{"$unset", unset})
+	}
+	return update
 }

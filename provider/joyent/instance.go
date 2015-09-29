@@ -25,10 +25,6 @@ func (inst *joyentInstance) Status() string {
 	return inst.machine.State
 }
 
-func (inst *joyentInstance) Refresh() error {
-	return nil
-}
-
 func (inst *joyentInstance) Addresses() ([]network.Address, error) {
 	addresses := make([]network.Address, 0, len(inst.machine.IPs))
 	for _, ip := range inst.machine.IPs {

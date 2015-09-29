@@ -25,6 +25,7 @@ var _ = gc.Suite(&steps124Suite{})
 
 func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 	expected := []string{
+		"add the version field to all settings docs",
 		"add block device documents for existing machines",
 		"move service.UnitSeq to sequence collection",
 		"add instance id field to IP addresses",

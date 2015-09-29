@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -329,7 +330,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 		return err
 	}
 	defer f.Close()
-	additionalSeries := version.OSSupportedSeries(builtTools.Version.OS)
+	additionalSeries := series.OSSupportedSeries(builtTools.Version.OS)
 	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
 	if err != nil {
 		return err

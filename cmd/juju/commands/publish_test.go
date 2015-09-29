@@ -11,10 +11,10 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/bzr"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v1"
 
-	"github.com/juju/juju/bzr"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
 )
@@ -114,7 +114,7 @@ func (s *PublishSuite) TestFrom(c *gc.C) {
 
 func (s *PublishSuite) TestMissingSeries(c *gc.C) {
 	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `charm url series is not resolved`)
+	c.Assert(err, gc.ErrorMatches, `charm or bundle url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {

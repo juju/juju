@@ -19,43 +19,32 @@ const (
 	// should not be relied upon until a storage source is
 	// constructed.
 	ConfigStorageDir = "storage-dir"
-
-	// Persistent is true if storage survives the lifecycle of the
-	// machine to which it is attached.
-	Persistent = "persistent"
 )
 
 // Config defines the configuration for a storage source.
 type Config struct {
-	name       string
-	provider   ProviderType
-	attrs      map[string]interface{}
-	persistent bool
+	name     string
+	provider ProviderType
+	attrs    map[string]interface{}
 }
 
-var fields = schema.Fields{
-	Persistent: schema.Bool(),
-}
+var fields = schema.Fields{}
 
 var configChecker = schema.FieldMap(
 	fields,
-	schema.Defaults{
-		Persistent: false,
-	},
+	schema.Defaults{},
 )
 
 // NewConfig creates a new Config for instantiating a storage source.
 func NewConfig(name string, provider ProviderType, attrs map[string]interface{}) (*Config, error) {
-	out, err := configChecker.Coerce(attrs, nil)
+	_, err := configChecker.Coerce(attrs, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating common storage config")
 	}
-	coerced := out.(map[string]interface{})
 	return &Config{
-		name:       name,
-		provider:   provider,
-		attrs:      attrs,
-		persistent: coerced[Persistent].(bool),
+		name:     name,
+		provider: provider,
+		attrs:    attrs,
 	}, nil
 }
 
@@ -86,9 +75,4 @@ func (c *Config) Attrs() map[string]interface{} {
 func (c *Config) ValueString(name string) (string, bool) {
 	v, ok := c.attrs[name].(string)
 	return v, ok
-}
-
-// IsPersistent returns true if config has persistent set to true.
-func (c *Config) IsPersistent() bool {
-	return c.persistent
 }

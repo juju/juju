@@ -75,12 +75,12 @@ func machineProvisioned(ctx *context, tag names.MachineTag, instanceId instance.
 		params.InstanceId = instanceId
 		updatePendingVolumeAttachment(ctx, id, params)
 	}
-	for id, params := range ctx.pendingFilesystemAttachments {
+	for id, params := range ctx.incompleteFilesystemAttachmentParams {
 		if params.Machine != tag || params.InstanceId != "" {
 			continue
 		}
 		params.InstanceId = instanceId
-		ctx.pendingFilesystemAttachments[id] = params
+		updatePendingFilesystemAttachment(ctx, id, params)
 	}
 }
 

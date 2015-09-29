@@ -9,9 +9,9 @@ import (
 
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -20,7 +20,7 @@ type WindowsHookSuite struct{}
 var _ = gc.Suite(&WindowsHookSuite{})
 
 func (s *WindowsHookSuite) TestHookCommandPowerShellScript(c *gc.C) {
-	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+	restorer := envtesting.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
 	defer restorer()
 
 	hookname := "powerShellScript.ps1"
@@ -37,7 +37,7 @@ func (s *WindowsHookSuite) TestHookCommandPowerShellScript(c *gc.C) {
 }
 
 func (s *WindowsHookSuite) TestHookCommandNotPowerShellScripts(c *gc.C) {
-	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+	restorer := envtesting.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
 	defer restorer()
 
 	cmdhook := "somehook.cmd"
@@ -51,7 +51,7 @@ func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Cannot search for executables without extension on windows")
 	}
-	restorer := envtesting.PatchValue(&version.Current.OS, version.Ubuntu)
+	restorer := envtesting.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
 	defer restorer()
 
 	charmDir := c.MkDir()
@@ -69,7 +69,7 @@ func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
 }
 
 func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
-	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+	restorer := envtesting.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
 	defer restorer()
 
 	charmDir := c.MkDir()
@@ -85,7 +85,7 @@ func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
 }
 
 func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
-	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+	restorer := envtesting.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
 	defer restorer()
 
 	charmDir := c.MkDir()

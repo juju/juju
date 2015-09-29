@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -24,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -125,10 +126,8 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
-	s.PatchValue(&version.Current.Arch, "arm64")
-	s.PatchValue(&arch.HostArch, func() string {
-		return "arm64"
-	})
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
@@ -144,10 +143,8 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: Currently does not work because of jujud problems")
 	}
-	s.PatchValue(&version.Current.Arch, "arm64")
-	s.PatchValue(&arch.HostArch, func() string {
-		return "arm64"
-	})
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
@@ -292,10 +289,12 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	currentVersion := version.Current
 	currentVersion.Major = clientMajor
 	currentVersion.Minor = clientMinor
-	currentVersion.Series = "trusty"
+	currentVersion.Series = "incorrect" // callers should be consulting series.HostSeries
 	currentVersion.Arch = "amd64"
 	currentVersion.Tag = ""
 	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -420,7 +419,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
 	e.bootstrapCount++
 	e.args = args
 	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
@@ -428,7 +427,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 		e.instanceConfig = icfg
 		return nil
 	}
-	return version.Current.Arch, version.Current.Series, finalizer, nil
+	return arch.HostArch(), series.HostSeries(), finalizer, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {
@@ -446,7 +445,7 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 
 func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 	e.supportedArchitecturesCount++
-	return []string{"amd64", "arm64"}, nil
+	return []string{arch.AMD64, arch.ARM64}, nil
 }
 
 func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {

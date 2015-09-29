@@ -87,73 +87,6 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 	return old.metadata(), nil
 }
 
-// FindMetadata implements Storage.FindMetadata.
-// Results are sorted by date created and grouped by source.
-func (s *storage) FindMetadata(criteria MetadataAttributes) (map[SourceType][]Metadata, error) {
-	coll, closer := s.store.GetCollection(s.collection)
-	defer closer()
-
-	searchCriteria := buildSearchClauses(criteria)
-	var docs []imagesMetadataDoc
-	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(docs) == 0 {
-		return nil, errors.NotFoundf("matching cloud image metadata")
-	}
-
-	metadata := make(map[SourceType][]Metadata)
-	for _, doc := range docs {
-		addOneToGroup(doc.metadata(), metadata)
-	}
-	return metadata, nil
-}
-
-func addOneToGroup(one Metadata, groups map[SourceType][]Metadata) {
-	_, ok := groups[one.Source]
-	if !ok {
-		groups[one.Source] = []Metadata{one}
-		return
-	}
-	groups[one.Source] = append(groups[one.Source], one)
-}
-
-func buildSearchClauses(criteria MetadataAttributes) bson.D {
-	all := bson.D{}
-
-	if criteria.Stream != "" {
-		all = append(all, bson.DocElem{"stream", criteria.Stream})
-	}
-
-	if criteria.Region != "" {
-		all = append(all, bson.DocElem{"region", criteria.Region})
-	}
-
-	if criteria.Series != "" {
-		all = append(all, bson.DocElem{"series", criteria.Series})
-	}
-
-	if criteria.Arch != "" {
-		all = append(all, bson.DocElem{"arch", criteria.Arch})
-	}
-
-	if criteria.VirtualType != "" {
-		all = append(all, bson.DocElem{"virtual_type", criteria.VirtualType})
-	}
-
-	if criteria.RootStorageType != "" {
-		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
-	}
-
-	// Size and source are not discriminating attributes for cloud image metadata.
-	// They are not included in search criteria.
-
-	if len(all.Map()) == 0 {
-		return nil
-	}
-	return all
-}
-
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {
@@ -209,7 +142,7 @@ const (
 )
 
 func (m imagesMetadataDoc) metadata() Metadata {
-	return Metadata{
+	r := Metadata{
 		MetadataAttributes{
 			Source:          m.Source,
 			Stream:          m.Stream,
@@ -217,15 +150,18 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Series:          m.Series,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
-			RootStorageSize: m.RootStorageSize,
 			VirtualType:     m.VirtualType,
 		},
 		m.ImageId,
 	}
+	if m.RootStorageSize != 0 {
+		r.RootStorageSize = &m.RootStorageSize
+	}
+	return r
 }
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
-	return imagesMetadataDoc{
+	r := imagesMetadataDoc{
 		EnvUUID:         s.envuuid,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
@@ -234,11 +170,14 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		Arch:            m.Arch,
 		VirtualType:     m.VirtualType,
 		RootStorageType: m.RootStorageType,
-		RootStorageSize: m.RootStorageSize,
 		ImageId:         m.ImageId,
 		DateCreated:     time.Now().UnixNano(),
 		Source:          m.Source,
 	}
+	if m.RootStorageSize != nil {
+		r.RootStorageSize = *m.RootStorageSize
+	}
+	return r
 }
 
 func buildKey(m Metadata) string {
@@ -250,4 +189,85 @@ func buildKey(m Metadata) string {
 		m.VirtualType,
 		m.RootStorageType,
 		m.Source)
+}
+
+// FindMetadata implements Storage.FindMetadata.
+// Results are sorted by date created and grouped by source.
+func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metadata, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	searchCriteria := buildSearchClauses(criteria)
+	var docs []imagesMetadataDoc
+	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("matching cloud image metadata")
+	}
+
+	metadata := make(map[SourceType][]Metadata)
+	for _, doc := range docs {
+		one := doc.metadata()
+		metadata[one.Source] = append(metadata[one.Source], one)
+	}
+	return metadata, nil
+}
+
+func buildSearchClauses(criteria MetadataFilter) bson.D {
+	all := bson.D{}
+
+	if criteria.Stream != "" {
+		all = append(all, bson.DocElem{"stream", criteria.Stream})
+	}
+
+	if criteria.Region != "" {
+		all = append(all, bson.DocElem{"region", criteria.Region})
+	}
+
+	if len(criteria.Series) != 0 {
+		all = append(all, bson.DocElem{"series", bson.D{{"$in", criteria.Series}}})
+	}
+
+	if len(criteria.Arches) != 0 {
+		all = append(all, bson.DocElem{"arch", bson.D{{"$in", criteria.Arches}}})
+	}
+
+	if criteria.VirtualType != "" {
+		all = append(all, bson.DocElem{"virtual_type", criteria.VirtualType})
+	}
+
+	if criteria.RootStorageType != "" {
+		all = append(all, bson.DocElem{"root_storage_type", criteria.RootStorageType})
+	}
+
+	if len(all.Map()) == 0 {
+		return nil
+	}
+	return all
+}
+
+// MetadataFilter contains all metadata attributes that alow to find a particular
+// cloud image metadata. Since size and source are not discriminating attributes
+// for cloud image metadata, they are not included in search criteria.
+type MetadataFilter struct {
+	// Region stores metadata region.
+	Region string `json:"region,omitempty"`
+
+	// Series stores all desired series.
+	Series []string `json:"series,omitempty"`
+
+	// Arches stores all desired architectures.
+	Arches []string `json:"arches,omitempty"`
+
+	// Stream can be "" or "released" for the default "released" stream,
+	// or "daily" for daily images, or any other stream that the available
+	// simplestreams metadata supports.
+	Stream string `json:"stream,omitempty"`
+
+	// VirtualType stores virtual type.
+	VirtualType string `json:"virtual_type,omitempty"`
+
+	// RootStorageType stores storage type.
+	RootStorageType string `json:"root-storage-type,omitempty"`
 }

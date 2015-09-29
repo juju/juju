@@ -28,7 +28,7 @@ type FindTags struct {
 	Prefixes []string `json:"prefixes"`
 }
 
-// FindTagResults wraps the mapping between the requested prefix and the
+// FindTagsResults wraps the mapping between the requested prefix and the
 // matching tags for each requested prefix.
 type FindTagsResults struct {
 	Matches map[string][]Entity `json:"matches"`
@@ -115,7 +115,7 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
-// AddCharm holds the arguments for making an AddCharmWithAuthorization API call.
+// AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
 	URL                string
 	CharmStoreMacaroon *macaroon.Macaroon
@@ -173,7 +173,7 @@ type AddMachinesResults struct {
 	Machines []AddMachinesResult `json:"Machines"`
 }
 
-// AddMachinesResults holds the name of a machine added by the
+// AddMachinesResult holds the name of a machine added by the
 // api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
 	Machine string `json:"Machine"`
@@ -434,7 +434,7 @@ type ListSSHKeys struct {
 	Mode ssh.ListMode
 }
 
-// ModifySSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
+// ModifyUserSSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
 type ModifyUserSSHKeys struct {
 	User string
 	Keys []string
@@ -607,7 +607,7 @@ type AuthUserInfo struct {
 	Credentials *string `json:"credentials,omitempty"`
 }
 
-// LoginRequestV1 holds the result of an Admin v1 Login call.
+// LoginResultV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers"`
@@ -668,7 +668,7 @@ type StateServersChangeResults struct {
 	Results []StateServersChangeResult
 }
 
-// StateServersChange lists the servers
+// StateServersChanges lists the servers
 // that have been added, removed or maintained in the
 // pool as a result of an ensure-availability operation.
 type StateServersChanges struct {

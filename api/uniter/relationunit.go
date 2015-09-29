@@ -165,24 +165,5 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 // Watch returns a watcher that notifies of changes to counterpart
 // units in the relation.
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
-	var results params.RelationUnitsWatchResults
-	args := params.RelationUnits{
-		RelationUnits: []params.RelationUnit{{
-			Relation: ru.relation.tag.String(),
-			Unit:     ru.unit.tag.String(),
-		}},
-	}
-	err := ru.st.facade.FacadeCall("WatchRelationUnits", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewRelationUnitsWatcher(ru.st.facade.RawAPICaller(), result)
-	return w, nil
+	return ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
 }

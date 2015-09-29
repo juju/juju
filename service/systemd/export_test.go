@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	Serialize = serialize
+	Serialize       = serialize
+	SyslogUserGroup = syslogUserGroup
 )
 
 type patcher interface {

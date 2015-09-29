@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -202,6 +204,9 @@ func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 			{Version: version.MustParseBinary("1.22.0-trusty-amd64")},
 		},
 	}
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22-beta1-trusty-amd64"))
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22.0-trusty-amd64"))
@@ -221,8 +226,8 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, version.Current.Number)
-		c.Assert(filter.Series, gc.Equals, version.Current.Series)
-		c.Assert(filter.Arch, gc.Equals, version.Current.Arch)
+		c.Assert(filter.Series, gc.Equals, series.HostSeries())
+		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
 			c.Assert(stream, gc.Equals, "devel")
 		} else {
@@ -235,8 +240,8 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Number:       version.Current.Number,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       version.Current.Series,
-		Arch:         version.Current.Arch,
+		Series:       series.HostSeries(),
+		Arch:         arch.HostArch(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if inStorage {

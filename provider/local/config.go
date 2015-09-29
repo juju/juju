@@ -148,7 +148,7 @@ func (c *environConfig) mongoDir() string {
 }
 
 func (c *environConfig) logDir() string {
-	return fmt.Sprintf("%s-%s", agent.DefaultLogDir, c.namespace())
+	return fmt.Sprintf("%s-%s", agent.DefaultPaths.LogDir, c.namespace())
 }
 
 // bootstrapIPAddress returns the IP address of the bootstrap machine.

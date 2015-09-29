@@ -27,15 +27,15 @@ import (
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/utils/syslog"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.rsyslog")
 
 var (
 	rsyslogConfDir = "/etc/rsyslog.d"
-	logDir         = agent.DefaultLogDir
+	logDir         = agent.DefaultPaths.LogDir
 	syslogTargets  = []*rsyslog.Writer{}
 )
 
@@ -80,15 +80,12 @@ type certPair struct {
 var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 
 func syslogUser() string {
-	var user string
-	switch version.Current.OS {
-	case version.CentOS:
-		user = "root"
+	switch jujuos.HostOS() {
+	case jujuos.CentOS:
+		return "root"
 	default:
-		user = "syslog"
+		return "syslog"
 	}
-
-	return user
 }
 
 var NewRsyslogConfigWorker = newRsyslogConfigWorker
@@ -98,7 +95,7 @@ var NewRsyslogConfigWorker = newRsyslogConfigWorker
 // on changes. The worker will remove the configuration file
 // on teardown.
 func newRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string, jujuConfigDir string) (worker.Worker, error) {
-	if version.Current.OS == version.Windows && mode == RsyslogModeAccumulate {
+	if jujuos.HostOS() == jujuos.Windows && mode == RsyslogModeAccumulate {
 		return worker.NewNoOpWorker(), nil
 	}
 	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs, jujuConfigDir)

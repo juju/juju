@@ -6,20 +6,16 @@ package windows
 
 import (
 	"reflect"
-	"strings"
 	"syscall"
 	"unsafe"
 
 	// https://bugs.launchpad.net/juju-core/+bug/1470820
 	"github.com/gabriel-samfira/sys/windows"
-	"github.com/gabriel-samfira/sys/windows/registry"
 	"github.com/gabriel-samfira/sys/windows/svc"
 	"github.com/gabriel-samfira/sys/windows/svc/mgr"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/windows/securestring"
 )
 
 //sys enumServicesStatus(h windows.Handle, dwServiceType uint32, dwServiceState uint32, lpServices uintptr, cbBufSize uint32, pcbBytesNeeded *uint32, lpServicesReturned *uint32, lpResumeHandle *uint32) (err error) [failretval==0] = advapi32.EnumServicesStatusW
@@ -147,20 +143,9 @@ var newManager = func() (windowsManager, error) {
 // getPassword attempts to read the password for the jujud user. We define it as
 // a variable to allow us to mock it out for testing
 var getPassword = func() (string, error) {
-	k, err := registry.OpenKey(registry.LOCAL_MACHINE, osenv.JujuRegistryKey[6:], registry.QUERY_VALUE)
+	passwd, err := resetJujudPassword()
 	if err != nil {
-		return "", errors.Annotate(err, "Failed to open juju registry key")
-	}
-	defer k.Close()
-
-	f, _, err := k.GetBinaryValue(osenv.JujuRegistryPasswordKey)
-	if err != nil {
-		return "", errors.Annotate(err, "Failed to read password registry entry")
-	}
-	encryptedPasswd := strings.TrimSpace(string(f))
-	passwd, err := securestring.Decrypt(encryptedPasswd)
-	if err != nil {
-		return "", errors.Annotate(err, "Failed to decrypt password")
+		return "", errors.Annotate(err, "cannot reset jujud password")
 	}
 	return passwd, nil
 }
@@ -280,11 +265,6 @@ func (s *SvcManager) escapeExecPath(exePath string, args []string) string {
 // Exists checks whether the config of the installed service matches the
 // config supplied to this function
 func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
-	passwd, err := getPassword()
-	if err != nil {
-		return false, err
-	}
-
 	// We escape and compose BinaryPathName the same way mgr.CreateService does.
 	execStart := s.escapeExecPath(conf.ServiceBinary, conf.ServiceArgs)
 	cfg := mgr.Config{
@@ -296,7 +276,6 @@ func (s *SvcManager) Exists(name string, conf common.Conf) (bool, error) {
 		StartType:        mgr.StartAutomatic,
 		DisplayName:      conf.Desc,
 		ServiceStartName: jujudUser,
-		Password:         passwd,
 		BinaryPathName:   execStart,
 	}
 	currentConfig, err := s.Config(name)

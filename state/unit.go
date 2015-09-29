@@ -112,6 +112,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	presence.Presencer
+	StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -791,6 +792,12 @@ func (u *Unit) Refresh() error {
 // Agent Returns an agent by its unit's name.
 func (u *Unit) Agent() *UnitAgent {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
+}
+
+// AgentHistory returns an StatusHistoryGetter which can
+//be used to query the status history of the unit's agent.
+func (u *Unit) AgentHistory() StatusHistoryGetter {
+	return u.Agent()
 }
 
 // SetAgentStatus calls SetStatus for this unit's agent, this call
@@ -2127,36 +2134,6 @@ func (u *Unit) ClearResolved() error {
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
-}
-
-// AddMetrics adds a new batch of metrics to the database.
-func (u *Unit) AddMetrics(batchUUID string, created time.Time, charmURLRaw string, metrics []Metric) (*MetricBatch, error) {
-	var charmURL *charm.URL
-	if charmURLRaw == "" {
-		var ok bool
-		charmURL, ok = u.CharmURL()
-		if !ok {
-			return nil, stderrors.New("failed to add metrics, couldn't find charm url")
-		}
-	} else {
-		var err error
-		charmURL, err = charm.ParseURL(charmURLRaw)
-		if err != nil {
-			return nil, errors.NewNotValid(err, "could not parse charm URL")
-		}
-	}
-	service, err := u.Service()
-	if err != nil {
-		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
-	}
-	batch := BatchParam{
-		UUID:        batchUUID,
-		CharmURL:    charmURL,
-		Created:     created,
-		Metrics:     metrics,
-		Credentials: service.MetricCredentials(),
-	}
-	return u.st.addMetrics(u.UnitTag(), batch)
 }
 
 // StorageConstraints returns the unit's storage constraints.

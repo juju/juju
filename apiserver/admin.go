@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,7 +50,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	// authedApi is the API method finder we'll use after getting logged in.
-	var authedApi rpc.MethodFinder = newApiRoot(a.root.state, a.root.closeState, a.root.resources, a.root)
+	var authedApi rpc.MethodFinder = newApiRoot(a.root.state, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
@@ -267,7 +268,10 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 	// update the last connection times for the environment users there.
 	var lastLogin *time.Time
 	if user, ok := entity.(*state.User); ok {
-		lastLogin = user.LastLogin()
+		userLastLogin, err := user.LastLogin()
+		if err != nil && !state.IsNeverLoggedInError(err) {
+			return nil, nil, errors.Trace(err)
+		}
 		if lookForEnvUser {
 			envUser, err := st.EnvironmentUser(user.UserTag())
 			if err != nil {
@@ -275,7 +279,10 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 			}
 			// The last connection for the environment takes precedence over
 			// the local user last login time.
-			lastLogin = envUser.LastConnection()
+			userLastLogin, err = envUser.LastConnection()
+			if err != nil && !state.IsNeverConnectedError(err) {
+				return nil, nil, errors.Trace(err)
+			}
 			envUser.UpdateLastConnection()
 		}
 		// Only update the user's last login time if it is a successful
@@ -283,6 +290,7 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 		// sure that there is an environment user in that environment for
 		// this user.
 		user.UpdateLastLogin()
+		lastLogin = &userLastLogin
 	}
 
 	return entity, lastLogin, nil
@@ -303,6 +311,7 @@ func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) err
 // machinePinger wraps a presence.Pinger.
 type machinePinger struct {
 	*presence.Pinger
+	mongoUnavailable *uint32
 }
 
 // Stop implements Pinger.Stop() as Pinger.Kill(), needed at
@@ -310,6 +319,14 @@ type machinePinger struct {
 func (p *machinePinger) Stop() error {
 	if err := p.Pinger.Stop(); err != nil {
 		return err
+	}
+	if atomic.LoadUint32(p.mongoUnavailable) > 0 {
+		// Kill marks the agent as not-present. If the
+		// Mongo server is known to be unavailable, then
+		// we do not perform this operation; the agent
+		// will naturally become "not present" when its
+		// presence expires.
+		return nil
 	}
 	return p.Pinger.Kill()
 }
@@ -329,7 +346,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 		return err
 	}
 
-	root.getResources().Register(&machinePinger{pinger})
+	root.getResources().Register(&machinePinger{pinger, root.mongoUnavailable})
 	action := func() {
 		if err := root.getRpcConn().Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)

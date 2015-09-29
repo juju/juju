@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -134,54 +135,63 @@ func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 
 	results, err := s.client.EnvUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	expected := params.EnvUserInfoResults{
-		Results: []params.EnvUserInfoResult{
-			{
-				Result: &params.EnvUserInfo{
-					UserName:       owner.UserName(),
-					DisplayName:    owner.DisplayName(),
-					CreatedBy:      owner.UserName(),
-					DateCreated:    owner.DateCreated(),
-					LastConnection: owner.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "ralphdoe@local",
-					DisplayName:    "Ralph Doe",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    localUser1.DateCreated(),
-					LastConnection: localUser1.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "samsmith@local",
-					DisplayName:    "Sam Smith",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    localUser2.DateCreated(),
-					LastConnection: localUser2.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "bobjohns@ubuntuone",
-					DisplayName:    "Bob Johns",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    remoteUser1.DateCreated(),
-					LastConnection: remoteUser1.LastConnection(),
-				},
-			}, {
-				Result: &params.EnvUserInfo{
-					UserName:       "nicshaw@idprovider",
-					DisplayName:    "Nic Shaw",
-					CreatedBy:      owner.UserName(),
-					DateCreated:    remoteUser2.DateCreated(),
-					LastConnection: remoteUser2.LastConnection(),
-				},
-			}},
+	var expected params.EnvUserInfoResults
+	for _, r := range []struct {
+		user *state.EnvironmentUser
+		info *params.EnvUserInfo
+	}{
+		{
+			owner,
+			&params.EnvUserInfo{
+				UserName:    owner.UserName(),
+				DisplayName: owner.DisplayName(),
+			},
+		}, {
+			localUser1,
+			&params.EnvUserInfo{
+				UserName:    "ralphdoe@local",
+				DisplayName: "Ralph Doe",
+			},
+		}, {
+			localUser2,
+			&params.EnvUserInfo{
+				UserName:    "samsmith@local",
+				DisplayName: "Sam Smith",
+			},
+		}, {
+			remoteUser1,
+			&params.EnvUserInfo{
+				UserName:    "bobjohns@ubuntuone",
+				DisplayName: "Bob Johns",
+			},
+		}, {
+			remoteUser2,
+			&params.EnvUserInfo{
+				UserName:    "nicshaw@idprovider",
+				DisplayName: "Nic Shaw",
+			},
+		},
+	} {
+		r.info.CreatedBy = owner.UserName()
+		r.info.DateCreated = r.user.DateCreated()
+		r.info.LastConnection = lastConnPointer(c, r.user)
+		expected.Results = append(expected.Results, params.EnvUserInfoResult{Result: r.info})
 	}
 
 	sort.Sort(ByUserName(expected.Results))
 	sort.Sort(ByUserName(results.Results))
 	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func lastConnPointer(c *gc.C, envUser *state.EnvironmentUser) *time.Time {
+	lastConn, err := envUser.LastConnection()
+	if err != nil {
+		if state.IsNeverConnectedError(err) {
+			return nil
+		}
+		c.Fatal(err)
+	}
+	return &lastConn
 }
 
 // ByUserName implements sort.Interface for []params.EnvUserInfoResult based on
@@ -273,7 +283,9 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
-	c.Assert(envUser.LastConnection(), gc.IsNil)
+	lastConn, err := envUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(lastConn, gc.Equals, time.Time{})
 }
 
 func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
@@ -294,7 +306,9 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
-	c.Assert(envUser.LastConnection(), gc.IsNil)
+	lastConn, err := envUser.LastConnection()
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
 
 func (s *serverSuite) TestShareEnvironmentAddUserTwice(c *gc.C) {
@@ -1036,14 +1050,14 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid",
-			err:             "charm url series is not resolved",
+			err:             "charm or bundle url series is not resolved",
 		},
 		{
 			about:           "invalid schema",
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid:your-arguments",
-			err:             `charm URL has invalid schema: "not-valid:your-arguments"`,
+			err:             `charm or bundle URL has invalid schema: "not-valid:your-arguments"`,
 		},
 		{
 			about:           "unknown charm",
@@ -1611,8 +1625,8 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 
 func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
-		"wordpress":                   "charm url series is not resolved",
-		"cs:wordpress":                "charm url series is not resolved",
+		"wordpress":                   "charm or bundle url series is not resolved",
+		"cs:wordpress":                "charm or bundle url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
@@ -1627,7 +1641,7 @@ func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
-	curl, ch := s.UploadCharm(c, "precise/dummy-0", "dummy")
+	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := service.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{URL: curl.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G networks=^net3")
@@ -1643,15 +1657,7 @@ func (s *clientRepoSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
-
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
+	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces")
 }
 
 func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -1660,47 +1666,6 @@ func (s *clientRepoSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, 
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
-}
-
-func (s *clientRepoSuite) assertServiceDeployWithNetworks(c *gc.C, curl *charm.URL, ch charm.Charm, cons constraints.Value) {
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", cons, "",
-		[]string{"network-net1", "network-net2"},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	service := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "service", curl, false, ch, cons)
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
-	serviceCons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceCons, gc.DeepEquals, cons)
-}
-
-func (s *clientRepoSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, msg string, curl *charm.URL, cons constraints.Value) {
-	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", cons, "",
-		[]string{"network-net1", "network-net2"},
-	)
-	s.AssertBlocked(c, err, msg)
-}
-
-func (s *clientRepoSuite) TestBlockDestroyServiceDeployWithNetworks(c *gc.C) {
-	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockDestroyEnvironment(c, "TestBlockDestroyServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
-}
-
-func (s *clientRepoSuite) TestBlockRemoveServiceDeployWithNetworks(c *gc.C) {
-	curl, ch, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockRemoveObject(c, "TestBlockRemoveServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworks(c, curl, ch, cons)
-}
-
-func (s *clientRepoSuite) TestBlockChangeServiceDeployWithNetworks(c *gc.C) {
-	curl, _, cons := s.setupServiceDeploy(c, "mem=4G networks=^net3")
-	s.BlockAllChanges(c, "TestBlockChangeServiceDeployWithNetworks")
-	s.assertServiceDeployWithNetworksBlocked(c, "TestBlockChangeServiceDeployWithNetworks", curl, cons)
 }
 
 func (s *clientRepoSuite) TestClientServiceDeployPrincipal(c *gc.C) {
@@ -1956,8 +1921,8 @@ func (s *clientRepoSuite) TestBlockServiceUpdateForced(c *gc.C) {
 func (s *clientRepoSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
-		"wordpress":                   "charm url series is not resolved",
-		"cs:wordpress":                "charm url series is not resolved",
+		"wordpress":                   "charm or bundle url series is not resolved",
+		"cs:wordpress":                "charm or bundle url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
@@ -2244,8 +2209,8 @@ func (s *clientRepoSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   "charm url series is not resolved",
-		"cs:wordpress":                "charm url series is not resolved",
+		"wordpress":                   "charm or bundle url series is not resolved",
+		"cs:wordpress":                "charm or bundle url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
 		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
@@ -2459,6 +2424,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  multiwatcher.Status("pending"),
+			StatusData:              map[string]interface{}{},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
@@ -3315,7 +3281,7 @@ var resolveCharmTests = []struct {
 }, {
 	about:    "invalid charm name",
 	url:      "cs:",
-	parseErr: `charm URL has invalid charm name: "cs:"`,
+	parseErr: `URL has invalid charm or bundle name: "cs:"`,
 }, {
 	about:      "local charm",
 	url:        "local:wordpress",

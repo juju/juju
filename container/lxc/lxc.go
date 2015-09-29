@@ -21,7 +21,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
@@ -31,9 +33,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/lxcutils"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/storage/looputil"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -125,7 +125,7 @@ func NewContainerManager(
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultLogDir
+		logDir = agent.DefaultPaths.LogDir
 	}
 	var useClone bool
 	useCloneVal := conf.PopValue("use-clone")
@@ -164,7 +164,7 @@ func NewContainerManager(
 
 // releaseVersion is a function that returns a string representing the
 // DISTRIB_RELEASE from the /etc/lsb-release file.
-var releaseVersion = version.ReleaseVersion
+var releaseVersion = series.ReleaseVersion
 
 // preferFastLXC returns true if the host is capable of
 // LXC cloning from a template.
@@ -384,8 +384,9 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
+	arch := arch.HostArch()
 	hardware := &instance.HardwareCharacteristics{
-		Arch: &version.Current.Arch,
+		Arch: &arch,
 	}
 
 	return &lxcInstance{lxcContainer, name}, hardware, nil

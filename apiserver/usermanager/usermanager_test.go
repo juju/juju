@@ -4,6 +4,8 @@
 package usermanager_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -308,40 +311,47 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
-			{
-				Result: &params.UserInfo{
-					Username:       "foobar",
-					DisplayName:    "Foo Bar",
-					CreatedBy:      s.adminName,
-					DateCreated:    userFoo.DateCreated(),
-					LastConnection: userFoo.LastLogin(),
-				},
-			}, {
-				Result: &params.UserInfo{
-					Username:       "barfoo",
-					DisplayName:    "Bar Foo",
-					CreatedBy:      s.adminName,
-					DateCreated:    userBar.DateCreated(),
-					LastConnection: userBar.LastLogin(),
-					Disabled:       true,
-				},
-			}, {
-				Error: &params.Error{
-					Message: "permission denied",
-					Code:    params.CodeUnauthorized,
-				},
-			}, {
-				Error: &params.Error{
-					Message: "permission denied",
-					Code:    params.CodeUnauthorized,
-				},
-			}, {
-				Error: &params.Error{
-					Message: `"not-a-tag" is not a valid tag`,
-				},
-			}},
+	var expected params.UserInfoResults
+	for _, r := range []struct {
+		user *state.User
+		info *params.UserInfo
+		err  *params.Error
+	}{
+		{
+			user: userFoo,
+			info: &params.UserInfo{
+				Username:    "foobar",
+				DisplayName: "Foo Bar",
+			},
+		}, {
+			user: userBar,
+			info: &params.UserInfo{
+				Username:    "barfoo",
+				DisplayName: "Bar Foo",
+				Disabled:    true,
+			},
+		}, {
+			err: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			},
+		}, {
+			err: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			},
+		}, {
+			err: &params.Error{
+				Message: `"not-a-tag" is not a valid tag`,
+			},
+		},
+	} {
+		if r.info != nil {
+			r.info.DateCreated = r.user.DateCreated()
+			r.info.LastConnection = lastLoginPointer(c, r.user)
+			r.info.CreatedBy = s.adminName
+		}
+		expected.Results = append(expected.Results, params.UserInfoResult{Result: r.info, Error: r.err})
 	}
 
 	c.Assert(results, jc.DeepEquals, expected)
@@ -356,34 +366,36 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	args := params.UserInfoRequest{IncludeDisabled: true}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
-			{
-				Result: &params.UserInfo{
-					Username:       "barfoo",
-					DisplayName:    "Bar Foo",
-					CreatedBy:      s.adminName,
-					DateCreated:    userBar.DateCreated(),
-					LastConnection: userBar.LastLogin(),
-					Disabled:       true,
-				},
-			}, {
-				Result: &params.UserInfo{
-					Username:       s.adminName,
-					DisplayName:    admin.DisplayName(),
-					CreatedBy:      s.adminName,
-					DateCreated:    admin.DateCreated(),
-					LastConnection: admin.LastLogin(),
-				},
-			}, {
-				Result: &params.UserInfo{
-					Username:       "foobar",
-					DisplayName:    "Foo Bar",
-					CreatedBy:      s.adminName,
-					DateCreated:    userFoo.DateCreated(),
-					LastConnection: userFoo.LastLogin(),
-				},
-			}},
+	var expected params.UserInfoResults
+	for _, r := range []struct {
+		user *state.User
+		info *params.UserInfo
+	}{
+		{
+			user: userBar,
+			info: &params.UserInfo{
+				Username:    "barfoo",
+				DisplayName: "Bar Foo",
+				Disabled:    true,
+			},
+		}, {
+			user: admin,
+			info: &params.UserInfo{
+				Username:    s.adminName,
+				DisplayName: admin.DisplayName(),
+			},
+		}, {
+			user: userFoo,
+			info: &params.UserInfo{
+				Username:    "foobar",
+				DisplayName: "Foo Bar",
+			},
+		},
+	} {
+		r.info.CreatedBy = s.adminName
+		r.info.DateCreated = r.user.DateCreated()
+		r.info.LastConnection = lastLoginPointer(c, r.user)
+		expected.Results = append(expected.Results, params.UserInfoResult{Result: r.info})
 	}
 	c.Assert(results, jc.DeepEquals, expected)
 
@@ -392,6 +404,17 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	// Same results as before, but without the deactivated barfoo user
 	expected.Results = expected.Results[1:]
 	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func lastLoginPointer(c *gc.C, user *state.User) *time.Time {
+	lastLogin, err := user.LastLogin()
+	if err != nil {
+		if state.IsNeverLoggedInError(err) {
+			return nil
+		}
+		c.Fatal(err)
+	}
+	return &lastLogin
 }
 
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {

@@ -20,6 +20,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
@@ -71,7 +72,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 		registerLiveSimpleStreamsTests(testData.baseURL,
 			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
-				Series:    []string{version.Current.Series},
+				Series:    []string{series.HostSeries()},
 				Arches:    []string{"amd64"},
 				Stream:    "released",
 			}), testData.requireSigned)
@@ -358,7 +359,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	// Add tools with an unknown series. Do not add an entry in the
 	// expected list as these tools should be ignored.
 	vers, err := version.ParseBinary("3.2.1-xuanhuaceratops-amd64")
-	c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+	c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
 	toolsList = append(toolsList, &coretools.Tools{
 		Version: vers,
 		Size:    456,

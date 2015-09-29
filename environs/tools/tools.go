@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -53,7 +54,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.Series != "" {
 		seriesToSearch = []string{filter.Series}
 	} else {
-		seriesToSearch = version.SupportedSeries()
+		seriesToSearch = series.SupportedSeries()
 		logger.Tracef("no series specified when finding tools, looking for %v", seriesToSearch)
 	}
 	toolsConstraint.Series = seriesToSearch

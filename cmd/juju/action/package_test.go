@@ -17,7 +17,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/action"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -56,7 +55,7 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	)
 }
 
-func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
+func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
 	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
 	c.Assert(err, gc.IsNil)
 

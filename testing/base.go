@@ -13,10 +13,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
+	jujuos "github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"
@@ -40,12 +41,6 @@ type JujuOSEnvSuite struct {
 	oldRegEntryValue    string
 }
 
-func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
-}
-
-func (s *JujuOSEnvSuite) TearDownSuite(c *gc.C) {
-}
-
 func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
@@ -62,14 +57,19 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	utils.SetHome("")
 
 	// Update the feature flag set to be the requested initial set.
-	s.setUpFeatureFlags(c)
+	// This works for both windows and unix, even though normally
+	// the feature flags on windows are determined using the registry.
+	// For tests, setting with the environment variable isolates us
+	// from a single resource that was hitting contention during parallel
+	// test runs.
+	os.Setenv(osenv.JujuFeatureFlagEnvKey, s.initialFeatureFlags)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
-	s.tearDownFeatureFlags(c)
 	utils.SetHome(s.oldHomeEnv)
 	osenv.SetJujuHome(s.oldJujuHome)
 }
@@ -131,12 +131,12 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
-	s.JujuOSEnvSuite.SetUpSuite(c)
+	// JujuOSEnvSuite does not have a suite setup.
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
-	s.JujuOSEnvSuite.TearDownSuite(c)
+	// JujuOSEnvSuite does not have a suite teardown.
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }
@@ -216,4 +216,28 @@ func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
 	cleaner.AddCleanup(func(_ *gc.C) {
 		close(done)
 	})
+}
+
+type PackageManagerStruct struct {
+	PackageManager    string
+	RepositoryManager string
+	PackageQuery      string
+}
+
+func GetPackageManager() (s PackageManagerStruct, err error) {
+	switch jujuos.HostOS() {
+	case jujuos.CentOS:
+		s.PackageManager = "yum"
+		s.PackageQuery = "yum"
+		s.RepositoryManager = "yum-config-manager --add-repo"
+	case jujuos.Ubuntu:
+		s.PackageManager = "apt-get"
+		s.PackageQuery = "dpkg-query"
+		s.RepositoryManager = "add-apt-repository"
+	default:
+		s.PackageManager = "apt-get"
+		s.PackageQuery = "dpkg-query"
+		s.RepositoryManager = "add-apt-repository"
+	}
+	return s, nil
 }

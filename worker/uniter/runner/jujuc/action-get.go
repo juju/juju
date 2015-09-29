@@ -21,8 +21,8 @@ type ActionGetCommand struct {
 
 // NewActionGetCommand returns an ActionGetCommand for use with the given
 // context.
-func NewActionGetCommand(ctx Context) cmd.Command {
-	return &ActionGetCommand{ctx: ctx}
+func NewActionGetCommand(ctx Context) (cmd.Command, error) {
+	return &ActionGetCommand{ctx: ctx}, nil
 }
 
 // Info returns the content for --help.
