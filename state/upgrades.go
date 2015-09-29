@@ -636,6 +636,9 @@ func AddPreferredAddressesToMachines(st *State) error {
 	}
 
 	for _, machine := range machines {
+		if machine.Life() == Dead {
+			continue
+		}
 		// Setting the addresses is enough to trigger setting the preferred
 		// addresses.
 		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)

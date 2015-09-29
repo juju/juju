@@ -2448,20 +2448,29 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
+		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 	}...)
 
 	ms, err := s.state.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.HasLen, 3)
+	c.Assert(ms, gc.HasLen, 4)
 
 	m1 := machines[0]
 	m2 := machines[1]
 	m3 := machines[2]
+	m4 := machines[3]
 	err = m1.SetProviderAddresses(network.NewAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetMachineAddresses(network.NewAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Attempting to set the addresses of a dead machine will fail, so we
+	// include a dead machine to make sure the upgrade step can cope.
+	err = m4.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = m4.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Delete the preferred address fields.
