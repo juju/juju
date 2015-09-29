@@ -112,7 +112,7 @@ func sharedSecretPath(dataDir string) string {
 }
 
 // newConf returns the init system config for the mongo state service.
-func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool) common.Conf {
+func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool, version Version) common.Conf {
 	mongoCmd := mongoPath +
 		" --auth" +
 		" --dbpath " + utils.ShQuote(dbDir) +
@@ -120,14 +120,20 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
 		" --sslPEMKeyPassword ignored" +
 		" --port " + fmt.Sprint(port) +
-		" --noprealloc" +
 		" --syslog" +
-		" --smallfiles" +
 		" --journal" +
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
 		" --replSet " + ReplicaSetName +
 		" --ipv6" +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+	if version != Mongo31 {
+		mongoCmd = mongoCmd +
+			" --noprealloc" +
+			" --smallfiles"
+	} else {
+		mongoCmd = mongoCmd +
+			" --storageEngine wiredTiger"
+	}
 	extraScript := ""
 	if wantNumaCtl {
 		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)

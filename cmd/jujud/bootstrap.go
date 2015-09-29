@@ -50,14 +50,15 @@ import (
 )
 
 var (
-	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
-	agentInitializeState     = agent.InitializeState
-	sshGenerateKey           = ssh.GenerateKey
-	newStateStorage          = storage.NewStorage
-	minSocketTimeout         = 1 * time.Minute
-	logger                   = loggo.GetLogger("juju.cmd.jujud")
+	initiateMongoServer  = peergrouper.InitiateMongoServer
+	agentInitializeState = agent.InitializeState
+	sshGenerateKey       = ssh.GenerateKey
+	newStateStorage      = storage.NewStorage
+	minSocketTimeout     = 1 * time.Minute
+	logger               = loggo.GetLogger("juju.cmd.jujud")
 )
 
+// BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
@@ -84,6 +85,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
@@ -206,7 +208,21 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
+
+	logger.Debugf("%v", featureflag.All())
+	if featureflag.Enabled(feature.Mongo3) {
+		logger.Debugf("GHAAA MONGO 3 IS ENABLED")
+		err := c.ChangeConfig(func(config agent.ConfigSetter) error {
+			logger.Debugf("THIS SETTER WAS DEFINITELY CALLED")
+			config.SetMongoVersion(mongo.Mongo31)
+			return nil
+		})
+		if err != nil {
+			return errors.Annotate(err, "cannot set mongo version")
+		}
+	}
 	agentConfig = c.CurrentConfig()
+	logger.Debugf("THIS IS HOW MONGO 3 ROLLS %q", agentConfig.MongoVersion())
 
 	// Create system-identity file
 	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
@@ -333,10 +349,10 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+	return initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
-	})
+	}, true)
 }
 
 // populateDefaultStoragePools creates the default storage pools.

@@ -1497,12 +1497,13 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		return false, nil
 	}
 	return ensureMongoAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo:  dialInfo,
-		Namespace: agentConfig.Value(agent.Namespace),
-		DataDir:   agentConfig.DataDir(),
-		Port:      servingInfo.StatePort,
-		User:      mongoInfo.Tag.String(),
-		Password:  mongoInfo.Password,
+		DialInfo:     dialInfo,
+		Namespace:    agentConfig.Value(agent.Namespace),
+		DataDir:      agentConfig.DataDir(),
+		Port:         servingInfo.StatePort,
+		User:         mongoInfo.Tag.String(),
+		Password:     mongoInfo.Password,
+		MongoVersion: agentConfig.MongoVersion(),
 	})
 }
 

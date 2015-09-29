@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The feature package defines the names of the current feature flags.
+// Package feature package defines the names of the current feature flags.
 package feature
 
 import (
@@ -62,3 +62,6 @@ const DisableRsyslog = "disable-rsyslog"
 
 // VSphereProvider enables the generic vmware provider.
 const VSphereProvider = "vsphere-provider"
+
+// Mongo3 enables bootstraping into mongo3.
+const Mongo3 = "mongo3"

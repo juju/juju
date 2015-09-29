@@ -251,6 +251,10 @@ type Config interface {
 	// MetricsSpoolDir returns the spool directory where workloads store
 	// collected metrics.
 	MetricsSpoolDir() string
+
+	// MongoVersion returns the version of mongo that the state server
+	// is using.
+	MongoVersion() mongo.Version
 }
 
 type configSetterOnly interface {
@@ -297,6 +301,9 @@ type configSetterOnly interface {
 	// SetStateServingInfo sets the information needed
 	// to run a state server
 	SetStateServingInfo(info params.StateServingInfo)
+
+	// SetMongoVersion sets the passed version as the current in use.
+	SetMongoVersion(mongo.Version)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -365,8 +372,11 @@ type configInternal struct {
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
 	preferIPv6        bool
+	mongoVersion      mongo.Version
 }
 
+// AgentConfigParams holds the parameters required to create
+// a new AgentConfig.
 type AgentConfigParams struct {
 	Paths             Paths
 	Jobs              []multiwatcher.MachineJob
@@ -380,6 +390,7 @@ type AgentConfigParams struct {
 	CACert            string
 	Values            map[string]string
 	PreferIPv6        bool
+	MongoVersion      mongo.Version
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -424,6 +435,11 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
 		preferIPv6:        configParams.PreferIPv6,
+		mongoVersion:      configParams.MongoVersion,
+	}
+	// no value means that this is not mongo 3 ready.
+	if config.mongoVersion == "" {
+		config.mongoVersion = mongo.Mongo24
 	}
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -725,6 +741,19 @@ func (c *configInternal) check() error {
 		}
 	}
 	return nil
+}
+
+// MongoVersion implements Config.
+func (c *configInternal) MongoVersion() mongo.Version {
+	if c.mongoVersion != "" {
+		return c.mongoVersion
+	}
+	return mongo.Mongo24
+}
+
+// SetMongoVersion implements configSetterOnly.
+func (c *configInternal) SetMongoVersion(v mongo.Version) {
+	c.mongoVersion = v
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
