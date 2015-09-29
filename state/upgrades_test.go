@@ -2440,10 +2440,42 @@ func (s *upgradesSuite) addMachineWithLife(c *gc.C, machineID string, life Life)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
+func (s *upgradesSuite) removePreferredAddressFields(c *gc.C, machine *Machine) {
 	machinesCol, closer := s.state.getRawCollection(machinesC)
 	defer closer()
 
+	err := machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$unset", bson.DocElem{"preferredpublicaddress", ""}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$unset", bson.DocElem{"preferredprivateaddress", ""}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAddress string) {
+	err := machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	addr, err := machine.PublicAddress()
+	if publicAddress != "" {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	}
+	c.Assert(addr.Value, gc.Equals, publicAddress)
+	addr, err = machine.PrivateAddress()
+	if privateAddress != "" {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	}
+	c.Assert(addr.Value, gc.Equals, privateAddress)
+}
+
+func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 	machines, err := s.state.AddMachines([]MachineTemplate{
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
@@ -2472,47 +2504,14 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 
 	// Delete the preferred address fields.
 	for _, machine := range machines {
-		err := machinesCol.Update(
-			bson.D{{"_id", s.state.docID(machine.Id())}},
-			bson.D{{"$unset", bson.DocElem{"preferredpublicaddress", ""}}},
-		)
-		c.Assert(err, jc.ErrorIsNil)
-		err = machinesCol.Update(
-			bson.D{{"_id", s.state.docID(machine.Id())}},
-			bson.D{{"$unset", bson.DocElem{"preferredprivateaddress", ""}}},
-		)
-		c.Assert(err, jc.ErrorIsNil)
+		s.removePreferredAddressFields(c, machine)
 	}
 	err = AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m2.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m3.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr, err := m1.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
-	addr, err = m1.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
-
-	addr, err = m2.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
-	addr, err = m2.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
-
-	addr, err = m3.PublicAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
-	c.Assert(addr.Value, gc.Equals, "")
-	addr, err = m3.PrivateAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
-	c.Assert(addr.Value, gc.Equals, "")
+	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m3, "", "")
 }
 
 func (s *upgradesSuite) TestIPAddressesLife(c *gc.C) {
