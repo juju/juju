@@ -22,6 +22,18 @@ import sys
 from simplestreams import util
 
 
+def read_items_file(filename):
+    with open(filename) as items_file:
+        item_list = json.load(items_file)
+    for item in item_list:
+        item.pop('item_url', None)
+        content_id = item.pop('content_id')
+        product_name = item.pop('product_name')
+        version_name = item.pop('version_name')
+        item_name = item.pop('item_name')
+        yield (content_id, product_name, version_name, item_name, item)
+
+
 def items2content_trees(itemslist, exdata):
     # input is a list with each item having:
     #   (content_id, product_name, version_name, item_name, {data})
@@ -86,6 +98,8 @@ def write_streams(out_d, trees, updated, sign):
 def parse_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument(
+        'items_file', metavar='items-file', help='File to read items from')
+    parser.add_argument(
         'out_d', metavar='output-dir',
         help='The directory to write stream files to.')
     return parser.parse_args(argv)
@@ -108,6 +122,7 @@ def main():
              'version': '1.24-beta6',
              }),
     ]
+    items = read_items_file(args.items_file)
     updated = util.timestamp()
 
     data = {'updated': updated, 'datatype': 'content-download'}
