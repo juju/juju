@@ -2,6 +2,8 @@
 from argparse import ArgumentParser
 import json
 
+from utils import dump_json_pretty
+
 
 def parse_args():
     parser = ArgumentParser(description='Convert sstream-query output to JSON')
@@ -17,8 +19,7 @@ def main():
         for line in in_file:
             output.append(eval(line))
     with open(args.output, 'w') as out_file:
-        json.dump(output, out_file, sort_keys=True, indent=4,
-                  separators=(',', ': '))
+        dump_json_pretty(output, out_file)
 
 
 if __name__ == '__main__':

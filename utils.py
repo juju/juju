@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
+import json
 from mock import patch
 import random
 import shutil
@@ -49,3 +50,8 @@ def get_random_hex_string(size=64):
 
 def autopatch(target, **kwargs):
     return patch(target, autospec=True, **kwargs)
+
+def dump_json_pretty(json_data, out_file):
+    json.dump(json_data, out_file, sort_keys=True, indent=4,
+              separators=(',', ': '))
+
