@@ -2475,7 +2475,7 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 	c.Assert(addr.Value, gc.Equals, privateAddress)
 }
 
-func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
+func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
 	machines, err := s.state.AddMachines([]MachineTemplate{
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
@@ -2486,7 +2486,6 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 
 	m1 := machines[0]
 	m2 := machines[1]
-	m3 := machines[2]
 	m4 := machines[3]
 	err = m1.SetProviderAddresses(network.NewAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2506,6 +2505,36 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 	for _, machine := range machines {
 		s.removePreferredAddressFields(c, machine)
 	}
+	return machines
+}
+
+func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
+	machines := s.createMachinesWithAddresses(c)
+	m1 := machines[0]
+	m2 := machines[1]
+	m3 := machines[2]
+
+	err := AddPreferredAddressesToMachines(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m3, "", "")
+}
+
+func (s *upgradesSuite) TestAddPreferredAddressesToMachinesIdempotent(c *gc.C) {
+	machines := s.createMachinesWithAddresses(c)
+	m1 := machines[0]
+	m2 := machines[1]
+	m3 := machines[2]
+
+	err := AddPreferredAddressesToMachines(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
+	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.1")
+	assertMachineAddresses(c, m3, "", "")
+
 	err = AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
