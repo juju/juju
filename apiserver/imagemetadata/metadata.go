@@ -67,7 +67,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 		Series:          filter.Series,
 		Arches:          filter.Arches,
 		Stream:          filter.Stream,
-		VirtualType:     filter.VirtualType,
+		VirtType:        filter.VirtType,
 		RootStorageType: filter.RootStorageType,
 	})
 	if err != nil {
@@ -109,7 +109,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		Region:          p.Region,
 		Series:          p.Series,
 		Arch:            p.Arch,
-		VirtualType:     p.VirtualType,
+		VirtType:        p.VirtType,
 		RootStorageType: p.RootStorageType,
 		RootStorageSize: p.RootStorageSize,
 		Source:          string(p.Source),
@@ -136,7 +136,7 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 			Region:          p.Region,
 			Series:          p.Series,
 			Arch:            p.Arch,
-			VirtualType:     p.VirtualType,
+			VirtType:        p.VirtType,
 			RootStorageType: p.RootStorageType,
 			RootStorageSize: p.RootStorageSize,
 			Source:          parseSource(p.Source),
@@ -204,7 +204,7 @@ var convertToParams = func(published []*envmetadata.ImageMetadata) params.Metada
 			Stream:          p.Stream,
 			Region:          p.RegionName,
 			Arch:            p.Arch,
-			VirtualType:     p.VirtType,
+			VirtType:        p.VirtType,
 			RootStorageType: p.Storage,
 		}
 		// Translate version (eg.14.04) to a series (eg. "trusty")

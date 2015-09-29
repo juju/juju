@@ -672,7 +672,7 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 			Region:          "region",
 			Series:          "trusty",
 			Arch:            "amd64",
-			VirtualType:     "virtualType",
+			VirtType:        "virtType",
 			RootStorageType: "rootStore",
 			Source:          cloudimagemetadata.Custom},
 		ImageId: "imageId"}
@@ -684,7 +684,7 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 		content: fmt.Sprintf(indexContent, metadata.Source, metadata.Region, metadata.Arch),
 	}, {
 		path:    "streams/v1/products.json",
-		content: fmt.Sprintf(productContent, metadata.Arch, metadata.Arch, metadata.ImageId, metadata.ImageId, metadata.RootStorageType, metadata.VirtualType, metadata.Region, metadata.Source),
+		content: fmt.Sprintf(productContent, metadata.Arch, metadata.Arch, metadata.ImageId, metadata.ImageId, metadata.RootStorageType, metadata.VirtType, metadata.Region, metadata.Source),
 	}, {
 		path:    "wayward/file.txt",
 		content: "ghi",

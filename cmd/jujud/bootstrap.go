@@ -425,7 +425,7 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 				Stream:          one.Stream,
 				Region:          one.RegionName,
 				Arch:            one.Arch,
-				VirtualType:     one.VirtType,
+				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
 				Source:          "custom",
 			},

@@ -31,14 +31,14 @@ func NewClient(st base.APICallCloser) *Client {
 func (c *Client) List(
 	stream, region string,
 	series, arches []string,
-	virtualType, rootStorageType string,
+	virtType, rootStorageType string,
 ) ([]params.CloudImageMetadata, error) {
 	in := params.ImageMetadataFilter{
 		Region:          region,
 		Series:          series,
 		Arches:          arches,
 		Stream:          stream,
-		VirtualType:     virtualType,
+		VirtType:        virtType,
 		RootStorageType: rootStorageType,
 	}
 	out := params.ListCloudImageMetadataResult{}
