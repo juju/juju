@@ -91,13 +91,15 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, f
 	}
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)
-	cfg, err := replicaset.CurrentConfig(session)
-	if err != nil && err != mgo.ErrNotFound {
-		return errors.Errorf("cannot get replica set configuration: %v", err)
-	}
-	if !force && err == nil && len(cfg.Members) > 0 {
-		logger.Infof("replica set configuration found: %#v", cfg)
-		return ErrReplicaSetAlreadyInitiated
+	if !force { // we dont care about the current configuration otherwise.
+		cfg, err := replicaset.CurrentConfig(session)
+		if err != nil && err != mgo.ErrNotFound {
+			return errors.Errorf("cannot get replica set configuration: %v", err)
+		}
+		if err == nil && len(cfg.Members) > 0 {
+			logger.Infof("replica set configuration found: %#v", cfg)
+			return ErrReplicaSetAlreadyInitiated
+		}
 	}
 
 	return replicaset.Initiate(

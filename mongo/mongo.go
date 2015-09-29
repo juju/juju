@@ -36,9 +36,26 @@ var (
 	// JujuMongodPath holds the default path to the juju-specific
 	// mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+	// JujuMongod26Path holds the default path for the transitional
+	// mongo 2.6 to be installed to upgrade to 3.
+	JujuMongod26Path = "/usr/lib/juju/mongo2.6/bin/mongod"
+	// JujuMongod30Path holds the default path for mongo 3.
+	JujuMongod30Path = "/usr/lib/juju/mongo3/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
+)
+
+// Version represents the major.minor version of the runnig mongo.
+type Version string
+
+const (
+	// Mongo24 represents juju-mongodb 2.4.x
+	Mongo24 Version = "2.4"
+	// Mongo26 represents juju-mongodb26 2.6.x
+	Mongo26 Version = "2.6"
+	// Mongo31 represents juju-mongodb31 3.1.x
+	Mongo31 Version = "3.1"
 )
 
 // WithAddresses represents an entity that has a set of
@@ -107,17 +124,39 @@ func GenerateSharedSecret() (string, error) {
 // Path returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
-func Path() (string, error) {
-	if _, err := os.Stat(JujuMongodPath); err == nil {
-		return JujuMongodPath, nil
-	}
+func Path(version Version) (string, error) {
+	if version == Mongo24 {
+		if _, err := os.Stat(JujuMongodPath); err == nil {
+			return JujuMongodPath, nil
+		}
 
-	path, err := exec.LookPath("mongod")
-	if err != nil {
-		logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
+		path, err := exec.LookPath("mongod")
+		if err != nil {
+			logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
+			return "", err
+		}
+		return path, nil
+	}
+	if version == Mongo24 {
+		var err error
+		if _, err = os.Stat(JujuMongod26Path); err == nil {
+			return JujuMongod26Path, nil
+		}
+		logger.Infof("could not find %q ", JujuMongod26Path)
 		return "", err
 	}
-	return path, nil
+	if version == Mongo31 {
+		var err error
+		if _, err = os.Stat(JujuMongod30Path); err == nil {
+			return JujuMongod30Path, nil
+		}
+		logger.Infof("could not find %q", JujuMongod30Path)
+		return "", err
+	}
+
+	logger.Infof("could not find a suitable binary for %q", version)
+	return "", errors.New("no suitable mongod executable")
+
 }
 
 // EnsureServerParams is a parameter struct for EnsureServer.
@@ -159,6 +198,9 @@ type EnsureServerParams struct {
 	// SetNumaControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNumaControlPolicy bool
+
+	// Version is the mongod version to be used.
+	Version Version
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -198,7 +240,7 @@ func EnsureServer(args EnsureServerParams) error {
 		// (LP #1441904)
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
-	mongoPath, err := Path()
+	mongoPath, err := Path(args.Version)
 	if err != nil {
 		return err
 	}
@@ -227,7 +269,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
+	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy, args.Version)
 	svc, err := newService(ServiceName(args.Namespace), svcConf)
 	if err != nil {
 		return err
@@ -390,25 +432,46 @@ func packageForSeries(series string) string {
 
 // noauthCommand returns an os/exec.Cmd that may be executed to
 // run mongod without security.
-func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
+func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
 	dbDir := filepath.Join(dataDir, "db")
-	mongoPath, err := Path()
+	// Make this smarter, to guess mongo version.
+	mongoPath, err := Path(version)
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(mongoPath,
-		"--noauth",
-		"--dbpath", dbDir,
-		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", sslKeyFile,
-		"--sslPEMKeyPassword", "ignored",
-		"--bind_ip", "127.0.0.1",
-		"--port", fmt.Sprint(port),
-		"--noprealloc",
-		"--syslog",
-		"--smallfiles",
-		"--journal",
-	)
+
+	var args []string
+	if version == Mongo31 {
+		args = []string{
+			"--noauth",
+			"--dbpath", dbDir,
+			"--sslOnNormalPorts",
+			"--sslPEMKeyFile", sslKeyFile,
+			"--sslPEMKeyPassword", "ignored",
+			"--bind_ip", "127.0.0.1",
+			"--port", fmt.Sprint(port),
+			"--syslog",
+			"--journal",
+			"--storageEngine", "wiredTiger",
+		}
+	} else {
+		args = []string{
+			"--noauth",
+			"--dbpath", dbDir,
+			"--sslOnNormalPorts",
+			"--sslPEMKeyFile", sslKeyFile,
+			"--sslPEMKeyPassword", "ignored",
+			"--bind_ip", "127.0.0.1",
+			"--port", fmt.Sprint(port),
+			"--noprealloc",
+			"--syslog",
+			"--smallfiles",
+			"--journal",
+		}
+	}
+
+	cmd := exec.Command(mongoPath, args...)
+
 	return cmd, nil
 }
