@@ -268,7 +268,14 @@ class EnvJujuClient:
                 # Mutate os.environ instead of supplying env parameter so
                 # Windows can search env['PATH']
                 with scoped_environ(env):
-                    sub_output = subprocess.check_output(args, stderr=stderr)
+                    proc = subprocess.Popen(
+                        args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+                        stderr=stderr)
+                    proc.stdin.close()
+                    sub_output = proc.stdout.read()
+                    if proc.wait():
+                        raise subprocess.CalledProcessError(
+                            proc.returncode, args[0], sub_output)
                 logging.debug(sub_output)
                 return sub_output
             except subprocess.CalledProcessError as e:
