@@ -1064,10 +1064,9 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 }
 
 // Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance or list of ids. instId
-// equal to instance.UnknownId is the only supported value, other ones
-// result in NotSupportedError. subnetIds can be empty, in which case
-// all known are returned. Implements NetworkingEnviron.Subnets.
+// by the provider for the specified instance or list of ids. subnetIds can be
+// empty, in which case all known are returned. Implements
+// NetworkingEnviron.Subnets.
 func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
 	if instId != instance.UnknownId {
