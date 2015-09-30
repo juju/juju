@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
@@ -26,7 +25,6 @@ func newUseEnvironmentCommand() cmd.Command {
 type useEnvironmentCommand struct {
 	envcmd.SysCommandBase
 
-	apiOpen   api.OpenFunc
 	api       UseEnvironmentAPI
 	userCreds *configstore.APICredentials
 	endpoint  *configstore.APIEndpoint
@@ -129,9 +127,6 @@ func (c *useEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // SetFlags implements Command.Init.
 func (c *useEnvironmentCommand) Init(args []string) error {
-	if c.apiOpen == nil {
-		c.apiOpen = c.APIOpen
-	}
 	if len(args) == 0 || strings.TrimSpace(args[0]) == "" {
 		return errors.New("no environment supplied")
 	}
