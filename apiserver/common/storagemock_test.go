@@ -17,10 +17,13 @@ import (
 type fakeStorage struct {
 	testing.Stub
 	common.StorageInterface
-	storageInstance       func(names.StorageTag) (state.StorageInstance, error)
-	storageInstanceVolume func(names.StorageTag) (state.Volume, error)
-	volumeAttachment      func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
-	blockDevices          func(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	storageInstance        func(names.StorageTag) (state.StorageInstance, error)
+	storageInstanceVolume  func(names.StorageTag) (state.Volume, error)
+	volumeAttachment       func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	blockDevices           func(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	watchVolumeAttachment  func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	watchBlockDevices      func(names.MachineTag) state.NotifyWatcher
+	watchStorageAttachment func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 }
 
 func (s *fakeStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -41,6 +44,21 @@ func (s *fakeStorage) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (s
 func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
 	s.MethodCall(s, "BlockDevices", m)
 	return s.blockDevices(m)
+}
+
+func (s *fakeStorage) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
+	s.MethodCall(s, "WatchVolumeAttachment", m, v)
+	return s.watchVolumeAttachment(m, v)
+}
+
+func (s *fakeStorage) WatchBlockDevices(m names.MachineTag) state.NotifyWatcher {
+	s.MethodCall(s, "WatchBlockDevices", m)
+	return s.watchBlockDevices(m)
+}
+
+func (s *fakeStorage) WatchStorageAttachment(st names.StorageTag, u names.UnitTag) state.NotifyWatcher {
+	s.MethodCall(s, "WatchStorageAttachment", st, u)
+	return s.watchStorageAttachment(st, u)
 }
 
 type fakeStorageInstance struct {
