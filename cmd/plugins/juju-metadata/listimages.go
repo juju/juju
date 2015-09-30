@@ -204,10 +204,10 @@ func (m metadataInfos) Swap(i, j int) {
 }
 
 type minMetadataInfo struct {
-	ImageId         string `yaml:"image_id" json:"image_id"`
+	ImageId         string `yaml:"image-id" json:"image-id"`
 	Stream          string `yaml:"stream" json:"stream"`
-	VirtType        string `yaml:"virt_type" json:"virt_type"`
-	RootStorageType string `yaml:"storage_type" json:"storage_type"`
+	VirtType        string `yaml:"virt-type,omitempty" json:"virt-type,omitempty"`
+	RootStorageType string `yaml:"storage-type,omitempty" json:"storage-type,omitempty"`
 }
 
 // groupMetadata constructs map representation of metadata

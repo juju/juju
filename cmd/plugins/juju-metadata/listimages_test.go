@@ -88,6 +88,9 @@ custom  trusty  i386   europe  im-21     released  kvm        ebs
 public  vivid   amd64  europe  im-21     released  kvm        ebs
 public  trusty  i386   europe  im-21     released  kvm        ebs
 public  trusty  i386   europe  im-42     devel     kvm        ebs
+public  trusty  i386   europe  im-42     devel                ebs
+public  trusty  i386   europe  im-42     devel     kvm        
+public  trusty  i386   europe  im-42     devel                
 
 `[1:], "")
 }
@@ -98,57 +101,65 @@ custom:
   trusty:
     amd64:
       europe:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
     i386:
       asia:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
       europe:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
   vivid:
     amd64:
       asia:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
       europe:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
       us:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
 public:
   trusty:
     i386:
       europe:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
-      - image_id: im-42
+        virt-type: kvm
+        storage-type: ebs
+      - image-id: im-42
         stream: devel
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
+      - image-id: im-42
+        stream: devel
+        storage-type: ebs
+      - image-id: im-42
+        stream: devel
+        virt-type: kvm
+      - image-id: im-42
+        stream: devel
   vivid:
     amd64:
       europe:
-      - image_id: im-21
+      - image-id: im-21
         stream: released
-        virt_type: kvm
-        storage_type: ebs
+        virt-type: kvm
+        storage-type: ebs
 `[1:], "", "--format", "yaml")
 }
 
@@ -331,5 +342,31 @@ var testData = []params.CloudImageMetadata{
 		Stream:          "devel",
 		VirtType:        "kvm",
 		RootStorageType: "ebs",
+	},
+	params.CloudImageMetadata{
+		Source:          "public",
+		Series:          "trusty",
+		Arch:            "i386",
+		Region:          "europe",
+		ImageId:         "im-42",
+		Stream:          "devel",
+		RootStorageType: "ebs",
+	},
+	params.CloudImageMetadata{
+		Source:   "public",
+		Series:   "trusty",
+		Arch:     "i386",
+		Region:   "europe",
+		ImageId:  "im-42",
+		Stream:   "devel",
+		VirtType: "kvm",
+	},
+	params.CloudImageMetadata{
+		Source:  "public",
+		Series:  "trusty",
+		Arch:    "i386",
+		Region:  "europe",
+		ImageId: "im-42",
+		Stream:  "devel",
 	},
 }

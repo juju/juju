@@ -34,8 +34,8 @@ type MetadataInfo struct {
 	Series          string `yaml:"series" json:"series"`
 	Arch            string `yaml:"arch" json:"arch"`
 	Region          string `yaml:"region" json:"region"`
-	ImageId         string `yaml:"image_id" json:"image_id"`
+	ImageId         string `yaml:"image-id" json:"image-id"`
 	Stream          string `yaml:"stream" json:"stream"`
-	VirtType        string `yaml:"virt_type" json:"virt_type"`
-	RootStorageType string `yaml:"storage_type" json:"storage_type"`
+	VirtType        string `yaml:"virt-type,omitempty" json:"virt-type,omitempty"`
+	RootStorageType string `yaml:"storage-type,omitempty" json:"storage-type,omitempty"`
 }
