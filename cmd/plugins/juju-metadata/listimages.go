@@ -185,7 +185,10 @@ func (m metadataInfos) Len() int {
 // latest series are at the beginning of the collection.
 func (m metadataInfos) Less(i, j int) bool {
 	if m[i].Source != m[j].Source {
-		// alphabetical order
+		// Alphabetical order here is incidentally does what we want:
+		// we want "custom" metadata to precede
+		// "public" metadata.
+		// This may need to b revisited if more meatadata sources will be discovered.
 		return m[i].Source < m[j].Source
 	}
 	if m[i].Series != m[j].Series {
