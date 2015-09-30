@@ -1027,17 +1027,17 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
-func makeSubnetInfo(cidr, subnetId, availZone string) (network.SubnetInfo, error) {
+func makeSubnetInfo(cidr string, subnetId network.Id, availZone string) (network.SubnetInfo, error) {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
-		return nil, err
+		return network.SubnetInfo{}, err
 	}
 	// ec2 only uses IPv4 addresses for subnets
 	start, err := network.IPv4ToDecimal(ip)
 	if err != nil {
 		logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
-		return nil, err
+		return network.SubnetInfo{}, err
 	}
 	// First four addresses in a subnet are reserved, see
 	// http://goo.gl/rrWTIo
@@ -1052,7 +1052,7 @@ func makeSubnetInfo(cidr, subnetId, availZone string) (network.SubnetInfo, error
 
 	info := network.SubnetInfo{
 		CIDR:              cidr,
-		ProviderId:        network.Id(subnetId),
+		ProviderId:        subnetId,
 		VLANTag:           0, // Not supported on EC2
 		AllocatableIPLow:  allocatableLow,
 		AllocatableIPHigh: allocatableHigh,
@@ -1075,7 +1075,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			return results, errors.Trace(err)
 		}
 		for _, iface := range interfaces {
-			info, err := makeSubnetInfo(iface.Cidr, iface.SubnetId, iface.AvailZone)
+			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailZone)
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -1109,7 +1109,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 		}
 		subIdSet[subnet.Id] = true
 		cidr := subnet.CIDRBlock
-		info, err := makeSubnetInfo(cidr, subnet.Id, subnet.AvailZone)
+		info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), subnet.AvailZone)
 		if err != nil {
 			// Error will already have been logged
 			continue
