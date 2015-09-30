@@ -147,7 +147,7 @@ func (c *ListImagesCommand) getImageMetadataListAPI() (MetadataListAPI, error) {
 }
 
 // convertDetailsToInfo converts cloud image metadata received from api to
-// structure native to CLI and sort it.
+// structure native to CLI.
 func convertDetailsToInfo(details []params.CloudImageMetadata) []MetadataInfo {
 	if len(details) == 0 {
 		return nil
