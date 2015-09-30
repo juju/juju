@@ -1059,6 +1059,7 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 		AllocatableIPHigh: allocatableHigh,
 		AvailabilityZones: availZones,
 	}
+	logger.Tracef("found subnet with info %#v", info)
 	return info, nil
 
 }
@@ -1101,7 +1102,6 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 		}
 	} else {
 		ec2Inst := e.ec2()
-		// We can't filter by instance id here, unfortunately.
 		resp, err := ec2Inst.Subnets(nil, nil)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
@@ -1122,10 +1122,9 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			cidr := subnet.CIDRBlock
 			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
 			if err != nil {
-				// Error will already have been logged
+				// Error will already have been logged.
 				continue
 			}
-			logger.Tracef("found subnet with info %#v", info)
 			results = append(results, info)
 
 		}
