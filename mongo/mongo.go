@@ -373,14 +373,28 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		}
 	}
 
-	mongoPkg := packageForSeries(operatingsystem)
+	mongoPkgs := packagesForSeries(operatingsystem)
 
-	pkgs := []string{mongoPkg}
+	// TODO(perrito666) this needs to go BEFORE this hits production.
+	if err = pacman.InstallPrerequisite(); err != nil {
+		return errors.Annotate(err, "cannot install prerequisite")
+	}
+	if err = pacman.AddRepository("ppa:hduran-8/juju-mongodb2.6"); err != nil {
+		return errors.Annotate(err, "cannot add ppa for mongodb 2.6")
+	}
+	if err = pacman.AddRepository("ppa:hduran-8/juju-mongodb3"); err != nil {
+		return errors.Annotate(err, "cannot add ppa for mongodb 3")
+	}
+	if err = pacman.Update(); err != nil {
+		return errors.Annotate(err, "cannot update sources")
+	}
+
+	pkgs := mongoPkgs
 	if numaCtl {
-		pkgs = []string{mongoPkg, numaCtlPkg}
-		logger.Infof("installing %s and %s", mongoPkg, numaCtlPkg)
+		pkgs = append(mongoPkgs, numaCtlPkg)
+		logger.Infof("installing %v and %s", mongoPkgs, numaCtlPkg)
 	} else {
-		logger.Infof("installing %s", mongoPkg)
+		logger.Infof("installing %v", mongoPkgs)
 	}
 
 	for i, _ := range pkgs {
@@ -420,13 +434,13 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 
 // packageForSeries returns the name of the mongo package for the series
 // of the machine that it is going to be running on.
-func packageForSeries(series string) string {
+func packagesForSeries(series string) []string {
 	switch series {
 	case "precise", "quantal", "raring", "saucy", "centos7":
-		return "mongodb-server"
+		return []string{"mongodb-server"}
 	default:
 		// trusty and onwards
-		return "juju-mongodb"
+		return []string{"juju-mongodb", "juju-mongodb2.6", "juju-mongodb3"}
 	}
 }
 

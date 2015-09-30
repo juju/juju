@@ -339,6 +339,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if featureflag.String() != "" {
 			bootstrapCommand = osenv.JujuFeatureFlagEnvKey + "=" + featureflag.String() + " "
 		}
+
 		// The bootstrapping is always run with debug on.
 		bootstrapCommand += w.icfg.JujuTools() + "/jujud bootstrap-state" +
 			" --data-dir " + shquote(w.icfg.DataDir) +

@@ -43,7 +43,7 @@ type UserdataConfig interface {
 	ConfigureJuju() error
 }
 
-// UserdataConfig is supposed to take in an instanceConfig as well as a
+// NewUserdataConfig is supposed to take in an instanceConfig as well as a
 // cloudinit.cloudConfig and add attributes in the cloudinit structure based on
 // the values inside instanceConfig and on the series
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {

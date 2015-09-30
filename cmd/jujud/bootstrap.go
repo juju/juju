@@ -209,20 +209,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
 
-	logger.Debugf("%v", featureflag.All())
-	if featureflag.Enabled(feature.Mongo3) {
-		logger.Debugf("GHAAA MONGO 3 IS ENABLED")
-		err := c.ChangeConfig(func(config agent.ConfigSetter) error {
-			logger.Debugf("THIS SETTER WAS DEFINITELY CALLED")
-			config.SetMongoVersion(mongo.Mongo31)
-			return nil
-		})
-		if err != nil {
-			return errors.Annotate(err, "cannot set mongo version")
-		}
+	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
+		config.SetMongoVersion(mongo.Mongo31)
+		return nil
+	})
+	if err != nil {
+		return errors.Annotate(err, "cannot set mongo version")
 	}
+
 	agentConfig = c.CurrentConfig()
-	logger.Debugf("THIS IS HOW MONGO 3 ROLLS %q", agentConfig.MongoVersion())
 
 	// Create system-identity file
 	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
