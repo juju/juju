@@ -1027,7 +1027,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
-func makeSubnetInfo(cidr string, subnetId network.Id, availZone string) (network.SubnetInfo, error) {
+func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
@@ -1056,7 +1056,7 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZone string) (network
 		VLANTag:           0, // Not supported on EC2
 		AllocatableIPLow:  allocatableLow,
 		AllocatableIPHigh: allocatableHigh,
-		AvailabilityZones: []string{availZone},
+		AvailabilityZones: availZones,
 	}
 	return info, nil
 
@@ -1075,7 +1075,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			return results, errors.Trace(err)
 		}
 		for _, iface := range interfaces {
-			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailZone)
+			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -1109,7 +1109,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 		}
 		subIdSet[subnet.Id] = true
 		cidr := subnet.CIDRBlock
-		info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), subnet.AvailZone)
+		info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
 		if err != nil {
 			// Error will already have been logged
 			continue

@@ -120,6 +120,10 @@ type InterfaceInfo struct {
 	// subnet.
 	ProviderSubnetId Id
 
+	// AvailabilityZones are the availability zones the associated subnet
+	// are in.
+	AvailabilityZones []string
+
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
