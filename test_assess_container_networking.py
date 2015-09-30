@@ -1,3 +1,4 @@
+import yaml
 from mock import (
     patch,
     Mock,
@@ -9,12 +10,11 @@ from jujupy import (
     Status,
 )
 
-import sys
-from StringIO import StringIO
 import assess_container_networking as jcnet
 from copy import deepcopy
 from contextlib import contextmanager
 from test_utility import parse_error
+from argparse import ArgumentParser
 
 
 class JujuMock(object):
@@ -27,6 +27,11 @@ class JujuMock(object):
         self.commands = []
         self.next_machine = 1
         self._ssh_output = []
+        self._spaces = {}
+        self._subnets = {}
+        self._subnet_count = 0
+        self._ssh_machine_output = {}
+        self._next_service_machine = 1
 
     def add_machine(self, args):
         if isinstance(args, tuple) and args[0] == '-n':
@@ -109,14 +114,53 @@ class JujuMock(object):
             self.add_machine(args)
 
         elif cmd == 'ssh':
-            if len(self._ssh_output) == 0:
+            if args[0] in self._ssh_machine_output:
+                ssh_output = self._ssh_machine_output[args[0]]
+            else:
+                ssh_output = self._ssh_output
+
+            if len(ssh_output) == 0:
                 return ""
 
             try:
-                return self._ssh_output[self._call_number()]
+                return ssh_output[self._call_number()]
             except IndexError:
                 # If we ran out of values, just return the last one
-                return self._ssh_output[-1]
+                return ssh_output[-1]
+
+        elif cmd == 'space create':
+            self._spaces[args] = []
+        elif cmd == 'space list':
+            return yaml.dump({'spaces': self._spaces})
+        elif cmd == 'subnet add':
+            subnet = '10.{}.0.0/16'.format(self._subnet_count)
+            self._subnet_count += 1
+
+            self._spaces[args[1]].append(subnet)
+            self._subnets[subnet] = args[0]
+        elif cmd == 'deploy':
+            parser = ArgumentParser()
+            # Due to a long standing bug in argparse, we can't use positional
+            # arguments with a '-' in their value. If you got here wondering
+            # if you could deploy a charm with a name foo-bar, yes, you can
+            # with Juju, but you can't with this test framework. Sorry.
+            parser.add_argument('charm')
+            parser.add_argument('name', nargs='?', default=None)
+            parser.add_argument('--constraints', nargs=1, default="")
+            args = parser.parse_args(args)
+
+            if args.name:
+                self.add_service(args.name, self._next_service_machine, 0)
+            else:
+                self.add_service(args.charm, self._next_service_machine, 0)
+
+            self._next_service_machine += 1
+
+        elif cmd == 'scp':
+            pass
+
+        else:
+            raise ValueError("Unpatched command: {} {}".format(cmd, args))
 
     @contextmanager
     def juju_async(self, cmd, args):
@@ -135,14 +179,17 @@ class JujuMock(object):
     def set_status(self, status):
         self._status = deepcopy(status)
 
-    def set_ssh_output(self, ssh_output):
-        self._ssh_output = deepcopy(ssh_output)
+    def set_ssh_output(self, ssh_output, machine_id=None):
+        if machine_id is not None:
+            self._ssh_machine_output[machine_id] = deepcopy(ssh_output)
+        else:
+            self._ssh_output = deepcopy(ssh_output)
 
     def reset_calls(self):
         self._call_n = 0
 
 
-class TestContainerNetworking(TestCase):
+class JujuMockTestCase(TestCase):
     def setUp(self):
         self.client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
@@ -165,6 +212,7 @@ class TestContainerNetworking(TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
+class TestContainerNetworking(JujuMockTestCase):
     def assert_ssh(self, args, machine, cmd):
         self.assertEqual(args, [('ssh', machine, cmd), ])
 

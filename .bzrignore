@@ -1,3 +1,5 @@
 ./manual-provider-home
 ./juju-ci-tools.common_*.deb
 /.idea
+/logs
+/repository
