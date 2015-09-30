@@ -79,7 +79,7 @@ func (c *ListImagesCommand) Init(args []string) (err error) {
 func (c *ListImagesCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-images",
-		Purpose: "lists image metadata for environment",
+		Purpose: "lists cloud image metadata used when choosing an image to start",
 		Doc:     ListCommandDoc,
 	}
 }
