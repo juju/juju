@@ -47,6 +47,7 @@ func Main(args []string) {
 	metadatacmd.Register(envcmd.Wrap(&ToolsMetadataCommand{}))
 	metadatacmd.Register(envcmd.Wrap(&ValidateToolsMetadataCommand{}))
 	metadatacmd.Register(&SignMetadataCommand{})
+	metadatacmd.Register(envcmd.Wrap(&ListImagesCommand{}))
 
 	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))
 }

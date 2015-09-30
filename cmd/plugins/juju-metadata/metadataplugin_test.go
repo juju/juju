@@ -31,6 +31,7 @@ var metadataCommandNames = []string{
 	"generate-image",
 	"generate-tools",
 	"help",
+	"list-images",
 	"sign",
 	"validate-images",
 	"validate-tools",
@@ -93,4 +94,8 @@ func (s *MetadataSuite) TestHelpValidateTools(c *gc.C) {
 
 func (s *MetadataSuite) TestHelpGenerateImage(c *gc.C) {
 	s.assertHelpOutput(c, "generate-image")
+}
+
+func (s *MetadataSuite) TestHelpListImage(c *gc.C) {
+	s.assertHelpOutput(c, "list-images")
 }
