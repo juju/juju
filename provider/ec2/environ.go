@@ -1069,13 +1069,29 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 // NetworkingEnviron.Subnets.
 func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
+	subIdSet := make(map[string]bool)
+	for _, subId := range subnetIds {
+		subIdSet[string(subId)] = false
+	}
+
 	if instId != instance.UnknownId {
 		interfaces, err := e.NetworkInterfaces(instId)
 		if err != nil {
 			return results, errors.Trace(err)
 		}
+		if len(subnetIds) == 0 {
+			for _, iface := range interfaces {
+				subnetIds = append(subnetIds, iface.ProviderSubnetId)
+			}
+		}
 		for _, iface := range interfaces {
-			// XXX need to check subnetIds
+
+			_, ok := subIdSet[string(iface.ProviderSubnetId)]
+			if !ok {
+				logger.Tracef("subnet %q not in %v, skipping", iface.ProviderSubnetId, subnetIds)
+				continue
+			}
+			subIdSet[string(iface.ProviderSubnetId)] = true
 			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
@@ -1083,41 +1099,36 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			}
 			results = append(results, info)
 		}
-		return results, nil
-	}
-	ec2Inst := e.ec2()
-	// We can't filter by instance id here, unfortunately.
-	resp, err := ec2Inst.Subnets(nil, nil)
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to retrieve subnets")
-	}
-	if len(subnetIds) == 0 {
-		for _, subnet := range resp.Subnets {
-			subnetIds = append(subnetIds, network.Id(subnet.Id))
-		}
-	}
-
-	subIdSet := make(map[string]bool)
-	for _, subId := range subnetIds {
-		subIdSet[string(subId)] = false
-	}
-
-	for _, subnet := range resp.Subnets {
-		_, ok := subIdSet[subnet.Id]
-		if !ok {
-			logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
-			continue
-		}
-		subIdSet[subnet.Id] = true
-		cidr := subnet.CIDRBlock
-		info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
+	} else {
+		ec2Inst := e.ec2()
+		// We can't filter by instance id here, unfortunately.
+		resp, err := ec2Inst.Subnets(nil, nil)
 		if err != nil {
-			// Error will already have been logged
-			continue
+			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
-		logger.Tracef("found subnet with info %#v", info)
-		results = append(results, info)
+		if len(subnetIds) == 0 {
+			for _, subnet := range resp.Subnets {
+				subnetIds = append(subnetIds, network.Id(subnet.Id))
+			}
+		}
 
+		for _, subnet := range resp.Subnets {
+			_, ok := subIdSet[subnet.Id]
+			if !ok {
+				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
+				continue
+			}
+			subIdSet[subnet.Id] = true
+			cidr := subnet.CIDRBlock
+			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
+			if err != nil {
+				// Error will already have been logged
+				continue
+			}
+			logger.Tracef("found subnet with info %#v", info)
+			results = append(results, info)
+
+		}
 	}
 
 	notFound := []string{}
