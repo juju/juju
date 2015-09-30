@@ -210,7 +210,7 @@ var convertToParams = func(published []*envmetadata.ImageMetadata) params.Metada
 		// Translate version (eg.14.04) to a series (eg. "trusty")
 		s, err := series.VersionSeries(p.Version)
 		if err != nil {
-			logger.Warningf("could not determine series %v", err)
+			logger.Warningf("could not determine series for image id %s: %v", p.Id, err)
 			continue
 		}
 		metadata[i].Series = s
