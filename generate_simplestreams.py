@@ -121,7 +121,8 @@ def write_streams(out_d, trees, updated, namer=None):
 def parse_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument(
-        'items_file', metavar='items-file', help='File to read items from')
+        'items_file', metavar='items-file', help='File to read items from',
+        nargs='+')
     parser.add_argument(
         'out_d', metavar='output-dir',
         help='The directory to write stream files to.')
@@ -148,19 +149,15 @@ def write_release_index(out_d):
 
 def main():
     args = parse_args()
-    items = read_items_file(args.items_file)
+    items = []
+    for items_file in args.items_file:
+        items.extend(read_items_file(items_file))
     updated = util.timestamp()
 
     data = {'updated': updated, 'datatype': 'content-download'}
     trees = items2content_trees(items, data)
     out_filenames = write_streams(args.out_d, trees, updated, JujuFileNamer)
     out_filenames.append(write_release_index(args.out_d))
-    if False:
-        for filef in out_filenames:
-            sys.stderr.write("signing %s\n" % filef)
-            #toolutil.signjson_file(filef)
-
-
 
 
 if __name__ == '__main__':
