@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type AddImageSuite struct {
+type addImageSuite struct {
 	BaseClouImageMetadataSuite
 
 	data []params.CloudImageMetadata
@@ -25,11 +25,11 @@ type AddImageSuite struct {
 	mockAPI *mockAddAPI
 }
 
-var _ = gc.Suite(&AddImageSuite{})
+var _ = gc.Suite(&addImageSuite{})
 
 var emptyMetadata = []params.CloudImageMetadata{}
 
-func (s *AddImageSuite) SetUpTest(c *gc.C) {
+func (s *addImageSuite) SetUpTest(c *gc.C) {
 	s.BaseClouImageMetadataSuite.SetUpTest(c)
 
 	s.data = emptyMetadata
@@ -44,24 +44,30 @@ func (s *AddImageSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *AddImageSuite) TestAddImageMetadata(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadata(c *gc.C) {
 	s.assertValidAddImageMetadata(c, "", "", constructTestImageMetadata())
 }
 
-func (s *AddImageSuite) TestAddImageMetadataWithStream(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataWithStream(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Stream = "streamV"
 	s.assertValidAddImageMetadata(c, "", "", m)
 }
 
-func (s *AddImageSuite) TestAddImageMetadataAWS(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataWithRegion(c *gc.C) {
+	m := constructTestImageMetadata()
+	m.Region = "region"
+	s.assertValidAddImageMetadata(c, "", "", m)
+}
+
+func (s *addImageSuite) TestAddImageMetadataAWS(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.VirtType = "vType"
 	m.RootStorageType = "sType"
 	s.assertValidAddImageMetadata(c, "", "", m)
 }
 
-func (s *AddImageSuite) TestAddImageMetadataAWSWithSize(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataAWSWithSize(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.VirtType = "vType"
 	m.RootStorageType = "sType"
@@ -72,7 +78,7 @@ func (s *AddImageSuite) TestAddImageMetadataAWSWithSize(c *gc.C) {
 	s.assertValidAddImageMetadata(c, "", "", m)
 }
 
-func (s *AddImageSuite) TestAddImageMetadataFailed(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataFailed(c *gc.C) {
 	msg := "failed"
 	s.mockAPI.add = func(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error) {
 		return nil, errors.New(msg)
@@ -81,7 +87,7 @@ func (s *AddImageSuite) TestAddImageMetadataFailed(c *gc.C) {
 	s.assertAddImageMetadataErr(c, constructTestImageMetadata(), msg)
 }
 
-func (s *AddImageSuite) TestAddImageMetadataError(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataError(c *gc.C) {
 	msg := "failed"
 
 	s.mockAPI.add = func(metadata []params.CloudImageMetadata) ([]params.ErrorResult, error) {
@@ -95,35 +101,28 @@ func (s *AddImageSuite) TestAddImageMetadataError(c *gc.C) {
 	s.assertAddImageMetadataErr(c, constructTestImageMetadata(), msg)
 }
 
-func (s *AddImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.ImageId = ""
 
 	s.assertAddImageMetadataErr(c, m, "image id must be supplied when adding an image metadata")
 }
 
-func (s *AddImageSuite) TestAddImageMetadataNoRegion(c *gc.C) {
-	m := constructTestImageMetadata()
-	m.Region = ""
-
-	s.assertAddImageMetadataErr(c, m, "region must be supplied when adding an image metadata")
-}
-
-func (s *AddImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Series = ""
 
 	s.assertAddImageMetadataErr(c, m, "series must be supplied when adding an image metadata")
 }
 
-func (s *AddImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
+func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Arch = ""
 
 	s.assertAddImageMetadataErr(c, m, "architecture must be supplied when adding an image metadata")
 }
 
-func (s *AddImageSuite) assertValidAddImageMetadata(c *gc.C, expectedValid, expectedErr string, m params.CloudImageMetadata) {
+func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, expectedValid, expectedErr string, m params.CloudImageMetadata) {
 	args := getAddImageMetadataCmdFlags(m)
 	context, err := runAddImageMetadata(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,7 +140,7 @@ func runAddImageMetadata(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c, envcmd.Wrap(&AddImageMetadataCommand{}), args...)
 }
 
-func (s *AddImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMetadata, msg string) {
+func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMetadata, msg string) {
 	args := getAddImageMetadataCmdFlags(m)
 	_, err := runAddImageMetadata(c, args...)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -151,7 +150,6 @@ func (s *AddImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMe
 func constructTestImageMetadata() params.CloudImageMetadata {
 	return params.CloudImageMetadata{
 		ImageId: "im-33333",
-		Region:  "region",
 		Series:  "series",
 		Arch:    "arch",
 		Source:  "custom",

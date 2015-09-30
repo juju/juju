@@ -14,7 +14,7 @@ import (
 )
 
 const AddImageCommandDoc = `
-Add image metadata to Juju environment. 
+Add image metadata to Juju environment.
 
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
@@ -27,11 +27,11 @@ options:
 --region
    cloud region
 --series
-   comma separated list of series
+   image series
 --arch
-   comma separated list of architectures
+   image architectures
 --virt-type
-   virtualisation type [provider specific], e.g. pv
+   virtualisation type [provider specific], e.g. hmv
 --storage-type
    root storage type [provider specific], e.g. ebs
 --storage-size
@@ -58,9 +58,6 @@ type AddImageMetadataCommand struct {
 func (c *AddImageMetadataCommand) Init(args []string) (err error) {
 	// Check all mandatory properties supplied.
 	if err := checkArgumentSet(c.ImageId, "image id"); err != nil {
-		return err
-	}
-	if err := checkArgumentSet(c.Region, "region"); err != nil {
 		return err
 	}
 	if err := checkArgumentSet(c.Series, "series"); err != nil {
