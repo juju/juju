@@ -20,15 +20,47 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type ListSuite struct {
+type BaseClouImageMetadataSuite struct {
 	testing.BaseSuite
+}
+
+func (s *BaseClouImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.setupBaseSuite(c)
+}
+
+func (s *BaseClouImageMetadataSuite) setupBaseSuite(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	memstore := configstore.NewMem()
+	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
+		return memstore, nil
+	})
+	os.Setenv(osenv.JujuEnvEnvKey, "testing")
+	info := memstore.CreateInfo("testing")
+	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
+	info.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses:   []string{"127.0.0.1:12345"},
+		Hostnames:   []string{"localhost:12345"},
+		CACert:      testing.CACert,
+		EnvironUUID: "env-uuid",
+	})
+	info.SetAPICredentials(configstore.APICredentials{
+		User:     "user-test",
+		Password: "password",
+	})
+	err := info.Write()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type ListSuite struct {
+	BaseClouImageMetadataSuite
 	mockAPI *mockListAPI
 }
 
 var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
-	s.setupBaseSuite(c)
+	s.BaseClouImageMetadataSuite.SetUpTest(c)
 
 	s.mockAPI = &mockListAPI{}
 	s.mockAPI.list = func(stream, region string, ser, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
@@ -207,31 +239,6 @@ func (s mockListAPI) Close() error {
 
 func (s mockListAPI) List(stream, region string, ser, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 	return s.list(stream, region, ser, arch, virtType, rootStorageType)
-}
-
-func (s *ListSuite) setupBaseSuite(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	memstore := configstore.NewMem()
-	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
-		return memstore, nil
-	})
-	os.Setenv(osenv.JujuEnvEnvKey, "testing")
-	info := memstore.CreateInfo("testing")
-	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"127.0.0.1:12345"},
-		Hostnames:   []string{"localhost:12345"},
-		CACert:      testing.CACert,
-		EnvironUUID: "env-uuid",
-	})
-	info.SetAPICredentials(configstore.APICredentials{
-		User:     "user-test",
-		Password: "password",
-	})
-	err := info.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 var testData = []params.CloudImageMetadata{
