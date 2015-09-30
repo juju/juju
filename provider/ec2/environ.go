@@ -1009,13 +1009,14 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		cidr := subnet.CIDRBlock
 
 		result[i] = network.InterfaceInfo{
-			DeviceIndex:      iface.Attachment.DeviceIndex,
-			MACAddress:       iface.MACAddress,
-			CIDR:             cidr,
-			NetworkName:      "", // Not needed for now.
-			ProviderId:       network.Id(iface.Id),
-			ProviderSubnetId: network.Id(iface.SubnetId),
-			VLANTag:          0, // Not supported on EC2.
+			DeviceIndex:       iface.Attachment.DeviceIndex,
+			MACAddress:        iface.MACAddress,
+			CIDR:              cidr,
+			NetworkName:       "", // Not needed for now.
+			ProviderId:        network.Id(iface.Id),
+			ProviderSubnetId:  network.Id(iface.SubnetId),
+			AvailabilityZones: []string{subnet.AvailZone},
+			VLANTag:           0, // Not supported on EC2.
 			// Getting the interface name is not supported on EC2, so fake it.
 			InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
 			Disabled:      false,
@@ -1075,6 +1076,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			return results, errors.Trace(err)
 		}
 		for _, iface := range interfaces {
+			// XXX need to check subnetIds
 			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
