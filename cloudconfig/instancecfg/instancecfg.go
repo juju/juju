@@ -183,10 +183,6 @@ type InstanceConfig struct {
 	// instances. If enabled, the OS will perform any upgrades
 	// available as part of its provisioning.
 	EnableOSUpgrade bool
-
-	// Mongo3 specifies if the state server should use mongo 3 as a default.
-	// This will only be considered if Bootstrap is true.
-	Mongo3 bool
 }
 
 func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
