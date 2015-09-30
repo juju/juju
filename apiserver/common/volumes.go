@@ -160,6 +160,7 @@ func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachmen
 func VolumeAttachmentInfoFromState(info state.VolumeAttachmentInfo) params.VolumeAttachmentInfo {
 	return params.VolumeAttachmentInfo{
 		info.DeviceName,
+		info.DeviceLink,
 		info.BusAddress,
 		info.ReadOnly,
 	}
@@ -200,6 +201,7 @@ func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, name
 func VolumeAttachmentInfoToState(in params.VolumeAttachmentInfo) state.VolumeAttachmentInfo {
 	return state.VolumeAttachmentInfo{
 		in.DeviceName,
+		in.DeviceLink,
 		in.BusAddress,
 		in.ReadOnly,
 	}

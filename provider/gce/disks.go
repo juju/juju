@@ -222,24 +222,18 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 			VolumeId:   gceDisk.Name,
 			Size:       gceDisk.Size,
 			Persistent: true,
-			HardwareId: fmt.Sprintf(
-				// TODO(axw) 2015-09-29 #1500803
-				//
-				// This should be "google-%s", but we currently
-				// only record a single /dev/disk/by-id path
-				// against block devices, and it happens to be
-				// the one below. We should record them all,
-				// and allow any of them to match.
-				"scsi-0Google_PersistentDisk_%s",
-				attachedDisk.DeviceName,
-			),
 		},
 	}
 
 	volumeAttachment = &storage.VolumeAttachment{
 		p.Tag,
 		p.Attachment.Machine,
-		storage.VolumeAttachmentInfo{},
+		storage.VolumeAttachmentInfo{
+			DeviceLink: fmt.Sprintf(
+				"/dev/disk/by-id/google-%s",
+				attachedDisk.DeviceName,
+			),
+		},
 	}
 
 	return volume, volumeAttachment, nil
