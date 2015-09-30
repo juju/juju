@@ -606,9 +606,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	}
 
 	// First without numbers.
-	nextName = ec2.BlockDeviceNamer(awsec2.Instance{
-		VirtType: "hvm",
-	})
+	nextName = ec2.BlockDeviceNamer(false)
 	expect("/dev/sdf", "xvdf")
 	expect("/dev/sdg", "xvdg")
 	expect("/dev/sdh", "xvdh")
@@ -623,9 +621,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	expectErr("too many EBS volumes to attach")
 
 	// Now with numbers.
-	nextName = ec2.BlockDeviceNamer(awsec2.Instance{
-		VirtType: "paravirtual",
-	})
+	nextName = ec2.BlockDeviceNamer(true)
 	expect("/dev/sdf1", "xvdf1")
 	expect("/dev/sdf2", "xvdf2")
 	expect("/dev/sdf3", "xvdf3")
