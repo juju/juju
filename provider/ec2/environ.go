@@ -1027,14 +1027,62 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
+func makeSubnetInfo(cidr, subnetId, availZone string) (network.SubnetInfo, error) {
+	ip, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
+		return nil, err
+	}
+	// ec2 only uses IPv4 addresses for subnets
+	start, err := network.IPv4ToDecimal(ip)
+	if err != nil {
+		logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
+		return nil, err
+	}
+	// First four addresses in a subnet are reserved, see
+	// http://goo.gl/rrWTIo
+	allocatableLow := network.DecimalToIPv4(start + 4)
+
+	ones, bits := ipnet.Mask.Size()
+	zeros := bits - ones
+	numIPs := uint32(1) << uint32(zeros)
+	highIP := start + numIPs - 1
+	// The last address in a subnet is also reserved (see same ref).
+	allocatableHigh := network.DecimalToIPv4(highIP - 1)
+
+	info := network.SubnetInfo{
+		CIDR:              cidr,
+		ProviderId:        network.Id(subnetId),
+		VLANTag:           0, // Not supported on EC2
+		AllocatableIPLow:  allocatableLow,
+		AllocatableIPHigh: allocatableHigh,
+		AvailabilityZones: []string{availZone},
+	}
+	return info, nil
+
+}
+
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. instId
 // equal to instance.UnknownId is the only supported value, other ones
 // result in NotSupportedError. subnetIds can be empty, in which case
 // all known are returned. Implements NetworkingEnviron.Subnets.
 func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	var results []network.SubnetInfo
 	if instId != instance.UnknownId {
-		return nil, errors.NotSupportedf("instId")
+		interfaces, err := e.NetworkInterfaces(instId)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		for _, iface := range interfaces {
+			info, err := makeSubnetInfo(iface.Cidr, iface.SubnetId, iface.AvailZone)
+			if err != nil {
+				// Error will already have been logged.
+				continue
+			}
+			results = append(results, info)
+		}
+		return results, nil
 	}
 	ec2Inst := e.ec2()
 	// We can't filter by instance id here, unfortunately.
@@ -1053,7 +1101,6 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 		subIdSet[string(subId)] = false
 	}
 
-	var results []network.SubnetInfo
 	for _, subnet := range resp.Subnets {
 		_, ok := subIdSet[subnet.Id]
 		if !ok {
@@ -1061,40 +1108,15 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			continue
 		}
 		subIdSet[subnet.Id] = true
-
 		cidr := subnet.CIDRBlock
-		ip, ipnet, err := net.ParseCIDR(cidr)
+		info, err := makeSubnetInfo(cidr, subnet.Id, subnet.AvailZone)
 		if err != nil {
-			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
+			// Error will already have been logged
 			continue
-		}
-		// ec2 only uses IPv4 addresses for subnets
-		start, err := network.IPv4ToDecimal(ip)
-		if err != nil {
-			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
-			continue
-		}
-		// First four addresses in a subnet are reserved, see
-		// http://goo.gl/rrWTIo
-		allocatableLow := network.DecimalToIPv4(start + 4)
-
-		ones, bits := ipnet.Mask.Size()
-		zeros := bits - ones
-		numIPs := uint32(1) << uint32(zeros)
-		highIP := start + numIPs - 1
-		// The last address in a subnet is also reserved (see same ref).
-		allocatableHigh := network.DecimalToIPv4(highIP - 1)
-
-		info := network.SubnetInfo{
-			CIDR:              cidr,
-			ProviderId:        network.Id(subnet.Id),
-			VLANTag:           0, // Not supported on EC2
-			AllocatableIPLow:  allocatableLow,
-			AllocatableIPHigh: allocatableHigh,
-			AvailabilityZones: []string{subnet.AvailZone},
 		}
 		logger.Tracef("found subnet with info %#v", info)
 		results = append(results, info)
+
 	}
 
 	notFound := []string{}
