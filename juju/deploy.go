@@ -40,8 +40,13 @@ type DeployServiceParams struct {
 	Storage  map[string]storage.Constraints
 }
 
+type ServiceDeployer interface {
+	Environment() (*state.Environment, error)
+	AddService(state.AddServiceArgs) (*state.Service, error)
+}
+
 // DeployService takes a charm and various parameters and deploys it.
-func DeployService(st *state.State, args DeployServiceParams) (*state.Service, error) {
+func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service, error) {
 	if args.NumUnits > 1 && len(args.Placement) == 0 && args.ToMachineSpec != "" {
 		return nil, fmt.Errorf("cannot use --num-units with --to")
 	}

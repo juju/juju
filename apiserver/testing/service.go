@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -35,16 +37,33 @@ func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
+
+	checkUnits := func(failOnNotAssigned bool) error {
+
+		units, err := service.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
-		machine, err := st.Machine(mid)
-		c.Assert(err, jc.ErrorIsNil)
-		machineCons, err := machine.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(machineCons, gc.DeepEquals, cons)
+		for _, unit := range units {
+			mid, err := unit.AssignedMachineId()
+			if failOnNotAssigned {
+				c.Assert(err, jc.ErrorIsNil)
+			} else if err != nil {
+				return err
+			}
+			machine, err := st.Machine(mid)
+			c.Assert(err, jc.ErrorIsNil)
+			machineCons, err := machine.Constraints()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(machineCons, gc.DeepEquals, cons)
+		}
+		return nil
 	}
+	for x := 0; x < 30; x++ {
+		err = checkUnits(false)
+		if err == nil {
+			break
+		}
+		<-time.After(100 * time.Millisecond)
+	}
+	checkUnits(true)
 	return service
 }

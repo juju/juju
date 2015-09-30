@@ -6,6 +6,7 @@ package api_test
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -43,7 +44,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.HasLen, 0)
 	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), gc.HasLen, 0)
 	// Next check that the best versions match
-	c.Check(*api.FacadeVersions, gc.DeepEquals, serverFacadeBestVersions)
+	c.Check(*api.FacadeVersions, jc.DeepEquals, serverFacadeBestVersions)
 }
 
 func checkBestVersion(c *gc.C, desiredVersion int, versions []int, expectedVersion int) {

@@ -1256,12 +1256,16 @@ func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.O
 	}
 }
 
-// AssignStagedUnits gets called by the UnitAssigner worker, and simply runs the
-// assignments stored in the DB that have not yet been run.
+// AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
+// assignments.
 func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error) {
 	col, close := st.getCollection(assignUnitC)
 	defer close()
 	docs := []assignUnitDoc{}
+
+	for i, id := range ids {
+		ids[i] = st.docID(id)
+	}
 
 	sel := bson.D{{"_id", bson.D{{"$in", ids}}}}
 	if err := col.Find(sel).All(&docs); err != nil {
@@ -1280,7 +1284,21 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 		results[i].Unit = doc.Unit
 		results[i].Error = err
 	}
+	for _, id := range ids {
+		if !resContains(results, id) {
+			results = append(results, UnitAssignmentResult{Unit: id, Error: errors.NotFoundf("unit %q", id)})
+		}
+	}
 	return results, nil
+}
+
+func resContains(res []UnitAssignmentResult, id string) bool {
+	for _, r := range res {
+		if r.Unit == id {
+			return true
+		}
+	}
+	return false
 }
 
 func (st *State) assignStagedUnit(doc assignUnitDoc) error {

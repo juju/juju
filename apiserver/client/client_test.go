@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/apiserver/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -39,6 +40,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/unitassigner"
 )
 
 type Killer interface {
@@ -1605,6 +1608,7 @@ var _ = gc.Suite(&clientRepoSuite{})
 func (s *clientRepoSuite) SetUpSuite(c *gc.C) {
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.baseSuite.SetUpSuite(c)
+
 }
 
 func (s *clientRepoSuite) TearDownSuite(c *gc.C) {
@@ -1616,6 +1620,14 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.CharmStoreSuite.Session = s.baseSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
+
+	c.Assert(s.APIState, gc.NotNil)
+
+	runner := worker.NewRunner(func(error) bool { return false }, cmdutil.MoreImportant)
+	runner.StartWorker("unitassigner", func() (worker.Worker, error) {
+		c.Assert(s.APIState, gc.NotNil)
+		return unitassigner.New(s.APIState.UnitAssigner()), nil
+	})
 }
 
 func (s *clientRepoSuite) TearDownTest(c *gc.C) {
@@ -1788,12 +1800,29 @@ func (s *clientRepoSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-	mid, err := units[0].AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mid, gc.Equals, machine.Id())
+	checkUnits := func(failOnNotAssigned bool) error {
+
+		units, err := service.AllUnits()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(units, gc.HasLen, 1)
+
+		mid, err := units[0].AssignedMachineId()
+		if failOnNotAssigned {
+			c.Assert(err, jc.ErrorIsNil)
+		} else if err != nil {
+			return err
+		}
+		c.Assert(mid, gc.Equals, machine.Id())
+		return nil
+	}
+	for x := 0; x < 30; x++ {
+		err = checkUnits(false)
+		if err == nil {
+			break
+		}
+		<-time.After(100 * time.Millisecond)
+	}
+	checkUnits(true)
 }
 
 func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
