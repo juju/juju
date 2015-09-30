@@ -35,6 +35,7 @@ func (s *steps125Suite) TestStateStepsFor125(c *gc.C) {
 		"add binding to filesystem",
 		"add status to volume",
 		"add preferred addresses to machines",
+		"upgrade environment config",
 	}
 	assertStateSteps(c, version.MustParse("1.25.0"), expected)
 }

@@ -84,7 +84,7 @@ func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	s.instId = inst.Id()
 	s.attachmentParams = &storage.VolumeAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
-			Provider:   gce.GCEProviderType,
+			Provider:   "gce",
 			Machine:    mTag,
 			InstanceId: s.instId,
 		},
@@ -94,7 +94,7 @@ func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	s.params = []storage.VolumeParams{{
 		Tag:        vTag,
 		Size:       1024,
-		Provider:   gce.GCEProviderType,
+		Provider:   "gce",
 		Attachment: s.attachmentParams,
 	}}
 
