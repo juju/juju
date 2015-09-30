@@ -26,9 +26,9 @@ options:
    image identifier
 --region
    cloud region
---series
+--series (= "trusty")
    image series
---arch
+--arch (= "amd64")
    image architectures
 --virt-type
    virtualisation type [provider specific], e.g. hmv
@@ -36,8 +36,8 @@ options:
    root storage type [provider specific], e.g. ebs
 --storage-size
    root storage size [provider specific]
---stream
-   image stream [optional]
+--stream (= "released")
+   image stream
 `
 
 // AddImageMetadataCommand stores image metadata in Juju environment.
@@ -56,14 +56,7 @@ type AddImageMetadataCommand struct {
 
 // Init implements Command.Init.
 func (c *AddImageMetadataCommand) Init(args []string) (err error) {
-	// Check all mandatory properties supplied.
 	if err := checkArgumentSet(c.ImageId, "image id"); err != nil {
-		return err
-	}
-	if err := checkArgumentSet(c.Series, "series"); err != nil {
-		return err
-	}
-	if err := checkArgumentSet(c.Arch, "architecture"); err != nil {
 		return err
 	}
 	return nil
@@ -84,13 +77,14 @@ func (c *AddImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.StringVar(&c.ImageId, "image-id", "", "metadata image id")
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	f.StringVar(&c.Series, "series", "", "image series")
-	f.StringVar(&c.Arch, "arch", "", "image architecture")
+	// TODO (anastasiamac 2015-09-30) Ideally default should be latest LTS.
+	// Hard-coding "trusty" for now.
+	f.StringVar(&c.Series, "series", "trusty", "image series")
+	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
 	f.StringVar(&c.RootStorageType, "storage-type", "", "image metadata root storage type")
-
 	f.Uint64Var(&c.RootStorageSize, "storage-size", 0, "image metadata root storage size")
-	f.StringVar(&c.Stream, "stream", "", "image metadata stream")
+	f.StringVar(&c.Stream, "stream", "released", "image metadata stream")
 }
 
 // Run implements Command.Run.

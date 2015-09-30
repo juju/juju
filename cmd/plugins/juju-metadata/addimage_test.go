@@ -45,26 +45,26 @@ func (s *addImageSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *addImageSuite) TestAddImageMetadata(c *gc.C) {
-	s.assertValidAddImageMetadata(c, "", "", constructTestImageMetadata())
+	s.assertValidAddImageMetadata(c, constructTestImageMetadata())
 }
 
 func (s *addImageSuite) TestAddImageMetadataWithStream(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Stream = "streamV"
-	s.assertValidAddImageMetadata(c, "", "", m)
+	s.assertValidAddImageMetadata(c, m)
 }
 
 func (s *addImageSuite) TestAddImageMetadataWithRegion(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Region = "region"
-	s.assertValidAddImageMetadata(c, "", "", m)
+	s.assertValidAddImageMetadata(c, m)
 }
 
 func (s *addImageSuite) TestAddImageMetadataAWS(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.VirtType = "vType"
 	m.RootStorageType = "sType"
-	s.assertValidAddImageMetadata(c, "", "", m)
+	s.assertValidAddImageMetadata(c, m)
 }
 
 func (s *addImageSuite) TestAddImageMetadataAWSWithSize(c *gc.C) {
@@ -75,7 +75,7 @@ func (s *addImageSuite) TestAddImageMetadataAWSWithSize(c *gc.C) {
 	size := uint64(100)
 	m.RootStorageSize = &size
 
-	s.assertValidAddImageMetadata(c, "", "", m)
+	s.assertValidAddImageMetadata(c, m)
 }
 
 func (s *addImageSuite) TestAddImageMetadataFailed(c *gc.C) {
@@ -112,26 +112,31 @@ func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Series = ""
 
-	s.assertAddImageMetadataErr(c, m, "series must be supplied when adding an image metadata")
+	s.assertValidAddImageMetadata(c, m)
 }
 
 func (s *addImageSuite) TestAddImageMetadataNoArch(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.Arch = ""
 
-	s.assertAddImageMetadataErr(c, m, "architecture must be supplied when adding an image metadata")
+	s.assertValidAddImageMetadata(c, m)
 }
 
-func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, expectedValid, expectedErr string, m params.CloudImageMetadata) {
+func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, m params.CloudImageMetadata) {
 	args := getAddImageMetadataCmdFlags(m)
-	context, err := runAddImageMetadata(c, args...)
+	_, err := runAddImageMetadata(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedErr := testing.Stderr(context)
-	c.Assert(obtainedErr, gc.Matches, expectedErr)
-
-	obtainedValid := testing.Stdout(context)
-	c.Assert(obtainedValid, gc.Matches, expectedValid)
+	// Need to make sure that defaults are populated
+	if m.Series == "" {
+		m.Series = "trusty"
+	}
+	if m.Arch == "" {
+		m.Arch = "amd64"
+	}
+	if m.Stream == "" {
+		m.Stream = "released"
+	}
 
 	c.Assert(s.data, gc.DeepEquals, []params.CloudImageMetadata{m})
 }
@@ -159,19 +164,21 @@ func constructTestImageMetadata() params.CloudImageMetadata {
 func getAddImageMetadataCmdFlags(data params.CloudImageMetadata) []string {
 	args := []string{}
 
-	addFlag := func(flag, value string) {
+	addFlag := func(flag, value, defaultValue string) {
 		if value != "" {
 			args = append(args, flag, value)
+		} else {
+			args = append(args, flag, defaultValue)
 		}
 	}
 
-	addFlag("--image-id", data.ImageId)
-	addFlag("--region", data.Region)
-	addFlag("--series", data.Series)
-	addFlag("--arch", data.Arch)
-	addFlag("--virt-type", data.VirtType)
-	addFlag("--storage-type", data.RootStorageType)
-	addFlag("--stream", data.Stream)
+	addFlag("--image-id", data.ImageId, "")
+	addFlag("--region", data.Region, "")
+	addFlag("--series", data.Series, "trusty")
+	addFlag("--arch", data.Arch, "amd64")
+	addFlag("--virt-type", data.VirtType, "")
+	addFlag("--storage-type", data.RootStorageType, "")
+	addFlag("--stream", data.Stream, "released")
 
 	if data.RootStorageSize != nil {
 		args = append(args, "--storage-size", fmt.Sprintf("%d", *data.RootStorageSize))
