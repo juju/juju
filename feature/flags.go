@@ -62,6 +62,3 @@ const DisableRsyslog = "disable-rsyslog"
 
 // VSphereProvider enables the generic vmware provider.
 const VSphereProvider = "vsphere-provider"
-
-// Mongo3 enables bootstraping into mongo3.
-const Mongo3 = "mongo3"
