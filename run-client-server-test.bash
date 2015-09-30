@@ -16,7 +16,7 @@ log_dir="$5"
 
 set -x
 
-if [[ "$new_to_old" == "true"  && ! -d $HOME/old-juju/$candidate_version ]]; then
+if [[ "$new_to_old" == "true"  && -d $HOME/candidate/$candidate_version ]]; then
     echo "Using weekly streams for unreleased version"
     agent_arg="--agent-url http://juju-dist.s3.amazonaws.com/weekly/tools"
 else
