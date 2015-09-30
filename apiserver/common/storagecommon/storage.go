@@ -190,7 +190,7 @@ func volumeAttachmentDevicePath(
 ) (string, error) {
 	if volumeInfo.HardwareId != "" || volumeAttachmentInfo.DeviceName != "" || volumeAttachmentInfo.DeviceLink != "" {
 		// The storage provider has enough information to determine
-		// the device path, so use that rather than enquring about
+		// the device path, so use that rather than enquiring about
 		// block devices.
 		var deviceLinks []string
 		if volumeAttachmentInfo.DeviceLink != "" {
