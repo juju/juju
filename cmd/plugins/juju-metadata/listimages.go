@@ -17,6 +17,8 @@ const ListCommandDoc = `
 List information about image metadata stored in Juju environment.
 This list can be filtered using various filters as described below.
 
+More than one filter can be specified. Result will contain metadata that matches all filters in combination.
+
 If no filters are supplied, all stored image metadata will be listed.
 
 options:

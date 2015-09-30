@@ -78,7 +78,7 @@ func runList(c *gc.C, args []string) (*cmd.Context, error) {
 func (s *ListSuite) TestListDefault(c *gc.C) {
 	// Default format is tabular
 	s.assertValidList(c, `
-SOURCE  SERIES  ARCH   REGION  IMAGE_ID  STREAM    VIRT_TYPE  STORAGE_TYPE
+SOURCE  SERIES  ARCH   REGION  IMAGE-ID  STREAM    VIRT-TYPE  STORAGE-TYPE
 custom  vivid   amd64  asia    im-21     released  kvm        ebs
 custom  vivid   amd64  europe  im-21     released  kvm        ebs
 custom  vivid   amd64  us      im-21     released  kvm        ebs
@@ -227,6 +227,32 @@ func (s *ListSuite) TestListMetadataFilterStorageType(c *gc.C) {
 		return nil, nil
 	}
 	s.assertValidList(c, "", "", "--storage-type", msg)
+}
+
+func (s *ListSuite) TestListMetadataNoFilter(c *gc.C) {
+	s.mockAPI.list = func(stream, region string, ser, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+		c.Assert(rootStorageType, gc.DeepEquals, "")
+		c.Assert(virtType, gc.DeepEquals, "")
+		c.Assert(region, gc.DeepEquals, "")
+		c.Assert(stream, gc.DeepEquals, "")
+		c.Assert(ser, gc.IsNil)
+		c.Assert(arch, gc.IsNil)
+		return nil, nil
+	}
+	s.assertValidList(c, "", "")
+}
+
+func (s *ListSuite) TestListMetadataFewFilters(c *gc.C) {
+	streamValue := "streamValue"
+	regionValue := "regionValue"
+	typeValue := "typeValue"
+	s.mockAPI.list = func(stream, region string, ser, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+		c.Assert(stream, gc.DeepEquals, streamValue)
+		c.Assert(region, gc.DeepEquals, regionValue)
+		c.Assert(virtType, gc.DeepEquals, typeValue)
+		return nil, nil
+	}
+	s.assertValidList(c, "", "", "--stream", streamValue, "--region", regionValue, "--virt-type", typeValue)
 }
 
 func (s *ListSuite) assertValidList(c *gc.C, expectedValid, expectedErr string, args ...string) {
