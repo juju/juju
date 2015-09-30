@@ -37,9 +37,9 @@ options:
 --arch
    comma separated list of architectures
 --virt-type
-   virtualisation type, e.g. pv
+   virtualisation type [provider specific], e.g. hvm
 --storage-type
-   root storage type, e.g. ebs
+   root storage type [provider specific], e.g. ebs
 `
 
 // ListImagesCommand returns stored image metadata.
