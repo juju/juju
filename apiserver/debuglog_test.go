@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
@@ -19,7 +18,7 @@ import (
 // debugLogBaseSuite has tests that should be run for both the file
 // and DB based variants of debuglog, as well as some test helpers.
 type debugLogBaseSuite struct {
-	userAuthHttpSuite
+	authHttpSuite
 }
 
 func (s *debugLogBaseSuite) TestBadParams(c *gc.C) {
@@ -30,14 +29,16 @@ func (s *debugLogBaseSuite) TestBadParams(c *gc.C) {
 
 func (s *debugLogBaseSuite) TestWithHTTP(c *gc.C) {
 	uri := s.logURL(c, "http", nil).String()
-	_, err := s.sendRequest(c, httpRequestParams{method: "GET", url: uri})
-	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
+	s.sendRequest(c, httpRequestParams{
+		method:      "GET",
+		url:         uri,
+		expectError: `.*malformed HTTP response.*`,
+	})
 }
 
 func (s *debugLogBaseSuite) TestWithHTTPS(c *gc.C) {
 	uri := s.logURL(c, "https", nil).String()
-	response, err := s.sendRequest(c, httpRequestParams{method: "GET", url: uri})
-	c.Assert(err, jc.ErrorIsNil)
+	response := s.sendRequest(c, httpRequestParams{method: "GET", url: uri})
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 }
 

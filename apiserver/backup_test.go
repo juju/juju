@@ -28,12 +28,12 @@ import (
 )
 
 type baseBackupsSuite struct {
-	userAuthHttpSuite
+	authHttpSuite
 	fake *backupstesting.FakeBackups
 }
 
 func (s *baseBackupsSuite) SetUpTest(c *gc.C) {
-	s.userAuthHttpSuite.SetUpTest(c)
+	s.authHttpSuite.SetUpTest(c)
 
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
@@ -71,14 +71,12 @@ type backupsSuite struct {
 var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c)})
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c)})
 	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
 }
 
 func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
-	resp, err := s.authRequest(c, httpRequestParams{method: method, url: url})
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.authRequest(c, httpRequestParams{method: method, url: url})
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
 
@@ -101,19 +99,17 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.sendRequest(c, httpRequestParams{
+	resp := s.sendRequest(c, httpRequestParams{
 		tag:      machine.Tag().String(),
 		password: password,
 		method:   "GET",
 		url:      s.backupURL(c),
 		nonce:    "fake_nonce",
 	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "invalid entity name or password")
 
 	// Now try a user login.
-	resp, err = s.authRequest(c, httpRequestParams{method: "POST", url: s.backupURL(c)})
-	c.Assert(err, jc.ErrorIsNil)
+	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.backupURL(c)})
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
 }
 
@@ -143,9 +139,7 @@ func (s *backupsDownloadSuite) sendValid(c *gc.C) *http.Response {
 
 	ctype := apihttp.CTypeJSON
 	body := s.newBody(c, meta.ID())
-	resp, err := s.authRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c), contentType: ctype, body: body})
-	c.Assert(err, jc.ErrorIsNil)
-	return resp
+	return s.authRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c), contentType: ctype, body: body})
 }
 
 func (s *backupsDownloadSuite) TestCalls(c *gc.C) {
@@ -217,9 +211,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 
 	// Send the request.
 	ctype := writer.FormDataContentType()
-	resp, err := s.authRequest(c, httpRequestParams{method: "PUT", url: s.backupURL(c), contentType: ctype, body: &parts})
-	c.Assert(err, jc.ErrorIsNil)
-	return resp
+	return s.authRequest(c, httpRequestParams{method: "PUT", url: s.backupURL(c), contentType: ctype, body: &parts})
 }
 
 func (s *backupsUploadSuite) TestCalls(c *gc.C) {
