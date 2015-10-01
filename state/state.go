@@ -1137,12 +1137,28 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
+
 	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := validateStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	series := args.Charm.URL().Series
+
+	for _, placement := range args.Placement {
+		data, err := st.parsePlacement(placement)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if data.placementType() == directivePlacement {
+			if err := st.precheckInstance(series, args.Constraints, data.directive); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+	}
+
 	serviceID := st.docID(args.Name)
 	// Create the service addition operations.
 	peers := args.Charm.Meta().Peers
@@ -1150,13 +1166,14 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		DocID:         serviceID,
 		Name:          args.Name,
 		EnvUUID:       env.UUID(),
-		Series:        args.Charm.URL().Series,
+		Series:        series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
 		OwnerTag:      args.Owner,
 	}
+
 	svc := newService(st, svcDoc)
 
 	statusDoc := statusDoc{
@@ -1334,33 +1351,70 @@ func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placeme
 	return unit.AssignToMachine(m)
 }
 
+// placementData is a helper type that encodes some of the logic behind how an
+// instance.Placement gets translated into a placement directive the providers
+// understand.
+type placementData struct {
+	machineId     string
+	directive     string
+	containerType instance.ContainerType
+}
+
+type placementType int
+
+const (
+	containerPlacement placementType = iota
+	directivePlacement
+	machinePlacement
+)
+
+// placementType returns the type of placement that this data represents.
+func (p placementData) placementType() placementType {
+	if p.containerType != "" {
+		return containerPlacement
+	}
+	if p.directive != "" {
+		return directivePlacement
+	}
+	return machinePlacement
+}
+
+func (st *State) parsePlacement(placement *instance.Placement) (*placementData, error) {
+	// Extract container type and parent from container placement directives.
+	if container, err := instance.ParseContainerType(placement.Scope); err == nil {
+		return &placementData{
+			containerType: container,
+			machineId:     placement.Directive,
+		}, nil
+	}
+	switch placement.Scope {
+	case st.EnvironUUID():
+		return &placementData{directive: placement.Directive}, nil
+	case instance.MachineScope:
+		return &placementData{machineId: placement.Directive}, nil
+	default:
+		return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
+	}
+}
+
 // addMachineWithPlacement finds a machine that matches the given placment directive for the given unit.
 func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
 		return nil, err
 	}
-	var containerType instance.ContainerType
-	var mid, placementDirective string
-	// Extract container type and parent from container placement directives.
-	if containerType, err = instance.ParseContainerType(placement.Scope); err == nil {
-		mid = placement.Directive
-	} else {
-		switch placement.Scope {
-		case st.EnvironUUID():
-			placementDirective = placement.Directive
-		case instance.MachineScope:
-			mid = placement.Directive
-		default:
-			return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
-		}
+
+	data, err := st.parsePlacement(placement)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Create any new machine marked as dirty so that
 	// nothing else will grab it before we assign the unit to it.
 
-	// If a container is to be used, create it.
-	if containerType != "" {
+	switch data.placementType() {
+	case containerPlacement:
+		// If a container is to be used, create it.
 		template := MachineTemplate{
 			Series:            unit.Series(),
 			Jobs:              []MachineJob{JobHostUnits},
@@ -1368,23 +1422,22 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 			Constraints:       *unitCons,
 			RequestedNetworks: networks,
 		}
-		return st.AddMachineInsideMachine(template, mid, containerType)
-	}
-	// If a placement directive is to be used, do that here.
-	if placementDirective != "" {
+		return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+	case directivePlacement:
+		// If a placement directive is to be used, do that here.
 		template := MachineTemplate{
 			Series:            unit.Series(),
 			Jobs:              []MachineJob{JobHostUnits},
 			Dirty:             true,
 			Constraints:       *unitCons,
 			RequestedNetworks: networks,
-			Placement:         placementDirective,
+			Placement:         data.directive,
 		}
 		return st.AddOneMachine(template)
+	default:
+		// Otherwise use an existing machine.
+		return st.Machine(data.machineId)
 	}
-
-	// Otherwise use an existing machine.
-	return st.Machine(mid)
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an
