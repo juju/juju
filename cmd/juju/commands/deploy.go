@@ -186,6 +186,9 @@ func (c *DeployCommand) addCharm(ctx *cmd.Context, client *api.Client, csClient 
 	if err == nil {
 		return client.AddLocalCharm(curl, ch)
 	}
+	// We check for several types of known error which indicate
+	// that the supplied reference was indeed a path but there was
+	// an issue reading the charm located there.
 	if charm.IsMissingSeriesError(err) {
 		return nil, err
 	}
@@ -194,6 +197,11 @@ func (c *DeployCommand) addCharm(ctx *cmd.Context, client *api.Client, csClient 
 	}
 	if _, ok := err.(*charmrepo.NotFoundError); ok {
 		return nil, errors.Errorf("no charm found at %q", c.CharmReference)
+	}
+	// If we get a "not exists" error then we attempt to interpret the supplied
+	// charm reference as a URL below, otherwise we return the error.
+	if err != os.ErrNotExist {
+		return nil, err
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.

@@ -182,6 +182,11 @@ func (c *UpgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 	if _, ok := err.(*charmrepo.NotFoundError); ok {
 		return nil, errors.Errorf("no charm found at %q", charmRef)
 	}
+	// If we get a "not exists" error then we attempt to interpret the supplied
+	// charm reference as a URL below, otherwise we return the error.
+	if err != os.ErrNotExist {
+		return nil, err
+	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
 	conf, err := service.GetClientConfig(client)
