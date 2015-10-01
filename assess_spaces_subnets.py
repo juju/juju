@@ -64,6 +64,9 @@ def parse_args(argv=None):
 
 
 def assess_spaces_subnets(client):
+    """Check that space and subnet functionality works as expected
+    :param client: EnvJujuClient
+    """
     network_config = {
         'default': ['subnet-0fb97566', 'subnet-d27d91a9'],
         'dmz': ['subnet-604dcd09', 'subnet-882d8cf3'],
@@ -86,6 +89,13 @@ def assess_spaces_subnets(client):
 
 
 def _assess_spaces_subnets(client, network_config, charms_to_space):
+    """Check that space and subnet functionality works as expected
+    :param client: EnvJujuClient
+    :param network_config: Map of 'space name' to ['subnet', 'list']
+    :param charms_to_space: Map of 'unit name' to
+           {'space': 'space name', 'charm': 'charm name (if not same as unit)}
+    :return: None. Raises exception on failure.
+    """
     for space in sorted(network_config.keys()):
         client.juju('space create', space)
         for subnet in network_config[space]:
@@ -142,11 +152,13 @@ def _assess_spaces_subnets(client, network_config, charms_to_space):
 
 
 def ipv4_to_int(ipv4):
+    """Convert an IPv4 dotted decimal address to an integer"""
     b = [int(b) for b in ipv4.split('.')]
     return b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3]
 
 
 def ipv4_in_cidr(ipv4, cidr):
+    """Returns True if the given address is in the given CIDR"""
     if '/' in ipv4:
         ipv4, _ = ipv4.split('/')
     ipv4 = ipv4_to_int(ipv4)
