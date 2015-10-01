@@ -112,6 +112,12 @@ func (env *environ) Config() *config.Config {
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju state server.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+	// TODO(ericsnow) Ensure currently not the root user
+	// if remote is local host?
+
+	// Using the Bootstrap func from provider/common should be fine.
+	// Local provider does its own thing because it has to deal directly
+	// with localhost rather than using SSH.
 	return env.base.BootstrapEnv(ctx, params)
 }
 
