@@ -96,8 +96,6 @@ func (client *Client) Instance(name string) (*Instance, error) {
 // provided prefix. The result is also limited to those instances with
 // one of the specified statuses (if any).
 func (client *Client) Instances(prefix string, statuses ...string) ([]Instance, error) {
-	return nil, errors.NotImplementedf("")
-
 	infos, err := client.raw.ListContainers()
 	if err != nil {
 		return nil, errors.Trace(err)
