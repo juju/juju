@@ -32,6 +32,7 @@ class JujuMock(object):
         self._subnet_count = 0
         self._ssh_machine_output = {}
         self._next_service_machine = 1
+        self._services = {}
 
     def add_machine(self, args):
         if isinstance(args, tuple) and args[0] == '-n':
@@ -40,8 +41,8 @@ class JujuMock(object):
         else:
             self._add_machine(args)
 
-    def _add_machine(self, name):
-        if name == '':
+    def _add_machine(self, name=None):
+        if name is None:
             name = str(self.next_machine)
             self.next_machine += 1
 
@@ -65,25 +66,14 @@ class JujuMock(object):
             # normal machine
             self._status['machines'][name] = {}
 
-    def add_service(self, name, machine=0, instance_number=1):
+        return name
+
+    def add_service(self, name):
         # We just add a hunk of data captured from a real Juju run and don't
         # worry about how it doesn't match reality. It is enough to exercise
         # the code under test.
         new_service = {
-            'units': {
-                name + '/' + str(instance_number): {
-                    'machine': str(machine),
-                    'public-address': 'noxious-disgust.maas',
-                    'workload-status': {
-                        'current': 'unknown',
-                        'since': '06 Aug 2015 11:39:29+01:00'},
-                    'agent-status': {
-                        'current': 'idle',
-                        'since': '06 Aug 2015 11:39:33+01:00',
-                        'version': '1.25-alpha1.1'},
-                    'agent-state': 'started',
-                    'agent-version': '1.25-alpha1.1'}
-            },
+            'units': {},
             'service-status': {
                 'current': 'unknown',
                 'since': '06 Aug 2015 11:39:29+01:00'
@@ -92,6 +82,26 @@ class JujuMock(object):
             'relations': {'cluster': [name]},
             'exposed': False}
         self._status['services'][name] = deepcopy(new_service)
+        self._services[name] = 0
+        self.add_unit(name)
+
+    def add_unit(self, name):
+        machine = self._add_machine()
+        unit_name = name + '/' + str(self._services[name])
+        self._services[name] += 1
+        self._status['services'][name]['units'][unit_name] = {
+            'machine': str(machine),
+            'public-address': 'noxious-disgust.maas',
+            'workload-status': {
+                'current': 'unknown',
+                'since': '06 Aug 2015 11:39:29+01:00'},
+            'agent-status': {
+                'current': 'idle',
+                'since': '06 Aug 2015 11:39:33+01:00',
+                'version': '1.25-alpha1.1'},
+            'agent-state': 'started',
+            'agent-version': '1.25-alpha1.1',
+        }
 
     def juju(self, cmd, *args, **kwargs):
         if len(args) == 1:
@@ -150,11 +160,13 @@ class JujuMock(object):
             args = parser.parse_args(args)
 
             if args.name:
-                self.add_service(args.name, self._next_service_machine, 0)
+                self.add_service(args.name)
             else:
-                self.add_service(args.charm, self._next_service_machine, 0)
+                self.add_service(args.charm)
 
             self._next_service_machine += 1
+        elif cmd == 'add-unit':
+            self.add_unit(args)
 
         elif cmd == 'scp':
             pass

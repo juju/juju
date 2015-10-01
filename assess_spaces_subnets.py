@@ -56,24 +56,62 @@ def parse_args(argv=None):
 
         At termination, clean out services and machines from the environment
         rather than destroying it."""))
+    parser.add_argument(
+        '--keep-environment', action='store_true',
+        help="Don't destroy/clean the environment at the end of the test"
+    )
     return parser.parse_args(argv)
 
 
 def assess_spaces_subnets(client):
-    client.juju('space create', 'public')
-    client.juju('space create', 'dmz')
-    client.juju('subnet add', ('subnet-d27d91a9', 'public'))
-    client.juju('subnet add', ('subnet-0fb97566', 'dmz'))
-    client.juju('deploy', ('ubuntu', '--constraints', 'spaces=dmz'))
-    client.juju('deploy', ('ubuntu', 'ubuntu-public', '--constraints',
-                           'spaces=public'))
+    network_config = {
+        'default': ['subnet-0fb97566', 'subnet-d27d91a9'],
+        'dmz': ['subnet-604dcd09', 'subnet-882d8cf3'],
+        'apps': ['subnet-c13fbfa8', 'subnet-53da7a28'],
+        'backend': ['subnet-5e4dcd37', 'subnet-7c2c8d07'],
+    }
+
+    charms_to_space = {
+        'haproxy': {'space': 'dmz'},
+        'mediawiki': {'space': 'apps'},
+        'memcached': {'space': 'apps'},
+        'mysql': {'space': 'backend'},
+        'mysql-slave': {
+            'space': 'backend',
+            'charm': 'mysql',
+        },
+    }
+
+    _assess_spaces_subnets(client, network_config, charms_to_space)
+
+
+def _assess_spaces_subnets(client, network_config, charms_to_space):
+    for space in sorted(network_config.keys()):
+        client.juju('space create', space)
+        for subnet in network_config[space]:
+            client.juju('subnet add', (subnet, space))
+
+    for name in sorted(charms_to_space.keys()):
+        if 'charm' not in charms_to_space[name]:
+            charms_to_space[name]['charm'] = name
+        charm = charms_to_space[name]['charm']
+        space = charms_to_space[name]['space']
+        client.juju('deploy',
+                    (charm, name, '--constraints', 'spaces=' + space))
+
+    # Scale up. We don't specify constraints, but they should still be honored
+    # per charm.
+    client.juju('add-unit', 'mysql-slave')
+    client.juju('add-unit', 'mediawiki')
     status = client.wait_for_started()
+
     spaces = yaml.load(client.get_juju_output('space list'))
 
     unit_priv_address = {}
+    units_found = 0
     for service in sorted(status.status['services'].values()):
         for unit_name, unit in service.get('units', {}).items():
-
+            units_found += 1
             addrs = ssh(client, unit['machine'], 'ip -o addr')
             for addr in re.findall(r'^\d+:\s+(\w+)\s+inet\s+(\S+)',
                                    addrs, re.MULTILINE):
@@ -86,20 +124,19 @@ def assess_spaces_subnets(client):
         for cidr in attrs:
             cidrs_in_space[name].append(cidr)
 
-    expect = {
-        'ubuntu/0': 'dmz',
-        'ubuntu-public/0': 'public',
-    }
-
     units_checked = 0
     for space, cidrs in cidrs_in_space.iteritems():
         for cidr in cidrs:
             for unit, address in unit_priv_address.iteritems():
                 if ipv4_in_cidr(address, cidr):
                     units_checked += 1
-                    if expect[unit] != space:
+                    charm = unit.split('/')[0]
+                    if charms_to_space[charm]['space'] != space:
                         raise ValueError("Found {} in {}, expected {}".format(
-                            unit, space, expect[unit]))
+                            unit, space, charms_to_space[charm]['space']))
+
+    if units_found != units_checked:
+        raise ValueError("Could not find spaces for all units")
 
     return units_checked
 
@@ -171,10 +208,11 @@ def main():
     finally:
         if bootstrap_host is not None:
             dump_env_logs(client, bootstrap_host, args.logs)
-        if args.clean_environment:
-            clean_environment(client)
-        else:
-            client.destroy_environment()
+        if not args.keep_environment:
+            if args.clean_environment:
+                clean_environment(client)
+            else:
+                client.destroy_environment()
 
 
 if __name__ == '__main__':
