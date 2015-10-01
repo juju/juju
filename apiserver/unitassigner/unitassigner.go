@@ -20,15 +20,16 @@ type st interface {
 
 // API implements the functionality for assigning units to machines.
 type API struct {
-	st   st
-	res  *common.Resources
-	auth common.Authorizer
+	st  st
+	res *common.Resources
 }
 
-func New(st *state.State, res *common.Resources, auth common.Authorizer) (*API, error) {
-	return &API{st: st, res: res, auth: auth}, nil
+// New returns a new unitAssigner api instance.
+func New(st *state.State, res *common.Resources, _ common.Authorizer) (*API, error) {
+	return &API{st: st, res: res}, nil
 }
 
+//  AssignUnits assigns the units with the given ids to the correct machine.
 func (a *API) AssignUnits(args params.AssignUnitsParams) (params.AssignUnitsResults, error) {
 	var result params.AssignUnitsResults
 	res, err := a.st.AssignStagedUnits(args.IDs)
@@ -43,6 +44,8 @@ func (a *API) AssignUnits(args params.AssignUnitsParams) (params.AssignUnitsResu
 	return result, nil
 }
 
+// WatchUnitAssignments returns a strings watcher that is notified when new unit
+// assignments are added to the db.
 func (a *API) WatchUnitAssignments() (params.StringsWatchResult, error) {
 	watch := a.st.WatchForUnitAssignment()
 	if changes, ok := <-watch.Changes(); ok {
