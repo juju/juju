@@ -172,8 +172,16 @@ func (envs *Environs) logDeprecatedWarnings(attrs, newAttrs map[string]interface
 // ProviderRegistry is an interface that provides methods for registering
 // and obtaining environment providers by provider name.
 type ProviderRegistry interface {
+	// RegisterProvider registers a new environment provider with the given
+	// name, and zero or more aliases. If a provider already exists with the
+	// given name or alias, an error will be returned.
 	RegisterProvider(p EnvironProvider, providerType string, providerTypeAliases ...string) error
+
+	// RegisteredProviders returns the names of the registered environment
+	// providers.
 	RegisteredProviders() []string
+
+	// Provider returns the environment provider with the specified name.
 	Provider(providerType string) (EnvironProvider, error)
 }
 

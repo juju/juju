@@ -69,8 +69,8 @@ type EnvironProvider interface {
 // EnvironConfigUpgrader is an interface that an EnvironProvider may
 // implement in order to modify environment configuration on agent upgrade.
 type EnvironConfigUpgrader interface {
-	// UpgradeConfig returns the attributes to update and remove attributes
-	// from the environment configuration. UpgradeConfig must be idempotent,
+	// UpgradeConfig upgrades an old environment configuration by adding,
+	// updating or removing attributes. UpgradeConfig must be idempotent,
 	// as it may be called multiple times in the event of a partial upgrade.
 	//
 	// NOTE(axw) this is currently only called when upgrading to 1.25.
