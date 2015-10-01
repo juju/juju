@@ -107,7 +107,7 @@ func (client *Client) Instances(prefix string, statuses ...string) ([]Instance, 
 		if prefix != "" && !strings.HasPrefix(name, prefix) {
 			continue
 		}
-		if !checkStatus(info, statuses) {
+		if len(statuses) > 0 && !checkStatus(info, statuses) {
 			continue
 		}
 
