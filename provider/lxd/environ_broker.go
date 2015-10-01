@@ -87,8 +87,6 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_client.Instance, error) {
-	return nil, errors.NotImplementedf("")
-
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
 	metadata, err := getMetadata(args)
@@ -114,7 +112,10 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_clie
 	}
 
 	inst, err := env.raw.AddInstance(instSpec)
-	return inst, errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return inst, nil
 }
 
 // getMetadata builds the raw "user-defined" metadata for the new

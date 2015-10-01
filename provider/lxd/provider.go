@@ -40,10 +40,9 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 	}
 
 	if ctx.ShouldVerifyCredentials() {
-		return nil, errors.NotImplementedf("")
-		//if err := env.client.VerifyCredentials(); err != nil {
-		//	return nil, errors.Trace(err)
-		//}
+		if err := env.verifyCredentials(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return env, nil
 }
