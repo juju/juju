@@ -4,7 +4,10 @@
 package lxd_client
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 )
 
@@ -67,6 +70,20 @@ func (spec InstanceSpec) Summary(namespace string) InstanceSummary {
 	return newInstanceSummary(info)
 }
 
+// InstanceHardware describes the hardware characteristics of a LXC container.
+type InstanceHardware struct {
+	// Architecture is the CPU architecture.
+	Architecture string
+
+	// NumCores is the number of CPU cores.
+	NumCores uint
+
+	// MemoryMB is the memory allocation for the container.
+	MemoryMB uint
+
+	//RootDisk uint64
+}
+
 // InstanceSummary captures all the data needed by Instance.
 type InstanceSummary struct {
 	// Name is the "name" of the instance.
@@ -75,6 +92,9 @@ type InstanceSummary struct {
 	// Status holds the status of the instance at a certain point in time.
 	Status string
 
+	// Hardware describes the instance's hardware characterstics.
+	Hardware InstanceHardware
+
 	// Metadata is the instance metadata.
 	Metadata map[string]string
 
@@ -82,10 +102,28 @@ type InstanceSummary struct {
 }
 
 func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
+	archStr, _ := shared.ArchitectureName(info.Architecture)
+	archStr = arch.NormaliseArch(archStr)
+
+	var numCores uint = 0 // default to all
+	if raw := info.Config["limits.cpus"]; raw != "" {
+		fmt.Sscanf(raw, "%d", &numCores)
+	}
+
+	var mem uint = 0 // default to all
+	if raw := info.Config["limits.memory"]; raw != "" {
+		fmt.Sscanf(raw, "%d", &mem)
+	}
+
 	return InstanceSummary{
 		Name:     info.Name,
 		Status:   info.Status.State,
 		Metadata: unpackMetadata(info.Userdata),
+		Hardware: InstanceHardware{
+			Architecture: archStr,
+			NumCores:     numCores,
+			MemoryMB:     mem,
+		},
 	}
 }
 
