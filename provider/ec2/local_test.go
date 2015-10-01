@@ -967,6 +967,14 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	addr := fmt.Sprintf("10.10.%s.5", index)
 	subnetId := network.Id("subnet-" + index)
 
+	// AvailabilityZones will either contain "test-available",
+	// "test-impaired" or "test-unavailable" depending on which subnet is
+	// picked. Any of these is fine.
+	zones := interfaces[0].AvailabilityZones
+	c.Assert(zones, gc.HasLen, 1)
+	re = regexp.MustCompile("test-available|test-unavailable|test-impaired")
+	c.Assert(re.Match([]byte(zones[0])), jc.IsTrue)
+
 	expectedInterfaces := []network.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "20:01:60:cb:27:37",
@@ -979,7 +987,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
 		Address:           network.NewScopedAddress(addr, network.ScopeCloudLocal),
-		AvailabilityZones: []string{"test-available"},
+		AvailabilityZones: zones,
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
