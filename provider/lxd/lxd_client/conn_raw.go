@@ -16,7 +16,28 @@ import (
 // See https://github.com/lxc/lxd/blob/master/client.go
 // and https://github.com/lxc/lxd/blob/master/specs/rest-api.md.
 
+// TODO(ericsnow) Move these to a test suite.
+var (
+	_ rawClientWrapper     = (*lxd.Client)(nil)
+	_ rawClientWrapperFull = (*lxd.Client)(nil)
+)
+
+// rawClientWrapper exposes the methods of lxd.Client required for this
+// high-level client package.
 type rawClientWrapper interface {
+	// server methods
+	WaitForSuccess(waitURL string) error
+
+	// container methods
+	ListContainers() ([]shared.ContainerInfo, error)
+	ContainerStatus(name string, showLog bool) (*shared.ContainerState, error)
+	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
+	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
+	Delete(name string) (*lxd.Response, error)
+}
+
+// rawClientWrapperFull exposes all methods of lxd.Client.
+type rawClientWrapperFull interface {
 	rawServerMethods
 	rawImageMethods
 	rawAliasMethods
@@ -25,8 +46,11 @@ type rawClientWrapper interface {
 }
 
 type rawServerMethods interface {
+	// info
 	Finger() error
 	ServerStatus() (*shared.ServerState, error)
+
+	// config
 	GetServerConfigString() ([]string, error)
 	SetServerConfig(key string, value string) (*lxd.Response, error)
 
@@ -44,32 +68,37 @@ type rawServerMethods interface {
 }
 
 type rawImageMethods interface {
+	// info/meta
 	ListImages() ([]shared.ImageInfo, error)
 	GetImageInfo(image string) (*shared.ImageInfo, error)
 	PutImageProperties(name string, p shared.ImageProperties) error
 
+	// image data (create, upload, download, destroy)
 	CopyImage(image string, dest *lxd.Client, copy_aliases bool, aliases []string, public bool) error
+	ImageFromContainer(cname string, public bool, aliases []string, properties map[string]string) (string, error)
 	PostImage(imageFile string, rootfsFile string, properties []string, public bool, aliases []string) (string, error)
 	ExportImage(image string, target string) (*lxd.Response, string, error)
 	DeleteImage(image string) error
-
-	ImageFromContainer(cname string, public bool, aliases []string, properties map[string]string) (string, error)
 }
 
 type rawAliasMethods interface {
+	// info
 	ListAliases() ([]shared.ImageAlias, error)
 	IsAlias(alias string) (bool, error)
 
-	GetAlias(alias string) string
+	// alias data (upload, download, destroy)
 	PostAlias(alias string, desc string, target string) error
+	GetAlias(alias string) string
 	DeleteAlias(alias string) error
 }
 
 type rawContainerMethods interface {
+	// info/meta
 	ListContainers() ([]shared.ContainerInfo, error)
-	Rename(name string, newName string) (*lxd.Response, error)
+	//Rename(name string, newName string) (*lxd.Response, error)
 	ContainerStatus(name string, showLog bool) (*shared.ContainerState, error)
 
+	// container data (create, actions, destroy)
 	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
 	LocalCopy(source string, name string, config map[string]string, profiles []string) (*lxd.Response, error)
 	MigrateTo(container string) (*lxd.Response, error)
@@ -101,11 +130,13 @@ type rawContainerMethods interface {
 }
 
 type rawProfileMethods interface {
+	// info
 	ListProfiles() ([]string, error)
 
+	// profile data (create, upload, destroy)
 	ProfileCreate(p string) error
-	PutProfile(name string, profile shared.ProfileConfig) error
 	ProfileCopy(name, newname string, dest *lxd.Client) error
+	PutProfile(name string, profile shared.ProfileConfig) error
 	ProfileDelete(p string) error
 
 	// apply
