@@ -140,3 +140,8 @@ func (env *environ) Destroy() error {
 	}
 	return nil
 }
+
+func (env *environ) verifyCredentials() error {
+	// TODO(ericsnow) Do something here?
+	return nil
+}

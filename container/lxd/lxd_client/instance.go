@@ -142,7 +142,6 @@ func (gi Instance) Metadata() map[string]string {
 // by the API.
 func packMetadata(data map[string]string) []byte {
 	// TODO(ericsnow) finish!
-	panic("not finished")
 	return nil
 }
 
@@ -154,6 +153,5 @@ func unpackMetadata(data []byte) map[string]string {
 	}
 
 	// TODO(ericsnow) finish!
-	panic("not finished")
 	return nil
 }
