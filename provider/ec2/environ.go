@@ -1082,11 +1082,10 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 		}
 		if len(subnetIds) == 0 {
 			for _, iface := range interfaces {
-				subnetIds = append(subnetIds, iface.ProviderSubnetId)
+				subIdSet[string(iface.ProviderSubnetId)] = false
 			}
 		}
 		for _, iface := range interfaces {
-
 			_, ok := subIdSet[string(iface.ProviderSubnetId)]
 			if !ok {
 				logger.Tracef("subnet %q not in %v, skipping", iface.ProviderSubnetId, subnetIds)
@@ -1108,7 +1107,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 		}
 		if len(subnetIds) == 0 {
 			for _, subnet := range resp.Subnets {
-				subnetIds = append(subnetIds, network.Id(subnet.Id))
+				subIdSet[subnet.Id] = false
 			}
 		}
 
