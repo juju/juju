@@ -6,6 +6,7 @@ package apiserver
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -72,7 +73,12 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.S
 	}
 	entity, _, err := checkCreds(st, req, true, ctxt.authCtxt.authenticatorForTag)
 	if err != nil {
-		return nil, nil, errors.NewUnauthorized(err, "")
+		// All errors other than a macaroon-discharge error count as
+		// unauthorized at this point.
+		if !common.IsDischargeRequiredError(err) {
+			err = errors.NewUnauthorized(err, "")
+		}
+		return nil, nil, err
 	}
 	return st, entity, nil
 }
@@ -171,6 +177,7 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
 	}
 	w.Header().Set("Content-Type", apihttp.CTypeJSON)
+	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
 	w.WriteHeader(statusCode)
 	w.Write(body)
 }

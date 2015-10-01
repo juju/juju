@@ -175,7 +175,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 	for a := shortAttempt.Start(); a.Next(); {
 		for _, log := range s.logs.Log() {
-			c.Assert(log, jc.LessThan, loggo.ERROR)
+			c.Assert(log.Level, jc.LessThan, loggo.ERROR)
 		}
 	}
 

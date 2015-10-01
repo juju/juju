@@ -32,19 +32,18 @@ import (
 )
 
 type toolsSuite struct {
-	userAuthHttpSuite
+	authHttpSuite
 	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&toolsSuite{})
 
 func (s *toolsSuite) SetUpSuite(c *gc.C) {
-	s.userAuthHttpSuite.SetUpSuite(c)
-	s.archiveContentType = "application/x-tar-gz"
+	s.authHttpSuite.SetUpSuite(c)
 }
 
 func (s *toolsSuite) SetUpTest(c *gc.C) {
-	s.userAuthHttpSuite.SetUpTest(c)
+	s.authHttpSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
@@ -52,19 +51,20 @@ func (s *toolsSuite) SetUpTest(c *gc.C) {
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 	info := s.APIInfo(c)
 	uri := "http://" + info.Addrs[0] + "/tools"
-	_, err := s.sendRequest(c, httpRequestParams{method: "PUT", url: uri})
-	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
+	s.sendRequest(c, httpRequestParams{
+		method:      "PUT",
+		url:         uri,
+		expectError: `.*malformed HTTP response.*`,
+	})
 }
 
 func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, httpRequestParams{method: "GET", url: s.toolsURI(c, "")})
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.toolsURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
 }
 
 func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
-	resp, err := s.authRequest(c, httpRequestParams{method: "PUT", url: s.toolsURI(c, "")})
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.authRequest(c, httpRequestParams{method: "PUT", url: s.toolsURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
@@ -79,19 +79,16 @@ func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.sendRequest(c, httpRequestParams{tag: machine.Tag().String(), password: password, method: "POST", url: s.toolsURI(c, "")})
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.sendRequest(c, httpRequestParams{tag: machine.Tag().String(), password: password, method: "POST", url: s.toolsURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "machine 0 not provisioned")
 
 	// Now try a user login.
-	resp, err = s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
-	c.Assert(err, jc.ErrorIsNil)
+	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
-	resp, err := s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
@@ -100,8 +97,7 @@ func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
 	tempFile, err := ioutil.TempFile(c.MkDir(), "tools")
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), true, tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), "application/x-tar-gz", tempFile.Name())
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "no tools uploaded")
 }
 
@@ -111,8 +107,7 @@ func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now try with the default Content-Type.
-	resp, err := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), false, tempFile.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), "application/octet-stream", tempFile.Name())
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
@@ -130,9 +125,8 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	// Make some fake tools.
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	// Now try uploading them.
-	resp, err := s.uploadRequest(
-		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(
+		c, s.toolsURI(c, "?binaryVersion="+vers.String()), "application/x-tar-gz", toolPath)
 
 	// Check the response.
 	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
@@ -151,9 +145,8 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	// Block all changes.
 	s.BlockAllChanges(c, "TestUpload")
 	// Now try uploading them.
-	resp, err := s.uploadRequest(
-		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(
+		c, s.toolsURI(c, "?binaryVersion="+vers.String()), "application/x-tar-gz", toolPath)
 	problem := s.assertErrorResponse(c, resp, http.StatusBadRequest, "TestUpload")
 	s.AssertBlocked(c, problem, "TestUpload")
 
@@ -171,8 +164,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = "/tools"
-	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
 	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
@@ -183,8 +175,7 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = fmt.Sprintf("/environment/%s/tools", s.State.EnvironUUID())
-	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
 	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
@@ -196,8 +187,7 @@ func (s *toolsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = fmt.Sprintf("/environment/%s/tools", envState.EnvironUUID())
-	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
 	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), envState.EnvironUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
@@ -207,8 +197,7 @@ func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot access the tools at https://host:port/BADENVUUID/tools
 	url := s.toolsURL(c, "")
 	url.Path = "/environment/dead-beef-123456/tools"
-	resp, err := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
 
@@ -218,8 +207,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Now try uploading them. The tools will be cloned for
 	// each additional series specified.
 	params := "?binaryVersion=" + vers.String() + "&series=quantal,precise"
-	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, toolPath)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.uploadRequest(c, s.toolsURI(c, params), "application/x-tar-gz", toolPath)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 	// Check the response.
@@ -303,8 +291,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.downloadRequest(c, tools.Version, "")
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.downloadRequest(c, tools.Version, "")
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version)
 }
@@ -319,8 +306,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := s.downloadRequest(c, tools.Version, "")
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.downloadRequest(c, tools.Version, "")
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version)
 }
@@ -359,8 +345,7 @@ func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers version.Binary) {
 }
 
 func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
-	resp, err := s.downloadRequest(c, tools.Version, uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.downloadRequest(c, tools.Version, uuid)
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
@@ -373,8 +358,7 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 }
 
 func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
-	resp, err := s.downloadRequest(c, version.Current, "dead-beef-123456")
-	c.Assert(err, jc.ErrorIsNil)
+	resp := s.downloadRequest(c, version.Current, "dead-beef-123456")
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
 
@@ -392,7 +376,7 @@ func (s *toolsSuite) toolsURI(c *gc.C, query string) string {
 	return s.toolsURL(c, query).String()
 }
 
-func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) (*http.Response, error) {
+func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
 	url := s.toolsURL(c, "")
 	if uuid == "" {
 		url.Path = fmt.Sprintf("/tools/%s", version)
@@ -424,6 +408,6 @@ func (s *toolsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode i
 
 func jsonToolsResponse(c *gc.C, body []byte) (jsonResponse params.ToolsResult) {
 	err := json.Unmarshal(body, &jsonResponse)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
 	return
 }

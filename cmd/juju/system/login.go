@@ -123,6 +123,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	if c.loginAPIOpen == nil {
 		c.loginAPIOpen = c.JujuCommandBase.APIOpen
 	}
+
 	// TODO(thumper): as we support the user and address
 	// change this check here.
 	if c.Server.Path == "" {
@@ -167,7 +168,12 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	if serverDetails.Password == "" || serverDetails.Username == "" {
 		info.UseMacaroons = true
 	}
-
+	if c == nil {
+		panic("nil c")
+	}
+	if c.loginAPIOpen == nil {
+		panic("no loginAPIOpen")
+	}
 	apiState, err := c.loginAPIOpen(&info, api.DefaultDialOpts())
 	if err != nil {
 		return errors.Trace(err)
