@@ -707,7 +707,7 @@ func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
 	volumeId := findVolumeId(inst)
 	waitRootDiskAttempt := utils.AttemptStrategy{
 		Total: 5 * time.Minute,
-		Delay: 200 * time.Millisecond,
+		Delay: 5 * time.Second,
 	}
 	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
