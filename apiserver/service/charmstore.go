@@ -194,7 +194,11 @@ func resolveCharm(ref *charm.Reference, repo charmrepo.Interface) (*charm.URL, e
 	}
 
 	// Resolve the charm location with the repository.
-	curl, _, err := repo.Resolve(ref)
+	ref, _, err := repo.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	curl, err := ref.URL("")
 	if err != nil {
 		return nil, err
 	}

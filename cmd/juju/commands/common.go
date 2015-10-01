@@ -154,7 +154,11 @@ func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, rep
 		}
 		return curl, repo, nil
 	}
-	curl, _, err := repo.Resolve(ref)
+	ref, _, err = repo.Resolve(ref)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	curl, err := ref.URL("")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

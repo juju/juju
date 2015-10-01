@@ -398,7 +398,11 @@ func updateSecrets(env environs.Environ, st *state.State) error {
 func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision bool) (*state.Charm, error) {
 	if curl.Revision == -1 {
 		var err error
-		curl, _, err = repo.Resolve(curl.Reference())
+		ref, _, err := repo.Resolve(curl.Reference())
+		if err != nil {
+			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
+		}
+		curl, err = ref.URL("")
 		if err != nil {
 			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
 		}
