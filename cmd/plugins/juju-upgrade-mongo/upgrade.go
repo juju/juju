@@ -26,6 +26,19 @@ import (
 	"github.com/juju/utils"
 )
 
+const jujuDbPath = "/var/lib/juju/db"
+const jujuDbPathLocal = "~/.juju/local/db"
+const jujuAgentPath = "/var/lib/juju/agents/machine-0/agent.conf"
+const jujuAgentPathLocal = "~/.juju/local/agents/machine-0/agent.conf"
+
+const systemdfiles = `
+DBSERV=$(ls /etc/systemd/system/juju-db*.service | cut -d "/" -f5)
+AGENTSERV=$(ls /etc/systemd/system/juju-agent*.service 2>/dev/null | cut -d "/" -f5)
+if [ -n $AGENTSERV ]; then
+AGENTSERV=$(ls /etc/systemd/system/jujud*.service 2>/dev/null | cut -d "/" -f5)
+fi
+`
+
 const noauth = `
 NoAuth() {
     sed -i "s/--auth/--noauth/" /etc/systemd/system/juju-db*.service;
@@ -49,15 +62,15 @@ ReplSet() {
 
 const upgradeMongoInAgentConfig = `
 ReplaceVersion() {
-    	sed -i "s/mongoversion:.*/mongoversion: \"${1}\"/" /var/lib/juju/agents/machine-0/agent.conf
+    	sed -i "s/mongoversion:.*/mongoversion: \"${1}\"/" {{.JujuAgentPath}}
 }
 
 AddVersion () {
-    echo "mongoversion: \"${1}\"" >> /var/lib/juju/agents/machine-0/agent.conf
+    echo "mongoversion: \"${1}\"" >> {{.JujuAgentPath}}
 }
 
 UpgradeMongoVersion() {
-    VERSIONKEY=$(grep mongoversion /var/lib/juju/agents/machine-0/agent.conf)
+    VERSIONKEY=$(grep mongoversion {{.JujuAgentPath}})
     if [ -n "$VERSIONKEY" ]; then
 	ReplaceVersion $1;
     else
@@ -68,13 +81,15 @@ UpgradeMongoVersion() {
 
 const upgradeMongoBinary = `
 UpgradeMongoBinary() {
-    sed -i "s/juju\/bin/juju\/mongo${1}\/bin/" /etc/systemd/system/juju-db.service;
-    sed -i "s/juju\/mongo.*\/bin/juju\/mongo${1}\/bin/" /etc/systemd/system/juju-db.service;
+    sed -i "s/juju\/bin/juju\/mongo${1}\/bin/" /etc/systemd/system/juju-db*.service;
+    sed -i "s/juju\/mongo.*\/bin/juju\/mongo${1}\/bin/" /etc/systemd/system/juju-db*.service;
     if [ "$2" == "storage" ]; then
-	sed -i "s/--smallfiles//" /etc/systemd/system/juju-db.service;
-	sed -i "s/--noprealloc/--storageEngine wiredTiger/" /etc/systemd/system/juju-db.service;
+	sed -i "s/--smallfiles//" /etc/systemd/system/juju-db*.service;
+	sed -i "s/--noprealloc/--storageEngine wiredTiger/" /etc/systemd/system/juju-db*.service;
     fi
-    cat  /etc/systemd/system/juju-db.service
+    echo "------------------------------------------------------------"
+    cat  /etc/systemd/system/juju-db*.service
+    echo "------------------------------------------------------------"
 }
 `
 
@@ -82,14 +97,14 @@ const mongoEval = `
 mongoAdminEval() {
         echo "will run as admin: $1"
         attempts=0
-        until [ $attempts -ge 60 ]
+        until [ $attempts -ge 30 ]
         do
     	    mongo --ssl -u admin -p {{.OldPassword | shquote}} localhost:{{.StatePort}}/admin --eval "printjson($1)" && break
             echo "attempt $attempts"
             attempts=$[$attempts+1]
             sleep 10
         done
-        if [ $attempts -eq 60 ]; then
+        if [ $attempts -eq 30 ]; then
             exit 1
         fi
 }
@@ -97,16 +112,20 @@ mongoAdminEval() {
 mongoAnonEval() {
         echo "will run as anon: $1"
         attempts=0
-        until [ $attempts -ge 60 ]
+        until [ $attempts -ge 30 ]
         do
     	    mongo --ssl  localhost:{{.StatePort}}/admin --eval "printjson($1)" && break
             echo "attempt $attempts"
             attempts=$[$attempts+1]
             sleep 10
         done
-        if [ $attempts -eq 60 ]; then
+        if [ $attempts -eq 30 ]; then
             exit 1
         fi
+}
+
+rsConf() {
+RSCONF=$(mongo --ssl -u admin -p {{.OldPassword | shquote}} localhost:{{.StatePort}}/admin --eval "printjson(rs.conf())")
 }
 `
 
@@ -164,15 +183,23 @@ func mustParseTemplate(templ string) *template.Template {
 }
 
 type sshParams struct {
-	OldPassword string
-	StatePort   int
+	OldPassword   string
+	StatePort     int
+	JujuDbPath    string
+	JujuAgentPath string
 }
 
 // runViaSSH will run arbitrary code in the remote machine.
 func runViaSSH(addr, script string, params sshParams, stderr, stdout *bytes.Buffer, verbose bool, local bool) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
-	functions := upgradeMongoInAgentConfig + upgradeMongoBinary + mongoEval + replset + noauth
+	params.JujuDbPath = jujuDbPath
+	params.JujuAgentPath = jujuAgentPath
+	if local {
+		params.JujuDbPath = jujuDbPathLocal
+		params.JujuAgentPath = jujuAgentPathLocal
+	}
+	functions := systemdfiles + upgradeMongoInAgentConfig + upgradeMongoBinary + mongoEval + replset + noauth
 	var callable string
 	if verbose {
 		callable = `set -ux
@@ -253,10 +280,10 @@ func upgradeTo26(addr, password string, port int, local bool) error {
 	upgradeTo26Command := `/usr/lib/juju/bin/mongodump --ssl -u admin -p {{.OldPassword | shquote}} --port {{.StatePort}} --out ~/migrateTo26dump
 echo "dumped mongo"
 
-systemctl stop jujud-machine-0.service
+systemctl stop $AGENTSERV
 echo "stoped juju"
 
-systemctl stop juju-db.service
+systemctl stop $DBSERV
 echo "stoped mongo"
 
 UpgradeMongoVersion 2.6
@@ -268,17 +295,17 @@ echo "upgraded to 2.6 in systemd"
 systemctl daemon-reload
 echo "realoaded systemd"
 
-/usr/lib/juju/mongo2.6/bin/mongod --dbpath /var/lib/juju/db --replSet juju --upgrade
+/usr/lib/juju/mongo2.6/bin/mongod --dbpath {{.JujuDbPath}} --replSet juju --upgrade
 echo "upgraded mongo 2.6"
 
-systemctl start juju-db.service
+systemctl start $DBSERV
 echo "starting mongodb 2.6"
 
 sleep 120
 mongoAdminEval 'db.getSiblingDB("admin").runCommand({authSchemaUpgrade: 1 })'
 echo "upgraded auth schema."
 
-systemctl restart juju-db.service
+systemctl restart $DBSERV
 sleep 60
 
 ps faux | grep mongo
@@ -302,10 +329,13 @@ if [ $attempts -eq 60 ]; then
 fi
 echo "dumped for migration to 3"
 
-systemctl stop jujud-machine-0.service
+rsConf
+echo "rs.config $RSCONF"
+
+systemctl stop $AGENTSERV
 echo "stopped juju"
 
-systemctl stop juju-db.service
+systemctl stop $DBSERV
 echo "stopped mongo"
 ps faux | grep mongo
 
@@ -318,45 +348,45 @@ echo "upgrade systemctl call"
 systemctl daemon-reload
 echo "reload systemctl"
 
-systemctl start juju-db.service
+systemctl start $DBSERV
 echo "start mongo 3 without wt"
 
 echo "will wait"
 attempts=0
-until [ $attempts -ge 60 ]
+until [ $attempts -ge 30 ]
 do
     /usr/lib/juju/mongo3/bin/mongodump --ssl -u admin -p {{.OldPassword | shquote}} --port {{.StatePort}} --out ~/migrateToTigerDump  && break
     echo "attempt $attempts"
     attempts=$[$attempts+1]
     sleep 10
 done
-if [ $attempts -eq 60 ]; then
+if [ $attempts -eq 30 ]; then
             exit 1
 fi
 echo "perform migration dump"
 
-systemctl stop juju-db.service
+systemctl stop $DBSERV
 echo "stopped mongo"
 
 UpgradeMongoBinary 3 storage
 NoAuth
 NoReplSet
-cat /etc/systemd/system/juju-db.service
+cat /etc/systemd/system/juju-db*.service
 echo "upgrade mongo including storage"
 
 systemctl daemon-reload
 echo "reload systemctl"
 
-mv /var/lib/juju/db /var/lib/juju/db.old
+mv {{.JujuDbPath}} {{.JujuDbPath}}.old
 echo "move db"
 
-mkdir /var/lib/juju/db
+mkdir {{.JujuDbPath}}
 echo "create new db"
 
 systemctl start juju-db.service
 echo "start mongo"
 
-mongoAnonEval 'rs.initiate()'
+mongoAnonEval 'rs.initiate($RSCONF)'
 sleep 60
 echo "initiated peergrouper"
 
@@ -367,22 +397,22 @@ echo "initiated peergrouper"
 #Ignore blobstorage for now, it is causing a bug, most likely corruption?
 echo "restored backup to wt"
 
-systemctl stop juju-db.service
+systemctl stop $DBSERV
 echo "stop mongo"
 
 Auth
 ReplSet
-cat /etc/systemd/system/juju-db.service
+cat /etc/systemd/system/juju-db*.service
 systemctl daemon-reload
 echo "reload systemctl"
 
-systemctl start juju-db.service
+systemctl start $DBSERV
 echo "start mongo"
 
-systemctl start jujud-machine-0.service
+systemctl start $AGENTSERV
 echo "start juju"
 
-systemctl start juju-db.service
+systemctl start $DBSERV
 echo "start mongo"
 `
 	return runViaSSH(addr, upgradeTo3Command, sshParams{OldPassword: password, StatePort: port}, &stdoutBuf, &stderrBuf, true, local)
@@ -393,7 +423,7 @@ func ensureRunningServices(addr string, local bool) error {
 	var stdoutBuf bytes.Buffer
 	command := `
 sleep 60
-systemctl start juju-db.service
+systemctl start $DBSERV
 echo "start mongo"
 `
 	return runViaSSH(addr, command, sshParams{}, &stdoutBuf, &stderrBuf, true, local)
