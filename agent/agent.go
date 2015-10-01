@@ -294,7 +294,7 @@ type configSetterOnly interface {
 	// to run a state server
 	SetStateServingInfo(info params.StateServingInfo)
 
-	// SetMongoVersion sets the passed version as the current in use.
+	// SetMongoVersion sets the passed version as currently in use.
 	SetMongoVersion(mongo.Version)
 }
 
@@ -429,10 +429,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		preferIPv6:        configParams.PreferIPv6,
 		mongoVersion:      configParams.MongoVersion,
 	}
-	// no value means that this is not mongo 3 ready.
-	if config.mongoVersion == "" {
-		config.mongoVersion = mongo.Mongo24
-	}
+
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			addresses: configParams.StateAddresses,
