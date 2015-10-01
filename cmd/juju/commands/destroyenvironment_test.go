@@ -199,7 +199,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandTwiceOnNonStateServer(c *
 	_, err = s.ConfigStore.ReadInfo("dummy-non-state-server")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	// Simluate another client calling destroy on the same environment. This
+	// Simulate another client calling destroy on the same environment. This
 	// client will have a local cache of the environ info, so write it back out.
 	info := s.ConfigStore.CreateInfo("dummy-non-state-server")
 	info.SetAPIEndpoint(oldInfo.APIEndpoint())
@@ -210,7 +210,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandTwiceOnNonStateServer(c *
 	// Call destroy again.
 	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "dummy-non-state-server", "--yes")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "environment not found, removing config file\n")
+	c.Assert(coretesting.Stderr(context), gc.Equals, "")
 
 	// Check that the client's cached info has been removed.
 	_, err = s.ConfigStore.ReadInfo("dummy-non-state-server")
