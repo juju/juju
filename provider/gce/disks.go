@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	GCEProviderType = storage.ProviderType("gce")
+	storageProviderType = storage.ProviderType("gce")
 )
 
 func init() {
