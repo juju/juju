@@ -83,6 +83,13 @@ where <series> is the OS series, for example 'juju-trusty-template'.
 You can override the use of clone by changing the provider configuration:
   lxc-clone: false
 
+In more complex scenarios so called spaces are used to partition the cloud 
+instances into sets of subnets. Services inside a space can communicate
+without any firewall opposite t the communication between spaces. They also
+help establishing high available environments. When deploying a service
+the spaces constraint can be used to define a list of allowed and
+disallowed spaces.
+
 If you have the main container directory mounted on a btrfs partition,
 then the clone will be using btrfs snapshots to create the containers.
 This means that clones use up much less disk space.  If you do not have btrfs,
@@ -99,7 +106,12 @@ Examples:
    juju deploy mysql -n 5 --constraints mem=8G
    (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
+   juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
+   (deploy 2 instances of haproxy on cloud instances being part of the dmz
+    space but not of the cmd and the database space)
+
 See Also:
+   juju help networking
    juju help constraints
    juju help set-constraints
    juju help get-constraints

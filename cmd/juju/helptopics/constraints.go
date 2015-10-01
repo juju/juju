@@ -84,14 +84,14 @@ tags
    tags constraints are supported, the latter have a "^" prefix. Tags are
    currently only supported by the MaaS environment.
 
-networks
-   Networks defines the list of networks to ensure are available or not on the
-   machine. Both positive and negative network constraints can be specified, the
-   later have a "^" prefix to the name. Multiple networks must be delimited by a
-   comma. Not supported on all providers. Example: networks=storage,db,^logging
-   specifies to select machines with "storage" and "db" networks but not "logging"
-   network. Positive network constraints do not imply the networks will be enabled,
-   use the --networks argument for that, just that they could be enabled.
+spaces
+   Spaces defines a list of spaces which are allowed or disallowed to add a machine
+   or deploy a service to. Additionally it can contain a list of spaces which are
+   not allowed. All space names are separated by commas, the disallowed ones are
+   prefixed with a "^". The constraint controls which instance is chosen for the
+   new machine or service unit. It has to have distinct IP addresses on any subnet
+   of each allowed space in the list and none of the subnets associated with one
+   of the disallowed spaces. Currently MaaS and AWS are supported providers. 
 
 instance-type
    Instance-type is the provider-specific name of a type of machine to deploy,
