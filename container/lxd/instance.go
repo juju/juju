@@ -13,22 +13,26 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// TODO(ericsnow) Move this check to a test suite.
+var _ instance.Instance = (*lxdInstance)(nil)
+
+// lxdInstance implements instance.Instance.
 type lxdInstance struct {
 	id     string
 	client *lxd.Client
 }
 
-var _ instance.Instance = (*lxdInstance)(nil)
+// String returns a string representation of the instance, based on its ID.
+func (lxd *lxdInstance) String() string {
+	return fmt.Sprintf("lxd:%s", lxd.id)
+}
 
 // Id implements instance.Instance.Id.
 func (lxd *lxdInstance) Id() instance.Id {
 	return instance.Id(lxd.id)
 }
 
-func (*lxdInstance) Refresh() error {
-	return nil
-}
-
+// Addresses implements instance.Instance.Id.
 func (lxd *lxdInstance) Addresses() ([]network.Address, error) {
 	return nil, errors.NotImplementedf("lxdInstance.Addresses")
 }
@@ -56,9 +60,4 @@ func (lxd *lxdInstance) ClosePorts(machineId string, ports []network.PortRange) 
 // Ports implements instance.Instance.Ports.
 func (lxd *lxdInstance) Ports(machineId string) ([]network.PortRange, error) {
 	return nil, fmt.Errorf("not implemented")
-}
-
-// Add a string representation of the id.
-func (lxd *lxdInstance) String() string {
-	return fmt.Sprintf("lxd:%s", lxd.id)
 }
