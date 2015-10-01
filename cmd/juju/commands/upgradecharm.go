@@ -6,6 +6,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
-	"path/filepath"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
