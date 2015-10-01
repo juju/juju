@@ -35,6 +35,7 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 			"foo": "bar",
 			"baz": "nonsense",
 		}},
+		{AvailabilityZones: []string{"foo", "bar"}},
 	}
 }
 
@@ -66,6 +67,7 @@ func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 		"foo": "bar",
 		"baz": "nonsense",
 	})
+	c.Check(s.info[8].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
 }
 
 func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {
