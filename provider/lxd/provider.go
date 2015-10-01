@@ -16,7 +16,7 @@ var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg, newClient)
+	env, err := newEnviron(cfg, newRawProvider)
 	return env, errors.Trace(err)
 }
 
@@ -26,7 +26,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := newEnviron(cfg, newClient)
+	env, err := newEnviron(cfg, newRawProvider)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

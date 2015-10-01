@@ -71,7 +71,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	env = env.getSnapshot()
 
 	prefix := common.MachineFullName(env, "")
-	instances, err := env.client.Instances(prefix, instStatuses...)
+	instances, err := env.raw.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
 	// Turn google.Instance values into *environInstance values,
@@ -94,7 +94,7 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	env = env.getSnapshot()
 
 	prefix := common.MachineFullName(env, "")
-	instances, err := env.client.Instances(prefix, instStatuses...)
+	instances, err := env.raw.Instances(prefix, instStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
