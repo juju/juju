@@ -60,7 +60,7 @@ type SubnetInfo struct {
 	AllocatableIPLow  net.IP
 	AllocatableIPHigh net.IP
 
-	// AvailabilityZones describes with availability zone(s) this
+	// AvailabilityZones describes which availability zone(s) this
 	// subnet is in. It can be empty if the provider does not support
 	// availability zones.
 	AvailabilityZones []string
@@ -120,8 +120,8 @@ type InterfaceInfo struct {
 	// subnet.
 	ProviderSubnetId Id
 
-	// AvailabilityZones are the availability zones the associated subnet
-	// are in.
+	// AvailabilityZones describes the availability zones the associated
+	// subnet is in.
 	AvailabilityZones []string
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
