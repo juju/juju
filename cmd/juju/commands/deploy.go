@@ -52,14 +52,25 @@ const deployDoc = `
  - a charm URL (or an unambiguously condensed form of it)
  - a path to a charm directory
 
-If a URL is provided, assuming a default series of "precise",
-the following forms will be accepted:
+If a URL is provided, the following forms are equivalent:
 
-For cs:precise/mysql
-  mysql
+  cs:precise/mysql
   precise/mysql
 
-For cs:~user/precise/mysql
+and assuming a default series of "precise":
+
+  mysql
+  cs:mysql
+
+Note that as shown above, a charm URL may be specified without a schema.
+Normally, the charm store is assumed. However, the supplied charm details
+may also correspond to a relative path. If the supplied details are
+a valid path, we attempt to read the charm from that path. If a charm
+store charm is unambiguously required in all circumstance, use cs:<charm>.
+
+A user may also be specified:
+
+  cs:~user/precise/mysql
   cs:~user/mysql
 
 The default series is used when no series is provided by the user.

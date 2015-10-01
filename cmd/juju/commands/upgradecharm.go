@@ -162,7 +162,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
 }
 
-// addCharm interprets the new charmRef and adds the specified charm if the new is different
+// addCharm interprets the new charmRef and adds the specified charm if the new charm is different
 // to what's already deployed as specified by oldURL.
 func (c *UpgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *cmd.Context,
 	client *api.Client, csClient *csClient,

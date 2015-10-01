@@ -140,7 +140,7 @@ func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, rep
 	}
 	if ref.Schema == "local" && ref.Series == "" {
 		possibleURL := *ref
-		possibleURL.Series = "trusty"
+		possibleURL.Series = config.LatestLtsSeries()
 		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
 	}
@@ -154,6 +154,8 @@ func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, rep
 		}
 		return curl, repo, nil
 	}
+	// TODO(wallyworld) - charm store does not yet support returning the
+	// supported series for a charm.
 	ref, _, err = repo.Resolve(ref)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
