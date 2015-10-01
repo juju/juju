@@ -8,9 +8,9 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/container/lxd/lxd_client"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/lxd/lxd_client"
 )
 
 // The LXD-specific config keys.
