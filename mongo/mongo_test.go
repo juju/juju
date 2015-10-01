@@ -708,7 +708,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 
 	match := []string{
 		"--yes",
-		"ppa:juju/stable",
+		"\"ppa:juju/stable\"",
 	}
 
 	testing.AssertEchoArgs(c, "add-apt-repository", match...)
