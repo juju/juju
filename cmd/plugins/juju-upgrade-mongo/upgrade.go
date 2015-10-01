@@ -43,7 +43,7 @@ const noauth = `
 NoAuth() {
     sed -i "s/--auth/--noauth/" /etc/systemd/system/juju-db*.service;
     sed -i "s,--keyFile '/var/lib/juju/shared-secret',," /etc/systemd/system/juju-db*.service;
-    sed -i "s/--keyFile '$HOME/.juju/local/shared-secret',," /etc/systemd/system/juju-db*.service;
+    sed -i "s,--keyFile '$HOME/.juju/local/shared-secret',," /etc/systemd/system/juju-db*.service;
 }
 
 Auth() {
@@ -100,37 +100,41 @@ UpgradeMongoBinary() {
 
 const mongoEval = `
 mongoAdminEval() {
-        echo "will run as admin: $1"
+        echo "will run as admin: $@"
         attempts=0
-        until [ $attempts -ge 30 ]
+        until [ $attempts -ge 5 ]
         do
-    	    mongo --ssl -u admin -p {{.OldPassword | shquote}} localhost:{{.StatePort}}/admin --eval "printjson($1)" && break
+            echo "printjson($@)" > /tmp/mongoAdminEval.js
+    	    mongo --ssl -u admin -p {{.OldPassword | shquote}} localhost:{{.StatePort}}/admin /tmp/mongoAdminEval.js && break
             echo "attempt $attempts"
             attempts=$[$attempts+1]
             sleep 10
         done
-        if [ $attempts -eq 30 ]; then
+        rm /tmp/mongoAdminEval.js
+        if [ $attempts -eq 5 ]; then
             exit 1
         fi
 }
 
 mongoAnonEval() {
-        echo "will run as anon: $1"
+        echo "will run as anon: $@"
         attempts=0
-        until [ $attempts -ge 30 ]
+        until [ $attempts -ge 5 ]
         do
-    	    mongo --ssl  localhost:{{.StatePort}}/admin --eval "printjson($1)" && break
+            echo "printjson($@)" > /tmp/mongoAnonEval.js
+    	    mongo --ssl  localhost:{{.StatePort}}/admin /tmp/mongoAnonEval.js  && break
             echo "attempt $attempts"
             attempts=$[$attempts+1]
             sleep 10
         done
-        if [ $attempts -eq 30 ]; then
+        rm /tmp/mongoAnonEval.js
+        if [ $attempts -eq 5 ]; then
             exit 1
         fi
 }
 
 rsConf() {
-RSCONF=$(mongo --ssl -u admin -p {{.OldPassword | shquote}} localhost:{{.StatePort}}/admin --eval "printjson(rs.conf())")
+RSCONF=$(mongo --ssl --quiet -u admin -p {{.OldPassword | shquote}} localhost:{{.StatePort}}/admin --eval "printjson(rs.conf())"|tr -d '\n')
 }
 `
 
@@ -196,7 +200,6 @@ type sshParams struct {
 
 // runViaSSH will run arbitrary code in the remote machine.
 func runViaSSH(addr, script string, params sshParams, stderr, stdout *bytes.Buffer, verbose bool, local bool) error {
-	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
 	params.JujuDbPath = jujuDbPath
 	params.JujuAgentPath = jujuAgentPath
@@ -243,7 +246,9 @@ func runViaSSH(addr, script string, params sshParams, stderr, stdout *bytes.Buff
 
 // runViaJujuSSH will run arbitrary code in the remote machine.
 func runViaJujuSSH(machine, script string, params sshParams, stdout, stderr *bytes.Buffer) error {
-	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
+	params.JujuDbPath = jujuDbPath
+	params.JujuAgentPath = jujuAgentPath
+
 	functions := upgradeMongoInAgentConfig + upgradeMongoBinary + mongoEval
 	script = functions + script
 	tmpl := mustParseTemplate(script)
@@ -388,10 +393,11 @@ echo "move db"
 mkdir {{.JujuDbPath}}
 echo "create new db"
 
-systemctl start juju-db.service
+systemctl start $DBSERV
 echo "start mongo"
 
-mongoAnonEval 'rs.initiate($RSCONF)'
+rsconfcommand="rs.initiate($RSCONF)"
+mongoAnonEval $rsconfcommand
 sleep 60
 echo "initiated peergrouper"
 

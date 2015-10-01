@@ -333,15 +333,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
 			loggingOption = " --debug"
 		}
-		// If there are feature flags we need to add them to the bootstrap call
-		// otherwise there are not able while bootstraping.
-		var bootstrapCommand string
-		if featureflag.String() != "" {
-			bootstrapCommand = osenv.JujuFeatureFlagEnvKey + "=" + featureflag.String() + " "
-		}
 
 		// The bootstrapping is always run with debug on.
-		bootstrapCommand += w.icfg.JujuTools() + "/jujud bootstrap-state" +
+		bootstrapCommand := w.icfg.JujuTools() + "/jujud bootstrap-state" +
 			" --data-dir " + shquote(w.icfg.DataDir) +
 			" --env-config " + shquote(base64yaml(w.icfg.Config)) +
 			" --instance-id " + shquote(string(w.icfg.InstanceId)) +
@@ -349,7 +343,10 @@ func (w *unixConfigure) ConfigureJuju() error {
 			cons +
 			metadataDir +
 			loggingOption
-		w.conf.AddScripts(bootstrapCommand)
+		w.conf.AddScripts(
+			fmt.Sprintf("export %s=%s", osenv.JujuFeatureFlagEnvKey, featureflag.String()),
+			bootstrapCommand,
+		)
 	}
 
 	return w.addMachineAgentToBoot()
