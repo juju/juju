@@ -28,7 +28,7 @@ func newInstance(base *lxd_client.Instance, env *environ) *environInstance {
 
 // Id implements instance.Instance.
 func (inst *environInstance) Id() instance.Id {
-	return instance.Id(inst.base.ID)
+	return instance.Id(inst.base.Name)
 }
 
 // Status implements instance.Instance.
