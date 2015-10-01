@@ -30,7 +30,7 @@ def main():
                         target.write(chunk)
                         print('.', end='', file=sys.stderr)
                         sys.stderr.flush()
-        print('')
+            print('')
         print('Verifying hash')
         hashsum = subprocess.check_output(
             ['sha256sum', path]).split(b' ', 1)[0]
