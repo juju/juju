@@ -1018,6 +1018,13 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	validateSubnets(c, subnets)
 }
 
+func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	subnets, err := env.Subnets(instId, []network.Id{"missing"})
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
+	c.Assert(subnets, gc.HasLen, 0)
+}
+
 func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 	// These are defined in the test server for the testing default
 	// VPC.
