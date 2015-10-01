@@ -42,11 +42,16 @@ fi
 const noauth = `
 NoAuth() {
     sed -i "s/--auth/--noauth/" /etc/systemd/system/juju-db*.service;
-    sed -i "s/--keyFile '\/var\/lib\/juju\/shared-secret'//" /etc/systemd/system/juju-db*.service;
+    sed -i "s,--keyFile '/var/lib/juju/shared-secret',," /etc/systemd/system/juju-db*.service;
+    sed -i "s/--keyFile '$HOME/.juju/local/shared-secret',," /etc/systemd/system/juju-db*.service;
 }
 
 Auth() {
-    sed -i "s/--noauth/--auth --keyFile '\/var\/lib\/juju\/shared-secret'/" /etc/systemd/system/juju-db*.service;
+if [ -f /var/lib/juju/shared-secret ]; then
+    sed -i "s,--noauth,--auth --keyFile '/var/lib/juju/shared-secret'," /etc/systemd/system/juju-db*.service;
+else
+ sed -i "s,--noauth,--auth --keyFile '$HOME/.juju/local/shared-secret'," /etc/systemd/system/juju-db*.service;
+fi
 }
 `
 
