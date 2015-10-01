@@ -644,14 +644,6 @@ func (s *Service) Refresh() error {
 
 // newUnitName returns the next unit name.
 func (s *Service) newUnitName() (string, error) {
-	services, closer := s.st.getCollection(servicesC)
-	defer closer()
-
-	result := &serviceDoc{}
-	if err := services.FindId(s.doc.DocID).One(&result); err == mgo.ErrNotFound {
-		return "", errors.NotFoundf("service %q", s)
-	}
-
 	unitSeq, err := s.st.sequence(s.Tag().String())
 	if err != nil {
 		return "", errors.Trace(err)
