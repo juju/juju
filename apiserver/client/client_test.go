@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/apiserver/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -40,8 +39,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/unitassigner"
 )
 
 type Killer interface {
@@ -1622,12 +1619,6 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.CharmStoreSuite.SetUpTest(c)
 
 	c.Assert(s.APIState, gc.NotNil)
-
-	runner := worker.NewRunner(func(error) bool { return false }, cmdutil.MoreImportant)
-	runner.StartWorker("unitassigner", func() (worker.Worker, error) {
-		c.Assert(s.APIState, gc.NotNil)
-		return unitassigner.New(s.APIState.UnitAssigner()), nil
-	})
 }
 
 func (s *clientRepoSuite) TearDownTest(c *gc.C) {

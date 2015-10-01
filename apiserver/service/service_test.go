@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -33,8 +32,6 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/unitassigner"
 )
 
 type serviceSuite struct {
@@ -79,13 +76,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.APIState, gc.NotNil)
-
-	runner := worker.NewRunner(func(error) bool { return false }, cmdutil.MoreImportant)
-	runner.StartWorker("unitassigner", func() (worker.Worker, error) {
-		c.Assert(s.APIState, gc.NotNil)
-		return unitassigner.New(s.APIState.UnitAssigner()), nil
-	})
-
 }
 
 func (s *serviceSuite) TearDownTest(c *gc.C) {

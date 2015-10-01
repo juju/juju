@@ -38,16 +38,15 @@ func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 
-	checkUnits := func(failOnNotAssigned bool) error {
-
+	retry(func(last bool) bool {
 		units, err := service.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		for _, unit := range units {
 			mid, err := unit.AssignedMachineId()
-			if failOnNotAssigned {
+			if last {
 				c.Assert(err, jc.ErrorIsNil)
 			} else if err != nil {
-				return err
+				return false
 			}
 			machine, err := st.Machine(mid)
 			c.Assert(err, jc.ErrorIsNil)
@@ -55,15 +54,23 @@ func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(machineCons, gc.DeepEquals, cons)
 		}
-		return nil
-	}
-	for x := 0; x < 30; x++ {
-		err = checkUnits(false)
-		if err == nil {
+		return true
+	})
+	return service
+}
+
+// retry is a helper that will retry the given function until it returns true
+// for up to 3 seconds.  The last time it is run it'll pass in true to the
+// function.
+func retry(f func(last bool) bool) {
+	x := 0
+	for ; x < 30; x++ {
+		if f(false) {
 			break
 		}
 		<-time.After(100 * time.Millisecond)
 	}
-	checkUnits(true)
-	return service
+	if x == 30 {
+		f(true)
+	}
 }

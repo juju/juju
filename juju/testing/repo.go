@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -86,15 +87,41 @@ func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, u
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
-	units, err := svc.AllUnits()
-	c.Logf("Service units: %+v", units)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, unitCount)
-	s.AssertUnitMachines(c, units)
-	rels, err := svc.Relations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rels, gc.HasLen, relCount)
+
+	var rels []*state.Relation
+
+	retry(func(last bool) bool {
+		units, err := svc.AllUnits()
+		c.Logf("Service units: %+v", units)
+		c.Assert(err, jc.ErrorIsNil)
+		if last {
+			c.Assert(units, gc.HasLen, unitCount)
+		} else if len(units) != unitCount {
+			return false
+		}
+		s.AssertUnitMachines(c, units)
+		rels, err = svc.Relations()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rels, gc.HasLen, relCount)
+		return true
+	})
 	return svc, rels
+}
+
+// retry is a helper that will retry the given function until it returns true
+// for up to 3 seconds.  The last time it is run it'll pass in true to the
+// function.
+func retry(f func(last bool) bool) {
+	x := 0
+	for ; x < 30; x++ {
+		if f(false) {
+			break
+		}
+		<-time.After(100 * time.Millisecond)
+	}
+	if x == 30 {
+		f(true)
+	}
 }
 
 func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
@@ -118,16 +145,28 @@ func (s *RepoSuite) AssertUnitMachines(c *gc.C, units []*state.Unit) {
 	}
 	sort.Strings(expectUnitNames)
 
-	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, len(units))
-	unitNames := []string{}
-	for _, m := range machines {
-		mUnits, err := m.Units()
+	retry(func(last bool) bool {
+		machines, err := s.State.AllMachines()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mUnits, gc.HasLen, 1)
-		unitNames = append(unitNames, mUnits[0].Name())
-	}
-	sort.Strings(unitNames)
-	c.Assert(unitNames, gc.DeepEquals, expectUnitNames)
+		if last {
+			c.Assert(machines, gc.HasLen, len(units))
+		} else if len(machines) != len(units) {
+			return false
+		}
+
+		unitNames := []string{}
+		for _, m := range machines {
+			mUnits, err := m.Units()
+			c.Assert(err, jc.ErrorIsNil)
+			if last {
+				c.Assert(mUnits, gc.HasLen, 1)
+			} else if len(mUnits) != 1 {
+				return false
+			}
+			unitNames = append(unitNames, mUnits[0].Name())
+		}
+		sort.Strings(unitNames)
+		c.Assert(unitNames, gc.DeepEquals, expectUnitNames)
+		return true
+	})
 }
