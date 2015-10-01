@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
@@ -280,4 +281,40 @@ func assertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentT
 	ctype := resp.Header.Get("Content-Type")
 	c.Assert(ctype, gc.Equals, expContentType)
 	return body
+}
+
+// bakeryGetError implements a getError function
+// appropriate for passing to httpbakery.Client.DoWithBodyAndCustomError
+// for any endpoint that returns the error in a top level Error field.
+func bakeryGetError(resp *http.Response) error {
+	if resp.StatusCode != http.StatusUnauthorized {
+		return nil
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Annotatef(err, "cannot read body")
+	}
+	var errResp params.ErrorResult
+	if err := json.Unmarshal(data, &errResp); err != nil {
+		return errors.Annotatef(err, "cannot unmarshal body")
+	}
+	if errResp.Error == nil {
+		return errors.New("no error found in error response body")
+	}
+	if errResp.Error.Code != params.CodeDischargeRequired {
+		return errResp.Error
+	}
+	if errResp.Error.Info == nil {
+		return errors.Annotatef(err, "no error info found in discharge-required response error")
+	}
+	// It's a discharge-required error, so make an appropriate httpbakery
+	// error from it.
+	return &httpbakery.Error{
+		Message: errResp.Error.Message,
+		Code:    httpbakery.ErrDischargeRequired,
+		Info: &httpbakery.ErrorInfo{
+			Macaroon:     errResp.Error.Info.Macaroon,
+			MacaroonPath: errResp.Error.Info.MacaroonPath,
+		},
+	}
 }
