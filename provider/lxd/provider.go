@@ -16,6 +16,10 @@ var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+	// TODO(ericsnow) verify prerequisites (see provider/local/prereq.go)?
+	// TODO(ericsnow) do something similar to correctLocalhostURLs()
+	// (in provider/local/environprovider.go)?
+
 	env, err := newEnviron(cfg, newRawProvider)
 	return env, errors.Trace(err)
 }
@@ -26,6 +30,10 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// TODO(ericsnow) Do some of what happens in local provider's
+	// PrepareForBootstrap()? Only if "remote" is local host?
+
 	env, err := newEnviron(cfg, newRawProvider)
 	if err != nil {
 		return nil, errors.Trace(err)
