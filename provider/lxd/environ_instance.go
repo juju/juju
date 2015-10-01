@@ -104,7 +104,7 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 		metadata := inst.Metadata()
 		isState, ok := metadata[metadataKeyIsState]
 		if ok && isState == metadataValueTrue {
-			results = append(results, instance.Id(inst.ID))
+			results = append(results, instance.Id(inst.Name))
 		}
 	}
 	if len(results) == 0 {

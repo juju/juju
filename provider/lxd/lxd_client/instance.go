@@ -20,8 +20,16 @@ var AliveStatuses = []string{
 // InstanceSpec holds all the information needed to create a new LXD
 // container.
 type InstanceSpec struct {
-	// ID is the "name" of the instance.
-	ID string
+	// Name is the "name" of the instance.
+	Name string
+
+	// Profiles are the names of the container profiles to apply to the
+	// new container, in order.
+	Profiles []string
+
+	// Ephemeral indicates whether or not the container should be
+	// destroyed when the LXD host is restarted.
+	Ephemeral bool
 
 	// Metadata is the instance metadata.
 	Metadata map[string]string
@@ -33,7 +41,7 @@ type InstanceSpec struct {
 }
 
 func (spec InstanceSpec) info(namespace string) *shared.ContainerState {
-	name := spec.ID
+	name := spec.Name
 	if namespace != "" {
 		name = namespace + "-" + name
 	}
@@ -60,8 +68,8 @@ func (spec InstanceSpec) Summary(namespace string) InstanceSummary {
 
 // InstanceSummary captures all the data needed by Instance.
 type InstanceSummary struct {
-	// ID is the "name" of the instance.
-	ID string
+	// Name is the "name" of the instance.
+	Name string
 
 	// Status holds the status of the instance at a certain point in time.
 	Status string
@@ -74,7 +82,7 @@ type InstanceSummary struct {
 
 func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 	return InstanceSummary{
-		ID:       info.Name,
+		Name:     info.Name,
 		Status:   info.Status.State,
 		Metadata: unpackMetadata(info.Userdata),
 	}

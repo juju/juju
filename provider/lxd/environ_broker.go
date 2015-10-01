@@ -104,7 +104,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_clie
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
 	instSpec := lxd_client.InstanceSpec{
-		ID: machineID,
+		Name: machineID,
 		//Type:              spec.InstanceType.Name,
 		//Disks:             getDisks(spec, args.Constraints),
 		//NetworkInterfaces: []string{"ExternalNAT"},
