@@ -366,14 +366,17 @@ func (f *mockFilesystemAccessor) FilesystemAttachmentParams(ids []params.Machine
 }
 
 func (f *mockFilesystemAccessor) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
-	return f.setFilesystemInfo(filesystems)
+	if f.setFilesystemInfo != nil {
+		return f.setFilesystemInfo(filesystems)
+	}
+	return make([]params.ErrorResult, len(filesystems)), nil
 }
 
 func (f *mockFilesystemAccessor) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
 	if f.setFilesystemAttachmentInfo != nil {
 		return f.setFilesystemAttachmentInfo(filesystemAttachments)
 	}
-	return nil, nil
+	return make([]params.ErrorResult, len(filesystemAttachments)), nil
 }
 
 func newMockFilesystemAccessor() *mockFilesystemAccessor {
@@ -448,15 +451,18 @@ type dummyProvider struct {
 	storage.Provider
 	dynamic bool
 
-	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
-	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
-	createVolumesFunc     func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
-	createFilesystemsFunc func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
-	attachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
-	attachFilesystemsFunc func([]storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
-	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
-	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) ([]error, error)
-	destroyVolumesFunc    func([]string) ([]error, error)
+	volumeSourceFunc             func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	filesystemSourceFunc         func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	createVolumesFunc            func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
+	createFilesystemsFunc        func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
+	attachVolumesFunc            func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
+	attachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
+	detachVolumesFunc            func([]storage.VolumeAttachmentParams) ([]error, error)
+	detachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]error, error)
+	destroyVolumesFunc           func([]string) ([]error, error)
+	destroyFilesystemsFunc       func([]string) ([]error, error)
+	validateVolumeParamsFunc     func(storage.VolumeParams) error
+	validateFilesystemParamsFunc func(storage.FilesystemParams) error
 }
 
 type dummyVolumeSource struct {
@@ -489,7 +495,10 @@ func (p *dummyProvider) Dynamic() bool {
 	return p.dynamic
 }
 
-func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+func (s *dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	if s.provider != nil && s.provider.validateVolumeParamsFunc != nil {
+		return s.provider.validateVolumeParamsFunc(params)
+	}
 	return nil
 }
 
@@ -561,7 +570,10 @@ func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParam
 	return make([]error, len(params)), nil
 }
 
-func (*dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+func (s *dummyFilesystemSource) ValidateFilesystemParams(params storage.FilesystemParams) error {
+	if s.provider != nil && s.provider.validateFilesystemParamsFunc != nil {
+		return s.provider.validateFilesystemParamsFunc(params)
+	}
 	return nil
 }
 
@@ -590,6 +602,9 @@ func (s *dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemPar
 
 // DestroyFilesystems destroys filesystems.
 func (s *dummyFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+	if s.provider.destroyFilesystemsFunc != nil {
+		return s.provider.destroyFilesystemsFunc(filesystemIds)
+	}
 	return make([]error, len(filesystemIds)), nil
 }
 
