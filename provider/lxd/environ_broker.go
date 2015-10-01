@@ -4,7 +4,10 @@
 package lxd
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -151,15 +154,24 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 // getHardwareCharacteristics compiles hardware-related details about
 // the given instance and relative to the provided spec and returns it.
 func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams, inst *environInstance) *instance.HardwareCharacteristics {
-	// TODO(ericsnow) Fill this in more.
-	hwc := instance.HardwareCharacteristics{
-	//Arch:             &spec.Image.Arch,
-	//Mem:              &spec.InstanceType.Mem,
-	//CpuCores:         &spec.InstanceType.CpuCores,
-	//CpuPower:         spec.InstanceType.CpuPower,
-	//RootDisk:         &rootDiskMB,
-	//AvailabilityZone: &inst.base.ZoneName,
-	// Tags: not supported in LXD?.
+	raw := inst.raw.Hardware
+
+	archStr := raw.Architecture
+	if archStr == "unknown" || !arch.IsSupportedArch(archStr) {
+		// TODO(ericsnow) This special-case should be improved.
+		archStr = arch.HostArch()
+	}
+
+	hwc, err := instance.ParseHardware(
+		"arch="+archStr,
+		fmt.Sprintf("cpu-cores=%d", raw.NumCores),
+		fmt.Sprintf("mem=%dM", raw.MemoryMB),
+		//"root-disk=",
+		//"tags=",
+	)
+	if err != nil {
+		logger.Errorf("unexpected problem parsing hardware info: %v", err)
+		// Keep moving...
 	}
 	return &hwc
 }

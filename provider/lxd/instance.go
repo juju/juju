@@ -13,27 +13,27 @@ import (
 )
 
 type environInstance struct {
-	base *lxd_client.Instance
-	env  *environ
+	raw *lxd_client.Instance
+	env *environ
 }
 
 var _ instance.Instance = (*environInstance)(nil)
 
-func newInstance(base *lxd_client.Instance, env *environ) *environInstance {
+func newInstance(raw *lxd_client.Instance, env *environ) *environInstance {
 	return &environInstance{
-		base: base,
-		env:  env,
+		raw: raw,
+		env: env,
 	}
 }
 
 // Id implements instance.Instance.
 func (inst *environInstance) Id() instance.Id {
-	return instance.Id(inst.base.Name)
+	return instance.Id(inst.raw.Name)
 }
 
 // Status implements instance.Instance.
 func (inst *environInstance) Status() string {
-	return inst.base.Status()
+	return inst.raw.Status()
 }
 
 // Addresses implements instance.Instance.
