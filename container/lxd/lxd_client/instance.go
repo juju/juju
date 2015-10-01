@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
+
+	"github.com/juju/juju/network"
 )
 
 // AliveStatuses are the LXD statuses that indicate a container is "alive".
@@ -99,6 +101,7 @@ type InstanceSummary struct {
 	Metadata map[string]string
 
 	// Addresses
+	Addresses []network.Address
 }
 
 func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
@@ -115,10 +118,17 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 		fmt.Sscanf(raw, "%d", &mem)
 	}
 
+	var addrs []network.Address
+	for _, info := range info.Status.Ips {
+		addr := network.NewAddress(info.Address)
+		addrs = append(addrs, addr)
+	}
+
 	return InstanceSummary{
-		Name:     info.Name,
-		Status:   info.Status.State,
-		Metadata: unpackMetadata(info.Userdata),
+		Name:      info.Name,
+		Status:    info.Status.State,
+		Metadata:  unpackMetadata(info.Userdata),
+		Addresses: addrs,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
 			NumCores:     numCores,
