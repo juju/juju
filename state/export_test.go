@@ -308,6 +308,10 @@ func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 	return st.getRawCollection(name)
 }
 
+func HasRawAccess(collectionName string) bool {
+	return allCollections()[collectionName].rawAccess
+}
+
 func MultiEnvCollections() []string {
 	var result []string
 	for name, info := range allCollections() {

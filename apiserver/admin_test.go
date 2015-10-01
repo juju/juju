@@ -947,12 +947,16 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	// The user now has last login updated.
 	err = user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.LastLogin(), gc.NotNil)
-	c.Assert(user.LastLogin().After(startTime), jc.IsTrue)
+	lastLogin, err := user.LastLogin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lastLogin, gc.NotNil)
+	c.Assert(lastLogin.After(startTime), jc.IsTrue)
 
 	// The env user is also updated.
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envUser.LastConnection(), gc.NotNil)
-	c.Assert(envUser.LastConnection().After(startTime), jc.IsTrue)
+	when, err := envUser.LastConnection()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(when, gc.NotNil)
+	c.Assert(when.After(startTime), jc.IsTrue)
 }

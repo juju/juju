@@ -100,6 +100,12 @@ func stateStepsFor125() []Step {
 				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
 			},
 		},
+		&upgradeStep{
+			description: "move lastlogin and last connection to their own collections",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateLastLoginAndLastConnection(context.State())
+			}},
 	}
 }
 

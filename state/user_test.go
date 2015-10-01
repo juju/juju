@@ -57,7 +57,9 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.CreatedBy(), gc.Equals, creator)
 	c.Assert(user.DateCreated().After(now) ||
 		user.DateCreated().Equal(now), jc.IsTrue)
-	c.Assert(user.LastLogin(), gc.IsNil)
+	lastLogin, err := user.LastLogin()
+	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
+	c.Assert(lastLogin, gc.DeepEquals, time.Time{})
 
 	user, err = s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,7 +70,9 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.CreatedBy(), gc.Equals, creator)
 	c.Assert(user.DateCreated().After(now) ||
 		user.DateCreated().Equal(now), jc.IsTrue)
-	c.Assert(user.LastLogin(), gc.IsNil)
+	lastLogin, err = user.LastLogin()
+	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
+	c.Assert(lastLogin, gc.DeepEquals, time.Time{})
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
@@ -91,8 +95,10 @@ func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	err := user.UpdateLastLogin()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.LastLogin().After(now) ||
-		user.LastLogin().Equal(now), jc.IsTrue)
+	lastLogin, err := user.LastLogin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lastLogin.After(now) ||
+		lastLogin.Equal(now), jc.IsTrue)
 }
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
