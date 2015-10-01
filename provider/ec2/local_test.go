@@ -992,6 +992,19 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
 
+func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	subnets, err := env.Subnets(instId, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, 1)
+	validateSubnets(c, subnets)
+
+	interfaces, err := env.NetworkInterfaces(instId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaces, gc.HasLen, 1)
+	c.Assert(interfaces[0].ProviderSubnetId, gc.Equals, subnets[0].ProviderId)
+}
+
 func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 	// These are defined in the test server for the testing default
 	// VPC.
