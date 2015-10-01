@@ -80,6 +80,10 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 		changes: make(chan struct{}, 1),
 	}
 	volumeWatcher.changes <- struct{}{}
+	blockDevicesWatcher := &mockNotifyWatcher{
+		changes: make(chan struct{}, 1),
+	}
+	blockDevicesWatcher.changes <- struct{}{}
 	var calls []string
 	state := &mockStorageState{
 		storageInstance: func(s names.StorageTag) (state.StorageInstance, error) {
@@ -109,6 +113,11 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 			c.Assert(v, gc.DeepEquals, volumeTag)
 			return volumeWatcher
 		},
+		watchBlockDevices: func(m names.MachineTag) state.NotifyWatcher {
+			calls = append(calls, "WatchBlockDevices")
+			c.Assert(m, gc.DeepEquals, machineTag)
+			return blockDevicesWatcher
+		},
 	}
 
 	storage, err := uniter.NewStorageAPI(state, resources, getCanAccess)
@@ -130,6 +139,7 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 		"StorageInstance",
 		"StorageInstanceVolume",
 		"WatchVolumeAttachment",
+		"WatchBlockDevices",
 		"WatchStorageAttachment",
 	})
 }
@@ -475,6 +485,7 @@ type mockStorageState struct {
 	watchStorageAttachment        func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	watchFilesystemAttachment     func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment         func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	watchBlockDevices             func(names.MachineTag) state.NotifyWatcher
 	addUnitStorage                func(u names.UnitTag, name string, cons state.StorageConstraints) error
 	unitStorageConstraints        func(u names.UnitTag) (map[string]state.StorageConstraints, error)
 }
@@ -517,6 +528,10 @@ func (m *mockStorageState) WatchFilesystemAttachment(mtag names.MachineTag, f na
 
 func (m *mockStorageState) WatchVolumeAttachment(mtag names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
 	return m.watchVolumeAttachment(mtag, v)
+}
+
+func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
+	return m.watchBlockDevices(mtag)
 }
 
 func (m *mockStorageState) AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error {
