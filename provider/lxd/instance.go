@@ -6,10 +6,10 @@ package lxd
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/container/lxd/lxd_client"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxd_client"
 )
 
 type environInstance struct {
