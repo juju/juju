@@ -62,7 +62,7 @@ and assuming a default series of "precise":
   mysql
   cs:mysql
 
-Note that as shown above, a charm URL may be specified without a schema.
+Note that as shown above, a charm URL may be specified without a scheme.
 Normally, the charm store is assumed. However, the supplied charm details
 may also correspond to a relative path. If the supplied details are
 a valid path, we attempt to read the charm from that path. If a charm
