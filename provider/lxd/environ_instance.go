@@ -6,7 +6,6 @@ package lxd
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container/lxd/lxd_client"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -33,7 +32,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		// for each ID into the result. If there is a problem then we
 		// will return either ErrPartialInstances or ErrNoInstances.
 		// TODO(ericsnow) Skip returning here only for certain errors?
-		logger.Errorf("failed to get instances from GCE: %v", err)
+		logger.Errorf("failed to get instances from LXD: %v", err)
 		err = errors.Trace(err)
 	}
 
@@ -74,7 +73,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	instances, err := env.raw.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
-	// Turn google.Instance values into *environInstance values,
+	// Turn lxd_client.Instance values into *environInstance values,
 	// whether or not we got an error.
 	var results []instance.Instance
 	for _, base := range instances {
@@ -121,16 +120,4 @@ func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
 	}
 
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
-}
-
-// checkInstanceType is used to ensure the the provided constraints
-// specify a recognized instance type.
-func checkInstanceType(cons constraints.Value) bool {
-	// Constraint has an instance-type constraint so let's see if it is valid.
-	for _, itype := range allInstanceTypes {
-		if itype.Name == *cons.InstanceType {
-			return true
-		}
-	}
-	return false
 }
