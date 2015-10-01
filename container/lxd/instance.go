@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
 
+	"github.com/juju/juju/container/lxd/lxd_client"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -18,18 +18,18 @@ var _ instance.Instance = (*lxdInstance)(nil)
 
 // lxdInstance implements instance.Instance.
 type lxdInstance struct {
-	id     string
-	client *lxd.Client
+	raw    *lxd_client.Instance
+	client *lxd_client.Client
 }
 
 // String returns a string representation of the instance, based on its ID.
 func (lxd *lxdInstance) String() string {
-	return fmt.Sprintf("lxd:%s", lxd.id)
+	return fmt.Sprintf("lxd:%s", lxd.raw.Name)
 }
 
 // Id implements instance.Instance.Id.
 func (lxd *lxdInstance) Id() instance.Id {
-	return instance.Id(lxd.id)
+	return instance.Id(lxd.raw.Name)
 }
 
 // Addresses implements instance.Instance.Id.
@@ -39,12 +39,17 @@ func (lxd *lxdInstance) Addresses() ([]network.Address, error) {
 
 // Status implements instance.Instance.Status.
 func (lxd *lxdInstance) Status() string {
+	// TODO(ericsnow) Don't bother with dynamic update?
+
 	// On error, the state will be "unknown".
-	status, err := lxd.client.ContainerStatus(lxd.id, false)
+	status, err := lxd.raw.CurrentStatus(lxd.client)
 	if err != nil {
+		logger.Errorf("could not get status for LXD container %q: %v", lxd.raw.Name, err)
+		// TODO(ericsnow) Fall back to the last known status?
 		return "unknown"
 	}
-	return status.Status.State
+
+	return status
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.

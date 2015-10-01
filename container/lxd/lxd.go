@@ -7,14 +7,16 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/lxd/lxd_client"
 	"github.com/juju/juju/instance"
 )
+
+var logger = loggo.GetLogger("container.lxd")
 
 // TODO(ericsnow) Move this check to a test suite.
 var _ container.Manager = (*containerManager)(nil)
@@ -29,7 +31,7 @@ type containerManager struct {
 	namespace string
 	remote    string
 	// A cached client.
-	client *lxd.Client
+	client *lxd_client.Client
 }
 
 // NewContainerManager builds a new instance of container.Manager and
@@ -39,32 +41,40 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	if namespace == "" {
 		return nil, errors.Errorf("namespace is required")
 	}
-
 	remote := "" // localhost over unix socket
-	client, err := connect(remote)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	manager := &containerManager{
 		namespace: namespace,
 		remote:    remote,
-		client:    client,
 	}
+
+	client, err := manager.connect()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	manager.client = client
+
 	return manager, nil
 }
 
-func connect(remote string) (*lxd.Client, error) {
+func (manager *containerManager) connect() (*lxd_client.Client, error) {
 	// TODO: this is going to write the config in the user's home
 	// directory, which is (probably) not what we want long term. You can
 	// set where the config goes via the LXD API (although it is a bit
 	// obtuse), but I'm not sure what path we should use.
-	cfg, err := lxd.LoadConfig()
-	if err != nil {
+
+	lxdConfig := lxd_client.Config{
+		Namespace: manager.namespace,
+		Remote:    manager.remote,
+	}
+	if err := lxdConfig.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return lxd.NewClient(cfg, remote)
+	client, err := lxd_client.Connect(lxdConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return client, nil
 }
 
 // IsInitialized implements container.Manager.
@@ -75,12 +85,12 @@ func (manager *containerManager) IsInitialized() bool {
 
 	// NewClient does a roundtrip to the server to make sure it understands
 	// the versions, so all we need to do is connect above and we're done.
-	client, err := connect(manager.remote)
+	client, err := manager.connect()
 	if err != nil {
 		return false
 	}
-
 	manager.client = client
+
 	return true
 }
 
@@ -88,15 +98,15 @@ func (manager *containerManager) IsInitialized() bool {
 func (manager *containerManager) ListContainers() ([]instance.Instance, error) {
 	var result []instance.Instance
 
-	infos, err := manager.client.ListContainers()
+	rawInsts, err := manager.client.Instances("")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	for _, info := range infos {
+	for _, raw := range rawInsts {
 		inst := &lxdInstance{
-			info.State.Name,
-			manager.client,
+			raw:    &raw,
+			client: manager.client,
 		}
 		result = append(result, inst)
 	}
@@ -115,36 +125,17 @@ func (manager *containerManager) CreateContainer(
 	if manager.namespace != "" {
 		name = fmt.Sprintf("%s-%s", manager.namespace, name)
 	}
-	// TODO: FIXME: XXX: don't hardcode ubuntu
-	imageAlias := "ubuntu"
-	var profiles *[]string
-	ephemeral := false
-	resp, err := manager.client.Init(name, manager.remote, imageAlias, profiles, ephemeral)
+	spec := lxd_client.InstanceSpec{
+		Name: name,
+	}
+
+	rawInst, err := manager.client.AddInstance(spec)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// Init is an async operation, since the tar -xvf (or whatever) might
-	// take a while; the result is an LXD operation id, which we can just
-	// wait on until it is finished.
-	if err = manager.client.WaitForSuccess(resp.Operation); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	resp, err = manager.client.Action(name, shared.Start, -1, false)
-	if err != nil {
-		// Try to clean up, but just do it async (i.e. don't
-		// WaitForSuccess) since we can't do much if this fails...
-		manager.client.Delete(name)
-		return nil, nil, errors.Trace(err)
-	}
-
-	if err = manager.client.WaitForSuccess(resp.Operation); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	inst := &lxdInstance{
-		id:     name,
+		raw:    rawInst,
 		client: manager.client,
 	}
 	var hwc *instance.HardwareCharacteristics
@@ -153,10 +144,11 @@ func (manager *containerManager) CreateContainer(
 
 // DestroyContainer implements container.Manager.
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
-	resp, err := manager.client.Delete(string(id))
-	if err != nil {
+	name := string(id)
+
+	if err := manager.client.RemoveInstances("", name); err != nil {
 		return errors.Trace(err)
 	}
 
-	return manager.client.WaitForSuccess(resp.Operation)
+	return nil
 }

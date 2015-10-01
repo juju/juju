@@ -4,6 +4,7 @@
 package lxd_client
 
 import (
+	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared"
 )
 
@@ -118,6 +119,17 @@ func NewInstance(summary InstanceSummary, spec *InstanceSpec) *Instance {
 // Status returns a string identifying the status of the instance.
 func (gi Instance) Status() string {
 	return gi.InstanceSummary.Status
+}
+
+// CurrentStatus returns a string identifying the status of the instance.
+func (gi Instance) CurrentStatus(client *Client) (string, error) {
+	// TODO(ericsnow) Do this a better way?
+
+	inst, err := client.Instance(gi.Name)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return inst.Status(), nil
 }
 
 // Metadata returns the user-specified metadata for the instance.
