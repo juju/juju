@@ -133,7 +133,7 @@ func (s *instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.
 	env := s.setupEnvWithDummyMetadata(c)
 	_, err := findMatchingImages(env, "West US", "saucy", []string{"amd64"})
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "no OS images found for location .*")
+	c.Assert(err, gc.ErrorMatches, "image metadata for .* not found.*")
 }
 
 func (s *instanceTypeSuite) TestFindMatchingImagesReturnsReleasedImages(c *gc.C) {
@@ -299,7 +299,7 @@ func (s *instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) 
 	env := s.setupEnvWithDummyMetadata(c)
 	_, err := findInstanceSpec(env, impossibleConstraint)
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
+	c.Check(err, gc.ErrorMatches, "image metadata for .* not found")
 }
 
 var findInstanceSpecTests = []struct {

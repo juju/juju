@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -274,12 +273,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if err := c.saveCustomImageMetadata(st); err != nil {
 			return err
 		}
-
-		// TODO (anastasiamac 2015-09-24) Remove this once search path is updated..
-		stor := newStateStorage(st.EnvironUUID(), st.MongoSession())
-		if err := c.storeCustomImageMetadata(stor); err != nil {
-			return err
-		}
 	}
 
 	// Populate the storage pools.
@@ -404,33 +397,6 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		}
 	}
 	return nil
-}
-
-// storeCustomImageMetadata reads the custom image metadata from disk,
-// and stores the files in environment storage with the same relative
-// paths.
-func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error {
-	logger.Debugf("storing custom image metadata from %q", c.ImageMetadataDir)
-	return filepath.Walk(c.ImageMetadataDir, func(abspath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() {
-			return nil
-		}
-		relpath, err := filepath.Rel(c.ImageMetadataDir, abspath)
-		if err != nil {
-			return err
-		}
-		f, err := os.Open(abspath)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		relpath = filepath.ToSlash(relpath)
-		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
-		return stor.Put(relpath, f, info.Size())
-	})
 }
 
 // Override for testing.

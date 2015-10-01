@@ -228,7 +228,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec(
 			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA)},
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",
@@ -262,4 +262,49 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 	}
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
 	c.Check(filterImages(input, ic), gc.DeepEquals, input)
+}
+
+type mockEnviron struct {
+	environ
+	config func() *config.Config
+}
+
+func (env *mockEnviron) Config() *config.Config {
+	return env.config()
+}
+
+func minimalConfig(c *gc.C) *config.Config {
+	attrs := map[string]interface{}{
+		"name":            "whatever",
+		"type":            "anything, really",
+		"uuid":            testing.EnvironmentTag.Id(),
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
+		"authorized-keys": testing.FakeAuthKeys,
+		"default-series":  series.HostSeries(),
+	}
+	cfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+func configGetter(c *gc.C) func() *config.Config {
+	cfg := minimalConfig(c)
+	return func() *config.Config { return cfg }
+}
+
+func (s *specSuite) registerTestDataSource(c *gc.C) environs.Environ {
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	env := &mockEnviron{
+		config: configGetter(c),
+	}
+
+	environs.RegisterImageDataSourceFunc("test", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames), nil
+	})
+	s.AddCleanup(func(*gc.C) {
+		environs.UnregisterImageDataSourceFunc("test")
+	})
+
+	return env
 }

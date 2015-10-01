@@ -135,11 +135,6 @@ var findInstanceSpec = func(env *environ, stream string, ic *instances.InstanceC
 // initial data for the spec. However, it does include fetching the
 // correct simplestreams image data.
 func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	sources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: env.cloudSpec(ic.Region),
 		Series:    []string{ic.Series},
@@ -148,7 +143,7 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	})
 
 	signedImageDataOnly := false
-	matchingImages, _, err := imageMetadataFetch(sources, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imageMetadataFetch(env, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,7 +153,7 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	return spec, errors.Trace(err)
 }
 
-var imageMetadataFetch = imagemetadata.Fetch
+var imageMetadataFetch = common.FindImageMetadata
 
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that

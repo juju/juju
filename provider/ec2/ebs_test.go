@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
+    "github.com/juju/utils/series"
 	awsec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"

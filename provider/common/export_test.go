@@ -7,4 +7,5 @@ var (
 	ConnectSSH                          = &connectSSH
 	WaitSSH                             = waitSSH
 	InternalAvailabilityZoneAllocations = &internalAvailabilityZoneAllocations
+	MetadataAPI                         = &metadataAPI
 )

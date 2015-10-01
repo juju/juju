@@ -26,7 +26,8 @@ func TestAzureProvider(t *stdtesting.T) {
 }
 
 type providerSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
+
 	envtesting.ToolsFixture
 	restoreTimeouts func()
 }
@@ -41,18 +42,18 @@ func init() {
 }
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 	s.UploadArches = []string{arch.AMD64}
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
-	s.BaseSuite.TearDownSuite(c)
+	s.FakeJujuHomeSuite.TearDownSuite(c)
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "test:")
 	s.PatchValue(&signedImageDataOnly, false)
@@ -71,7 +72,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *providerSuite) makeTestMetadata(c *gc.C, ser, location string, im []*imagemetadata.ImageMetadata) {
