@@ -455,34 +455,24 @@ func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error)
 		return nil, err
 	}
 
-	var args []string
+	args := []string{
+		"--noauth",
+		"--dbpath", dbDir,
+		"--sslOnNormalPorts",
+		"--sslPEMKeyFile", sslKeyFile,
+		"--sslPEMKeyPassword", "ignored",
+		"--bind_ip", "127.0.0.1",
+		"--port", fmt.Sprint(port),
+		"--syslog",
+		"--journal",
+		"--quiet",
+	}
 	if version == Mongo31 {
-		args = []string{
-			"--noauth",
-			"--dbpath", dbDir,
-			"--sslOnNormalPorts",
-			"--sslPEMKeyFile", sslKeyFile,
-			"--sslPEMKeyPassword", "ignored",
-			"--bind_ip", "127.0.0.1",
-			"--port", fmt.Sprint(port),
-			"--syslog",
-			"--journal",
-			"--storageEngine", "wiredTiger",
-		}
+		args = append(args, "--storageEngine", "wiredTiger")
+
 	} else {
-		args = []string{
-			"--noauth",
-			"--dbpath", dbDir,
-			"--sslOnNormalPorts",
-			"--sslPEMKeyFile", sslKeyFile,
-			"--sslPEMKeyPassword", "ignored",
-			"--bind_ip", "127.0.0.1",
-			"--port", fmt.Sprint(port),
-			"--noprealloc",
-			"--syslog",
-			"--smallfiles",
-			"--journal",
-		}
+		args = append(args, "--noprealloc", "--smallfiles")
+
 	}
 
 	cmd := exec.Command(mongoPath, args...)
