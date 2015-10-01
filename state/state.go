@@ -1199,7 +1199,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
 		createStorageConstraintsOp(svc.globalKey(), args.Storage),
-		createSettingsOp(st, svc.settingsKey(), map[string]interface{}(args.Settings)),
+		createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
