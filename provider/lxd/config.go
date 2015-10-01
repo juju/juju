@@ -98,10 +98,10 @@ func adjustDefaults(cfg *config.Config, defaults map[string]interface{}) map[str
 	//cType := instance.LXD
 
 	// Set the proper default namespace.
-	raw := defaults[cfgNamespace]
+	raw := updated[cfgNamespace]
 	if raw == nil || raw.(string) == "" {
 		raw = cfg.Name()
-		defaults[cfgNamespace] = raw
+		updated[cfgNamespace] = raw
 	}
 
 	return updated
