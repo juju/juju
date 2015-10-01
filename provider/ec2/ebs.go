@@ -33,8 +33,9 @@ const (
 	//   "standard" for Magnetic volumes.
 	EBS_VolumeType = "volume-type"
 
-	// The number of I/O operations per second (IOPS) to provision for the volume.
-	// Only valid for Provisioned IOPS (SSD) volumes.
+	// The number of I/O operations per second (IOPS) per GiB
+	// to provision for the volume. Only valid for Provisioned
+	// IOPS (SSD) volumes.
 	EBS_IOPS = "iops"
 
 	// Specifies whether the volume should be encrypted.
@@ -73,18 +74,42 @@ const (
 const (
 	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
 	minRootDiskSizeMiB uint64 = 8 * 1024
+)
 
-	// provisionedIopsvolumeSizeMinGiB is the minimum disk size (in gibibytes)
-	// for provisioned IOPS EBS volumes.
-	provisionedIopsvolumeSizeMinGiB = 10 // 10 GiB
+// Limits for volume parameters. See:
+//   http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html
+const (
+	// minMagneticVolumeSizeGiB is the minimum size for magnetic volumes in GiB.
+	minMagneticVolumeSizeGiB = 1
 
-	// volumeSizeMaxGiB is the maximum disk size (in gibibytes) for EBS volumes.
-	volumeSizeMaxGiB = 1024 // 1024 GiB
+	// maxMagneticVolumeSizeGiB is the maximum size for magnetic volumes in GiB.
+	maxMagneticVolumeSizeGiB = 1024
+
+	// minSsdVolumeSizeGiB is the minimum size for SSD volumes in GiB.
+	minSsdVolumeSizeGiB = 1
+
+	// maxSsdVolumeSizeGiB is the maximum size for SSD volumes in GiB.
+	maxSsdVolumeSizeGiB = 16 * 1024
+
+	// minProvisionedIopsVolumeSizeGiB is the minimum size of provisioned IOPS
+	// volumes in GiB.
+	minProvisionedIopsVolumeSizeGiB = 4
+
+	// maxProvisionedIopsVolumeSizeGiB is the maximum size of provisioned IOPS
+	// volumes in GiB.
+	maxProvisionedIopsVolumeSizeGiB = 16 * 1024
 
 	// maxProvisionedIopsSizeRatio is the maximum allowed ratio of IOPS to
 	// size (in GiB), for provisioend IOPS volumes.
 	maxProvisionedIopsSizeRatio = 30
 
+	// maxProvisionedIops is the maximum allowed IOPS in total for provisioned IOPS
+	// volumes. We take the minimum of volumeSize*maxProvisionedIopsSizeRatio and
+	// maxProvisionedIops.
+	maxProvisionedIops = 20000
+)
+
+const (
 	// devicePrefix is the prefix for device names specified when creating volumes.
 	devicePrefix = "/dev/sd"
 
@@ -226,12 +251,24 @@ func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.Create
 	if err != nil {
 		return ec2.CreateVolume{}, errors.Trace(err)
 	}
+	if ebsConfig.iops > maxProvisionedIopsSizeRatio {
+		return ec2.CreateVolume{}, errors.Errorf(
+			"specified IOPS ratio is %d/GiB, maximum is %d/GiB",
+			ebsConfig.iops, maxProvisionedIopsSizeRatio,
+		)
+	}
+
+	sizeInGib := mibToGib(size)
+	iops := uint64(ebsConfig.iops) * sizeInGib
+	if iops > maxProvisionedIops {
+		iops = maxProvisionedIops
+	}
 	vol := ec2.CreateVolume{
 		// Juju size is MiB, AWS size is GiB.
-		VolumeSize: int(mibToGib(size)),
+		VolumeSize: int(sizeInGib),
 		VolumeType: ebsConfig.volumeType,
 		Encrypted:  ebsConfig.encrypted,
-		IOPS:       int64(ebsConfig.iops),
+		IOPS:       int64(iops),
 	}
 	return vol, nil
 }
@@ -509,26 +546,29 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 	if err != nil {
 		return err
 	}
-	if vol.VolumeSize > volumeSizeMaxGiB {
-		return errors.Errorf("%d GiB exceeds the maximum of %d GiB", vol.VolumeSize, volumeSizeMaxGiB)
+	var minVolumeSize, maxVolumeSize int
+	switch vol.VolumeType {
+	case volumeTypeStandard:
+		minVolumeSize = minMagneticVolumeSizeGiB
+		maxVolumeSize = maxMagneticVolumeSizeGiB
+	case volumeTypeGp2:
+		minVolumeSize = minSsdVolumeSizeGiB
+		maxVolumeSize = maxSsdVolumeSizeGiB
+	case volumeTypeIo1:
+		minVolumeSize = minProvisionedIopsVolumeSizeGiB
+		maxVolumeSize = maxProvisionedIopsVolumeSizeGiB
 	}
-	if vol.VolumeType == volumeTypeIo1 {
-		if vol.VolumeSize < provisionedIopsvolumeSizeMinGiB {
-			return errors.Errorf(
-				"volume size is %d GiB, must be at least %d GiB for provisioned IOPS",
-				vol.VolumeSize,
-				provisionedIopsvolumeSizeMinGiB,
-			)
-		}
+	if vol.VolumeSize < minVolumeSize {
+		return errors.Errorf(
+			"volume size is %d GiB, must be at least %d GiB",
+			vol.VolumeSize, minVolumeSize,
+		)
 	}
-	if vol.IOPS > 0 {
-		minSize := int(vol.IOPS / maxProvisionedIopsSizeRatio)
-		if vol.VolumeSize < minSize {
-			return errors.Errorf(
-				"volume size is %d GiB, must be at least %d GiB to support %d IOPS",
-				vol.VolumeSize, minSize, vol.IOPS,
-			)
-		}
+	if vol.VolumeSize > maxVolumeSize {
+		return errors.Errorf(
+			"volume size %d GiB exceeds the maximum of %d GiB",
+			vol.VolumeSize, maxVolumeSize,
+		)
 	}
 	return nil
 }
