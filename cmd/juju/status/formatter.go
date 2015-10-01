@@ -36,10 +36,11 @@ func (sf *statusFormatter) format() formattedStatus {
 		return formattedStatus{}
 	}
 	out := formattedStatus{
-		Environment:      sf.status.EnvironmentName,
-		AvailableVersion: sf.status.AvailableVersion,
-		Machines:         make(map[string]machineStatus),
-		Services:         make(map[string]serviceStatus),
+		Environment:          sf.status.EnvironmentName,
+		AvailableVersion:     sf.status.AvailableVersion,
+		PrimaryMachineStatus: formatPrimaryMachineStatus(sf.status.PrimaryMachineStatus),
+		Machines:             make(map[string]machineStatus),
+		Services:             make(map[string]serviceStatus),
 	}
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
@@ -106,6 +107,14 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 		}
 	}
 	return out
+}
+
+func formatPrimaryMachineStatus(p params.PrimaryMachineStatus) primaryMachineStatus {
+	return primaryMachineStatus{
+		MongoVersion: p.MongoVersion,
+		PartOfHA:     p.PartOfHA,
+		Nodes:        p.Nodes,
+	}
 }
 
 func (sf *statusFormatter) formatService(name string, service params.ServiceStatus) serviceStatus {

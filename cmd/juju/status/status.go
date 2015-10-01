@@ -20,6 +20,7 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.status")
 
+// StatusCommand represents the juju status subcommand.
 type StatusCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output

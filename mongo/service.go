@@ -125,6 +125,7 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
 		" --replSet " + ReplicaSetName +
 		" --ipv6" +
+		" --quiet" +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
 	if version != Mongo31 {
 		mongoCmd = mongoCmd +

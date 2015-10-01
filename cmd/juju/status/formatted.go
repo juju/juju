@@ -12,15 +12,24 @@ import (
 )
 
 type formattedStatus struct {
-	Environment      string                   `json:"environment"`
-	AvailableVersion string                   `json:"available-version,omitempty" yaml:"available-version,omitempty"`
-	Machines         map[string]machineStatus `json:"machines"`
-	Services         map[string]serviceStatus `json:"services"`
-	Networks         map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+	Environment          string                   `json:"environment"`
+	AvailableVersion     string                   `json:"available-version,omitempty" yaml:"available-version,omitempty"`
+	PrimaryMachineStatus primaryMachineStatus     `json:"primary-status,omitempty" yaml:"primary-status,omitempty"`
+	Machines             map[string]machineStatus `json:"machines"`
+	Services             map[string]serviceStatus `json:"services"`
+	Networks             map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
 }
 
 type errorStatus struct {
 	StatusError string `json:"status-error" yaml:"status-error"`
+}
+
+// primaryMachineStatus holds status about the machine hosting
+// the primary state server.
+type primaryMachineStatus struct {
+	MongoVersion string `json:"mongo-version,omitempty" yaml:"mongo-version,omitempty"`
+	PartOfHA     bool   `json:"part-of-ha,omitempty" yaml:"part-of-ha,omitempty"`
+	Nodes        int    `json:"number-of-nodes,omitempty" yaml:"number-of-nodes,omitempty"`
 }
 
 type machineStatus struct {
