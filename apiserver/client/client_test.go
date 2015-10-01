@@ -3213,7 +3213,7 @@ func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAdd
 	repo := &testModeCharmRepo{}
 	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
 		p.URL = s.Srv.URL
-		repo.CharmStore = charmrepo.NewCharmStore(p).(*charmrepo.CharmStore)
+		repo.CharmStore = charmrepo.NewCharmStore(p)
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
