@@ -10,24 +10,13 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxd_client"
 )
-
-type lxdClient interface {
-	Instances(string, ...string) ([]lxd_client.Instance, error)
-	AddInstance(lxd_client.InstanceSpec) (*lxd_client.Instance, error)
-	RemoveInstances(string, ...string) error
-
-	OpenPorts(string, ...network.PortRange) error
-	ClosePorts(string, ...network.PortRange) error
-	Ports(string) ([]network.PortRange, error)
-}
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
 	BootstrapEnv(environs.BootstrapContext, environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error)
+
 	// DestroyEnv destroys the provided Juju environment.
 	DestroyEnv() error
 }
@@ -35,37 +24,47 @@ type baseProvider interface {
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
-	name   string
-	uuid   string
-	client lxdClient
-	base   baseProvider
+	name string
+	uuid string
+	raw  *rawProvider
+	base baseProvider
 
 	lock sync.Mutex
 	ecfg *environConfig
 }
 
-func newEnviron(cfg *config.Config, newClient func(*environConfig) (lxdClient, error)) (*environ, error) {
+type newRawProviderFunc func(*environConfig) (*rawProvider, error)
+
+func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
+	// Connect and authenticate.
+	raw, err := newRawProvider(ecfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	env, err := newEnvironRaw(ecfg, raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
+func newEnvironRaw(ecfg *environConfig, raw *rawProvider) (*environ, error) {
 	uuid, ok := ecfg.UUID()
 	if !ok {
 		return nil, errors.New("UUID not set")
 	}
 
-	// Connect and authenticate.
-	client, err := newClient(ecfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	env := &environ{
-		name:   ecfg.Name(),
-		uuid:   uuid,
-		ecfg:   ecfg,
-		client: client,
+		name: ecfg.Name(),
+		uuid: uuid,
+		ecfg: ecfg,
+		raw:  raw,
 	}
 	env.base = common.DefaultProvider{Env: env}
 	return env, nil
@@ -94,15 +93,6 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 		return errors.Annotate(err, "invalid config change")
 	}
 	return nil
-}
-
-func newClient(ecfg *environConfig) (lxdClient, error) {
-	clientCfg := ecfg.clientConfig()
-	client, err := lxd_client.Connect(clientCfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return client, nil
 }
 
 // getSnapshot returns a copy of the environment. This is useful for

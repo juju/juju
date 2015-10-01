@@ -113,7 +113,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_clie
 		// Network is omitted (left empty).
 	}
 
-	inst, err := env.client.AddInstance(instSpec)
+	inst, err := env.raw.AddInstance(instSpec)
 	return inst, errors.Trace(err)
 }
 
@@ -179,6 +179,6 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	}
 
 	prefix := common.MachineFullName(env, "")
-	err := env.client.RemoveInstances(prefix, ids...)
+	err := env.raw.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

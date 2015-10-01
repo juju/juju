@@ -58,7 +58,7 @@ func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRan
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
 	name := common.MachineFullName(inst.env, machineID)
 	env := inst.env.getSnapshot()
-	err := env.client.OpenPorts(name, ports...)
+	err := env.raw.OpenPorts(name, ports...)
 	return errors.Trace(err)
 }
 
@@ -67,7 +67,7 @@ func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRan
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
 	name := common.MachineFullName(inst.env, machineID)
 	env := inst.env.getSnapshot()
-	err := env.client.ClosePorts(name, ports...)
+	err := env.raw.ClosePorts(name, ports...)
 	return errors.Trace(err)
 }
 
@@ -77,6 +77,6 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
 	name := common.MachineFullName(inst.env, machineID)
 	env := inst.env.getSnapshot()
-	ports, err := env.client.Ports(name)
+	ports, err := env.raw.Ports(name)
 	return ports, errors.Trace(err)
 }
