@@ -4,7 +4,8 @@
 package systemmanager_test
 
 import (
-	"github.com/juju/errors"
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -66,11 +67,12 @@ func (s *destroySystemSuite) SetUpTest(c *gc.C) {
 	})
 	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
 	s.otherEnvUUID = s.otherState.EnvironUUID()
+
+	stopper := startMockUndertaker(s.otherState, c, 200*time.Millisecond)
+	s.AddCleanup(func(c *gc.C) { stopper() })
 }
 
 func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("environment is now removed asynchronously. DestroySystem will need to wait.")
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -82,10 +84,11 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	env, err := s.otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dead)
 
-	env, err := s.State.Environment()
+	env, err = s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
@@ -110,17 +113,15 @@ func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *g
 }
 
 func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("environment is now removed asynchronously. DestroySystem will need to wait.")
 	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
 		DestroyEnvironments: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.otherState.Environment()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
-	env, err := s.State.Environment()
+	env, err := s.otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Life(), gc.Equals, state.Dead)
+	env, err = s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
@@ -142,8 +143,6 @@ func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) 
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("environment is now removed asynchronously. DestroySystem will need to wait.")
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -156,8 +155,6 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("environment is now removed asynchronously. DestroySystem will need to wait.")
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -175,8 +172,6 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
-	// TODO(waigani) fix this test before landing into master.
-	c.Skip("environment is now removed asynchronously. DestroySystem will need to wait.")
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -189,4 +184,104 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C)
 	numBlocks, err := s.State.AllBlocksForSystem()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 2)
+}
+
+// startMockUndertaker processes a dying environment and sets it to dead.
+// Normally, the undertaker worker, running on the machine agent, would
+// process all dying environments. But for the unit test, we process one
+// directly.
+func startMockUndertaker(st *state.State, c *gc.C, wait time.Duration) func() {
+	stop := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+
+			case <-time.After(wait):
+				st.ProcessDyingEnviron()
+			}
+		}
+	}()
+
+	return func() {
+		stop <- true
+	}
+}
+
+type destroySystemNoUndertakerSuite struct {
+	jujutesting.JujuConnSuite
+	systemManager *systemmanager.SystemManagerAPI
+	otherState    *state.State
+}
+
+var _ = gc.Suite(&destroySystemNoUndertakerSuite{})
+
+func (s *destroySystemNoUndertakerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	resources := common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+
+	authoriser := apiservertesting.FakeAuthorizer{
+		Tag: s.AdminUserTag(c),
+	}
+	systemManager, err := systemmanager.NewSystemManagerAPI(s.State, resources, authoriser)
+	c.Assert(err, jc.ErrorIsNil)
+	s.systemManager = systemManager
+
+	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+		Name:    "dummytoo",
+		Owner:   names.NewUserTag("jess@dummy"),
+		Prepare: true,
+		ConfigAttrs: testing.Attrs{
+			"state-server": false,
+		},
+	})
+	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
+}
+
+func (s *destroySystemNoUndertakerSuite) TestDestroySystemKillWaitsForHostedEnvs(c *gc.C) {
+	notify := make(chan string, 1)
+	cleanup := systemmanager.PatchNotificationChannel(notify)
+	defer cleanup()
+	waitOver := make(chan bool, 1)
+
+	go func() {
+		err := s.systemManager.DestroySystem(params.DestroySystemArgs{
+			DestroyEnvironments: true,
+		})
+		c.Check(err, jc.ErrorIsNil)
+		waitOver <- true
+	}()
+
+	select {
+	case n := <-notify:
+		c.Assert(n, gc.Equals, "waiting for environs to be dead")
+
+		env, err := s.otherState.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, state.Dying)
+
+		env, err = s.State.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, state.Alive)
+		c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for SystemDestroy wait notification")
+	}
+
+	select {
+	case <-waitOver:
+		// DestroySystem has completed
+		env, err := s.otherState.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, state.Dead)
+		env, err = s.State.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.Life(), gc.Equals, state.Dying)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for system to be destroyed")
+	}
 }
