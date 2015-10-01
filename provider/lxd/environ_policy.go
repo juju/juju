@@ -19,9 +19,7 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 	}
 
 	if cons.HasInstanceType() {
-		if !checkInstanceType(cons) {
-			return errors.Errorf("invalid GCE instance type %q", *cons.InstanceType)
-		}
+		return errors.Errorf("LXD does not support instance types (got %q)", *cons.InstanceType)
 	}
 
 	return nil
