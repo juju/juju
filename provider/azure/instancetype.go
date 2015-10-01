@@ -4,7 +4,6 @@
 package azure
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -12,10 +11,10 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/provider/common"
 )
 
 const defaultMem = 1 * gwacl.GB
@@ -82,14 +81,9 @@ func findMatchingImages(e *azureEnviron, location, series string, arches []strin
 		Arches:    arches,
 		Stream:    e.Config().ImageStream(),
 	})
-	sources, err := environs.ImageMetadataSources(e)
+
+	images, _, err := common.FindImageMetadata(e, constraint, signedImageDataOnly)
 	if err != nil {
-		return nil, err
-	}
-	images, _, err := imagemetadata.Fetch(sources, constraint, signedImageDataOnly)
-	if len(images) == 0 || errors.IsNotFound(err) {
-		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
-	} else if err != nil {
 		return nil, err
 	}
 	return images, nil

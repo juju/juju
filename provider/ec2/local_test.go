@@ -171,7 +171,7 @@ func (srv *localServer) stopServer(c *gc.C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	jujutest.Tests
 	srv                localServer
 	restoreEC2Patching func()
@@ -183,12 +183,12 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
-	t.BaseSuite.SetUpSuite(c)
+	t.FakeJujuHomeSuite.SetUpSuite(c)
 	t.srv.createRootDisks = true
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
-	t.BaseSuite.TearDownSuite(c)
+	t.FakeJujuHomeSuite.TearDownSuite(c)
 	t.restoreEC2Patching()
 }
 
@@ -198,7 +198,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-	t.BaseSuite.SetUpTest(c)
+	t.FakeJujuHomeSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
@@ -207,7 +207,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
-	t.BaseSuite.TearDownTest(c)
+	t.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {

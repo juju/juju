@@ -9,20 +9,23 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
+	"github.com/juju/utils/series"
 )
 
 var _ = gc.Suite(&specSuite{})
 
 type specSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 func (s *specSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	UseTestImageData(TestImagesData)
 	UseTestInstanceTypeData(TestInstanceTypeCosts)
 	UseTestRegionData(TestRegions)
@@ -32,7 +35,7 @@ func (s *specSuite) TearDownSuite(c *gc.C) {
 	UseTestInstanceTypeData(nil)
 	UseTestImageData(nil)
 	UseTestRegionData(nil)
-	s.BaseSuite.TearDownSuite(c)
+	s.FakeJujuHomeSuite.TearDownSuite(c)
 }
 
 var findInstanceSpecTests = []struct {
@@ -150,6 +153,7 @@ var findInstanceSpecTests = []struct {
 }
 
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
+	env := s.registerTestDataSource(c)
 	for i, test := range findInstanceSpecTests {
 		c.Logf("\ntest %d: %q; %q; %q; %v", i, test.series, test.arches, test.cons, test.storage)
 		stor := test.storage
@@ -157,8 +161,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 			stor = []string{ssdStorage, ebsStorage}
 		}
 		spec, err := findInstanceSpec(
-			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
+			env,
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",
@@ -174,10 +177,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 }
 
 func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
-
-	source := []simplestreams.DataSource{
-		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
-	}
+	env := s.registerTestDataSource(c)
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
 		Series:      testing.FakeDefaultSeries,
@@ -185,7 +185,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 	}
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
-	findInstanceSpec(source, "released", instanceConstraint)
+	findInstanceSpec(env, "released", instanceConstraint)
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
 }
@@ -203,7 +203,7 @@ var findInstanceSpecErrorTests = []struct {
 	}, {
 		series: testing.FakeDefaultSeries,
 		arches: []string{"arm"},
-		err:    `no "trusty" images in test with arches \[arm\]`,
+		err:    `image metadata for series \[trusty\], architectures \[arm\] not found`,
 	}, {
 		series: "raring",
 		arches: both,
@@ -213,11 +213,11 @@ var findInstanceSpecErrorTests = []struct {
 }
 
 func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
+	env := s.registerTestDataSource(c)
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec(
-			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
+			env,
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",
@@ -251,4 +251,49 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 	}
 	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
 	c.Check(filterImages(input, ic), gc.DeepEquals, input)
+}
+
+type mockEnviron struct {
+	environ
+	config func() *config.Config
+}
+
+func (env *mockEnviron) Config() *config.Config {
+	return env.config()
+}
+
+func minimalConfig(c *gc.C) *config.Config {
+	attrs := map[string]interface{}{
+		"name":            "whatever",
+		"type":            "anything, really",
+		"uuid":            testing.EnvironmentTag.Id(),
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
+		"authorized-keys": testing.FakeAuthKeys,
+		"default-series":  series.HostSeries(),
+	}
+	cfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+func configGetter(c *gc.C) func() *config.Config {
+	cfg := minimalConfig(c)
+	return func() *config.Config { return cfg }
+}
+
+func (s *specSuite) registerTestDataSource(c *gc.C) environs.Environ {
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	env := &mockEnviron{
+		config: configGetter(c),
+	}
+
+	environs.RegisterImageDataSourceFunc("test", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames), nil
+	})
+	s.AddCleanup(func(*gc.C) {
+		environs.UnregisterImageDataSourceFunc("test")
+	})
+
+	return env
 }

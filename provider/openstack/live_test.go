@@ -78,14 +78,14 @@ func registerLiveTests(cred *identity.Credentials) {
 // The deployment can be a real live instance or service doubles.
 // Each test runs using the same connection.
 type LiveTests struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	jujutest.LiveTests
 	cred            *identity.Credentials
 	metadataStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
-	t.BaseSuite.SetUpSuite(c)
+	t.FakeJujuHomeSuite.SetUpSuite(c)
 	// Update some Config items now that we have services running.
 	// This is setting the simplestreams urls and auth-url because that
 	// information is set during startup of the localLiveSuite
@@ -118,17 +118,17 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		envtesting.RemoveFakeToolsMetadata(c, t.metadataStorage)
 	}
 	t.LiveTests.TearDownSuite(c)
-	t.BaseSuite.TearDownSuite(c)
+	t.FakeJujuHomeSuite.TearDownSuite(c)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.BaseSuite.SetUpTest(c)
+	t.FakeJujuHomeSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
-	t.BaseSuite.TearDownTest(c)
+	t.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
