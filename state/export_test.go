@@ -63,6 +63,28 @@ type (
 	BlockDevicesDoc blockDevicesDoc
 )
 
+// ensure watchers meet interface requirements
+var (
+	_ Watcher = (*cleanupWatcher)(nil)
+	_ Watcher = (*docWatcher)(nil)
+	_ Watcher = (*EnvironConfigWatcher)(nil)
+	_ Watcher = (*lifecycleWatcher)(nil)
+	_ Watcher = (*machineAddressesWatcher)(nil)
+	_ Watcher = (*machineUnitsWatcher)(nil)
+	_ Watcher = (*minUnitsWatcher)(nil)
+	_ Watcher = (*openedPortsWatcher)(nil)
+	_ Watcher = (*RelationScopeWatcher)(nil)
+	_ Watcher = (*relationUnitsWatcher)(nil)
+	_ Watcher = (*settingsWatcher)(nil)
+	_ Watcher = (*unitsWatcher)(nil)
+
+	_ NotifyWatcher = (*blockDevicesWatcher)(nil)
+	_ NotifyWatcher = (*machineInterfacesWatcher)(nil)
+
+	_ StringsWatcher = (*actionStatusWatcher)(nil)
+	_ StringsWatcher = (*idPrefixWatcher)(nil)
+)
+
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	return txntesting.SetTestHooks(c, newRunnerForHooks(st), hooks...)
 }
@@ -247,16 +269,16 @@ func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
 
-func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
-	return mergeIds(st, changeset, updates)
+func WatcherMakeMergeIds(localIdFn func(string) string, filterFn func(string) (string, bool)) func(changeset *[]string, updates map[interface{}]bool) error {
+	return makeMergeFn(localIdFn, filterFn)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
 	return ensureSuffixFn(marker)
 }
 
-func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
-	return makeIdFilter(st, marker, receivers...)
+func WatcherMakeActionPrefixFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) (string, bool) {
+	return makeActionPrefixFilter(st, marker, receivers...)
 }
 
 func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {

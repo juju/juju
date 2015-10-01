@@ -587,6 +587,9 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func localId(id string) string          { return id }
+func filterFn(id string) (string, bool) { return id, true }
+
 func (s *ActionSuite) TestMergeIds(c *gc.C) {
 	var tests = []struct {
 		changes  string
@@ -609,13 +612,15 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		{changes: "a0,a1,a2", adds: "a1,a4,a5", removes: "a1,a3", expected: "a0,a2,a4,a5"},
 	}
 
+	mergeIds := state.WatcherMakeMergeIds(localId, filterFn)
+
 	for ix, test := range tests {
 		updates := mapify(test.adds, test.removes)
 		changes := sliceify(test.changes)
 		expected := sliceify(test.expected)
 
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
-		err := state.WatcherMergeIds(s.State, &changes, updates)
+		err := mergeIds(&changes, updates)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes, jc.SameContents, expected)
 	}
@@ -635,11 +640,13 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 		{ok: true, name: "string", key: ""},
 	}
 
+	mergeIds := state.WatcherMakeMergeIds(localId, filterFn)
+
 	for _, test := range tests {
 		changes, updates := []string{}, map[interface{}]bool{}
 
 		updates[test.key] = true
-		err := state.WatcherMergeIds(s.State, &changes, updates)
+		err := mergeIds(&changes, updates)
 
 		if test.ok {
 			c.Assert(err, jc.ErrorIsNil)
@@ -670,15 +677,15 @@ func (s *ActionSuite) TestEnsureSuffix(c *gc.C) {
 	}
 }
 
-func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
+func (s *ActionSuite) TestMakeActionPrefixFilter(c *gc.C) {
 	marker := "-marker-"
 	badmarker := "-bad-"
-	fn := state.WatcherMakeIdFilter(s.State, marker)
+	fn := state.WatcherMakeActionPrefixFilter(s.State, marker)
 	c.Assert(fn, gc.IsNil)
 
 	ar1 := mockAR{id: "mock/1"}
 	ar2 := mockAR{id: "mock/2"}
-	fn = state.WatcherMakeIdFilter(s.State, marker, ar1, ar2)
+	fn = state.WatcherMakeActionPrefixFilter(s.State, marker, ar1, ar2)
 	c.Assert(fn, gc.Not(gc.IsNil))
 
 	var tests = []struct {
@@ -707,7 +714,8 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		c.Assert(fn(state.DocID(s.State, test.id)), gc.Equals, test.match)
+		_, ok := fn(state.DocID(s.State, test.id))
+		c.Assert(ok, gc.Equals, test.match)
 	}
 }
 
