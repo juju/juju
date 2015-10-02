@@ -85,13 +85,14 @@ tags
    currently only supported by the MaaS environment.
 
 spaces
-   Spaces defines a list of spaces which are allowed or disallowed to add a machine
-   or deploy a service to. Additionally it can contain a list of spaces which are
-   not allowed. All space names are separated by commas, the disallowed ones are
-   prefixed with a "^". The constraint controls which instance is chosen for the
-   new machine or service unit. It has to have distinct IP addresses on any subnet
-   of each allowed space in the list and none of the subnets associated with one
-   of the disallowed spaces. Currently MaaS and AWS are supported providers.
+   Spaces allows to specify list of spaces which are allowed or disallowed to add
+   a machine or deploy a service to. Additionally it can contain a list of spaces
+   which are not allowed. All space names are separated by commas, the disallowed
+   ones are prefixed with a caret ("^"). The constraint controls which instance is
+   chosen for the new machine or service unit. It has to have distinct IP addresses
+   on any subnet of each allowed space in the list and none of the subnets associated
+   with one of the disallowed spaces. Currently only the EC2 provider supported
+   providers, more will follow.
 
 instance-type
    Instance-type is the provider-specific name of a type of machine to deploy,

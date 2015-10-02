@@ -17,7 +17,7 @@ or more availability zones ("zones"). Subnets can be part of one
 and only one space. All subnets within a space are considered "equal"
 in terms of access control, firewall rules, and routing. Communication
 crossing space boundaries on the other hand (e.g. between instances
-started in subnets part of different spaces) can be subject to access
+started in subnets part of different spaces) will be subject to access
 restrictions and isolation.
 
 Having multiple subnets spanning different zones within the same space
@@ -36,7 +36,7 @@ distinct security requirements:
   only by the applications.
 
 HAProxy is deployed inside the "dmz" space, it is accessible from the Internet
-and proxies HTTP(S) requests to one or more Joomla units in the "cms" space.
+and proxies HTTP requests to one or more Joomla units in the "cms" space.
 The backend MySQL for Joomla is running in the "database" space. All subnets
 within the "cms" and "database" spaces provide no access from outside the
 environment for security reasons. Using spaces for deployments like this allows
@@ -57,7 +57,7 @@ Spaces are created like this:
 
 $ juju space create <name> [ <CIDR1> <CIDR2> ... ] [--private|--public]
 
-The can be listed in various formats using the "list" subcommand.
+They can be listed in various formats using the "list" subcommand.
 
 Existing subnets can be added to the environment using
 
@@ -71,13 +71,13 @@ adding
 
 --constraints spaces=<allowedspace1>,<allowedspace2>,^<disallowedspace>
 
-The constraint controls in which subnet the new instance will be started.
+The constraint controls which subnet the new instance will be started in.
 This instance has to have distinct IP addresses on any subnet of each allowed
 space in the list and none of the subnets associated with one of the disallowed
-spaces which are prefixed with a carret ("^").
+spaces which are prefixed with a caret ("^").
 
 Please note, Juju supports the described syntax but currently ignores all but
-the first allowed space in the list. This behavior will change future releases
-of Juju. Also, only the EC2 provider supports spaces as described, which support
+the first allowed space in the list. This behavior will change in a future release
+of Juju. Also, only the EC2 provider supports spaces as described, with support
 for MaaS and OpenStack coming soon.
 `

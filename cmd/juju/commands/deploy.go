@@ -83,19 +83,19 @@ where <series> is the OS series, for example 'juju-trusty-template'.
 You can override the use of clone by changing the provider configuration:
   lxc-clone: false
 
-In more complex scenarios, Juju network spaces are used to partition the cloud
+In more complex scenarios, Juju's network spaces are used to partition the cloud
 networking layer into sets of subnets. Instances hosting service units inside
 the same space can communicate with each other without any firewalls. Traffic
 crossing space boundaries could be subject to firewall and access restrictions.
 Using spaces as deployment targets, rather than their individual subnets allows
 Juju to perform automatic distribution of units across availability zones to
 support high availability for services. Spaces help isolate services and their
-units, both for security purposes and for traffic segregation / congestion
-reduction.
+units, both for security purposes and to manage both traffic segregation and
+congestion.
 
 When deploying a service or adding machines, the "spaces" constraint can be
 used to define a comma-delimited list of acceptable and not acceptable (prefixed
-with "^", like for the "tags" constraint) spaces to use.
+with "^", similar to the "tags" constraint.
 
 If you have the main container directory mounted on a btrfs partition,
 then the clone will be using btrfs snapshots to create the containers.
@@ -114,8 +114,8 @@ Examples:
    (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
    juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
-   (deploy 2 instances of haproxy on cloud instances inside subnets of the dmz
-    space but not of the cmd and the database space)
+   (deploy 2 instances of haproxy on cloud instances inside subnets of the
+    dmz space only)
 
 See Also:
    juju help networking
