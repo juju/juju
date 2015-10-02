@@ -17,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apihttp "github.com/juju/juju/apiserver/http"
@@ -31,19 +32,71 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type toolsSuite struct {
+// charmsCommonSuite wraps authHttpSuite and adds
+// some helper methods suitable for working with the
+// tools endpoint.
+type toolsCommonSuite struct {
 	authHttpSuite
+}
+
+func (s *toolsCommonSuite) toolsURL(c *gc.C, query string) *url.URL {
+	uri := s.baseURL(c)
+	uri.Path = fmt.Sprintf("/environment/%s/tools", s.envUUID)
+	uri.RawQuery = query
+	return uri
+}
+
+func (s *toolsCommonSuite) toolsURI(c *gc.C, query string) string {
+	if query != "" && query[0] == '?' {
+		query = query[1:]
+	}
+	return s.toolsURL(c, query).String()
+}
+
+func (s *toolsCommonSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
+	url := s.toolsURL(c, "")
+	if uuid == "" {
+		url.Path = fmt.Sprintf("/tools/%s", version)
+	} else {
+		url.Path = fmt.Sprintf("/environment/%s/tools/%s", uuid, version)
+	}
+	return s.sendRequest(c, httpRequestParams{method: "GET", url: url.String()})
+}
+
+func (s *toolsCommonSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
+	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
+	c.Check(toolsResponse.Error, gc.IsNil)
+	c.Check(toolsResponse.Tools, gc.DeepEquals, agentTools)
+}
+
+func (s *toolsCommonSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
+	body := assertResponse(c, resp, http.StatusOK, expContentType)
+	c.Check(string(body), gc.Equals, expBody)
+}
+
+func (s *toolsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+	toolsResponse := s.assertResponse(c, resp, expCode)
+	c.Assert(toolsResponse.Error, gc.NotNil)
+	c.Assert(toolsResponse.Error.Message, gc.Matches, expError)
+}
+
+func (s *toolsCommonSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
+	body := assertResponse(c, resp, expStatus, apihttp.CTypeJSON)
+	var toolsResponse params.ToolsResult
+	err := json.Unmarshal(body, &toolsResponse)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
+	return toolsResponse
+}
+
+type toolsSuite struct {
+	toolsCommonSuite
 	commontesting.BlockHelper
 }
 
 var _ = gc.Suite(&toolsSuite{})
 
-func (s *toolsSuite) SetUpSuite(c *gc.C) {
-	s.authHttpSuite.SetUpSuite(c)
-}
-
 func (s *toolsSuite) SetUpTest(c *gc.C) {
-	s.authHttpSuite.SetUpTest(c)
+	s.toolsCommonSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
@@ -147,8 +200,8 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	// Now try uploading them.
 	resp := s.uploadRequest(
 		c, s.toolsURI(c, "?binaryVersion="+vers.String()), "application/x-tar-gz", toolPath)
-	problem := s.assertErrorResponse(c, resp, http.StatusBadRequest, "TestUpload")
-	s.AssertBlocked(c, problem, "TestUpload")
+	toolsResponse := s.assertResponse(c, resp, http.StatusBadRequest)
+	s.AssertBlocked(c, toolsResponse.Error, "TestUpload")
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()
@@ -362,52 +415,53 @@ func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
 
-func (s *toolsSuite) toolsURL(c *gc.C, query string) *url.URL {
-	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/environment/%s/tools", s.envUUID)
-	uri.RawQuery = query
-	return uri
+type toolsWithMacaroonsSuite struct {
+	toolsCommonSuite
 }
 
-func (s *toolsSuite) toolsURI(c *gc.C, query string) string {
-	if query != "" && query[0] == '?' {
-		query = query[1:]
+var _ = gc.Suite(&toolsWithMacaroonsSuite{})
+
+func (s *toolsWithMacaroonsSuite) SetUpTest(c *gc.C) {
+	s.macaroonAuthEnabled = true
+	s.toolsCommonSuite.SetUpTest(c)
+}
+
+func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
+	resp := s.sendRequest(c, httpRequestParams{
+		method: "POST",
+		url:    s.toolsURI(c, ""),
+	})
+
+	charmResponse := s.assertResponse(c, resp, http.StatusUnauthorized)
+	c.Assert(charmResponse.Error, gc.NotNil)
+	c.Assert(charmResponse.Error.Message, gc.Equals, "verification failed: no macaroons")
+	c.Assert(charmResponse.Error.Code, gc.Equals, params.CodeDischargeRequired)
+	c.Assert(charmResponse.Error.Info, gc.NotNil)
+	c.Assert(charmResponse.Error.Info.Macaroon, gc.NotNil)
+}
+
+func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
+	checkCount := 0
+	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
+		if cond != "is-authenticated-user" {
+			return nil, errors.Errorf("unrecognized caveat %q", cond)
+		}
+		checkCount++
+		return []checkers.Caveat{
+			checkers.DeclaredCaveat("username", s.userTag.Id()),
+		}, nil
 	}
-	return s.toolsURL(c, query).String()
+	resp := s.sendRequest(c, httpRequestParams{
+		do:     s.doer(),
+		method: "POST",
+		url:    s.toolsURI(c, ""),
+	})
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	c.Assert(checkCount, gc.Equals, 1)
 }
 
-func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
-	url := s.toolsURL(c, "")
-	if uuid == "" {
-		url.Path = fmt.Sprintf("/tools/%s", version)
-	} else {
-		url.Path = fmt.Sprintf("/environment/%s/tools/%s", uuid, version)
-	}
-	return s.sendRequest(c, httpRequestParams{method: "GET", url: url.String()})
-}
-
-func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
-	body := assertResponse(c, resp, http.StatusOK, apihttp.CTypeJSON)
-	toolsResult := jsonToolsResponse(c, body)
-	c.Check(toolsResult.Error, gc.IsNil)
-	c.Check(toolsResult.Tools, gc.DeepEquals, agentTools)
-}
-
-func (s *toolsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
-	body := assertResponse(c, resp, http.StatusOK, expContentType)
-	c.Check(string(body), gc.Equals, expBody)
-}
-
-func (s *toolsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) error {
-	body := assertResponse(c, resp, expCode, apihttp.CTypeJSON)
-	err := jsonToolsResponse(c, body).Error
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, expError)
-	return err
-}
-
-func jsonToolsResponse(c *gc.C, body []byte) (jsonResponse params.ToolsResult) {
-	err := json.Unmarshal(body, &jsonResponse)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
-	return
+// doer returns a Do function that can make a bakery request
+// appropriate for a charms endpoint.
+func (s *toolsWithMacaroonsSuite) doer() func(*http.Request) (*http.Response, error) {
+	return bakeryDo(nil, bakeryGetError)
 }
