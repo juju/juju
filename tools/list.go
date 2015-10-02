@@ -4,10 +4,10 @@
 package tools
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/version"
@@ -17,7 +17,13 @@ import (
 // a List is not significant.
 type List []*Tools
 
+// ErrNoMatches represents a failure to find tools for the given query.
 var ErrNoMatches = errors.New("no matching tools available")
+
+// IsNoMatches return true if the passed error is ErrNoMatches.
+func IsNoMatches(err error) bool {
+	return ErrNoMatches.Error() == err.Error()
+}
 
 // String returns the versions of the tools in src, separated by semicolons.
 func (src List) String() string {
