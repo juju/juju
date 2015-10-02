@@ -5,6 +5,7 @@ package lxd_client
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
@@ -121,6 +122,14 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 	var addrs []network.Address
 	for _, info := range info.Status.Ips {
 		addr := network.NewAddress(info.Address)
+
+		// Ignore loopback devices.
+		// TODO(ericsnow) Move the loopback test to a network.Address method?
+		ip := net.ParseIP(addr.Value)
+		if ip != nil && ip.IsLoopback() {
+			continue
+		}
+
 		addrs = append(addrs, addr)
 	}
 
