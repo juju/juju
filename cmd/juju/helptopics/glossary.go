@@ -116,20 +116,19 @@ Service Unit Agent
   Software which manages all the lifecycle of a single Service Unit.
 
 Subnet
-  A broadcast address range identified by a CIDR like 10.1.2.0/24.
+  A broadcast address range identified by a CIDR like 10.1.2.0/24, or 2001:db8::/32.
 
 Space
   A collection of subnets which must be routable between each other without
-  firewalls. A subbnet is only allowed to be in one space. Connections between
-  spaces instead are assumed to go through firewalls. Possible permissions control
-  the access to spaces.
+  firewalls. A subnet can be in one and only one space. Connections between
+  spaces instead are assumed to go through firewalls.
 
-  Spaces and their subnets can cross multiples zones. So services can be deployed
-  in one space and multiple zones for high availibility.
+  Spaces and their subnets can span multiples zones, if supported by the
+  cloud provider.
 
 Zone
   Zones, also known as Availability Zones, are isolated parts of a network. Deploying
-  services across multiple availability zones makes them ready for unexpected outages.
-  So if there is an outage with a particular availability zone the application stays
-  online.
+  services across multiple availability zones makes them resilient against unexpected
+  outages. So if there is an outage in a particular availability zone the service
+  is still accessible in other zones.
 `

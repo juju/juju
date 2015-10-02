@@ -4,45 +4,61 @@
 package helptopics
 
 const Networking = `
-Beside the standard networking of the cloud providers Juju comes up with
-a software defined networking. This way better physical isolation as
-well as redundancy for high availability can be established. To do so
-Juju introduced spaces.
+Juju provides a set of features allowing the users to have better and
+finer-grained control over the networking aspects of the environment
+and service deployments in particular. Not all cloud providers support
+these enhanced networking features yet, in fact they are currently
+supported on AWS only. Support for MaaS and OpenStack is planed and
+will be available in future releases of Juju.
 
-Spaces are sets of disjunct networks orthogonal to zones of the cloud
-provider. The subnets inside one space are routable to one another
-without any firewalls. Opposite to this all connections between different
-spaces are assumed to go through firewalls or other filters. Here the
-needed ports have to be required by the charms. This way Juju provides
-a fine-grained access control to the deployed services.
+Juju network spaces (or just "spaces") represent sets of disjunct
+subnets available for running cloud instances, which may span one
+or more availability zones ("zones"). Subnets can be part of one
+and only one space. All subnets within a space are considered "equal"
+in terms of access control, firewall rules, and routing. Communication
+between spaces on the other hand (e.g. between instances started in
+subnets part of different spaces) will be subject to access restrictions
+and isolation.
 
-As an example an environment with three areas of trust shall be setup:
+Having multiple subnets spanning different zones within the same space
+allows Juju to perform automatic distribution of units of a service
+across zones inside the same space. This allows for high-availability
+for services and spreading the instances evenly across subnets and zones.
 
-- the "dmz" space as the public interface to the Internet,
-- the "cms" space for a content management, and
-- the "database" space as backend.
+As an example, consider an environment divided into three segments with
+distinct security requirements:
 
-Here in the "dmz" space HAProxy runs. It is proxying Joomla the instances 
-in the "cms" space. The backend MySQL for Joomla is running in the "database"
-space. Both backend spaces only have private subnets and cannot be directly
-accessed from the internet. Opposite to this the "dmz" space additionally
-provides public addresses. The firewall rules between "dmz" and "cms"
-allow the proxying as well as the rules between "cms" and "database"
-spaces allow Joomla to use the database. Future extensions of the environment
-may use the same database but new spaces for other application parts.
-So it is ensured that while these parts can share the database but
-not directly influence each other.
+- The "dmz" space for publicly-accessible services (e.g. HAProxy) providing
+  access to the CMS application behind it.
+- The "cms" space for content-management applications accessible via the "dmz"
+  space only.
+ -The "database" space for backend database services, which should be accessible
+  only by the applications.
 
-Due to the ability of spaces to span multiple zones services can be 
-distributed to these zones. This way high available environments can be
-realized.
+HAProxy is deployed inside the "dmz" space, it is accessible from the Internet
+and proxies HTTP requests to one or more Joomla units in the "cms" space.
+The backend MySQL for Joomla is running in the "database" space. All subnets
+within the "cms" and "database" spaces provide no access from outside the
+environment for security reasons. Using spaces for deployments like this allows
+Juju to have the necessary information about how to configure the firewall and
+access control rules. In this case, instances in "dmz" can only communicate
+with instances in "apps", which in turn are the only ones allowed to access
+instances in "database".
+
+Please note, Juju does not yet enforce those security restrictions, but having
+spaces and subnets available makes it possible to implement those restrictions
+and access control in a future release.
+
+Due to the ability of spaces to span multiple zones services can be distributed
+across these zones. This allows high available setup for services within the
+environment.
 
 Spaces are created like this:
 
 $ juju space create <name> [ <CIDR1> <CIDR2> ... ] [--private|--public]
 
-It can be done without initial subnets, these can be added later by
-calling:
+They can be listed in various formats using the "list" subcommand. See
+also "juju space help" for more information.
 
 $ juju space update <name> <CIDR1> [ <CIDR2> ... ]
 
@@ -56,12 +72,12 @@ Additionally existing subnets can be added using
 
 $ juju subnet add <CIDR>|<subnet-provider-id> <space> [<zone1> <zone2> ...]
 
-Like spaces they can be listed by the subcommand "list" and removed
-by "remove".
+Like spaces they can be listed by the subcommand "list". See
+also "juju space help" for more information.
 
 The commands "add-machine" and "deploy" allow the specification of a
 spaces constraint for the selection of a matching instance. It is done by
-adding
+adding:
 
 --constraints spaces=<allowedspace1>,<allowedspace2>,^<disallowedspace>
 
@@ -70,5 +86,10 @@ service unit. This instance has to have distinct IP addresses on any subnet
 of each allowed space in the list and none of the subnets associated with one
 of the disallowed spaces which are prefixed with a carret. 
 
-Currently MaaS and AWS are supported providers for this networking model.
+For more information, see "juju help constraints".
+
+Please note, Juju supports the described syntax but currently ignores all but
+the first allowed space in the list. This behavior will change in a future release.
+Also, only the EC2 provider supports spaces as described, with support for MaaS
+and OpenStack coming soon.
 `
