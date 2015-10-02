@@ -25,9 +25,10 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 	dataDir := "/var/lib/juju"
 	dbDir := dataDir + "/db"
 	mongodPath := "/mgo/bin/mongod"
+	mongodVersion := mongo.Mongo24
 	port := 12345
 	oplogSizeMB := 10
-	conf := mongo.NewConf(dataDir, dbDir, mongodPath, port, oplogSizeMB, false)
+	conf := mongo.NewConf(dataDir, dbDir, mongodPath, port, oplogSizeMB, false, mongodVersion)
 
 	expected := common.Conf{
 		Desc: "juju state database",
