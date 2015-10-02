@@ -48,6 +48,11 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 	// only return patches for the passed major.minor (from major.minor.patch).
 	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, tools.ReleasedStream, coretools.Filter{})
 	if err != nil {
+		if coretools.IsNoMatches(err) {
+			// TODO (perrito666) remove this, it is for demo purposes.
+			currentVersion.Patch++
+			return currentVersion, nil
+		}
 		return version.Zero, errors.Annotatef(err, "canot find available tools")
 	}
 	// Newest also returns a list of the items in this list matching with the
