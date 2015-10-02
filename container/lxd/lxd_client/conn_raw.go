@@ -30,7 +30,7 @@ type rawClientWrapper interface {
 
 	// container methods
 	ListContainers() ([]shared.ContainerInfo, error)
-	ContainerStatus(name string, showLog bool) (*shared.ContainerState, error)
+	ContainerStatus(name string) (*shared.ContainerState, error)
 	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
@@ -71,7 +71,7 @@ type rawImageMethods interface {
 	// info/meta
 	ListImages() ([]shared.ImageInfo, error)
 	GetImageInfo(image string) (*shared.ImageInfo, error)
-	PutImageProperties(name string, p shared.ImageProperties) error
+	//PutImageProperties(name string, p shared.ImageProperties) error
 
 	// image data (create, upload, download, destroy)
 	CopyImage(image string, dest *lxd.Client, copy_aliases bool, aliases []string, public bool) error
@@ -96,13 +96,12 @@ type rawContainerMethods interface {
 	// info/meta
 	ListContainers() ([]shared.ContainerInfo, error)
 	//Rename(name string, newName string) (*lxd.Response, error)
-	ContainerStatus(name string, showLog bool) (*shared.ContainerState, error)
+	ContainerStatus(name string) (*shared.ContainerState, error)
 
 	// container data (create, actions, destroy)
 	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
-	LocalCopy(source string, name string, config map[string]string, profiles []string) (*lxd.Response, error)
-	MigrateTo(container string) (*lxd.Response, error)
-	MigrateFrom(name string, operation string, secrets map[string]string, config map[string]string, profiles []string, baseImage string) (*lxd.Response, error)
+	LocalCopy(source string, name string, config map[string]string, profiles []string, ephemeral bool) (*lxd.Response, error)
+	MigrateFrom(name string, operation string, secrets map[string]string, config map[string]string, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
@@ -115,7 +114,7 @@ type rawContainerMethods interface {
 
 	// config
 	GetContainerConfig(container string) ([]string, error)
-	SetContainerConfig(container, key, value string) (*lxd.Response, error)
+	SetContainerConfig(container, key, value string) error
 	UpdateContainerConfig(container string, st shared.BriefContainerState) error
 
 	// devices

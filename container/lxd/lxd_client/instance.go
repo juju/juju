@@ -125,9 +125,9 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 	}
 
 	// TODO(ericsnow) Factor this out into a function.
-	statusStr := info.Status.State
+	statusStr := info.Status.Status
 	for status, code := range allStatuses {
-		if info.Status.StateCode == code {
+		if info.Status.StatusCode == code {
 			statusStr = status
 			break
 		}
