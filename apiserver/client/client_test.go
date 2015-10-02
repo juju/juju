@@ -1791,35 +1791,19 @@ func (s *clientRepoSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
-	retry(func(last bool) bool {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		units, err := service.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.HasLen, 1)
 
 		mid, err := units[0].AssignedMachineId()
-		if last {
+		if !a.HasNext() {
 			c.Assert(err, jc.ErrorIsNil)
 		} else if err != nil {
-			return false // we'll retry
+			continue // we'll retry
 		}
 		c.Assert(mid, gc.Equals, machine.Id())
-		return true
-	})
-}
-
-// retry is a helper that will retry the given function until it returns true
-// for up to 3 seconds.  The last time it is run it'll pass in true to the
-// function.
-func retry(f func(last bool) bool) {
-	x := 0
-	for ; x < 30; x++ {
-		if f(false) {
-			break
-		}
-		<-time.After(100 * time.Millisecond)
-	}
-	if x == 30 {
-		f(true)
+		break
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -249,34 +248,19 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	svc, err := s.State.Service("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 
-	retry(func(last bool) bool {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+
 		units, err := svc.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.HasLen, 1)
 		mid, err := units[0].AssignedMachineId()
-		if last {
+		if !a.HasNext() {
 			c.Assert(err, jc.ErrorIsNil)
 		} else if err != nil {
-			return false
+			continue
 		}
 		c.Assert(mid, gc.Not(gc.Equals), machine.Id())
-		return true
-	})
-}
-
-// retry is a helper that will retry the given function until it returns true
-// for up to 3 seconds.  The last time it is run it'll pass in true to the
-// function.
-func retry(f func(last bool) bool) {
-	x := 0
-	for ; x < 30; x++ {
-		if f(false) {
-			break
-		}
-		<-time.After(100 * time.Millisecond)
-	}
-	if x == 30 {
-		f(true)
+		break
 	}
 }
 
@@ -306,19 +290,19 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	svc, err := s.State.Service("portlandia")
 	c.Assert(err, jc.ErrorIsNil)
 
-	retry(func(last bool) bool {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		units, err := svc.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.HasLen, 1)
 		mid, err := units[0].AssignedMachineId()
-		if last {
+		if !a.HasNext() {
 			c.Assert(err, jc.ErrorIsNil)
 		} else if err != nil {
-			return false
+			continue
 		}
 		c.Assert(mid, gc.Equals, machineId)
-		return true
-	})
+		break
+	}
 }
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
@@ -354,15 +338,18 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
 
-	retry(func(last bool) bool {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+
 		machines, err := s.State.AllMachines()
 		c.Assert(err, jc.ErrorIsNil)
-		if last {
+		if !a.HasNext() {
 			c.Assert(machines, gc.HasLen, 2)
-			return true
+			break
 		}
-		return len(machines) == 2
-	})
+		if len(machines) == 2 {
+			break
+		}
+	}
 }
 
 func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {

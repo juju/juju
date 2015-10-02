@@ -4,14 +4,13 @@
 package testing
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
@@ -38,15 +37,15 @@ func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 
-	retry(func(last bool) bool {
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		units, err := service.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		for _, unit := range units {
 			mid, err := unit.AssignedMachineId()
-			if last {
+			if !a.HasNext() {
 				c.Assert(err, jc.ErrorIsNil)
 			} else if err != nil {
-				return false
+				continue
 			}
 			machine, err := st.Machine(mid)
 			c.Assert(err, jc.ErrorIsNil)
@@ -54,23 +53,7 @@ func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(machineCons, gc.DeepEquals, cons)
 		}
-		return true
-	})
+		break
+	}
 	return service
-}
-
-// retry is a helper that will retry the given function until it returns true
-// for up to 3 seconds.  The last time it is run it'll pass in true to the
-// function.
-func retry(f func(last bool) bool) {
-	x := 0
-	for ; x < 30; x++ {
-		if f(false) {
-			break
-		}
-		<-time.After(100 * time.Millisecond)
-	}
-	if x == 30 {
-		f(true)
-	}
 }
