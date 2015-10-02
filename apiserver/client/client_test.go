@@ -3213,7 +3213,7 @@ func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAdd
 	repo := &testModeCharmRepo{}
 	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
 		p.URL = s.Srv.URL
-		repo.CharmStore = charmrepo.NewCharmStore(p).(*charmrepo.CharmStore)
+		repo.CharmStore = charmrepo.NewCharmStore(p)
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
@@ -3277,7 +3277,7 @@ var resolveCharmTests = []struct {
 }, {
 	about:      "reference not found",
 	url:        "cs:no-such",
-	resolveErr: `cannot resolve URL "cs:no-such": entity not found`,
+	resolveErr: `cannot resolve URL "cs:no-such": charm or bundle not found`,
 }, {
 	about:    "invalid charm name",
 	url:      "cs:",

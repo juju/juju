@@ -70,9 +70,6 @@ var initErrorTests = []struct {
 		args: []string{"charm-name", "service-name", "hotdog"},
 		err:  `unrecognized args: \["hotdog"\]`,
 	}, {
-		args: []string{"craz~ness"},
-		err:  `invalid charm name "craz~ness"`,
-	}, {
 		args: []string{"craziness", "burble-1"},
 		err:  `invalid service name "burble-1"`,
 	}, {
@@ -91,7 +88,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
 		err := coretesting.InitCommand(envcmd.Wrap(&DeployCommand{}), t.args)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
@@ -108,12 +105,63 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	s.AssertBlocked(c, err, ".*TestBlockDeploy.*")
 }
 
+func (s *DeploySuite) TestInvalidPath(c *gc.C) {
+	err := runDeploy(c, "/home/nowhere")
+	c.Assert(err, gc.ErrorMatches, `charm or bundle URL has invalid form: "/home/nowhere"`)
+}
+
+func (s *DeploySuite) TestPathWithNoCharm(c *gc.C) {
+	err := runDeploy(c, c.MkDir())
+	c.Assert(err, gc.ErrorMatches, `no charm found at .*`)
+}
+
+func (s *DeploySuite) TestInvalidURL(c *gc.C) {
+	err := runDeploy(c, "cs:craz~ness")
+	c.Assert(err, gc.ErrorMatches, `URL has invalid charm or bundle name: "cs:craz~ness"`)
+}
+
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "dummy", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
+	err := runDeploy(c, path, "--series", "precise")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	s.AssertService(c, "dummy", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
+	err := runDeploy(c, path)
+	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
+}
+
+func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.SeriesPath, "multi-series")
+	err := runDeploy(c, path)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:precise/multi-series-1")
+	s.AssertService(c, "multi-series", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.SeriesPath, "multi-series")
+	err := runDeploy(c, path, "--series", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	s.AssertService(c, "multi-series", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.SeriesPath, "multi-series")
+	err := runDeploy(c, path, "--series", "quantal")
+	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty`)
 }
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {

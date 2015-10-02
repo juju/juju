@@ -112,6 +112,18 @@ func (s *UpgradeCharmErrorsSuite) TestSwitchAndRevisionFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "--switch and --revision are mutually exclusive")
 }
 
+func (s *UpgradeCharmErrorsSuite) TestPathAndRevisionFails(c *gc.C) {
+	s.deployService(c)
+	err := runUpgradeCharm(c, "riak", "--path=foo", "--revision=2")
+	c.Assert(err, gc.ErrorMatches, "--path and --revision are mutually exclusive")
+}
+
+func (s *UpgradeCharmErrorsSuite) TestSwitchAndPathFails(c *gc.C) {
+	s.deployService(c)
+	err := runUpgradeCharm(c, "riak", "--switch=riak", "--path=foo")
+	c.Assert(err, gc.ErrorMatches, "--switch and --path are mutually exclusive")
+}
+
 func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--revision=blah")
@@ -279,6 +291,29 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
 	curl = s.assertUpgraded(c, 42, false)
 	c.Assert(curl.String(), gc.Equals, "local:trusty/myriak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *UpgradeCharmSuccessSuite) TestCharmPath(c *gc.C) {
+	myriakPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "riak")
+
+	// Same charm version as already running - should fail.
+	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "local:trusty/riak-7"`)
+
+	// Change the revision to 42 and upgrade to it with explicit revision.
+	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = runUpgradeCharm(c, "riak", "--path", myriakPath)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := s.assertUpgraded(c, 42, false)
+	c.Assert(curl.String(), gc.Equals, "local:trusty/riak-42")
+	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *UpgradeCharmSuccessSuite) TestCharmPathDifferentNameFails(c *gc.C) {
+	myriakPath := testcharms.Repo.RenamedClonedDirPath(s.SeriesPath, "riak", "myriak")
+	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade "riak" to "myriak"`)
 }
 
 type UpgradeCharmCharmStoreSuite struct {

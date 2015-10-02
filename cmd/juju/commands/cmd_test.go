@@ -161,8 +161,8 @@ var deployTests = []struct {
 }
 
 func initExpectations(com *DeployCommand) {
-	if com.CharmName == "" {
-		com.CharmName = "charm-name"
+	if com.CharmReference == "" {
+		com.CharmReference = "charm-name"
 	}
 	if com.NumUnits == 0 {
 		com.NumUnits = 1

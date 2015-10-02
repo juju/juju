@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -27,14 +28,16 @@ import (
 type DeployCommand struct {
 	envcmd.EnvCommandBase
 	service.UnitCommandBase
-	CharmName    string
-	ServiceName  string
-	Config       cmd.FileVar
-	Constraints  constraints.Value
-	Networks     string // TODO(dimitern): Drop this in a follow-up and fix docs.
-	BumpRevision bool   // Remove this once the 1.16 support is dropped.
-	RepoPath     string // defaults to JUJU_REPOSITORY
-	RegisterURL  string
+	// CharmReference is either a charm URL or a path where a charm can be found.
+	CharmReference string
+	Series         string
+	ServiceName    string
+	Config         cmd.FileVar
+	Constraints    constraints.Value
+	Networks       string // TODO(dimitern): Drop this in a follow-up and fix docs.
+	BumpRevision   bool   // Remove this once the 1.16 support is dropped.
+	RepoPath       string // defaults to JUJU_REPOSITORY
+	RegisterURL    string
 
 	// TODO(axw) move this to UnitCommandBase once we support --storage
 	// on add-unit too.
@@ -45,23 +48,47 @@ type DeployCommand struct {
 }
 
 const deployDoc = `
-<charm name> can be a charm URL, or an unambiguously condensed form of it;
-assuming a current series of "precise", the following forms will be accepted:
+<charm name or path> can be:
+ - a charm URL (or an unambiguously condensed form of it)
+ - a path to a charm directory
 
-For cs:precise/mysql
-  mysql
+If a URL is provided, the following forms are equivalent:
+
+  cs:precise/mysql
   precise/mysql
 
-For cs:~user/precise/mysql
+and assuming a default series of "precise":
+
+  mysql
+  cs:mysql
+
+Note that as shown above, a charm URL may be specified without a scheme.
+Normally, the charm store is assumed. However, the supplied charm details
+may also correspond to a relative path. If the supplied details are
+a valid path, we attempt to read the charm from that path. If a charm
+store charm is unambiguously required in all circumstance, use cs:<charm>.
+
+A user may also be specified:
+
+  cs:~user/precise/mysql
   cs:~user/mysql
 
-The current series is determined first by the default-series environment
-setting, followed by the preferred series for the charm in the charm store.
+The default series is used when no series is provided by the user.
+Is is determined by (in order):
+ - default series defined by charm itself
+ - the default-series for the environment
+ - the preferred series for the charm in the charm store
 
 In these cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
 
-However, for local charms, when the default-series is not specified in the
+Charms may also be deployed from a user specified path. In this case, the
+path to the charm is specified along with an optional series.
+
+   juju deploy /path/to/charm --series trusty
+
+Deploying using a local repository is supported but deprecated.
+In this case, when the default-series is not specified in the
 environment, one must specify the series. For example:
   local:precise/mysql
 
@@ -108,7 +135,7 @@ See Also:
 func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "deploy",
-		Args:    "<charm name> [<service name>]",
+		Args:    "<charm name or path> [<service name>]",
 		Purpose: "deploy a new service",
 		Doc:     deployDoc,
 	}
@@ -123,6 +150,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "deprecated and ignored: use space constraints instead.")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
+	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
 	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
 }
 
@@ -135,10 +163,7 @@ func (c *DeployCommand) Init(args []string) error {
 		c.ServiceName = args[1]
 		fallthrough
 	case 1:
-		if _, err := charm.InferURL(args[0], "fake"); err != nil {
-			return fmt.Errorf("invalid charm name %q", args[0])
-		}
-		c.CharmName = args[0]
+		c.CharmReference = args[0]
 	case 0:
 		return errors.New("no charm specified")
 	default:
@@ -155,6 +180,46 @@ func (c *DeployCommand) newServiceAPIClient() (*apiservice.Client, error) {
 	return apiservice.NewClient(root), nil
 }
 
+func (c *DeployCommand) addCharm(ctx *cmd.Context, client *api.Client, csClient *csClient) (*charm.URL, error) {
+	// Charm may have been supplied via a path reference.
+	ch, curl, err := charmrepo.NewCharmAtPath(c.CharmReference, c.Series)
+	if err == nil {
+		return client.AddLocalCharm(curl, ch)
+	}
+	// We check for several types of known error which indicate
+	// that the supplied reference was indeed a path but there was
+	// an issue reading the charm located there.
+	if charm.IsMissingSeriesError(err) {
+		return nil, err
+	}
+	if charm.IsUnsupportedSeriesError(err) {
+		return nil, err
+	}
+	if _, ok := err.(*charmrepo.NotFoundError); ok {
+		return nil, errors.Errorf("no charm found at %q", c.CharmReference)
+	}
+	// If we get a "not exists" error then we attempt to interpret the supplied
+	// charm reference as a URL below, otherwise we return the error.
+	if err != os.ErrNotExist {
+		return nil, err
+	}
+
+	// Charm has been supplied as a URL so we resolve and deploy using the store.
+	conf, err := service.GetClientConfig(client)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.CheckProvider(conf); err != nil {
+		return nil, err
+	}
+
+	curl, repo, err := resolveCharmURL(c.CharmReference, csClient.params, ctx.AbsPath(c.RepoPath), conf)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return addCharmFromURL(client, ctx, curl, repo, csClient)
+}
+
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
@@ -162,26 +227,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	conf, err := service.GetClientConfig(client)
-	if err != nil {
-		return err
-	}
-
-	if err := c.CheckProvider(conf); err != nil {
-		return err
-	}
-
 	csClient, err := newCharmStoreClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer csClient.jar.Save()
-	curl, repo, err := resolveCharmURL(c.CharmName, csClient.params, ctx.AbsPath(c.RepoPath), conf)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
-	curl, err = addCharmViaAPI(client, ctx, curl, repo, csClient)
+	curl, err := c.addCharm(ctx, client, csClient)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}

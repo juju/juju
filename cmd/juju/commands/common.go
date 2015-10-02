@@ -140,7 +140,7 @@ func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, rep
 	}
 	if ref.Schema == "local" && ref.Series == "" {
 		possibleURL := *ref
-		possibleURL.Series = "trusty"
+		possibleURL.Series = config.LatestLtsSeries()
 		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
 	}
@@ -154,18 +154,24 @@ func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, rep
 		}
 		return curl, repo, nil
 	}
-	curl, err := repo.Resolve(ref)
+	// TODO(wallyworld) - charm store does not yet support returning the
+	// supported series for a charm.
+	ref, _, err = repo.Resolve(ref)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	curl, err := ref.URL("")
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	return curl, repo, nil
 }
 
-// addCharmViaAPI calls the appropriate client API calls to add the
+// addCharmFromURL calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
 // The resulting charm URL of the added charm is displayed on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
+func addCharmFromURL(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
 	switch curl.Schema {
 	case "local":
 		ch, err := repo.Get(curl)
