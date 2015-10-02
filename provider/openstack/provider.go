@@ -1629,11 +1629,20 @@ func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
 		Total: 30 * time.Second,
 		Delay: time.Second,
 	}
-
+	logger.Debugf("deleting security group %q", name)
+	i := 0
 	for attempt := attempts.Start(); attempt.Next(); {
 		err := novaclient.DeleteSecurityGroup(id)
 		if err == nil {
 			return
+		}
+		i++
+		if i%4 == 0 {
+			message := fmt.Sprintf("waiting to delete security group %q", name)
+			if i != 4 {
+				message = "still " + message
+			}
+			logger.Debugf(message)
 		}
 	}
 	logger.Warningf("cannot delete security group %q. Used by another environment?", name)
