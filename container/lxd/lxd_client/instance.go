@@ -124,9 +124,18 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 		addrs = append(addrs, addr)
 	}
 
+	// TODO(ericsnow) Factor this out into a function.
+	statusStr := info.Status.State
+	for status, code := range allStatuses {
+		if info.Status.StateCode == code {
+			statusStr = status
+			break
+		}
+	}
+
 	return InstanceSummary{
 		Name:      info.Name,
-		Status:    info.Status.State,
+		Status:    statusStr,
 		Metadata:  unpackMetadata(info.Userdata),
 		Addresses: addrs,
 		Hardware: InstanceHardware{
