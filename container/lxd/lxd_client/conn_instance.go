@@ -81,8 +81,7 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 // Instance gets the up-to-date info about the given instance
 // and returns it.
 func (client *Client) Instance(name string) (*Instance, error) {
-	showLog := false
-	info, err := client.raw.ContainerStatus(name, showLog)
+	info, err := client.raw.ContainerStatus(name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,7 +119,7 @@ func (client *Client) Instances(prefix string, statuses ...string) ([]Instance, 
 func checkStatus(info shared.ContainerInfo, statuses []string) bool {
 	for _, status := range statuses {
 		statusCode := allStatuses[status]
-		if info.State.Status.StateCode == statusCode {
+		if info.State.Status.StatusCode == statusCode {
 			return true
 		}
 	}
