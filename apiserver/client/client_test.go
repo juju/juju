@@ -3277,7 +3277,7 @@ var resolveCharmTests = []struct {
 }, {
 	about:      "reference not found",
 	url:        "cs:no-such",
-	resolveErr: `cannot resolve URL "cs:no-such": entity not found`,
+	resolveErr: `cannot resolve URL "cs:no-such": charm or bundle not found`,
 }, {
 	about:    "invalid charm name",
 	url:      "cs:",
