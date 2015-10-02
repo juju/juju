@@ -26,7 +26,6 @@ func (s *RemoveUnitSuite) SetUpTest(c *gc.C) {
 	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
-
 }
 
 var _ = gc.Suite(&RemoveUnitSuite{})

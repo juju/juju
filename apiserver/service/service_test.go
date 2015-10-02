@@ -74,8 +74,6 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.serviceApi, err = service.NewAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.APIState, gc.NotNil)
 }
 
 func (s *serviceSuite) TearDownTest(c *gc.C) {
