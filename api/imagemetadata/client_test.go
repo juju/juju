@@ -27,7 +27,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	region := "region"
 	series := "series"
 	arch := "arch"
-	virtualType := "virtual-type"
+	virtType := "virt-type"
 	rootStorageType := "root-storage-type"
 	rootStorageSize := uint64(1024)
 	source := "source"
@@ -55,7 +55,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 						Region:          args.Region,
 						Series:          args.Series[0],
 						Arch:            args.Arches[0],
-						VirtualType:     args.VirtualType,
+						VirtType:        args.VirtType,
 						RootStorageType: args.RootStorageType,
 						RootStorageSize: &rootStorageSize,
 						Source:          source,
@@ -70,7 +70,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	found, err := client.List(
 		stream, region,
 		[]string{series}, []string{arch},
-		virtualType, rootStorageType,
+		virtType, rootStorageType,
 	)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -82,7 +82,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 			Region:          region,
 			Series:          series,
 			Arch:            arch,
-			VirtualType:     virtualType,
+			VirtType:        virtType,
 			RootStorageType: rootStorageType,
 			RootStorageSize: &rootStorageSize,
 			Source:          source,

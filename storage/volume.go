@@ -56,6 +56,13 @@ type VolumeAttachmentInfo struct {
 	// field must be left blank.
 	DeviceName string
 
+	// DeviceLink is an OS-specific device link that must exactly match
+	// one of the block device's links when attached.
+	//
+	// If no device link is known, or it may change (e.g. on machine
+	// restart), then this field must be left blank.
+	DeviceLink string
+
 	// BusAddress is the bus address, where the volume is attached to
 	// the machine.
 	//

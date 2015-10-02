@@ -4,7 +4,12 @@
 package gce
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -161,7 +166,12 @@ var imageMetadataFetch = imagemetadata.Fetch
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
-	metadata, err := getMetadata(args)
+	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	metadata, err := getMetadata(args, os)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -169,6 +179,11 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		env.globalFirewallName(),
 		machineID,
 	}
+	disks, err := getDisks(spec, args.Constraints, os)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
 	// TODO(ericsnow) Make the network name configurable?
 	// TODO(ericsnow) Support multiple networks?
@@ -176,7 +191,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	instSpec := google.InstanceSpec{
 		ID:                machineID,
 		Type:              spec.InstanceType.Name,
-		Disks:             getDisks(spec, args.Constraints),
+		Disks:             disks,
 		NetworkInterfaces: []string{"ExternalNAT"},
 		Metadata:          metadata,
 		Tags:              tags,
@@ -194,32 +209,46 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 
 // getMetadata builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
-func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
+func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[string]string, error) {
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, GCERenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
-	authKeys, err := google.FormatAuthorizedKeys(args.InstanceConfig.AuthorizedKeys, "ubuntu")
-	if err != nil {
-		return nil, errors.Trace(err)
+	metadata := make(map[string]string)
+	if isStateServer(args.InstanceConfig) {
+		metadata[metadataKeyIsState] = metadataValueTrue
+	} else {
+		metadata[metadataKeyIsState] = metadataValueFalse
 	}
-
-	metadata := map[string]string{
-		metadataKeyIsState: metadataValueFalse,
+	switch os {
+	case jujuos.Ubuntu:
 		// We store a gz snapshop of information that is used by
 		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
 		// for the instance. Due to a limitation with GCE and binary blobs
 		// we base64 encode the data before storing it.
-		metadataKeyCloudInit: string(userData),
+		metadata[metadataKeyCloudInit] = string(userData)
 		// Valid encoding values are determined by the cloudinit GCE data source.
 		// See: http://cloudinit.readthedocs.org
-		metadataKeyEncoding: "base64",
-		metadataKeySSHKeys:  authKeys,
-	}
-	if isStateServer(args.InstanceConfig) {
-		metadata[metadataKeyIsState] = metadataValueTrue
+		metadata[metadataKeyEncoding] = "base64"
+
+		authKeys, err := google.FormatAuthorizedKeys(args.InstanceConfig.AuthorizedKeys, "ubuntu")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		metadata[metadataKeySSHKeys] = authKeys
+	case jujuos.Windows:
+		metadata[metadataKeyWindowsUserdata] = string(userData)
+
+		validChars := append(utils.UpperAlpha, append(utils.LowerAlpha, utils.Digits...)...)
+
+		// The hostname must have maximum 15 characters
+		winHostname := "juju" + utils.RandomString(11, validChars)
+		metadata[metadataKeyWindowsSysprep] = fmt.Sprintf(winSetHostnameScript, winHostname)
+	default:
+		return nil, errors.Errorf("cannot pack metadata for os %s on the gce provider", os.String())
 	}
 
 	return metadata, nil
@@ -229,14 +258,23 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.DiskSpec {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, os jujuos.OSType) ([]google.DiskSpec, error) {
 	size := common.MinRootDiskSizeGiB
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
 	}
+	var imageURL string
+	switch os {
+	case jujuos.Ubuntu:
+		imageURL = ubuntuImageBasePath
+	case jujuos.Windows:
+		imageURL = windowsImageBasePath
+	default:
+		return nil, errors.Errorf("os %s is not supported on the gce provider", os.String())
+	}
 	dSpec := google.DiskSpec{
 		SizeHintGB: size,
-		ImageURL:   imageBasePath + spec.Image.Id,
+		ImageURL:   imageURL + spec.Image.Id,
 		Boot:       true,
 		AutoDelete: true,
 	}
@@ -244,7 +282,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.Dis
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
 		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB)
 	}
-	return []google.DiskSpec{dSpec}
+	return []google.DiskSpec{dSpec}, nil
 }
 
 // getHardwareCharacteristics compiles hardware-related details about

@@ -96,6 +96,16 @@ func stateStepsFor125() []Step {
 			run: func(context Context) error {
 				return state.MigrateLastLoginAndLastConnection(context.State())
 			}},
+		&upgradeStep{
+			description: "upgrade environment config",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				// TODO(axw) updateEnvironConfig should be
+				// called for all upgrades, to decouple this
+				// package from provider-specific upgrades.
+				st := context.State()
+				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
+			}},
 	}
 }
 

@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
@@ -604,6 +605,148 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}
 }
 
+const (
+	indexContent = `{
+    "index": {
+        "com.ubuntu.cloud:%v": {
+            "updated": "Fri, 17 Jul 2015 13:42:48 +1000",
+            "format": "products:1.0",
+            "datatype": "image-ids",
+            "cloudname": "custom",
+            "clouds": [
+                {
+                    "region": "%v",
+                    "endpoint": "endpoint"
+                }
+            ],
+            "path": "streams/v1/products.json",
+            "products": [
+                "com.ubuntu.cloud:server:14.04:%v"
+            ]
+        }
+    },
+    "updated": "Fri, 17 Jul 2015 13:42:48 +1000",
+    "format": "index:1.0"
+}`
+
+	productContent = `{
+    "products": {
+        "com.ubuntu.cloud:server:14.04:%v": {
+            "version": "14.04",
+            "arch": "%v",
+            "versions": {
+                "20151707": {
+                    "items": {
+                        "%v": {
+                            "id": "%v",
+                            "root_store": "%v", 
+                            "virt": "%v", 
+                            "region": "%v",
+                            "endpoint": "endpoint"
+                        }
+                    }
+                }
+            }
+        }
+     },
+    "updated": "Fri, 17 Jul 2015 13:42:48 +1000",
+    "format": "products:1.0",
+    "content_id": "com.ubuntu.cloud:%v"
+}`
+)
+
+func writeTempFiles(c *gc.C, metadataDir string, expected []struct{ path, content string }) {
+	for _, pair := range expected {
+		path := filepath.Join(metadataDir, pair.path)
+		err := os.MkdirAll(filepath.Dir(path), 0755)
+		c.Assert(err, jc.ErrorIsNil)
+		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
+	// setup data for this test
+	metadata := cloudimagemetadata.Metadata{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
+			Region:          "region",
+			Series:          "trusty",
+			Arch:            "amd64",
+			VirtType:        "virtType",
+			RootStorageType: "rootStore",
+			Source:          cloudimagemetadata.Custom},
+		ImageId: "imageId"}
+
+	// setup files containing test's data
+	metadataDir := c.MkDir()
+	expected := []struct{ path, content string }{{
+		path:    "streams/v1/index.json",
+		content: fmt.Sprintf(indexContent, metadata.Source, metadata.Region, metadata.Arch),
+	}, {
+		path:    "streams/v1/products.json",
+		content: fmt.Sprintf(productContent, metadata.Arch, metadata.Arch, metadata.ImageId, metadata.ImageId, metadata.RootStorageType, metadata.VirtType, metadata.Region, metadata.Source),
+	}, {
+		path:    "wayward/file.txt",
+		content: "ghi",
+	}}
+	writeTempFiles(c, metadataDir, expected)
+	return metadataDir, metadata
+}
+
+func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
+	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	// find all image metadata in state
+	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.DeepEquals, map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+		metadata.Source: []cloudimagemetadata.Metadata{metadata},
+	})
+}
+
+func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
+	dir, m := createImageMetadata(c)
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", dir,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// This metadata should have also been written to state...
+	assertWrittenToState(c, m)
+}
+
+func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
+	dir, _ := createImageMetadata(c)
+
+	msg := "my test error"
+	s.PatchValue(&seriesFromVersion, func(string) (string, error) {
+		return "", errors.New(msg)
+	})
+
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", dir,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
+}
+
+// TODO (anastasiamac 2015-09-26) This test will become obsolete when store
+// functionality will be removed.
 func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 	metadataDir := c.MkDir()
 	expected := []struct{ path, content string }{{

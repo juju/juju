@@ -8,6 +8,12 @@ type BlockDevice struct {
 	// DeviceName is the block device's OS-specific name (e.g. "sdb").
 	DeviceName string `yaml:"devicename,omitempty"`
 
+	// DeviceLinks is a collection of symlinks to the block device
+	// that the OS maintains (e.g. "/dev/disk/by-id/..."). Storage
+	// provisioners can match volume attachments to device links if
+	// they know ahead of time how the OS will name them.
+	DeviceLinks []string `yaml:"devicelinks,omitempty"`
+
 	// Label is the label for the filesystem on the block device.
 	//
 	// This will be empty if the block device does not have a filesystem,

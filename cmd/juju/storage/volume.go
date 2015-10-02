@@ -77,6 +77,7 @@ type VolumeAttachments struct {
 
 type MachineVolumeAttachment struct {
 	DeviceName string `yaml:"device,omitempty" json:"device,omitempty"`
+	DeviceLink string `yaml:"device-link,omitempty" json:"device-link,omitempty"`
 	BusAddress string `yaml:"bus-address,omitempty" json:"bus-address,omitempty"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
 	// TODO(axw) add machine volume attachment status when we have it
@@ -135,6 +136,7 @@ func createVolumeInfo(result params.VolumeDetailsResult) (names.VolumeTag, Volum
 			}
 			machineAttachments[machineId] = MachineVolumeAttachment{
 				attachment.DeviceName,
+				attachment.DeviceLink,
 				attachment.BusAddress,
 				attachment.ReadOnly,
 			}

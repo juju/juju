@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -68,6 +69,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// will make tools available. Individual tests may
 	// override this.
 	s.PatchValue(&version.Current, v100p64)
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
