@@ -188,7 +188,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		EnvironmentName:      cfg.Name(),
 		AvailableVersion:     newToolsVersion,
 		PrimaryMachineStatus: pInformation,
-		Machines:             processMachines(context.machines, c.api.state()),
+		Machines:             processMachines(context.machines),
 		Services:             context.processServices(),
 		Networks:             context.processNetworks(),
 		Relations:            context.processRelations(),
@@ -393,7 +393,7 @@ func (m machineAndContainers) Containers(id string) []*state.Machine {
 	return m[id][1:]
 }
 
-func processMachines(idToMachines map[string][]*state.Machine, st *state.State) map[string]params.MachineStatus {
+func processMachines(idToMachines map[string][]*state.Machine) map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
 	cache := make(map[string]params.MachineStatus)
 	for id, machines := range idToMachines {
