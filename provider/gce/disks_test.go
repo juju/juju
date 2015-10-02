@@ -84,7 +84,7 @@ func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	s.instId = inst.Id()
 	s.attachmentParams = &storage.VolumeAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
-			Provider:   gce.GCEProviderType,
+			Provider:   "gce",
 			Machine:    mTag,
 			InstanceId: s.instId,
 		},
@@ -94,7 +94,7 @@ func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	s.params = []storage.VolumeParams{{
 		Tag:        vTag,
 		Size:       1024,
-		Provider:   gce.GCEProviderType,
+		Provider:   "gce",
 		Attachment: s.attachmentParams,
 	}}
 
@@ -133,9 +133,11 @@ func (s *volumeSourceSuite) TestCreateVolumes(c *gc.C) {
 	// Volume was created
 	c.Assert(res[0].Error, jc.ErrorIsNil)
 	c.Assert(res[0].Volume.VolumeId, gc.Equals, s.BaseDisk.Name)
+	c.Assert(res[0].Volume.HardwareId, gc.Equals, "")
 
 	// Volume was also attached as indicated by Attachment in params.
-	c.Assert(res[0].VolumeAttachment.DeviceName, gc.Equals, "home-zone-1234567")
+	c.Assert(res[0].VolumeAttachment.DeviceName, gc.Equals, "")
+	c.Assert(res[0].VolumeAttachment.DeviceLink, gc.Equals, "/dev/disk/by-id/google-home-zone-1234567")
 	c.Assert(res[0].VolumeAttachment.Machine.String(), gc.Equals, "machine-0")
 	c.Assert(res[0].VolumeAttachment.ReadOnly, jc.IsFalse)
 	c.Assert(res[0].VolumeAttachment.Volume.String(), gc.Equals, "volume-0")

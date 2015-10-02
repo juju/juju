@@ -188,12 +188,18 @@ func volumeAttachmentDevicePath(
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
 	machineTag names.MachineTag,
 ) (string, error) {
-	if volumeInfo.HardwareId != "" || volumeAttachmentInfo.DeviceName != "" {
-		// The storage provider has enough information
-		// to determine the device path.
+	if volumeInfo.HardwareId != "" || volumeAttachmentInfo.DeviceName != "" || volumeAttachmentInfo.DeviceLink != "" {
+		// The storage provider has enough information to determine
+		// the device path, so use that rather than enquiring about
+		// block devices.
+		var deviceLinks []string
+		if volumeAttachmentInfo.DeviceLink != "" {
+			deviceLinks = []string{volumeAttachmentInfo.DeviceLink}
+		}
 		return storage.BlockDevicePath(storage.BlockDevice{
-			HardwareId: volumeInfo.HardwareId,
-			DeviceName: volumeAttachmentInfo.DeviceName,
+			HardwareId:  volumeInfo.HardwareId,
+			DeviceName:  volumeAttachmentInfo.DeviceName,
+			DeviceLinks: deviceLinks,
 		})
 	}
 	blockDevices, err := st.BlockDevices(machineTag)

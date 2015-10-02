@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
-	jujuos "github.com/juju/utils/os"
 )
 
 var maybeSystemd = service.InitSystemSystemd
@@ -46,7 +46,6 @@ type discoveryTest struct {
 
 func (dt discoveryTest) version() version.Binary {
 	return version.Binary{
-		OS:     dt.os,
 		Series: dt.series,
 	}
 }
@@ -186,7 +185,7 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	test := discoveryTest{
-		os:       version.Current.OS,
+		os:       jujuos.HostOS(),
 		series:   series.HostSeries(),
 		expected: localInitSystem,
 	}
