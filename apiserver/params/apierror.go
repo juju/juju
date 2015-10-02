@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
-// Error is the type of error returned by any call to the state API
+// Error is the type of error returned by any call to the state API.
 type Error struct {
 	Message string
 	Code    string

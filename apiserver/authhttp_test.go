@@ -162,6 +162,12 @@ type httpRequestParams struct {
 	// body holds the body of the request.
 	body io.Reader
 
+	// jsonBody holds an object to be marshaled as JSON
+	// as the body of the request. If this is specified, body will
+	// be ignored and the Content-Type header will
+	// be set to application/json.
+	jsonBody interface{}
+
 	// nonce holds the machine nonce to provide in the header.
 	nonce string
 }
@@ -173,6 +179,7 @@ func (s *authHttpSuite) sendRequest(c *gc.C, p httpRequestParams) *http.Response
 		Method:      p.method,
 		URL:         p.url,
 		Body:        p.body,
+		JSONBody:    p.jsonBody,
 		Header:      make(http.Header),
 		Username:    p.tag,
 		Password:    p.password,
