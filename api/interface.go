@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
@@ -111,6 +112,8 @@ type OpenFunc func(*Info, DialOpts) (Connection, error)
 // Connection exists purely to make api-opening funcs mockable. It's just a
 // dumb copy of all the methods on api.Connection; we can and should be extracting
 // smaller and more relevant interfaces (and dropping some of them too).
+
+// Connection represents a connection to a Juju API server.
 type Connection interface {
 
 	// This first block of methods is pretty close to a sane Connection interface.
@@ -124,12 +127,14 @@ type Connection interface {
 	Login(name names.Tag, password, nonce string) error
 	ServerVersion() (version.Number, bool)
 
-	// These are either part of base.APICaller or look like they probably should
-	// be (ServerTag in particular). It's fine and good for Connection to be an
-	// APICaller.
-	APICall(facade string, version int, id, method string, args, response interface{}) error
-	BestFacadeVersion(string) int
-	EnvironTag() (names.EnvironTag, error)
+	// APICaller provides the facility to make API calls directly.
+	// This should not be used outside the api/* packages or tests.
+	base.APICaller
+
+	// ServerTag returns the environment tag of the state server
+	// (as opposed to the environment tag of the currently connected
+	// environment inside that state server).
+	// This could be defined on base.APICaller.
 	ServerTag() (names.EnvironTag, error)
 
 	// These HTTP methods should probably be separated out somehow.

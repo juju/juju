@@ -27,17 +27,17 @@ type taggedAuthenticator interface {
 func (*AgentAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
-		return nil, common.ErrBadCreds
+		return nil, errors.Trace(common.ErrBadCreds)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
-		return nil, common.ErrBadRequest
+		return nil, errors.Trace(common.ErrBadRequest)
 	}
 	if !authenticator.PasswordValid(req.Credentials) {
-		return nil, common.ErrBadCreds
+		return nil, errors.Trace(common.ErrBadCreds)
 	}
 
 	// If this is a machine agent connecting, we need to check the

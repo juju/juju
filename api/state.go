@@ -42,7 +42,7 @@ import (
 // Subsequent requests on the state will act as that entity.  This
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *State) Login(tag names.Tag, password, nonce string) error {
+func (st *state) Login(tag names.Tag, password, nonce string) error {
 	err := st.loginV2(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {
 		err = st.loginV1(tag, password, nonce)
@@ -54,7 +54,7 @@ func (st *State) Login(tag names.Tag, password, nonce string) error {
 	return err
 }
 
-func (st *State) loginV2(tag names.Tag, password, nonce string) error {
+func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	var result params.LoginResultV1
 	request := &params.LoginRequest{
 		AuthTag:     tagToString(tag),
@@ -110,7 +110,7 @@ func (st *State) loginV2(tag names.Tag, password, nonce string) error {
 	return nil
 }
 
-func (st *State) loginV1(tag names.Tag, password, nonce string) error {
+func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	var result struct {
 		// TODO (cmars): remove once we can drop 1.18 login compatibility
 		params.LoginResult
@@ -164,7 +164,7 @@ func (st *State) loginV1(tag names.Tag, password, nonce string) error {
 	return nil
 }
 
-func (st *State) setLoginResult(tag names.Tag, environTag, serverTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *state) setLoginResult(tag names.Tag, environTag, serverTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	st.authTag = tag
 	st.environTag = environTag
 	st.serverTag = serverTag
@@ -185,7 +185,7 @@ func (st *State) setLoginResult(tag names.Tag, environTag, serverTag string, ser
 	return nil
 }
 
-func (st *State) loginV0(tag names.Tag, password, nonce string) error {
+func (st *state) loginV0(tag names.Tag, password, nonce string) error {
 	var result params.LoginResult
 	err := st.APICall("Admin", 0, "", "Login", &params.Creds{
 		AuthTag:  tagToString(tag),
@@ -247,38 +247,38 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 
 // Client returns an object that can be used
 // to access client-specific functionality.
-func (st *State) Client() *Client {
+func (st *state) Client() *Client {
 	frontend, backend := base.NewClientFacade(st, "Client")
 	return &Client{ClientFacade: frontend, facade: backend, st: st}
 }
 
 // Machiner returns a version of the state that provides functionality
 // required by the machiner worker.
-func (st *State) Machiner() *machiner.State {
+func (st *state) Machiner() *machiner.State {
 	return machiner.NewState(st)
 }
 
 // Resumer returns a version of the state that provides functionality
 // required by the resumer worker.
-func (st *State) Resumer() *resumer.API {
+func (st *state) Resumer() *resumer.API {
 	return resumer.NewAPI(st)
 }
 
 // Networker returns a version of the state that provides functionality
 // required by the networker worker.
-func (st *State) Networker() networker.State {
+func (st *state) Networker() networker.State {
 	return networker.NewState(st)
 }
 
 // Provisioner returns a version of the state that provides functionality
 // required by the provisioner worker.
-func (st *State) Provisioner() *provisioner.State {
+func (st *state) Provisioner() *provisioner.State {
 	return provisioner.NewState(st)
 }
 
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
-func (st *State) Uniter() (*uniter.State, error) {
+func (st *state) Uniter() (*uniter.State, error) {
 	unitTag, ok := st.authTag.(names.UnitTag)
 	if !ok {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
@@ -288,7 +288,7 @@ func (st *State) Uniter() (*uniter.State, error) {
 
 // DiskManager returns a version of the state that provides functionality
 // required by the diskmanager worker.
-func (st *State) DiskManager() (*diskmanager.State, error) {
+func (st *state) DiskManager() (*diskmanager.State, error) {
 	machineTag, ok := st.authTag.(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
@@ -302,29 +302,29 @@ func (st *State) DiskManager() (*diskmanager.State, error) {
 // either attached directly to a specified machine (machine scoped),
 // or provisioned on the underlying cloud for use by any machine in a
 // specified environment (environ scoped).
-func (st *State) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
+func (st *state) StorageProvisioner(scope names.Tag) *storageprovisioner.State {
 	return storageprovisioner.NewState(st, scope)
 }
 
 // Firewaller returns a version of the state that provides functionality
 // required by the firewaller worker.
-func (st *State) Firewaller() *firewaller.State {
+func (st *state) Firewaller() *firewaller.State {
 	return firewaller.NewState(st)
 }
 
 // Agent returns a version of the state that provides
 // functionality required by the agent code.
-func (st *State) Agent() *agent.State {
+func (st *state) Agent() *agent.State {
 	return agent.NewState(st)
 }
 
 // Upgrader returns access to the Upgrader API
-func (st *State) Upgrader() *upgrader.State {
+func (st *state) Upgrader() *upgrader.State {
 	return upgrader.NewState(st)
 }
 
 // Reboot returns access to the Reboot API
-func (st *State) Reboot() (*reboot.State, error) {
+func (st *state) Reboot() (*reboot.State, error) {
 	switch tag := st.authTag.(type) {
 	case names.MachineTag:
 		return reboot.NewState(st, tag), nil
@@ -334,47 +334,47 @@ func (st *State) Reboot() (*reboot.State, error) {
 }
 
 // Deployer returns access to the Deployer API
-func (st *State) Deployer() *deployer.State {
+func (st *state) Deployer() *deployer.State {
 	return deployer.NewState(st)
 }
 
 // Addresser returns access to the Addresser API.
-func (st *State) Addresser() *addresser.API {
+func (st *state) Addresser() *addresser.API {
 	return addresser.NewAPI(st)
 }
 
 // Environment returns access to the Environment API
-func (st *State) Environment() *environment.Facade {
+func (st *state) Environment() *environment.Facade {
 	return environment.NewFacade(st)
 }
 
 // Logger returns access to the Logger API
-func (st *State) Logger() *apilogger.State {
+func (st *state) Logger() *apilogger.State {
 	return apilogger.NewState(st)
 }
 
 // KeyUpdater returns access to the KeyUpdater API
-func (st *State) KeyUpdater() *keyupdater.State {
+func (st *state) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
 }
 
 // InstancePoller returns access to the InstancePoller API
-func (st *State) InstancePoller() *instancepoller.API {
+func (st *state) InstancePoller() *instancepoller.API {
 	return instancepoller.NewAPI(st)
 }
 
 // CharmRevisionUpdater returns access to the CharmRevisionUpdater API
-func (st *State) CharmRevisionUpdater() *charmrevisionupdater.State {
+func (st *state) CharmRevisionUpdater() *charmrevisionupdater.State {
 	return charmrevisionupdater.NewState(st)
 }
 
 // Cleaner returns a version of the state that provides access to the cleaner API
-func (st *State) Cleaner() *cleaner.API {
+func (st *state) Cleaner() *cleaner.API {
 	return cleaner.NewAPI(st)
 }
 
 // Rsyslog returns access to the Rsyslog API
-func (st *State) Rsyslog() *rsyslog.State {
+func (st *state) Rsyslog() *rsyslog.State {
 	return rsyslog.NewState(st)
 }
 
@@ -382,11 +382,11 @@ func (st *State) Rsyslog() *rsyslog.State {
 // It is possible that this version is Zero if the server does not report this
 // during login. The second result argument indicates if the version number is
 // set.
-func (st *State) ServerVersion() (version.Number, bool) {
+func (st *state) ServerVersion() (version.Number, bool) {
 	return st.serverVersion, st.serverVersion != version.Zero
 }
 
 // MetadataUpdater returns access to the imageMetadata API
-func (st *State) MetadataUpdater() *imagemetadata.Client {
+func (st *state) MetadataUpdater() *imagemetadata.Client {
 	return imagemetadata.NewClient(st)
 }

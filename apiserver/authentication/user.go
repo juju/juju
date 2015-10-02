@@ -87,7 +87,7 @@ func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.
 	}
 	entity, err := entityFinder.FindEntity(names.NewUserTag(declared[usernameKey]))
 	if errors.IsNotFound(err) {
-		return nil, common.ErrBadCreds
+		return nil, errors.Trace(common.ErrBadCreds)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

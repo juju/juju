@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
@@ -753,4 +754,15 @@ type RebootActionResults struct {
 type RebootActionResult struct {
 	Result RebootAction `json:"result,omitempty"`
 	Error  *Error       `json:"error,omitempty"`
+}
+
+// LogRecord is used to transmit log messages to the logsink API
+// endpoint.  Single character field names are used for serialisation
+// to keep the size down. These messages are going to be sent a lot.
+type LogRecord struct {
+	Time     time.Time   `json:"t"`
+	Module   string      `json:"m"`
+	Location string      `json:"l"`
+	Level    loggo.Level `json:"v"`
+	Message  string      `json:"x"`
 }

@@ -78,7 +78,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.S
 		if !common.IsDischargeRequiredError(err) {
 			err = errors.NewUnauthorized(err, "")
 		}
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	return st, entity, nil
 }
@@ -94,7 +94,7 @@ func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*sta
 	case names.UserTag:
 		return st, entity, nil
 	default:
-		return nil, nil, common.ErrBadCreds
+		return nil, nil, errors.Trace(common.ErrBadCreds)
 	}
 }
 
@@ -109,7 +109,8 @@ func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*st
 	case names.MachineTag, names.UnitTag:
 		return st, entity, nil
 	default:
-		return nil, nil, common.ErrBadCreds
+		logger.Errorf("attempt to log in as an agent by %v", entity.Tag())
+		return nil, nil, errors.Trace(common.ErrBadCreds)
 	}
 }
 
@@ -143,12 +144,12 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	// Ensure that a sensible tag was passed.
 	_, err = names.ParseTag(tagPass[0])
 	if err != nil {
-		return params.LoginRequest{}, common.ErrBadCreds
+		return params.LoginRequest{}, errors.Trace(common.ErrBadCreds)
 	}
 	return params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
-		Nonce:       r.Header.Get("X-Juju-Nonce"),
+		Nonce:       r.Header.Get(params.MachineNonceHeader),
 	}, nil
 }
 

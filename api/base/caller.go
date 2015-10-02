@@ -4,6 +4,9 @@
 package base
 
 import (
+	"io"
+	"net/url"
+
 	"github.com/juju/names"
 )
 
@@ -21,6 +24,34 @@ type APICaller interface {
 	// EnvironTag returns the tag of the environment the client is
 	// connected to.
 	EnvironTag() (names.EnvironTag, error)
+
+	StreamConnector
+}
+
+// StreamConnector is implemented by the client-facing State object.
+type StreamConnector interface {
+	// ConnectStream connects to the given HTTP websocket
+	// endpoint path (interpreted relative to the receiver's
+	// environment) and returns the resulting connection.
+	// The given parameters are used as URL query values
+	// when making the initial HTTP request.
+	//
+	// The path must start with a "/".
+	ConnectStream(path string, attrs url.Values) (Stream, error)
+}
+
+// Stream represents a streaming connection to the API.
+type Stream interface {
+	io.ReadWriteCloser
+
+	// WriteJSON encodes the given value as JSON
+	// and writes it to the connection.
+	WriteJSON(v interface{}) error
+
+	// ReadJSON reads a JSON value from the stream
+	// and decodes it into the element pointed to by
+	// the given value, which should be a pointer.
+	ReadJSON(v interface{}) error
 }
 
 // FacadeCaller is a wrapper for the common paradigm that a given client just

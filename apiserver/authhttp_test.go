@@ -189,7 +189,7 @@ func (s *authHttpSuite) sendRequest(c *gc.C, p httpRequestParams) *http.Response
 		hp.Header.Set("Content-Type", p.contentType)
 	}
 	if p.nonce != "" {
-		hp.Header.Set("X-Juju-Nonce", p.nonce)
+		hp.Header.Set(params.MachineNonceHeader, p.nonce)
 	}
 	if hp.Do == nil {
 		hp.Do = utils.GetNonValidatingHTTPClient().Do

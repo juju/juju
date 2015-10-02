@@ -52,8 +52,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		err = errors.MethodNotAllowedf("unsupported method: %q", r.Method)
 	}
 	if err != nil {
-		logger.Errorf("returning error from %s /charms: %s", r.Method, errors.Details(err))
-		h.sendError(w, err)
+		h.sendError(w, r, err)
 	}
 }
 
@@ -111,7 +110,8 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 // Note the difference from the error response sent by
 // the sendError function - the error is encoded in the
 // Error field as a string, not an Error object.
-func (h *charmsHandler) sendError(w http.ResponseWriter, err error) {
+func (h *charmsHandler) sendError(w http.ResponseWriter, req *http.Request, err error) {
+	logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
 	perr, status := common.ServerErrorAndStatus(err)
 	sendStatusAndJSON(w, status, &params.CharmsResponse{
 		Error:     perr.Message,
