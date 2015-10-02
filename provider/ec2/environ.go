@@ -978,13 +978,14 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		cidr := subnet.CIDRBlock
 
 		result[i] = network.InterfaceInfo{
-			DeviceIndex:      iface.Attachment.DeviceIndex,
-			MACAddress:       iface.MACAddress,
-			CIDR:             cidr,
-			NetworkName:      "", // Not needed for now.
-			ProviderId:       network.Id(iface.Id),
-			ProviderSubnetId: network.Id(iface.SubnetId),
-			VLANTag:          0, // Not supported on EC2.
+			DeviceIndex:       iface.Attachment.DeviceIndex,
+			MACAddress:        iface.MACAddress,
+			CIDR:              cidr,
+			NetworkName:       "", // Not needed for now.
+			ProviderId:        network.Id(iface.Id),
+			ProviderSubnetId:  network.Id(iface.SubnetId),
+			AvailabilityZones: []string{subnet.AvailZone},
+			VLANTag:           0, // Not supported on EC2.
 			// Getting the interface name is not supported on EC2, so fake it.
 			InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
 			Disabled:      false,
@@ -996,74 +997,105 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
-// Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance or list of ids. instId
-// equal to instance.UnknownId is the only supported value, other ones
-// result in NotSupportedError. subnetIds can be empty, in which case
-// all known are returned. Implements NetworkingEnviron.Subnets.
-func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	if instId != instance.UnknownId {
-		return nil, errors.NotSupportedf("instId")
-	}
-	ec2Inst := e.ec2()
-	// We can't filter by instance id here, unfortunately.
-	resp, err := ec2Inst.Subnets(nil, nil)
+func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
+	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to retrieve subnets")
+		logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
+		return network.SubnetInfo{}, err
 	}
-	if len(subnetIds) == 0 {
-		for _, subnet := range resp.Subnets {
-			subnetIds = append(subnetIds, network.Id(subnet.Id))
-		}
+	// ec2 only uses IPv4 addresses for subnets
+	start, err := network.IPv4ToDecimal(ip)
+	if err != nil {
+		logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
+		return network.SubnetInfo{}, err
 	}
+	// First four addresses in a subnet are reserved, see
+	// http://goo.gl/rrWTIo
+	allocatableLow := network.DecimalToIPv4(start + 4)
 
+	ones, bits := ipnet.Mask.Size()
+	zeros := bits - ones
+	numIPs := uint32(1) << uint32(zeros)
+	highIP := start + numIPs - 1
+	// The last address in a subnet is also reserved (see same ref).
+	allocatableHigh := network.DecimalToIPv4(highIP - 1)
+
+	info := network.SubnetInfo{
+		CIDR:              cidr,
+		ProviderId:        subnetId,
+		VLANTag:           0, // Not supported on EC2
+		AllocatableIPLow:  allocatableLow,
+		AllocatableIPHigh: allocatableHigh,
+		AvailabilityZones: availZones,
+	}
+	logger.Tracef("found subnet with info %#v", info)
+	return info, nil
+
+}
+
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance or list of ids. subnetIds can be
+// empty, in which case all known are returned. Implements
+// NetworkingEnviron.Subnets.
+func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	var results []network.SubnetInfo
 	subIdSet := make(map[string]bool)
 	for _, subId := range subnetIds {
 		subIdSet[string(subId)] = false
 	}
 
-	var results []network.SubnetInfo
-	for _, subnet := range resp.Subnets {
-		_, ok := subIdSet[subnet.Id]
-		if !ok {
-			logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
-			continue
-		}
-		subIdSet[subnet.Id] = true
-
-		cidr := subnet.CIDRBlock
-		ip, ipnet, err := net.ParseCIDR(cidr)
+	if instId != instance.UnknownId {
+		interfaces, err := e.NetworkInterfaces(instId)
 		if err != nil {
-			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
-			continue
+			return results, errors.Trace(err)
 		}
-		// ec2 only uses IPv4 addresses for subnets
-		start, err := network.IPv4ToDecimal(ip)
+		if len(subnetIds) == 0 {
+			for _, iface := range interfaces {
+				subIdSet[string(iface.ProviderSubnetId)] = false
+			}
+		}
+		for _, iface := range interfaces {
+			_, ok := subIdSet[string(iface.ProviderSubnetId)]
+			if !ok {
+				logger.Tracef("subnet %q not in %v, skipping", iface.ProviderSubnetId, subnetIds)
+				continue
+			}
+			subIdSet[string(iface.ProviderSubnetId)] = true
+			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
+			if err != nil {
+				// Error will already have been logged.
+				continue
+			}
+			results = append(results, info)
+		}
+	} else {
+		ec2Inst := e.ec2()
+		resp, err := ec2Inst.Subnets(nil, nil)
 		if err != nil {
-			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
-			continue
+			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
-		// First four addresses in a subnet are reserved, see
-		// http://goo.gl/rrWTIo
-		allocatableLow := network.DecimalToIPv4(start + 4)
-
-		ones, bits := ipnet.Mask.Size()
-		zeros := bits - ones
-		numIPs := uint32(1) << uint32(zeros)
-		highIP := start + numIPs - 1
-		// The last address in a subnet is also reserved (see same ref).
-		allocatableHigh := network.DecimalToIPv4(highIP - 1)
-
-		info := network.SubnetInfo{
-			CIDR:              cidr,
-			ProviderId:        network.Id(subnet.Id),
-			VLANTag:           0, // Not supported on EC2
-			AllocatableIPLow:  allocatableLow,
-			AllocatableIPHigh: allocatableHigh,
-			AvailabilityZones: []string{subnet.AvailZone},
+		if len(subnetIds) == 0 {
+			for _, subnet := range resp.Subnets {
+				subIdSet[subnet.Id] = false
+			}
 		}
-		logger.Tracef("found subnet with info %#v", info)
-		results = append(results, info)
+
+		for _, subnet := range resp.Subnets {
+			_, ok := subIdSet[subnet.Id]
+			if !ok {
+				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
+				continue
+			}
+			subIdSet[subnet.Id] = true
+			cidr := subnet.CIDRBlock
+			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
+			if err != nil {
+				// Error will already have been logged.
+				continue
+			}
+			results = append(results, info)
+
+		}
 	}
 
 	notFound := []string{}
