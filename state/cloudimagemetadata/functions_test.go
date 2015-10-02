@@ -48,10 +48,10 @@ func (s *funcMetadataSuite) TestSearchCriteriaWithArch(c *gc.C) {
 		bson.D{{"arch", bson.D{{"$in", []string{"arch-value"}}}}})
 }
 
-func (s *funcMetadataSuite) TestSearchCriteriaWithVirtualType(c *gc.C) {
+func (s *funcMetadataSuite) TestSearchCriteriaWithVirtType(c *gc.C) {
 	s.assertSearchCriteriaBuilt(c,
-		cloudimagemetadata.MetadataFilter{VirtualType: "vtype-value"},
-		bson.D{{"virtual_type", "vtype-value"}})
+		cloudimagemetadata.MetadataFilter{VirtType: "vtype-value"},
+		bson.D{{"virt_type", "vtype-value"}})
 }
 
 func (s *funcMetadataSuite) TestSearchCriteriaWithStorageType(c *gc.C) {
@@ -69,7 +69,7 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 			Stream:          "stream-value",
 			Region:          "region-value",
 			Arches:          []string{"arch-value", "arch-value-two"},
-			VirtualType:     "vtype-value",
+			VirtType:        "vtype-value",
 		},
 		// This is in order in which it is built.
 		bson.D{
@@ -77,7 +77,7 @@ func (s *funcMetadataSuite) TestSearchCriteriaAll(c *gc.C) {
 			{"region", "region-value"},
 			{"series", bson.D{{"$in", []string{"series-value", "series-value-two"}}}},
 			{"arch", bson.D{{"$in", []string{"arch-value", "arch-value-two"}}}},
-			{"virtual_type", "vtype-value"},
+			{"virt_type", "vtype-value"},
 			{"root_storage_type", "rootstorage-value"},
 		})
 }

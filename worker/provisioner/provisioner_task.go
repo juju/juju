@@ -791,6 +791,7 @@ func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[st
 	for _, a := range attachments {
 		result[a.Volume.String()] = params.VolumeAttachmentInfo{
 			a.DeviceName,
+			a.DeviceLink,
 			a.BusAddress,
 			a.ReadOnly,
 		}

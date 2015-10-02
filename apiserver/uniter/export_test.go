@@ -3,10 +3,15 @@
 
 package uniter
 
-import "github.com/juju/juju/apiserver/common"
+import (
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/meterstatus"
+)
 
 var (
 	GetZone = &getZone
+
+	_ meterstatus.MeterStatus = (*uniterBaseAPI)(nil)
 )
 
 type StorageStateInterface storageStateInterface

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
@@ -29,10 +30,13 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/toolstorage"
@@ -235,6 +239,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if c.ImageMetadataDir != "" {
+		if err := c.saveCustomImageMetadata(st); err != nil {
+			return err
+		}
+
+		// TODO (anastasiamac 2015-09-24) Remove this once search path is updated..
 		stor := newStateStorage(st.EnvironUUID(), st.MongoSession())
 		if err := c.storeCustomImageMetadata(stor); err != nil {
 			return err
@@ -311,7 +320,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	dataDir := agentConfig.DataDir()
 	tools, err := agenttools.ReadTools(dataDir, version.Current)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(
@@ -319,22 +328,26 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		"tools.tar.gz",
 	))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	storage, err := st.ToolsStorage()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer storage.Close()
 
 	var toolsVersions []version.Binary
 	if strings.HasPrefix(tools.URL, "file://") {
 		// Tools were uploaded: clone for each series of the same OS.
-		osSeries := series.OSSupportedSeries(tools.Version.OS)
-		for _, ser := range osSeries {
+		os, err := series.GetOSFromSeries(tools.Version.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		osSeries := series.OSSupportedSeries(os)
+		for _, series := range osSeries {
 			toolsVersion := tools.Version
-			toolsVersion.Series = ser
+			toolsVersion.Series = series
 			toolsVersions = append(toolsVersions, toolsVersion)
 		}
 	} else {
@@ -350,7 +363,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		}
 		logger.Debugf("Adding tools: %v", toolsVersion)
 		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -381,6 +394,57 @@ func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error 
 		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
 		return stor.Put(relpath, f, info.Size())
 	})
+}
+
+// Override for testing.
+var seriesFromVersion = series.VersionSeries
+
+// saveCustomImageMetadata reads the custom image metadata from disk,
+// and saves it in state server.
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
+	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
+
+	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
+	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames)
+
+	// Read the image metadata, as we'll want to upload it to the environment.
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
+	existingMetadata, _, err := imagemetadata.Fetch(
+		[]simplestreams.DataSource{datasource}, imageConstraint, false)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot read image metadata")
+	}
+
+	if len(existingMetadata) == 0 {
+		return nil
+	}
+	msg := ""
+	for _, one := range existingMetadata {
+		m := cloudimagemetadata.Metadata{
+			cloudimagemetadata.MetadataAttributes{
+				Stream:          one.Stream,
+				Region:          one.RegionName,
+				Arch:            one.Arch,
+				VirtType:        one.VirtType,
+				RootStorageType: one.Storage,
+				Source:          "custom",
+			},
+			one.Id,
+		}
+		s, err := seriesFromVersion(one.Version)
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine series for version %v", one.Version)
+		}
+		m.Series = s
+		err = st.CloudImageMetadataStorage.SaveMetadata(m)
+		if err != nil {
+			return errors.Annotatef(err, "cannot cache image metadata %v", m)
+		}
+	}
+	if len(msg) > 0 {
+		return errors.New(msg)
+	}
+	return nil
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

@@ -13,6 +13,7 @@ import (
 func BlockDeviceFromState(in state.BlockDeviceInfo) storage.BlockDevice {
 	return storage.BlockDevice{
 		in.DeviceName,
+		in.DeviceLinks,
 		in.Label,
 		in.UUID,
 		in.HardwareId,
@@ -36,11 +37,23 @@ func MatchingBlockDevice(
 			if volumeInfo.HardwareId == dev.HardwareId {
 				return &dev, true
 			}
-		} else if attachmentInfo.BusAddress != "" {
+			continue
+		}
+		if attachmentInfo.BusAddress != "" {
 			if attachmentInfo.BusAddress == dev.BusAddress {
 				return &dev, true
 			}
-		} else if attachmentInfo.DeviceName == dev.DeviceName {
+			continue
+		}
+		if attachmentInfo.DeviceLink != "" {
+			for _, link := range dev.DeviceLinks {
+				if attachmentInfo.DeviceLink == link {
+					return &dev, true
+				}
+			}
+			continue
+		}
+		if attachmentInfo.DeviceName == dev.DeviceName {
 			return &dev, true
 		}
 	}

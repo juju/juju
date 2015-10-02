@@ -24,8 +24,8 @@ type MetadataAttributes struct {
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
 	Arch string
 
-	// VirtualType contains the type of the cloud image, for e.g. "pv", "hvm". "kvm".
-	VirtualType string
+	// VirtType contains virtualisation type of the cloud image, for e.g. "pv", "hvm". "kvm".
+	VirtType string
 
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string
