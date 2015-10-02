@@ -16,9 +16,9 @@ subnets available for running cloud instances, which may span one
 or more availability zones ("zones"). Subnets can be part of one
 and only one space. All subnets within a space are considered "equal"
 in terms of access control, firewall rules, and routing. Communication
-crossing space boundaries on the other hand (e.g. between instances
-started in subnets part of different spaces) will be subject to access
-restrictions and isolation.
+between spaces on the other hand (e.g. between instances started in
+subnets part of different spaces) will be subject to access restrictions
+and isolation.
 
 Having multiple subnets spanning different zones within the same space
 allows Juju to perform automatic distribution of units of a service
@@ -49,25 +49,27 @@ Please note, Juju does not yet enforce those security restrictions, but having
 spaces and subnets available makes it possible to implement those restrictions
 and access control in a future release.
 
-Due to the ability of spaces to span multiple zones services can be
-distributed to these zones. This way high available environments can be
-realized.
+Due to the ability of spaces to span multiple zones services can be distributed
+across these zones. This allows high available setup for services within the
+environment.
 
 Spaces are created like this:
 
 $ juju space create <name> [ <CIDR1> <CIDR2> ... ] [--private|--public]
 
-They can be listed in various formats using the "list" subcommand.
+They can be listed in various formats using the "list" subcommand. See
+also "juju space help" for more information.
 
 Existing subnets can be added to the environment using
 
 $ juju subnet add <CIDR>|<subnet-provider-id> <space> [<zone1> <zone2> ...]
 
-Like spaces they can be listed by the subcommand "list".
+Like spaces they can be listed by the subcommand "list". See
+also "juju space help" for more information.
 
 The commands "add-machine" and "deploy" allow the specification of a
 spaces constraint for the selection of a matching instance. It is done by
-adding
+adding:
 
 --constraints spaces=<allowedspace1>,<allowedspace2>,^<disallowedspace>
 
@@ -76,8 +78,10 @@ This instance has to have distinct IP addresses on any subnet of each allowed
 space in the list and none of the subnets associated with one of the disallowed
 spaces which are prefixed with a caret ("^").
 
+For more information, see "juju help constraints".
+
 Please note, Juju supports the described syntax but currently ignores all but
-the first allowed space in the list. This behavior will change in a future release
-of Juju. Also, only the EC2 provider supports spaces as described, with support
-for MaaS and OpenStack coming soon.
+the first allowed space in the list. This behavior will change in a future release.
+Also, only the EC2 provider supports spaces as described, with support for MaaS
+and OpenStack coming soon.
 `

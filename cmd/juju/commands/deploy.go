@@ -95,7 +95,7 @@ congestion.
 
 When deploying a service or adding machines, the "spaces" constraint can be
 used to define a comma-delimited list of acceptable and not acceptable (prefixed
-with "^", similar to the "tags" constraint.
+with "^", similar to the "tags" constraint).
 
 If you have the main container directory mounted on a btrfs partition,
 then the clone will be using btrfs snapshots to create the containers.
