@@ -31,7 +31,7 @@ const (
 var allStatuses = map[string]shared.State{
 	StatusStarting: shared.STARTING,
 	StatusRunning:  shared.RUNNING,
-	StatusThawed:   shared.THAWED,
+	//StatusThawed:   shared.THAWED,
 
 	// TODO(ericsnow) Use the newer status codes:
 	//StatusStarting:   shared.Starting,
