@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package meterstatus_test
@@ -6,9 +6,9 @@ package meterstatus_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	testing.MgoTestPackage(t)
 }
