@@ -91,7 +91,7 @@ spaces
    prefixed with a "^". The constraint controls which instance is chosen for the
    new machine or service unit. It has to have distinct IP addresses on any subnet
    of each allowed space in the list and none of the subnets associated with one
-   of the disallowed spaces. Currently MaaS and AWS are supported providers. 
+   of the disallowed spaces. Currently MaaS and AWS are supported providers.
 
 instance-type
    Instance-type is the provider-specific name of a type of machine to deploy,

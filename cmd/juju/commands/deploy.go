@@ -83,7 +83,7 @@ where <series> is the OS series, for example 'juju-trusty-template'.
 You can override the use of clone by changing the provider configuration:
   lxc-clone: false
 
-In more complex scenarios so called spaces are used to partition the cloud 
+In more complex scenarios so called spaces are used to partition the cloud
 instances into sets of subnets. Services inside a space can communicate
 without any firewall opposite t the communication between spaces. They also
 help establishing high available environments. When deploying a service

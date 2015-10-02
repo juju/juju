@@ -22,7 +22,7 @@ As an example an environment with three areas of trust shall be setup:
 - the "cms" space for a content management, and
 - the "database" space as backend.
 
-Here in the "dmz" space HAProxy runs. It is proxying Joomla the instances 
+Here in the "dmz" space HAProxy runs. It is proxying Joomla the instances
 in the "cms" space. The backend MySQL for Joomla is running in the "database"
 space. Both backend spaces only have private subnets and cannot be directly
 accessed from the internet. Opposite to this the "dmz" space additionally
@@ -33,7 +33,7 @@ may use the same database but new spaces for other application parts.
 So it is ensured that while these parts can share the database but
 not directly influence each other.
 
-Due to the ability of spaces to span multiple zones services can be 
+Due to the ability of spaces to span multiple zones services can be
 distributed to these zones. This way high available environments can be
 realized.
 
@@ -65,10 +65,10 @@ adding
 
 --constraints spaces=<allowedspace1>,<allowedspace2>,^<disallowedspace>
 
-The constraint controls which instance is chosen for the new machine or 
+The constraint controls which instance is chosen for the new machine or
 service unit. This instance has to have distinct IP addresses on any subnet
 of each allowed space in the list and none of the subnets associated with one
-of the disallowed spaces which are prefixed with a carret. 
+of the disallowed spaces which are prefixed with a carret.
 
 Currently MaaS and AWS are supported providers for this networking model.
 `
