@@ -48,7 +48,7 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       228936,
 	}, {
@@ -89,6 +89,16 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *gc.C) {
 ID_BUS=ata
 ID_SERIAL=0980978987987
 `, storage.BlockDevice{HardwareId: "ata-0980978987987"})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceLinks(c *gc.C) {
+	// Values from DEVLINKS should be split by space, and entered into
+	// DeviceLinks verbatim.
+	s.testListBlockDevicesExtended(c, `
+DEVLINKS=/dev/disk/by-id/abc /dev/disk/by-id/def
+`, storage.BlockDevice{
+		DeviceLinks: []string{"/dev/disk/by-id/abc", "/dev/disk/by-id/def"},
+	})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesAll(c *gc.C) {
@@ -158,7 +168,7 @@ EOF`)
 	// to prevent it from being used, but no error will be returned.
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       228936,
 		InUse:      true,
@@ -176,7 +186,7 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       0,
 	}, {
@@ -212,7 +222,7 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, gc.IsNil)
-	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       228936,
 	}, {
