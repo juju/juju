@@ -1323,10 +1323,7 @@ func (e *environ) Destroy() error {
 	globalGroupName := e.globalGroupName()
 	for _, group := range securityGroups {
 		if re.MatchString(group.Name) || group.Name == globalGroupName {
-			err = novaClient.DeleteSecurityGroup(group.Id)
-			if err != nil {
-				logger.Warningf("cannot delete security group %q. Used by another environment?", group.Name)
-			}
+			deleteSecurityGroup(novaClient, group.Name, group.Id)
 		}
 	}
 	return nil
@@ -1610,15 +1607,45 @@ func (e *environ) deleteSecurityGroups(securityGroupNames []string) error {
 	for _, securityGroup := range allSecurityGroups {
 		for _, name := range securityGroupNames {
 			if securityGroup.Name == name {
-				err := novaclient.DeleteSecurityGroup(securityGroup.Id)
-				if err != nil {
-					logger.Warningf("cannot delete security group %q. Used by another environment?", name)
-				}
+				deleteSecurityGroup(novaclient, name, securityGroup.Id)
 				break
 			}
 		}
 	}
 	return nil
+}
+
+// deleteSecurityGroup attempts to delete the security group. Should it fail,
+// the deletion is retried due to timing issues in openstack. A security group
+// cannot be deleted while it is in use. Theoretically we terminate all the
+// instances before we attempt to delete the associated security groups, but
+// in practice nova hasn't always finished with the instance before it
+// returns, so there is a race condition where we think the instance is
+// terminated and hence attempt to delete the security groups but nova still
+// has it around internally. To attempt to catch this timing issue, deletion
+// of the groups is tried multiple times.
+func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
+	attempts := utils.AttemptStrategy{
+		Total: 30 * time.Second,
+		Delay: time.Second,
+	}
+	logger.Debugf("deleting security group %q", name)
+	i := 0
+	for attempt := attempts.Start(); attempt.Next(); {
+		err := novaclient.DeleteSecurityGroup(id)
+		if err == nil {
+			return
+		}
+		i++
+		if i%4 == 0 {
+			message := fmt.Sprintf("waiting to delete security group %q", name)
+			if i != 4 {
+				message = "still " + message
+			}
+			logger.Debugf(message)
+		}
+	}
+	logger.Warningf("cannot delete security group %q. Used by another environment?", name)
 }
 
 func (e *environ) terminateInstances(ids []instance.Id) error {
