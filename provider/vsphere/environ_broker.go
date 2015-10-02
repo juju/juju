@@ -98,7 +98,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
-	rootDisk := common.MinRootDiskSizeGiB * 1024
+	rootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
 	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > rootDisk {
 		rootDisk = *args.Constraints.RootDisk
 	}
