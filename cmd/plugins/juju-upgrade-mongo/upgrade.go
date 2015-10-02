@@ -6,11 +6,13 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"text/template"
+	"time"
 
 	"launchpad.net/gnuflag"
 
@@ -34,7 +36,7 @@ const jujuAgentPathLocal = "~/.juju/local/agents/machine-0/agent.conf"
 const systemdfiles = `
 DBSERV=$(ls /etc/systemd/system/juju-db*.service | cut -d "/" -f5)
 AGENTSERV=$(ls /etc/systemd/system/juju-agent*.service 2>/dev/null | cut -d "/" -f5)
-if [ -n $AGENTSERV ]; then
+if [ -z $AGENTSERV ]; then
 AGENTSERV=$(ls /etc/systemd/system/jujud*.service 2>/dev/null | cut -d "/" -f5)
 fi
 `
@@ -92,9 +94,6 @@ UpgradeMongoBinary() {
 	sed -i "s/--smallfiles//" /etc/systemd/system/juju-db*.service;
 	sed -i "s/--noprealloc/--storageEngine wiredTiger/" /etc/systemd/system/juju-db*.service;
     fi
-    echo "------------------------------------------------------------"
-    cat  /etc/systemd/system/juju-db*.service
-    echo "------------------------------------------------------------"
 }
 `
 
@@ -210,7 +209,7 @@ func runViaSSH(addr, script string, params sshParams, stderr, stdout *bytes.Buff
 	functions := systemdfiles + upgradeMongoInAgentConfig + upgradeMongoBinary + mongoEval + replset + noauth
 	var callable string
 	if verbose {
-		callable = `set -ux
+		callable = `set -u
 `
 	}
 	callable += functions + script
@@ -239,8 +238,8 @@ func runViaSSH(addr, script string, params sshParams, stderr, stdout *bytes.Buff
 		fmt.Printf("%s", fmt.Sprintf("%s", stdout.String()))
 		return errors.Annotatef(err, "ssh command failed: See above")
 	}
-	fmt.Printf("%s", fmt.Sprintf("%s", stdout.String()))
-	progress("ssh command succedded: %s", "see above")
+	//fmt.Printf("%s", fmt.Sprintf("%s", stdout.String()))
+	//progress("ssh command succedded: %s", "see above")
 	return nil
 }
 
@@ -268,25 +267,24 @@ func runViaJujuSSH(machine, script string, params sshParams, stdout, stderr *byt
 		fmt.Println(fmt.Sprintf("%s", stdout.String()))
 		return errors.Annotatef(err, "ssh command failed: (%q)", stderr.String())
 	}
-	progress("ssh command succedded: %q", fmt.Sprintf("%s", stdout.String()))
+	//progress("ssh command succedded: %q", fmt.Sprintf("%s", stdout.String()))
 	return nil
 }
 
-func addPPA(addr string, local bool) error {
+func addPPA(addr string, local bool, stdout *bytes.Buffer) error {
 	var stderrBuf bytes.Buffer
-	var stdoutBuf bytes.Buffer
 	// beware, juju-mongodb3 only works in vivid.
-	addPPACommand := `apt-add-repository -y ppa:hduran-8/juju-mongodb2.6
+	addPPACommand := `echo "preparing environment for mongo 3"
+apt-add-repository -y ppa:hduran-8/juju-mongodb2.6
 apt-add-repository -y ppa:hduran-8/juju-mongodb3
 apt-get update
 apt-get install juju-mongodb2.6 juju-mongodb3
 apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients`
-	return runViaSSH(addr, addPPACommand, sshParams{}, &stdoutBuf, &stderrBuf, true, local)
+	return runViaSSH(addr, addPPACommand, sshParams{}, &stderrBuf, stdout, true, local)
 }
 
-func upgradeTo26(addr, password string, port int, local bool) error {
+func upgradeTo26(addr, password string, port int, local bool, stdout *bytes.Buffer) error {
 	var stderrBuf bytes.Buffer
-	var stdoutBuf bytes.Buffer
 	upgradeTo26Command := `/usr/lib/juju/bin/mongodump --ssl -u admin -p {{.OldPassword | shquote}} --port {{.StatePort}} --out ~/migrateTo26dump
 echo "dumped mongo"
 
@@ -310,22 +308,22 @@ echo "upgraded mongo 2.6"
 
 systemctl start $DBSERV
 echo "starting mongodb 2.6"
+echo "waiting for mongo to come online"
 
 sleep 120
 mongoAdminEval 'db.getSiblingDB("admin").runCommand({authSchemaUpgrade: 1 })'
 echo "upgraded auth schema."
 
 systemctl restart $DBSERV
+echo "waiting for mongo to come online"
 sleep 60
 
-ps faux | grep mongo
 `
-	return runViaSSH(addr, upgradeTo26Command, sshParams{OldPassword: password, StatePort: port}, &stdoutBuf, &stderrBuf, true, local)
+	return runViaSSH(addr, upgradeTo26Command, sshParams{OldPassword: password, StatePort: port}, &stderrBuf, stdout, true, local)
 }
 
-func upgradeTo3(addr, password string, port int, local bool) error {
+func upgradeTo3(addr, password string, port int, local bool, stdout *bytes.Buffer) error {
 	var stderrBuf bytes.Buffer
-	var stdoutBuf bytes.Buffer
 	upgradeTo3Command := `attempts=0
 until [ $attempts -ge 60 ]
 do
@@ -347,7 +345,6 @@ echo "stopped juju"
 
 systemctl stop $DBSERV
 echo "stopped mongo"
-ps faux | grep mongo
 
 UpgradeMongoVersion 3.1
 echo "upgrade version in agent.conf"
@@ -381,7 +378,6 @@ echo "stopped mongo"
 UpgradeMongoBinary 3 storage
 NoAuth
 NoReplSet
-cat /etc/systemd/system/juju-db*.service
 echo "upgrade mongo including storage"
 
 systemctl daemon-reload
@@ -398,8 +394,10 @@ echo "start mongo"
 
 rsconfcommand="rs.initiate($RSCONF)"
 mongoAnonEval $rsconfcommand
+
+echo "initiated replicaset"
+echo "waiting for replicaset to come online"
 sleep 60
-echo "initiated peergrouper"
 
 /usr/lib/juju/mongo3/bin/mongorestore -vvvvv --ssl --sslAllowInvalidCertificates --port {{.StatePort}} --host localhost  --db=juju ~/migrateToTigerDump/juju
 /usr/lib/juju/mongo3/bin/mongorestore -vvvvv --ssl --sslAllowInvalidCertificates --port {{.StatePort}} --host localhost  --db=admin ~/migrateToTigerDump/admin
@@ -413,7 +411,6 @@ echo "stop mongo"
 
 Auth
 ReplSet
-cat /etc/systemd/system/juju-db*.service
 systemctl daemon-reload
 echo "reload systemctl"
 
@@ -425,19 +422,19 @@ echo "start juju"
 
 systemctl start $DBSERV
 echo "start mongo"
+echo "waiting mongo to come online"
 `
-	return runViaSSH(addr, upgradeTo3Command, sshParams{OldPassword: password, StatePort: port}, &stdoutBuf, &stderrBuf, true, local)
+	return runViaSSH(addr, upgradeTo3Command, sshParams{OldPassword: password, StatePort: port}, &stderrBuf, stdout, true, local)
 }
 
-func ensureRunningServices(addr string, local bool) error {
+func ensureRunningServices(addr string, local bool, stdout *bytes.Buffer) error {
 	var stderrBuf bytes.Buffer
-	var stdoutBuf bytes.Buffer
 	command := `
 sleep 60
 systemctl start $DBSERV
-echo "start mongo"
+echo "mongo started"
 `
-	return runViaSSH(addr, command, sshParams{}, &stdoutBuf, &stderrBuf, true, local)
+	return runViaSSH(addr, command, sshParams{}, &stderrBuf, stdout, true, local)
 }
 
 func (c *upgradeMongoCommand) agentConfig(addr string, local bool) (agent.Config, error) {
@@ -492,6 +489,25 @@ func externalIPFromStatus() (string, error) {
 	return dnsname, nil
 }
 
+func bufferPrinter(stdout *bytes.Buffer, closer chan int, verbose bool) {
+	for {
+		select {
+		case <-closer:
+			return
+		case <-time.After(500 * time.Millisecond):
+
+		}
+		line, err := stdout.ReadString(byte('\n'))
+		if err == nil || err == io.EOF {
+			fmt.Print(line)
+		}
+		if err != nil && err != io.EOF {
+			return
+		}
+
+	}
+}
+
 func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	if err := c.Log.Start(ctx); err != nil {
 		return err
@@ -514,6 +530,11 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 		// And run it!
 		return command.Run()
 	}
+	var stdout bytes.Buffer
+	var closer chan int
+	closer = make(chan int, 1)
+	defer func() { closer <- 1 }()
+	go bufferPrinter(&stdout, closer, false)
 	dnsname, err := externalIPFromStatus()
 	if err != nil {
 		return errors.Annotate(err, "cannot determine api addresses")
@@ -524,25 +545,25 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot determine agent config")
 	}
 
-	err = addPPA(addr, c.local)
+	err = addPPA(addr, c.local, &stdout)
 	if err != nil {
 		return errors.Annotate(err, "cannot add mongo 2.6 and 3 ppas")
 	}
 	info, _ := config.StateServingInfo()
-	err = upgradeTo26(addr, config.OldPassword(), info.StatePort, c.local)
+	err = upgradeTo26(addr, config.OldPassword(), info.StatePort, c.local, &stdout)
 	if err != nil {
 		return errors.Annotate(err, "cannot upgrade to 2.6")
 	}
 
-	err = upgradeTo3(addr, config.OldPassword(), info.StatePort, c.local)
+	err = upgradeTo3(addr, config.OldPassword(), info.StatePort, c.local, &stdout)
 	if err != nil {
 		return errors.Annotate(err, "cannot upgrade to 3")
 	}
-	err = ensureRunningServices(addr, c.local)
+	err = ensureRunningServices(addr, c.local, &stdout)
 	if err != nil {
 		return errors.Annotate(err, "cannot ensure services")
 	}
-	fmt.Println(addr)
+
 	return nil
 }
 
