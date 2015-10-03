@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
@@ -124,18 +125,29 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_clie
 // getMetadata builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
 func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	compressed, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
-	logger.Debugf("LXD user data; %d bytes", len(userData))
+	logger.Debugf("LXD user data; %d bytes", len(compressed))
+
+	// TODO(ericsnow) Looks like LXD does not handle gzipped userdata
+	// correctly.  It likely has to do with the HTTP transport, much
+	// as we have to b64encode the userdata for GCE.  Until that is
+	// resolved we simply pass the plain text.
+	//userdata := string(compressed)
+	uncompressed, err := utils.Gunzip(compressed)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	userdata := string(uncompressed)
 
 	metadata := map[string]string{
 		metadataKeyIsState: metadataValueFalse,
 		// We store a gz snapshop of information that is used by
 		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
 		// for the instance.
-		metadataKeyCloudInit: string(userData),
+		metadataKeyCloudInit: userdata,
 	}
 	if isStateServer(args.InstanceConfig) {
 		metadata[metadataKeyIsState] = metadataValueTrue

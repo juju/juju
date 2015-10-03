@@ -4,9 +4,9 @@
 package lxd_client
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
@@ -15,9 +15,29 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// Constants related to user metadata.
 const (
-	configKeyMetadata = "user.user-data"
+	MetadataNamespace = "user"
+
+	// This is defined by the cloud-init code:
+	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/
+	// http://cloudinit.readthedocs.org/en/latest/
+	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
+	UserdataKey = "user-data"
 )
+
+func resolveConfigKey(name string, namespace ...string) string {
+	parts := append(namespace, name)
+	return strings.Join(parts, ".")
+}
+
+func splitConfigKey(key string) (string, string) {
+	parts := strings.SplitN(key, ".", 2)
+	if len(parts) == 1 {
+		return "", parts[0]
+	}
+	return parts[0], parts[1]
+}
 
 // AliveStatuses are the LXD statuses that indicate a container is "alive".
 var AliveStatuses = []string{
@@ -53,18 +73,7 @@ type InstanceSpec struct {
 }
 
 func (spec InstanceSpec) config() map[string]string {
-	config := make(map[string]string)
-
-	if len(spec.Metadata) > 0 {
-		data, err := packMetadata(spec.Metadata)
-		if err != nil {
-			logger.Errorf("unexpected error when packing metadata: %v", err)
-			// move along...
-		}
-		config[configKeyMetadata] = string(data)
-	}
-
-	return config
+	return resolveMetadata(spec.Metadata)
 }
 
 func (spec InstanceSpec) info(namespace string) *shared.ContainerState {
@@ -162,15 +171,7 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 		}
 	}
 
-	var metadata map[string]string
-	if data, ok := info.Config[configKeyMetadata]; ok {
-		var err error
-		metadata, err = unpackMetadata([]byte(data))
-		if err != nil {
-			logger.Errorf("unexpected error when unpacking metadata: %v", err)
-			// move along...
-		}
-	}
+	metadata := extractMetadata(info.Config)
 
 	return InstanceSummary{
 		Name:      info.Name,
@@ -234,30 +235,27 @@ func (gi Instance) Metadata() map[string]string {
 	return gi.InstanceSummary.Metadata
 }
 
-// packMetadata composes the provided data into the format required
-// by the API.
-func packMetadata(items map[string]string) ([]byte, error) {
-	if len(items) == 0 {
-		return nil, nil
+func resolveMetadata(metadata map[string]string) map[string]string {
+	config := make(map[string]string)
+
+	for name, val := range metadata {
+		key := resolveConfigKey(name, MetadataNamespace)
+		config[key] = val
 	}
 
-	data, err := json.Marshal(items)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return data, nil
+	return config
 }
 
-// unpackMetadata decomposes the provided data from the format used
-// in the API.
-func unpackMetadata(data []byte) (map[string]string, error) {
-	if data == nil {
-		return nil, nil
+func extractMetadata(config map[string]string) map[string]string {
+	metadata := make(map[string]string)
+
+	for key, val := range config {
+		namespace, name := splitConfigKey(key)
+		if namespace != MetadataNamespace {
+			continue
+		}
+		metadata[name] = val
 	}
 
-	items := make(map[string]string)
-	if err := json.Unmarshal(data, &items); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return items, nil
+	return metadata
 }
