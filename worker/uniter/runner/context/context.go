@@ -213,6 +213,14 @@ func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
+func (ctx *HookContext) RemoveDynamicEndpoint(name, iface string) error {
+	service, err := ctx.unit.Service()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return service.RemoveDynamicEndpoint(name, iface)
+}
+
 func (ctx *HookContext) AddDynamicEndpoint(name, iface string) error {
 	service, err := ctx.unit.Service()
 	if err != nil {

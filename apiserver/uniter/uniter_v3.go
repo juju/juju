@@ -56,6 +56,36 @@ func (u *UniterAPIV3) IsDynamicEndpoint(args params.DynamicEndpoint) (params.IsD
 	return result, nil
 }
 
+func (u *UniterAPIV3) RemoveDynamicEndpoint(args params.DynamicEndpoint) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessService()
+	if err != nil {
+		logger.Warningf("failed to check service access: %v", err)
+		return params.ErrorResults{}, common.ErrPerm
+	}
+	for i, batch := range args.Entities {
+		tag, err := names.ParseServiceTag(batch.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		service, err := u.getService(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = service.RemoveDynamicEndpoint(batch.Name, batch.Interface)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 func (u *UniterAPIV3) AddDynamicEndpoint(args params.DynamicEndpoint) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),

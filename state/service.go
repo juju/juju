@@ -297,6 +297,28 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
 }
 
+func (s *Service) RemoveDynamicEndpoint(name, iface string) error {
+	if ep, err := s.Endpoint(name); err == nil {
+		return fmt.Errorf("cannot add dynamic endpoint for service %q: %v endpoint exists", s, ep)
+	}
+
+	endpointId := "e#" + name + "#" + iface
+	id := s.globalKey() + "-" + endpointId
+
+	ops := []txn.Op{{
+		C:      dynamicEndpointsC,
+		Id:     id,
+		Remove: true,
+	}}
+
+	if err := s.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot remove dynamic endpoint %v:%v for service %q: %v", name, iface, s, onAbort(err, errNotAlive))
+	}
+
+	logger.Debugf("removed dynamic endpoint %v for service %q", endpointId, s)
+	return nil
+}
+
 func (s *Service) AddDynamicEndpoint(name, iface string) error {
 	if ep, err := s.Endpoint(name); err == nil {
 		return fmt.Errorf("cannot add dynamic endpoint for service %q: %v endpoint exists", s, ep)

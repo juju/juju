@@ -107,6 +107,9 @@ type ContextUnit interface {
 
 	// AddDynamicEndpoint
 	AddDynamicEndpoint(name, iface string) error
+
+	// RemoveDynamicEndpoint
+	RemoveDynamicEndpoint(name, iface string) error
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

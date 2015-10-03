@@ -115,6 +115,20 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
+func (s *Service) RemoveDynamicEndpoint(name, iface string) error {
+	var results params.ErrorResults
+	args := params.DynamicEndpoint{
+		Entities: []params.DynamicEndpointArgs{
+			{Tag: s.tag.String(), Name: name, Interface: iface},
+		},
+	}
+	err := s.st.facade.FacadeCall("RemoveDynamicEndpoint", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
 func (s *Service) AddDynamicEndpoint(name, iface string) error {
 	var results params.ErrorResults
 	args := params.DynamicEndpoint{
