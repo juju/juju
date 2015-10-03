@@ -6,18 +6,14 @@ package lxd
 import (
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/container/lxd/lxd_client"
 	"github.com/juju/juju/environs/tags"
 )
 
 // The metadata keys used when creating new instances.
 const (
-	metadataKeyIsState = tags.JujuEnv
-	// This is defined by the cloud-init code:
-	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/
-	// http://cloudinit.readthedocs.org/en/latest/
-	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
-	metadataKeyCloudInit = "user-data"
-	//metadataKeyCloudInit = "user.user-data"
+	metadataKeyIsState   = tags.JujuEnv
+	metadataKeyCloudInit = lxd_client.UserdataKey
 )
 
 // Common metadata values used when creating new instances.
