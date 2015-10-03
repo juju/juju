@@ -130,23 +130,16 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	}
 	logger.Debugf("LXD user data; %d bytes", len(userData))
 
-	//b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
-	//metadata := map[string]string{
-	//	metadataKeyIsState: metadataValueFalse,
-	//	// We store a gz snapshop of information that is used by
-	//	// cloud-init and unpacked in to the /var/lib/cloud/instances folder
-	//	// for the instance. Due to a limitation with GCE and binary blobs
-	//	// we base64 encode the data before storing it.
-	//	metadataKeyCloudInit: b64UserData,
-	//	// Valid encoding values are determined by the cloudinit GCE data source.
-	//	// See: http://cloudinit.readthedocs.org
-	//	metadataKeyEncoding: "base64",
-	//	metadataKeySSHKeys:  authKeys,
-	//}
-	//if isStateServer(args.InstanceConfig) {
-	//	metadata[metadataKeyIsState] = metadataValueTrue
-	//}
-	metadata := map[string]string{}
+	metadata := map[string]string{
+		metadataKeyIsState: metadataValueFalse,
+		// We store a gz snapshop of information that is used by
+		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
+		// for the instance.
+		metadataKeyCloudInit: string(userData),
+	}
+	if isStateServer(args.InstanceConfig) {
+		metadata[metadataKeyIsState] = metadataValueTrue
+	}
 
 	return metadata, nil
 }

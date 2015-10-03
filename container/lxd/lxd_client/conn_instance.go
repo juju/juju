@@ -35,6 +35,24 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
+	if err := client.initInstanceConfig(spec); err != nil {
+		if err := client.removeInstance(spec.Name); err != nil {
+			logger.Errorf("could not remove container %q after configuring it failed", spec.Name)
+		}
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (client *Client) initInstanceConfig(spec InstanceSpec) error {
+	config := spec.config()
+	for key, value := range config {
+		err := client.raw.SetContainerConfig(spec.Name, key, value)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 

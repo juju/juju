@@ -32,6 +32,7 @@ type rawClientWrapper interface {
 	ListContainers() ([]shared.ContainerInfo, error)
 	ContainerStatus(name string) (*shared.ContainerState, error)
 	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
+	SetContainerConfig(container, key, value string) error
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 }

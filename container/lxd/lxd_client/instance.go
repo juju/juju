@@ -4,6 +4,7 @@
 package lxd_client
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 
@@ -12,6 +13,10 @@ import (
 	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/network"
+)
+
+const (
+	configKeyMetadata = "user.user-data"
 )
 
 // AliveStatuses are the LXD statuses that indicate a container is "alive".
@@ -47,6 +52,21 @@ type InstanceSpec struct {
 	// Tags
 }
 
+func (spec InstanceSpec) config() map[string]string {
+	config := make(map[string]string)
+
+	if len(spec.Metadata) > 0 {
+		data, err := packMetadata(spec.Metadata)
+		if err != nil {
+			logger.Errorf("unexpected error when packing metadata: %v", err)
+			// move along...
+		}
+		config[configKeyMetadata] = string(data)
+	}
+
+	return config
+}
+
 func (spec InstanceSpec) info(namespace string) *shared.ContainerState {
 	name := spec.Name
 	if namespace != "" {
@@ -55,15 +75,15 @@ func (spec InstanceSpec) info(namespace string) *shared.ContainerState {
 
 	return &shared.ContainerState{
 		Architecture:    0,
-		Config:          map[string]string{},
+		Config:          spec.config(),
 		Devices:         shared.Devices{},
-		Ephemeral:       false,
+		Ephemeral:       spec.Ephemeral,
 		ExpandedConfig:  map[string]string{},
 		ExpandedDevices: shared.Devices{},
 		Name:            name,
-		Profiles:        []string{},
-		//Status:          ContainerStatus{},
-		Userdata: []byte{}, // from spec.Metadata
+		Profiles:        spec.Profiles,
+		Status:          shared.ContainerStatus{},
+		//Userdata:        []byte{},
 	}
 }
 
@@ -142,10 +162,20 @@ func newInstanceSummary(info *shared.ContainerState) InstanceSummary {
 		}
 	}
 
+	var metadata map[string]string
+	if data, ok := info.Config[configKeyMetadata]; ok {
+		var err error
+		metadata, err = unpackMetadata([]byte(data))
+		if err != nil {
+			logger.Errorf("unexpected error when unpacking metadata: %v", err)
+			// move along...
+		}
+	}
+
 	return InstanceSummary{
 		Name:      info.Name,
 		Status:    statusStr,
-		Metadata:  unpackMetadata(info.Userdata),
+		Metadata:  metadata,
 		Addresses: addrs,
 		Hardware: InstanceHardware{
 			Architecture: archStr,
@@ -206,18 +236,28 @@ func (gi Instance) Metadata() map[string]string {
 
 // packMetadata composes the provided data into the format required
 // by the API.
-func packMetadata(data map[string]string) []byte {
-	// TODO(ericsnow) finish!
-	return nil
+func packMetadata(items map[string]string) ([]byte, error) {
+	if len(items) == 0 {
+		return nil, nil
+	}
+
+	data, err := json.Marshal(items)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return data, nil
 }
 
 // unpackMetadata decomposes the provided data from the format used
 // in the API.
-func unpackMetadata(data []byte) map[string]string {
+func unpackMetadata(data []byte) (map[string]string, error) {
 	if data == nil {
-		return nil
+		return nil, nil
 	}
 
-	// TODO(ericsnow) finish!
-	return nil
+	items := make(map[string]string)
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return items, nil
 }
