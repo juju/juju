@@ -21,6 +21,8 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		profiles = &spec.Profiles
 	}
 
+	// TODO(ericsnow) Copy the image first?
+
 	resp, err := client.raw.Init(spec.Name, remote, imageAlias, profiles, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
@@ -42,6 +44,14 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Only do this if it's a state server...
+	if err := client.exposeHostAPI(spec); err != nil {
+		if err := client.removeInstance(spec.Name); err != nil {
+			logger.Errorf("could not remove container %q after exposing the API sock failed", spec.Name)
+		}
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -53,6 +63,30 @@ func (client *Client) initInstanceConfig(spec InstanceSpec) error {
 			return errors.Trace(err)
 		}
 	}
+	return nil
+}
+
+func (client *Client) exposeHostAPI(spec InstanceSpec) error {
+	// lxc config device add juju-container lxdsock disk \
+	// source=/var/lib/lxd/unix.socket path=var/lib/lxd/unix.socket
+	const apiDevName = "lxdsock"
+	const devType = "disk"
+	props := []string{
+		// TODO(ericsnow) hard-coded, unix-centric...
+		"source=/var/lib/lxd/unix.socket",
+		"path=var/lib/lxd/unix.socket",
+	}
+	resp, err := client.raw.ContainerDeviceAdd(spec.Name, apiDevName, devType, props)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		// TODO(ericsnow) Handle different failures (from the async
+		// operation) differently?
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
