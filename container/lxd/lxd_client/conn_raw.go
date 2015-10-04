@@ -35,6 +35,7 @@ type rawClientWrapper interface {
 	SetContainerConfig(container, key, value string) error
 	ContainerDeviceAdd(container, devname, devtype string, props []string) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
+	Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error)
 	Delete(name string) (*lxd.Response, error)
 }
 

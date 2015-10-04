@@ -4,6 +4,8 @@
 package lxd_client
 
 import (
+	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/juju/errors"
@@ -71,6 +73,7 @@ func (client *Client) exposeHostAPI(spec InstanceSpec) error {
 	// source=/var/lib/lxd/unix.socket path=var/lib/lxd/unix.socket
 	const apiDevName = "lxdsock"
 	const devType = "disk"
+	const filename = "/var/lib/lxd/unix.socket"
 	props := []string{
 		// TODO(ericsnow) hard-coded, unix-centric...
 		"source=/var/lib/lxd/unix.socket",
@@ -85,6 +88,45 @@ func (client *Client) exposeHostAPI(spec InstanceSpec) error {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (client *Client) chown(spec InstanceSpec, filename, user, group string) error {
+	cmd := []string{
+		"/bin/chown",
+		fmt.Sprintf("%s:%s", user, group),
+		filename,
+	}
+
+	var env map[string]string
+
+	// TODO(ericsnow) We *should* be able to use bytes.Buffer instead...
+	stdin, err := ioutil.TempFile("", "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	stdout, err := ioutil.TempFile("", "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	stderr := stdout
+
+	fmt.Println("running", strings.Join(cmd, " "))
+
+	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr)
+	if err != nil {
+		return errors.Trace(err)
+	} else if rc != 0 {
+		msg := "<reason unknown>"
+		if _, err := stdout.Seek(0, 0); err == nil {
+			data, err := ioutil.ReadAll(stdout)
+			if err == nil {
+				msg = string(data)
+			}
+		}
+		return errors.Errorf("got non-zero code from chowning API sock: (%d) %s", rc, msg)
 	}
 
 	return nil
@@ -119,6 +161,13 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 			logger.Errorf("could not remove container %q after starting it failed", spec.Name)
 		}
 		return nil, errors.Trace(err)
+	}
+
+	// TODO(ericsnow) This is a hack tied to exposeHostAPI().
+	const filename = "/var/lib/lxd/unix.socket"
+	if err := client.chown(spec, filename, "root", "root"); err != nil {
+		fmt.Println("---- ", err)
+		//return errors.Trace(err)
 	}
 
 	inst, err := client.Instance(spec.Name)
