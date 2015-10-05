@@ -14,15 +14,21 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	"gopkg.in/goose.v1/nova"
 >>>>>>> modifications to opestack provider applied
 =======
 >>>>>>> working version of rackspace provider
+=======
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+>>>>>>> security group related methods moved to provider configurator
 )
 
 type rackspaceProviderConfigurator struct{}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -33,6 +39,8 @@ func (c *rackspaceProviderConfigurator) UseSecurityGroups() bool {
 	return false
 }
 
+=======
+>>>>>>> security group related methods moved to provider configurator
 // InitialNetworks implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) InitialNetworks() []nova.ServerNetworks {
 	// this are default racksapace networks http://docs.rackspace.com/servers/api/v2/cs-devguide/content/provision_server_with_networks.html
@@ -92,4 +100,43 @@ func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstan
 	cloudcfg.AddPackage("iptables-persistent")
 	return cloudcfg, nil
 }
+<<<<<<< HEAD
 >>>>>>> working version of rackspace provider
+=======
+
+// OpenPorts opens the given port ranges for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (c *rackspaceProviderConfigurator) OpenPorts(ports []network.PortRange) error {
+	return errors.Trace(errors.NotSupportedf("ClosePorts"))
+}
+
+// ClosePorts closes the given port ranges for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (c *rackspaceProviderConfigurator) ClosePorts(ports []network.PortRange) error {
+	return errors.Trace(errors.NotSupportedf("ClosePorts"))
+}
+
+// Ports returns the port ranges opened for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (c *rackspaceProviderConfigurator) Ports() ([]network.PortRange, error) {
+	return nil, errors.Trace(errors.NotSupportedf("Ports"))
+}
+
+// DeleteglobalGroups implements OpenstackProviderConfigurator interface.
+func (c *rackspaceProviderConfigurator) DeleteGlobalGroups() error {
+	return nil
+}
+
+// GetSecurityGroups implements OpenstackProviderConfigurator interface.
+func (c *rackspaceProviderConfigurator) GetSecurityGroups(ids ...instance.Id) ([]string, error) {
+	return nil, nil
+}
+
+// SetUpGroups implements OpenstackProviderConfigurator interface.
+func (c *rackspaceProviderConfigurator) SetUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+	return nil, nil
+}
+>>>>>>> security group related methods moved to provider configurator
