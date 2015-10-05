@@ -97,14 +97,26 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
 	}
 	tw.Flush()
-
-	if fs.AvailableVersion != "" {
+	isPrimaryMachineStatus := fs.PrimaryMachineStatus != primaryMachineStatus{}
+	if fs.AvailableVersion != "" || isPrimaryMachineStatus {
 		p("\n[Juju]")
+	}
+	if fs.AvailableVersion != "" {
 		p("UPGRADE-AVAILABLE")
 		p(fs.AvailableVersion)
 	}
-	tw.Flush()
+	if fs.PrimaryMachineStatus.MongoVersion != "" {
+		p("CURRENT-MONGO-VERSION")
+		p(fs.PrimaryMachineStatus.MongoVersion)
+	}
+	if fs.PrimaryMachineStatus.PartOfHA {
+		if fs.PrimaryMachineStatus.PartOfHA {
+			p("NUMBER-OF-HA-NODES")
+			p(fs.PrimaryMachineStatus.Nodes)
+		}
+	}
 
+	tw.Flush()
 	return out.Bytes(), nil
 }
 

@@ -403,7 +403,7 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
 		}
 
-		if err := pacman.Install(pkgs[i]); err != nil {
+		if err := pacman.Install("--force-yes", pkgs[i]); err != nil {
 			return err
 		}
 	}
