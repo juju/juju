@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/container/lxd/lxd_client"
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -94,7 +94,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_client.Instance, error) {
+func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
 	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
 
 	metadata, err := getMetadata(args)
@@ -109,7 +109,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_clie
 	// TODO(ericsnow) Make the network name configurable?
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
-	instSpec := lxd_client.InstanceSpec{
+	instSpec := lxdclient.InstanceSpec{
 		Name: machineID,
 		//Type:              spec.InstanceType.Name,
 		//Disks:             getDisks(spec, args.Constraints),
@@ -129,7 +129,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxd_clie
 // getMetadata builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
 func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
-	compressed, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	renderer := lxdRenderer{}
+	compressed, err := providerinit.ComposeUserData(args.InstanceConfig, nil, renderer)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
