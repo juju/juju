@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxd/lxd_client"
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/instance"
 )
 
@@ -31,7 +31,7 @@ type containerManager struct {
 	namespace string
 	remote    string
 	// A cached client.
-	client *lxd_client.Client
+	client *lxdclient.Client
 }
 
 // NewContainerManager builds a new instance of container.Manager and
@@ -56,13 +56,13 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	return manager, nil
 }
 
-func (manager *containerManager) connect() (*lxd_client.Client, error) {
+func (manager *containerManager) connect() (*lxdclient.Client, error) {
 	// TODO: this is going to write the config in the user's home
 	// directory, which is (probably) not what we want long term. You can
 	// set where the config goes via the LXD API (although it is a bit
 	// obtuse), but I'm not sure what path we should use.
 
-	lxdConfig := lxd_client.Config{
+	lxdConfig := lxdclient.Config{
 		Namespace: manager.namespace,
 		Remote:    manager.remote,
 	}
@@ -70,7 +70,7 @@ func (manager *containerManager) connect() (*lxd_client.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	client, err := lxd_client.Connect(lxdConfig)
+	client, err := lxdclient.Connect(lxdConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -125,7 +125,7 @@ func (manager *containerManager) CreateContainer(
 	if manager.namespace != "" {
 		name = fmt.Sprintf("%s-%s", manager.namespace, name)
 	}
-	spec := lxd_client.InstanceSpec{
+	spec := lxdclient.InstanceSpec{
 		Name: name,
 	}
 

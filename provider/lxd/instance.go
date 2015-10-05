@@ -6,20 +6,20 @@ package lxd
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/container/lxd/lxd_client"
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
 type environInstance struct {
-	raw *lxd_client.Instance
+	raw *lxdclient.Instance
 	env *environ
 }
 
 var _ instance.Instance = (*environInstance)(nil)
 
-func newInstance(raw *lxd_client.Instance, env *environ) *environInstance {
+func newInstance(raw *lxdclient.Instance, env *environ) *environInstance {
 	return &environInstance{
 		raw: raw,
 		env: env,

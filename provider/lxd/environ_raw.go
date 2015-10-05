@@ -6,7 +6,7 @@ package lxd
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/container/lxd/lxd_client"
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -16,8 +16,8 @@ type rawProvider struct {
 }
 
 type lxdInstances interface {
-	Instances(string, ...string) ([]lxd_client.Instance, error)
-	AddInstance(lxd_client.InstanceSpec) (*lxd_client.Instance, error)
+	Instances(string, ...string) ([]lxdclient.Instance, error)
+	AddInstance(lxdclient.InstanceSpec) (*lxdclient.Instance, error)
 	RemoveInstances(string, ...string) error
 }
 
@@ -39,10 +39,10 @@ func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
 	return raw, nil
 }
 
-func newClient(ecfg *environConfig) (*lxd_client.Client, error) {
+func newClient(ecfg *environConfig) (*lxdclient.Client, error) {
 	clientCfg := ecfg.clientConfig()
 
-	client, err := lxd_client.Connect(clientCfg)
+	client, err := lxdclient.Connect(clientCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

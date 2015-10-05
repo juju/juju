@@ -1,13 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lxd_client_test
+package lxdclient_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/lxd/lxd_client"
+	"github.com/juju/juju/provider/lxd/lxdclient"
 )
 
 type configSuite struct{}
@@ -15,7 +15,7 @@ type configSuite struct{}
 var _ = gc.Suite(&configSuite{})
 
 func (*configSuite) TestValidateValid(c *gc.C) {
-	cfg := lxd_client.Config{
+	cfg := lxdclient.Config{
 		Namespace: "spam",
 		Remote:    "eggs",
 	}
@@ -25,7 +25,7 @@ func (*configSuite) TestValidateValid(c *gc.C) {
 }
 
 func (*configSuite) TestValidateMissingNamespace(c *gc.C) {
-	cfg := lxd_client.Config{
+	cfg := lxdclient.Config{
 		Remote: "eggs",
 	}
 	err := cfg.Validate()
@@ -34,7 +34,7 @@ func (*configSuite) TestValidateMissingNamespace(c *gc.C) {
 }
 
 func (*configSuite) TestValidateMissingRemote(c *gc.C) {
-	cfg := lxd_client.Config{
+	cfg := lxdclient.Config{
 		Namespace: "spam",
 	}
 	err := cfg.Validate()

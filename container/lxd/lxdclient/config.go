@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lxd_client
+package lxdclient
 
 // Config contains the config values used for a connection to the LXD API.
 type Config struct {
