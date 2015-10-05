@@ -470,7 +470,7 @@ func (c *upgradeMongoCommand) agentConfig(addr string, local bool) (agent.Config
 
 func externalIPFromStatus() (string, error) {
 	var stderr, stdout bytes.Buffer
-	cmd := exec.Command("juju", "status")
+	cmd := exec.Command("juju", "status", "--format=yaml")
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	err := cmd.Run()
