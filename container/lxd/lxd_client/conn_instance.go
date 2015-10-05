@@ -187,6 +187,47 @@ func (client *Client) startInstance(spec InstanceSpec) error {
 	return nil
 }
 
+func (client *Client) fixSockfile(spec InstanceSpec) error {
+	const filename = "/var/lib/lxd/unix.socket"
+
+	//info, err := os.Stat(filename)
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//gid := info.Sys().(*syscall.Stat_t).Gid
+
+	//cmd := []string{
+	//	"/usr/sbin/groupadd",
+	//	fmt.Sprintf("--gid=%d", gid),
+	//	"lxd",
+	//}
+	//if err := client.exec(spec, cmd); err != nil {
+	//	return errors.Trace(err)
+	//}
+
+	//cmd = []string{
+	//	"/usr/sbin/usermod",
+	//	"-a",
+	//	"-G", "lxd",
+	//	"root",
+	//}
+	//if err := client.exec(spec, cmd); err != nil {
+	//	return errors.Trace(err)
+	//}
+
+	// TODO(ericsnow) Instead of modifying the socket file, add the
+	// "lxd" group, ensure the GID matches the one on the host, and add
+	// the root user to that group.
+
+	// TODO(ericsnow) For now, ensure that your local unix.socket is 0666...
+	//if err := client.chmod(spec, filename, 0666); err != nil {
+	//	fmt.Println("---- ", err)
+	//	//return errors.Trace(err)
+	//}
+
+	return nil
+}
+
 // AddInstance creates a new instance based on the spec's data and
 // returns it. The instance will be created using the client.
 func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
@@ -202,15 +243,9 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 	}
 
 	// TODO(ericsnow) This is a hack tied to exposeHostAPI().
-	// TODO(ericsnow) Instead of modifying the socket file, add the
-	// "lxd" group, ensure the GID matches the one on the host, and add
-	// the root user to that group.
-	//const filename = "/var/lib/lxd/unix.socket"
-	// TODO(ericsnow) For now, ensure that your local unix.socket is 0666...
-	//if err := client.chmod(spec, filename, 0666); err != nil {
-	//	fmt.Println("---- ", err)
-	//	//return errors.Trace(err)
-	//}
+	if err := client.fixSockfile(spec); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	inst, err := client.Instance(spec.Name)
 	if err != nil {
