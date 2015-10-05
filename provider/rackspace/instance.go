@@ -30,7 +30,7 @@ func (i environInstance) ClosePorts(machineId string, ports []network.PortRange)
 
 // Ports implements instance.Instance.
 func (i environInstance) Ports(machineId string) ([]network.PortRange, error) {
-	_, configurator, err := i.getSshInstanceConfigurator()
+	_, configurator, err := i.getInstanceConfigurator()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -38,7 +38,7 @@ func (i environInstance) Ports(machineId string) ([]network.PortRange, error) {
 }
 
 func (i environInstance) changePorts(insert bool, ports []network.PortRange) error {
-	addresses, sshClient, err := i.getSshInstanceConfigurator()
+	addresses, sshClient, err := i.getInstanceConfigurator()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,7 +54,7 @@ func (i environInstance) changePorts(insert bool, ports []network.PortRange) err
 	return nil
 }
 
-func (i environInstance) getSshInstanceConfigurator() ([]network.Address, *common.SshInstanceConfigurator, error) {
+func (i environInstance) getInstanceConfigurator() ([]network.Address, common.InstanceConfigurator, error) {
 	addresses, err := i.Addresses()
 	if err != nil {
 		return nil, nil, errors.Trace(err)

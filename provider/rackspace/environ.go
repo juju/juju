@@ -14,30 +14,23 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 )
 
 type environ struct {
 	environs.Environ
 }
 
-<<<<<<< HEAD
-// Bootstrap implements environs.Environ.
-func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
-	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
-	return common.Bootstrap(ctx, e, params)
-=======
 var bootstrap = common.Bootstrap
 
 // Bootstrap implements environs.Environ.
 func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
 	return bootstrap(ctx, e, params)
->>>>>>> More review comments implemented
 }
 
 func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
@@ -83,7 +76,11 @@ func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
 func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	os, err := version.GetOSFromSeries(args.Tools.OneSeries())
+=======
+	os, err := series.GetOSFromSeries(args.Tools.OneSeries())
+>>>>>>> fix conflicts after rabasing against master branch
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -114,9 +111,8 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 	var lastError error
 	var publicAddr string
 	var apiPort int
-	var client *common.SshInstanceConfigurator
+	var client common.InstanceConfigurator
 	for i := 0; i < 10; i++ {
-		time.Sleep(5 * time.Second)
 		logger.Debugf("Trying to connect to new instance.")
 		addresses, err := inst.Addresses()
 		if err != nil {
@@ -138,11 +134,7 @@ func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.I
 		if isStateServer(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
-<<<<<<< HEAD
-		client = common.NewSshInstanceConfigurator(publicAddr)
-=======
 		client = newInstanceConfigurator(publicAddr)
->>>>>>> More review comments implemented
 		err = client.DropAllPorts([]int{apiPort, 22}, publicAddr)
 		if err != nil {
 			logger.Debugf(err.Error())

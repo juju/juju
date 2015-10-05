@@ -367,6 +367,7 @@ type Environ struct {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 var _ environs.Environ = (*environ)(nil)
@@ -376,15 +377,21 @@ var _ state.InstanceDistributor = (*environ)(nil)
 var _ environs.InstanceTagger = (*environ)(nil)
 =======
 >>>>>>> modifications to opestack provider applied
+=======
+>>>>>>> fix conflicts after rabasing against master branch
 var _ environs.Environ = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
 var _ state.Prechecker = (*Environ)(nil)
 var _ state.InstanceDistributor = (*Environ)(nil)
 <<<<<<< HEAD
+<<<<<<< HEAD
 var _ environs.InstanceTagger = (*Environ)(nil)
 =======
 >>>>>>> modifications to opestack provider applied
 >>>>>>> modifications to opestack provider applied
+=======
+var _ environs.InstanceTagger = (*Environ)(nil)
+>>>>>>> fix conflicts after rabasing against master branch
 
 type openstackInstance struct {
 	e        *Environ
@@ -751,11 +758,15 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func (e *Environ) StateServerInstances() ([]instance.Id, error) {
 =======
 <<<<<<< HEAD
 func (e *environ) StateServerInstances() ([]instance.Id, error) {
 >>>>>>> modifications to opestack provider applied
+=======
+func (e *Environ) StateServerInstances() ([]instance.Id, error) {
+>>>>>>> fix conflicts after rabasing against master branch
 	// Find all instances tagged with tags.JujuStateServer.
 	instances, err := e.AllInstances()
 	if err != nil {
@@ -772,10 +783,6 @@ func (e *environ) StateServerInstances() ([]instance.Id, error) {
 		return nil, environs.ErrNoInstances
 	}
 	return ids, nil
-=======
-func (e *Environ) StateServerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(e, e.Storage())
->>>>>>> modifications to opestack provider applied
 }
 
 func (e *Environ) Config() *config.Config {
@@ -1076,21 +1083,28 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, err
 	}
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, OpenstackRenderer{})
 =======
 >>>>>>> working version of rackspace provider
+=======
+>>>>>>> fix conflicts after rabasing against master branch
 	cloudcfg, err := e.configurator.GetCloudConfig(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+<<<<<<< HEAD
 <<<<<<< HEAD
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
 =======
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
 >>>>>>> working version of rackspace provider
 >>>>>>> working version of rackspace provider
+=======
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
+>>>>>>> fix conflicts after rabasing against master branch
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -1380,20 +1394,6 @@ func (e *Environ) Destroy() error {
 		return errors.Trace(err)
 	}
 	novaClient := e.nova()
-<<<<<<< HEAD
-	securityGroups, err := novaClient.ListSecurityGroups()
-	if err != nil {
-		return errors.Annotate(err, "cannot list security groups")
-	}
-	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	globalGroupName := e.globalGroupName()
-	for _, group := range securityGroups {
-		if re.MatchString(group.Name) || group.Name == globalGroupName {
-			deleteSecurityGroup(novaClient, group.Name, group.Id)
-=======
 	if e.configurator.UseSecurityGroups() {
 		securityGroups, err := novaClient.ListSecurityGroups()
 		if err != nil {
@@ -1406,12 +1406,8 @@ func (e *Environ) Destroy() error {
 		globalGroupName := e.globalGroupName()
 		for _, group := range securityGroups {
 			if re.MatchString(group.Name) || group.Name == globalGroupName {
-				err = novaClient.DeleteSecurityGroup(group.Id)
-				if err != nil {
-					logger.Warningf("cannot delete security group %q. Used by another environment?", group.Name)
-				}
+				deleteSecurityGroup(novaClient, group.Name, group.Id)
 			}
->>>>>>> working version of rackspace provider
 		}
 	}
 	return nil
@@ -1704,9 +1700,12 @@ func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func (e *Environ) terminateInstances(ids []instance.Id) error {
 =======
 <<<<<<< HEAD
+=======
+>>>>>>> fix conflicts after rabasing against master branch
 // deleteSecurityGroup attempts to delete the security group. Should it fail,
 // the deletion is retried due to timing issues in openstack. A security group
 // cannot be deleted while it is in use. Theoretically we terminate all the
@@ -1740,11 +1739,12 @@ func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
 	logger.Warningf("cannot delete security group %q. Used by another environment?", name)
 }
 
-func (e *environ) terminateInstances(ids []instance.Id) error {
-=======
 func (e *Environ) terminateInstances(ids []instance.Id) error {
+<<<<<<< HEAD
 >>>>>>> modifications to opestack provider applied
 >>>>>>> modifications to opestack provider applied
+=======
+>>>>>>> fix conflicts after rabasing against master branch
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1793,7 +1793,7 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 }
 
 // TagInstance implements environs.InstanceTagger.
-func (e *environ) TagInstance(id instance.Id, tags map[string]string) error {
+func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
 		return errors.Annotate(err, "setting server metadata")
 	}
