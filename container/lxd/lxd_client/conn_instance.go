@@ -154,10 +154,10 @@ func ioFiles() (*os.File, *os.File, *os.File, error) {
 	return infile, outfile, outfile, nil
 }
 
-func (client *Client) chown(spec InstanceSpec, filename, user, group string) error {
+func (client *Client) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {
 	cmd := []string{
-		"/bin/chown",
-		fmt.Sprintf("%s:%s", user, group),
+		"/bin/chmod",
+		fmt.Sprintf("%s", mode),
 		filename,
 	}
 
@@ -200,7 +200,7 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 
 	// TODO(ericsnow) This is a hack tied to exposeHostAPI().
 	const filename = "/var/lib/lxd/unix.socket"
-	if err := client.chown(spec, filename, "root", "root"); err != nil {
+	if err := client.chmod(spec, filename, 0666); err != nil {
 		fmt.Println("---- ", err)
 		//return errors.Trace(err)
 	}
