@@ -119,14 +119,21 @@ retract_tools() {
 init_tools_maybe() {
     echo "Phase 4: Checking for $PURPOSE tools in the tree."
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
+    echo "Found $count agents in $DESTINATION/juju-dist/tools/releases"
     if [[ $((count)) == 0 && -d $DESTINATION/tools/releases ]]; then
         # Migrate the old release cache to the new cache in juju-dist/.
+        echo "Copying $DESTINATION/tools/releases/*.tgz"
+        echo "     to $DESTINATION/juju-dist/tools/releases"
         cp $DESTINATION/tools/releases/*.tgz \
             $DESTINATION/juju-dist/tools/releases
+    else
+        echo "Not initing $DESTINATION/juju-dist/tools/releases"
     fi
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
-    if [[ $((count)) < 400  ]]; then
+    echo "Found $count in $DESTINATION/juju-dist/tools/releases"
+    if (( $count < 400 )); then
         echo "The tools in $DESTINATION/tools/releases looks incomplete"
+        echo "Because $count < 400 agents"
         echo "Data will be lost if metadata is regenerated."
         exit 7
     fi
@@ -145,7 +152,7 @@ init_tools_maybe() {
         echo "Seeding weekly with $INIT_VERSION proposed agents"
         cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
-    elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
+    elif [[ $PURPOSE == "testing" && (( $count < 16 )) ]]; then
         if [[ $IS_DEVEL_VERSION == "true" ]]; then
             echo "Seeding testing with all devel agents"
             cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
@@ -412,7 +419,7 @@ generate_streams() {
     else
         minor_version=$(echo "$RELEASE" | sed -r 's,1.([^.-]+).*,\1,')
     fi
-    if [[ $((minor_version)) > 20 ]]; then
+    if (( $minor_version > 20 )); then
         CLEAN="--clean"
     else
         # Alway delete the released and index json because juju wont
@@ -476,7 +483,7 @@ generate_streams() {
         $SCRIPT_DIR/validate_streams.py \
             $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
     fi
-    if [[ $((minor_version)) == 21 ]]; then
+    if (( $minor_version == 21 )); then
         $SCRIPT_DIR/generate_index.py -v $DEST_DIST/tools/
     fi
     if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
@@ -589,7 +596,7 @@ generate_streams() {
             fi
         done
     fi
-    if [[ $((minor_version)) == 21 ]]; then
+    if (( $minor_version == 21 )); then
         $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     fi
     set +x
