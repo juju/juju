@@ -6,6 +6,7 @@ package lxd_client
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -93,27 +94,27 @@ func (client *Client) exposeHostAPI(spec InstanceSpec) error {
 	return nil
 }
 
-func (client *Client) chown(spec InstanceSpec, filename, user, group string) error {
-	cmd := []string{
-		"/bin/chown",
-		fmt.Sprintf("%s:%s", user, group),
-		filename,
-	}
+type execFailure struct {
+	cmd    string
+	code   int
+	stderr string
+}
 
+// Error returns the string representation of the error.
+func (err execFailure) Error() string {
+	return fmt.Sprintf("got non-zero code from %q: (%d) %s", err.cmd, err.code, err.stderr)
+}
+
+func (client *Client) exec(spec InstanceSpec, cmd []string) error {
 	var env map[string]string
 
-	// TODO(ericsnow) We *should* be able to use bytes.Buffer instead...
-	stdin, err := ioutil.TempFile("", "")
+	stdin, stdout, stderr, err := ioFiles()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	stdout, err := ioutil.TempFile("", "")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	stderr := stdout
 
-	fmt.Println("running", strings.Join(cmd, " "))
+	cmdStr := strings.Join(cmd, " ")
+	fmt.Println("running", cmdStr)
 
 	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr)
 	if err != nil {
@@ -126,9 +127,43 @@ func (client *Client) chown(spec InstanceSpec, filename, user, group string) err
 				msg = string(data)
 			}
 		}
-		return errors.Errorf("got non-zero code from chowning API sock: (%d) %s", rc, msg)
+		err := &execFailure{
+			cmd:    cmdStr,
+			code:   rc,
+			stderr: msg,
+		}
+		return errors.Trace(err)
 	}
 
+	return nil
+}
+
+// TODO(ericsnow) We *should* be able to use bytes.Buffer instead...
+func ioFiles() (*os.File, *os.File, *os.File, error) {
+	infile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	outfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	// We combine stdout and stderr...
+	return infile, outfile, outfile, nil
+}
+
+func (client *Client) chown(spec InstanceSpec, filename, user, group string) error {
+	cmd := []string{
+		"/bin/chown",
+		fmt.Sprintf("%s:%s", user, group),
+		filename,
+	}
+
+	if err := client.exec(spec, cmd); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
