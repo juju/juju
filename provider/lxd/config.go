@@ -199,6 +199,8 @@ func (c *environConfig) remote() string {
 func (c *environConfig) clientConfig() lxd_client.Config {
 	return lxd_client.Config{
 		Namespace: c.namespace(),
+		Remote:    c.remote(),
+		// TODO(ericsnow) Also set certs...
 	}
 }
 
