@@ -20,6 +20,10 @@ func (env *environ) globalFirewallName() string {
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
 	err := env.raw.OpenPorts(env.globalFirewallName(), ports...)
+	if errors.IsNotImplemented(err) {
+		// TODO(ericsnow) for now...
+		return nil
+	}
 	return errors.Trace(err)
 }
 
@@ -28,6 +32,10 @@ func (env *environ) OpenPorts(ports []network.PortRange) error {
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
 	err := env.raw.ClosePorts(env.globalFirewallName(), ports...)
+	if errors.IsNotImplemented(err) {
+		// TODO(ericsnow) for now...
+		return nil
+	}
 	return errors.Trace(err)
 }
 
@@ -36,5 +44,9 @@ func (env *environ) ClosePorts(ports []network.PortRange) error {
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
 	ports, err := env.raw.Ports(env.globalFirewallName())
+	if errors.IsNotImplemented(err) {
+		// TODO(ericsnow) for now...
+		return nil, nil
+	}
 	return ports, errors.Trace(err)
 }
