@@ -202,6 +202,9 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 	}
 
 	// TODO(ericsnow) This is a hack tied to exposeHostAPI().
+	// TODO(ericsnow) Instead of modifying the socket file, add the
+	// "lxd" group, ensure the GID matches the one on the host, and add
+	// the root user to that group.
 	//const filename = "/var/lib/lxd/unix.socket"
 	// TODO(ericsnow) For now, ensure that your local unix.socket is 0666...
 	//if err := client.chmod(spec, filename, 0666); err != nil {
