@@ -6,15 +6,17 @@ package testing
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
-	"gopkg.in/juju/charmstore.v4"
-	"gopkg.in/juju/charmstore.v4/charmstoretesting"
-	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v0/bakerytest"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v1/csclient"
+	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/service"
@@ -31,7 +33,9 @@ type CharmStoreSuite struct {
 	DischargeUser string
 
 	discharger *bakerytest.Discharger
-	Srv        *charmstoretesting.Server
+	handler    charmstore.HTTPCloseHandler
+	Srv        *httptest.Server
+	Client     *csclient.Client
 }
 
 func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
@@ -45,32 +49,37 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 			checkers.DeclaredCaveat("username", s.DischargeUser),
 		}, nil
 	})
-	s.Srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
+	db := s.Session.DB("juju-testing")
+	params := charmstore.ServerParams{
+		AuthUsername:     "test-user",
+		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
 		PublicKeyLocator: s.discharger,
+	}
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.handler = handler
+	s.Srv = httptest.NewServer(handler)
+	s.Client = csclient.New(csclient.Params{
+		URL:      s.Srv.URL,
+		User:     params.AuthUsername,
+		Password: params.AuthPassword,
 	})
+
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-		p.URL = s.Srv.URL()
+		p.URL = s.Srv.URL
 		return charmrepo.NewCharmStore(p)
 	})
 }
 
 func (s *CharmStoreSuite) TearDownTest(c *gc.C) {
 	s.discharger.Close()
+	s.handler.Close()
 	s.Srv.Close()
 	s.CleanupSuite.TearDownTest(c)
 }
 
 func (s *CharmStoreSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	id := charm.MustParseReference(url)
-	promulgated := false
-	if id.User == "" {
-		id.User = "who"
-		promulgated = true
-	}
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	id = s.Srv.UploadCharm(c, ch, id, promulgated)
-	curl := (*charm.URL)(id)
-	return curl, ch
+	return testcharms.UploadCharm(c, s.Client, url, name)
 }

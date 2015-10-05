@@ -21,10 +21,10 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 
 	environs "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 )
@@ -78,9 +78,11 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 }
 
 // SelectPeerAddress returns the address to use as the
-// mongo replica set peer address by selecting it from the given addresses.
+// mongo replica set peer address by selecting it from the given addresses. If
+// no addresses are available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
-	return network.SelectInternalAddress(addrs, false)
+	addr, _ := network.SelectInternalAddress(addrs, false)
+	return addr.Value
 }
 
 // SelectPeerHostPort returns the HostPort to use as the

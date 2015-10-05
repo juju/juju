@@ -49,10 +49,7 @@ func newServer(c *gc.C) *sshServer {
 func (s *sshServer) run(c *gc.C) {
 	netconn, err := s.listener.Accept()
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := netconn.Close()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
+	defer netconn.Close()
 	conn, chans, reqs, err := cryptossh.NewServerConn(netconn, s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.client = cryptossh.NewClient(conn, chans, reqs)
@@ -78,10 +75,11 @@ func (s *sshServer) run(c *gc.C) {
 					req.Reply(true, nil)
 					channel.Write([]byte("abc value\n"))
 					_, err := channel.SendRequest("exit-status", false, cryptossh.Marshal(&struct{ n uint32 }{0}))
-					c.Assert(err, jc.ErrorIsNil)
+					c.Check(err, jc.ErrorIsNil)
 					return
 				default:
-					c.Fatalf("Unexpected request type: %v", req.Type)
+					c.Errorf("Unexpected request type: %v", req.Type)
+					return
 				}
 			}
 		}()

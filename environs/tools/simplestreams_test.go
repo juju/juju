@@ -20,6 +20,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju/series"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"

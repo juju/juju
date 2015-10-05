@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
@@ -67,7 +67,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 		Series:          filter.Series,
 		Arches:          filter.Arches,
 		Stream:          filter.Stream,
-		VirtualType:     filter.VirtualType,
+		VirtType:        filter.VirtType,
 		RootStorageType: filter.RootStorageType,
 	})
 	if err != nil {
@@ -109,7 +109,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		Region:          p.Region,
 		Series:          p.Series,
 		Arch:            p.Arch,
-		VirtualType:     p.VirtualType,
+		VirtType:        p.VirtType,
 		RootStorageType: p.RootStorageType,
 		RootStorageSize: p.RootStorageSize,
 		Source:          string(p.Source),
@@ -136,7 +136,7 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 			Region:          p.Region,
 			Series:          p.Series,
 			Arch:            p.Arch,
-			VirtualType:     p.VirtualType,
+			VirtType:        p.VirtType,
 			RootStorageType: p.RootStorageType,
 			RootStorageSize: p.RootStorageSize,
 			Source:          parseSource(p.Source),
@@ -204,33 +204,19 @@ var convertToParams = func(published []*envmetadata.ImageMetadata) params.Metada
 			Stream:          p.Stream,
 			Region:          p.RegionName,
 			Arch:            p.Arch,
-			VirtualType:     p.VirtType,
+			VirtType:        p.VirtType,
 			RootStorageType: p.Storage,
 		}
 		// Translate version (eg.14.04) to a series (eg. "trusty")
-		metadata[i].Series = versionSeries(p.Version)
+		s, err := series.VersionSeries(p.Version)
+		if err != nil {
+			logger.Warningf("could not determine series for image id %s: %v", p.Id, err)
+			continue
+		}
+		metadata[i].Series = s
 	}
 
 	return params.MetadataSaveParams{Metadata: metadata}
-}
-
-// TODO(dfc) why is this like this ?
-var seriesVersion = series.SeriesVersion
-
-func versionSeries(v string) string {
-	if v == "" {
-		return v
-	}
-	for _, s := range series.SupportedSeries() {
-		sv, err := seriesVersion(s)
-		if err != nil {
-			logger.Errorf("cannot determine version for series %v: %v", s, err)
-		}
-		if v == sv {
-			return s
-		}
-	}
-	return v
 }
 
 func processErrors(errs []params.ErrorResult) error {

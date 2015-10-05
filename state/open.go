@@ -189,7 +189,7 @@ func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, own
 	envUserOp := createEnvUserOp(envUUID, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
-		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+		createSettingsOp(environGlobalKey, cfg.AllAttrs()),
 		incHostedEnvironCountOp(),
 		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
 		createUniqueOwnerEnvNameOp(owner, cfg.Name()),

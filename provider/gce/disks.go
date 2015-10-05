@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	GCEProviderType = storage.ProviderType("gce")
+	storageProviderType = storage.ProviderType("gce")
 )
 
 func init() {
@@ -211,7 +211,11 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 	gceDisk := gceDisks[0]
 	// TODO(perrito666) Tag, there are no tags in gce, how do we fix it?
 
-	// volume is a named return
+	attachedDisk, err := v.attachOneVolume(gceDisk.Name, google.ModeRW, inst.ID)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "attaching %q to %q", gceDisk.Name, instId)
+	}
+
 	volume = &storage.Volume{
 		p.Tag,
 		storage.VolumeInfo{
@@ -221,22 +225,14 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 		},
 	}
 
-	// there is no attachment information
-	if p.Attachment == nil {
-		return volume, nil, nil
-	}
-
-	attachedDisk, err := v.attachOneVolume(gceDisk.Name, google.ModeRW, inst.ID)
-	if err != nil {
-		return nil, nil, errors.Annotatef(err, "attaching %q to %q", gceDisk.Name, instId)
-	}
-
-	// volumeAttachment is a named return
 	volumeAttachment = &storage.VolumeAttachment{
 		p.Tag,
 		p.Attachment.Machine,
 		storage.VolumeAttachmentInfo{
-			DeviceName: attachedDisk.DeviceName,
+			DeviceLink: fmt.Sprintf(
+				"/dev/disk/by-id/google-%s",
+				attachedDisk.DeviceName,
+			),
 		},
 	}
 

@@ -173,6 +173,23 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	}
 }
 
+func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
+
+	source := []simplestreams.DataSource{
+		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
+	}
+	instanceConstraint := &instances.InstanceConstraint{
+		Region:      "test",
+		Series:      testing.FakeDefaultSeries,
+		Constraints: constraints.MustParse("instance-type=t2.medium"),
+	}
+
+	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
+	findInstanceSpec(source, "released", instanceConstraint)
+
+	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
+}
+
 var findInstanceSpecErrorTests = []struct {
 	series string
 	arches []string

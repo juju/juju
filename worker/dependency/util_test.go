@@ -6,6 +6,7 @@ package dependency_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -90,6 +91,7 @@ func (ews *manifoldHarness) Manifold() dependency.Manifold {
 		Start:  ews.start,
 	}
 }
+
 func (ews *manifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
 	for _, resourceName := range ews.inputs {
 		if err := getResource(resourceName, nil); err != nil {
@@ -136,6 +138,47 @@ func (ews *manifoldHarness) InjectError(c *gc.C, err error) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("never sent")
 	}
+}
+
+func newTracedManifoldHarness(inputs ...string) *tracedManifoldHarness {
+	return &tracedManifoldHarness{
+		&manifoldHarness{
+			inputs:             inputs,
+			errors:             make(chan error, 1000),
+			starts:             make(chan struct{}, 1000),
+			ignoreExternalKill: false,
+		},
+	}
+}
+
+type tracedManifoldHarness struct {
+	*manifoldHarness
+}
+
+func (ews *tracedManifoldHarness) Manifold() dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: ews.inputs,
+		Start:  ews.start,
+	}
+}
+
+func (ews *tracedManifoldHarness) start(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+	for _, resourceName := range ews.inputs {
+		if err := getResource(resourceName, nil); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	w := &minimalWorker{tomb.Tomb{}, ews.ignoreExternalKill}
+	go func() {
+		defer w.tomb.Done()
+		ews.starts <- struct{}{}
+		select {
+		case <-w.tombDying():
+		case err := <-ews.errors:
+			w.tomb.Kill(err)
+		}
+	}()
+	return w, nil
 }
 
 type minimalWorker struct {

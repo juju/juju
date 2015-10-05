@@ -18,8 +18,9 @@ var _ = gc.Suite(&steps122Suite{})
 
 func (s *steps122Suite) TestStateStepsFor122(c *gc.C) {
 	expected := []string{
-		// Environment UUID related migrations should come first as
-		// other upgrade steps may rely on them.
+		// Settings, and then environment UUID related, migrations
+		// should come first as other upgrade steps may rely on them.
+		"add the version field to all settings docs",
 		"prepend the environment UUID to the ID of all charm docs",
 		"prepend the environment UUID to the ID of all settings docs",
 		"prepend the environment UUID to the ID of all settingsRefs docs",

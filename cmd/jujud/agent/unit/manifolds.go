@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machinelock"
+	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
@@ -175,6 +176,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			CharmDirName:    CharmDirName,
 		}),
 
+		// The meter status worker executes the meter-status-changed hook when it detects
+		// that the meter status has changed.
+		MeterStatusName: meterstatus.Manifold(meterstatus.ManifoldConfig{
+			AgentName:       AgentName,
+			APICallerName:   APICallerName,
+			MachineLockName: MachineLockName,
+		}),
+
+		// The metric sender worker periodically sends accumulated metrics to the state server.
 		MetricSenderName: sender.Manifold(sender.ManifoldConfig{
 			APICallerName:   APICallerName,
 			MetricSpoolName: MetricSpoolName,
@@ -197,6 +207,7 @@ const (
 	UpgraderName             = "upgrader"
 	MetricSpoolName          = "metric-spool"
 	CharmDirName             = "charm-dir"
+	MeterStatusName          = "meter-status"
 	MetricCollectName        = "metric-collect"
 	MetricSenderName         = "metric-sender"
 )

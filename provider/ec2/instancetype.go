@@ -10,14 +10,13 @@ import (
 	"github.com/juju/utils/arch"
 )
 
-// Type of virtualisation used.
 var (
+	// Type of virtualisation used.
 	paravirtual = "pv"
 	hvm         = "hvm"
-)
 
-// all instance types can run amd64 images, and some can also run i386 ones.
-var (
+	// all instance types can run amd64 images, and some can also run
+	// i386 ones.
 	amd64 = []string{arch.AMD64}
 	both  = []string{arch.AMD64, arch.I386}
 )
@@ -27,8 +26,10 @@ var allRegions = aws.Regions
 
 // allInstanceTypes holds the relevant attributes of every known
 // instance type.
-// Note that while the EC2 root disk default is 8G, constraints on disk
-// for amazon will simply cause the root disk to grow to match the constraint
+//
+// Note that while the EC2 root disk default is 8G, constraints on
+// disk for amazon will simply cause the root disk to grow to match
+// the constraint
 var allInstanceTypes = []instances.InstanceType{
 	{ // General purpose, 1st generation.
 		Name:     "m1.small",
@@ -58,6 +59,50 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuPower: instances.CpuPower(800),
 		Mem:      15360,
 		VirtType: &paravirtual,
+	},
+	// M4 instances are the latest generation of General Purpose
+	// Instances. This family provides a balance of compute, memory,
+	// and network resources, and it is a good choice for many
+	// applications.
+	{
+		Name:     "m4.large",
+		Arches:   amd64,
+		CpuCores: 2,
+		CpuPower: instances.CpuPower(650),
+		Mem:      8192,
+		VirtType: &hvm,
+	},
+	{
+		Name:     "m4.xlarge",
+		Arches:   amd64,
+		CpuCores: 4,
+		CpuPower: instances.CpuPower(1300),
+		Mem:      16384,
+		VirtType: &hvm,
+	},
+	{
+		Name:     "m4.2xlarge",
+		Arches:   amd64,
+		CpuCores: 8,
+		CpuPower: instances.CpuPower(2600),
+		Mem:      32768,
+		VirtType: &hvm,
+	},
+	{
+		Name:     "m4.4xlarge",
+		Arches:   amd64,
+		CpuCores: 16,
+		CpuPower: instances.CpuPower(5350),
+		Mem:      65536,
+		VirtType: &hvm,
+	},
+	{
+		Name:     "m4.10xlarge",
+		Arches:   amd64,
+		CpuCores: 40,
+		CpuPower: instances.CpuPower(12450),
+		Mem:      163840,
+		VirtType: &hvm,
 	},
 
 	{ // General purpose, 2nd generation.

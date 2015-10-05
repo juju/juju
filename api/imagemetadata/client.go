@@ -31,14 +31,14 @@ func NewClient(st base.APICallCloser) *Client {
 func (c *Client) List(
 	stream, region string,
 	series, arches []string,
-	virtualType, rootStorageType string,
+	virtType, rootStorageType string,
 ) ([]params.CloudImageMetadata, error) {
 	in := params.ImageMetadataFilter{
 		Region:          region,
 		Series:          series,
 		Arches:          arches,
 		Stream:          stream,
-		VirtualType:     virtualType,
+		VirtType:        virtType,
 		RootStorageType: rootStorageType,
 	}
 	out := params.ListCloudImageMetadataResult{}
@@ -62,8 +62,6 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) ([]params.ErrorResul
 // updates stored ones accordingly.
 // This method is primarily intended for a worker.
 func (c *Client) UpdateFromPublishedImages() error {
-	// TODO(wallyworld) - this is a temp "fix" to unblock master lp:1495542
-	return nil
-	//	return errors.Trace(
-	//		c.facade.FacadeCall("UpdateFromPublishedImages", nil, nil))
+	return errors.Trace(
+		c.facade.FacadeCall("UpdateFromPublishedImages", nil, nil))
 }

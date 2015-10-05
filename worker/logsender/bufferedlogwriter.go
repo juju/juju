@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/feature"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
+
+	"github.com/juju/juju/feature"
 )
 
 // LogRecord represents a log message in an agent which is to be

@@ -25,8 +25,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/cert"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -114,8 +113,6 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	// We're not interested in whether EnsureJujudPassword works here since we test it somewhere else
-	s.PatchValue(&password.EnsureJujudPassword, func() error { return nil })
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -1622,7 +1619,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1646,7 +1643,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1705,7 +1702,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	// Disable the certificate work so it doesn't update the certificate.
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		return worker.NewNoOpWorker()
 	}
@@ -2105,8 +2102,8 @@ func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.commonMachineSuite.TearDownSuite(c)
 	s.CharmSuite.TearDownSuite(c)
+	s.commonMachineSuite.TearDownSuite(c)
 }
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
@@ -2115,8 +2112,8 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
-	s.commonMachineSuite.TearDownTest(c)
 	s.CharmSuite.TearDownTest(c)
+	s.commonMachineSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
