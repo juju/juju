@@ -199,11 +199,12 @@ func (client *Client) AddInstance(spec InstanceSpec) (*Instance, error) {
 	}
 
 	// TODO(ericsnow) This is a hack tied to exposeHostAPI().
-	const filename = "/var/lib/lxd/unix.socket"
-	if err := client.chmod(spec, filename, 0666); err != nil {
-		fmt.Println("---- ", err)
-		//return errors.Trace(err)
-	}
+	//const filename = "/var/lib/lxd/unix.socket"
+	// TODO(ericsnow) For now, ensure that your local unix.socket is 0666...
+	//if err := client.chmod(spec, filename, 0666); err != nil {
+	//	fmt.Println("---- ", err)
+	//	//return errors.Trace(err)
+	//}
 
 	inst, err := client.Instance(spec.Name)
 	if err != nil {
