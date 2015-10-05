@@ -107,7 +107,6 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
 	}
 	tw.Flush()
-
 	return out.Bytes(), nil
 }
 
