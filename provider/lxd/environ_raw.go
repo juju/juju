@@ -7,24 +7,18 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/container/lxd/lxd_client"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 type rawProvider struct {
 	lxdInstances
-	firewaller
+	common.Firewaller
 }
 
 type lxdInstances interface {
 	Instances(string, ...string) ([]lxd_client.Instance, error)
 	AddInstance(lxd_client.InstanceSpec) (*lxd_client.Instance, error)
 	RemoveInstances(string, ...string) error
-}
-
-type firewaller interface {
-	OpenPorts(string, ...network.PortRange) error
-	ClosePorts(string, ...network.PortRange) error
-	Ports(string) ([]network.PortRange, error)
 }
 
 func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
@@ -40,7 +34,7 @@ func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
 
 	raw := &rawProvider{
 		lxdInstances: client,
-		firewaller:   firewaller,
+		Firewaller:   firewaller,
 	}
 	return raw, nil
 }
@@ -56,8 +50,6 @@ func newClient(ecfg *environConfig) (*lxd_client.Client, error) {
 	return client, nil
 }
 
-func newFirewaller(ecfg *environConfig) (firewaller, error) {
-	// TODO(ericsnow) Fix me!
-	// (At least return a dummy.)
-	return nil, nil
+func newFirewaller(ecfg *environConfig) (common.Firewaller, error) {
+	return common.NewFirewaller(), nil
 }
