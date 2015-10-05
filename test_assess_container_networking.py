@@ -37,12 +37,12 @@ class JujuMock(object):
     def add_machine(self, args):
         if isinstance(args, tuple) and args[0] == '-n':
             for n in range(int(args[1])):
-                self._add_machine('')
+                self._add_machine()
         else:
             self._add_machine(args)
 
     def _add_machine(self, name=None):
-        if name is None:
+        if name is None or name == '':
             name = str(self.next_machine)
             self.next_machine += 1
 
