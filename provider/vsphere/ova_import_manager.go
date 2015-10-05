@@ -62,9 +62,9 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		return nil, errors.Trace(err)
 	}
 	defer func() {
-		/*if err := os.RemoveAll(basePath); err != nil {
+		if err := os.RemoveAll(basePath); err != nil {
 			logger.Errorf("can't remove temp directory, error: %s", err.Error())
-		}*/
+		}
 	}()
 	ovf, err := m.downloadOva(basePath, instSpec.img.Url)
 	if err != nil {
@@ -188,7 +188,6 @@ func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-
 	file, err := os.Open(ovfFilePath)
 	defer file.Close()
 	if err != nil {
