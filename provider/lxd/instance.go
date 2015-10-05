@@ -60,6 +60,10 @@ func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRan
 	name := common.MachineFullName(inst.env, machineID)
 	env := inst.env.getSnapshot()
 	err := env.raw.OpenPorts(name, ports...)
+	if errors.IsNotImplemented(err) {
+		// TODO(ericsnow) for now...
+		return nil
+	}
 	return errors.Trace(err)
 }
 
@@ -69,6 +73,10 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 	name := common.MachineFullName(inst.env, machineID)
 	env := inst.env.getSnapshot()
 	err := env.raw.ClosePorts(name, ports...)
+	if errors.IsNotImplemented(err) {
+		// TODO(ericsnow) for now...
+		return nil
+	}
 	return errors.Trace(err)
 }
 
@@ -79,5 +87,9 @@ func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error
 	name := common.MachineFullName(inst.env, machineID)
 	env := inst.env.getSnapshot()
 	ports, err := env.raw.Ports(name)
+	if errors.IsNotImplemented(err) {
+		// TODO(ericsnow) for now...
+		return nil, nil
+	}
 	return ports, errors.Trace(err)
 }
