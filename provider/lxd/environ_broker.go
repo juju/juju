@@ -72,6 +72,10 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 
 	args.InstanceConfig.MachineContainerType = env.ecfg.containerType()
 
+	// TODO(ericsnow) Set the "remote" option of
+	// args.InstanceConfig.Config to localhost and enable it on the
+	// server config. This is necessary because exposing the API unix
+	// socket doesn't work (ownership issues).
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
 		return errors.Trace(err)
 	}

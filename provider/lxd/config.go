@@ -16,6 +16,7 @@ import (
 // The LXD-specific config keys.
 const (
 	cfgNamespace = "namespace"
+	cfgRemote    = "remote"
 )
 
 // TODO(ericsnow) Use configSchema.ExampleYAML (once it is implemented)
@@ -33,6 +34,11 @@ lxd:
     #
     # namespace: lxd
 
+    # remote Identifies the LXD API server to use for managing
+    # containers, if any.
+    #
+    # remote:
+
 `[1:]
 
 // configSchema defines the schema for the configuration attributes
@@ -40,6 +46,11 @@ lxd:
 var configSchema = environschema.Fields{
 	cfgNamespace: {
 		Description: `Identifies the namespace to associate with containers created by the provider.  It is prepended to the container names.  By default the environment's name is used as the namespace.`,
+		Type:        environschema.Tstring,
+		Immutable:   true,
+	},
+	cfgRemote: {
+		Description: `Identifies the LXD API server to use for managing containers, if any.`,
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
@@ -51,6 +62,7 @@ var (
 
 	configBaseDefaults = schema.Defaults{
 		cfgNamespace: "",
+		cfgRemote:    "",
 	}
 
 	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
@@ -175,6 +187,11 @@ func (c *environConfig) containerType() instance.ContainerType {
 
 func (c *environConfig) namespace() string {
 	raw := c.attrs[cfgNamespace]
+	return raw.(string)
+}
+
+func (c *environConfig) remote() string {
+	raw := c.attrs[cfgRemote]
 	return raw.(string)
 }
 
