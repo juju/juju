@@ -112,7 +112,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	if fs.PrimaryMachineStatus.PartOfHA {
 		if fs.PrimaryMachineStatus.PartOfHA {
 			p("NUMBER-OF-HA-NODES")
-			p(fs.PrimaryMachineStatus.Nodes)
+			p(fmt.Sprintf("%d", fs.PrimaryMachineStatus.Nodes))
 		}
 	}
 

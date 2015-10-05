@@ -172,7 +172,7 @@ type upgradeMongoCommand struct {
 
 func (c *upgradeMongoCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "juju-upgradei-mongo",
+		Name:    "juju-upgrade-mongo",
 		Purpose: "Upgrade from mongo 2.4 to 3.1",
 		Args:    "",
 		Doc:     upgradeDoc,
@@ -275,17 +275,29 @@ func addPPA(addr string, local bool, stdout *bytes.Buffer) error {
 	var stderrBuf bytes.Buffer
 	// beware, juju-mongodb3 only works in vivid.
 	addPPACommand := `echo "preparing environment for mongo 3"
-apt-add-repository -y ppa:hduran-8/juju-mongodb2.6
-apt-add-repository -y ppa:hduran-8/juju-mongodb3
-apt-get update
-apt-get install juju-mongodb2.6 juju-mongodb3
-apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients`
+apt-add-repository -y ppa:hduran-8/juju-mongodb2.6 > /dev/null
+apt-add-repository -y ppa:hduran-8/juju-mongodb3 > /dev/null
+apt-get update > /dev/null
+apt-get install juju-mongodb2.6 juju-mongodb3 > /dev/null
+apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients > /dev/null
+echo "environment ready, starting update"`
 	return runViaSSH(addr, addPPACommand, sshParams{}, &stderrBuf, stdout, true, local)
 }
 
 func upgradeTo26(addr, password string, port int, local bool, stdout *bytes.Buffer) error {
 	var stderrBuf bytes.Buffer
-	upgradeTo26Command := `/usr/lib/juju/bin/mongodump --ssl -u admin -p {{.OldPassword | shquote}} --port {{.StatePort}} --out ~/migrateTo26dump
+	upgradeTo26Command := `
+echo "will backup current db"
+attempts=0
+until [ $attempts -ge 10 ]
+do
+    /usr/lib/juju/bin/mongodump --ssl -u admin -p {{.OldPassword | shquote}} --port {{.StatePort}} --out ~/migrateTo26dump && break
+    attempts=$[$attempts+1]
+    sleep 10
+done
+if [ $attempts -eq 10 ]; then
+            exit 1
+fi
 echo "dumped mongo"
 
 systemctl stop $AGENTSERV
