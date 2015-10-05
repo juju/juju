@@ -13,6 +13,9 @@ import (
 	"github.com/lxc/lxd/shared"
 )
 
+// TODO(ericsnow) We probably need to address some of the things that
+// get handled in container/lxc/clonetemplate.go.
+
 func (client *Client) addInstance(spec InstanceSpec) error {
 	remote := ""
 	//remote := client.remote
