@@ -9,15 +9,11 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type rackspaceProviderConfigurator struct{}
-
-// UseSecurityGroups implements OpenstackProviderConfigurator interface.
-func (c *rackspaceProviderConfigurator) UseSecurityGroups() bool {
-	// for now rackspace don't fully suport security groups functionality http://www.rackspace.com/knowledge_center/frequently-asked-question/security-groups-faq#whatisbeingLaunched
-	return false
-}
 
 // InitialNetworks implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) InitialNetworks() []nova.ServerNetworks {
@@ -43,4 +39,40 @@ func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstan
 	// we need this package for sshInstanceConfigurator, to save iptables state between restarts
 	cloudcfg.AddPackage("iptables-persistent")
 	return cloudcfg, nil
+}
+
+// OpenPorts opens the given port ranges for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (c *rackspaceProviderConfigurator) OpenPorts(ports []network.PortRange) error {
+	return errors.Trace(errors.NotSupportedf("ClosePorts"))
+}
+
+// ClosePorts closes the given port ranges for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (c *rackspaceProviderConfigurator) ClosePorts(ports []network.PortRange) error {
+	return errors.Trace(errors.NotSupportedf("ClosePorts"))
+}
+
+// Ports returns the port ranges opened for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (c *rackspaceProviderConfigurator) Ports() ([]network.PortRange, error) {
+	return nil, errors.Trace(errors.NotSupportedf("Ports"))
+}
+
+// DeleteglobalGroups implements OpenstackProviderConfigurator interface.
+func (c *rackspaceProviderConfigurator) DeleteGlobalGroups() error {
+	return nil
+}
+
+// GetSecurityGroups implements OpenstackProviderConfigurator interface.
+func (c *rackspaceProviderConfigurator) GetSecurityGroups(ids ...instance.Id) ([]string, error) {
+	return nil, nil
+}
+
+// SetUpGroups implements OpenstackProviderConfigurator interface.
+func (c *rackspaceProviderConfigurator) SetUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+	return nil, nil
 }

@@ -535,7 +535,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 
 	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
+	source, ok := env.(*Environ).ecfg().StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "cinder")
 }
