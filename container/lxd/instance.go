@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/container/lxd/lxd_client"
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -18,8 +18,8 @@ var _ instance.Instance = (*lxdInstance)(nil)
 
 // lxdInstance implements instance.Instance.
 type lxdInstance struct {
-	raw    *lxd_client.Instance
-	client *lxd_client.Client
+	raw    *lxdclient.Instance
+	client *lxdclient.Client
 }
 
 // String returns a string representation of the instance, based on its ID.

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/container/lxd/lxd_client"
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 )
@@ -196,8 +196,8 @@ func (c *environConfig) remote() string {
 }
 
 // clientConfig builds a LXD Config based on the env config and returns it.
-func (c *environConfig) clientConfig() lxd_client.Config {
-	return lxd_client.Config{
+func (c *environConfig) clientConfig() lxdclient.Config {
+	return lxdclient.Config{
 		Namespace: c.namespace(),
 		Remote:    c.remote(),
 		// TODO(ericsnow) Also set certs...

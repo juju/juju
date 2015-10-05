@@ -1,14 +1,14 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lxd_client
+package lxdclient
 
 import (
 	"github.com/juju/loggo"
 	"github.com/lxc/lxd/shared"
 )
 
-var logger = loggo.GetLogger("juju.provider.lxd.lxd_client")
+var logger = loggo.GetLogger("juju.provider.lxd.lxdclient")
 
 // The various status values used for LXD.
 const (

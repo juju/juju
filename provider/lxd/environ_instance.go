@@ -6,7 +6,7 @@ package lxd
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/container/lxd/lxd_client"
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -14,7 +14,7 @@ import (
 
 // instStatus is the list of statuses to accept when filtering
 // for "alive" instances.
-var instStatuses = lxd_client.AliveStatuses
+var instStatuses = lxdclient.AliveStatuses
 
 // Instances returns the available instances in the environment that
 // match the provided instance IDs. For IDs that did not match any
@@ -73,7 +73,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	instances, err := env.raw.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
-	// Turn lxd_client.Instance values into *environInstance values,
+	// Turn lxdclient.Instance values into *environInstance values,
 	// whether or not we got an error.
 	var results []instance.Instance
 	for _, base := range instances {
