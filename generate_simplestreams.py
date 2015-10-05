@@ -96,4 +96,5 @@ def write_streams(out_d, trees, updated, namer=None):
 def json_dump(data, filename):
     with open(filename, "w") as fp:
         sys.stderr.write("writing %s\n" % filename)
-        fp.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        fp.write(json.dumps(data, indent=2, sort_keys=True,
+                 separators=(',', ': ')) + "\n")

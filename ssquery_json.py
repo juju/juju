@@ -2,7 +2,7 @@
 from argparse import ArgumentParser
 import json
 
-from utils import dump_json_pretty
+from generate_simplestreams import json_dump
 
 
 def parse_args():
@@ -18,8 +18,7 @@ def main():
     with open(args.input) as in_file:
         for line in in_file:
             output.append(eval(line))
-    with open(args.output, 'w') as out_file:
-        dump_json_pretty(output, out_file)
+    json_dump(output, args.output)
 
 
 if __name__ == '__main__':
