@@ -134,6 +134,27 @@ func checkStatus(info shared.ContainerInfo, statuses []string) bool {
 // with the provided ID. The call blocks until the instance is removed
 // (or the request fails).
 func (client *Client) removeInstance(name string) error {
+	info, err := client.raw.ContainerStatus(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	//if info.Status.StatusCode != 0 && info.Status.StatusCode != shared.Stopped {
+	if info.Status.StatusCode != shared.Stopped {
+		timeout := -1
+		force := true
+		resp, err := client.raw.Action(name, shared.Stop, timeout, force)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+			// TODO(ericsnow) Handle different failures (from the async
+			// operation) differently?
+			return errors.Trace(err)
+		}
+	}
+
 	resp, err := client.raw.Delete(name)
 	if err != nil {
 		return errors.Trace(err)
