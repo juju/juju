@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
@@ -130,21 +129,17 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 // instance (relative to the provided args) and returns it.
 func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	renderer := lxdRenderer{}
-	compressed, err := providerinit.ComposeUserData(args.InstanceConfig, nil, renderer)
+	uncompressed, err := providerinit.ComposeUserData(args.InstanceConfig, nil, renderer)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
-	logger.Debugf("LXD user data; %d bytes", len(compressed))
+	logger.Debugf("LXD user data; %d bytes", len(uncompressed))
 
 	// TODO(ericsnow) Looks like LXD does not handle gzipped userdata
 	// correctly.  It likely has to do with the HTTP transport, much
 	// as we have to b64encode the userdata for GCE.  Until that is
 	// resolved we simply pass the plain text.
-	//userdata := string(compressed)
-	uncompressed, err := utils.Gunzip(compressed)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	//compressed := utils.Gzip(compressed)
 	userdata := string(uncompressed)
 
 	metadata := map[string]string{
