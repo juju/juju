@@ -440,19 +440,23 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 }
 
 func (st *State) machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
+	privateAddr, _ := network.SelectInternalAddress(template.Addresses, false)
+	publicAddr, _ := network.SelectPublicAddress(template.Addresses)
 	return &machineDoc{
-		DocID:      st.docID(id),
-		Id:         id,
-		EnvUUID:    st.EnvironUUID(),
-		Series:     template.Series,
-		Jobs:       template.Jobs,
-		Clean:      !template.Dirty,
-		Principals: template.principals,
-		Life:       Alive,
-		Nonce:      template.Nonce,
-		Addresses:  fromNetworkAddresses(template.Addresses),
-		NoVote:     template.NoVote,
-		Placement:  template.Placement,
+		DocID:                   st.docID(id),
+		Id:                      id,
+		EnvUUID:                 st.EnvironUUID(),
+		Series:                  template.Series,
+		Jobs:                    template.Jobs,
+		Clean:                   !template.Dirty,
+		Principals:              template.principals,
+		Life:                    Alive,
+		Nonce:                   template.Nonce,
+		Addresses:               fromNetworkAddresses(template.Addresses),
+		PreferredPrivateAddress: fromNetworkAddress(privateAddr),
+		PreferredPublicAddress:  fromNetworkAddress(publicAddr),
+		NoVote:                  template.NoVote,
+		Placement:               template.Placement,
 	}
 }
 
