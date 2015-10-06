@@ -626,6 +626,10 @@ type LoginResultV1 struct {
 	// here.
 	DischargeRequired *macaroon.Macaroon `json:"discharge-required,omitempty"`
 
+	// DischargeRequiredReason holds the reason that the above discharge was
+	// required.
+	DischargeRequiredReason string `json:"discharge-required-error,omitempty"`
+
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
 

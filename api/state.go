@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
@@ -61,6 +61,10 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 		Credentials: password,
 		Nonce:       nonce,
 	}
+	if tag == nil {
+		// Add any macaroons that might work for authenticating the login request.
+		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
+	}
 	err := st.APICall("Admin", 2, "", "Login", request, &result)
 	if err != nil {
 		// If the server complains about an empty tag it may be that we are
@@ -84,17 +88,28 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 		// macaroon. We discharge it and retry
 		// the login request with the original macaroon
 		// and its discharges.
-		if st.bakeryClient == nil {
-			return errors.New("macaroon based authentication not configured")
+		if result.DischargeRequiredReason == "" {
+			result.DischargeRequiredReason = "no reason given for discharge requirement"
 		}
-		discharge, err := st.bakeryClient.DischargeAll(result.DischargeRequired)
-		if err != nil {
-			return errors.Annotate(err, "failed to obtain the macaroon discharge")
+		if err := st.bakeryClient.HandleError(st.cookieURL, &httpbakery.Error{
+			Message: result.DischargeRequiredReason,
+			Code:    httpbakery.ErrDischargeRequired,
+			Info: &httpbakery.ErrorInfo{
+				Macaroon:     result.DischargeRequired,
+				MacaroonPath: "/",
+			},
+		}); err != nil {
+			return errors.Trace(err)
 		}
-		request.Macaroons = []macaroon.Slice{discharge}
+		// Add the macaroons that have been saved by HandleError to our login request.
+		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
+		result = params.LoginResultV1{} // zero result
 		err = st.APICall("Admin", 2, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
+		}
+		if result.DischargeRequired != nil {
+			return errors.Errorf("login with discharged macaroons failed: %s", result.DischargeRequiredReason)
 		}
 	}
 
