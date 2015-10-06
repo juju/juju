@@ -20,7 +20,7 @@ func MinRootDiskSizeGiB(ser string) uint64 {
 		return 8
 	case jujuos.Windows:
 		return 40
-	// On default we just return a "sane" default, since the error will just
+	// By default we just return a "sane" default, since the error will just
 	// be returned by the api and seen in juju status
 	default:
 		return 8

@@ -36,58 +36,49 @@ var commonInstanceStoreDisks = []amzec2.BlockDeviceMapping{{
 	VirtualName: "ephemeral3",
 }}
 
-var rootDiskTests = []RootDiskTest{
-	{
+func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
+	var rootDiskTests = []RootDiskTest{{
 		"trusty",
 		"nil constraint ubuntu",
 		nil,
 		amzec2.BlockDeviceMapping{VolumeSize: 8, DeviceName: "/dev/sda1"},
-	},
-	{
+	}, {
 		"trusty",
 		"too small constraint ubuntu",
 		pInt(4000),
 		amzec2.BlockDeviceMapping{VolumeSize: 8, DeviceName: "/dev/sda1"},
-	},
-	{
+	}, {
 		"trusty",
 		"big constraint ubuntu",
 		pInt(20 * 1024),
 		amzec2.BlockDeviceMapping{VolumeSize: 20, DeviceName: "/dev/sda1"},
-	},
-	{
+	}, {
 		"trusty",
 		"round up constraint ubuntu",
 		pInt(20*1024 + 1),
 		amzec2.BlockDeviceMapping{VolumeSize: 21, DeviceName: "/dev/sda1"},
-	},
-	{
+	}, {
 		"win2012r2",
 		"nil constraint windows",
 		nil,
 		amzec2.BlockDeviceMapping{VolumeSize: 40, DeviceName: "/dev/sda1"},
-	},
-	{
+	}, {
 		"win2012r2",
 		"too small constraint windows",
 		pInt(30 * 1024),
 		amzec2.BlockDeviceMapping{VolumeSize: 40, DeviceName: "/dev/sda1"},
-	},
-	{
+	}, {
 		"win2012r2",
 		"big constraint windows",
 		pInt(50 * 1024),
 		amzec2.BlockDeviceMapping{VolumeSize: 50, DeviceName: "/dev/sda1"},
-	},
-	{
+	}, {
 		"win2012r2",
 		"round up constraint windows",
 		pInt(50*1024 + 1),
 		amzec2.BlockDeviceMapping{VolumeSize: 51, DeviceName: "/dev/sda1"},
-	},
-}
+	}}
 
-func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
