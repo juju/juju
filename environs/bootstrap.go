@@ -36,6 +36,20 @@ type BootstrapParams struct {
 // The caller must pass a InstanceConfig with the Tools field set.
 type BootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig) error
 
+// BootstrapResult holds the data returned by calls to Environ.Bootstrap.
+type BootstrapResult struct {
+	// Arch is the instance's architecture.
+	Arch string
+
+	// Series is the instance's series.
+	Series string
+
+	// Finalize is a function that must be called to finalize the
+	// bootstrap process by transferring the tools and installing the
+	// initial Juju state server.
+	Finalize BootstrapFinalizer
+}
+
 // BootstrapContext is an interface that is passed to
 // Environ.Bootstrap, providing a means of obtaining
 // information about and manipulating the context in which
