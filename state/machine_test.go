@@ -1985,7 +1985,7 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
 }
 
-func (s *MachineSuite) TestPublicAddressSetOnNewMachines(c *gc.C) {
+func (s *MachineSuite) TestPublicAddressSetOnNewMachine(c *gc.C) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:    "quantal",
 		Jobs:      []state.MachineJob{state.JobHostUnits},
@@ -1997,7 +1997,7 @@ func (s *MachineSuite) TestPublicAddressSetOnNewMachines(c *gc.C) {
 	c.Assert(addr, jc.DeepEquals, network.NewAddress("8.8.8.8"))
 }
 
-func (s *MachineSuite) TestPrivateAddressSetOnNewMachines(c *gc.C) {
+func (s *MachineSuite) TestPrivateAddressSetOnNewMachine(c *gc.C) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:    "quantal",
 		Jobs:      []state.MachineJob{state.JobHostUnits},

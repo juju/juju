@@ -440,6 +440,10 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 }
 
 func (st *State) machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
+	// We ignore the error from Select*Address as an error indicates
+	// no address is available, in which case the empty address is returned
+	// and setting the preferred address to an empty one is the correct
+	// thing to do when none is available.
 	privateAddr, _ := network.SelectInternalAddress(template.Addresses, false)
 	publicAddr, _ := network.SelectPublicAddress(template.Addresses)
 	return &machineDoc{
