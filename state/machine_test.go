@@ -1993,6 +1993,30 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
 }
 
+func (s *MachineSuite) TestPublicAddressSetOnNewMachine(c *gc.C) {
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobHostUnits},
+		Addresses: network.NewAddresses("10.0.0.1", "8.8.8.8"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	addr, err := m.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+}
+
+func (s *MachineSuite) TestPrivateAddressSetOnNewMachine(c *gc.C) {
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobHostUnits},
+		Addresses: network.NewAddresses("10.0.0.1", "8.8.8.8"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	addr, err := m.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+}
+
 func (s *MachineSuite) TestPublicAddressEmptyAddresses(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
