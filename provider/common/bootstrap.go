@@ -110,7 +110,11 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		icfg.InstanceId = result.Instance.Id()
 		icfg.HardwareCharacteristics = result.Hardware
-		if err := instancecfg.FinishInstanceConfig(icfg, env.Config()); err != nil {
+		envConfig := result.Config
+		if envConfig == nil {
+			envConfig = env.Config()
+		}
+		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
 			return err
 		}
 		maybeSetBridge(icfg)
