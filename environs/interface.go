@@ -4,17 +4,12 @@
 package environs
 
 import (
-	"io"
-	"os"
-
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -93,30 +88,6 @@ type ConfigGetter interface {
 	// for the configuration data is stored in the state.
 	Config() *config.Config
 }
-
-// BootstrapParams holds the parameters for bootstrapping an environment.
-type BootstrapParams struct {
-	// Constraints are used to choose the initial instance specification,
-	// and will be stored in the new environment's state.
-	Constraints constraints.Value
-
-	// Placement, if non-empty, holds an environment-specific placement
-	// directive used to choose the initial instance.
-	Placement string
-
-	// AvailableTools is a collection of tools which the Bootstrap method
-	// may use to decide which architecture/series to instantiate.
-	AvailableTools tools.List
-
-	// ContainerBridgeName, if non-empty, overrides the default
-	// network bridge device to use for LXC and KVM containers. See
-	// also instancecfg.DefaultBridgeName.
-	ContainerBridgeName string
-}
-
-// BootstrapFinalizer is a function returned from Environ.Bootstrap.
-// The caller must pass a InstanceConfig with the Tools field set.
-type BootstrapFinalizer func(BootstrapContext, *instancecfg.InstanceConfig) error
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
@@ -223,31 +194,4 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
-}
-
-// BootstrapContext is an interface that is passed to
-// Environ.Bootstrap, providing a means of obtaining
-// information about and manipulating the context in which
-// it is being invoked.
-type BootstrapContext interface {
-	GetStdin() io.Reader
-	GetStdout() io.Writer
-	GetStderr() io.Writer
-	Infof(format string, params ...interface{})
-	Verbosef(format string, params ...interface{})
-
-	// InterruptNotify starts watching for interrupt signals
-	// on behalf of the caller, sending them to the supplied
-	// channel.
-	InterruptNotify(sig chan<- os.Signal)
-
-	// StopInterruptNotify undoes the effects of a previous
-	// call to InterruptNotify with the same channel. After
-	// StopInterruptNotify returns, no more signals will be
-	// delivered to the channel.
-	StopInterruptNotify(chan<- os.Signal)
-
-	// ShouldVerifyCredentials indicates whether the caller's cloud
-	// credentials should be verified.
-	ShouldVerifyCredentials() bool
 }
