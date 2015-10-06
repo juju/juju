@@ -15,5 +15,3 @@ make-stanzas.bash $revision_build $VERSION $rb_stanzas
 make-parallel-streams.bash $rb_stanzas $revision_build \
   $new_streams/testing-stanzas $testing
 validate-streams.bash $testing
-s3cmd sync $testing/ s3://temp-streams/1/testing/ \
-  --config ~/cloud-city/juju-qa.s3cfg -P --exclude='.*.swp'
