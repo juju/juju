@@ -319,6 +319,7 @@ var topicNames = []string{
 	"local-provider",
 	"logging",
 	"maas-provider",
+	"networking",
 	"openstack-provider",
 	"placement",
 	"plugins",
