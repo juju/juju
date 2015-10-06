@@ -76,7 +76,7 @@ func gibToMib(g int64) uint64 {
 // Some fields are used only for attached disks (i.e. in association
 // with instances).
 type DiskSpec struct {
-	// series is the OS series on which the disk size depends
+	// Series is the OS series on which the disk size depends
 	Series string
 	// SizeHintGB is the requested disk size in Gigabytes. It must be
 	// greater than 0.

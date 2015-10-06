@@ -12,17 +12,16 @@ type DiskSuite struct{}
 
 var _ = gc.Suite(&DiskSuite{})
 
-var diskTests = []struct {
-	series       string
-	expectedSize uint64
-}{
-	{"trusty", 8},
-	{"win2012r2", 40},
-	{"centos7", 8},
-	{"arch", 8},
-}
-
 func (s *DiskSuite) TestMinRootDiskSizeGiB(c *gc.C) {
+	var diskTests = []struct {
+		series       string
+		expectedSize uint64
+	}{
+		{"trusty", 8},
+		{"win2012r2", 40},
+		{"centos7", 8},
+		{"fake-series", 8},
+	}
 	for _, t := range diskTests {
 		actualSize := common.MinRootDiskSizeGiB(t.series)
 		c.Assert(t.expectedSize, gc.Equals, actualSize)
