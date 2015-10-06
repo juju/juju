@@ -21,7 +21,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -77,13 +77,13 @@ func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 
 func (s *logsinkSuite) TestRejectsBadPassword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
-	header.Add("X-Juju-Nonce", s.nonce)
+	header.Add(params.MachineNonceHeader, s.nonce)
 	s.checkAuthFailsWithEntityError(c, header)
 }
 
 func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
-	header.Add("X-Juju-Nonce", "wrong")
+	header.Add(params.MachineNonceHeader, "wrong")
 	s.checkAuthFails(c, header, "machine 0 not provisioned")
 }
 
@@ -109,7 +109,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(errResult.Error, gc.IsNil)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
-	err := websocket.JSON.Send(conn, &apiserver.LogMessage{
+	err := websocket.JSON.Send(conn, &params.LogRecord{
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
@@ -119,7 +119,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t1 := time.Date(2015, time.June, 1, 23, 2, 2, 0, time.UTC)
-	err = websocket.JSON.Send(conn, &apiserver.LogMessage{
+	err = websocket.JSON.Send(conn, &params.LogRecord{
 		Time:     t1,
 		Module:   "else.where",
 		Location: "bar.go:99",
@@ -175,7 +175,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 	for a := shortAttempt.Start(); a.Next(); {
 		for _, log := range s.logs.Log() {
-			c.Assert(log.Level, jc.LessThan, loggo.ERROR)
+			c.Assert(log.Level, jc.LessThan, loggo.ERROR, gc.Commentf("log: %#v", log))
 		}
 	}
 
@@ -216,7 +216,7 @@ func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Read
 
 func (s *logsinkSuite) makeAuthHeader() http.Header {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
-	header.Add("X-Juju-Nonce", s.nonce)
+	header.Add(params.MachineNonceHeader, s.nonce)
 	return header
 }
 

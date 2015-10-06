@@ -681,11 +681,8 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, envTag 
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	if s.setAdminApi != nil {
-		s.setAdminApi(srv)
-	} else {
-		panic(nil)
-	}
+	c.Assert(s.setAdminApi, gc.NotNil)
+	s.setAdminApi(srv)
 	info := &api.Info{
 		Tag:        nil,
 		Password:   "",

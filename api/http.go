@@ -21,7 +21,7 @@ var newHTTPClient = func(s Connection) apihttp.HTTPClient {
 }
 
 // NewHTTPClient returns an HTTP client initialized based on State.
-func (s *State) NewHTTPClient() *http.Client {
+func (s *state) NewHTTPClient() *http.Client {
 	httpclient := utils.GetValidatingHTTPClient()
 	tlsconfig := tls.Config{
 		RootCAs: s.certPool,
@@ -34,7 +34,7 @@ func (s *State) NewHTTPClient() *http.Client {
 }
 
 // NewHTTPRequest returns a new API-supporting HTTP request based on State.
-func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
+func (s *state) NewHTTPRequest(method, path string) (*http.Request, error) {
 	baseURL, err := url.Parse(s.serverRoot())
 	if err != nil {
 		return nil, errors.Annotatef(err, "while parsing base URL (%s)", s.serverRoot())
@@ -51,7 +51,7 @@ func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 }
 
 // SendHTTPRequest sends a GET request using the HTTP client derived from State.
-func (s *State) SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error) {
+func (s *state) SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error) {
 	req, err := s.NewHTTPRequest("GET", path)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -76,7 +76,7 @@ func (s *State) SendHTTPRequest(path string, args interface{}) (*http.Request, *
 // identifies the attached data's part in the multi-part data. That name
 // doesn't have any semantic significance in juju, so the provided value
 // is strictly informational.
-func (s *State) SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
+func (s *state) SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
 	req, err := s.NewHTTPRequest("PUT", path)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

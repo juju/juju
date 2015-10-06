@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -58,17 +57,6 @@ type logSinkHandler struct {
 	fileLogger io.WriteCloser
 }
 
-// LogMessage is used to transmit log messages to the logsink API
-// endpoint.  Single character field names are used for serialisation
-// to keep the size down. These messages are going to be sent a lot.
-type LogMessage struct {
-	Time     time.Time   `json:"t"`
-	Module   string      `json:"m"`
-	Location string      `json:"l"`
-	Level    loggo.Level `json:"v"`
-	Message  string      `json:"x"`
-}
-
 // ServeHTTP implements the http.Handler interface.
 func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
@@ -76,7 +64,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			defer socket.Close()
 			st, entity, err := h.ctxt.stateForRequestAuthenticatedAgent(req)
 			if err != nil {
-				h.sendError(socket, err)
+				h.sendError(socket, req, err)
 				return
 			}
 			tag := entity.Tag()
@@ -84,12 +72,12 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// If we get to here, no more errors to report, so we report a nil
 			// error.  This way the first line of the socket is always a json
 			// formatted simple error.
-			h.sendError(socket, nil)
+			h.sendError(socket, req, nil)
 
 			filePrefix := st.EnvironUUID() + " " + tag.String() + ":"
 			dbLogger := state.NewDbLogger(st, tag)
 			defer dbLogger.Close()
-			m := new(LogMessage)
+			m := new(params.LogRecord)
 			for {
 				if err := websocket.JSON.Receive(socket, m); err != nil {
 					if err != io.EOF {
@@ -117,14 +105,17 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *logSinkHandler) sendError(w io.Writer, err error) {
+func (h *logSinkHandler) sendError(w io.Writer, req *http.Request, err error) {
+	if err != nil {
+		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
+	}
 	sendJSON(w, &params.ErrorResult{
 		Error: common.ServerError(err),
 	})
 }
 
 // logToFile writes a single log message to the logsink log file.
-func (h *logSinkHandler) logToFile(prefix string, m *LogMessage) error {
+func (h *logSinkHandler) logToFile(prefix string, m *params.LogRecord) error {
 	_, err := h.fileLogger.Write([]byte(strings.Join([]string{
 		prefix,
 		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),

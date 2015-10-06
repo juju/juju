@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -56,7 +57,7 @@ func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
 		Nonce: "foo-nonce",
 	})
 	header := utils.BasicAuthHeader(m.Tag().String(), password)
-	header.Add("X-Juju-Nonce", "foo-nonce")
+	header.Add(params.MachineNonceHeader, "foo-nonce")
 	conn := s.dialWebsocketInternal(c, nil, header)
 	defer conn.Close()
 	reader := bufio.NewReader(conn)

@@ -210,7 +210,7 @@ func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.E
 	}
 	// The machine does exist in the state server environment, but it
 	// doesn't manage environments, so reject it.
-	return nil, common.ErrBadCreds
+	return nil, errors.Trace(common.ErrBadCreds)
 }
 
 func (a *admin) maintenanceInProgress() bool {

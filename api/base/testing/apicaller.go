@@ -4,6 +4,9 @@
 package testing
 
 import (
+	"net/url"
+
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -29,6 +32,10 @@ func (APICallerFunc) EnvironTag() (names.EnvironTag, error) {
 
 func (APICallerFunc) Close() error {
 	return nil
+}
+
+func (APICallerFunc) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	return nil, errors.New("stream connection unimplemented")
 }
 
 // CheckArgs holds the possible arguments to CheckingAPICaller(). Any
