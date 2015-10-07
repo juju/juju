@@ -29,6 +29,7 @@ var _ = gc.Suite(&uniterV2Suite{})
 
 func (s *uniterV2Suite) SetUpTest(c *gc.C) {
 	s.uniterBaseSuite.setUpTest(c)
+	enableStorageFeature()
 
 	uniterAPIV2, err := uniter.NewUniterAPIV2(
 		s.State,

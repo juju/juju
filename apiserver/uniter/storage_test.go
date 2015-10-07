@@ -5,15 +5,19 @@ package uniter_test
 
 import (
 	"errors"
+	"os"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/uniter"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -24,6 +28,18 @@ type storageSuite struct {
 }
 
 var _ = gc.Suite(&storageSuite{})
+
+func (s *storageSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	enableStorageFeature()
+}
+
+func enableStorageFeature() {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Storage); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
 
 func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 	resources := common.NewResources()
