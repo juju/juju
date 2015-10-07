@@ -58,6 +58,27 @@ const (
 	Mongo31 Version = "3.1"
 )
 
+// BinariesAvailable returns true if the binaries for the
+// given Version of mongo are available.
+func BinariesAvailable(v Version) bool {
+	var path string
+	switch v {
+	case Mongo24:
+		path = JujuMongodPath
+
+	case Mongo26:
+		path = JujuMongod26Path
+	case Mongo31:
+		path = JujuMongod30Path
+	default:
+		return false
+	}
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
+}
+
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object
 type WithAddresses interface {
@@ -375,20 +396,6 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 
 	mongoPkgs := packagesForSeries(operatingsystem)
 
-	// TODO(perrito666) this needs to go BEFORE this hits production.
-	if err = pacman.InstallPrerequisite(); err != nil {
-		return errors.Annotate(err, "cannot install prerequisite")
-	}
-	if err = pacman.AddRepository("ppa:hduran-8/juju-mongodb2.6"); err != nil {
-		return errors.Annotate(err, "cannot add ppa for mongodb 2.6")
-	}
-	if err = pacman.AddRepository("ppa:hduran-8/juju-mongodb3"); err != nil {
-		return errors.Annotate(err, "cannot add ppa for mongodb 3")
-	}
-	if err = pacman.Update(); err != nil {
-		return errors.Annotate(err, "cannot update sources")
-	}
-
 	pkgs := mongoPkgs
 	if numaCtl {
 		pkgs = append(mongoPkgs, numaCtlPkg)
@@ -397,13 +404,13 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		logger.Infof("installing %v", mongoPkgs)
 	}
 
-	for i, _ := range pkgs {
+	for i := range pkgs {
 		// apply release targeting if needed.
 		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
 			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
 		}
 
-		if err := pacman.Install("--force-yes", pkgs[i]); err != nil {
+		if err := pacman.Install(pkgs[i]); err != nil {
 			return err
 		}
 	}

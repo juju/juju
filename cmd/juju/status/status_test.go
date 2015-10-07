@@ -97,6 +97,10 @@ type context struct {
 	expectIsoTime bool
 }
 
+func (ctx *context) mongoVersion() string {
+	return st.MongoVersion()
+}
+
 func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()

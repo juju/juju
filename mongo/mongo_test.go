@@ -64,7 +64,7 @@ var expectedArgs = struct {
 	MongoInstall: []jc.SimpleMessage{
 		{loggo.INFO, "Ensuring mongo server is running; data directory.*"},
 		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install epel-release"},
-		{loggo.INFO, "installing mongodb-server"},
+		{loggo.INFO, regexp.QuoteMeta("installing [mongodb-server]")},
 		{loggo.INFO, "Running: yum --assumeyes --debuglevel=1 install mongodb-server"},
 	},
 	YumBase: []string{
@@ -113,6 +113,8 @@ func makeEnsureServerParams(dataDir, namespace string) mongo.EnsureServerParams 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.mongodVersion = mongo.Mongo24
+
 	testing.PatchExecutable(c, s, "mongod", "#!/bin/bash\n\nprintf %s 'db version v2.4.9'\n")
 	jujuMongodPath, err := exec.LookPath("mongod")
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,6 +158,7 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
+	c.Log("mongo version is %q", s.mongodVersion)
 	obtained, err := mongo.Path(s.mongodVersion)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Matches, s.mongodPath)
@@ -336,8 +339,8 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		{"quantal", [][]string{{"python-software-properties"}, {"--target-release", "mongodb-server"}}},
 		{"raring", [][]string{{"--target-release", "mongodb-server"}}},
 		{"saucy", [][]string{{"--target-release", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb"}}},
-		{"u-series", [][]string{{"juju-mongodb"}}},
+		{"trusty", [][]string{{"juju-mongodb"}, {"juju-mongodb2.6"}, {"juju-mongodb3"}}},
+		{"u-series", [][]string{{"juju-mongodb"}, {"juju-mongodb2.6"}, {"juju-mongodb3"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
@@ -700,11 +703,6 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 			"python-software-properties",
 		}, {
 			"install",
-			"python-software-properties",
-		}, {
-			"update",
-		}, {
-			"install",
 			"--target-release",
 			"mongodb-server",
 		},
@@ -717,7 +715,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 
 	match := []string{
 		"--yes",
-		"ppa:juju/stable",
+		"\"ppa:juju/stable\"",
 	}
 
 	testing.AssertEchoArgs(c, "add-apt-repository", match...)
@@ -738,12 +736,6 @@ func (s *MongoSuite) TestAddEpelInCentOS(c *gc.C) {
 
 	expectedEpelRelease := append(expectedArgs.YumBase, "epel-release")
 	testing.AssertEchoArgs(c, "yum", expectedEpelRelease...)
-
-	expectedYumArgs := append(expectedArgs.YumBase, "yum-utils")
-	testing.AssertEchoArgs(c, "yum", expectedYumArgs...)
-
-	expectedExpireCache := []string{"--assumeyes", "--debuglevel=1", "clean", "expire-cache"}
-	testing.AssertEchoArgs(c, "yum", expectedExpireCache...)
 
 	expectedMongodbServer := append(expectedArgs.YumBase, "mongodb-server")
 	testing.AssertEchoArgs(c, "yum", expectedMongodbServer...)

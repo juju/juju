@@ -210,7 +210,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	err = c.ChangeConfig(func(config agent.ConfigSetter) error {
-		config.SetMongoVersion(mongo.Mongo31)
+		if mongo.BinariesAvailable(mongo.Mongo31) {
+			config.SetMongoVersion(mongo.Mongo31)
+		}
 		return nil
 	})
 	if err != nil {
