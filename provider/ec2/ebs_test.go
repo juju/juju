@@ -29,7 +29,7 @@ import (
 )
 
 type storageSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -53,7 +53,7 @@ func (s *storageSuite) TestSupports(c *gc.C) {
 var _ = gc.Suite(&ebsVolumeSuite{})
 
 type ebsVolumeSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 	jujutest.Tests
 	srv                localServer
 	restoreEC2Patching func()
@@ -67,11 +67,11 @@ func (s *ebsVolumeSuite) SetUpSuite(c *gc.C) {
 	s.UploadArches = []string{arch.AMD64, arch.I386}
 	s.TestConfig = localConfigAttrs
 	s.restoreEC2Patching = patchEC2ForTesting()
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 }
 
 func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
+	s.FakeJujuHomeSuite.TearDownSuite(c)
 	s.restoreEC2Patching()
 }
 
@@ -81,7 +81,7 @@ func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.srv.startServer(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
@@ -90,7 +90,7 @@ func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
 func (s *ebsVolumeSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.srv.stopServer(c)
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *ebsVolumeSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.VolumeSource {

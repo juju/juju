@@ -145,7 +145,6 @@ func (s *localServer) stop() {
 
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
 type localLiveSuite struct {
-	coretesting.BaseSuite
 	LiveTests
 	srv localServer
 }
@@ -167,7 +166,6 @@ func overrideCinderProvider(c *gc.C, s *gitjujutesting.CleanupSuite) {
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred, newFullOpenstackService)
 	s.LiveTests.SetUpSuite(c)
@@ -181,18 +179,15 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	openstack.RemoveTestImageData(openstack.ImageMetadataStorage(s.Env))
 	s.LiveTests.TearDownSuite(c)
 	s.srv.stop()
-	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 // localServerSuite contains tests that run against an Openstack service double.
@@ -200,7 +195,7 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Openstack server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	jujutest.Tests
 	cred                 *identity.Credentials
 	srv                  localServer
@@ -210,7 +205,7 @@ type localServerSuite struct {
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	overrideCinderProvider(c, &s.CleanupSuite)
@@ -218,7 +213,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.srv.start(c, s.cred, newFullOpenstackService)
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
@@ -252,7 +247,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 // If the bootstrap node is configured to require a public IP address,
@@ -900,13 +895,13 @@ func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	// Prevent falling over to the public datasource.
-	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G")
-	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
+	c.Assert(err, gc.ErrorMatches, `image metadata for series \[saucy\], architectures \[amd64\] not found`)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
@@ -944,7 +939,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	// Prevent falling over to the public datasource.
-	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
 	spec, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny")
@@ -954,7 +949,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 	// Prevent falling over to the public datasource.
-	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
 	_, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large")
@@ -1123,7 +1118,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 // things that depend on the HTTPS connection, all other functional tests on a
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	attrs map[string]interface{}
 	cred  *identity.Credentials
 	srv   localServer
@@ -1131,7 +1126,7 @@ type localHTTPSServerSuite struct {
 }
 
 func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	overrideCinderProvider(c, &s.CleanupSuite)
 }
 
@@ -1158,7 +1153,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 }
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
@@ -1186,7 +1181,7 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 		s.env = nil
 	}
 	s.srv.stop()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
@@ -1737,20 +1732,20 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 // noSwiftSuite contains tests that run against an OpenStack service double
 // that lacks Swift.
 type noSwiftSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	cred *identity.Credentials
 	srv  localServer
 	env  environs.Environ
 }
 
 func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *noSwiftSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.cred = &identity.Credentials{
 		User:       "fred",
 		Secrets:    "secret",
@@ -1800,7 +1795,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 
 func (s *noSwiftSuite) TearDownTest(c *gc.C) {
 	s.srv.stop()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *noSwiftSuite) TestBootstrap(c *gc.C) {

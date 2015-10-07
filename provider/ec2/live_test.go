@@ -69,7 +69,7 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	jujutest.LiveTests
 }
 
@@ -77,28 +77,28 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
-	t.BaseSuite.SetUpSuite(c)
+	t.FakeJujuHomeSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	t.LiveTests.TearDownSuite(c)
-	t.BaseSuite.TearDownSuite(c)
+	t.FakeJujuHomeSuite.TearDownSuite(c)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.BaseSuite.PatchValue(&version.Current, version.Binary{
+	t.FakeJujuHomeSuite.PatchValue(&version.Current, version.Binary{
 		Number: coretesting.FakeVersionNumber,
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-	t.BaseSuite.SetUpTest(c)
+	t.FakeJujuHomeSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
-	t.BaseSuite.TearDownTest(c)
+	t.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.

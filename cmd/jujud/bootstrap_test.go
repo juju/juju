@@ -22,7 +22,6 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
@@ -47,8 +46,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	statestorage "github.com/juju/juju/state/storage"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -743,56 +740,6 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-}
-
-// TODO (anastasiamac 2015-09-26) This test will become obsolete when store
-// functionality will be removed.
-func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
-	metadataDir := c.MkDir()
-	expected := []struct{ path, content string }{{
-		path:    "images/streams/v1/index.json",
-		content: "abc",
-	}, {
-		path:    "images/streams/v1/products.json",
-		content: "def",
-	}, {
-		path:    "wayward/file.txt",
-		content: "ghi",
-	}}
-	for _, pair := range expected {
-		path := filepath.Join(metadataDir, pair.path)
-		err := os.MkdirAll(filepath.Dir(path), 0755)
-		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	var stor statetesting.MapStorage
-	s.PatchValue(&newStateStorage, func(string, *mgo.Session) statestorage.Storage {
-		return &stor
-	})
-
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil,
-		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
-		"--image-metadata", metadataDir,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The contents of the directory should have been added to
-	// environment storage.
-	for _, pair := range expected {
-		r, length, err := stor.Get(pair.path)
-		c.Assert(err, jc.ErrorIsNil)
-		data, err := ioutil.ReadAll(r)
-		r.Close()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(length, gc.Equals, int64(len(pair.content)))
-		c.Assert(data, gc.HasLen, int(length))
-		c.Assert(string(data), gc.Equals, pair.content)
-	}
 }
 
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
