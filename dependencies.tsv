@@ -41,7 +41,7 @@ gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:
 gopkg.in/goose.v1	git	be6030ce33a6d77f5e9c63b7698030e6431d5343	2015-08-24T15:19:40Z
 gopkg.in/juju/charmrepo.v1	git	8677b12d9772a2a596a99e65b7e6f642fceb6c40	2015-09-14T13:26:00Z
 gopkg.in/juju/charmstore.v5-unstable	git	475920bf612769da77969237ed511a921fb785be	2015-09-16T09:44:01Z
-gopkg.in/juju/charm.v6-unstable	git	1e471da773d8f6cf11c689e4a303c2211bdb6f21	2015-09-22T09:50:16Z
+gopkg.in/juju/charm.v6-unstable	git	df4f3d493649ae0abf547e87a1149b4db713ddb1	2015-10-05T09:54:00Z
 gopkg.in/juju/environschema.v1	git	e2de5f6100c8cdd6f631983b1774b290ab076d88	2015-09-28T14:16:13Z
 gopkg.in/juju/jujusvg.v1	git	3eedb1c722ece2b66d62508368ca3e8b7f916569	2015-05-20T11:48:32Z
 gopkg.in/macaroon-bakery.v1	git	0c5d05edc860c3ba6ce56b3c5330b0585f2f3c1c	2015-10-07T15:38:28Z
