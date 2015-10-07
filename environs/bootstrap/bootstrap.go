@@ -267,6 +267,14 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "cannot read image metadata")
 	}
+
+	// Add an image metadata datasource for constraint validation, etc.
+	// TODO (anastasiamac 2015-09-26) Delete when search path is modified to look
+	// into state first.
+	environs.RegisterUserImageDataSourceFunc("bootstrap metadata", func(environs.Environ) (simplestreams.DataSource, error) {
+		return datasource, nil
+	})
+	logger.Infof("custom image metadata added to search path")
 	return existingMetadata, nil
 }
 

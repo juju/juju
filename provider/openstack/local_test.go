@@ -908,7 +908,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(env, "saucy", "amd64", "mem=1G")
-	c.Assert(err, gc.ErrorMatches, `image metadata for series \[saucy\], architectures \[amd64\] not found`)
+	c.Assert(err, gc.ErrorMatches, `image metadata for series \[saucy\], arch \[amd64\] not found`)
 }
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
