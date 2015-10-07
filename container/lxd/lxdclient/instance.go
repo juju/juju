@@ -113,7 +113,8 @@ type InstanceHardware struct {
 	// MemoryMB is the memory allocation for the container.
 	MemoryMB uint
 
-	//RootDisk uint64
+	// RootDiskMB is the size of the root disk, in MB.
+	RootDiskMB uint64
 }
 
 // InstanceSummary captures all the data needed by Instance.
