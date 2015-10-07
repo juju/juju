@@ -4,12 +4,16 @@
 package state_test
 
 import (
+	"os"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -27,6 +31,13 @@ var _ = gc.Suite(&StorageStateSuite{})
 
 type StorageStateSuiteBase struct {
 	ConnSuite
+}
+
+func setFeatureFlags(flags string) {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
@@ -136,6 +147,23 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 			Size:  1024,
 		},
 	})
+}
+
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsFeatureDisabled(c *gc.C) {
+	setFeatureFlags("")
+	ch := s.AddTestingCharm(c, "storage-block")
+	storageBlock, err := s.State.AddService("storage-block", "user-test-admin@local", ch, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	constraints, err := storageBlock.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(constraints, gc.HasLen, 0)
+
+	ch = s.AddTestingCharm(c, "storage-filesystem")
+	storageFilesystem, err := s.State.AddService("storage-filesystem", "user-test-admin@local", ch, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	constraints, err = storageFilesystem.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(constraints, gc.HasLen, 0)
 }
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {

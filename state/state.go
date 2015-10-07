@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/leadership"
@@ -1089,14 +1091,17 @@ func (st *State) AddService(
 		return nil, errors.Trace(err)
 	}
 
-	if storage == nil {
+	if !featureflag.Enabled(feature.Storage) || storage == nil {
+		// Storage is ignored if the feature is disabled.
 		storage = make(map[string]StorageConstraints)
 	}
-	if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
-		return nil, errors.Trace(err)
+	if featureflag.Enabled(feature.Storage) {
+		if err := addDefaultStorageConstraints(st, storage, ch.Meta()); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := validateStorageConstraints(st, storage, ch.Meta()); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	settings := newSettings(nil, "")

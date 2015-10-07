@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -45,6 +46,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.StateSuite.Policy = &cs.policy
 
 	cs.StateSuite.SetUpTest(c)
+	setFeatureFlags(feature.Storage)
 
 	cs.envTag = cs.State.EnvironTag()
 	cs.factory = factory.NewFactory(cs.State)

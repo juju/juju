@@ -48,3 +48,6 @@ const CloudSigma = "cloudsigma"
 
 // VSphereProvider enables the generic vmware provider.
 const VSphereProvider = "vsphere-provider"
+
+// Storage enables storage support.
+const Storage = "storage"

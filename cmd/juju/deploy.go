@@ -11,6 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/gnuflag"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/storage"
 )
@@ -135,7 +137,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
-	f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
+	if featureflag.Enabled(feature.Storage) {
+		f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
+	}
 }
 
 func (c *DeployCommand) Init(args []string) error {
