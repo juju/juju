@@ -115,7 +115,7 @@ type Environ interface {
 	// using an architecture constraint; this will have the effect of
 	// limiting the available tools to just those matching the specified
 	// architecture.
-	Bootstrap(ctx BootstrapContext, params BootstrapParams) (arch, series string, _ BootstrapFinalizer, _ error)
+	Bootstrap(ctx BootstrapContext, params BootstrapParams) (*BootstrapResult, error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.

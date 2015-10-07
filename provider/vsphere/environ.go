@@ -96,7 +96,7 @@ var Bootstrap = common.Bootstrap
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju state server.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return Bootstrap(ctx, env, params)
 }
 

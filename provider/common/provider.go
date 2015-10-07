@@ -19,12 +19,12 @@ type DefaultProvider struct {
 }
 
 // BootstrapEnv bootstraps the Juju environment.
-func (dp DefaultProvider) BootstrapEnv(ctx environs.BootstrapContext, args environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
-	arch, series, finalizer, err := Bootstrap(ctx, dp.Env, args)
+func (dp DefaultProvider) BootstrapEnv(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	result, err := Bootstrap(ctx, dp.Env, args)
 	if err != nil {
-		return "", "", nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return arch, series, finalizer, nil
+	return result, nil
 }
 
 // DestroyEnv destroys the Juju environment.

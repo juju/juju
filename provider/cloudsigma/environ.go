@@ -93,7 +93,7 @@ func (env *environ) Config() *config.Config {
 // Bootstrap is responsible for selecting the appropriate tools,
 // and setting the agent-version configuration attribute prior to
 // bootstrapping the environment.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, env, params)
 }
 

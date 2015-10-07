@@ -341,11 +341,11 @@ func isVirtualNetworkExist(err error) bool {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, err error) {
+func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
-	err = env.createAffinityGroup()
+	err := env.createAffinityGroup()
 	if err != nil && !isHTTPConflict(err) {
-		return "", "", nil, err
+		return nil, err
 	}
 	// If we fail after this point, clean up the affinity group.
 	defer func() {
@@ -356,7 +356,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 
 	err = env.createVirtualNetwork()
 	if err != nil && !isVirtualNetworkExist(err) {
-		return "", "", nil, err
+		return nil, err
 	}
 	// If we fail after this point, clean up the virtual network.
 	defer func() {

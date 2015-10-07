@@ -151,7 +151,7 @@ func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 	env, err := local.Provider.PrepareForBootstrap(envtesting.BootstrapContext(c), minimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, _, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
+	_, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
 }
 
