@@ -11,6 +11,22 @@ import (
 	"github.com/juju/juju/network"
 )
 
+type policyProvider interface {
+	// SupportedArchitectures returns the list of image architectures
+	// supported by this environment.
+	SupportedArchitectures() ([]string, error)
+}
+
+type lxdPolicyProvider struct{}
+
+// SupportedArchitectures returns the image architectures which can
+// be hosted by this environment.
+func (pp *lxdPolicyProvider) SupportedArchitectures() ([]string, error) {
+	// TODO(ericsnow) Use common.SupportedArchitectures?
+	localArch := arch.HostArch()
+	return []string{localArch}, nil
+}
+
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
@@ -28,8 +44,11 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 // SupportedArchitectures returns the image architectures which can
 // be hosted by this environment.
 func (env *environ) SupportedArchitectures() ([]string, error) {
-	localArch := arch.HostArch()
-	return []string{localArch}, nil
+	arches, err := env.raw.SupportedArchitectures()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return arches, nil
 }
 
 var unsupportedConstraints = []string{
