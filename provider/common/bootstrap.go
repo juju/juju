@@ -116,9 +116,13 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
 		icfg.InstanceId = result.Instance.Id()
 		icfg.HardwareCharacteristics = result.Hardware
-		envConfig := result.Config
-		if envConfig == nil {
-			envConfig = env.Config()
+		envConfig := env.Config()
+		if result.Config != nil {
+			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			envConfig = updated
 		}
 		if err := instancecfg.FinishInstanceConfig(icfg, envConfig); err != nil {
 			return err
