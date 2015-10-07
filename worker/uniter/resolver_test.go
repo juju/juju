@@ -6,10 +6,13 @@ package uniter_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -22,15 +25,20 @@ import (
 )
 
 type resolverSuite struct {
+	stub        testing.Stub
 	charmURL    *charm.URL
 	remoteState remotestate.Snapshot
 	opFactory   operation.Factory
 	resolver    resolver.Resolver
+
+	clearResolved   func() error
+	reportHookError func(hook.Info) error
 }
 
 var _ = gc.Suite(&resolverSuite{})
 
 func (s *resolverSuite) SetUpTest(c *gc.C) {
+	s.stub = testing.Stub{}
 	s.charmURL = charm.MustParseURL("cs:precise/mysql-2")
 	s.remoteState = remotestate.Snapshot{
 		CharmURL: s.charmURL,
@@ -44,8 +52,8 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		ClearResolved:       func() error { return errors.New("unexpected resolved") },
 		ReportHookError:     func(_ hook.Info) error { return errors.New("unexpected report hook error") },
 		FixDeployer:         func() error { return nil },
-		StartRetryHookTimer: func() {},
-		StopRetryHookTimer:  func() {},
+		StartRetryHookTimer: func() { s.stub.AddCall("startRetryHookTimer") },
+		StopRetryHookTimer:  func() { s.stub.AddCall("stopRetryHookTimer") },
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
@@ -84,4 +92,122 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run install hook")
+}
+
+func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
+	s.reportHookError = func(hook.Info) error { return nil }
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+		},
+	}
+	// Run the resolver twice; we should start the hook retry
+	// timer on the first time through, no change on the second.
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckCallNames(c, "startRetryHookTimer")
+
+	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckCallNames(c, "startRetryHookTimer") // no change
+}
+
+func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *gc.C) {
+	s.reportHookError = func(hook.Info) error { return nil }
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+		},
+	}
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckCallNames(c, "startRetryHookTimer")
+
+	s.remoteState.RetryHookVersion = 1
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run config-changed hook")
+	s.stub.CheckCallNames(c, "startRetryHookTimer") // no change
+	localState.RetryHookVersion = 1
+
+	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckCallNames(c, "startRetryHookTimer", "startRetryHookTimer")
+}
+
+func (s *resolverSuite) TestResolvedRetryHooksStopRetryTimer(c *gc.C) {
+	// Resolving a failed hook should stop the retry timer.
+	s.testResolveHookErrorStopRetryTimer(c, params.ResolvedRetryHooks)
+}
+
+func (s *resolverSuite) TestResolvedNoHooksStopRetryTimer(c *gc.C) {
+	// Resolving a failed hook should stop the retry timer.
+	s.testResolveHookErrorStopRetryTimer(c, params.ResolvedNoHooks)
+}
+
+func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.ResolvedMode) {
+	s.stub.ResetCalls()
+	s.clearResolved = func() error { return nil }
+	s.reportHookError = func(hook.Info) error { return nil }
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+		},
+	}
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckCallNames(c, "startRetryHookTimer")
+
+	s.remoteState.ResolvedMode = mode
+	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCallNames(c, "startRetryHookTimer", "stopRetryHookTimer")
+}
+
+func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
+	s.reportHookError = func(hook.Info) error { return nil }
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+		},
+	}
+
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckCallNames(c, "startRetryHookTimer")
+
+	localState.Kind = operation.Continue
+	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckCallNames(c, "startRetryHookTimer", "stopRetryHookTimer")
 }

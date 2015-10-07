@@ -68,6 +68,14 @@ func (s *uniterResolver) NextOp(
 		}
 	}
 
+	if s.retryHookTimerStarted && (localState.Kind != operation.RunHook || localState.Step != operation.Pending) {
+		// The hook-retry timer is running, but there is no pending
+		// hook operation. We're not in an error state, so stop the
+		// timer now to reset the backoff state.
+		s.config.StopRetryHookTimer()
+		s.retryHookTimerStarted = false
+	}
+
 	op, err := s.config.Leadership.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
@@ -205,11 +213,6 @@ func (s *uniterResolver) nextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
-	// Stop the hook-retry timer in case we've just retried a
-	// failed hook. This is necessary to reset the backoff state.
-	s.stopRetryHookTimer()
-	s.retryHookTimerStarted = false
 
 	switch remoteState.Life {
 	case params.Alive:
