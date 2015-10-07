@@ -99,7 +99,8 @@ func updateDefaults(defaults schema.Defaults, updates schema.Defaults) schema.De
 	return updated
 }
 
-func adjustDefaults(cfg *config.Config, defaults map[string]interface{}) map[string]interface{} {
+func adjustDefaults(cfg *config.Config, defaults map[string]interface{}) (map[string]interface{}, []string) {
+	var unset []string
 	updated := make(map[string]interface{})
 	for k, v := range defaults {
 		updated[k] = v
@@ -116,7 +117,11 @@ func adjustDefaults(cfg *config.Config, defaults map[string]interface{}) map[str
 		updated[cfgNamespace] = raw
 	}
 
-	return updated
+	if val, ok := cfg.UnknownAttrs()[cfgNamespace]; ok && val == "" {
+		unset = append(unset, cfgNamespace)
+	}
+
+	return updated, unset
 }
 
 // TODO(ericsnow) environschema.Fields should have this...
@@ -158,8 +163,12 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	}
 
 	// Apply the defaults and coerce/validate the custom config attrs.
-	defaults = adjustDefaults(cfg, defaults)
-	validated, err := cfg.ValidateUnknownAttrs(configFields, defaults)
+	fixedDefaults, unset := adjustDefaults(cfg, defaults)
+	cfg, err := cfg.Remove(unset)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	validated, err := cfg.ValidateUnknownAttrs(configFields, fixedDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
