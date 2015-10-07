@@ -322,6 +322,47 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// attemptCreateService tries to create a new hosted service on Azure, with a
+// name it chooses (based on the given prefix), but recognizes that the name
+// may not be available.  If the name is not available, it does not treat that
+// as an error but just returns nil.
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.CreateHostedService, error) {
+	var err error
+	name := gwacl.MakeRandomHostedServiceName(prefix)
+	err = azure.CheckHostedServiceNameAvailability(name)
+	if err != nil {
+		// The calling function should retry.
+		return nil, nil
+	}
+	if label == "" {
+		label = name
+	}
+	req := gwacl.NewCreateHostedServiceWithLocation(name, label, "")
+	req.AffinityGroup = affinityGroupName
+	err = azure.AddHostedService(req)
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// newHostedService creates a hosted service.  It will make up a unique name,
+// starting with the given prefix.
+func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, label string) (*gwacl.HostedService, error) {
+	var err error
+	var createdService *gwacl.CreateHostedService
+	for tries := 10; tries > 0 && err == nil && createdService == nil; tries-- {
+		createdService, err = attemptCreateService(azure, prefix, affinityGroupName, label)
+	}
+	if err != nil {
+		return nil, errors.Annotate(err, "could not create hosted service")
+	}
+	if createdService == nil {
+		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
+	}
+	return azure.GetHostedServiceProperties(createdService.ServiceName, true)
+}
+
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures(), nil

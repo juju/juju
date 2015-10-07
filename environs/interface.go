@@ -6,6 +6,7 @@ package environs
 import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -190,6 +191,9 @@ type Firewaller interface {
 	Provider() EnvironProvider
 
 	state.Prechecker
+
+	// HACK!!! TODO(anastasiamac 2015-10-06) needs to be done better
+	CloudConfig() simplestreams.CloudSpec
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.
