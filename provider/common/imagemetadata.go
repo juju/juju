@@ -40,7 +40,7 @@ func FindImageMetadata(env environs.Environ, imageConstraint *imagemetadata.Imag
 
 	// If still none found, complain
 	if len(dsMetadata) == 0 {
-		return nil, nil, errors.NotFoundf("image metadata for series %v, architectures %v", imageConstraint.Series, imageConstraint.Arches)
+		return nil, nil, errors.NotFoundf("image metadata for series %v, arch %v", imageConstraint.Series, imageConstraint.Arches)
 	}
 
 	return dsMetadata, dsInfo, nil

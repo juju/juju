@@ -4,7 +4,6 @@
 package common
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs"
@@ -13,11 +12,13 @@ import (
 
 // SupportedArchitectures returns all the image architectures for env matching the constraints.
 func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata.ImageConstraint) ([]string, error) {
-	matchingImages, _, err := FindImageMetadata(env, imageConstraint, false)
+	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
+		return nil, err
+	}
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, false)
+	if err != nil {
+		return nil, err
 	}
 	var arches = set.NewStrings()
 	for _, im := range matchingImages {

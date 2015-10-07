@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
