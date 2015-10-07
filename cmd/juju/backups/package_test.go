@@ -196,7 +196,7 @@ func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 	return c.archive, nil
 }
 
-func (c *fakeAPIClient) Upload(ar io.Reader, meta params.BackupsMetadataResult) (string, error) {
+func (c *fakeAPIClient) Upload(ar io.ReadSeeker, meta params.BackupsMetadataResult) (string, error) {
 	c.args = append(c.args, "ar", "meta")
 	if c.err != nil {
 		return "", c.err
@@ -218,7 +218,7 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) RestoreReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
+func (c *fakeAPIClient) RestoreReader(io.ReadSeeker, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
 	return nil
 }
 

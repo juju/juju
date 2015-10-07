@@ -37,7 +37,7 @@ func (s *apiclientSuite) TestOpenFailsIfUsernameAndUseMacaroon(c *gc.C) {
 
 func (s *apiclientSuite) TestConnectWebsocketToEnv(c *gc.C) {
 	info := s.APIInfo(c)
-	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
+	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForEnv(c, conn, info.Addrs[0], s.State.EnvironUUID(), "/api")
@@ -46,7 +46,7 @@ func (s *apiclientSuite) TestConnectWebsocketToEnv(c *gc.C) {
 func (s *apiclientSuite) TestConnectWebsocketToRoot(c *gc.C) {
 	info := s.APIInfo(c)
 	info.EnvironTag = names.NewEnvironTag("")
-	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
+	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForRoot(c, conn, info.Addrs[0])
@@ -83,7 +83,7 @@ func (s *apiclientSuite) TestConnectWebsocketPrefersLocalhostIfPresent(c *gc.C) 
 	c.Check(err, jc.ErrorIsNil)
 	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
 	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
-	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
+	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForEnv(c, conn, expectedHostPort, s.State.EnvironUUID(), "/api")
@@ -113,7 +113,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultiple(c *gc.C) {
 	// Check that we can use the proxy to connect.
 	proxyAddr := listener.Addr().String()
 	info.Addrs = []string{proxyAddr}
-	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
+	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	assertConnAddrForEnv(c, conn, proxyAddr, s.State.EnvironUUID(), "/api")
@@ -122,7 +122,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultiple(c *gc.C) {
 	// is successfully connected to.
 	info.Addrs = []string{proxyAddr, serverAddr}
 	listener.Close()
-	conn, err = api.ConnectWebsocket(info, api.DialOpts{})
+	conn, _, err = api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	assertConnAddrForEnv(c, conn, serverAddr, s.State.EnvironUUID(), "/api")
@@ -144,7 +144,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
 	info := s.APIInfo(c)
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
-	_, err = api.ConnectWebsocket(info, api.DialOpts{})
+	_, _, err = api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
 }
 
