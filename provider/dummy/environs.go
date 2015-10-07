@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -673,6 +674,12 @@ func (e *environ) ecfg() *environConfig {
 	ecfg := e.ecfgUnlocked
 	e.ecfgMutex.Unlock()
 	return ecfg
+}
+
+func (e *environ) CloudConfig() simplestreams.CloudSpec {
+	return simplestreams.CloudSpec{
+		Region: "dummy_region",
+	}
 }
 
 func (e *environ) checkBroken(method string) error {

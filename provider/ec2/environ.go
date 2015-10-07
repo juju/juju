@@ -442,6 +442,12 @@ func resourceName(tag names.Tag, envName string) string {
 	return fmt.Sprintf("juju-%s-%s", envName, tag)
 }
 
+func (e *environ) CloudConfig() simplestreams.CloudSpec {
+	return simplestreams.CloudSpec{
+		Region: e.ecfg().region(),
+	}
+}
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
 	var inst *ec2Instance

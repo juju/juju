@@ -130,6 +130,11 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 	return env.cloudSpec(env.ecfg.region())
 }
 
+func (e *environ) CloudConfig() simplestreams.CloudSpec {
+	cloudSpec, _ := e.cloudSpec(gosigma.DefaultRegion)
+	return cloudSpec
+}
+
 func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	endpoint := gosigma.ResolveEndpoint(region)
 	return simplestreams.CloudSpec{

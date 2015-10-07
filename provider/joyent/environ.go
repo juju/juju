@@ -94,6 +94,13 @@ func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value
 	return fmt.Errorf("invalid Joyent instance %q specified", *cons.InstanceType)
 }
 
+func (e *joyentEnviron) CloudConfig() simplestreams.CloudSpec {
+	return simplestreams.CloudSpec{
+		Region:   e.ecfg.Region(),
+		Endpoint: e.ecfg.SdcUrl(),
+	}
+}
+
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 	env.archLock.Lock()

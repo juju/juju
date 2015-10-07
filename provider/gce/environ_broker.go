@@ -111,6 +111,12 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 	return instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 
+func (e *environ) CloudConfig() simplestreams.CloudSpec {
+	return simplestreams.CloudSpec{
+		Region: e.ecfg.region(),
+	}
+}
+
 // buildInstanceSpec builds an instance spec from the provided args
 // and returns it. This includes pulling the simplestreams data for the
 // machine type, region, and other constraints.
