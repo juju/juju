@@ -159,6 +159,10 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 // also tested live and it works.
 var scenarioStatus = &params.FullStatus{
 	EnvironmentName: "dummyenv",
+	PrimaryMachineStatus: params.PrimaryMachineStatus{
+		MongoVersion: "",
+		PartOfHA:     false,
+		Nodes:        1},
 	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",

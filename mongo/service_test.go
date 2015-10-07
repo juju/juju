@@ -44,14 +44,15 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
 			" --sslPEMKeyPassword ignored" +
 			" --port 12345" +
-			" --noprealloc" +
 			" --syslog" +
-			" --smallfiles" +
 			" --journal" +
 			" --keyFile '/var/lib/juju/shared-secret'" +
 			" --replSet juju" +
 			" --ipv6" +
-			" --oplogSize 10",
+			" --quiet" +
+			" --oplogSize 10" +
+			" --noprealloc" +
+			" --smallfiles",
 	}
 	c.Check(conf, jc.DeepEquals, expected)
 	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))

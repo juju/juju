@@ -99,6 +99,10 @@ type context struct {
 	expectIsoTime bool
 }
 
+func (ctx *context) mongoVersion() string {
+	return st.MongoVersion()
+}
+
 func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()
@@ -3245,10 +3249,16 @@ ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE
 [Juju]            
 UPGRADE-AVAILABLE 
 %s 
+CURRENT-MONGO-VERSION
+%s
 
 `
-	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersion))
-	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion+spaces))
+	//TODO (perrito666) correct this, so it does not deppend on mongo version
+	// if upgrade available version is faked, so can mongo version
+	mongoVersion := ctx.mongoVersion()
+	spacesUpgrade := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersion))
+	spacesCMongo := strings.Repeat(" ", len("CURRENT-MONGO-VERSION")-len(mongoVersion))
+	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion+spacesUpgrade, mongoVersion+spacesCMongo))
 }
 
 func (s *StatusSuite) TestStatusV2(c *gc.C) {

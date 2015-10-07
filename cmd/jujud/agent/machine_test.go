@@ -146,7 +146,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
+	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.MaybeInitiateMongo)
 }
 
 func fakeCmd(path string) {
