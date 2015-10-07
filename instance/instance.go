@@ -150,7 +150,7 @@ func (hc HardwareCharacteristics) String() string {
 		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(*hc.Tags, ",")))
 	}
 	if hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
-		strs = append(strs, fmt.Sprintf("zone=%s", *hc.AvailabilityZone))
+		strs = append(strs, fmt.Sprintf("availability-zone=%s", *hc.AvailabilityZone))
 	}
 	return strings.Join(strs, " ")
 }
