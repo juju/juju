@@ -4,16 +4,20 @@
 package featuretests
 
 import (
+	"os"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	cmdstorage "github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
@@ -29,6 +33,11 @@ const (
 )
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Storage); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	stsetts := state.NewStateSettings(s)
 	poolManager := poolmanager.New(stsetts)
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
