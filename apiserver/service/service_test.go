@@ -6,11 +6,13 @@ package service_test
 import (
 	"fmt"
 	"io"
+	"os"
 	"sync"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charmstore.v4/csclient"
@@ -22,6 +24,8 @@ import (
 	"github.com/juju/juju/apiserver/service"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
@@ -64,6 +68,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 	s.CharmStoreSuite.Session = s.JujuConnSuite.Session
 	s.CharmStoreSuite.SetUpTest(c)
+	enableStorageFeature()
 
 	s.service = s.Factory.MakeService(c, nil)
 
@@ -78,6 +83,13 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 func (s *serviceSuite) TearDownTest(c *gc.C) {
 	s.CharmStoreSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
+}
+
+func enableStorageFeature() {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Storage); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *serviceSuite) TestSetMetricCredentials(c *gc.C) {

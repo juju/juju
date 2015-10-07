@@ -18,11 +18,14 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/lease"
@@ -88,9 +91,17 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+	enableStorageFeature()
 	s.ticker = uniter.NewManualTicker()
 	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 	s.PatchValue(uniter.IdleWaitTime, 1*time.Millisecond)
+}
+
+func enableStorageFeature() {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Storage); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
