@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -31,6 +32,10 @@ type environ struct {
 	archLock sync.Mutex
 
 	supportedArchitectures []string
+}
+
+func (e *environ) CloudConfig() simplestreams.CloudSpec {
+	return simplestreams.EmptyCloudSpec
 }
 
 func newEnviron(cfg *config.Config) (*environ, error) {

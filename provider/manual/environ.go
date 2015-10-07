@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sshstorage"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
@@ -63,6 +64,10 @@ type manualEnviron struct {
 	storage             storage.Storage
 	ubuntuUserInited    bool
 	ubuntuUserInitMutex sync.Mutex
+}
+
+func (e *manualEnviron) CloudConfig() simplestreams.CloudSpec {
+	return simplestreams.EmptyCloudSpec
 }
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
