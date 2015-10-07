@@ -4,16 +4,18 @@
 package lxd_test
 
 import (
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/provider/lxd"
 )
 
 type providerSuite struct {
-	gce.BaseSuite
+	lxd.BaseSuite
 
 	provider environs.EnvironProvider
 }
@@ -23,13 +25,13 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	var err error
-	s.provider, err = environs.Provider("gce")
+	provider, err := environs.Provider("lxd")
 	c.Check(err, jc.ErrorIsNil)
+	s.provider = provider
 }
 
 func (s *providerSuite) TestRegistered(c *gc.C) {
-	c.Assert(s.provider, gc.Equals, gce.Provider)
+	c.Assert(s.provider, gc.Equals, lxd.Provider)
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {
@@ -58,50 +60,31 @@ func (s *providerSuite) TestSecretAttrs(c *gc.C) {
 	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
 	c.Check(err, jc.ErrorIsNil)
 
-	expectedAttrs := map[string]string{"private-key": gce.PrivateKey}
-	c.Assert(obtainedAttrs, gc.DeepEquals, expectedAttrs)
+	c.Assert(obtainedAttrs, gc.HasLen, 0)
 
 }
 
 func (s *providerSuite) TestBoilerplateConfig(c *gc.C) {
-	// (wwitzel3) purposefully duplicate here so that this test will
-	// fail if someone updates gce/config.go without updating this test.
-	var boilerplateConfig = `
-gce:
-  type: gce
+	// (wwitzel3) purposefully duplicated here so that this test will
+	// fail if someone updates lxd/config.go without updating this test.
+	var expected = `
+lxd:
+    type: lxd
 
-  # Google Auth Info
-  # The GCE provider uses OAuth to authenticate. This requires that
-  # you set it up and get the relevant credentials. For more information
-  # see https://cloud.google.com/compute/docs/api/how-tos/authorization.
-  # The key information can be downloaded as a JSON file, or copied, from:
-  #   https://console.developers.google.com/project/<projet>/apiui/credential
-  # Either set the path to the downloaded JSON file here:
-  auth-file:
+    # namespace identifies the namespace to associate with containers
+    # created by the provider.  It is prepended to the container names.
+    # By default the environment's name is used as the namespace.
+    #
+    # namespace: lxd
 
-  # ...or set the individual fields for the credentials. Either way, all
-  # three of these are required and have specific meaning to GCE.
-  # private-key:
-  # client-email:
-  # client-id:
+    # remote Identifies the LXD API server to use for managing
+    # containers, if any.
+    #
+    # remote:
 
-  # Google instance info
-  # To provision instances and perform related operations, the provider
-  # will need to know which GCE project to use and into which region to
-  # provision. While the region has a default, the project ID is
-  # required. For information on the project ID, see
-  # https://cloud.google.com/compute/docs/projects and regarding regions
-  # see https://cloud.google.com/compute/docs/zones.
-  project-id:
-  # region: us-central1
-
-  # The GCE provider uses pre-built images when provisioning instances.
-  # You can customize the location in which to find them with the
-  # image-endpoint setting. The default value is the a location within
-  # GCE, so it will give you the best speed when bootstrapping or adding
-  # machines. For more information on the image cache see
-  # https://cloud-images.ubuntu.com/.
-  # image-endpoint: https://www.googleapis.com
 `[1:]
-	c.Assert(s.provider.BoilerplateConfig(), gc.Equals, boilerplateConfig)
+	boilerplateConfig := s.provider.BoilerplateConfig()
+
+	c.Check(boilerplateConfig, gc.Equals, expected)
+	c.Check(strings.Split(boilerplateConfig, "\n"), jc.DeepEquals, strings.Split(expected, "\n"))
 }
