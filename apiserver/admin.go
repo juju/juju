@@ -88,8 +88,10 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
-				DischargeRequired: err.Macaroon,
+				DischargeRequired:       err.Macaroon,
+				DischargeRequiredReason: err.Error(),
 			}
+			logger.Infof("login failed with discharge-required error: %v", err)
 			return loginResult, nil
 		}
 		if a.maintenanceInProgress() {

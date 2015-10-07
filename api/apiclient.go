@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -43,6 +44,10 @@ type state struct {
 
 	// addr is the address used to connect to the API server.
 	addr string
+
+	// cookieURL is the URL that HTTP cookies for the API
+	// will be associated with (specifically macaroon auth cookies).
+	cookieURL *url.URL
 
 	// environTag holds the environment tag once we're connected
 	environTag string
@@ -127,9 +132,14 @@ func open(info *Info, opts DialOpts, loginFunc func(st *state, tag names.Tag, pw
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
 	st := &state{
-		client:            client,
-		conn:              conn,
-		addr:              conn.Config().Location.Host,
+		client: client,
+		conn:   conn,
+		addr:   conn.Config().Location.Host,
+		cookieURL: &url.URL{
+			Scheme: "https",
+			Host:   conn.Config().Location.Host,
+			Path:   "/",
+		},
 		serverScheme:      "https",
 		serverRootAddress: conn.Config().Location.Host,
 		// why are the contents of the tag (username and password) written into the
@@ -216,6 +226,34 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, error) {
 
 // ConnectStream implements Connection.ConnectStream.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	// We use the standard "macaraq" macaroon authentication dance here.
+	// That is, we attach any macaroons we have to the initial request,
+	// and if that succeeds, all's good. If it fails with a DischargeRequired
+	// error, the response will contain a macaroon that, when discharged,
+	// may allow access, so we discharge it (using bakery.Client.HandleError)
+	// and try the request again.
+	conn, err := st.connectStream(path, attrs)
+	if err == nil {
+		return conn, err
+	}
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return nil, errors.Trace(err)
+	}
+	if err := st.bakeryClient.HandleError(st.cookieURL, bakeryError(err)); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Try again with the discharged macaroon.
+	conn, err = st.connectStream(path, attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return conn, nil
+}
+
+// connectStream is the internal version of ConnectStream. It differs from
+// ConnectStream only in that it will not retry the connection if it encounters
+// discharge-required error.
+func (st *state) connectStream(path string, attrs url.Values) (base.Stream, error) {
 	if !strings.HasPrefix(path, "/") {
 		return nil, errors.New(`path must start with "/"`)
 	}
@@ -236,10 +274,16 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 		RawQuery: attrs.Encode(),
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
-	cfg.Header = utils.BasicAuthHeader(st.tag, st.password)
+	if st.tag != "" {
+		cfg.Header = utils.BasicAuthHeader(st.tag, st.password)
+	}
 	if st.nonce != "" {
 		cfg.Header.Set(params.MachineNonceHeader, st.nonce)
 	}
+	// Add any cookies because they will not be sent to websocket
+	// connections by default.
+	st.addCookiesToHeader(cfg.Header)
+
 	cfg.TlsConfig = &tls.Config{
 		RootCAs:    st.certPool,
 		ServerName: "juju-apiserver",
@@ -252,6 +296,29 @@ func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, erro
 		return nil, errors.Trace(err)
 	}
 	return connection, nil
+}
+
+// bakeryError translates any discharge-required error into
+// an error value that the httpbakery package will recognize.
+// Other errors are returned unchanged.
+func bakeryError(err error) error {
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return err
+	}
+	errResp := errors.Cause(err).(*params.Error)
+	if errResp.Info == nil {
+		return errors.Annotatef(err, "no error info found in discharge-required response error")
+	}
+	// It's a discharge-required error, so make an appropriate httpbakery
+	// error from it.
+	return &httpbakery.Error{
+		Message: err.Error(),
+		Code:    httpbakery.ErrDischargeRequired,
+		Info: &httpbakery.ErrorInfo{
+			Macaroon:     errResp.Info.Macaroon,
+			MacaroonPath: errResp.Info.MacaroonPath,
+		},
+	}
 }
 
 // readInitialStreamError reads the initial error response
@@ -275,6 +342,24 @@ func readInitialStreamError(conn io.Reader) error {
 		return errResult.Error
 	}
 	return nil
+}
+
+// addCookiesToHeader adds any cookies associated with the
+// API host to the given header. This is necessary because
+// otherwise cookies are not sent to websocket endpoints.
+func (st *state) addCookiesToHeader(h http.Header) {
+	// net/http only allows adding cookies to a request,
+	// but when it sends a request to a non-http endpoint,
+	// it doesn't add the cookies, so make a request, starting
+	// with the given header, add the cookies to use, then
+	// throw away the request but keep the header.
+	req := &http.Request{
+		Header: h,
+	}
+	cookies := st.bakeryClient.Client.Jar.Cookies(st.cookieURL)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
 }
 
 // apiEndpoint returns a URL that refers to the given API slash-prefixed

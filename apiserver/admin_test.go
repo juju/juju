@@ -1030,7 +1030,7 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 		return nil, errors.New("unknown caveat")
 	}
 	err := s.client.Login(nil, "", "")
-	c.Assert(err, gc.ErrorMatches, "failed to obtain the macaroon discharge.*cannot discharge: unknown caveat")
+	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: unknown caveat`)
 }
 
 func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {

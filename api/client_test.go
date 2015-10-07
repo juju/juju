@@ -6,7 +6,6 @@ package api_test
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -608,13 +607,10 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 }
 
 func echoURL(c *gc.C) func(*websocket.Config) (base.Stream, error) {
-	response := &params.ErrorResult{}
-	message, err := json.Marshal(response)
-	c.Assert(err, jc.ErrorIsNil)
 	return func(config *websocket.Config) (base.Stream, error) {
 		pr, pw := io.Pipe()
 		go func() {
-			fmt.Fprintf(pw, "%s\n", message)
+			fmt.Fprintf(pw, "null\n")
 			fmt.Fprintf(pw, "%s\n", config.Location)
 		}()
 		return fakeStreamReader{pr}, nil
