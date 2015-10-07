@@ -11,6 +11,10 @@ import (
 	"github.com/juju/juju/network"
 )
 
+var supportedContainerTypes = []string{
+	"lxd",
+}
+
 type policyProvider interface {
 	// SupportedArchitectures returns the list of image architectures
 	// supported by this environment.
@@ -44,6 +48,8 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 // SupportedArchitectures returns the image architectures which can
 // be hosted by this environment.
 func (env *environ) SupportedArchitectures() ([]string, error) {
+	// TODO(ericsnow) The supported arch depends on the targetted
+	// remote. Thus we may need to support the remote as a constraint.
 	arches, err := env.raw.SupportedArchitectures()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -59,12 +65,6 @@ var unsupportedConstraints = []string{
 	constraints.Tags,
 }
 
-// conflictingConstraints declares the contraints that will be verified.
-var conflictingConstraints = []string{
-	constraints.Arch,      // Arches
-	constraints.Container, // VirtType
-}
-
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
@@ -72,11 +72,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 	// conflicts
 
-	validator.RegisterConflicts(
-		nil,
-		//[]string{constraints.InstanceType},
-		conflictingConstraints,
-	)
+	//validator.RegisterConflicts(...)
 
 	// unsupported
 
@@ -84,13 +80,15 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 	// vocab
 
+	// TODO(ericsnow) This depends on the targetted remote host.
 	supportedArches, err := env.SupportedArchitectures()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 
-	// TODO(ericsnow) Register valid container types (e.g. lxd)?
+	// TODO(ericsnow) Get this working...
+	//validator.RegisterVocabulary(constraints.Container, supportedContainerTypes)
 
 	return validator, nil
 }

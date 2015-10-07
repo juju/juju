@@ -4,61 +4,68 @@
 package lxd_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/provider/lxd"
 )
 
 type environNetSuite struct {
-	gce.BaseSuite
+	lxd.BaseSuite
 }
 
 var _ = gc.Suite(&environNetSuite{})
 
 func (s *environNetSuite) TestGlobalFirewallName(c *gc.C) {
 	uuid, _ := s.Config.UUID()
-	fwname := gce.GlobalFirewallName(s.Env)
+	fwname := lxd.GlobalFirewallName(s.Env)
 
 	c.Check(fwname, gc.Equals, "juju-"+uuid)
 }
 
-func (s *environNetSuite) TestOpenPorts(c *gc.C) {
+func (s *environNetSuite) TestOpenPortsOkay(c *gc.C) {
 	err := s.Env.OpenPorts(s.Ports)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environNetSuite) TestOpenPortsAPI(c *gc.C) {
-	fwname := gce.GlobalFirewallName(s.Env)
+	fwname := lxd.GlobalFirewallName(s.Env)
 	err := s.Env.OpenPorts(s.Ports)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "OpenPorts")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
-	c.Check(s.FakeConn.Calls[0].PortRanges, jc.DeepEquals, s.Ports)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "OpenPorts",
+		Args: []interface{}{
+			fwname,
+			s.Ports,
+		},
+	}})
 }
 
-func (s *environNetSuite) TestClosePorts(c *gc.C) {
+func (s *environNetSuite) TestClosePortsOkay(c *gc.C) {
 	err := s.Env.ClosePorts(s.Ports)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environNetSuite) TestClosePortsAPI(c *gc.C) {
-	fwname := gce.GlobalFirewallName(s.Env)
+	fwname := lxd.GlobalFirewallName(s.Env)
 	err := s.Env.ClosePorts(s.Ports)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ClosePorts")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
-	c.Check(s.FakeConn.Calls[0].PortRanges, jc.DeepEquals, s.Ports)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ClosePorts",
+		Args: []interface{}{
+			fwname,
+			s.Ports,
+		},
+	}})
 }
 
-func (s *environNetSuite) TestPorts(c *gc.C) {
-	s.FakeConn.PortRanges = s.Ports
+func (s *environNetSuite) TestPortsOkay(c *gc.C) {
+	s.Firewaller.PortRanges = s.Ports
 
 	ports, err := s.Env.Ports()
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,11 +74,14 @@ func (s *environNetSuite) TestPorts(c *gc.C) {
 }
 
 func (s *environNetSuite) TestPortsAPI(c *gc.C) {
-	fwname := gce.GlobalFirewallName(s.Env)
+	fwname := lxd.GlobalFirewallName(s.Env)
 	_, err := s.Env.Ports()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "Ports",
+		Args: []interface{}{
+			fwname,
+		},
+	}})
 }

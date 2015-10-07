@@ -4,25 +4,26 @@
 package lxd_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/provider/lxd"
 )
 
 type instanceSuite struct {
-	gce.BaseSuite
+	lxd.BaseSuite
 }
 
 var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) TestNewInstance(c *gc.C) {
-	inst := gce.NewInstance(s.BaseInstance, s.Env)
+	inst := lxd.NewInstance(s.RawInstance, s.Env)
 
-	c.Check(gce.ExposeInstBase(inst), gc.Equals, s.BaseInstance)
-	c.Check(gce.ExposeInstEnv(inst), gc.Equals, s.Env)
+	c.Check(lxd.ExposeInstRaw(inst), gc.Equals, s.RawInstance)
+	c.Check(lxd.ExposeInstEnv(inst), gc.Equals, s.Env)
 	s.CheckNoAPI(c)
 }
 
@@ -36,7 +37,7 @@ func (s *instanceSuite) TestID(c *gc.C) {
 func (s *instanceSuite) TestStatus(c *gc.C) {
 	status := s.Instance.Status()
 
-	c.Check(status, gc.Equals, google.StatusRunning)
+	c.Check(status, gc.Equals, lxdclient.StatusRunning)
 	s.CheckNoAPI(c)
 }
 
@@ -52,24 +53,30 @@ func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
 	err := s.Instance.OpenPorts("spam", s.Ports)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "OpenPorts")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, s.InstName)
-	c.Check(s.FakeConn.Calls[0].PortRanges, jc.DeepEquals, s.Ports)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "OpenPorts",
+		Args: []interface{}{
+			s.InstName,
+			s.Ports,
+		},
+	}})
 }
 
 func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
 	err := s.Instance.ClosePorts("spam", s.Ports)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ClosePorts")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, s.InstName)
-	c.Check(s.FakeConn.Calls[0].PortRanges, jc.DeepEquals, s.Ports)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ClosePorts",
+		Args: []interface{}{
+			s.InstName,
+			s.Ports,
+		},
+	}})
 }
 
-func (s *instanceSuite) TestPorts(c *gc.C) {
-	s.FakeConn.PortRanges = s.Ports
+func (s *instanceSuite) TestPortsOkay(c *gc.C) {
+	s.Firewaller.PortRanges = s.Ports
 
 	ports, err := s.Instance.Ports("spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +88,10 @@ func (s *instanceSuite) TestPortsAPI(c *gc.C) {
 	_, err := s.Instance.Ports("spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, s.InstName)
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "Ports",
+		Args: []interface{}{
+			s.InstName,
+		},
+	}})
 }
