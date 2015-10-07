@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/terminationworker"
-    "github.com/juju/juju/environs/simplestreams"
 )
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
