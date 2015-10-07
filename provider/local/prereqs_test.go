@@ -10,11 +10,11 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )

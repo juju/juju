@@ -11,6 +11,14 @@ import (
 func stateStepsFor121() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "add the version field to all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateSettingsSchema(context.State())
+			},
+		},
+
+		&upgradeStep{
 			description: "add environment uuid to state server doc",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {

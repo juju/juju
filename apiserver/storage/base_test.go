@@ -83,6 +83,7 @@ const (
 	allFilesystemsCall                      = "allFilesystems"
 	addStorageForUnitCall                   = "addStorageForUnit"
 	getBlockForTypeCall                     = "getBlockForType"
+	volumeAttachmentCall                    = "volumeAttachment"
 )
 
 func (s *baseStorageSuite) constructState() *mockState {
@@ -154,6 +155,10 @@ func (s *baseStorageSuite) constructState() *mockState {
 				return s.volume, nil
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(t))
+		},
+		volumeAttachment: func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error) {
+			s.calls = append(s.calls, volumeAttachmentCall)
+			return s.volumeAttachment, nil
 		},
 		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
 			s.calls = append(s.calls, unitAssignedMachineCall)

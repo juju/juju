@@ -20,7 +20,6 @@ type imageMetadataUpdateSuite struct {
 }
 
 func (s *imageMetadataUpdateSuite) TestWorker(c *gc.C) {
-	c.Skip("temp disable to unblock master - lp:1495542")
 	done := make(chan struct{})
 	client := s.ImageClient(done)
 

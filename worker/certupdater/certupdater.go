@@ -32,7 +32,6 @@ type CertificateUpdater struct {
 	setter          StateServingInfoSetter
 	configGetter    EnvironConfigGetter
 	hostPortsGetter APIHostPortsGetter
-	certChanged     chan params.StateServingInfo
 	addresses       []network.Address
 }
 
@@ -70,7 +69,6 @@ type APIHostPortsGetter interface {
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
 	configGetter EnvironConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
-	certChanged chan params.StateServingInfo,
 ) worker.Worker {
 	return worker.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  addressWatcher,
@@ -78,7 +76,6 @@ func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInf
 		hostPortsGetter: hostPortsGetter,
 		getter:          getter,
 		setter:          setter,
-		certChanged:     certChanged,
 	})
 }
 
@@ -201,11 +198,5 @@ func updateRequired(serverCert string, newAddrs []string) ([]string, bool, error
 
 // TearDown is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) TearDown() error {
-	select {
-	case <-c.certChanged:
-		// already closed
-	default:
-		close(c.certChanged)
-	}
 	return nil
 }

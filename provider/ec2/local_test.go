@@ -917,20 +917,62 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	addr := fmt.Sprintf("10.10.%s.5", index)
 	subnetId := network.Id("subnet-" + index)
 
+	// AvailabilityZones will either contain "test-available",
+	// "test-impaired" or "test-unavailable" depending on which subnet is
+	// picked. Any of these is fine.
+	zones := interfaces[0].AvailabilityZones
+	c.Assert(zones, gc.HasLen, 1)
+	re = regexp.MustCompile("test-available|test-unavailable|test-impaired")
+	c.Assert(re.Match([]byte(zones[0])), jc.IsTrue)
+
 	expectedInterfaces := []network.InterfaceInfo{{
-		DeviceIndex:      0,
-		MACAddress:       "20:01:60:cb:27:37",
-		CIDR:             cidr,
-		ProviderId:       "eni-0",
-		ProviderSubnetId: subnetId,
-		VLANTag:          0,
-		InterfaceName:    "unsupported0",
-		Disabled:         false,
-		NoAutoStart:      false,
-		ConfigType:       network.ConfigDHCP,
-		Address:          network.NewScopedAddress(addr, network.ScopeCloudLocal),
+		DeviceIndex:       0,
+		MACAddress:        "20:01:60:cb:27:37",
+		CIDR:              cidr,
+		ProviderId:        "eni-0",
+		ProviderSubnetId:  subnetId,
+		VLANTag:           0,
+		InterfaceName:     "unsupported0",
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           network.NewScopedAddress(addr, network.ScopeCloudLocal),
+		AvailabilityZones: zones,
 	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
+}
+
+func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	subnets, err := env.Subnets(instId, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, 1)
+	validateSubnets(c, subnets)
+
+	interfaces, err := env.NetworkInterfaces(instId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaces, gc.HasLen, 1)
+	c.Assert(interfaces[0].ProviderSubnetId, gc.Equals, subnets[0].ProviderId)
+}
+
+func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	interfaces, err := env.NetworkInterfaces(instId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaces, gc.HasLen, 1)
+
+	subnets, err := env.Subnets(instId, []network.Id{interfaces[0].ProviderSubnetId})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0].ProviderId, gc.Equals, interfaces[0].ProviderSubnetId)
+	validateSubnets(c, subnets)
+}
+
+func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	subnets, err := env.Subnets(instId, []network.Id{"missing"})
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
+	c.Assert(subnets, gc.HasLen, 0)
 }
 
 func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
@@ -984,13 +1026,6 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 3)
 	validateSubnets(c, subnets)
-}
-
-func (t *localServerSuite) TestSubnetsInstIdNotSupported(c *gc.C) {
-	env, _ := t.setUpInstanceWithDefaultVpc(c)
-
-	_, err := env.Subnets("foo", []network.Id{})
-	c.Assert(err, gc.ErrorMatches, "instId not supported")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {

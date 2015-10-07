@@ -9,8 +9,9 @@ package main
 import (
 	"os"
 
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/juju/osenv"
 )
 
 func init() {

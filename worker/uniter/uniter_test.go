@@ -20,7 +20,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
@@ -244,7 +244,6 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *gc.C) {
 
 			// Resolve and hook should run.
 			resolveError{state.ResolvedNoHooks},
-			waitHooks{"config-changed"},
 			waitUnitAgent{
 				status: params.StatusIdle,
 			},

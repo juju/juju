@@ -5,33 +5,21 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/leadership"
 )
 
-const settingsKey = "s#%s#leader"
-
 func addLeadershipSettingsOp(serviceId string) txn.Op {
-	return txn.Op{
-		C:      settingsC,
-		Id:     leadershipSettingsDocId(serviceId),
-		Insert: bson.D{},
-		Assert: txn.DocMissing,
-	}
+	return createSettingsOp(leadershipSettingsKey(serviceId), nil)
 }
 
 func removeLeadershipSettingsOp(serviceId string) txn.Op {
-	return txn.Op{
-		C:      settingsC,
-		Id:     leadershipSettingsDocId(serviceId),
-		Remove: true,
-	}
+	return removeSettingsOp(leadershipSettingsKey(serviceId))
 }
 
-func leadershipSettingsDocId(serviceId string) string {
-	return fmt.Sprintf(settingsKey, serviceId)
+func leadershipSettingsKey(serviceId string) string {
+	return fmt.Sprintf("s#%s#leader", serviceId)
 }
 
 // LeadershipClaimer returns a leadership.Claimer for units and services in the

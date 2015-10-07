@@ -7,7 +7,6 @@ package vsphere
 
 import (
 	"archive/tar"
-	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -20,8 +19,9 @@ import (
 	"github.com/juju/govmomi/vim25/progress"
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
-	"github.com/juju/juju/juju/osenv"
 	"golang.org/x/net/context"
+
+	"github.com/juju/juju/juju/osenv"
 )
 
 /*
@@ -75,7 +75,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		EntityName: instSpec.machineID,
 		PropertyMapping: []types.KeyValue{
 			types.KeyValue{Key: "public-keys", Value: instSpec.sshKey},
-			types.KeyValue{Key: "user-data", Value: base64.StdEncoding.EncodeToString(instSpec.userData)},
+			types.KeyValue{Key: "user-data", Value: string(instSpec.userData)},
 		},
 	}
 

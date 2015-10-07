@@ -6,8 +6,7 @@ package local
 import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
-
-	"github.com/juju/juju/juju/series"
+	"github.com/juju/utils/series"
 )
 
 // isPackageInstalled is a helper function which instantiates a new

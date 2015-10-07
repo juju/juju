@@ -51,7 +51,7 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 		Region:          "region",
 		Series:          "series",
 		Arch:            "arch",
-		VirtualType:     "virtType",
+		VirtType:        "virtType",
 		RootStorageType: "rootStorageType",
 		ImageId:         "1",
 	}
