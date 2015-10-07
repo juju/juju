@@ -4,17 +4,18 @@
 package lxd_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/provider/lxd"
 )
 
 type environSuite struct {
-	gce.BaseSuite
+	lxd.BaseSuite
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -22,40 +23,33 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) TestName(c *gc.C) {
 	name := s.Env.Name()
 
-	c.Check(name, gc.Equals, "google")
+	c.Check(name, gc.Equals, "lxd")
 }
 
 func (s *environSuite) TestProvider(c *gc.C) {
 	provider := s.Env.Provider()
 
-	c.Check(provider, gc.Equals, gce.Provider)
+	c.Check(provider, gc.Equals, lxd.Provider)
 }
 
-func (s *environSuite) TestRegion(c *gc.C) {
-	cloudSpec, err := s.Env.Region()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(cloudSpec.Region, gc.Equals, "home")
-	c.Check(cloudSpec.Endpoint, gc.Equals, "https://www.googleapis.com")
-}
-
-func (s *environSuite) TestSetConfig(c *gc.C) {
+func (s *environSuite) TestSetConfigOkay(c *gc.C) {
 	err := s.Env.SetConfig(s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(gce.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
-	c.Check(gce.ExposeEnvConnection(s.Env), gc.Equals, s.FakeConn)
+	c.Check(lxd.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
+	// Ensure the client did not change.
+	c.Check(lxd.ExposeEnvClient(s.Env), gc.Equals, s.Client)
 }
 
-func (s *environSuite) TestSetConfigFake(c *gc.C) {
+func (s *environSuite) TestSetConfigNoAPI(c *gc.C) {
 	err := s.Env.SetConfig(s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
+	s.CheckNoAPI(c)
 }
 
 func (s *environSuite) TestSetConfigMissing(c *gc.C) {
-	gce.UnsetEnvConfig(s.Env)
+	lxd.UnsetEnvConfig(s.Env)
 
 	err := s.Env.SetConfig(s.Config)
 
@@ -68,37 +62,37 @@ func (s *environSuite) TestConfig(c *gc.C) {
 	c.Check(cfg, jc.DeepEquals, s.Config)
 }
 
-func (s *environSuite) TestBootstrap(c *gc.C) {
-	s.FakeCommon.Arch = "amd64"
-	s.FakeCommon.Series = "trusty"
-	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig) error {
-		return nil
+func (s *environSuite) TestBootstrapOkay(c *gc.C) {
+	s.Common.BootstrapResult = &environs.BootstrapResult{
+		Arch:   "amd64",
+		Series: "trusty",
+		Finalize: func(environs.BootstrapContext, *instancecfg.InstanceConfig) error {
+			return nil
+		},
 	}
-	s.FakeCommon.BSFinalizer = finalizer
 
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{}
-	arch, series, bsFinalizer, err := s.Env.Bootstrap(ctx, params)
+	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(arch, gc.Equals, "amd64")
-	c.Check(series, gc.Equals, "trusty")
+	c.Check(result.Arch, gc.Equals, "amd64")
+	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
-	c.Check(bsFinalizer, gc.NotNil)
+	c.Check(result.Finalize, gc.NotNil)
 }
 
-func (s *environSuite) TestBootstrapCommon(c *gc.C) {
+func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{}
-	_, _, _, err := s.Env.Bootstrap(ctx, params)
+	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Bootstrap",
-		Args: gce.FakeCallArgs{
-			"ctx":    ctx,
-			"env":    s.Env,
-			"params": params,
+		Args: []interface{}{
+			ctx,
+			params,
 		},
 	}})
 }
@@ -113,14 +107,14 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 	err := s.Env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
 	fwname := s.Prefix[:len(s.Prefix)-1]
-	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
-	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
-		FuncName: "Destroy",
-		Args: gce.FakeCallArgs{
-			"env": s.Env,
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "Ports",
+		Args: []interface{}{
+			fwname,
 		},
+	}, {
+		FuncName: "Destroy",
+		Args:     nil,
 	}})
 }

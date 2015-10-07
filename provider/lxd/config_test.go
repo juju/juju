@@ -4,35 +4,25 @@
 package lxd_test
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/testing"
 )
 
-type ConfigSuite struct {
-	gce.BaseSuite
-
-	config  *config.Config
-	rootDir string
+type configSuite struct {
+	config *config.Config
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+var _ = gc.Suite(&configSuite{})
 
-func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	cfg, err := testing.EnvironConfig(c).Apply(gce.ConfigAttrs)
+func (s *configSuite) SetUpTest(c *gc.C) {
+	cfg, err := testing.EnvironConfig(c).Apply(lxd.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
-	s.rootDir = c.MkDir()
 }
 
 // TODO(ericsnow) Each test only deals with a single field, so having
@@ -51,9 +41,6 @@ type configTestSpec struct {
 	expect testing.Attrs
 	// err is the error message to expect in a failure case.
 	err string
-
-	// rootDir is the path to the root directory for this test.
-	rootDir string
 }
 
 func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
@@ -71,9 +58,6 @@ func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
 
 	attrs := cfg.AllAttrs()
 	for field, value := range ts.expect {
-		if field == "auth-file" && value != nil && value.(string) != "" {
-			value = filepath.Join(ts.rootDir, value.(string))
-		}
 		c.Check(attrs[field], gc.Equals, value)
 	}
 }
@@ -85,65 +69,26 @@ func (ts configTestSpec) checkFailure(c *gc.C, err error, msg string) {
 func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *config.Config) {
 	for field, expected := range cfg.UnknownAttrs() {
 		value := attrs[field]
-		if field == "auth-file" && value != nil {
-			filename := value.(string)
-			if filename != "" {
-				value = interface{}(filepath.Join(ts.rootDir, filename))
-			}
-		}
 		c.Check(value, gc.Equals, expected)
 	}
 }
 
 func (ts configTestSpec) attrs() testing.Attrs {
-	return gce.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
+	return lxd.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
 }
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
-	filename := ts.writeAuthFile(c)
-
 	attrs := ts.attrs()
-	if filename != "" {
-		attrs["auth-file"] = filename
-	}
 	cfg, err := testing.EnvironConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
-func (ts configTestSpec) writeAuthFile(c *gc.C) string {
-	value, ok := ts.insert["auth-file"]
-	if !ok {
-		return ""
-	}
-	filename := value.(string)
-	if filename == "" {
-		return ""
-	}
-	filename = filepath.Join(ts.rootDir, filename)
-	err := os.MkdirAll(filepath.Dir(filename), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filename, []byte(gce.AuthFile), 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	return filename
-}
-
 func (ts configTestSpec) fixCfg(c *gc.C, cfg *config.Config) *config.Config {
 	fixes := make(map[string]interface{})
 
-	var filename string
-	if value, ok := ts.insert["auth-file"]; ok {
-		filename = value.(string)
-		if filename != "" {
-			filename = filepath.Join(ts.rootDir, filename)
-		}
-	}
-
 	// Set changed values.
 	fixes = updateAttrs(fixes, ts.insert)
-	if filename != "" {
-		fixes = updateAttrs(fixes, testing.Attrs{"auth-file": filename})
-	}
 
 	newCfg, err := cfg.Apply(fixes)
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,96 +107,31 @@ func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
 }
 
 var newConfigTests = []configTestSpec{{
-	info:   "auth-file is optional",
-	remove: []string{"auth-file"},
-	expect: testing.Attrs{"auth-file": ""},
+	info:   "namespace is optional",
+	remove: []string{"namespace"},
+	expect: testing.Attrs{"namespace": "testenv"},
 }, {
-	info:   "auth-file can be empty",
-	insert: testing.Attrs{"auth-file": ""},
-	expect: testing.Attrs{"auth-file": ""},
+	info:   "namespace can be empty",
+	insert: testing.Attrs{"namespace": ""},
+	expect: testing.Attrs{"namespace": "testenv"},
 }, {
-	info: "auth-file ignored",
-	insert: testing.Attrs{
-		"auth-file":    "/home/someuser/gce.json",
-		"client-id":    "spam.x",
-		"client-email": "spam@x",
-		"private-key":  "abc",
-	},
-	expect: testing.Attrs{
-		"auth-file":    "/home/someuser/gce.json",
-		"client-id":    "spam.x",
-		"client-email": "spam@x",
-		"private-key":  "abc",
-	},
+	info:   "remote is optional",
+	remove: []string{"remote"},
+	expect: testing.Attrs{"remote": ""},
 }, {
-	info:   "auth-file parsed",
-	insert: testing.Attrs{"auth-file": "/home/someuser/gce.json"},
-	remove: []string{"client-id", "client-email", "private-key"},
-	expect: testing.Attrs{
-		"auth-file":    "/home/someuser/gce.json",
-		"client-id":    gce.ClientID,
-		"client-email": gce.ClientEmail,
-		"private-key":  gce.PrivateKey,
-	},
-}, {
-	info:   "client-id is required",
-	remove: []string{"client-id"},
-	err:    "client-id: expected string, got nothing",
-}, {
-	info:   "client-id cannot be empty",
-	insert: testing.Attrs{"client-id": ""},
-	err:    "client-id: must not be empty",
-}, {
-	info:   "private-key is required",
-	remove: []string{"private-key"},
-	err:    "private-key: expected string, got nothing",
-}, {
-	info:   "private-key cannot be empty",
-	insert: testing.Attrs{"private-key": ""},
-	err:    "private-key: must not be empty",
-}, {
-	info:   "client-email is required",
-	remove: []string{"client-email"},
-	err:    "client-email: expected string, got nothing",
-}, {
-	info:   "client-email cannot be empty",
-	insert: testing.Attrs{"client-email": ""},
-	err:    "client-email: must not be empty",
-}, {
-	info:   "region is optional",
-	remove: []string{"region"},
-	expect: testing.Attrs{"region": "us-central1"},
-}, {
-	info:   "region cannot be empty",
-	insert: testing.Attrs{"region": ""},
-	err:    "region: must not be empty",
-}, {
-	info:   "project-id is required",
-	remove: []string{"project-id"},
-	err:    "project-id: expected string, got nothing",
-}, {
-	info:   "project-id cannot be empty",
-	insert: testing.Attrs{"project-id": ""},
-	err:    "project-id: must not be empty",
-}, {
-	info:   "image-endpoint is inserted if missing",
-	remove: []string{"image-endpoint"},
-	expect: testing.Attrs{"image-endpoint": "https://www.googleapis.com"},
-}, {
-	info:   "image-endpoint cannot be empty",
-	insert: testing.Attrs{"image-endpoint": ""},
-	err:    "image-endpoint: must not be empty",
+	info:   "remote can be empty",
+	insert: testing.Attrs{"remote": ""},
+	expect: testing.Attrs{"remote": ""},
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
 	expect: testing.Attrs{"unknown-field": 12345},
 }}
 
-func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
 		environ, err := environs.New(testConfig)
 
@@ -265,13 +145,12 @@ func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 }
 
 // TODO(wwitzel3) refactor to provider_test file
-func (s *ConfigSuite) TestValidateNewConfig(c *gc.C) {
+func (s *configSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
-		validatedConfig, err := gce.Provider.Validate(testConfig, nil)
+		validatedConfig, err := lxd.Provider.Validate(testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -284,29 +163,25 @@ func (s *ConfigSuite) TestValidateNewConfig(c *gc.C) {
 }
 
 // TODO(wwitzel3) refactor to the provider_test file
-func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
+func (s *configSuite) TestValidateOldConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		test.rootDir = s.rootDir
 		oldcfg := test.newConfig(c)
+		var err error
+		oldcfg, err = lxd.Provider.Validate(oldcfg, nil)
+		c.Assert(err, jc.ErrorIsNil)
 		newcfg := test.fixCfg(c, s.config)
-		expected := updateAttrs(gce.ConfigAttrs, test.insert)
+		expected := updateAttrs(lxd.ConfigAttrs, test.insert)
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := gce.Provider.Validate(newcfg, oldcfg)
+		validatedConfig, err := lxd.Provider.Validate(newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid base config")
 		} else {
-			if test.insert == nil && test.remove != nil {
-				// No defaults are set on the old config.
-				c.Check(err, gc.ErrorMatches, "invalid base config: .*")
-				continue
-			}
-
 			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
@@ -320,31 +195,15 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
-	expect: gce.ConfigAttrs,
+	expect: lxd.ConfigAttrs,
 }, {
-	info:   "cannot change auth-file",
-	insert: testing.Attrs{"auth-file": "gce.json"},
-	err:    "auth-file: cannot change from  to .*gce.json",
+	info:   "cannot change namespace",
+	insert: testing.Attrs{"namespace": "spam"},
+	err:    "namespace: cannot change from testenv to spam",
 }, {
-	info:   "cannot change private-key",
-	insert: testing.Attrs{"private-key": "okkult"},
-	err:    "private-key: cannot change from " + gce.PrivateKey + " to okkult",
-}, {
-	info:   "cannot change client-id",
-	insert: testing.Attrs{"client-id": "mutant"},
-	err:    "client-id: cannot change from " + gce.ClientID + " to mutant",
-}, {
-	info:   "cannot change client-email",
-	insert: testing.Attrs{"client-email": "spam@eggs.com"},
-	err:    "client-email: cannot change from " + gce.ClientEmail + " to spam@eggs.com",
-}, {
-	info:   "cannot change region",
-	insert: testing.Attrs{"region": "not home"},
-	err:    "region: cannot change from home to not home",
-}, {
-	info:   "cannot change project-id",
-	insert: testing.Attrs{"project-id": "your-juju"},
-	err:    "project-id: cannot change from my-juju to your-juju",
+	info:   "cannot change remote",
+	insert: testing.Attrs{"remote": "eggs"},
+	err:    "remote: cannot change from  to eggs",
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
@@ -352,13 +211,12 @@ var changeConfigTests = []configTestSpec{{
 }}
 
 // TODO(wwitzel3) refactor this to the provider_test file.
-func (s *ConfigSuite) TestValidateChange(c *gc.C) {
+func (s *configSuite) TestValidateChange(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
-		validatedConfig, err := gce.Provider.Validate(testConfig, s.config)
+		validatedConfig, err := lxd.Provider.Validate(testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -369,21 +227,22 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestSetConfig(c *gc.C) {
+func (s *configSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
 		environ, err := environs.New(s.config)
 		c.Assert(err, jc.ErrorIsNil)
 
-		test.rootDir = s.rootDir
 		testConfig := test.newConfig(c)
 		err = environ.SetConfig(testConfig)
 
 		// Check the result.
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config change")
-			test.checkAttrs(c, environ.Config().AllAttrs(), s.config)
+			expected, err := lxd.Provider.Validate(s.config, nil)
+			c.Assert(err, jc.ErrorIsNil)
+			test.checkAttrs(c, environ.Config().AllAttrs(), expected)
 		} else {
 			test.checkSuccess(c, environ.Config(), err)
 		}
