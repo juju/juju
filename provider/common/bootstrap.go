@@ -37,12 +37,18 @@ var logger = loggo.GetLogger("juju.provider.common")
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
 func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-) (arch, series string, _ environs.BootstrapFinalizer, err error) {
-	if result, series, finalizer, err := BootstrapInstance(ctx, env, args); err == nil {
-		return *result.Hardware.Arch, series, finalizer, nil
-	} else {
-		return "", "", nil, err
+) (*environs.BootstrapResult, error) {
+	result, series, finalizer, err := BootstrapInstance(ctx, env, args)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	bsResult := &environs.BootstrapResult{
+		Arch:     *result.Hardware.Arch,
+		Series:   series,
+		Finalize: finalizer,
+	}
+	return bsResult, nil
 }
 
 // BootstrapInstance creates a new instance with the series and architecture

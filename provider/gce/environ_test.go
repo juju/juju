@@ -78,19 +78,19 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{}
-	arch, series, bsFinalizer, err := s.Env.Bootstrap(ctx, params)
+	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(arch, gc.Equals, "amd64")
-	c.Check(series, gc.Equals, "trusty")
+	c.Check(result.Arch, gc.Equals, "amd64")
+	c.Check(result.Series, gc.Equals, "trusty")
 	// We don't check bsFinalizer because functions cannot be compared.
-	c.Check(bsFinalizer, gc.NotNil)
+	c.Check(result.Finalize, gc.NotNil)
 }
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{}
-	_, _, _, err := s.Env.Bootstrap(ctx, params)
+	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
