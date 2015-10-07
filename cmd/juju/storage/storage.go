@@ -8,10 +8,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.storage")
@@ -31,6 +35,9 @@ type Command struct {
 // NewSuperCommand creates the storage supercommand and
 // registers the subcommands that it supports.
 func NewSuperCommand() cmd.Command {
+	if !featureflag.Enabled(feature.Storage) {
+		return storageDisabledCommand{}
+	}
 	storagecmd := Command{
 		SuperCommand: *cmd.NewSuperCommand(
 			cmd.SuperCommandParams{
@@ -45,6 +52,40 @@ func NewSuperCommand() cmd.Command {
 	storagecmd.Register(NewPoolSuperCommand())
 	storagecmd.Register(NewVolumeSuperCommand())
 	return &storagecmd
+}
+
+type storageDisabledCommand struct {
+}
+
+func (storageDisabledCommand) IsSuperCommand() bool {
+	return true
+}
+
+func (storageDisabledCommand) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "storage",
+		Doc:     storageCmdDoc,
+		Purpose: storageCmdPurpose,
+	}
+}
+
+func (storageDisabledCommand) SetFlags(*gnuflag.FlagSet) {
+}
+
+func (storageDisabledCommand) Init(args []string) error {
+	return nil
+}
+
+func (storageDisabledCommand) Run(ctx *cmd.Context) error {
+	ctx.Infof(
+		"Enable experimental storage support by setting %v=%v.\n\n",
+		osenv.JujuFeatureFlagEnvKey, feature.Storage,
+	)
+	return errors.New("storage is disabled")
+}
+
+func (storageDisabledCommand) AllowInterspersedFlags() bool {
+	return false
 }
 
 // StorageCommandBase is a helper base structure that has a method to get the

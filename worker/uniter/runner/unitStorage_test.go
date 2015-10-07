@@ -4,13 +4,18 @@
 package runner_test
 
 import (
+	"os"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
@@ -135,6 +140,8 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 }
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
+	enableStorageFeature()
+
 	stsetts := state.NewStateSettings(s)
 	poolManager := poolmanager.New(stsetts)
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
@@ -144,6 +151,13 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 
 	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
 	registry.RegisterEnvironStorageProviders("dummyenv", ec2.EBS_ProviderType)
+}
+
+func enableStorageFeature() {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Storage); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {

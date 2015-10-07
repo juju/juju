@@ -218,6 +218,8 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 // TODO(wallyworld) - add another test that deploy with storage fails for older environments
 // (need deploy client to be refactored to use API stub)
 func (s *DeploySuite) TestStorage(c *gc.C) {
+	setFeatureFlags("storage")
+
 	pm := poolmanager.New(state.NewStateSettings(s.State))
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,6 +244,11 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 			Size:  1024,
 		},
 	})
+}
+
+func (s *DeploySuite) TestStorageDisabled(c *gc.C) {
+	err := runDeploy(c, "local:storage-block", "--storage", "data=loop-pool,1G")
+	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --storage")
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {

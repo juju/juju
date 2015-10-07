@@ -5,11 +5,13 @@ package filter_test
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"launchpad.net/tomb"
@@ -17,6 +19,8 @@ import (
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -42,6 +46,12 @@ var _ = gc.Suite(&FilterSuite{})
 
 func (s *FilterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.Storage); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	s.wpcharm = s.AddTestingCharm(c, "wordpress")
 	s.wordpress = s.AddTestingService(c, "wordpress", s.wpcharm)
 	var err error

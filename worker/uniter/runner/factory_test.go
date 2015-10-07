@@ -46,6 +46,7 @@ func (fakeTracker) ServiceName() string {
 
 func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.HookContextSuite.SetUpTest(c)
+	enableStorageFeature()
 	s.paths = NewRealPaths(c)
 	s.membership = map[int][]string{}
 	factory, err := runner.NewFactory(
