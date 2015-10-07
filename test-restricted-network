@@ -58,8 +58,8 @@ if [ -e debs ]; then
   rm -R debs
 fi
 mkdir -p debs
-$SCRIPTS/jujuci.py get publish-revision $juju_local_deb debs
-$SCRIPTS/jujuci.py get publish-revision $juju_core_deb debs
+$SCRIPTS/jujuci.py get assemble-streams $juju_local_deb debs
+$SCRIPTS/jujuci.py get assemble-streams $juju_core_deb debs
 
 scp -o 'StrictHostKeyChecking no' -o 'UserKnownHostsFile /dev/null' \
   debs/$juju_local_deb debs/$juju_core_deb ubuntu@$instance_name:
