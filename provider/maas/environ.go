@@ -1127,7 +1127,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 
 const bridgeConfigTemplate = `
 # In case we already created the bridge, don't do it again.
-grep -q "iface {{.Bridge}} inet dhcp" && exit 0
+grep -q "iface {{.Bridge}} inet dhcp" {{.Config}} && exit 0
 
 # Discover primary interface at run-time using the default route (if set)
 PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
