@@ -269,7 +269,15 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 				caCert = []byte(cert)
 			}
 			baseUrl := ecfg.CloudImageBaseURL()
-			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid, caCert, baseUrl)
+
+			imageURLGetter = container.NewImageURLGetter(
+				// Explicitly call the non-named constructor so if anyone
+				// adds additional fields, this fails.
+				container.ImageURLGetterConfig{
+					ecfg.stateServerAddr(), uuid, caCert, baseUrl,
+					container.ImageDownloadURL,
+				})
+
 		}
 	}
 	env.containerManager, err = factory.NewContainerManager(

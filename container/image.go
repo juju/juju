@@ -27,41 +27,41 @@ type ImageURLGetter interface {
 	CACert() []byte
 }
 
+type ImageURLGetterConfig struct {
+	ServerRoot        string
+	EnvUUID           string
+	CACert            []byte
+	CloudimgBaseUrl   string
+	ImageDownloadFunc func(kind instance.ContainerType, series, arch, cloudimgBaseUrl string) (string, error)
+}
+
 type imageURLGetter struct {
-	serverRoot      string
-	envuuid         string
-	caCert          []byte
-	cloudimgBaseUrl string
+	config ImageURLGetterConfig
 }
 
 // NewImageURLGetter returns an ImageURLGetter for the specified state
 // server address and environment UUID.
-func NewImageURLGetter(serverRoot, envuuid string, caCert []byte, cloudimgBaseUrl string) ImageURLGetter {
-	return &imageURLGetter{
-		serverRoot,
-		envuuid,
-		caCert,
-		cloudimgBaseUrl,
-	}
+func NewImageURLGetter(config ImageURLGetterConfig) ImageURLGetter {
+	return &imageURLGetter{config}
 }
 
 // ImageURL is specified on the NewImageURLGetter interface.
 func (ug *imageURLGetter) ImageURL(kind instance.ContainerType, series, arch string) (string, error) {
-	imageURL, err := ImageDownloadURL(kind, series, arch, ug.cloudimgBaseUrl)
+	imageURL, err := ug.config.ImageDownloadFunc(kind, series, arch, ug.config.CloudimgBaseUrl)
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}
 	imageFilename := path.Base(imageURL)
 
 	imageUrl := fmt.Sprintf(
-		"https://%s/environment/%s/images/%v/%s/%s/%s", ug.serverRoot, ug.envuuid, kind, series, arch, imageFilename,
+		"https://%s/environment/%s/images/%v/%s/%s/%s", ug.config.ServerRoot, ug.config.EnvUUID, kind, series, arch, imageFilename,
 	)
 	return imageUrl, nil
 }
 
 // CACert is specified on the NewImageURLGetter interface.
 func (ug *imageURLGetter) CACert() []byte {
-	return ug.caCert
+	return ug.config.CACert
 }
 
 // ImageDownloadURL determines the public URL which can be used to obtain an

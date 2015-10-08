@@ -978,7 +978,13 @@ func (a *MachineAgent) updateSupportedContainers(
 		if err != nil {
 			return errors.Annotate(err, "unable to get environ config")
 		}
-		imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()), cfg.CloudImageBaseURL())
+		imageURLGetter = container.NewImageURLGetter(
+			// Explicitly call the non-named constructor so if anyone
+			// adds additional fields, this fails.
+			container.ImageURLGetterConfig{
+				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
+				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+			})
 	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
