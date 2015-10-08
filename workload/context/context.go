@@ -232,22 +232,10 @@ func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
 	// TODO(natefinch): make this a noop and move this code into set.
 
-	var events []workload.Event
 	if len(c.updates) > 0 {
 		var updates []workload.Info
 		for _, info := range c.updates {
 			updates = append(updates, info)
-
-			plugin, err := c.Plugin(&info, "")
-			if err != nil {
-				return errors.Trace(err)
-			}
-			events = append(events, workload.Event{
-				Kind:     workload.EventKindTracked,
-				ID:       info.ID(),
-				Plugin:   plugin,
-				PluginID: info.Details.ID,
-			})
 		}
 		if _, err := c.api.Track(updates...); err != nil {
 			return errors.Trace(err)
@@ -256,14 +244,6 @@ func (c *Context) Flush() error {
 			c.workloads[k] = v
 		}
 		c.updates = map[string]workload.Info{}
-	}
-	if len(events) > 0 {
-		err := c.addEvents(events...)
-		if errors.Cause(err) == workload.EventsClosed {
-			logger.Infof("ignoring closed workload events")
-		} else if err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }

@@ -76,13 +76,12 @@ func readMetadata(ctx *cmd.Context) (*charm.Meta, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	defer file.Close()
 	meta, err := charm.ReadMeta(file)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	file.Close()
 	return meta, nil
 }
 
