@@ -117,6 +117,8 @@ type workloadDoc struct {
 	Blocker string `bson:"blocker"`
 	Status  string `bson:"status"`
 
+	Tags []string `bson:"tags"`
+
 	PluginID       string `bson:"pluginid"`
 	OriginalStatus string `bson:"origstatus"`
 
@@ -124,9 +126,12 @@ type workloadDoc struct {
 }
 
 func (d workloadDoc) info() workload.Info {
+	tags := make([]string, len(d.Tags))
+	copy(tags, d.Tags)
 	info := workload.Info{
 		Workload: d.definition(),
 		Status:   d.status(),
+		Tags:     tags,
 		Details:  d.details(),
 	}
 	info.Details.Status.State = d.PluginStatus
@@ -208,6 +213,10 @@ func (pp Persistence) newWorkloadDoc(info workload.Info) *workloadDoc {
 	}
 
 	id := pp.workloadID(info.ID())
+
+	tags := make([]string, len(info.Tags))
+	copy(tags, info.Tags)
+
 	return &workloadDoc{
 		DocID:  id,
 		UnitID: pp.unit.Id(),
@@ -225,6 +234,8 @@ func (pp Persistence) newWorkloadDoc(info workload.Info) *workloadDoc {
 		State:   info.Status.State,
 		Blocker: info.Status.Blocker,
 		Status:  info.Status.Message,
+
+		Tags: tags,
 
 		PluginID:       info.Details.ID,
 		OriginalStatus: info.Details.Status.State,

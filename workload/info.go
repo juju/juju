@@ -24,6 +24,9 @@ type Info struct {
 	// Status is the Juju-level status of the workload.
 	Status Status
 
+	// Tags is the set of tags associated with the workload.
+	Tags []string
+
 	// Details is the information about the workload which the plugin provided.
 	Details Details
 }
