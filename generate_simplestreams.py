@@ -68,6 +68,7 @@ class FileNamer:
 
 def generate_index(trees, updated, namer):
     index = {"index": {}, 'format': 'index:1.0', 'updated': updated}
+    not_copied_up = ['content_id']
     for content_id, content in trees.items():
         index['index'][content_id] = {
             'products': list(content['products'].keys()),
@@ -84,7 +85,6 @@ def write_streams(out_d, trees, updated, namer=None):
         namer = FileNamer
     index = generate_index(trees, updated, namer)
     to_write = [(namer.get_index_path(), index,)]
-    not_copied_up = ['content_id']
     for content_id in trees:
         util.products_condense(trees[content_id],
                                sticky=['path', 'sha256', 'md5', 'size'])

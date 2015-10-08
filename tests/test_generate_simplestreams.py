@@ -173,8 +173,7 @@ class TestGenerateIndex(TestCase):
             'bar': {'products': {'prodbar': {}}},
             'baz': {'products': {'prodbaz': {}}},
             }, self.updated, FakeNamer)
-        self.assertEqual(
-                {
+        self.assertEqual({
             'format': 'index:1.0', 'updated': self.updated, 'index': {
                 'bar': {
                     'path': 'bar.json',
@@ -199,7 +198,7 @@ class TestWriteStreams(TestCase):
             self.assertEqual(['foo.json'], os.listdir(out_dir))
             self.assertEqual([os.path.join(out_dir, 'foo.json')], filenames)
         self.assertEqual(generate_index({}, self.updated, FakeNamer),
-            index_json)
+                         index_json)
 
     def test_two_content(self):
         trees = {
