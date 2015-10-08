@@ -39,6 +39,12 @@ func (s *imageURLSuite) TestImageDownloadURL(c *gc.C) {
 	c.Assert(imageDownloadURL, gc.Equals, "test://cloud-images/trusty-released-amd64-root.tar.gz")
 }
 
+func (s *imageURLSuite) TestImageDownloadURLOtherBase(c *gc.C) {
+	imageDownloadURL, err := container.ImageDownloadURL(instance.LXC, "trusty", "amd64", "other://cloud-images")
+	c.Assert(err, gc.IsNil)
+	c.Assert(imageDownloadURL, gc.Equals, "other://cloud-images/trusty-released-amd64-root.tar.gz")
+}
+
 func (s *imageURLSuite) TestImageDownloadURLUnsupportedContainer(c *gc.C) {
 	_, err := container.ImageDownloadURL(instance.KVM, "trusty", "amd64", "")
 	c.Assert(err, gc.ErrorMatches, "unsupported container .*")
