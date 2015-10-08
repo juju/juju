@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -58,7 +57,7 @@ func (s *backupsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, s
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(resp.StatusCode, gc.Equals, statusCode, gc.Commentf("body: %s", body))
-	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeJSON)
+	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeJSON)
 
 	var failure params.Error
 	err = json.Unmarshal(body, &failure)
@@ -221,7 +220,7 @@ func (s *backupsDownloadSuite) sendValidGet(c *gc.C) (resp *http.Response, archi
 	return s.authRequest(c, httpRequestParams{
 		method:      "GET",
 		url:         s.backupURL(c),
-		contentType: apihttp.CTypeJSON,
+		contentType: params.ContentTypeJSON,
 		jsonBody: params.BackupsDownloadArgs{
 			ID: meta.ID(),
 		},
@@ -242,8 +241,8 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 	meta := s.fake.Meta
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DigestSHA)+"="+meta.Checksum())
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeRaw)
+	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA)+"="+meta.Checksum())
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeRaw)
 }
 
 func (s *backupsDownloadSuite) TestBody(c *gc.C) {
@@ -282,7 +281,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 	metaResult := apiserverbackups.ResultFromMetadata(s.meta)
 	header := make(textproto.MIMEHeader)
 	header.Set("Content-Disposition", `form-data; name="metadata"`)
-	header.Set("Content-Type", apihttp.CTypeJSON)
+	header.Set("Content-Type", params.ContentTypeJSON)
 	part, err := writer.CreatePart(header)
 	c.Assert(err, jc.ErrorIsNil)
 	err = json.NewEncoder(part).Encode(metaResult)
@@ -314,7 +313,7 @@ func (s *backupsUploadSuite) TestResponse(c *gc.C) {
 	defer resp.Body.Close()
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeJSON)
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeJSON)
 }
 
 func (s *backupsUploadSuite) TestBody(c *gc.C) {

@@ -20,7 +20,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -81,7 +80,7 @@ func (s *toolsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, exp
 }
 
 func (s *toolsCommonSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
-	body := assertResponse(c, resp, expStatus, apihttp.CTypeJSON)
+	body := assertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))

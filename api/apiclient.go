@@ -92,6 +92,10 @@ type state struct {
 	// serverScheme is the URI scheme of the API Server
 	serverScheme string
 
+	// tlsConfig holds the TLS config appropriate for making SSL
+	// connections to the API endpoints.
+	tlsConfig *tls.Config
+
 	// certPool holds the cert pool that is used to authenticate the tls
 	// connections to the API.
 	certPool *x509.CertPool
@@ -119,22 +123,36 @@ func open(info *Info, opts DialOpts, loginFunc func(st *state, tag names.Tag, pw
 			return nil, errors.New("open should specifiy UseMacaroons or a username & password. Not both")
 		}
 	}
-	conn, err := connectWebsocket(info, opts)
+	conn, tlsConfig, err := connectWebsocket(info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
+	client.Start()
+
 	bakeryClient := opts.BakeryClient
 	if bakeryClient == nil {
 		bakeryClient = httpbakery.NewClient()
+	} else {
+		// Make a copy of the bakery client and its
+		// HTTP client
+		c := *opts.BakeryClient
+		bakeryClient = &c
+		httpc := *bakeryClient.Client
+		bakeryClient.Client = &httpc
+	}
+	apiHost := conn.Config().Location.Host
+	bakeryClient.Client.Transport = &hostSwitchingTransport{
+		primaryHost: apiHost,
+		primary:     utils.NewHttpTLSTransport(tlsConfig),
+		fallback:    http.DefaultTransport,
 	}
 
-	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
-	client.Start()
 	st := &state{
 		client: client,
 		conn:   conn,
-		addr:   conn.Config().Location.Host,
+		addr:   apiHost,
 		cookieURL: &url.URL{
 			Scheme: "https",
 			Host:   conn.Config().Location.Host,
@@ -147,7 +165,7 @@ func open(info *Info, opts DialOpts, loginFunc func(st *state, tag names.Tag, pw
 		tag:          tagToString(info.Tag),
 		password:     info.Password,
 		nonce:        info.Nonce,
-		certPool:     conn.Config().TlsConfig.RootCAs,
+		tlsConfig:    tlsConfig,
 		bakeryClient: bakeryClient,
 	}
 	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
@@ -160,6 +178,26 @@ func open(info *Info, opts DialOpts, loginFunc func(st *state, tag names.Tag, pw
 	st.closed = make(chan struct{})
 	go st.heartbeatMonitor()
 	return st, nil
+}
+
+// hostSwitchingTransport provides an http.RoundTripper
+// that chooses an actual RoundTripper to use
+// depending on the destination host.
+//
+// This makes it possible to use a different set of root
+// CAs for the API and all other hosts.
+type hostSwitchingTransport struct {
+	primaryHost string
+	primary     http.RoundTripper
+	fallback    http.RoundTripper
+}
+
+// RoundTrip implements http.RoundTripper.RoundTrip.
+func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Host == t.primaryHost {
+		return t.primary.RoundTrip(req)
+	}
+	return t.fallback.RoundTrip(req)
 }
 
 // OpenWithVersion uses an explicit version of the Admin facade to call Login
@@ -184,15 +222,16 @@ func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, e
 // API websocket on the API server using Info. If multiple API addresses
 // are provided in Info they will be tried concurrently - the first successful
 // connection wins.
-func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, error) {
+//
+// It also returns the TLS configuration that it has derived from the Info.
+func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, error) {
 	if len(info.Addrs) == 0 {
-		return nil, errors.New("no API addresses to connect to")
+		return nil, nil, errors.New("no API addresses to connect to")
 	}
-	pool, err := CreateCertPool(info.CACert)
+	tlsConfig, err := tlsConfigForCACert(info.CACert)
 	if err != nil {
-		return nil, errors.Annotate(err, "cert pool creation failed")
+		return nil, nil, errors.Annotatef(err, "cannot make TLS configuration")
 	}
-
 	path := "/"
 	if info.EnvironTag.Id() != "" {
 		path = apiPath(info.EnvironTag, "/api")
@@ -202,12 +241,12 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 	for _, addr := range info.Addrs {
-		err := dialWebsocket(addr, path, opts, pool, try)
+		err := dialWebsocket(addr, path, opts, tlsConfig, try)
 		if err == parallel.ErrStopped {
 			break
 		}
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		select {
 		case <-time.After(opts.DialAddressInterval):
@@ -217,11 +256,24 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, error) {
 	try.Close()
 	result, err := try.Result()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
-	return conn, nil
+	return conn, tlsConfig, nil
+}
+
+func tlsConfigForCACert(caCert string) (*tls.Config, error) {
+	certPool, err := CreateCertPool(caCert)
+	if err != nil {
+		return nil, errors.Annotate(err, "cert pool creation failed")
+	}
+	return &tls.Config{
+		RootCAs: certPool,
+		// We want to be specific here (rather than just using "anything".
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		ServerName: "juju-apiserver",
+	}, nil
 }
 
 // ConnectStream implements Connection.ConnectStream.
@@ -284,10 +336,7 @@ func (st *state) connectStream(path string, attrs url.Values) (base.Stream, erro
 	// connections by default.
 	st.addCookiesToHeader(cfg.Header)
 
-	cfg.TlsConfig = &tls.Config{
-		RootCAs:    st.certPool,
-		ServerName: "juju-apiserver",
-	}
+	cfg.TlsConfig = st.tlsConfig
 	connection, err := websocketDialConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -296,29 +345,6 @@ func (st *state) connectStream(path string, attrs url.Values) (base.Stream, erro
 		return nil, errors.Trace(err)
 	}
 	return connection, nil
-}
-
-// bakeryError translates any discharge-required error into
-// an error value that the httpbakery package will recognize.
-// Other errors are returned unchanged.
-func bakeryError(err error) error {
-	if params.ErrCode(err) != params.CodeDischargeRequired {
-		return err
-	}
-	errResp := errors.Cause(err).(*params.Error)
-	if errResp.Info == nil {
-		return errors.Annotatef(err, "no error info found in discharge-required response error")
-	}
-	// It's a discharge-required error, so make an appropriate httpbakery
-	// error from it.
-	return &httpbakery.Error{
-		Message: err.Error(),
-		Code:    httpbakery.ErrDischargeRequired,
-		Info: &httpbakery.ErrorInfo{
-			Macaroon:     errResp.Info.Macaroon,
-			MacaroonPath: errResp.Info.MacaroonPath,
-		},
-	}
 }
 
 // readInitialStreamError reads the initial error response
@@ -408,15 +434,15 @@ func tagToString(tag names.Tag) string {
 	return tag.String()
 }
 
-func dialWebsocket(addr, path string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
-	cfg, err := setUpWebsocket(addr, path, rootCAs)
+func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try *parallel.Try) error {
+	cfg, err := setUpWebsocket(addr, path, tlsConfig)
 	if err != nil {
 		return err
 	}
 	return try.Start(newWebsocketDialer(cfg, opts))
 }
 
-func setUpWebsocket(addr, path string, rootCAs *x509.CertPool) (*websocket.Config, error) {
+func setUpWebsocket(addr, path string, tlsConfig *tls.Config) (*websocket.Config, error) {
 	// origin is required by the WebSocket API, used for "origin policy"
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
@@ -425,10 +451,7 @@ func setUpWebsocket(addr, path string, rootCAs *x509.CertPool) (*websocket.Confi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg.TlsConfig = &tls.Config{
-		RootCAs:    rootCAs,
-		ServerName: "juju-apiserver",
-	}
+	cfg.TlsConfig = tlsConfig
 	return cfg, nil
 }
 

@@ -16,7 +16,6 @@ var (
 	SlideAddressToFront   = slideAddressToFront
 	BestVersion           = bestVersion
 	FacadeVersions        = &facadeVersions
-	NewHTTPClient         = &newHTTPClient
 	ConnectWebsocket      = connectWebsocket
 )
 

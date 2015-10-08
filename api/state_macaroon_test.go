@@ -6,7 +6,7 @@ package api_test
 import (
 	"net"
 	"net/http"
-	"net/http/cookiejar"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -28,11 +28,11 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	jujutesting.JujuConnSuite
-	discharger   *bakerytest.Discharger
-	checker      func(string, string) ([]checkers.Caveat, error)
-	srv          *apiserver.Server
-	client       api.Connection
-	bakeryClient *httpbakery.Client
+	discharger *bakerytest.Discharger
+	checker    func(string, string) ([]checkers.Caveat, error)
+	srv        *apiserver.Server
+	client     api.Connection
+	cookieJar  *clearableCookieJar
 }
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
@@ -44,7 +44,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	}
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.client, s.bakeryClient, s.srv = s.newServer(c)
+	s.client, s.cookieJar, s.srv = s.newServer(c)
 	s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "test",
 	})
@@ -144,7 +144,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 
 	// Then delete all the cookies by deleting the cookie jar
 	// and try again. The login should fail.
-	s.bakeryClient.Client.Jar, _ = cookiejar.New(nil)
+	s.cookieJar.clear()
 
 	conn, err = s.client.ConnectStream("/log", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: no discharge currently allowed`)
@@ -152,7 +152,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 }
 
 // newServer returns a new running API server.
-func (s *macaroonLoginSuite) newServer(c *gc.C) (api.Connection, *httpbakery.Client, *apiserver.Server) {
+func (s *macaroonLoginSuite) newServer(c *gc.C) (api.Connection, *clearableCookieJar, *apiserver.Server) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
@@ -163,6 +163,8 @@ func (s *macaroonLoginSuite) newServer(c *gc.C) (api.Connection, *httpbakery.Cli
 	c.Assert(err, jc.ErrorIsNil)
 
 	bakeryClient := httpbakery.NewClient()
+	jar := &clearableCookieJar{bakeryClient.Client.Jar}
+	bakeryClient.Client.Jar = jar
 
 	client, err := api.Open(&api.Info{
 		Addrs:      []string{srv.Addr().String()},
@@ -173,5 +175,20 @@ func (s *macaroonLoginSuite) newServer(c *gc.C) (api.Connection, *httpbakery.Cli
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return client, bakeryClient, srv
+	return client, jar, srv
+}
+
+type clearableCookieJar struct {
+	http.CookieJar
+}
+
+func (jar *clearableCookieJar) clear() {
+	jar.CookieJar = nil
+}
+
+func (jar *clearableCookieJar) Cookies(u *url.URL) []*http.Cookie {
+	if jar.CookieJar == nil {
+		return nil
+	}
+	return jar.CookieJar.Cookies(u)
 }

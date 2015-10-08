@@ -614,6 +614,10 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
+	httpClient, err := c.st.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// Package the charm for uploading.
 	var archive *os.File
 	switch ch := ch.(type) {
@@ -640,70 +644,21 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	endPoint, err := c.st.apiEndpoint("/charms", "series="+curl.Series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// wrap archive in a noopCloser to prevent the underlying transport closing
-	// the request body. This is neccessary to prevent a data race on the underlying
-	// *os.File as the http transport _may_ issue Close once the body is sent, or it
-	// may not if there is an error.
-	noop := &noopCloser{archive}
-	req, err := http.NewRequest("POST", endPoint.String(), noop)
+	req, err := http.NewRequest("POST", "/charms?series="+curl.Series, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
-	req.SetBasicAuth(c.st.tag, c.st.password)
 	req.Header.Set("Content-Type", "application/zip")
 
-	// Send the request.
-
-	// BUG(dimitern) 2013-12-17 bug #1261780
-	// Due to issues with go 1.1.2, fixed later, we cannot use a
-	// regular TLS client with the CACert here, because we get "x509:
-	// cannot validate certificate for 127.0.0.1 because it doesn't
-	// contain any IP SANs". Once we use a later go version, this
-	// should be changed to connect to the API server with a regular
-	// HTTP+TLS enabled client, using the CACert (possily cached, like
-	// the tag and password) passed in api.Open()'s info argument.
-	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	var resp params.CharmsResponse
+	if err := httpClient.Do(req, archive, &resp); err != nil {
+		return nil, errors.Trace(err)
+	}
+	curl, err = charm.ParseURL(resp.CharmURL)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot upload charm")
+		return nil, errors.Annotatef(err, "bad charm URL in response")
 	}
-	defer resp.Body.Close()
-
-	// Now parse the response & return.
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot read charm upload response")
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("charm upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
-	}
-
-	var jsonResponse params.CharmsResponse
-	if err := json.Unmarshal(body, &jsonResponse); err != nil {
-		return nil, errors.Annotate(err, "cannot unmarshal upload response")
-	}
-	if jsonResponse.Error != "" {
-		return nil, errors.Errorf("error uploading charm: %v", jsonResponse.Error)
-	}
-	return charm.MustParseURL(jsonResponse.CharmURL), nil
-}
-
-// noopCloser implements io.ReadCloser, but does not close the underlying io.ReadCloser.
-// This is necessary to ensure the ownership of io.ReadCloser implementations that are
-// passed to the net/http Transport which may (under some circumstances), call Close on
-// the body passed to a request.
-type noopCloser struct {
-	io.ReadCloser
-}
-
-func (n *noopCloser) Close() error {
-
-	// do not propogate the Close method to the underlying ReadCloser.
-	return nil
+	return curl, nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
@@ -764,12 +719,12 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		strings.Join(additionalSeries, ","),
 	)
 
-	endPoint, err := c.st.apiEndpoint("/tools", query)
+	endpoint, err := c.st.apiEndpoint("/tools", query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	req, err := http.NewRequest("POST", endPoint.String(), r)
+	req, err := http.NewRequest("POST", endpoint.String(), r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}

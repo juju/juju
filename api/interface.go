@@ -4,8 +4,6 @@
 package api
 
 import (
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/juju/names"
@@ -93,6 +91,9 @@ type DialOpts struct {
 
 	// BakeryClient is the httpbakery Client, which
 	// is used to do the macaroon-based authorization.
+	// This and the *http.Client inside it are copied
+	// by Open, and any RoundTripper field
+	// the HTTP client is ignored.
 	BakeryClient *httpbakery.Client
 }
 
@@ -136,12 +137,6 @@ type Connection interface {
 	// environment inside that state server).
 	// This could be defined on base.APICaller.
 	ServerTag() (names.EnvironTag, error)
-
-	// These HTTP methods should probably be separated out somehow.
-	NewHTTPClient() *http.Client
-	NewHTTPRequest(method, path string) (*http.Request, error)
-	SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error)
-	SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error)
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
