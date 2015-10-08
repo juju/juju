@@ -115,6 +115,9 @@ type commandRegistry interface {
 	RegisterDeprecated(subcmd cmd.Command, check cmd.DeprecationCheck)
 }
 
+// TODO(ericsnow) Factor out the commands and aliases into a static
+// registry that can be passed to the supercommand separately.
+
 // registerCommands registers commands in the specified registry.
 // EnvironCommands must be wrapped with an envCmdWrapper.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
@@ -231,6 +234,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.RegisterSuperAlias("login", "system", "login", nil)
 		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
 		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
+	}
+
+	// Commands registered elsewhere.
+	for _, item := range registeredCommands {
+		item.apply(r, ctx)
 	}
 }
 
