@@ -86,7 +86,6 @@ def write_streams(out_d, trees, updated, namer=None):
     to_write = [(namer.get_index_path(), index,)]
     not_copied_up = ['content_id']
     for content_id in trees:
-        import pdb; pdb.set_trace()
         util.products_condense(trees[content_id],
                                sticky=['path', 'sha256', 'md5', 'size'])
         content = trees[content_id]
