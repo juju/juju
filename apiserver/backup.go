@@ -14,7 +14,7 @@ import (
 
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/common"
-	apihttp "github.com/juju/juju/apiserver/http"
+	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -77,7 +77,7 @@ func (h *backupHandler) download(backups backups.Backups, resp http.ResponseWrit
 	}
 	defer archive.Close()
 
-	err = h.sendFile(archive, meta.Checksum(), apihttp.DigestSHA, resp)
+	err = h.sendFile(archive, meta.Checksum(), resp)
 	return args.ID, err
 }
 
@@ -87,7 +87,7 @@ func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter
 	defer req.Body.Close()
 
 	var metaResult params.BackupsMetadataResult
-	archive, err := apihttp.ExtractRequestAttachment(req, &metaResult)
+	archive, err := httpattachment.Get(req, &metaResult)
 	if err != nil {
 		return "", err
 	}
@@ -133,7 +133,7 @@ func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, er
 }
 
 func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownloadArgs, error) {
-	body, err := h.read(req, apihttp.CTypeJSON)
+	body, err := h.read(req, params.ContentTypeJSON)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,10 +146,10 @@ func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownload
 	return &args, nil
 }
 
-func (h *backupHandler) sendFile(file io.Reader, checksum string, algorithm apihttp.DigestAlgorithm, resp http.ResponseWriter) error {
+func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.ResponseWriter) error {
 	// We don't set the Content-Length header, leaving it at -1.
-	resp.Header().Set("Content-Type", apihttp.CTypeRaw)
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", algorithm, checksum))
+	resp.Header().Set("Content-Type", params.ContentTypeRaw)
+	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA, checksum))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, file); err != nil {
 		return errors.Annotate(err, "while streaming archive")

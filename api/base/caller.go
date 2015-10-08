@@ -7,10 +7,15 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/juju/httprequest"
 	"github.com/juju/names"
 )
 
 // APICaller is implemented by the client-facing State object.
+// It defines the lowest level of API calls and is used by
+// the various API implementations to actually make
+// the calls to the API. It should not be used outside
+// of tests or the api/* hierarchy.
 type APICaller interface {
 	// APICall makes a call to the API server with the given object type,
 	// id, request and parameters. The response is filled in with the
@@ -24,6 +29,14 @@ type APICaller interface {
 	// EnvironTag returns the tag of the environment the client is
 	// connected to.
 	EnvironTag() (names.EnvironTag, error)
+
+	// HTTPClient returns an httprequest.Client that can be used
+	// to make HTTP requests to the API. URLs passed to the client
+	// will be made relative to the API host and the current environment.
+	//
+	// Note that the URLs in HTTP requests passed to the Client.Do
+	// method should not include a host part.
+	HTTPClient() (*httprequest.Client, error)
 
 	StreamConnector
 }

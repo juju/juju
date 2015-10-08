@@ -16,7 +16,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver/common"
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -177,7 +176,7 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 	if statusCode == http.StatusUnauthorized {
 		w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
 	}
-	w.Header().Set("Content-Type", apihttp.CTypeJSON)
+	w.Header().Set("Content-Type", params.ContentTypeJSON)
 	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
 	w.WriteHeader(statusCode)
 	w.Write(body)

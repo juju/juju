@@ -20,7 +20,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -212,7 +211,7 @@ func (s *imageSuite) TestDownloadFetchNoSHA256File(c *gc.C) {
 
 func (s *imageSuite) testDownload(c *gc.C, resp *http.Response) []byte {
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DigestSHA)+"="+testImageChecksum)
+	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA)+"="+testImageChecksum)
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/x-tar-gz")
 	c.Check(resp.Header.Get("Content-Length"), gc.Equals, fmt.Sprintf("%v", len(testImageData)))
 

@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -153,7 +154,10 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	// facade call, we set up a fake endpoint to test.
 	defer fakeAPIEndpoint(c, client, envEndpoint(c, s.APIState, "charms"), "POST",
 		func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			httprequest.WriteJSON(w, http.StatusMethodNotAllowed, &params.CharmsResponse{
+				Error:     "the POST method is not allowed",
+				ErrorCode: params.CodeMethodNotAllowed,
+			})
 		},
 	).Close()
 
@@ -163,7 +167,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, "charm upload failed: 405 \\(Method Not Allowed\\)")
+	c.Assert(err, gc.ErrorMatches, `POST http://.*/environment/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {

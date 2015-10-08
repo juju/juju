@@ -22,7 +22,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -77,7 +76,7 @@ func (s *charmsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, ex
 }
 
 func (s *charmsCommonSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.CharmsResponse {
-	body := assertResponse(c, resp, expStatus, apihttp.CTypeJSON)
+	body := assertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var charmResponse params.CharmsResponse
 	err := json.Unmarshal(body, &charmResponse)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
@@ -467,7 +466,7 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	expectedFiles := manifest.SortedValues()
 	s.assertGetFileListResponse(c, resp, expectedFiles)
 	ctype := resp.Header.Get("content-type")
-	c.Assert(ctype, gc.Equals, apihttp.CTypeJSON)
+	c.Assert(ctype, gc.Equals, params.ContentTypeJSON)
 }
 
 func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
