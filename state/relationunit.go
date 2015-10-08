@@ -15,6 +15,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -38,8 +40,8 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
 }
 
-// PrivateAddress returns the private address of the unit and whether it is valid.
-func (ru *RelationUnit) PrivateAddress() (string, bool) {
+// PrivateAddress returns the private address of the unit.
+func (ru *RelationUnit) PrivateAddress() (network.Address, error) {
 	return ru.unit.PrivateAddress()
 }
 
@@ -113,7 +115,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
-		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
+		ops = append(ops, createSettingsOp(ruKey, settings))
 	} else {
 		var rop txn.Op
 		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, settings)

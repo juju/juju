@@ -4,7 +4,6 @@
 package storagecommon_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 )
 
@@ -22,56 +19,24 @@ type volumesSuite struct{}
 
 var _ = gc.Suite(&volumesSuite{})
 
-type fakeVolume struct {
-	state.Volume
-	tag         names.Tag
-	provisioned bool
-}
-
-func (v *fakeVolume) Tag() names.Tag {
-	return v.tag
-}
-
-func (v *fakeVolume) Params() (state.VolumeParams, bool) {
-	if v.provisioned {
-		return state.VolumeParams{}, false
-	}
-	return state.VolumeParams{
-		Pool: "loop",
-		Size: 1024,
-	}, true
-}
-
-func (v *fakeVolume) Info() (state.VolumeInfo, error) {
-	if !v.provisioned {
-		return state.VolumeInfo{}, errors.NotProvisionedf("volume %v", v.tag.Id())
-	}
-	return state.VolumeInfo{
-		Pool: "loop",
-		Size: 1024,
-	}, nil
-}
-
-type fakePoolManager struct {
-	poolmanager.PoolManager
-}
-
-func (pm *fakePoolManager) Get(name string) (*storage.Config, error) {
-	return nil, errors.NotFoundf("pool")
-}
-
 func (s *volumesSuite) TestVolumeParams(c *gc.C) {
-	s.testVolumeParams(c, false)
+	s.testVolumeParams(c, &state.VolumeParams{
+		Pool: "loop",
+		Size: 1024,
+	}, nil)
 }
 
 func (s *volumesSuite) TestVolumeParamsAlreadyProvisioned(c *gc.C) {
-	s.testVolumeParams(c, false)
+	s.testVolumeParams(c, nil, &state.VolumeInfo{
+		Pool: "loop",
+		Size: 1024,
+	})
 }
 
-func (*volumesSuite) testVolumeParams(c *gc.C, provisioned bool) {
+func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams, info *state.VolumeInfo) {
 	tag := names.NewVolumeTag("100")
 	p, err := storagecommon.VolumeParams(
-		&fakeVolume{tag: tag, provisioned: provisioned},
+		&fakeVolume{tag: tag, params: volumeParams, info: info},
 		nil, // StorageInstance
 		testing.CustomEnvironConfig(c, testing.Attrs{
 			"resource-tags": "a=b c=",
@@ -96,7 +61,9 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 	storageTag := names.NewStorageTag("mystore/0")
 	unitTag := names.NewUnitTag("mysql/123")
 	p, err := storagecommon.VolumeParams(
-		&fakeVolume{tag: volumeTag},
+		&fakeVolume{tag: volumeTag, params: &state.VolumeParams{
+			Pool: "loop", Size: 1024,
+		}},
 		&fakeStorageInstance{tag: storageTag, owner: unitTag},
 		testing.CustomEnvironConfig(c, nil),
 		&fakePoolManager{},

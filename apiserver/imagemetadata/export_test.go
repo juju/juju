@@ -6,7 +6,5 @@ package imagemetadata
 var (
 	CreateAPI               = createAPI
 	ParseMetadataFromParams = parseMetadataFromParams
-	VersionSeries           = versionSeries
-	SeriesVersion           = &seriesVersion
 	ProcessErrors           = processErrors
 )

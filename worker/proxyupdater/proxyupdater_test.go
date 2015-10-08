@@ -15,12 +15,12 @@ import (
 	"github.com/juju/utils/packaging/commands"
 	pacconfig "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/series"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"

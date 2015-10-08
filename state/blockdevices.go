@@ -4,6 +4,8 @@
 package state
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
@@ -31,15 +33,16 @@ type blockDevicesDoc struct {
 
 // BlockDeviceInfo describes information about a block device.
 type BlockDeviceInfo struct {
-	DeviceName     string `bson:"devicename"`
-	Label          string `bson:"label,omitempty"`
-	UUID           string `bson:"uuid,omitempty"`
-	HardwareId     string `bson:"hardwareid,omitempty"`
-	BusAddress     string `bson:"busaddress,omitempty"`
-	Size           uint64 `bson:"size"`
-	FilesystemType string `bson:"fstype,omitempty"`
-	InUse          bool   `bson:"inuse"`
-	MountPoint     string `bson:"mountpoint,omitempty"`
+	DeviceName     string   `bson:"devicename"`
+	DeviceLinks    []string `bson:"devicelinks,omitempty"`
+	Label          string   `bson:"label,omitempty"`
+	UUID           string   `bson:"uuid,omitempty"`
+	HardwareId     string   `bson:"hardwareid,omitempty"`
+	BusAddress     string   `bson:"busaddress,omitempty"`
+	Size           uint64   `bson:"size"`
+	FilesystemType string   `bson:"fstype,omitempty"`
+	InUse          bool     `bson:"inuse"`
+	MountPoint     string   `bson:"mountpoint,omitempty"`
 }
 
 // WatchBlockDevices returns a new NotifyWatcher watching for
@@ -118,7 +121,7 @@ func blockDevicesChanged(oldDevices, newDevices []BlockDeviceInfo) bool {
 	for _, o := range oldDevices {
 		var found bool
 		for _, n := range newDevices {
-			if o == n {
+			if reflect.DeepEqual(o, n) {
 				found = true
 				break
 			}

@@ -337,7 +337,7 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 
 func opClientServiceDeploy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
-	if err.Error() == `entity URL has invalid schema: "mad:bad/url-1"` {
+	if err.Error() == `charm or bundle URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
 	}
 	return func() {}, err
@@ -345,7 +345,7 @@ func opClientServiceDeploy(c *gc.C, st api.Connection, mst *state.State) (func()
 
 func opClientServiceDeployWithNetworks(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeployWithNetworks("mad:bad/url-1", "x", 1, "", constraints.Value{}, "", nil)
-	if err.Error() == `entity URL has invalid schema: "mad:bad/url-1"` {
+	if err.Error() == `charm or bundle URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
 	}
 	return func() {}, err

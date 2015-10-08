@@ -13,7 +13,6 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -139,13 +138,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 `[1:]
 	cloudcfg.AddBootTextFile("/etc/network/if-up.d/joyent", ifupScript, 0755)
 
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
-	}
-
-	// Unzipping as Joyent API expects it as string
-	userData, err = utils.Gunzip(userData)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, JoyentRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}

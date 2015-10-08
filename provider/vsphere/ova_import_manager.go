@@ -7,7 +7,6 @@ package vsphere
 
 import (
 	"archive/tar"
-	"encoding/base64"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -76,7 +75,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		EntityName: instSpec.machineID,
 		PropertyMapping: []types.KeyValue{
 			types.KeyValue{Key: "public-keys", Value: instSpec.sshKey},
-			types.KeyValue{Key: "user-data", Value: base64.StdEncoding.EncodeToString(instSpec.userData)},
+			types.KeyValue{Key: "user-data", Value: string(instSpec.userData)},
 		},
 	}
 

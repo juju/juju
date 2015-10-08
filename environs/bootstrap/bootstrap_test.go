@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"

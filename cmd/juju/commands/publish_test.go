@@ -114,7 +114,7 @@ func (s *PublishSuite) TestFrom(c *gc.C) {
 
 func (s *PublishSuite) TestMissingSeries(c *gc.C) {
 	_, err := s.runPublish(c, "cs:wordpress")
-	c.Assert(err, gc.ErrorMatches, `cannot infer entity URL for "cs:wordpress": entity url series is not resolved`)
+	c.Assert(err, gc.ErrorMatches, `cannot infer charm or bundle URL for "cs:wordpress": charm or bundle url series is not resolved`)
 }
 
 func (s *PublishSuite) TestNotClean(c *gc.C) {

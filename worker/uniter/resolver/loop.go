@@ -5,7 +5,6 @@ package resolver
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"launchpad.net/tomb"
 
@@ -20,8 +19,6 @@ type LoopConfig struct {
 	Watcher        remotestate.Watcher
 	Executor       operation.Executor
 	Factory        operation.Factory
-	CharmURL       *charm.URL
-	Conflicted     bool
 	Dying          <-chan struct{}
 	OnIdle         func() error
 	CharmDirLocker charmdir.Locker
@@ -46,19 +43,8 @@ type LoopConfig struct {
 //    state has changed again
 //  - if the resolver, onIdle, or executor return some other
 //    error, the loop will exit immediately
-//
-// Loop will return the last LocalState acted upon, regardless of whether
-// an error is returned. This can be used, for example, to obtain the
-// charm URL being upgraded to.
-func Loop(cfg LoopConfig) (LocalState, error) {
-	rf := &resolverOpFactory{
-		Factory: cfg.Factory,
-		LocalState: LocalState{
-			CharmURL:         cfg.CharmURL,
-			Conflicted:       cfg.Conflicted,
-			CompletedActions: map[string]struct{}{},
-		},
-	}
+func Loop(cfg LoopConfig, localState *LocalState) error {
+	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
 	updateCharmDir(cfg.Executor.State(), cfg.CharmDirLocker)
@@ -67,17 +53,17 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 		rf.RemoteState = cfg.Watcher.Snapshot()
 		rf.LocalState.State = cfg.Executor.State()
 
-		op, err := cfg.Resolver.NextOp(rf.LocalState, rf.RemoteState, rf)
+		op, err := cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
 		for err == nil {
 			logger.Tracef("running op: %v", op)
 			if err := cfg.Executor.Run(op); err != nil {
-				return rf.LocalState, errors.Trace(err)
+				return errors.Trace(err)
 			}
 			// Refresh snapshot, in case remote state
 			// changed between operations.
 			rf.RemoteState = cfg.Watcher.Snapshot()
 			rf.LocalState.State = cfg.Executor.State()
-			op, err = cfg.Resolver.NextOp(rf.LocalState, rf.RemoteState, rf)
+			op, err = cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
 		}
 
 		updateCharmDir(rf.LocalState.State, cfg.CharmDirLocker)
@@ -90,16 +76,16 @@ func Loop(cfg LoopConfig) (LocalState, error) {
 		case ErrNoOperation:
 			if cfg.OnIdle != nil {
 				if err := cfg.OnIdle(); err != nil {
-					return rf.LocalState, errors.Trace(err)
+					return errors.Trace(err)
 				}
 			}
 		default:
-			return rf.LocalState, err
+			return err
 		}
 
 		select {
 		case <-cfg.Dying:
-			return rf.LocalState, tomb.ErrDying
+			return tomb.ErrDying
 		case <-cfg.Watcher.RemoteStateChanged():
 		}
 	}

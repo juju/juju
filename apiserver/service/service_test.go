@@ -387,7 +387,7 @@ func (s *serviceSuite) TestAddCharm(c *gc.C) {
 	client := s.APIState.Client()
 	// First test the sanity checks.
 	err := client.AddCharm(&charm.URL{Name: "nonsense"})
-	c.Assert(err, gc.ErrorMatches, `entity URL has invalid schema: ":nonsense-0"`)
+	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
 	err = client.AddCharm(charm.MustParseURL("cs:precise/wordpress"))

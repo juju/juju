@@ -32,7 +32,7 @@ func (s *ResolverOpFactorySuite) SetUpTest(c *gc.C) {
 
 func (s *ResolverOpFactorySuite) TestInitialState(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
-	c.Assert(f.LocalState, jc.DeepEquals, resolver.LocalState{})
+	c.Assert(f.LocalState, jc.DeepEquals, &resolver.LocalState{})
 	c.Assert(f.RemoteState, jc.DeepEquals, remotestate.Snapshot{})
 }
 

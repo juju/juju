@@ -429,7 +429,7 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	deployURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",

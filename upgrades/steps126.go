@@ -4,6 +4,7 @@
 package upgrades
 
 import (
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
@@ -16,10 +17,28 @@ func stepsFor126() []Step {
 func stateStepsFor126() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "add the version field to all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateSettingsSchema(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "add status to filesystem",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.AddFilesystemStatus(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "upgrade environment config",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				// TODO(axw) updateEnvironConfig should be
+				// called for all upgrades, to decouple this
+				// package from provider-specific upgrades.
+				st := context.State()
+				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
 			},
 		},
 	}

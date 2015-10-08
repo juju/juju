@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
-	"github.com/juju/juju/juju/series"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -322,7 +322,7 @@ func (context *upgradeContext) uploadTools() (err error) {
 
 	builtTools, err := sync.BuildToolsTarball(&context.chosen, "upgrade")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer os.RemoveAll(builtTools.Dir)
 
@@ -331,13 +331,17 @@ func (context *upgradeContext) uploadTools() (err error) {
 	logger.Infof("uploading tools %v (%dkB) to Juju state server", builtTools.Version, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer f.Close()
-	additionalSeries := series.OSSupportedSeries(builtTools.Version.OS)
+	os, err := series.GetOSFromSeries(builtTools.Version.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	additionalSeries := series.OSSupportedSeries(os)
 	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	context.tools = coretools.List{uploaded}
 	return nil

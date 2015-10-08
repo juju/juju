@@ -339,7 +339,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 // getUnitAddresses returns the public and private addresses on a given unit.
 // As of 1.18, the addresses are stored on the assigned machine but we retain
 // this approach for backwards compatibility.
-func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress string, err error) {
+func getUnitAddresses(st *State, unitName string) (string, string, error) {
 	u, err := st.Unit(unitName)
 	if errors.IsNotFound(err) {
 		// Not found, so there won't be any addresses.
@@ -347,9 +347,15 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 	} else if err != nil {
 		return "", "", err
 	}
-	publicAddress, _ = u.PublicAddress()
-	privateAddress, _ = u.PrivateAddress()
-	return publicAddress, privateAddress, nil
+	publicAddress, err := u.PublicAddress()
+	if err != nil {
+		logger.Warningf("getting a public address for unit %q failed: %q", u.Name(), err)
+	}
+	privateAddress, err := u.PrivateAddress()
+	if err != nil {
+		logger.Warningf("getting a private address for unit %q failed: %q", u.Name(), err)
+	}
+	return publicAddress.Value, privateAddress.Value, nil
 }
 
 func (u *backingUnit) removed(store *multiwatcherStore, envUUID, id string, _ *State) error {
@@ -445,11 +451,11 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 	}
 	if needConfig {
-		var err error
-		info.Config, _, err = readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
+		doc, err := readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
+		info.Config = doc.Settings
 	}
 	store.Update(info)
 	return nil
@@ -755,7 +761,7 @@ func (c *backingConstraints) mongoId() string {
 	panic("cannot find mongo id from constraints document")
 }
 
-type backingSettings map[string]interface{}
+type backingSettings settingsDoc
 
 func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string) error {
 	parentID, url, ok := backingEntityIdForSettingsKey(st.EnvironUUID(), id)
@@ -777,8 +783,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 			break
 		}
 		newInfo := *info
-		cleanSettingsMap(*s)
-		newInfo.Config = *s
+		newInfo.Config = s.Settings
 		info0 = &newInfo
 	default:
 		return nil
@@ -799,8 +804,7 @@ func (s *backingSettings) removed(store *multiwatcherStore, envUUID, id string, 
 			return nil
 		}
 		newInfo := *info
-		cleanSettingsMap(*s)
-		newInfo.Config = *s
+		newInfo.Config = s.Settings
 		parent = &newInfo
 		store.Update(parent)
 	}

@@ -4,7 +4,10 @@
 package storage_test
 
 import (
+	"path/filepath"
+
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -134,6 +137,60 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 	}
 	expected.LegacyAttachments[0].Info = params.VolumeAttachmentInfo{
 		DeviceName: "xvdf1",
+		ReadOnly:   true,
+	}
+	found, err := s.api.ListVolumes(params.VolumeFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0], jc.DeepEquals, expected)
+}
+
+func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
+	s.storageInstance.kind = state.StorageKindBlock
+	s.volume.info = &state.VolumeInfo{}
+	s.volumeAttachment.info = &state.VolumeAttachmentInfo{
+		ReadOnly: true,
+	}
+	expected := s.expectedVolumeDetailsResult()
+	expected.Details.Storage.Kind = params.StorageKindBlock
+	expected.Details.Storage.Status.Status = params.StatusAttached
+	expected.Details.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
+		ReadOnly: true,
+	}
+	expected.LegacyAttachments[0].Info = params.VolumeAttachmentInfo{
+		ReadOnly: true,
+	}
+	found, err := s.api.ListVolumes(params.VolumeFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0], jc.DeepEquals, expected)
+}
+
+func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
+	s.state.blockDevices = func(names.MachineTag) ([]state.BlockDeviceInfo, error) {
+		return []state.BlockDeviceInfo{{
+			BusAddress: "bus-addr",
+			DeviceName: "sdd",
+		}}, nil
+	}
+	s.storageInstance.kind = state.StorageKindBlock
+	s.volume.info = &state.VolumeInfo{}
+	s.volumeAttachment.info = &state.VolumeAttachmentInfo{
+		BusAddress: "bus-addr",
+		ReadOnly:   true,
+	}
+	expected := s.expectedVolumeDetailsResult()
+	expected.Details.Storage.Kind = params.StorageKindBlock
+	expected.Details.Storage.Status.Status = params.StatusAttached
+	storageAttachmentDetails := expected.Details.Storage.Attachments["unit-mysql-0"]
+	storageAttachmentDetails.Location = filepath.FromSlash("/dev/sdd")
+	expected.Details.Storage.Attachments["unit-mysql-0"] = storageAttachmentDetails
+	expected.Details.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentInfo{
+		BusAddress: "bus-addr",
+		ReadOnly:   true,
+	}
+	expected.LegacyAttachments[0].Info = params.VolumeAttachmentInfo{
+		BusAddress: "bus-addr",
 		ReadOnly:   true,
 	}
 	found, err := s.api.ListVolumes(params.VolumeFilter{})
