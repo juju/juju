@@ -291,7 +291,19 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 				"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
 				"printf '%s\\n' '5432' > '/var/lib/juju/nonce.txt'",
 			},
-			"ssh_authorized_keys": []interface{}{"wheredidileavemykeys"},
+			"users": []interface{}{
+				map[interface{}]interface{}{
+					"name": "ubuntu",
+					"lock_passwd": true,
+					"groups": []interface{}{"adm", "audio",
+						"cdrom", "dialout", "dip",
+						"floppy", "netdev", "plugdev",
+						"sudo", "video"},
+					"shell": "/bin/bash",
+					"sudo": []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+					"ssh-authorized-keys": []interface{}{"wheredidileavemykeys"},
+				},
+			},
 		})
 	} else {
 		// Just check that the cloudinit config looks good,

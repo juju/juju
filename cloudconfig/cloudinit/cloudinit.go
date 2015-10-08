@@ -104,19 +104,43 @@ func (cfg *cloudConfig) UnsetAttr(name string) {
 	delete(cfg.attrs, name)
 }
 
-// SetUser is defined on the UserConfig interface.
-func (cfg *cloudConfig) SetUser(user string) {
-	cfg.SetAttr("user", user)
+func annotateKeys(rawKeys string) []string {
+	cfgKeys := []string{}
+	keys := ssh.SplitAuthorisedKeys(rawKeys)
+	for _, key := range keys {
+		// ensure our keys have "Juju:" prepended to differentiate
+		// Juju-managed keys and externally added ones
+		jujuKey := ssh.EnsureJujuComment(key)
+		cfgKeys = append(cfgKeys, jujuKey)
+	}
+	return cfgKeys
 }
 
-// UnsetUser is defined on the UserConfig interface.
-func (cfg *cloudConfig) UnsetUser() {
-	cfg.UnsetAttr("user")
+// SetUbuntuUser is defined on the UsersConfig interface.
+func (cfg *cloudConfig) SetUbuntuUser(rawKeys string) {
+	groups := []string{"adm", "audio", "cdrom", "dialout", "dip", "floppy",
+		"netdev", "plugdev", "sudo", "video"}
+	keys := annotateKeys(rawKeys)
+	ubuntu := map[string]interface{}{
+		"name": "ubuntu",
+		"lock_passwd": true,
+		"groups": groups,
+		"shell": "/bin/bash",
+		"sudo": []string{"ALL=(ALL) NOPASSWD:ALL"},
+		"ssh-authorized-keys": keys,
+	}
+	users := []map[string]interface{}{ubuntu}
+	cfg.SetAttr("users", users)
 }
 
-// User is defined on the UserConfig interface.
-func (cfg *cloudConfig) User() string {
-	user, _ := cfg.attrs["user"].(string)
+// UnsetUsers is defined on the UsersConfig interface.
+func (cfg *cloudConfig) UnsetUsers() {
+	cfg.UnsetAttr("users")
+}
+
+// Users is defined on the UsersConfig interface.
+func (cfg *cloudConfig) Users() []map[string]interface{} {
+	user, _ := cfg.attrs["users"].([]map[string]interface{})
 	return user
 }
 
@@ -291,31 +315,6 @@ func (cfg *cloudConfig) Output(kind OutputKind) (stdout, stderr string) {
 	}
 
 	return stdout, stderr
-}
-
-// AddSSHKey is defined on the SSHKeyConfi interface.
-func (cfg *cloudConfig) AddSSHKey(keyType SSHKeyType, key string) {
-	keys, _ := cfg.attrs["ssh_keys"].(map[SSHKeyType]string)
-	if keys == nil {
-		keys = make(map[SSHKeyType]string)
-		cfg.SetAttr("ssh_keys", keys)
-	}
-
-	keys[keyType] = key
-}
-
-// AddSSHAuthorizedKeys is defined on the SSHKeysConfig interface.
-func (cfg *cloudConfig) AddSSHAuthorizedKeys(rawKeys string) {
-	cfgKeys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
-	keys := ssh.SplitAuthorisedKeys(rawKeys)
-	for _, key := range keys {
-		// ensure our keys have "Juju:" prepended in order to differenciate
-		// Juju-managed keys and externally added ones
-		jujuKey := ssh.EnsureJujuComment(key)
-
-		cfgKeys = append(cfgKeys, jujuKey)
-	}
-	cfg.SetAttr("ssh_authorized_keys", cfgKeys)
 }
 
 // SetDisableRoot is defined on the RootUserConfig interface.

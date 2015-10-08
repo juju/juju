@@ -190,7 +190,7 @@ func TemplateUserData(
 		enablePackageUpdates = true
 	}
 
-	config.AddSSHAuthorizedKeys(authorizedKeys)
+	config.SetUbuntuUser(authorizedKeys)
 	if enablePackageUpdates && config.RequiresCloudArchiveCloudTools() {
 		config.AddCloudArchiveCloudTools()
 	}
