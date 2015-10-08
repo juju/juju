@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/utils"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/juju/series"
 )
 
 var requiredPackages = []string{

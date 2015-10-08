@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"

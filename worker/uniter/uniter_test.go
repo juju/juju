@@ -244,7 +244,6 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *gc.C) {
 
 			// Resolve and hook should run.
 			resolveError{state.ResolvedNoHooks},
-			waitHooks{"config-changed"},
 			waitUnitAgent{
 				status: params.StatusIdle,
 			},

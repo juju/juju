@@ -204,10 +204,10 @@ func (*environSuite) TestGetContainerName(c *gc.C) {
 func (suite *environSuite) TestAllInstances(c *gc.C) {
 	env := makeEnviron(c)
 	name := env.Config().Name()
-	service1 := makeLegacyDeployment(env, "juju-"+name+"-service1")
-	service2 := makeDeployment(env, "juju-"+name+"-service2")
-	service3 := makeDeployment(env, "notjuju-"+name+"-service3")
-	service4 := makeDeployment(env, "juju-"+name+"-1-service3")
+	service1 := makeLegacyDeployment(c, env, "juju-"+name+"-service1")
+	service2 := makeDeployment(c, env, "juju-"+name+"-service2")
+	service3 := makeDeployment(c, env, "notjuju-"+name+"-service3")
+	service4 := makeDeployment(c, env, "juju-"+name+"-1-service3")
 
 	prefix := env.getEnvPrefix()
 	requests := patchInstancesResponses(c, prefix, service1, service2, service3, service4)
@@ -225,7 +225,7 @@ func (suite *environSuite) TestAllInstances(c *gc.C) {
 func (suite *environSuite) TestInstancesReturnsFilteredList(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	service := makeDeployment(env, prefix+"service")
+	service := makeDeployment(c, env, prefix+"service")
 	requests := patchInstancesResponses(c, prefix, service)
 	role1Name := service.Deployments[0].RoleList[0].RoleName
 	instId := instance.Id(prefix + "service-" + role1Name)
@@ -248,7 +248,7 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesReques
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	service := makeDeployment(env, prefix+"service")
+	service := makeDeployment(c, env, prefix+"service")
 	service.Deployments = nil
 	patchInstancesResponses(c, prefix, service)
 
@@ -260,7 +260,7 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c
 func (suite *environSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	service := makeDeployment(env, prefix+"service")
+	service := makeDeployment(c, env, prefix+"service")
 
 	role1Name := service.Deployments[0].RoleList[0].RoleName
 	role2Name := service.Deployments[0].RoleList[1].RoleName
@@ -491,7 +491,7 @@ func (s *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) 
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
-	service := makeDeployment(env, prefix+"myservice")
+	service := makeDeployment(c, env, prefix+"myservice")
 	patchInstancesResponses(c, prefix, service)
 
 	_, err := env.StateServerInstances()
@@ -503,8 +503,8 @@ func (s *environSuite) TestStateServerInstancesNoLegacy(c *gc.C) {
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
 
-	service1 := makeDeployment(env, prefix+"myservice1")
-	service2 := makeDeployment(env, prefix+"myservice2")
+	service1 := makeDeployment(c, env, prefix+"myservice1")
+	service2 := makeDeployment(c, env, prefix+"myservice2")
 	service1.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
 	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
 	service1Role2Name := service1.Deployments[0].RoleList[1].RoleName
@@ -522,8 +522,8 @@ func (s *environSuite) TestStateServerInstancesOnlyLegacy(c *gc.C) {
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
 
-	service1 := makeLegacyDeployment(env, prefix+"myservice1")
-	service2 := makeLegacyDeployment(env, prefix+"myservice2")
+	service1 := makeLegacyDeployment(c, env, prefix+"myservice1")
+	service2 := makeLegacyDeployment(c, env, prefix+"myservice2")
 	instId := instance.Id(service1.ServiceName)
 	err := common.SaveState(
 		env.Storage(),
@@ -543,10 +543,10 @@ func (s *environSuite) TestStateServerInstancesSomeLegacy(c *gc.C) {
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
 
-	service1 := makeLegacyDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
-	service3 := makeLegacyDeployment(env, prefix+"service3")
-	service4 := makeDeployment(env, prefix+"service4")
+	service1 := makeLegacyDeployment(c, env, prefix+"service1")
+	service2 := makeDeployment(c, env, prefix+"service2")
+	service3 := makeLegacyDeployment(c, env, prefix+"service3")
+	service4 := makeDeployment(c, env, prefix+"service4")
 	service2.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
 	instId1 := instance.Id(service1.ServiceName)
 	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
@@ -707,7 +707,6 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Assert(*requests, gc.HasLen, 5)
-	// How many names have been attempted, and how often?
 	// There is a minute chance that this tries the same name twice, and
 	// then this test will fail.  If that happens, try seeding the
 	// randomizer with some fixed seed that doens't produce the problem.
@@ -770,27 +769,31 @@ func makeAzureService(name string) *gwacl.HostedService {
 	}
 }
 
-func makeRole(env *azureEnviron) *gwacl.Role {
+func makeRole(env *azureEnviron, c *gc.C) *gwacl.Role {
 	size := "Large"
-	vhd := env.newOSDisk("source-image-name")
+	vhd, err := env.newOSDisk("source-image-name", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+
 	userData := "example-user-data"
-	return env.newRole(size, vhd, userData, false)
+	role, err := env.newRole(size, vhd, false, userData, "trusty", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return role
 }
 
-func makeLegacyDeployment(env *azureEnviron, serviceName string) *gwacl.HostedService {
+func makeLegacyDeployment(c *gc.C, env *azureEnviron, serviceName string) *gwacl.HostedService {
 	service := makeAzureService(serviceName)
 	service.Deployments = []gwacl.Deployment{{
 		Name:     serviceName,
-		RoleList: []gwacl.Role{*makeRole(env)},
+		RoleList: []gwacl.Role{*makeRole(env, c)},
 	}}
 	return service
 }
 
-func makeDeployment(env *azureEnviron, serviceName string) *gwacl.HostedService {
+func makeDeployment(c *gc.C, env *azureEnviron, serviceName string) *gwacl.HostedService {
 	service := makeAzureService(serviceName)
 	service.Deployments = []gwacl.Deployment{{
 		Name:     serviceName + "-v2",
-		RoleList: []gwacl.Role{*makeRole(env), *makeRole(env)},
+		RoleList: []gwacl.Role{*makeRole(env, c), *makeRole(env, c)},
 	}}
 	return service
 }
@@ -799,9 +802,9 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	service1Name := "service1"
-	service1 := makeLegacyDeployment(env, prefix+service1Name)
+	service1 := makeLegacyDeployment(c, env, prefix+service1Name)
 	service2Name := "service2"
-	service2 := makeDeployment(env, prefix+service2Name)
+	service2 := makeDeployment(c, env, prefix+service2Name)
 
 	inst1, err := env.getInstance(service1, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -831,7 +834,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	env := makeEnviron(c)
-	service := makeDeployment(env, env.getEnvPrefix()+"service")
+	service := makeDeployment(c, env, env.getEnvPrefix()+"service")
 
 	role1Name := service.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service, role1Name)
@@ -854,8 +857,8 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	service1 := makeDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
+	service1 := makeDeployment(c, env, prefix+"service1")
+	service2 := makeDeployment(c, env, prefix+"service2")
 	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service1, service1Role1Name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1067,9 +1070,9 @@ func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	name := env.Config().Name()
-	service1 := makeDeployment(env, "juju-"+name+"-service1")
-	service2 := makeDeployment(env, "juju-"+name+"-service2")
-	service3 := makeDeployment(env, "juju-"+name+"-1-service3")
+	service1 := makeDeployment(c, env, "juju-"+name+"-service1")
+	service2 := makeDeployment(c, env, "juju-"+name+"-service2")
+	service3 := makeDeployment(c, env, "juju-"+name+"-1-service3")
 
 	// The call to AllInstances() will return only one service (service1).
 	responses := getAzureServiceListResponse(
@@ -1094,8 +1097,8 @@ func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 
 func (s *environSuite) TestGetInstance(c *gc.C) {
 	env := makeEnviron(c)
-	service1 := makeLegacyDeployment(env, "service1")
-	service2 := makeDeployment(env, "service1")
+	service1 := makeLegacyDeployment(c, env, "service1")
+	service2 := makeDeployment(c, env, "service1")
 
 	// azureEnviron.Instances will call getInstance with roleName==""
 	// for legacy instances. This will cause getInstance to get the
@@ -1117,9 +1120,9 @@ func (s *environSuite) TestGetInstance(c *gc.C) {
 
 func (s *environSuite) TestInitialPorts(c *gc.C) {
 	env := makeEnviron(c)
-	service1 := makeLegacyDeployment(env, "service1")
-	service2 := makeDeployment(env, "service2")
-	service3 := makeDeployment(env, "service3")
+	service1 := makeLegacyDeployment(c, env, "service1")
+	service2 := makeDeployment(c, env, "service2")
+	service3 := makeDeployment(c, env, "service3")
 	service3.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
 
 	role1 := &service1.Deployments[0].RoleList[0]
@@ -1166,13 +1169,24 @@ func (*environSuite) TestNewOSVirtualDisk(c *gc.C) {
 	env := makeEnviron(c)
 	sourceImageName := "source-image-name"
 
-	vhd := env.newOSDisk(sourceImageName)
+	tests := []struct {
+		series   string
+		expected string
+	}{
+		{"trusty", "Linux"},
+		{"win2012r2", "Windows"},
+	}
+	for _, test := range tests {
+		vhd, err := env.newOSDisk(sourceImageName, test.series)
+		c.Assert(err, jc.ErrorIsNil)
 
-	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
-	c.Check(err, jc.ErrorIsNil)
-	storageAccount := env.ecfg.storageAccountName()
-	c.Check(mediaLinkUrl.Host, gc.Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
-	c.Check(vhd.SourceImageName, gc.Equals, sourceImageName)
+		mediaLinkUrl, err := url.Parse(vhd.MediaLink)
+		c.Check(err, jc.ErrorIsNil)
+		storageAccount := env.ecfg.storageAccountName()
+		c.Check(mediaLinkUrl.Host, gc.Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
+		c.Check(vhd.SourceImageName, gc.Equals, sourceImageName)
+		c.Check(vhd.OS, gc.Equals, test.expected)
+	}
 }
 
 // mapInputEndpointsByPort takes a slice of input endpoints, and returns them
@@ -1189,25 +1203,28 @@ func mapInputEndpointsByPort(c *gc.C, endpoints []gwacl.InputEndpoint) map[int]g
 	return mapping
 }
 
-func (s *environSuite) TestNewRole(c *gc.C) {
-	s.testNewRole(c, false)
+func (s *environSuite) TestNewUnixRole(c *gc.C) {
+	s.testNewUnixRole(c, false)
 }
 
-func (s *environSuite) TestNewRoleStateServer(c *gc.C) {
-	s.testNewRole(c, true)
+func (s *environSuite) TestNewUnixRoleStateServer(c *gc.C) {
+	s.testNewUnixRole(c, true)
 }
 
-func (*environSuite) testNewRole(c *gc.C, stateServer bool) {
+func (*environSuite) testNewUnixRole(c *gc.C, stateServer bool) {
 	env := makeEnviron(c)
 	size := "Large"
-	vhd := env.newOSDisk("source-image-name")
+	vhd, err := env.newOSDisk("source-image-name", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
 	userData := "example-user-data"
 
-	role := env.newRole(size, vhd, userData, stateServer)
+	role, err := env.newRole(size, vhd, stateServer, userData, "trusty", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
+	c.Check(linuxConfig.ConfigurationSetType, gc.Equals, gwacl.CONFIG_SET_LINUX_PROVISIONING)
 	c.Check(linuxConfig.CustomData, gc.Equals, userData)
 	c.Check(linuxConfig.Hostname, gc.Equals, role.RoleName)
 	c.Check(linuxConfig.Username, gc.Not(gc.Equals), "")
@@ -1231,6 +1248,63 @@ func (*environSuite) testNewRole(c *gc.C, stateServer bool) {
 		c.Check(apiEndpoint.LocalPort, gc.Equals, env.Config().APIPort())
 		c.Check(apiEndpoint.Protocol, gc.Equals, "tcp")
 	}
+}
+
+func (s *environSuite) TestNewWindowsRole(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+
+	size := "Large"
+	vhd, err := env.newOSDisk("source-img-name", "win2012r2")
+	c.Assert(err, jc.ErrorIsNil)
+	userData := "example-udata"
+
+	snap := env.getSnapshot()
+	role, err := env.newRole(size, vhd, false, userData, "win2012r2", snap)
+	c.Assert(err, jc.ErrorIsNil)
+
+	configs := role.ConfigurationSets
+	winConfig := configs[0]
+	netConfig := configs[1]
+	c.Assert(winConfig.ConfigurationSetType, gc.Equals, gwacl.CONFIG_SET_WINDOWS_PROVISIONING)
+	c.Assert(winConfig.CustomData, gc.Equals, userData)
+	c.Assert(winConfig.ComputerName, gc.Equals, role.RoleName)
+	c.Assert(winConfig.AdminUsername, gc.Not(gc.Equals), "")
+	c.Assert(winConfig.AdminPassword, gc.Not(gc.Equals), "")
+	c.Assert(winConfig.EnableAutomaticUpdates, gc.Equals, "true")
+	c.Assert(winConfig.TimeZone, gc.Equals, "")
+	c.Assert(winConfig.StoredCertificateSettings, gc.IsNil)
+	c.Assert(winConfig.WinRMListeners, gc.IsNil)
+	c.Assert(winConfig.AdditionalUnattendContent, gc.Equals, "")
+	c.Assert(role.RoleSize, gc.Equals, size)
+	c.Assert(role.OSVirtualHardDisk, gc.DeepEquals, vhd)
+
+	endpoints := mapInputEndpointsByPort(c, *netConfig.InputEndpoints)
+
+	// TODO(bogdanteleaga): make this support WinRM and not ssh
+	// The network config contains an endpoint for ssh communication.
+	sshEndpoint, ok := endpoints[22]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(sshEndpoint.LocalPort, gc.Equals, 22)
+	c.Check(sshEndpoint.Protocol, gc.Equals, "tcp")
+
+	c.Assert(role.ProvisionGuestAgent, gc.Equals, "true")
+	resourceExtensions := *role.ResourceExtensionReferences
+	resourceExtension := resourceExtensions[0]
+	c.Assert(resourceExtension.ReferenceName, gc.Equals, "MyCustomScriptExtension")
+	c.Assert(resourceExtension.Publisher, gc.Equals, "Microsoft.Compute")
+	c.Assert(resourceExtension.Name, gc.Equals, "CustomScriptExtension")
+	c.Assert(resourceExtension.Version, gc.Equals, "1.4")
+
+	resourceParameters := resourceExtension.ParameterValues
+	publicParam := resourceParameters[0]
+
+	uri, err := snap.storage.URL(bootstrapUserdataScriptFilename)
+	publicScript, err := makeUserdataResourceScripts(uri, bootstrapUserdataScriptFilename)
+
+	c.Assert(publicParam.Key, gc.Equals, "CustomScriptExtensionPublicConfigParameter")
+	c.Assert(publicParam.Value, gc.Equals, publicScript)
+	c.Assert(publicParam.Type, gc.Equals, gwacl.ResourceExtensionParameterTypePublic)
 }
 
 func (*environSuite) TestProviderReturnsAzureEnvironProvider(c *gc.C) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	meterstatustesting "github.com/juju/juju/apiserver/meterstatus/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
@@ -293,7 +294,7 @@ func (s *uniterV1Suite) TestWatchUnitAddresses(c *gc.C) {
 }
 
 func (s *uniterV1Suite) TestGetMeterStatus(c *gc.C) {
-	s.testGetMeterStatus(c, s.uniter)
+	meterstatustesting.TestGetMeterStatus(c, s.uniter, s.wordpressUnit)
 }
 
 func (s *uniterV1Suite) TestGetMeterStatusUnauthenticated(c *gc.C) {
@@ -305,7 +306,7 @@ func (s *uniterV1Suite) TestGetMeterStatusBadTag(c *gc.C) {
 }
 
 func (s *uniterV1Suite) TestWatchMeterStatus(c *gc.C) {
-	s.testWatchMeterStatus(c, s.uniter)
+	meterstatustesting.TestWatchMeterStatus(c, s.uniter, s.wordpressUnit, s.State, s.resources)
 }
 
 func (s *uniterV1Suite) TestGetOwnerTagV1NotImplemented(c *gc.C) {

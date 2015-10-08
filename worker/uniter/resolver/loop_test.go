@@ -48,16 +48,19 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LoopSuite) loop() (resolver.LocalState, error) {
-	return resolver.Loop(resolver.LoopConfig{
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+	}
+	err := resolver.Loop(resolver.LoopConfig{
 		Resolver:       s.resolver,
 		Factory:        s.opFactory,
 		Watcher:        s.watcher,
 		Executor:       s.executor,
-		CharmURL:       s.charmURL,
 		Dying:          s.dying,
 		OnIdle:         s.onIdle,
 		CharmDirLocker: &mockCharmDirLocker{},
-	})
+	}, &localState)
+	return localState, err
 }
 
 func (s *LoopSuite) TestDying(c *gc.C) {
@@ -137,8 +140,7 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
 	lastLocal, err := s.loop()
 	c.Assert(err, gc.Equals, tomb.ErrDying)
 	c.Assert(local, jc.DeepEquals, resolver.LocalState{
-		CharmURL:         s.charmURL,
-		CompletedActions: map[string]struct{}{},
+		CharmURL: s.charmURL,
 	})
 	c.Assert(lastLocal, jc.DeepEquals, local)
 }

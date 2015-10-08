@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"

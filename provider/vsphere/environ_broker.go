@@ -8,7 +8,6 @@ package vsphere
 import (
 	"github.com/juju/errors"
 	"github.com/juju/govmomi/vim25/mo"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -93,13 +92,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 	}
 	cloudcfg.AddPackage("open-vm-tools")
 	cloudcfg.AddPackage("iptables-persistent")
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, VsphereRenderer{})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
-	}
-	userData, err = utils.Gunzip(userData)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
 	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 

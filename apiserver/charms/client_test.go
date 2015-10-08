@@ -97,14 +97,14 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid",
-			err:             "entity url series is not resolved",
+			err:             "charm or bundle url series is not resolved",
 		},
 		{
 			about:           "invalid schema",
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid:your-arguments",
-			err:             `entity URL has invalid schema: "not-valid:your-arguments"`,
+			err:             `charm or bundle URL has invalid schema: "not-valid:your-arguments"`,
 		},
 		{
 			about:           "unknown charm",

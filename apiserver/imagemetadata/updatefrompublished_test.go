@@ -153,7 +153,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImages(c *gc.C) {
 		cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				RootStorageType: "ebs",
-				VirtualType:     "pv",
+				VirtType:        "pv",
 				Arch:            "amd64",
 				Series:          "trusty",
 				Region:          "nz-east-1",
@@ -164,7 +164,7 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImages(c *gc.C) {
 		cloudimagemetadata.Metadata{
 			cloudimagemetadata.MetadataAttributes{
 				RootStorageType: "ebs",
-				VirtualType:     "pv",
+				VirtType:        "pv",
 				Arch:            "amd64",
 				Series:          "precise",
 				Region:          "au-east-2",

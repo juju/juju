@@ -28,9 +28,11 @@ type MetadataSuite struct {
 var _ = gc.Suite(&MetadataSuite{})
 
 var metadataCommandNames = []string{
+	"add-image",
 	"generate-image",
 	"generate-tools",
 	"help",
+	"list-images",
 	"sign",
 	"validate-images",
 	"validate-tools",
@@ -93,4 +95,12 @@ func (s *MetadataSuite) TestHelpValidateTools(c *gc.C) {
 
 func (s *MetadataSuite) TestHelpGenerateImage(c *gc.C) {
 	s.assertHelpOutput(c, "generate-image")
+}
+
+func (s *MetadataSuite) TestHelpListImages(c *gc.C) {
+	s.assertHelpOutput(c, "list-images")
+}
+
+func (s *MetadataSuite) TestHelpAddImage(c *gc.C) {
+	s.assertHelpOutput(c, "add-image")
 }

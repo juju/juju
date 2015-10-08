@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/series"
 )
 
 // ToolsContentId returns the tools content id for the given stream.
