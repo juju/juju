@@ -13,11 +13,16 @@
 #   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public
 #   License for more details.
 #
+from collections import namedtuple
 import json
 import os
 import sys
 
 from simplestreams import util
+
+
+Item = namedtuple('Item', ['content_id', 'product_name', 'version_name',
+                           'item_name', 'data'])
 
 
 def items2content_trees(itemslist, exdata):
