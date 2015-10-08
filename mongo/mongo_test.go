@@ -20,10 +20,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/packaging/manager"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	environs "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"

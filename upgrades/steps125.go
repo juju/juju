@@ -20,6 +20,13 @@ import (
 func stateStepsFor125() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "add the version field to all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateSettingsSchema(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "set hosted environment count to number of hosted environments",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
@@ -88,6 +95,23 @@ func stateStepsFor125() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.MigrateLastLoginAndLastConnection(context.State())
+			}},
+		&upgradeStep{
+			description: "add preferred addresses to machines",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddPreferredAddressesToMachines(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "upgrade environment config",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				// TODO(axw) updateEnvironConfig should be
+				// called for all upgrades, to decouple this
+				// package from provider-specific upgrades.
+				st := context.State()
+				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
 			}},
 	}
 }

@@ -40,8 +40,25 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
+func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return configWithDefaults(cfg)
+}
+
+// UpgradeEnvironConfig is specified in the EnvironConfigUpgrader interface.
+func (environProvider) UpgradeConfig(cfg *config.Config) (*config.Config, error) {
+	return configWithDefaults(cfg)
+}
+
+func configWithDefaults(cfg *config.Config) (*config.Config, error) {
+	defaults := make(map[string]interface{})
+	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
+		// Set the default block source.
+		defaults[config.StorageDefaultBlockSourceKey] = storageProviderType
+	}
+	if len(defaults) == 0 {
+		return cfg, nil
+	}
+	return cfg.Apply(defaults)
 }
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.

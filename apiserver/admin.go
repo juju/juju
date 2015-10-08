@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -311,7 +312,7 @@ func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) err
 // machinePinger wraps a presence.Pinger.
 type machinePinger struct {
 	*presence.Pinger
-	mongoUnavailable *bool
+	mongoUnavailable *uint32
 }
 
 // Stop implements Pinger.Stop() as Pinger.Kill(), needed at
@@ -320,7 +321,7 @@ func (p *machinePinger) Stop() error {
 	if err := p.Pinger.Stop(); err != nil {
 		return err
 	}
-	if *p.mongoUnavailable {
+	if atomic.LoadUint32(p.mongoUnavailable) > 0 {
 		// Kill marks the agent as not-present. If the
 		// Mongo server is known to be unavailable, then
 		// we do not perform this operation; the agent

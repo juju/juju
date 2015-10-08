@@ -266,20 +266,17 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		case <-watcher.RemoteStateChanged():
 		}
 
-		var conflicted bool
-		var localState resolver.LocalState
+		localState := resolver.LocalState{CharmURL: charmURL}
 		for err == nil {
-			localState, err = resolver.Loop(resolver.LoopConfig{
+			err = resolver.Loop(resolver.LoopConfig{
 				Resolver:       uniterResolver,
 				Watcher:        watcher,
 				Executor:       u.operationExecutor,
 				Factory:        u.operationFactory,
-				CharmURL:       charmURL,
-				Conflicted:     conflicted,
 				Dying:          u.tomb.Dying(),
 				OnIdle:         onIdle,
 				CharmDirLocker: u.charmDirLocker,
-			})
+			}, &localState)
 			switch cause := errors.Cause(err); cause {
 			case nil:
 				// Loop back around.
@@ -300,7 +297,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
 				if operation.IsDeployConflictError(cause) {
-					conflicted = true
+					localState.Conflicted = true
 					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
 				} else {
 					reportAgentError(u, "resolver loop error", err)

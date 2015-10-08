@@ -22,6 +22,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
@@ -43,7 +44,6 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/juju/series"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -1054,6 +1053,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
+
+			// certChangedChan is shared by multiple workers it's up
+			// to the agent to close it rather than any one of the
+			// workers.
+			//
+			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
@@ -1069,7 +1074,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
 			if feature.IsDbLogEnabled() {
@@ -1624,19 +1629,6 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 			}
 		}
 		logger.Debugf("upgrades done, starting worker %q", name)
-
-		// For windows clients we need to make sure we set a random password in a
-		// registry file and use that password for the jujud user and its services
-		// before starting anything else.
-		// Services on windows need to know the user's password to start up. The only
-		// way to store that password securely is if the user running the services
-		// sets the password. This cannot be done during cloud-init so it is done here.
-		// This needs to get ran in between finishing the upgrades and starting
-		// the rest of the workers(in particular the deployer which should use
-		// the new password)
-		if err := password.EnsureJujudPassword(); err != nil {
-			return errors.Annotate(err, "Could not ensure jujud password")
-		}
 
 		// Upgrades are done, start the worker.
 		worker, err := start()

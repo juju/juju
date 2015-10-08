@@ -4,6 +4,8 @@
 package collect_test
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/names"
@@ -48,6 +50,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
+
+	// create unit agent base dir so that hooks can run.
+	err := os.MkdirAll(filepath.Join(s.dataDir, "agents", "unit-u-0"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.dummyResources = dt.StubResources{
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
 		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
@@ -87,6 +94,17 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 
 // TestCollectWorkerStarts ensures that the manifold correctly sets up the worker.
 func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			// Return a dummyRecorder here, because otherwise a real one
+			// *might* get instantiated and error out, if the periodic worker
+			// happens to fire before the worker shuts down (as seen in
+			// LP:#1497355).
+			return &dummyRecorder{
+				charmURL: "cs:ubuntu-1",
+				unitTag:  "ubuntu/0",
+			}, nil
+		})
 	getResource := dt.StubGetResource(s.dummyResources)
 	worker, err := s.manifold.Start(getResource)
 	c.Assert(err, jc.ErrorIsNil)

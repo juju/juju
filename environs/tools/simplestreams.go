@@ -21,11 +21,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/juju/series"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -190,21 +190,16 @@ func (t *ToolsMetadata) sortString() string {
 }
 
 // binary returns the tools metadata's binary version, which may be used for
-// map lookup. It is possible for a binary to have an unkown OS.
+// map lookup.
 func (t *ToolsMetadata) binary() (version.Binary, error) {
 	num, err := version.Parse(t.Version)
 	if err != nil {
-		return version.Binary{}, errors.Trace(err)
-	}
-	toolsOS, err := series.GetOSFromSeries(t.Release)
-	if err != nil && !series.IsUnknownOSForSeriesError(err) {
 		return version.Binary{}, errors.Trace(err)
 	}
 	return version.Binary{
 		Number: num,
 		Series: t.Release,
 		Arch:   t.Arch,
-		OS:     toolsOS,
 	}, nil
 }
 
