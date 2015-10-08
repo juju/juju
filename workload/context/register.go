@@ -63,7 +63,7 @@ func (c *RegisterCmd) Init(args []string) error {
 }
 
 // Run implements cmd.Command.
-func (c *RegisterCmd) Run(ctx *cmd.Context) error {
+func (c *RegisterCmd) Run(_ *cmd.Context) error {
 	info := workload.Info{
 		Workload: charm.Workload{
 			Name: c.class,
