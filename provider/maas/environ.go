@@ -1135,11 +1135,34 @@ PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
 # If $PRIMARY_IFACE is empty, there's nothing to do.
 [ -z "$PRIMARY_IFACE" ] && exit 0
 
+isDHCP() {
+    if grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}}
+         then
+             return 0
+         else
+             return 1
+    fi
+}
+
+isStatic() {
+    if grep -q "iface ${PRIMARY_IFACE} inet static" {{.Config}}
+         then
+             return 0
+         else
+             return 1
+    fi
+}
+
+unAuto() {
+    grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
+    sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+}
+
 # Change the config to make $PRIMARY_IFACE manual instead of DHCP,
 # then create the bridge and enslave $PRIMARY_IFACE into it.
-grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}} && \
-sed -i "s/iface ${PRIMARY_IFACE} inet dhcp//" {{.Config}} && \
-cat >> {{.Config}} << EOF
+if isDHCP; then
+    sed -i "s/iface ${PRIMARY_IFACE} inet dhcp//" {{.Config}}
+    cat >> {{.Config}} << EOF
 
 # Primary interface (defining the default route)
 iface ${PRIMARY_IFACE} inet manual
@@ -1149,10 +1172,18 @@ auto {{.Bridge}}
 iface {{.Bridge}} inet dhcp
     bridge_ports ${PRIMARY_IFACE}
 EOF
+    # Make the primary interface not auto-starting.
+    unAuto
+elif isStatic
+then
+    sed -i "s/iface ${PRIMARY_IFACE} inet static/iface {{.Bridge}} inet static\n   bridge_ports ${PRIMARY_IFACE}/" {{.Config}}
+    sed -i "s/auto ${PRIMARY_IFACE}/auto {{.Bridge}}/" {{.Config}}
+    cat >> {{.Config}} << EOF
 
-# Make the primary interface not auto-starting.
-grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
-sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+# Primary interface (defining the default route)
+iface ${PRIMARY_IFACE} inet manual
+EOF
+fi
 
 # Stop $PRIMARY_IFACE and start the bridge instead.
 ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
