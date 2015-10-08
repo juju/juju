@@ -238,16 +238,16 @@ func (c *Context) Flush() error {
 		for _, info := range c.updates {
 			updates = append(updates, info)
 
-			plugin, err := c.Plugin(&info, "")
-			if err != nil {
-				return errors.Trace(err)
-			}
-			events = append(events, workload.Event{
-				Kind:     workload.EventKindTracked,
-				ID:       info.ID(),
-				Plugin:   plugin,
-				PluginID: info.Details.ID,
-			})
+			// plugin, err := c.Plugin(&info, "")
+			// if err != nil {
+			// 	return errors.Trace(err)
+			// }
+			// events = append(events, workload.Event{
+			// 	Kind:     workload.EventKindTracked,
+			// 	ID:       info.ID(),
+			// 	Plugin:   plugin,
+			// 	PluginID: info.Details.ID,
+			// })
 		}
 		if _, err := c.api.Track(updates...); err != nil {
 			return errors.Trace(err)

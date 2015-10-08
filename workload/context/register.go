@@ -74,9 +74,18 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 		},
 		Details: workload.Details{
 			ID: c.id,
+			Status: workload.PluginStatus{
+				State: workload.StateRunning,
+			},
 		},
 	}
 	if err := c.Comp.Track(info); err != nil {
+		return errors.Trace(err)
+	}
+
+	// We flush to state immedeiately so that status reflects the
+	// workload correctly.
+	if err := c.Comp.Flush(); err != nil {
 		return errors.Trace(err)
 	}
 
