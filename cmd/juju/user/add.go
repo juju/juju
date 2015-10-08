@@ -12,10 +12,11 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-const userAddCommandDoc = `
+const useraddCommandDoc = `
 Add users to an existing environment.
 
 The user information is stored within an existing environment, and will be
@@ -38,8 +39,12 @@ type AddUserAPI interface {
 	Close() error
 }
 
-// AddCommand adds new users into a Juju Server.
-type AddCommand struct {
+func newAddCommand() cmd.Command {
+	return envcmd.WrapSystem(&addCommand{})
+}
+
+// addCommand adds new users into a Juju Server.
+type addCommand struct {
 	UserCommandBase
 	api         AddUserAPI
 	User        string
@@ -48,23 +53,23 @@ type AddCommand struct {
 }
 
 // Info implements Command.Info.
-func (c *AddCommand) Info() *cmd.Info {
+func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add",
 		Args:    "<username> [<display name>]",
 		Purpose: "adds a user",
-		Doc:     userAddCommandDoc,
+		Doc:     useraddCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.OutPath, "o", "", "specify the environment file for new user")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
 // Init implements Command.Init.
-func (c *AddCommand) Init(args []string) error {
+func (c *addCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no username supplied")
 	}
@@ -79,7 +84,7 @@ func (c *AddCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *AddCommand) Run(ctx *cmd.Context) error {
+func (c *addCommand) Run(ctx *cmd.Context) error {
 	if c.api == nil {
 		api, err := c.NewUserManagerAPIClient()
 		if err != nil {

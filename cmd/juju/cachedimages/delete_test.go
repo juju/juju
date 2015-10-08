@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/testing"
 )
@@ -40,13 +39,13 @@ func (f *fakeImageDeleteAPI) DeleteImage(kind, series, arch string) error {
 func (s *deleteImageCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.mockAPI = &fakeImageDeleteAPI{}
-	s.PatchValue(cachedimages.GetDeleteImageAPI, func(c *cachedimages.DeleteCommand) (cachedimages.DeleteImageAPI, error) {
+	s.PatchValue(cachedimages.GetDeleteImageAPI, func(_ *cachedimages.CachedImagesCommandBase) (cachedimages.DeleteImageAPI, error) {
 		return s.mockAPI, nil
 	})
 }
 
 func runDeleteCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&cachedimages.DeleteCommand{}), args...)
+	return testing.RunCommand(c, cachedimages.NewDeleteCommand(), args...)
 }
 
 func (s *deleteImageCommandSuite) TestDeleteImage(c *gc.C) {

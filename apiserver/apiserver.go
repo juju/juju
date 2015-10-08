@@ -19,6 +19,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
@@ -50,7 +53,22 @@ type Server struct {
 	adminApiFactories map[int]adminApiFactory
 	mongoUnavailable  uint32 // non zero if mongoUnavailable
 
-	mu          sync.Mutex // protects the fields that follow
+	// bakeryService holds the service that is
+	// used to verify macaroon authorization. It
+	// stores a key for the single macaroon below.
+	// It will be nil if no identity URL has been configured.
+	bakeryService *bakery.Service
+
+	// macaroon is created when the server is created
+	// and guards macaroon-authentication-based access
+	// to the APIs.
+	macaroon *macaroon.Macaroon
+
+	// identityURL to address discharge macaroons to.
+	identityURL string
+
+	authCtxt authContext
+
 	environUUID string
 }
 
@@ -166,6 +184,10 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 }
 
 func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server, error) {
+	envCfg, err := s.EnvironConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get environment config")
+	}
 	logger.Infof("listening on %q", lis.Addr())
 	srv := &Server{
 		state:     s,
@@ -181,6 +203,36 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 			1: newAdminApiV1,
 			2: newAdminApiV2,
 		},
+	}
+	idURL := envCfg.IdentityURL()
+	if idURL != "" {
+		// The identity server has been configured,
+		// so configure the bakery service appropriately.
+		idPK := envCfg.IdentityPublicKey()
+		if idPK == nil {
+			// No public key supplied - retrieve it from the identity manager.
+			idPK, err = httpbakery.PublicKeyForLocation(http.DefaultClient, idURL)
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot get identity public key")
+			}
+		}
+		svc, err := bakery.NewService(
+			bakery.NewServiceParams{
+				Location: "juju environment " + s.EnvironUUID(),
+				Locator: bakery.PublicKeyLocatorMap{
+					idURL: idPK,
+				},
+			},
+		)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot make bakery service")
+		}
+		srv.authCtxt.bakeryService = svc
+		srv.authCtxt.macaroon, err = svc.NewMacaroon("api-login", nil, nil)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot make macaroon")
+		}
+		srv.authCtxt.identityURL = idURL
 	}
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
@@ -326,71 +378,76 @@ func (srv *Server) run(lis net.Listener) {
 	mux := pat.New()
 
 	srvDying := srv.tomb.Dying()
-
+	httpCtxt := httpContext{
+		statePool: srv.statePool,
+		authCtxt:  &srv.authCtxt,
+	}
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpHandler{statePool: srv.statePool}, srv.logDir))
+			newLogSinkHandler(httpCtxt, srv.logDir))
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(srv.statePool, srvDying))
+			newDebugLogDBHandler(httpCtxt, srvDying))
 	} else {
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
+			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir},
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir},
 	)
 	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
 	// where we only want to support specific request methods. However, our
 	// tests currently assert that errors come back as application/json and
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
-		&toolsUploadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/environment/:envuuid/tools/:version",
-		&toolsDownloadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
 	)
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.stateServerEnvOnly = true
 	handleAll(mux, "/environment/:envuuid/backups",
-		&backupHandler{httpHandler{
-			statePool:          srv.statePool,
-			strictValidation:   true,
-			stateServerEnvOnly: true,
-		}},
+		&backupHandler{
+			ctxt: strictCtxt,
+		},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
 		&imagesDownloadHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir},
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
+		},
 	)
 	// For backwards compatibility we register all the old paths
 
 	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(srv.statePool, srvDying))
+		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
 	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
+		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
 	}
 
 	handleAll(mux, "/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir,
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
 		},
 	)
 	handleAll(mux, "/tools",
-		&toolsUploadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/tools/:version",
-		&toolsDownloadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
@@ -446,11 +503,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	}
 	conn := rpc.NewConn(codec, notifier)
 
-	var h *apiHandler
-	st, err := validateEnvironUUID(validateArgs{statePool: srv.statePool, envUUID: envUUID})
-	if err == nil {
-		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
-	}
+	h, err := srv.newAPIHandler(conn, reqNotifier, envUUID)
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
@@ -466,6 +519,24 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
+}
+
+func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
+	// Note that we don't overwrite envUUID here because
+	// newAPIHandler treats an empty envUUID as signifying
+	// the API version used.
+	resolvedEnvUUID, err := validateEnvironUUID(validateArgs{
+		statePool: srv.statePool,
+		envUUID:   envUUID,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	st, err := srv.statePool.Get(resolvedEnvUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newApiHandler(srv, st, conn, reqNotifier, envUUID)
 }
 
 func (srv *Server) mongoPinger() error {

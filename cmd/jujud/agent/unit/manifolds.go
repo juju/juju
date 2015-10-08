@@ -83,9 +83,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// API server, when configured so to do. We should only need one of
 		// these in a consolidated agent.
 		LogSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			AgentName:       AgentName,
-			APIInfoGateName: APIInfoGateName,
-			LogSource:       config.LogSource,
+			LogSource:     config.LogSource,
+			APICallerName: APICallerName,
 		}),
 
 		// The rsyslog config updater is a leaf worker that causes rsyslog

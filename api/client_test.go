@@ -6,7 +6,6 @@ package api_test
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,6 +24,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -386,49 +386,50 @@ func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	c.Assert(reader, gc.IsNil)
 }
 
-func (s *clientSuite) TestConnectionErrorBadConnection(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
+func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
+	reader, err := s.APIState.ConnectStream("foo", nil)
+	c.Assert(err, gc.ErrorMatches, `path must start with "/"`)
+	c.Assert(reader, gc.Equals, nil)
+}
+
+func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
-	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "bad connection")
 	c.Assert(reader, gc.IsNil)
 }
 
-func (s *clientSuite) TestConnectionErrorNoData(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
-		return ioutil.NopCloser(&bytes.Buffer{}), nil
+func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
+		return fakeStreamReader{&bytes.Buffer{}}, nil
 	})
-	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
 	c.Assert(reader, gc.IsNil)
 }
 
-func (s *clientSuite) TestConnectionErrorBadData(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
-		junk := strings.NewReader("junk\n")
-		return ioutil.NopCloser(junk), nil
+func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
+		return fakeStreamReader{strings.NewReader("junk\n")}, nil
 	})
-	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
 	c.Assert(reader, gc.IsNil)
 }
 
-func (s *clientSuite) TestConnectionErrorReadError(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (io.ReadCloser, error) {
+func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
+	s.PatchValue(api.WebsocketDialConfig, func(_ *websocket.Config) (base.Stream, error) {
 		err := fmt.Errorf("bad read")
-		return ioutil.NopCloser(&badReader{err}), nil
+		return fakeStreamReader{&badReader{err}}, nil
 	})
-	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(api.DebugLogParams{})
+	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
 	c.Assert(reader, gc.IsNil)
 }
 
-func (s *clientSuite) TestParamsEncoded(c *gc.C) {
+func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
 
 	params := api.DebugLogParams{
@@ -460,22 +461,22 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
+func (s *clientSuite) TestConnectStreamRootPath(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
 
-	// If the server is old, we log at "/log"
+	// If the server is old, we connect to /path.
 	info := s.APIInfo(c)
 	info.EnvironTag = names.NewEnvironTag("")
 	apistate, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
-	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
+	reader, err := apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL := connectURLFromReader(c, reader)
-	c.Assert(connectURL.Path, gc.Matches, "/log")
+	c.Assert(connectURL.Path, gc.Matches, "/path")
 }
 
-func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
+func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
 	// If the server supports it, we should log at "/environment/UUID/log"
 	environ, err := s.State.Environment()
@@ -485,10 +486,10 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
-	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
+	reader, err := apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL := connectURLFromReader(c, reader)
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/environment/%s/log", environ.UUID()))
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/environment/%s/path", environ.UUID()))
 }
 
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
@@ -605,17 +606,14 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 	return 0, r.err
 }
 
-func echoURL(c *gc.C) func(*websocket.Config) (io.ReadCloser, error) {
-	response := &params.ErrorResult{}
-	message, err := json.Marshal(response)
-	c.Assert(err, jc.ErrorIsNil)
-	return func(config *websocket.Config) (io.ReadCloser, error) {
+func echoURL(c *gc.C) func(*websocket.Config) (base.Stream, error) {
+	return func(config *websocket.Config) (base.Stream, error) {
 		pr, pw := io.Pipe()
 		go func() {
-			fmt.Fprintf(pw, "%s\n", message)
+			fmt.Fprintf(pw, "null\n")
 			fmt.Fprintf(pw, "%s\n", config.Location)
 		}()
-		return pr, nil
+		return fakeStreamReader{pr}, nil
 	}
 }
 
@@ -627,4 +625,27 @@ func connectURLFromReader(c *gc.C, rc io.ReadCloser) *url.URL {
 	c.Assert(err, jc.ErrorIsNil)
 	rc.Close()
 	return connectURL
+}
+
+type fakeStreamReader struct {
+	io.Reader
+}
+
+func (s fakeStreamReader) Close() error {
+	if c, ok := s.Reader.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
+func (s fakeStreamReader) Write([]byte) (int, error) {
+	panic("not implemented")
+}
+
+func (s fakeStreamReader) ReadJSON(v interface{}) error {
+	panic("not implemented")
+}
+
+func (s fakeStreamReader) WriteJSON(v interface{}) error {
+	panic("not implemented")
 }

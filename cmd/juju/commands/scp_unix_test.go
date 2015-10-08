@@ -131,12 +131,12 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		ctx := coretesting.Context(c)
-		scpcmd := &SCPCommand{}
+		scpcmd := &scpCommand{}
 		scpcmd.proxy = t.proxy
 
 		err := envcmd.Wrap(scpcmd).Init(t.args)
 		c.Check(err, jc.ErrorIsNil)
-		err = scpcmd.Run(ctx)
+		err = envcmd.Wrap(scpcmd).Run(ctx)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 			c.Check(t.result, gc.Equals, "")

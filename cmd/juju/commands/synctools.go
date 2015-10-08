@@ -23,9 +23,13 @@ import (
 
 var syncTools = sync.SyncTools
 
-// SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
+func newSyncToolsCommand() cmd.Command {
+	return envcmd.Wrap(&syncToolsCommand{})
+}
+
+// syncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
-type SyncToolsCommand struct {
+type syncToolsCommand struct {
 	envcmd.EnvCommandBase
 	allVersions  bool
 	versionStr   string
@@ -40,9 +44,9 @@ type SyncToolsCommand struct {
 	destination  string
 }
 
-var _ cmd.Command = (*SyncToolsCommand)(nil)
+var _ cmd.Command = (*syncToolsCommand)(nil)
 
-func (c *SyncToolsCommand) Info() *cmd.Info {
+func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
 		Purpose: "copy tools from the official tool store into a local environment",
@@ -59,7 +63,7 @@ the local cloud.
 	}
 }
 
-func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
@@ -71,7 +75,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.destination, "destination", "", "local destination directory")
 }
 
-func (c *SyncToolsCommand) Init(args []string) error {
+func (c *syncToolsCommand) Init(args []string) error {
 	if c.destination != "" {
 		// Override localDir with destination as localDir now replaces destination
 		c.localDir = c.destination
@@ -97,11 +101,11 @@ type syncToolsAPI interface {
 	Close() error
 }
 
-var getSyncToolsAPI = func(c *SyncToolsCommand) (syncToolsAPI, error) {
+var getSyncToolsAPI = func(c *syncToolsCommand) (syncToolsAPI, error) {
 	return c.NewAPIClient()
 }
 
-func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
+func (c *syncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")

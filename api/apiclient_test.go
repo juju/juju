@@ -4,7 +4,6 @@
 package api_test
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
@@ -29,53 +27,32 @@ type apiclientSuite struct {
 
 var _ = gc.Suite(&apiclientSuite{})
 
-func (s *apiclientSuite) TestConnectToEnv(c *gc.C) {
+func (s *apiclientSuite) TestOpenFailsIfUsernameAndUseMacaroon(c *gc.C) {
 	info := s.APIInfo(c)
-	conn, err := api.Connect(info, "", nil, api.DialOpts{})
+	info.Tag = names.NewUserTag("foobar")
+	info.UseMacaroons = true
+	_, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.ErrorMatches, "open should specifiy UseMacaroons or a username & password. Not both")
+}
+
+func (s *apiclientSuite) TestConnectWebsocketToEnv(c *gc.C) {
+	info := s.APIInfo(c)
+	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForEnv(c, conn, info.Addrs[0], s.State.EnvironUUID(), "/api")
 }
 
-func (s *apiclientSuite) TestConnectToEnvWithPathTail(c *gc.C) {
-	info := s.APIInfo(c)
-	conn, err := api.Connect(info, "/log", nil, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn.Close()
-	assertConnAddrForEnv(c, conn, info.Addrs[0], s.State.EnvironUUID(), "/log")
-}
-
-func (s *apiclientSuite) TestConnectToRoot(c *gc.C) {
+func (s *apiclientSuite) TestConnectWebsocketToRoot(c *gc.C) {
 	info := s.APIInfo(c)
 	info.EnvironTag = names.NewEnvironTag("")
-	conn, err := api.Connect(info, "", nil, api.DialOpts{})
+	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForRoot(c, conn, info.Addrs[0])
 }
 
-func (s *apiclientSuite) TestConnectWithHeader(c *gc.C) {
-	var seenCfg *websocket.Config
-	fakeNewDialer := func(cfg *websocket.Config, _ api.DialOpts) func(<-chan struct{}) (io.Closer, error) {
-		seenCfg = cfg
-		return func(<-chan struct{}) (io.Closer, error) {
-			return nil, errors.New("fake")
-		}
-	}
-	s.PatchValue(api.NewWebsocketDialerPtr, fakeNewDialer)
-
-	header := utils.BasicAuthHeader("foo", "bar")
-	api.Connect(s.APIInfo(c), "", header, api.DialOpts{}) // Return values not important here
-	c.Assert(seenCfg, gc.NotNil)
-	c.Assert(seenCfg.Header, gc.DeepEquals, header)
-}
-
-func (s *apiclientSuite) TestConnectRequiresTailStartsWithSlash(c *gc.C) {
-	_, err := api.Connect(s.APIInfo(c), "foo", nil, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `path tail must start with "/"`)
-}
-
-func (s *apiclientSuite) TestConnectPrefersLocalhostIfPresent(c *gc.C) {
+func (s *apiclientSuite) TestConnectWebsocketPrefersLocalhostIfPresent(c *gc.C) {
 	// Create a socket that proxies to the API server though our localhost address.
 	info := s.APIInfo(c)
 	serverAddr := info.Addrs[0]
@@ -106,13 +83,13 @@ func (s *apiclientSuite) TestConnectPrefersLocalhostIfPresent(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
 	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
-	conn, err := api.Connect(info, "/api", nil, api.DialOpts{})
+	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForEnv(c, conn, expectedHostPort, s.State.EnvironUUID(), "/api")
 }
 
-func (s *apiclientSuite) TestConnectMultiple(c *gc.C) {
+func (s *apiclientSuite) TestConnectWebsocketMultiple(c *gc.C) {
 	// Create a socket that proxies to the API server.
 	info := s.APIInfo(c)
 	serverAddr := info.Addrs[0]
@@ -136,7 +113,7 @@ func (s *apiclientSuite) TestConnectMultiple(c *gc.C) {
 	// Check that we can use the proxy to connect.
 	proxyAddr := listener.Addr().String()
 	info.Addrs = []string{proxyAddr}
-	conn, err := api.Connect(info, "/api", nil, api.DialOpts{})
+	conn, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	assertConnAddrForEnv(c, conn, proxyAddr, s.State.EnvironUUID(), "/api")
@@ -145,13 +122,13 @@ func (s *apiclientSuite) TestConnectMultiple(c *gc.C) {
 	// is successfully connected to.
 	info.Addrs = []string{proxyAddr, serverAddr}
 	listener.Close()
-	conn, err = api.Connect(info, "/api", nil, api.DialOpts{})
+	conn, err = api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	assertConnAddrForEnv(c, conn, serverAddr, s.State.EnvironUUID(), "/api")
 }
 
-func (s *apiclientSuite) TestConnectMultipleError(c *gc.C) {
+func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
@@ -167,8 +144,8 @@ func (s *apiclientSuite) TestConnectMultipleError(c *gc.C) {
 	info := s.APIInfo(c)
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
-	_, err = api.Connect(info, "/api", nil, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to "wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api"`)
+	_, err = api.ConnectWebsocket(info, api.DialOpts{})
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
 }
 
 func (s *apiclientSuite) TestOpen(c *gc.C) {
