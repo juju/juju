@@ -306,24 +306,6 @@ func (s *contextSuite) TestSetOverwrite(c *gc.C) {
 	c.Check(after, jc.DeepEquals, []workload.Info{info})
 }
 
-func (s *contextSuite) TestFlushDirty(c *gc.C) {
-	c.Skip("relies on event stuff we commented out")
-	info := s.newWorkload("A", "myplugin", "xyz123", "okay")
-	findPlugin := func(ptype, agentDir string) (workload.Plugin, error) {
-		return &stubPlugin{stub: s.Stub}, nil
-	}
-
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
-	ctx.FindPlugin = findPlugin
-	err := ctx.Track(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = ctx.Flush()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCallNames(c, "Track", "addEvents")
-}
-
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 	info := s.newWorkload("flush-not-dirty", "myplugin", "xyz123", "okay")
 	ctx := s.newContext(c, info)
@@ -340,33 +322,6 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c)
-}
-
-func (s *contextSuite) TestUntrackOkay(c *gc.C) {
-	c.Skip("relies on event stuff we commented out")
-	findPlugin := func(ptype, agentDir string) (workload.Plugin, error) {
-		return &stubPlugin{stub: s.Stub}, nil
-	}
-
-	info := s.newWorkload("A", "myplugin", "spam", "okay")
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
-	ctx.FindPlugin = findPlugin
-	err := ctx.Track(info)
-	c.Assert(err, jc.ErrorIsNil)
-	before, err := ctx.Workloads()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(before, jc.DeepEquals, []workload.Info{info})
-	err = ctx.Flush()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Untrack(info.ID())
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiClient.stub.CheckCallNames(c, "Track", "addEvents", "Untrack")
-	after, err := ctx.Workloads()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if len(after) > 0 {
-		c.Fatalf("Expected 0 len, got %d", len(after))
-	}
 }
 
 func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
