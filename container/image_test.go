@@ -26,7 +26,7 @@ func (s *imageURLSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *imageURLSuite) TestImageURL(c *gc.C) {
-	imageURLGetter := container.NewImageURLGetter("host:port", "12345", []byte("cert"))
+	imageURLGetter := container.NewImageURLGetter("host:port", "12345", []byte("cert"), "")
 	imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageURL, gc.Equals, "https://host:port/environment/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
@@ -34,12 +34,12 @@ func (s *imageURLSuite) TestImageURL(c *gc.C) {
 }
 
 func (s *imageURLSuite) TestImageDownloadURL(c *gc.C) {
-	imageDownloadURL, err := container.ImageDownloadURL(instance.LXC, "trusty", "amd64")
+	imageDownloadURL, err := container.ImageDownloadURL(instance.LXC, "trusty", "amd64", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageDownloadURL, gc.Equals, "test://cloud-images/trusty-released-amd64-root.tar.gz")
 }
 
 func (s *imageURLSuite) TestImageDownloadURLUnsupportedContainer(c *gc.C) {
-	_, err := container.ImageDownloadURL(instance.KVM, "trusty", "amd64")
+	_, err := container.ImageDownloadURL(instance.KVM, "trusty", "amd64", "")
 	c.Assert(err, gc.ErrorMatches, "unsupported container .*")
 }

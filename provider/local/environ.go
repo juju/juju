@@ -268,7 +268,8 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 			if cert, ok := cfg.CACert(); ok {
 				caCert = []byte(cert)
 			}
-			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid, caCert)
+			baseUrl := ecfg.CloudImageBaseURL()
+			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid, caCert, baseUrl)
 		}
 	}
 	env.containerManager, err = factory.NewContainerManager(
