@@ -66,19 +66,9 @@ class FileNamer:
         return "%s/%s.json" % (cls.streamdir, content_id)
 
 
-def write_streams(out_d, trees, updated, namer=None):
-    if namer is None:
-        namer = FileNamer
-
+def generate_index(trees, updated, namer):
     index = {"index": {}, 'format': 'index:1.0', 'updated': updated}
-
-    to_write = [(namer.get_index_path(), index,)]
-
-    not_copied_up = ['content_id']
-    for content_id in trees:
-        util.products_condense(trees[content_id],
-                               sticky=['path', 'sha256', 'md5', 'size'])
-        content = trees[content_id]
+    for content_id, content in trees.items():
         index['index'][content_id] = {
             'products': list(content['products'].keys()),
             'path': namer.get_content_path(content_id),
@@ -86,9 +76,21 @@ def write_streams(out_d, trees, updated, namer=None):
         for k in util.stringitems(content):
             if k not in not_copied_up:
                 index['index'][content_id][k] = content[k]
+    return index
 
+
+def write_streams(out_d, trees, updated, namer=None):
+    if namer is None:
+        namer = FileNamer
+    index = generate_index(trees, updated, namer)
+    to_write = [(namer.get_index_path(), index,)]
+    not_copied_up = ['content_id']
+    for content_id in trees:
+        import pdb; pdb.set_trace()
+        util.products_condense(trees[content_id],
+                               sticky=['path', 'sha256', 'md5', 'size'])
+        content = trees[content_id]
         to_write.append((index['index'][content_id]['path'], content,))
-
     out_filenames = []
     for (outfile, data) in to_write:
         filef = os.path.join(out_d, outfile)

@@ -1,9 +1,17 @@
+import json
+import os
+from StringIO import StringIO
 from unittest import TestCase
 
+from mock import patch
+
 from generate_simplestreams import (
+    FileNamer,
     Item,
     items2content_trees,
+    write_streams,
     )
+from utils import temp_dir
 
 
 class TestItems2ContentTrees(TestCase):
@@ -121,3 +129,68 @@ class TestItems2ContentTrees(TestCase):
                         }}}
                     },
                 }, result)
+
+
+class TestFileNamer(TestCase):
+
+    def test_get_index_path(self):
+        self.assertEqual('streams/v1/index.json', FileNamer.get_index_path())
+
+    def test_get_content_path(self):
+        self.assertEqual(
+            'streams/v1/foo:bar.json', FileNamer.get_content_path('foo:bar'))
+
+
+class FakeNamer:
+
+    @staticmethod
+    def get_index_path():
+        return 'foo.json'
+
+    @staticmethod
+    def get_content_path(content_id):
+        return '{}.json'.format(content_id)
+
+
+def load_json(out_dir, filename):
+    with open(os.path.join(out_dir, filename)) as index:
+        return json.load(index)
+
+
+class TestWriteStreams(TestCase):
+
+    def test_no_content(self):
+        with temp_dir() as out_dir, patch('sys.stderr', StringIO()):
+            write_streams(out_dir, {}, 'January 1 1970', FakeNamer)
+            index_json = load_json(out_dir, 'foo.json')
+            self.assertEqual(['foo.json'], os.listdir(out_dir))
+        self.assertEqual({
+            'format': 'index:1.0', 'index': {}, 'updated': 'January 1 1970'},
+            index_json)
+
+    def test_two_content(self):
+        with temp_dir() as out_dir, patch('sys.stderr', StringIO()):
+            write_streams(out_dir, {
+                'bar': {'products': {'prodbar': {}}},
+                'baz': {'products': {'prodbaz': {}}},
+                }, 'January 1 1970', FakeNamer)
+            self.assertItemsEqual(['foo.json', 'bar.json', 'baz.json'],
+                                  os.listdir(out_dir))
+            index_json = load_json(out_dir, 'foo.json')
+            bar_json = load_json(out_dir, 'bar.json')
+            baz_json = load_json(out_dir, 'baz.json')
+
+        self.assertEqual({
+            'format': 'index:1.0', 'updated': 'January 1 1970', 'index': {
+                'bar': {
+                    'path': 'bar.json',
+                    'products': ['prodbar'],
+                    },
+                'baz': {
+                    'path': 'baz.json',
+                    'products': ['prodbaz'],
+                    }
+                }
+            }, index_json)
+        self.assertEqual({'products': {'prodbar': {}}}, bar_json)
+        self.assertEqual({'products': {'prodbaz': {}}}, baz_json)
