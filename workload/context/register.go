@@ -11,8 +11,10 @@ import (
 	"github.com/juju/juju/workload"
 )
 
+// RegisterCmdName is the name of the payload register command.
 const RegisterCmdName = "payload-register"
 
+// NewRegisterCmd returns a new RegisterCmd that wraps the given context.
 func NewRegisterCmd(ctx HookContext) (*RegisterCmd, error) {
 	compCtx, err := ContextComponent(ctx)
 	if err != nil {
@@ -22,6 +24,7 @@ func NewRegisterCmd(ctx HookContext) (*RegisterCmd, error) {
 	return &RegisterCmd{Comp: compCtx}, nil
 }
 
+// RegisterCmd is a command that registers a payload with juju.
 type RegisterCmd struct {
 	cmd.CommandBase
 
