@@ -4,10 +4,10 @@
 package backups
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/api/base"
 )
 
