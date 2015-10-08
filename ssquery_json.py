@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from argparse import ArgumentParser
-import json
 
 from generate_simplestreams import json_dump
 
