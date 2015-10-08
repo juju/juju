@@ -118,7 +118,12 @@ func (workloads) registerHookContextCommands() {
 
 	jujuc.RegisterCommand(context.RegisterCmdName, func(ctx jujuc.Context) cmd.Command {
 		compCtx := workloadsHookContext{ctx}
-		return context.RegisterCmd{Comp: compCtx}
+		cmd, err := context.NewRegisterCmd(compCtx)
+		if err != nil {
+			// TODO(ericsnow) Return an error instead.
+			panic(err)
+		}
+		return cmd
 	})
 
 	name := context.TrackCommandInfo.Name

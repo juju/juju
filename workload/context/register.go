@@ -7,12 +7,24 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
-	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/workload"
 )
 
 const RegisterCmdName = "payload-register"
 
+func NewRegisterCmd(ctx HookContext) (*RegisterCmd, error) {
+	compCtx, err := ContextComponent(ctx)
+	if err != nil {
+		// The component wasn't tracked properly.
+		return nil, errors.Trace(err)
+	}
+	return &RegisterCmd{Comp: compCtx}, nil
+}
+
 type RegisterCmd struct {
+	cmd.CommandBase
+
 	Comp  Component
 	typ   string
 	class string
@@ -47,10 +59,8 @@ func (c *RegisterCmd) Init(args []string) error {
 	c.class = args[1]
 	c.id = args[2]
 	c.tags = args[3:]
+	return nil
 }
-
-// SetFlags implements cmd.Command.
-func (c *RegisterCmd) SetFlags(_ *gnuflag.FlagSet) {}
 
 // Run implements cmd.Command.
 func (c *RegisterCmd) Run(ctx *cmd.Context) error {
@@ -60,7 +70,7 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 			Type: c.typ,
 		},
 		Status: workload.Status{
-			State: workload.StatusRunning,
+			State: workload.StateRunning,
 		},
 		Details: workload.Details{
 			ID: c.id,
