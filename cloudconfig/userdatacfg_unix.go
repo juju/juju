@@ -89,11 +89,10 @@ func (w *unixConfigure) ConfigureBasic() error {
 	w.conf.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
-	// On unix systems we create an ubuntu user so that we are able to ssh
-	// in the machine and have all the functionality dependant on having an
-	// ubuntu user there.
-	// Hopefully in the future we are going to move all distributions to
-	// having a "juju" user
+	// On unix systems we create an "ubuntu" user so that we are able to
+	// access the machine using ssh with the configuration we expect.
+	// It may make sense in the future to add a "juju" user instead across
+	// all distributions.
 	w.conf.SetUbuntuUser(w.icfg.AuthorizedKeys)
 	switch w.os {
 	case os.Ubuntu:

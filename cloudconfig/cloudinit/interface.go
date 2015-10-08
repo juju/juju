@@ -350,8 +350,8 @@ type AdvancedPackagingConfig interface {
 
 // UsersConfig is the interface for managing user additions
 type UsersConfig interface {
-	// SetUbuntuUser adds a user named ubuntu to the system with given ssh
-	// keys and common settings and permissions.
+	// SetUbuntuUser adds a user named "ubuntu" to the system with given
+	// ssh keys and common settings and permissions.
 	SetUbuntuUser(string)
 
 	// UnsetUsers unsets any users set in the config, meaning the default
