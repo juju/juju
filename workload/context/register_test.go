@@ -4,6 +4,10 @@
 package context
 
 import (
+	"io/ioutil"
+	"path/filepath"
+
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -53,7 +57,8 @@ func (registerSuite) TestRun(c *gc.C) {
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = r.Run(nil)
+	ctx := setupMetadata(c)
+	err = r.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.flushed, jc.IsTrue)
 	c.Assert(f.info.Workload.Name, gc.Equals, "class")
@@ -64,17 +69,47 @@ func (registerSuite) TestRun(c *gc.C) {
 	// TODO (natefinch): we need to do something with the tags
 }
 
+func (registerSuite) TestRunUnknownClass(c *gc.C) {
+	f := &fakeComponent{}
+	r := RegisterCmd{Comp: f}
+	err := r.Init([]string{"type", "badclass", "id"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := setupMetadata(c)
+	err = r.Run(ctx)
+	c.Assert(err, gc.ErrorMatches, "payload \"badclass\" not found in metadata.yaml")
+}
+
+func (registerSuite) TestRunUnknownType(c *gc.C) {
+	f := &fakeComponent{}
+	r := RegisterCmd{Comp: f}
+	err := r.Init([]string{"badtype", "class", "id"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := setupMetadata(c)
+	err = r.Run(ctx)
+	c.Assert(err, gc.ErrorMatches, "incorrect type \"badtype\" for payload \"class\", expected \"type\"")
+}
+
 func (registerSuite) TestRunTrackErr(c *gc.C) {
 	f := &fakeComponent{trackerr: errors.Errorf("boo")}
 	r := RegisterCmd{Comp: f}
-	err := r.Run(nil)
+	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := setupMetadata(c)
+	err = r.Run(ctx)
 	c.Assert(err, gc.ErrorMatches, "boo")
 }
 
 func (registerSuite) TestRunFlushErr(c *gc.C) {
 	f := &fakeComponent{flusherr: errors.Errorf("boo")}
 	r := RegisterCmd{Comp: f}
-	err := r.Run(nil)
+	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := setupMetadata(c)
+	err = r.Run(ctx)
 	c.Assert(err, gc.ErrorMatches, "boo")
 }
 
@@ -95,3 +130,22 @@ func (f *fakeComponent) Flush() error {
 	f.flushed = true
 	return f.flusherr
 }
+
+func setupMetadata(c *gc.C) *cmd.Context {
+	dir := c.MkDir()
+	path := filepath.Join(dir, "metadata.yaml")
+	ioutil.WriteFile(path, []byte(metadataContents), 0660)
+	return &cmd.Context{Dir: dir}
+}
+
+const metadataContents = `name: ducksay
+summary: Testing workload processes
+maintainer: juju@canonical.com <Juju>
+description: |
+  Testing workloads
+subordinate: false
+payloads:
+  class:
+    type: type
+    lifecycle: ["restart"]
+`
