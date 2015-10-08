@@ -26,11 +26,33 @@ func (s *imageURLSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *imageURLSuite) TestImageURL(c *gc.C) {
-	imageURLGetter := container.NewImageURLGetter("host:port", "12345", []byte("cert"), "")
+	imageURLGetter := container.NewImageURLGetter(
+		container.ImageURLGetterConfig{
+			"host:port", "12345", []byte("cert"), "",
+			container.ImageDownloadURL,
+		})
 	imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageURL, gc.Equals, "https://host:port/environment/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
 	c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
+}
+
+func (s *imageURLSuite) TestImageURLOtherBase(c *gc.C) {
+	var calledBaseURL string
+	baseURL := "other://cloud-images"
+	mockFunc := func(kind instance.ContainerType, series, arch, cloudimgBaseUrl string) (string, error) {
+		calledBaseURL = cloudimgBaseUrl
+		return "omg://wat/trusty-released-amd64-root.tar.gz", nil
+	}
+	imageURLGetter := container.NewImageURLGetter(
+		container.ImageURLGetterConfig{
+			"host:port", "12345", []byte("cert"), baseURL, mockFunc,
+		})
+	imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
+	c.Assert(err, gc.IsNil)
+	c.Assert(imageURL, gc.Equals, "https://host:port/environment/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
+	c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
+	c.Assert(calledBaseURL, gc.Equals, baseURL)
 }
 
 func (s *imageURLSuite) TestImageDownloadURL(c *gc.C) {
