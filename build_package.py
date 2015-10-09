@@ -3,8 +3,6 @@
 
 from __future__ import print_function
 
-__metaclass__ = type
-
 from argparse import ArgumentParser
 from collections import namedtuple
 import os
@@ -12,6 +10,8 @@ import re
 import shutil
 import subprocess
 import sys
+
+__metaclass__ = type
 
 
 # This constant defines the location of the base source package branch.

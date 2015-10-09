@@ -102,8 +102,8 @@ def reconcile_aliases(found_errors, new_agents):
             if real_name in new_agents:
                 real_agent = new_agents[real_name]
                 found_agent = new_agents[found_name]
-                if (found_agent['path'] == real_agent['path']
-                        and found_agent['sha256'] == real_agent['sha256']):
+                if (found_agent['path'] == real_agent['path'] and
+                        found_agent['sha256'] == real_agent['sha256']):
                     found_errors.remove(found_name)
 
 
