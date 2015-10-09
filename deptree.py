@@ -3,16 +3,15 @@
 
 from __future__ import print_function
 
-
-__metaclass__ = type
-
-
 import argparse
 import errno
 import os
 import subprocess
 import sys
 import tempfile
+
+
+__metaclass__ = type
 
 
 class Dependency:
@@ -43,8 +42,8 @@ class Dependency:
 
     def __eq__(self, other):
         return (
-            isinstance(other, self.__class__)
-            and self.__dict__ == other.__dict__)
+            isinstance(other, self.__class__) and
+            self.__dict__ == other.__dict__)
 
     def __ne__(self, other):
         return not self == other
