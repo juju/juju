@@ -11,6 +11,27 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
+// Payload holds information about a charm payload.
+type Payload struct {
+	charm.PayloadClass
+
+	// ID is a unique string identifying the payload to
+	// the underlying technology.
+	ID string
+
+	// Status is the Juju-level status of the workload.
+	Status string
+
+	// Tags are tags associated with the payload.
+	Tags []string
+
+	// Unit identifies the Juju unit associated with the payload.
+	Unit string
+
+	// Machine identifies the Juju machine associated with the payload.
+	Machine string
+}
+
 // Info holds information about a workload that Juju needs. Iff the
 // workload has not been registered with Juju then the Status and
 // Details fields will be zero values.
@@ -82,4 +103,19 @@ func (info Info) IsTracked() bool {
 	// workload can be identified by non-zero values in those fields.
 	// We use that fact here.
 	return !reflect.DeepEqual(info, Info{Workload: info.Workload})
+}
+
+// AsPayload converts the Info into a Payload.
+func (info Info) AsPayload() Payload {
+	tags := make([]string, len(info.Tags))
+	copy(tags, info.Tags)
+	return Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: info.Name,
+			Type: info.Type,
+		},
+		ID:     info.Details.ID,
+		Status: info.Status.State,
+		Tags:   tags,
+	}
 }
