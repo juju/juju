@@ -50,24 +50,23 @@ func (workloads) registerForClient() error {
 	return nil
 }
 
-func (workloads) registerPublicFacade() {
-
-	newPublicAPI := func(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
-		if st == nil {
-			return nil, errors.NewNotValid(nil, "st is nil")
-		}
-
-		up, err := st.EnvPayloads()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return server.NewPublicAPI(up), nil
+func (workloads) newPublicFacade(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
+	if st == nil {
+		return nil, errors.NewNotValid(nil, "st is nil")
 	}
 
+	up, err := st.EnvPayloads()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return server.NewPublicAPI(up), nil
+}
+
+func (c workloads) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		workload.ComponentName,
 		0,
-		newPublicAPI,
+		c.newPublicFacade,
 	)
 }
 
@@ -110,29 +109,28 @@ func (c workloads) registerHookContext(addEvents func(...workload.Event) error) 
 	c.registerHookContextFacade()
 }
 
-func (c workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
+func (workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
 	facadeCaller := base.NewFacadeCallerForVersion(caller, workload.ComponentName, 0)
 	return client.NewHookContextClient(facadeCaller)
 }
 
-func (workloads) registerHookContextFacade() {
-
-	newHookContextApi := func(st *state.State, unit *state.Unit) (interface{}, error) {
-		if st == nil {
-			return nil, errors.NewNotValid(nil, "st is nil")
-		}
-
-		up, err := st.UnitWorkloads(unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return server.NewHookContextAPI(up), nil
+func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+	if st == nil {
+		return nil, errors.NewNotValid(nil, "st is nil")
 	}
 
+	up, err := st.UnitWorkloads(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return server.NewHookContextAPI(up), nil
+}
+
+func (c workloads) registerHookContextFacade() {
 	common.RegisterHookContextFacade(
 		workload.ComponentName,
 		0,
-		newHookContextApi,
+		c.newHookContextFacade,
 		reflect.TypeOf(&server.HookContextAPI{}),
 	)
 }
