@@ -348,18 +348,31 @@ type AdvancedPackagingConfig interface {
 	AddCloudArchiveCloudTools()
 }
 
+type User struct {
+	// Login name for the user.
+	Name string
+
+	// Additional groups to add the user to.
+	Groups []string
+
+	// Path to shell to use by default.
+	Shell string
+
+	// SSH keys to add to the authorized keys file.
+	SSHAuthorizedKeys string
+
+	// Sudo directives to add.
+	Sudo []string
+}
+
 // UsersConfig is the interface for managing user additions
 type UsersConfig interface {
-	// SetUbuntuUser adds a user named "ubuntu" to the system with given
-	// ssh keys and common settings and permissions.
-	SetUbuntuUser(string)
+	// AddUser sets a new user to be created with the given configuration.
+	AddUser(*User)
 
 	// UnsetUsers unsets any users set in the config, meaning the default
 	// user specified in the image cloud config will be used.
 	UnsetUsers()
-
-	// Users returns the users that will be added to the system.
-	Users() []map[string]interface{}
 }
 
 // New returns a new Config with no options set.

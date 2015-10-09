@@ -116,32 +116,31 @@ func annotateKeys(rawKeys string) []string {
 	return cfgKeys
 }
 
-// SetUbuntuUser is defined on the UsersConfig interface.
-func (cfg *cloudConfig) SetUbuntuUser(rawKeys string) {
-	groups := []string{"adm", "audio", "cdrom", "dialout", "dip", "floppy",
-		"netdev", "plugdev", "sudo", "video"}
-	keys := annotateKeys(rawKeys)
-	ubuntu := map[string]interface{}{
-		"name": "ubuntu",
+// AddUser is defined on the UsersConfig interface.
+func (cfg *cloudConfig) AddUser(user *User) {
+	users, _ := cfg.attrs["users"].([]map[string]interface{})
+	newUser := map[string]interface{}{
+		"name":        user.Name,
 		"lock_passwd": true,
-		"groups": groups,
-		"shell": "/bin/bash",
-		"sudo": []string{"ALL=(ALL) NOPASSWD:ALL"},
-		"ssh-authorized-keys": keys,
 	}
-	users := []map[string]interface{}{ubuntu}
-	cfg.SetAttr("users", users)
+	if user.Groups != nil {
+		newUser["groups"] = user.Groups
+	}
+	if user.Shell != "" {
+		newUser["shell"] = user.Shell
+	}
+	if user.SSHAuthorizedKeys != "" {
+		newUser["ssh-authorized-keys"] = annotateKeys(user.SSHAuthorizedKeys)
+	}
+	if user.Sudo != nil {
+		newUser["sudo"] = user.Sudo
+	}
+	cfg.SetAttr("users", append(users, newUser))
 }
 
 // UnsetUsers is defined on the UsersConfig interface.
 func (cfg *cloudConfig) UnsetUsers() {
 	cfg.UnsetAttr("users")
-}
-
-// Users is defined on the UsersConfig interface.
-func (cfg *cloudConfig) Users() []map[string]interface{} {
-	user, _ := cfg.attrs["users"].([]map[string]interface{})
-	return user
 }
 
 // SetSystemUpdate is defined on the SystemUpdateConfig interface.

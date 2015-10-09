@@ -1181,3 +1181,51 @@ for n in $(seq 5); do
 done`
 	c.Assert(command, gc.Equals, expected)
 }
+
+func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
+	user := map[string]interface{}{
+		"name":        "ubuntu",
+		"lock_passwd": true,
+		"shell":       "/bin/bash",
+		"sudo":        []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+	}
+	if groups != nil {
+		user["groups"] = groups
+	}
+	if keys != nil {
+		user["ssh-authorized-keys"] = keys
+	}
+	return map[string]interface{}{
+		"users": []map[string]interface{}{user},
+	}
+}
+
+func (*cloudinitSuite) TestSetUbuntuUserWithDefaults(c *gc.C) {
+	ci, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudconfig.SetUbuntuUser(ci, nil, "")
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.YAMLEquals, expectedUbuntuUser(nil, nil))
+}
+
+func (*cloudinitSuite) TestSetUbuntuUserWithGroups(c *gc.C) {
+	ci, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	groups := []string{"agroup"}
+	cloudconfig.SetUbuntuUser(ci, groups, "")
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.YAMLEquals, expectedUbuntuUser(groups, nil))
+}
+
+func (*cloudinitSuite) TestSetUbuntuUserWithAll(c *gc.C) {
+	ci, err := cloudinit.New("quantal")
+	c.Assert(err, jc.ErrorIsNil)
+	groups := []string{"agroup", "bgroup"}
+	cloudconfig.SetUbuntuUser(ci, groups, "a key")
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	keys := []string{"a key"}
+	c.Assert(string(data), jc.YAMLEquals, expectedUbuntuUser(groups, keys))
+}

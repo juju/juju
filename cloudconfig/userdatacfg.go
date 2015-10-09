@@ -133,6 +133,20 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	return nil
 }
 
+// SetUbuntuUser creates an "ubuntu" use for unix systems so the juju client
+// can access the machine using ssh with the configuration we expect.
+// It may make sense in the future to add a "juju" user instead across
+// all distributions.
+func SetUbuntuUser(conf cloudinit.CloudConfig, groups []string, authorizedKeys string) {
+	conf.AddUser(&cloudinit.User{
+		Name:              "ubuntu",
+		Groups:            groups,
+		Shell:             "/bin/bash",
+		Sudo:              []string{"ALL=(ALL) NOPASSWD:ALL"},
+		SSHAuthorizedKeys: authorizedKeys,
+	})
+}
+
 // TODO(ericsnow) toolsSymlinkCommand should just be replaced with a
 // call to shell.Renderer.Symlink.
 

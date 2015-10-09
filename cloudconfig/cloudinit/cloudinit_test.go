@@ -29,23 +29,6 @@ func Test1(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func ubuntuUser(processedKeys []string) map[string]interface{} {
-	return map[string]interface{}{
-		"users": []interface{}{
-			map[string]interface{}{
-				"name": "ubuntu",
-				"lock_passwd": true,
-				"groups": []interface{}{"adm", "audio",
-					"cdrom", "dialout", "dip", "floppy",
-					"netdev", "plugdev", "sudo", "video"},
-				"shell": "/bin/bash",
-				"sudo": []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-				"ssh-authorized-keys": processedKeys,
-			},
-		},
-	}
-}
-
 var ctests = []struct {
 	name      string
 	expect    map[string]interface{}
@@ -99,36 +82,54 @@ var ctests = []struct {
 		cfg.SetDisableRoot(false)
 	},
 }, {
-	"SetUbuntuUser",
-	ubuntuUser([]string{
-		fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyOne.Key),
-		fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyTwo.Key),
-	}),
+	"AddUser",
+	map[string]interface{}{"users": []interface{}{map[string]interface{}{
+		"name":        "auser",
+		"lock_passwd": true,
+		"ssh-authorized-keys": []string{
+			fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyOne.Key),
+			fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyTwo.Key),
+		},
+	}}},
 	func(cfg cloudinit.CloudConfig) {
-		cfg.SetUbuntuUser(
-			sshtesting.ValidKeyOne.Key + " Juju:user@host\n" +
+		keys := (sshtesting.ValidKeyOne.Key + " Juju:user@host\n" +
 			sshtesting.ValidKeyTwo.Key + " another@host")
+		cfg.AddUser(&cloudinit.User{
+			Name:              "auser",
+			SSHAuthorizedKeys: keys,
+		})
 	},
 }, {
-	"SetUbuntuUser with comments in keys",
-	ubuntuUser([]string{
-		fmt.Sprintf("%s Juju:sshkey", sshtesting.ValidKeyOne.Key),
-		fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyTwo.Key),
-		fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyThree.Key),
-	}),
+	"AddUser with comments in keys",
+	map[string]interface{}{"users": []interface{}{map[string]interface{}{
+		"name":        "auser",
+		"lock_passwd": true,
+		"ssh-authorized-keys": []string{
+			fmt.Sprintf("%s Juju:sshkey", sshtesting.ValidKeyOne.Key),
+			fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyTwo.Key),
+			fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyThree.Key),
+		},
+	}}},
 	func(cfg cloudinit.CloudConfig) {
-		cfg.SetUbuntuUser(
-			"#command\n" + sshtesting.ValidKeyOne.Key + "\n" +
+		keys := ("#command\n" + sshtesting.ValidKeyOne.Key + "\n" +
 			sshtesting.ValidKeyTwo.Key + " user@host\n" +
 			"# comment\n\n" +
 			sshtesting.ValidKeyThree.Key + " another@host")
+		cfg.AddUser(&cloudinit.User{
+			Name:              "auser",
+			SSHAuthorizedKeys: keys,
+		})
 	},
 }, {
-	"SetUbuntuUser with no keys",
-	ubuntuUser([]string{
-	}),
+	"AddUser with no keys",
+	map[string]interface{}{"users": []interface{}{map[string]interface{}{
+		"name":        "auser",
+		"lock_passwd": true,
+	}}},
 	func(cfg cloudinit.CloudConfig) {
-		cfg.SetUbuntuUser("")
+		cfg.AddUser(&cloudinit.User{
+			Name: "auser",
+		})
 	},
 }, {
 	"Output",

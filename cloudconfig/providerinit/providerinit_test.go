@@ -293,14 +293,14 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 			},
 			"users": []interface{}{
 				map[interface{}]interface{}{
-					"name": "ubuntu",
+					"name":        "ubuntu",
 					"lock_passwd": true,
 					"groups": []interface{}{"adm", "audio",
 						"cdrom", "dialout", "dip",
 						"floppy", "netdev", "plugdev",
 						"sudo", "video"},
-					"shell": "/bin/bash",
-					"sudo": []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+					"shell":               "/bin/bash",
+					"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
 					"ssh-authorized-keys": []interface{}{"wheredidileavemykeys"},
 				},
 			},

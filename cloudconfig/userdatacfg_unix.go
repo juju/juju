@@ -58,6 +58,17 @@ for n in $(seq {{.ToolsDownloadAttempts}}); do
 done`
 )
 
+var (
+	// UbuntuGroups is the set of unix groups to add the "ubuntu" user to
+	// when initializing an Ubuntu system.
+	UbuntuGroups = []string{"adm", "audio", "cdrom", "dialout", "dip",
+		"floppy", "netdev", "plugdev", "sudo", "video"}
+
+	// CentOSGroups is the set of unix groups to add the "ubuntu" user to
+	// when initializing a CentOS system.
+	CentOSGroups = []string{"adm", "systemd-journal", "wheel"}
+)
+
 type unixConfigure struct {
 	baseConfigure
 }
@@ -86,16 +97,13 @@ func (w *unixConfigure) Configure() error {
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
 func (w *unixConfigure) ConfigureBasic() error {
+	var groups []string
 	w.conf.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
-	// On unix systems we create an "ubuntu" user so that we are able to
-	// access the machine using ssh with the configuration we expect.
-	// It may make sense in the future to add a "juju" user instead across
-	// all distributions.
-	w.conf.SetUbuntuUser(w.icfg.AuthorizedKeys)
 	switch w.os {
 	case os.Ubuntu:
+		groups = UbuntuGroups
 		if w.icfg.Tools != nil {
 			initSystem, err := service.VersionInitSystem(w.icfg.Series)
 			if err != nil {
@@ -104,6 +112,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 			w.addCleanShutdownJob(initSystem)
 		}
 	case os.CentOS:
+		groups = CentOSGroups
 		w.conf.AddScripts(
 			// Mask and stop firewalld, if enabled, so it cannot start. See
 			// http://pad.lv/1492066. firewalld might be missing, in which case
@@ -116,6 +125,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 		)
 		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
+	SetUbuntuUser(w.conf, groups, w.icfg.AuthorizedKeys)
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
 	// nonce. The presence and contents of this file will be verified
