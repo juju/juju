@@ -35,15 +35,39 @@ type workloads struct{}
 
 func (c workloads) registerForServer() error {
 	c.registerState()
+	c.registerPublicFacade()
+
 	addEvents := c.registerUnitWorkers()
 	c.registerHookContext(addEvents)
 	c.registerUnitStatus()
+
 	return nil
 }
 
 func (workloads) registerForClient() error {
 	cmdstatus.RegisterUnitStatusFormatter(workload.ComponentName, status.Format)
 	return nil
+}
+
+func (workloads) registerPublicFacade() {
+
+	newPublicAPI := func(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
+		if st == nil {
+			return nil, errors.NewNotValid(nil, "st is nil")
+		}
+
+		up, err := st.EnvPayloads()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return server.NewPublicAPI(up), nil
+	}
+
+	common.RegisterStandardFacade(
+		workload.ComponentName,
+		0,
+		newPublicAPI,
+	)
 }
 
 func (c workloads) registerHookContext(addEvents func(...workload.Event) error) {
