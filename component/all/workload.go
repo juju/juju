@@ -36,6 +36,7 @@ type workloads struct{}
 func (c workloads) registerForServer() error {
 	c.registerState()
 	c.registerPublicFacade()
+	c.registerPublicCommands()
 
 	addEvents := c.registerUnitWorkers()
 	c.registerHookContext(addEvents)
@@ -68,6 +69,24 @@ func (workloads) registerPublicFacade() {
 		0,
 		newPublicAPI,
 	)
+}
+
+func (workloads) registerPublicCommands() {
+	if !markRegistered(workload.ComponentName, "public-commands") {
+		return
+	}
+
+	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+		newFacadeCaller := func(c envcmd.EnvironCommand) (facadeCaller, func() error) {
+			apiCaller, err := c.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			facadeCaller := base.NewFacadeCallerForVersion(apiCaller, workload.ComponentName, 0)
+			return facadeCaller, apiCaller.Close
+		}
+		return status.NewListCommand(newFacadeCaller)
+	})
 }
 
 func (c workloads) registerHookContext(addEvents func(...workload.Event) error) {
