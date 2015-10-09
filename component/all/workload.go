@@ -227,6 +227,16 @@ func (workloads) registerState() {
 		return workloadstate.NewUnitWorkloads(persist, unit), nil
 	}
 	state.SetWorkloadsComponent(newUnitWorkloads)
+
+	newEnvPayloads := func(persist state.Persistence, listMachines func() ([]string, error), listUnits func(string) ([]names.UnitTag, error)) (state.EnvPayloads, error) {
+		envPayloads := &workloadstate.EnvPayloads{
+			Base:         persist,
+			ListMachines: listMachines,
+			ListUnits:    listUnits,
+		}
+		return envPayloads, nil
+	}
+	state.SetPayloadsComponent(newEnvPayloads)
 }
 
 func (workloads) registerUnitStatus() {
