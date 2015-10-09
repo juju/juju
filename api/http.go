@@ -18,6 +18,9 @@ import (
 
 // HTTPClient implements Connection.APICaller.HTTPClient.
 func (s *state) HTTPClient() (*httprequest.Client, error) {
+	if !s.loggedIn {
+		return nil, errors.New("no HTTP client available without logging in")
+	}
 	baseURL, err := s.apiEndpoint("/", "")
 	if err != nil {
 		return nil, errors.Trace(err)

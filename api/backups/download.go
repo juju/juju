@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-
 	"github.com/juju/httprequest"
+
 	"github.com/juju/juju/apiserver/params"
 )
 

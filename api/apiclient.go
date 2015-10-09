@@ -80,7 +80,11 @@ type state struct {
 	// closed is a channel that gets closed when State.Close is called.
 	closed chan struct{}
 
+	// loggedIn holds whether the client has successfully logged in.
+	loggedIn bool
+
 	// tag and password and nonce hold the cached login credentials.
+	// These are only valid if loggedIn is true.
 	tag      string
 	password string
 	nonce    string
@@ -278,6 +282,9 @@ func tlsConfigForCACert(caCert string) (*tls.Config, error) {
 
 // ConnectStream implements Connection.ConnectStream.
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	if !st.loggedIn {
+		return nil, errors.New("cannot use ConnectStream without logging in")
+	}
 	// We use the standard "macaraq" macaroon authentication dance here.
 	// That is, we attach any macaroons we have to the initial request,
 	// and if that succeeds, all's good. If it fails with a DischargeRequired

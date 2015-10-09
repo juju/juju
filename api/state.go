@@ -197,6 +197,7 @@ func (st *state) setLoginResult(tag names.Tag, environTag, serverTag string, ser
 	for _, facade := range facades {
 		st.facadeVersions[facade.Name] = facade.Versions
 	}
+	st.loggedIn = true
 	return nil
 }
 
