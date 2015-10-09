@@ -407,12 +407,15 @@ func (conn *Conn) loop() error {
 		hdr = Header{}
 		err := conn.codec.ReadHeader(&hdr)
 		if err != nil {
+			logger.Tracef("codec.ReadHeader error: %v", err)
 			return err
 		}
 		if hdr.IsRequest() {
 			err = conn.handleRequest(&hdr)
+			logger.Tracef("codec.handleRequest %#v error: %v", hdr, err)
 		} else {
 			err = conn.handleResponse(&hdr)
+			logger.Tracef("codec.handleResponse %#v error: %v", hdr, err)
 		}
 		if err != nil {
 			return err
