@@ -455,7 +455,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
-	switch err {
+	switch errors.Cause(err) {
 	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
 	case worker.ErrRebootMachine:
@@ -639,7 +639,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	reportOpenedAPI(st)
 
@@ -1685,6 +1685,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
+	logger.Infof("machine agent uninstalling itself")
 	var errors []error
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {

@@ -47,16 +47,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	c.Assert(entity, gc.DeepEquals, user)
 }
 
-func (s *agentAuthenticatorSuite) TestAuthenticatorForTagGetsMacaroonAuthenticator(c *gc.C) {
-	srv := newServer(c, s.State)
-	defer srv.Stop()
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, ok := authenticator.(*authentication.MacaroonAuthenticator)
-	c.Assert(ok, jc.IsTrue)
-}
-
-func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthentictor(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewMachineTag("0"))
@@ -64,7 +55,8 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthentictor(c *gc.C) {
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
-func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthentictor(c *gc.C) {
+
+func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewUnitTag("wordpress/0"))
@@ -72,10 +64,11 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthentictor(c *gc.C) {
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
+
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewServiceTag("not-support"))
-	c.Assert(err, gc.ErrorMatches, "invalid request")
+	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
 	c.Assert(authenticator, gc.IsNil)
 }

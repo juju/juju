@@ -66,7 +66,7 @@ func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
-	s.checkAuthFails(c, nil, "no authorization header found")
+	s.checkAuthFails(c, nil, "no credentials provided")
 }
 
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {

@@ -112,7 +112,7 @@ func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 
 func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.toolsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
 }
 
 func (s *toolsSuite) TestRequiresPOST(c *gc.C) {

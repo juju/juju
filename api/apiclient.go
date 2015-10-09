@@ -435,24 +435,16 @@ func tagToString(tag names.Tag) string {
 }
 
 func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try *parallel.Try) error {
-	cfg, err := setUpWebsocket(addr, path, tlsConfig)
-	if err != nil {
-		return err
-	}
-	return try.Start(newWebsocketDialer(cfg, opts))
-}
-
-func setUpWebsocket(addr, path string, tlsConfig *tls.Config) (*websocket.Config, error) {
 	// origin is required by the WebSocket API, used for "origin policy"
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
 	const origin = "http://localhost/"
 	cfg, err := websocket.NewConfig("wss://"+addr+path, origin)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	cfg.TlsConfig = tlsConfig
-	return cfg, nil
+	return try.Start(newWebsocketDialer(cfg, opts))
 }
 
 // newWebsocketDialer returns a function that

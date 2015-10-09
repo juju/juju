@@ -19,9 +19,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
@@ -52,24 +49,8 @@ type Server struct {
 	validator         LoginValidator
 	adminApiFactories map[int]adminApiFactory
 	mongoUnavailable  uint32 // non zero if mongoUnavailable
-
-	// bakeryService holds the service that is
-	// used to verify macaroon authorization. It
-	// stores a key for the single macaroon below.
-	// It will be nil if no identity URL has been configured.
-	bakeryService *bakery.Service
-
-	// macaroon is created when the server is created
-	// and guards macaroon-authentication-based access
-	// to the APIs.
-	macaroon *macaroon.Macaroon
-
-	// identityURL to address discharge macaroons to.
-	identityURL string
-
-	authCtxt authContext
-
-	environUUID string
+	environUUID       string
+	authCtxt          *authContext
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -175,19 +156,28 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
+//
+// The Server will close the listener when it exits, even if returns an error.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	// Important note:
+	// Do not manipulate the state within NewServer as the API
+	// server needs to run before mongo upgrades have happened and
+	// any state manipulation may be be relying on features of the
+	// database added by upgrades. Here be dragons.
 	l, ok := lis.(*net.TCPListener)
 	if !ok {
 		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
 	}
-	return newServer(s, l, cfg)
+	srv, err := newServer(s, l, cfg)
+	if err != nil {
+		// There is no running server around to close the listener.
+		lis.Close()
+		return nil, errors.Trace(err)
+	}
+	return srv, nil
 }
 
-func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server, error) {
-	envCfg, err := s.EnvironConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get environment config")
-	}
+func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Server, err error) {
 	logger.Infof("listening on %q", lis.Addr())
 	srv := &Server{
 		state:     s,
@@ -204,36 +194,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 			2: newAdminApiV2,
 		},
 	}
-	idURL := envCfg.IdentityURL()
-	if idURL != "" {
-		// The identity server has been configured,
-		// so configure the bakery service appropriately.
-		idPK := envCfg.IdentityPublicKey()
-		if idPK == nil {
-			// No public key supplied - retrieve it from the identity manager.
-			idPK, err = httpbakery.PublicKeyForLocation(http.DefaultClient, idURL)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot get identity public key")
-			}
-		}
-		svc, err := bakery.NewService(
-			bakery.NewServiceParams{
-				Location: "juju environment " + s.EnvironUUID(),
-				Locator: bakery.PublicKeyLocatorMap{
-					idURL: idPK,
-				},
-			},
-		)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot make bakery service")
-		}
-		srv.authCtxt.bakeryService = svc
-		srv.authCtxt.macaroon, err = svc.NewMacaroon("api-login", nil, nil)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot make macaroon")
-		}
-		srv.authCtxt.identityURL = idURL
-	}
+	srv.authCtxt = newAuthContext(srv)
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
 		return nil, err
@@ -379,8 +340,7 @@ func (srv *Server) run(lis net.Listener) {
 
 	srvDying := srv.tomb.Dying()
 	httpCtxt := httpContext{
-		statePool: srv.statePool,
-		authCtxt:  &srv.authCtxt,
+		srv: srv,
 	}
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
@@ -562,5 +522,3 @@ func serverError(err error) error {
 	}
 	return nil
 }
-
-var logRequests = true

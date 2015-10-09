@@ -48,7 +48,7 @@ func (s *debugLogBaseSuite) TestNoAuth(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "no authorization header found")
+	assertJSONError(c, reader, "no credentials provided")
 	s.assertWebsocketClosed(c, reader)
 }
 
