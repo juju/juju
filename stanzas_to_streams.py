@@ -10,6 +10,7 @@ from simplestreams import util
 
 from generate_simplestreams import (
     FileNamer,
+    Item,
     items2content_trees,
     json_dump,
     write_streams,
@@ -37,7 +38,7 @@ def read_items_file(filename):
         product_name = item.pop('product_name')
         version_name = item.pop('version_name')
         item_name = item.pop('item_name')
-        yield (content_id, product_name, version_name, item_name, item)
+        yield Item(content_id, product_name, version_name, item_name, item)
 
 
 def write_release_index(out_d):
