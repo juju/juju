@@ -71,8 +71,7 @@ class TestReadItemsFile(TestCase):
 class TestWriteReleaseIndex(TestCase):
 
     def write_full_index(self, out_d, content):
-        os.mkdir(os.path.join(out_d, 'streams'))
-        os.mkdir(os.path.join(out_d, 'streams/v1'))
+        os.makedirs(os.path.join(out_d, 'streams/v1'))
         path = os.path.join(out_d, JujuFileNamer.get_index_path())
         json_dump(content, path)
 
