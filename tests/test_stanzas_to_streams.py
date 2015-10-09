@@ -11,7 +11,7 @@ from generate_simplestreams import (
     generate_index,
     Item,
     items2content_trees,
-    json_dump as noisy_json_dump,
+    json_dump as json_dump_verbose,
     )
 from stanzas_to_streams import (
     dict_to_item,
@@ -37,7 +37,7 @@ class TestJujuFileNamer(TestCase):
 
 def json_dump(json, filename):
     with patch('sys.stderr', StringIO()):
-        noisy_json_dump(json, filename)
+        json_dump_verbose(json, filename)
 
 
 class TestDictToItem(TestCase):
