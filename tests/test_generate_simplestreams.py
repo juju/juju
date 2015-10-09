@@ -187,6 +187,13 @@ class TestGenerateIndex(TestCase):
             }, index_json)
 
 
+def load_stream_dir(stream_dir):
+    contents = {}
+    for filename in os.listdir(stream_dir):
+        contents[filename] = load_json(stream_dir, filename)
+    return contents
+
+
 class TestWriteStreams(TestCase):
 
     updated = 'January 1 1970'
@@ -194,11 +201,11 @@ class TestWriteStreams(TestCase):
     def test_no_content(self):
         with temp_dir() as out_dir, patch('sys.stderr', StringIO()):
             filenames = write_streams(out_dir, {}, self.updated, FakeNamer)
-            index_json = load_json(out_dir, 'foo.json')
-            self.assertEqual(['foo.json'], os.listdir(out_dir))
-            self.assertEqual([os.path.join(out_dir, 'foo.json')], filenames)
+            contents = load_stream_dir(out_dir)
+        self.assertEqual(['foo.json'], contents.keys())
+        self.assertEqual([os.path.join(out_dir, 'foo.json')], filenames)
         self.assertEqual(generate_index({}, self.updated, FakeNamer),
-                         index_json)
+                         contents['foo.json'])
 
     def test_two_content(self):
         trees = {
@@ -207,17 +214,15 @@ class TestWriteStreams(TestCase):
             }
         with temp_dir() as out_dir, patch('sys.stderr', StringIO()):
             filenames = write_streams(out_dir, trees, self.updated, FakeNamer)
-            self.assertItemsEqual(['foo.json', 'bar.json', 'baz.json'],
-                                  os.listdir(out_dir))
-            index_json = load_json(out_dir, 'foo.json')
-            bar_json = load_json(out_dir, 'bar.json')
-            baz_json = load_json(out_dir, 'baz.json')
+            contents = load_stream_dir(out_dir)
+        self.assertItemsEqual(['foo.json', 'bar.json', 'baz.json'],
+                              contents.keys())
         self.assertItemsEqual([
             os.path.join(out_dir, 'foo.json'),
             os.path.join(out_dir, 'bar.json'),
             os.path.join(out_dir, 'baz.json'),
             ], filenames)
         self.assertEqual(generate_index(trees, self.updated, FakeNamer),
-                         index_json)
-        self.assertEqual({'products': {'prodbar': {}}}, bar_json)
-        self.assertEqual({'products': {'prodbaz': {}}}, baz_json)
+                         contents['foo.json'])
+        self.assertEqual({'products': {'prodbar': {}}}, contents['bar.json'])
+        self.assertEqual({'products': {'prodbaz': {}}}, contents['baz.json'])
