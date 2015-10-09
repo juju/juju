@@ -2,14 +2,15 @@
 
 from __future__ import print_function
 
-__metaclass__ = type
-
 from argparse import ArgumentParser
 import difflib
 import os
 import sys
 import traceback
 import urllib2
+
+
+__metaclass__ = type
 
 
 CPCS = {
