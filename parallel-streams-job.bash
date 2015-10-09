@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 source $HOME/cloud-city/juju-qa.jujuci
-PATH="$HOME/generate-simplestreams:$HOME/juju-ci-tools:$PATH"
+PATH="$HOME/juju-release-tools:$HOME/juju-ci-tools:$PATH"
 jujuci.py get -b $revision_build build-revision buildvars.bash $WORKSPACE/
 source buildvars.bash
 set -x
