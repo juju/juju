@@ -1434,7 +1434,7 @@ func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 // WatchForUnitAssignment watches for new services that request units to be
 // assigned to machines.
 func (st *State) WatchForUnitAssignment() StringsWatcher {
-	return newcollectionWatcher(st, assignUnitC, nil, nil)
+	return newcollectionWatcher(st, colWCfg{col: assignUnitC})
 }
 
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
@@ -2063,27 +2063,30 @@ func statusInCollectionOp(statusSet ...ActionStatus) bson.D {
 // specified collection that match a filter on the id.
 type collectionWatcher struct {
 	commonWatcher
-	source   chan watcher.Change
-	sink     chan []string
-	filterFn func(interface{}) bool
-	targetC  string
-	idconv   func(string) string
+	colWCfg
+	source chan watcher.Change
+	sink   chan []string
 }
 
 // ensure collectionWatcher is a StringsWatcher
 // TODO(dfc) this needs to move to a test
 var _ StringsWatcher = (*collectionWatcher)(nil)
 
+// colWCfg contains the parameters for watching a collection.
+type colWCfg struct {
+	col    string
+	filter func(interface{}) bool
+	idconv func(string) string
+}
+
 // newcollectionWatcher starts and returns a new StringsWatcher configured
 // with the given collection and filter function
-func newcollectionWatcher(st *State, collectionName string, filter func(interface{}) bool, idconv func(string) string) StringsWatcher {
+func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
 	w := &collectionWatcher{
+		colWCfg:       cfg,
 		commonWatcher: commonWatcher{st: st},
 		source:        make(chan watcher.Change),
 		sink:          make(chan []string),
-		filterFn:      filter,
-		targetC:       collectionName,
-		idconv:        idconv,
 	}
 
 	go func() {
@@ -2110,8 +2113,8 @@ func (w *collectionWatcher) loop() error {
 		out     = (chan<- []string)(w.sink)
 	)
 
-	w.st.watcher.WatchCollectionWithFilter(w.targetC, w.source, w.filterFn)
-	defer w.st.watcher.UnwatchCollection(w.targetC, w.source)
+	w.st.watcher.WatchCollectionWithFilter(w.col, w.source, w.filter)
+	defer w.st.watcher.UnwatchCollection(w.col, w.source)
 
 	changes, err := w.initial()
 	if err != nil {
@@ -2177,11 +2180,11 @@ func (w *collectionWatcher) initial() ([]string, error) {
 	var doc struct {
 		DocId string `bson:"_id"`
 	}
-	coll, closer := w.st.getCollection(w.targetC)
+	coll, closer := w.st.getCollection(w.col)
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		if w.filterFn == nil || w.filterFn(doc.DocId) {
+		if w.filter == nil || w.filter(doc.DocId) {
 			id := w.st.localID(doc.DocId)
 			if w.idconv != nil {
 				id = w.idconv(id)
@@ -2261,14 +2264,22 @@ func ensureSuffixFn(marker string) func(string) string {
 // watchEnqueuedActions starts and returns a StringsWatcher that
 // notifies on new Actions being enqueued.
 func (st *State) watchEnqueuedActions() StringsWatcher {
-	return newcollectionWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker), actionNotificationIdToActionId)
+	return newcollectionWatcher(st, colWCfg{
+		col:    actionNotificationsC,
+		filter: makeIdFilter(st, actionMarker),
+		idconv: actionNotificationIdToActionId,
+	})
 }
 
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
 // that notifies on new Actions being enqueued on the ActionRecevers
 // being watched.
 func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newcollectionWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker, receivers...), actionNotificationIdToActionId)
+	return newcollectionWatcher(st, colWCfg{
+		col:    actionNotificationsC,
+		filter: makeIdFilter(st, actionMarker, receivers...),
+		idconv: actionNotificationIdToActionId,
+	})
 }
 
 // WatchActionResults starts and returns a StringsWatcher that
