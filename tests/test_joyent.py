@@ -74,7 +74,7 @@ class ClientTestCase(TestCase):
         client = Client(
             'sdc_url', 'account', 'key_id', './key', 'manta_url', pause=0)
         with patch.object(client, '_list_machines',
-                          side_effect=fake_list_machines(machine)) as lm_mock:
+                          side_effect=[[machine], [machine]]) as lm_mock:
             with patch.object(client, '_list_machine_tags', autospec=True,
                               return_value={}) as lmt_mock:
                 with patch.object(client, '_delete_running_machine',
@@ -82,8 +82,7 @@ class ClientTestCase(TestCase):
                     with patch.object(client, 'request_deletion',
                                       autospec=True) as rd_mock:
                         client.delete_old_machines(1, 'foo@bar')
-        lm_mock.assert_call_any(None)
-        lm_mock.assert_call_any('id')
+        lm_mock.assert_called_once_with()
         lmt_mock.assert_called_once_with('id')
         drm_mock.assert_called_once_with('id')
         self.assertEqual(0, rd_mock.call_count)
@@ -111,7 +110,7 @@ class ClientTestCase(TestCase):
                           side_effect=fake_list_machines(machine)):
             with patch.object(client, '_list_machine_tags', autospec=True,
                               return_value={'permanent': 'true'}) as lmt_mock:
-                with patch.object(client,  '_delete_running_machine',
+                with patch.object(client, '_delete_running_machine',
                                   autospec=True) as drm_mock:
                     with patch.object(client, 'request_deletion',
                                       autospec=True) as rd_mock:

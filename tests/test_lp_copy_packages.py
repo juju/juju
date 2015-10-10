@@ -69,7 +69,7 @@ class LPCopyPackagesTestCase(TestCase):
         lp = Mock()
         lp.people = {'juju-packaging': from_team_mock, 'juju': from_team_mock}
         from_archive, to_archive = get_archives(lp, 'stable')
-        from_team_mock.getPPAByName.assert_called_with_any(name='proposed')
+        from_team_mock.getPPAByName.assert_any_call(name='proposed')
         from_team_mock.getPPAByName.assert_called_with(name='stable')
 
     def test_get_archives_ubuntu_proposed(self):
@@ -77,7 +77,7 @@ class LPCopyPackagesTestCase(TestCase):
         lp = Mock()
         lp.people = {'juju-packaging': from_team_mock, 'juju': from_team_mock}
         from_archive, to_archive = get_archives(lp, '1.22')
-        from_team_mock.getPPAByName.assert_called_with_any(
+        from_team_mock.getPPAByName.assert_any_call(
             name='1.22-proposed')
         from_team_mock.getPPAByName.assert_called_with(name='1.22')
 
@@ -86,7 +86,7 @@ class LPCopyPackagesTestCase(TestCase):
         lp = Mock()
         lp.people = {'juju-packaging': from_team_mock, 'juju': from_team_mock}
         from_archive, to_archive = get_archives(lp, '1.22')
-        from_team_mock.getPPAByName.assert_called_with_any(
+        from_team_mock.getPPAByName.assert_any_call(
             name='1.22-proposed')
         from_team_mock.getPPAByName.assert_called_with(name='1.22')
 
