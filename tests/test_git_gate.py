@@ -161,6 +161,8 @@ class TestGoTest(unittest.TestCase):
             ('print', 'Merging https://git.testing/proposed ref HEAD'),
             ('git', 'fetch', 'https://git.testing/proposed', 'HEAD'),
             ('git', 'merge', '--no-ff', '-m', 'Merged HEAD', 'FETCH_HEAD'),
+            ('print', 'Refreshing dependencies after merge using go'),
+            ('go', 'get', '-v', '-d', '-t', 'git.testing/project/...'),
             ('go', 'build', 'git.testing/project/...'),
             ('go', 'test', 'git.testing/project/...')
         ])
@@ -185,6 +187,8 @@ class TestGoTest(unittest.TestCase):
             ('print', 'Merging https://git.testing/proposed ref feature'),
             ('git', 'fetch', 'https://git.testing/proposed', 'feature'),
             ('git', 'merge', '--no-ff', '-m', 'Merged feature', 'FETCH_HEAD'),
+            ('print', 'Refreshing dependencies after merge using go'),
+            ('go', 'get', '-v', '-d', '-t', 'git.testing/project/...'),
             ('go', 'build', 'git.testing/project/...'),
             ('go', 'test', 'git.testing/project/...')
         ])

@@ -69,6 +69,9 @@ def go_test(args, gopath):
         print_now("Merging {} ref {}".format(args.merge_url, args.merge_ref))
         git("fetch", args.merge_url, args.merge_ref)
         git("merge", "--no-ff", "-m", "Merged " + args.merge_ref, "FETCH_HEAD")
+        if args.go_get_all:
+            print_now("Refreshing dependencies after merge using go")
+            go("get", "-v", "-d", "-t", project_ellipsis)
     if args.dependencies:
         for dep in args.dependencies:
             print_now("Getting {} and dependencies using go".format(dep))
