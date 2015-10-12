@@ -1125,13 +1125,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 	return &node, nil
 }
 
-const modifyEtcNetworkInterfaces = `# Discover primary interface at run-time using the default route (if set)
-PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
-
-# If $PRIMARY_IFACE is empty, there's nothing to do.
-[ -z "$PRIMARY_IFACE" ] && exit 0
-
-isDHCP() {
+const modifyEtcNetworkInterfaces = `isDHCP() {
     if grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}}
          then
              return 0
@@ -1184,6 +1178,12 @@ fi`
 const bridgeConfigTemplate = `
 # In case we already created the bridge, don't do it again.
 grep -q "iface {{.Bridge}} inet dhcp" {{.Config}} && exit 0
+
+# Discover primary interface at run-time using the default route (if set)
+PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
+
+# If $PRIMARY_IFACE is empty, there's nothing to do.
+[ -z "$PRIMARY_IFACE" ] && exit 0
 
 {{.Script}}
 # Stop $PRIMARY_IFACE and start the bridge instead.
