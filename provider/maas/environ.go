@@ -1198,23 +1198,14 @@ ip route flush dev $PRIMARY_IFACE scope link proto kernel || true
 // setupJujuNetworking returns a string representing the script to run
 // in order to prepare the Juju-specific networking config on a node.
 func setupJujuNetworking() (string, error) {
-	parsedTemplate := template.Must(
-		template.New("ModifyConfigScript").Parse(modifyEtcNetworkInterfaces),
-	)
-	var buf bytes.Buffer
-	err := parsedTemplate.Execute(&buf, map[string]interface{}{
-		"Config": "/etc/network/interfaces",
-		"Bridge": instancecfg.DefaultBridgeName,
-	})
+	modifyConfigScript, err := renderEtcNetworkInterfacesScript("/etc/network/interfaces", instancecfg.DefaultBridgeName)
 	if err != nil {
-		return "", errors.Annotate(err, "modify /etc/network/interfaces script template error")
+		return "", err
 	}
-	modifyConfigScript := buf.String()
-
-	parsedTemplate = template.Must(
+	parsedTemplate := template.Must(
 		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
 	)
-	buf = bytes.Buffer{}
+	var buf bytes.Buffer
 	err = parsedTemplate.Execute(&buf, map[string]interface{}{
 		"Config": "/etc/network/interfaces",
 		"Bridge": instancecfg.DefaultBridgeName,
@@ -1222,6 +1213,21 @@ func setupJujuNetworking() (string, error) {
 	})
 	if err != nil {
 		return "", errors.Annotate(err, "bridge config template error")
+	}
+	return buf.String(), nil
+}
+
+func renderEtcNetworkInterfacesScript(config, bridge string) (string, error) {
+	parsedTemplate := template.Must(
+		template.New("ModifyConfigScript").Parse(modifyEtcNetworkInterfaces),
+	)
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+		"Config": config,
+		"Bridge": bridge,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "modify /etc/network/interfaces script template error")
 	}
 	return buf.String(), nil
 }
