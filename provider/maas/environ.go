@@ -1125,11 +1125,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 	return &node, nil
 }
 
-const bridgeConfigTemplate = `
-# In case we already created the bridge, don't do it again.
-grep -q "iface {{.Bridge}} inet dhcp" {{.Config}} && exit 0
-
-# Discover primary interface at run-time using the default route (if set)
+const modifyEtcNetworkInterfaces = `# Discover primary interface at run-time using the default route (if set)
 PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
 
 # If $PRIMARY_IFACE is empty, there's nothing to do.
@@ -1183,8 +1179,13 @@ then
 # Primary interface (defining the default route)
 iface ${PRIMARY_IFACE} inet manual
 EOF
-fi
+fi`
 
+const bridgeConfigTemplate = `
+# In case we already created the bridge, don't do it again.
+grep -q "iface {{.Bridge}} inet dhcp" {{.Config}} && exit 0
+
+{{.Script}}
 # Stop $PRIMARY_IFACE and start the bridge instead.
 ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
 
@@ -1198,12 +1199,26 @@ ip route flush dev $PRIMARY_IFACE scope link proto kernel || true
 // in order to prepare the Juju-specific networking config on a node.
 func setupJujuNetworking() (string, error) {
 	parsedTemplate := template.Must(
-		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
+		template.New("ModifyConfigScript").Parse(modifyEtcNetworkInterfaces),
 	)
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{
 		"Config": "/etc/network/interfaces",
 		"Bridge": instancecfg.DefaultBridgeName,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "modify /etc/network/interfaces script template error")
+	}
+	modifyConfigScript := buf.String()
+
+	parsedTemplate = template.Must(
+		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
+	)
+	buf = bytes.Buffer{}
+	err = parsedTemplate.Execute(&buf, map[string]interface{}{
+		"Config": "/etc/network/interfaces",
+		"Bridge": instancecfg.DefaultBridgeName,
+		"Script": modifyConfigScript,
 	})
 	if err != nil {
 		return "", errors.Annotate(err, "bridge config template error")
