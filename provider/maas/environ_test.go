@@ -4,6 +4,9 @@
 package maas_test
 
 import (
+	"io/ioutil"
+	"os/exec"
+	"path/filepath"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -207,6 +210,56 @@ var expectedCloudinitConfigWithBridge = []string{
 	"\n# In case we already created the bridge, don't do it again.\ngrep -q \"iface juju-br0 inet dhcp\" && exit 0\n\n# Discover primary interface at run-time using the default route (if set)\nPRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)\n\n# If $PRIMARY_IFACE is empty, there's nothing to do.\n[ -z \"$PRIMARY_IFACE\" ] && exit 0\n\n# Change the config to make $PRIMARY_IFACE manual instead of DHCP,\n# then create the bridge and enslave $PRIMARY_IFACE into it.\ngrep -q \"iface ${PRIMARY_IFACE} inet dhcp\" /etc/network/interfaces && \\\nsed -i \"s/iface ${PRIMARY_IFACE} inet dhcp//\" /etc/network/interfaces && \\\ncat >> /etc/network/interfaces << EOF\n\n# Primary interface (defining the default route)\niface ${PRIMARY_IFACE} inet manual\n\n# Bridge to use for LXC/KVM containers\nauto juju-br0\niface juju-br0 inet dhcp\n    bridge_ports ${PRIMARY_IFACE}\nEOF\n\n# Make the primary interface not auto-starting.\ngrep -q \"auto ${PRIMARY_IFACE}\" /etc/network/interfaces && \\\nsed -i \"s/auto ${PRIMARY_IFACE}//\" /etc/network/interfaces\n\n# Stop $PRIMARY_IFACE and start the bridge instead.\nifdown -v ${PRIMARY_IFACE} ; ifup -v juju-br0\n\n# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't\n# clash with the same automatically added route for juju-br0 (except\n# for the device name).\nip route flush dev $PRIMARY_IFACE scope link proto kernel || true\n",
 }
 
+var networkStaticInitial = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+   address 1.2.3.4
+   netmask 255.255.255.0
+   gateway 4.3.2.1`
+
+var networkStaticFinal = `auto lo
+iface lo inet loopback
+
+iface eth0 inet manual
+
+auto juju-br0
+iface juju-br0 inet static
+   bridge_ports eth0
+   address 1.2.3.4
+   netmask 255.255.255.0
+   gateway 4.3.2.1`
+
+var networkDHCPInitial = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp`
+
+var networkDHCPFinal = `auto lo
+iface lo inet loopback
+
+iface eth0 inet manual
+
+auto juju-br0
+iface juju-br0 inet dhcp
+   bridge_ports eth0`
+
+func writeNetworkScripts(c *gc.C, initialScript string) (string, string) {
+	tempDir := c.MkDir()
+	initialScriptPath := filepath.Join(tempDir, "foobar")
+	testScriptPath := filepath.Join(tempDir, "script")
+	err := ioutil.WriteFile(initialScriptPath, []byte(initialScript), 0666)
+	c.Assert(err, jc.ErrorIsNil)
+	script, err := maas.RenderEtcNetworkInterfacesScript(initialScriptPath, "juju-br0")
+	c.Assert(err, jc.ErrorIsNil)
+	fullScript := `PRIMARY_IFACE="eth0"\n` + script
+	err = ioutil.WriteFile(testScriptPath, []byte(fullScript), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	return testScriptPath, initialScriptPath
+}
+
 func (*environSuite) TestNewCloudinitConfigWithFeatureFlag(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
@@ -217,7 +270,7 @@ func (*environSuite) TestNewCloudinitConfigWithFeatureFlag(c *gc.C) {
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
 
-func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
+func (s *environSuite) OldTestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,6 +286,16 @@ func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 	// Now test with the flag off.
 	s.SetFeatureFlags() // clear the flags.
 	testCase(expectedCloudinitConfigWithBridge)
+}
+
+func (s *environSuite) TestRenderNetworkInterfacesScriptDHCP(c *gc.C) {
+	scriptPath, resultPath := writeNetworkScripts(c, networkDHCPInitial)
+	cmd := exec.Command("/bin/sh", scriptPath)
+	err := cmd.Run()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadFile(resultPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.DeepEquals, networkDHCPFinal)
 }
 
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
