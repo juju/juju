@@ -183,6 +183,40 @@ func (s *ManifoldSuite) TestStatusWorkerRunsHookOnChanges(c *gc.C) {
 
 }
 
+func (s *ManifoldSuite) TestStatusWorkerHandlesHookMissingError(c *gc.C) {
+	msClient := &stubMeterStatusClient{stub: s.stub, changes: make(chan struct{})}
+	s.PatchValue(meterstatus.NewMeterStatusClient,
+		func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
+			return msClient
+		})
+	s.PatchValue(meterstatus.NewRunner,
+		func(_ runner.Context, _ context.Paths) runner.Runner {
+			return &stubRunner{stub: s.stub}
+		})
+	s.stub.SetErrors(context.NewMissingHookError("meter-status-changed"))
+
+	getResource := dt.StubGetResource(s.dummyResources)
+
+	worker, err := s.manifold.Start(getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+
+	running := make(chan struct{})
+	meterstatus.PatchInit(worker, func() { close(running) })
+
+	select {
+	case <-running:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for signal")
+	}
+
+	worker.Kill()
+	err = worker.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCallNames(c, "MeterStatus", "RunHook", "WatchMeterStatus")
+
+}
+
 func (s *ManifoldSuite) TestStatusWorkerDoesNotRerunAfterRestart(c *gc.C) {
 	msClient := &stubMeterStatusClient{stub: s.stub, changes: make(chan struct{})}
 	s.PatchValue(meterstatus.NewMeterStatusClient,

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 var (
@@ -217,7 +218,12 @@ func (w *activeStatusWorker) runHook(code, info string) (runErr error) {
 		}
 	}()
 	err = r.RunHook(string(hooks.MeterStatusChanged))
-	if err != nil {
+	cause := errors.Cause(err)
+	switch {
+	case context.IsMissingHookError(cause):
+		logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
+		err = nil
+	case err != nil:
 		return errors.Annotatef(err, "error running 'meter-status-changed' hook")
 	}
 	return errors.Trace(w.stateFile.Write(code, info))
