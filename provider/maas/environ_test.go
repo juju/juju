@@ -240,11 +240,16 @@ iface eth0 inet dhcp`
 var networkDHCPFinal = `auto lo
 iface lo inet loopback
 
+
+
+# Primary interface (defining the default route)
 iface eth0 inet manual
 
+# Bridge to use for LXC/KVM containers
 auto juju-br0
 iface juju-br0 inet dhcp
-   bridge_ports eth0`
+    bridge_ports eth0
+`
 
 func writeNetworkScripts(c *gc.C, initialScript string) (string, string) {
 	tempDir := c.MkDir()
@@ -254,7 +259,7 @@ func writeNetworkScripts(c *gc.C, initialScript string) (string, string) {
 	c.Assert(err, jc.ErrorIsNil)
 	script, err := maas.RenderEtcNetworkInterfacesScript(initialScriptPath, "juju-br0")
 	c.Assert(err, jc.ErrorIsNil)
-	fullScript := `PRIMARY_IFACE="eth0"\n` + script
+	fullScript := "PRIMARY_IFACE=\"eth0\"\n" + script
 	err = ioutil.WriteFile(testScriptPath, []byte(fullScript), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	return testScriptPath, initialScriptPath
