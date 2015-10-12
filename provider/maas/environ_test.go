@@ -222,14 +222,15 @@ iface eth0 inet static
 var networkStaticFinal = `auto lo
 iface lo inet loopback
 
-iface eth0 inet manual
-
 auto juju-br0
 iface juju-br0 inet static
    bridge_ports eth0
    address 1.2.3.4
    netmask 255.255.255.0
-   gateway 4.3.2.1`
+   gateway 4.3.2.1
+# Primary interface (defining the default route)
+iface eth0 inet manual
+`
 
 var networkDHCPInitial = `auto lo
 iface lo inet loopback
@@ -303,6 +304,15 @@ func (s *environSuite) TestRenderNetworkInterfacesScriptDHCP(c *gc.C) {
 	c.Assert(string(data), jc.DeepEquals, networkDHCPFinal)
 }
 
+func (s *environSuite) TestRenderNetworkInterfacesScriptStatic(c *gc.C) {
+	scriptPath, resultPath := writeNetworkScripts(c, networkStaticInitial)
+	cmd := exec.Command("/bin/sh", scriptPath)
+	err := cmd.Run()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadFile(resultPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.DeepEquals, networkStaticFinal)
+}
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
 	attrs := coretesting.Attrs{
 		"disable-network-management": true,
