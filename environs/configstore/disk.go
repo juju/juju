@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/set"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"

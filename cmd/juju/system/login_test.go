@@ -112,7 +112,7 @@ func (s *LoginSuite) TestBadServerFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.run(c, "foo", "--server", serverFilePath)
-	c.Assert(err, gc.ErrorMatches, "YAML error: did not find expected alphabetic or numeric character")
+	c.Assert(err, gc.ErrorMatches, "yaml: did not find expected alphabetic or numeric character")
 }
 
 func (s *LoginSuite) TestBadUser(c *gc.C) {

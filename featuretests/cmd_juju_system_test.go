@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
