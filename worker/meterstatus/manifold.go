@@ -224,7 +224,8 @@ func (w *activeStatusWorker) runHook(code, info string) (runErr error) {
 		logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
 		err = nil
 	case err != nil:
-		return errors.Annotatef(err, "error running 'meter-status-changed' hook")
+		logger.Errorf("meter status worker encountered hook error: %v", err)
+		return nil
 	}
 	return errors.Trace(w.stateFile.Write(code, info))
 }
