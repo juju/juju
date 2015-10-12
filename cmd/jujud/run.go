@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
+	jujuos "github.com/juju/utils/os"
 )
 
 type RunCommand struct {

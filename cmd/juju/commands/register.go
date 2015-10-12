@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
-	"gopkg.in/macaroon-bakery.v0/httpbakery"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/charms"
@@ -35,9 +35,10 @@ var registerMeteredCharm = func(registrationURL string, state api.Connection, ja
 		return err
 	}
 	if metered {
-		httpClient := httpbakery.NewHTTPClient()
-		httpClient.Jar = jar
-		credentials, err := registerMetrics(registrationURL, environmentUUID, charmURL, serviceName, httpClient, openWebBrowser)
+		client := httpbakery.NewClient()
+		client.Client.Jar = jar
+		client.VisitWebPage = openWebBrowser
+		credentials, err := registerMetrics(registrationURL, environmentUUID, charmURL, serviceName, client)
 		if err != nil {
 			logger.Infof("failed to register metrics: %v", err)
 			return err
@@ -57,7 +58,7 @@ var registerMeteredCharm = func(registrationURL string, state api.Connection, ja
 	return nil
 }
 
-func registerMetrics(registrationURL, environmentUUID, charmURL, serviceName string, client *http.Client, visitWebPage func(*url.URL) error) ([]byte, error) {
+func registerMetrics(registrationURL, environmentUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
 	if registrationURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
@@ -85,9 +86,7 @@ func registerMetrics(registrationURL, environmentUUID, charmURL, serviceName str
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	bodyGetter := httpbakery.SeekerBody(bytes.NewReader(buff.Bytes()))
-
-	response, err := httpbakery.DoWithBody(client, req, bodyGetter, visitWebPage)
+	response, err := client.DoWithBody(req, bytes.NewReader(buff.Bytes()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -5,7 +5,7 @@ package client
 
 import (
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -21,8 +21,8 @@ type Unit interface {
 	Life() state.Life
 	Destroy() (err error)
 	IsPrincipal() bool
-	PublicAddress() (string, bool)
-	PrivateAddress() (string, bool)
+	PublicAddress() (network.Address, error)
+	PrivateAddress() (network.Address, error)
 	Resolve(retryHooks bool) error
 	AgentHistory() state.StatusHistoryGetter
 }

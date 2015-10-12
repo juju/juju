@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
@@ -186,25 +186,12 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
-	statusTicker := func() <-chan time.Time {
-		// Duration is arbitrary, we'll trigger the ticker
-		// by advancing the clock past the duration.
-		return s.clock.After(statusTickDuration)
-	}
-	config := remotestate.WatcherConfig{
-		State:               &s.st,
-		LeadershipTracker:   &s.leadership,
-		UnitTag:             s.st.unit.tag,
-		UpdateStatusChannel: statusTicker,
-	}
-	w, err := remotestate.NewWatcher(config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { c.Assert(w.Stop(), jc.ErrorIsNil) }()
 	signalAll(&s.st, &s.leadership)
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
 	s.st.unit.actionWatcher.changes <- []string{"an-action"}
-	assertNotifyEvent(c, w.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(w.Snapshot().Actions, gc.DeepEquals, []string{"an-action"})
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Actions, gc.DeepEquals, []string{"an-action"})
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
@@ -375,6 +362,37 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
+		storageTag0: remotestate.StorageSnapshot{
+			Life: params.Dying,
+		},
+	})
+}
+
+func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
+	signalAll(&s.st, &s.leadership)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	storageTag0 := names.NewStorageTag("blob/0")
+	storageAttachmentId0 := params.StorageAttachmentId{
+		UnitTag:    s.st.unit.tag.String(),
+		StorageTag: storageTag0.String(),
+	}
+	storageTag0Watcher := &mockStorageAttachmentWatcher{
+		changes: make(chan struct{}, 1),
+	}
+	s.st.storageAttachmentWatchers[storageTag0] = storageTag0Watcher
+	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
+		UnitTag:    storageAttachmentId0.UnitTag,
+		StorageTag: storageAttachmentId0.StorageTag,
+		Life:       params.Dying,
+		Kind:       params.StorageKindUnknown, // unprovisioned
+	}
+
+	s.st.unit.storageWatcher.changes <- []string{"blob/0"}
+	storageTag0Watcher.changes <- struct{}{}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: remotestate.StorageSnapshot{
 			Life: params.Dying,

@@ -4,7 +4,7 @@
 package charms
 
 import (
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/state"
 )

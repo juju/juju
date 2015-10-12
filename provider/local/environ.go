@@ -15,7 +15,9 @@ import (
 	"syscall"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 
@@ -32,7 +34,6 @@ import (
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -41,7 +42,6 @@ import (
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
 
@@ -98,7 +98,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	// host's architecture and series.
 	if _, err := args.AvailableTools.Match(tools.Filter{
 		Arch:   arch.HostArch(),
-		Series: version.Current.Series,
+		Series: series.HostSeries(),
 	}); err != nil {
 		return "", "", nil, err
 	}
@@ -114,7 +114,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		logger.Errorf("failed to apply bootstrap-ip to config: %v", err)
 		return "", "", nil, err
 	}
-	return arch.HostArch(), version.Current.Series, env.finishBootstrap, nil
+	return arch.HostArch(), series.HostSeries(), env.finishBootstrap, nil
 }
 
 // finishBootstrap converts the machine config to cloud-config,

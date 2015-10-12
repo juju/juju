@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/arch"
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")

@@ -5,9 +5,8 @@ import (
 	"os/exec"
 
 	"github.com/juju/errors"
-
-	jujuos "github.com/juju/juju/juju/os"
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 )
 
 type osVarType int
@@ -51,8 +50,8 @@ var winVals = map[osVarType]string{
 // osVal will lookup the value of the key valname
 // in the apropriate map, based on the series. This will
 // help reduce boilerplate code
-func osVal(series string, valname osVarType) (string, error) {
-	os, err := version.GetOSFromSeries(series)
+func osVal(ser string, valname osVarType) (string, error) {
+	os, err := series.GetOSFromSeries(ser)
 	if err != nil {
 		return "", err
 	}

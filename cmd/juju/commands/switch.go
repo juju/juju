@@ -80,12 +80,22 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	// and not allow switching when it is set.
 
 	// Passing through the empty string reads the default environments.yaml file.
+	// If the environments.yaml file doesn't exist, just list environments in
+	// the configstore.
+	envFileExists := true
+	names := set.NewStrings()
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
-		return errors.Errorf("couldn't read the environment")
+		if !environs.IsNoEnv(err) {
+			return errors.Annotate(err, "couldn't read the environment")
+		}
+		envFileExists = false
+	} else {
+		for _, name := range environments.Names() {
+			names.Add(name)
+		}
 	}
 
-	names := set.NewStrings(environments.Names()...)
 	configEnvirons, configSystems, err := getConfigstoreOptions()
 	if err != nil {
 		return err
@@ -122,7 +132,9 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	if current == "" {
-		current = environments.Default
+		if envFileExists {
+			current = environments.Default
+		}
 	} else if isSystem {
 		current += systemSuffix
 	}

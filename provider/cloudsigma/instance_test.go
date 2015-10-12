@@ -74,17 +74,6 @@ func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 	c.Check(s.inst.Status(), gc.Equals, "running")
 }
 
-func (s *instanceSuite) TestInstanceRefresh(c *gc.C) {
-	c.Check(s.inst.Status(), gc.Equals, "running")
-
-	mock.SetServerStatus("f4ec5097-121e-44a7-a207-75bc02163260", "stopped")
-
-	err := s.inst.Refresh()
-	c.Check(err, gc.IsNil)
-
-	c.Check(s.inst.Status(), gc.Equals, "stopped")
-}
-
 func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	addrs, err := s.inst.Addresses()
 	c.Check(addrs, gc.HasLen, 1)

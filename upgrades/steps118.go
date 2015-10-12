@@ -3,9 +3,18 @@
 
 package upgrades
 
+import "github.com/juju/juju/state"
+
 // stateStepsFor118 returns upgrade steps form Juju 1.18 that manipulate state directly.
 func stateStepsFor118() []Step {
 	return []Step{
+		&upgradeStep{
+			description: "add the version field to all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateSettingsSchema(context.State())
+			},
+		},
 		&upgradeStep{
 			description: "update rsyslog port",
 			targets:     []Target{StateServer},

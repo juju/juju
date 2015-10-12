@@ -9,9 +9,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/os"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -55,6 +55,34 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 	})
 }
 
+func (s *PathsSuite) TestWorkerPathsWindows(c *gc.C) {
+	s.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
+
+	dataDir := c.MkDir()
+	unitTag := names.NewUnitTag("some-service/323")
+	worker := "some-worker"
+	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker)
+
+	relData := relPathFunc(dataDir)
+	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
+	c.Assert(paths, jc.DeepEquals, uniter.Paths{
+		ToolsDir: relData("tools/unit-some-service-323"),
+		Runtime: uniter.RuntimePaths{
+			JujuRunSocket:     `\\.\pipe\unit-some-service-323-some-worker-run`,
+			JujucServerSocket: `\\.\pipe\unit-some-service-323-some-worker-agent`,
+		},
+		State: uniter.StatePaths{
+			CharmDir:        relAgent("charm"),
+			OperationsFile:  relAgent("state", "uniter"),
+			RelationsDir:    relAgent("state", "relations"),
+			BundlesDir:      relAgent("state", "bundles"),
+			DeployerDir:     relAgent("state", "deployer"),
+			StorageDir:      relAgent("state", "storage"),
+			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
+		},
+	})
+}
+
 func (s *PathsSuite) TestOther(c *gc.C) {
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Unknown })
 
@@ -69,6 +97,34 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 		Runtime: uniter.RuntimePaths{
 			JujuRunSocket:     relAgent("run.socket"),
 			JujucServerSocket: "@" + relAgent("agent.socket"),
+		},
+		State: uniter.StatePaths{
+			CharmDir:        relAgent("charm"),
+			OperationsFile:  relAgent("state", "uniter"),
+			RelationsDir:    relAgent("state", "relations"),
+			BundlesDir:      relAgent("state", "bundles"),
+			DeployerDir:     relAgent("state", "deployer"),
+			StorageDir:      relAgent("state", "storage"),
+			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
+		},
+	})
+}
+
+func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
+	s.PatchValue(&os.HostOS, func() os.OSType { return os.Unknown })
+
+	dataDir := c.MkDir()
+	unitTag := names.NewUnitTag("some-service/323")
+	worker := "worker-id"
+	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker)
+
+	relData := relPathFunc(dataDir)
+	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
+	c.Assert(paths, jc.DeepEquals, uniter.Paths{
+		ToolsDir: relData("tools/unit-some-service-323"),
+		Runtime: uniter.RuntimePaths{
+			JujuRunSocket:     relAgent(worker + "-run.socket"),
+			JujucServerSocket: "@" + relAgent(worker+"-agent.socket"),
 		},
 		State: uniter.StatePaths{
 			CharmDir:        relAgent("charm"),

@@ -4,6 +4,7 @@
 package imagemetadata
 
 import (
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
@@ -11,6 +12,7 @@ import (
 type metadataAcess interface {
 	FindMetadata(cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error)
 	SaveMetadata(cloudimagemetadata.Metadata) error
+	EnvironConfig() (*config.Config, error)
 }
 
 var getState = func(st *state.State) metadataAcess {

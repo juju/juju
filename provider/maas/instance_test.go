@@ -22,7 +22,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	resourceURI, _ := obj.GetField("resource_uri")
-	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	instance := maasInstance{&obj}
 
 	c.Check(string(instance.Id()), gc.Equals, resourceURI)
 }
@@ -30,7 +30,7 @@ func (s *instanceTest) TestId(c *gc.C) {
 func (s *instanceTest) TestString(c *gc.C) {
 	jsonValue := `{"hostname": "thethingintheplace", "system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	instance := &maasInstance{&obj}
 	hostname, err := instance.hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := hostname + ":" + string(instance.Id())
@@ -41,25 +41,11 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	// For good measure, test what happens if we don't have a hostname.
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	instance := &maasInstance{&obj}
 	_, err := instance.hostname()
 	c.Assert(err, gc.NotNil)
 	expected := fmt.Sprintf("<DNSName failed: %q>", err) + ":" + string(instance.Id())
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
-}
-
-func (s *instanceTest) TestRefreshInstance(c *gc.C) {
-	jsonValue := `{"system_id": "system_id", "test": "test"}`
-	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	s.testMAASObject.TestServer.ChangeNode("system_id", "test2", "test2")
-	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-
-	err := instance.Refresh()
-
-	c.Check(err, jc.ErrorIsNil)
-	testField, err := (*instance.maasObject).GetField("test2")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(testField, gc.Equals, "test2")
 }
 
 func (s *instanceTest) TestAddresses(c *gc.C) {
@@ -69,7 +55,7 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	inst := maasInstance{&obj}
 
 	expected := []network.Address{
 		network.NewScopedAddress("testing.invalid", network.ScopePublic),
@@ -92,7 +78,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 		"system_id": "system_id"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	inst := maasInstance{&obj}
 
 	addr, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,7 +95,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 		"ip_addresses": "incompatible"
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	inst := maasInstance{&obj}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -122,7 +108,7 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 		"ip_addresses": [42]
 		}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	inst := maasInstance{&obj}
 
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
@@ -136,7 +122,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
         "memory": 16384
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	inst := maasInstance{&obj}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
@@ -152,7 +138,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
         "tag_names": ["a", "b"]
 	}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	inst := maasInstance{&obj}
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
@@ -172,7 +158,7 @@ func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
 
 func (s *instanceTest) testHardwareCharacteristicsMissing(c *gc.C, json, expect string) {
 	obj := s.testMAASObject.TestServer.NewNode(json)
-	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	inst := maasInstance{&obj}
 	_, err := inst.hardwareCharacteristics()
 	c.Assert(err, gc.ErrorMatches, expect)
 }

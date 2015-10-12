@@ -4,17 +4,14 @@
 package storage_test
 
 import (
-	"bytes"
 	"encoding/json"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -31,7 +28,7 @@ var _ = gc.Suite(&filesystemListSuite{})
 func (s *filesystemListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockFilesystemListAPI{fillMountPoint: true, addErrItem: true}
+	s.mockAPI = &mockFilesystemListAPI{}
 	s.PatchValue(storage.GetFilesystemListAPI,
 		func(c *storage.FilesystemListCommand) (storage.FilesystemListAPI, error) {
 			return s.mockAPI, nil
@@ -39,47 +36,46 @@ func (s *filesystemListSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *filesystemListSuite) TestFilesystemListEmpty(c *gc.C) {
-	s.mockAPI.listEmpty = true
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+		return nil, nil
+	}
 	s.assertValidList(
 		c,
 		[]string{"--format", "yaml"},
-		"",
 		"",
 	)
 }
 
 func (s *filesystemListSuite) TestFilesystemListError(c *gc.C) {
-	s.mockAPI.errOut = "just my luck"
-
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+		return nil, errors.New("just my luck")
+	}
 	context, err := runFilesystemList(c, "--format", "yaml")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, s.mockAPI.errOut)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "just my luck")
 	s.assertUserFacingOutput(c, context, "", "")
 }
 
-func (s *filesystemListSuite) TestFilesystemListAll(c *gc.C) {
-	s.mockAPI.listAll = true
-	s.assertUnmarshalledOutput(
+func (s *filesystemListSuite) TestFilesystemListArgs(c *gc.C) {
+	var called bool
+	expectedArgs := []string{"a", "b", "c"}
+	s.mockAPI.listFilesystems = func(arg []string) ([]params.FilesystemDetailsResult, error) {
+		c.Assert(arg, jc.DeepEquals, expectedArgs)
+		called = true
+		return nil, nil
+	}
+	s.assertValidList(
 		c,
-		goyaml.Unmarshal,
-		// mock will ignore any value here, as listAll flag above has precedence
+		append([]string{"--format", "yaml"}, expectedArgs...),
 		"",
-		"--format", "yaml")
+	)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *filesystemListSuite) TestFilesystemListYaml(c *gc.C) {
 	s.assertUnmarshalledOutput(
 		c,
 		goyaml.Unmarshal,
-		"2",
-		"--format", "yaml")
-}
-
-func (s *filesystemListSuite) TestFilesystemListYamlNoMountPoint(c *gc.C) {
-	s.mockAPI.fillMountPoint = false
-	s.assertUnmarshalledOutput(
-		c,
-		goyaml.Unmarshal,
-		"2",
+		"", // no error
 		"--format", "yaml")
 }
 
@@ -87,98 +83,92 @@ func (s *filesystemListSuite) TestFilesystemListJSON(c *gc.C) {
 	s.assertUnmarshalledOutput(
 		c,
 		json.Unmarshal,
-		"2",
+		"", // no error
 		"--format", "json")
 }
 
+func (s *filesystemListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+		results, _ := mockFilesystemListAPI{}.ListFilesystems(nil)
+		results = append(results, params.FilesystemDetailsResult{
+			Error: &params.Error{Message: "bad"},
+		})
+		results = append(results, params.FilesystemDetailsResult{
+			Error: &params.Error{Message: "ness"},
+		})
+		return results, nil
+	}
+	// we should see the error in stderr, but it should not
+	// otherwise affect the rendering of valid results.
+	s.assertUnmarshalledOutput(c, json.Unmarshal, "bad\nness\n", "--format", "json")
+	s.assertUnmarshalledOutput(c, goyaml.Unmarshal, "bad\nness\n", "--format", "yaml")
+}
+
+var expectedFilesystemListTabular = `
+MACHINE  UNIT         STORAGE      ID   VOLUME  PROVIDER-ID                       MOUNTPOINT  SIZE    STATE      MESSAGE
+0        abc/0        db-dir/1001  0/0  0/1     provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached   
+0        transcode/0  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/doom   1.0GiB  attached   
+0                                  1            provider-supplied-filesystem-1                2.0GiB  attaching  failed to attach, will retry
+1        transcode/1  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/huang  1.0GiB  attached   
+1                                  2            provider-supplied-filesystem-2    /mnt/zion   3.0MiB  attached   
+1                                  3                                                          42MiB   pending    
+
+`[1:]
+
 func (s *filesystemListSuite) TestFilesystemListTabular(c *gc.C) {
-	s.assertValidList(
-		c,
-		[]string{"2"},
-		// Default format is tabular
-		`
-MACHINE  UNIT          STORAGE      FILESYSTEM  VOLUME  ID                            MOUNTPOINT  SIZE    STATE      MESSAGE
-2        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach, will retry
-2        unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached   
+	s.assertValidList(c, []string{}, expectedFilesystemListTabular)
 
-`[1:],
-		`
-filesystem item error
-`[1:],
-	)
+	// Do it again, reversing the results returned by the API.
+	// We should get everything sorted in the appropriate order.
+	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
+		results, _ := mockFilesystemListAPI{}.ListFilesystems(nil)
+		n := len(results)
+		for i := 0; i < n/2; i++ {
+			results[i], results[n-i-1] = results[n-i-1], results[i]
+		}
+		return results, nil
+	}
+	s.assertValidList(c, []string{}, expectedFilesystemListTabular)
 }
 
-func (s *filesystemListSuite) TestFilesystemListTabularSort(c *gc.C) {
-	s.assertValidList(
-		c,
-		[]string{"2", "3"},
-		// Default format is tabular
-		`
-MACHINE  UNIT          STORAGE      FILESYSTEM  VOLUME  ID                            MOUNTPOINT  SIZE    STATE      MESSAGE
-2        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach, will retry
-2        unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached   
-3        postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching  failed to attach, will retry
-3        unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached   
-
-`[1:],
-		`
-filesystem item error
-`[1:],
-	)
-}
-
-func (s *filesystemListSuite) TestFilesystemListTabularSortWithUnattached(c *gc.C) {
-	s.mockAPI.listAll = true
-	s.assertValidList(
-		c,
-		[]string{"2", "3"},
-		// Default format is tabular
-		`
-MACHINE     UNIT          STORAGE      FILESYSTEM  VOLUME  ID                            MOUNTPOINT  SIZE    STATE       MESSAGE
-25          postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching   failed to attach, will retry
-25          unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached    
-42          postgresql/0  shared-fs/0  0/1         0/99    provider-supplied-0/1         testmntpnt  1.0GiB  attaching   failed to attach, will retry
-42          unattached    shared-fs/0  0/abc/0/88          provider-supplied-0/abc/0/88  testmntpnt  1.0GiB  attached    
-unattached  abc/0         db-dir/1000  3/4                 provider-supplied-3/4                     1.0GiB  destroying  
-unattached  unattached    unassigned   3/3                 provider-supplied-3/3                     1.0GiB  destroying  
-
-`[1:],
-		`
-filesystem item error
-`[1:],
-	)
-}
-
-func (s *filesystemListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, machine string, args ...string) {
-	all := []string{machine}
-	context, err := runFilesystemList(c, append(all, args...)...)
+func (s *filesystemListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
+	context, err := runFilesystemList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	var result map[string]map[string]map[string]storage.FilesystemInfo
-	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
+
+	var result struct {
+		Filesystems map[string]storage.FilesystemInfo
+	}
+	err = unmarshal([]byte(testing.Stdout(context)), &result)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := s.expect(c, []string{machine})
-	c.Assert(result, jc.DeepEquals, expected)
+
+	expected := s.expect(c, nil)
+	c.Assert(result.Filesystems, jc.DeepEquals, expected)
 
 	obtainedErr := testing.Stderr(context)
-	c.Assert(obtainedErr, gc.Equals, `
-filesystem item error
-`[1:])
+	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
-func (s *filesystemListSuite) expect(c *gc.C, machines []string) map[string]map[string]map[string]storage.FilesystemInfo {
-	//no need for this element as we are building output on out stream not err
-	s.mockAPI.addErrItem = false
+// expect returns the FilesystemInfo mapping we should expect to unmarshal
+// from rendered YAML or JSON.
+func (s *filesystemListSuite) expect(c *gc.C, machines []string) map[string]storage.FilesystemInfo {
 	all, err := s.mockAPI.ListFilesystems(machines)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := storage.ConvertToFilesystemInfo(all)
+
+	var valid []params.FilesystemDetailsResult
+	for _, result := range all {
+		if result.Error == nil {
+			valid = append(valid, result)
+		}
+	}
+	result, err := storage.ConvertToFilesystemInfo(valid)
 	c.Assert(err, jc.ErrorIsNil)
 	return result
 }
 
-func (s *filesystemListSuite) assertValidList(c *gc.C, args []string, expectedOut, expectedErr string) {
+func (s *filesystemListSuite) assertValidList(c *gc.C, args []string, expectedOut string) {
 	context, err := runFilesystemList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUserFacingOutput(c, context, expectedOut, expectedErr)
+	s.assertUserFacingOutput(c, context, expectedOut, "")
 }
 
 func runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -196,8 +186,7 @@ func (s *filesystemListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Conte
 }
 
 type mockFilesystemListAPI struct {
-	listAll, listEmpty, fillMountPoint, addErrItem bool
-	errOut                                         string
+	listFilesystems func([]string) ([]params.FilesystemDetailsResult, error)
 }
 
 func (s mockFilesystemListAPI) Close() error {
@@ -205,83 +194,125 @@ func (s mockFilesystemListAPI) Close() error {
 }
 
 func (s mockFilesystemListAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsResult, error) {
-	if s.errOut != "" {
-		return nil, errors.New(s.errOut)
+	if s.listFilesystems != nil {
+		return s.listFilesystems(machines)
 	}
-	if s.listEmpty {
-		return nil, nil
-	}
-	result := []params.FilesystemDetailsResult{}
-	if s.addErrItem {
-		result = append(result, params.FilesystemDetailsResult{
-			Error: common.ServerError(errors.New("filesystem item error"))})
-	}
-	if s.listAll {
-		machines = []string{"25", "42"}
-		//unattached
-		result = append(result, s.createTestFilesystemDetailsResult(
-			"3/4", "", true, "db-dir/1000", "abc/0", nil,
-			createTestStatus(params.StatusDestroying, ""),
-		))
-		result = append(result, s.createTestFilesystemDetailsResult(
-			"3/3", "", false, "", "", nil,
-			createTestStatus(params.StatusDestroying, ""),
-		))
-	}
-	result = append(result, s.createTestFilesystemDetailsResult(
-		"0/1", "0/99", true, "shared-fs/0", "postgresql/0", machines,
-		createTestStatus(params.StatusAttaching, "failed to attach, will retry"),
-	))
-	result = append(result, s.createTestFilesystemDetailsResult(
-		"0/abc/0/88", "", false, "shared-fs/0", "", machines,
-		createTestStatus(params.StatusAttached, ""),
-	))
-	return result, nil
-}
-
-func (s mockFilesystemListAPI) createTestFilesystemDetailsResult(
-	filesystemId, volumeId string,
-	persistent bool,
-	storageid, unitid string,
-	machines []string,
-	status params.EntityStatus,
-) params.FilesystemDetailsResult {
-
-	filesystem := s.createTestFilesystem(filesystemId, volumeId, persistent, storageid, unitid, status)
-	filesystem.MachineAttachments = make(map[string]params.FilesystemAttachmentInfo)
-	for i, machine := range machines {
-		info := params.FilesystemAttachmentInfo{
-			ReadOnly: i%2 == 0,
-		}
-		if s.fillMountPoint {
-			info.MountPoint = "testmntpnt"
-		}
-		machineTag := names.NewMachineTag(machine).String()
-		filesystem.MachineAttachments[machineTag] = info
-	}
-	return params.FilesystemDetailsResult{Result: filesystem}
-}
-
-func (s mockFilesystemListAPI) createTestFilesystem(
-	filesystemId, volumeId string, persistent bool, storageid, unitid string, status params.EntityStatus,
-) *params.FilesystemDetails {
-	tag := names.NewFilesystemTag(filesystemId)
-	result := &params.FilesystemDetails{
-		FilesystemTag: tag.String(),
-		Info: params.FilesystemInfo{
-			FilesystemId: "provider-supplied-" + tag.Id(),
-			Size:         uint64(1024),
+	results := []params.FilesystemDetailsResult{{
+		// filesystem 0/0 is attached to machine 0, assigned to
+		// storage db-dir/1001, which is attached to unit
+		// abc/0.
+		Result: &params.FilesystemDetails{
+			FilesystemTag: "filesystem-0-0",
+			VolumeTag:     "volume-0-1",
+			Info: params.FilesystemInfo{
+				FilesystemId: "provider-supplied-filesystem-0-0",
+				Size:         512,
+			},
+			Status: createTestStatus(params.StatusAttached, ""),
+			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
+				"machine-0": params.FilesystemAttachmentInfo{
+					MountPoint: "/mnt/fuji",
+				},
+			},
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-db-dir-1001",
+				OwnerTag:   "unit-abc-0",
+				Kind:       params.StorageKindBlock,
+				Status:     createTestStatus(params.StatusAttached, ""),
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-abc-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-db-dir-1001",
+						UnitTag:    "unit-abc-0",
+						MachineTag: "machine-0",
+						Location:   "/mnt/fuji",
+					},
+				},
+			},
 		},
-		Status: status,
-	}
-	if volumeId != "" {
-		result.VolumeTag = names.NewVolumeTag(volumeId).String()
-	}
-	if storageid != "" {
-		result.StorageTag = names.NewStorageTag(storageid).String()
-	}
-	if unitid != "" {
-		result.StorageOwnerTag = names.NewUnitTag(unitid).String()
-	}
-	return result
+	}, {
+		// filesystem 1 is attaching to machine 0, but is not assigned
+		// to any storage.
+		Result: &params.FilesystemDetails{
+			FilesystemTag: "filesystem-1",
+			Info: params.FilesystemInfo{
+				FilesystemId: "provider-supplied-filesystem-1",
+				Size:         2048,
+			},
+			Status: createTestStatus(params.StatusAttaching, "failed to attach, will retry"),
+			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
+				"machine-0": params.FilesystemAttachmentInfo{},
+			},
+		},
+	}, {
+		// filesystem 3 is due to be attached to machine 1, but is not
+		// assigned to any storage and has not yet been provisioned.
+		Result: &params.FilesystemDetails{
+			FilesystemTag: "filesystem-3",
+			Info: params.FilesystemInfo{
+				Size: 42,
+			},
+			Status: createTestStatus(params.StatusPending, ""),
+			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
+				"machine-1": params.FilesystemAttachmentInfo{},
+			},
+		},
+	}, {
+		// filesystem 2 is due to be attached to machine 1, but is not
+		// assigned to any storage.
+		Result: &params.FilesystemDetails{
+			FilesystemTag: "filesystem-2",
+			Info: params.FilesystemInfo{
+				FilesystemId: "provider-supplied-filesystem-2",
+				Size:         3,
+			},
+			Status: createTestStatus(params.StatusAttached, ""),
+			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
+				"machine-1": params.FilesystemAttachmentInfo{
+					MountPoint: "/mnt/zion",
+				},
+			},
+		},
+	}, {
+		// filesystem 4 is attached to machines 0 and 1, and is assigned
+		// to shared storage.
+		Result: &params.FilesystemDetails{
+			FilesystemTag: "filesystem-4",
+			Info: params.FilesystemInfo{
+				FilesystemId: "provider-supplied-filesystem-4",
+				Size:         1024,
+			},
+			Status: createTestStatus(params.StatusAttached, ""),
+			MachineAttachments: map[string]params.FilesystemAttachmentInfo{
+				"machine-0": params.FilesystemAttachmentInfo{
+					MountPoint: "/mnt/doom",
+					ReadOnly:   true,
+				},
+				"machine-1": params.FilesystemAttachmentInfo{
+					MountPoint: "/mnt/huang",
+					ReadOnly:   true,
+				},
+			},
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-shared-fs-0",
+				OwnerTag:   "service-transcode",
+				Kind:       params.StorageKindBlock,
+				Status:     createTestStatus(params.StatusAttached, ""),
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-transcode-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-shared-fs-0",
+						UnitTag:    "unit-transcode-0",
+						MachineTag: "machine-0",
+						Location:   "/mnt/bits",
+					},
+					"unit-transcode-1": params.StorageAttachmentDetails{
+						StorageTag: "storage-shared-fs-0",
+						UnitTag:    "unit-transcode-1",
+						MachineTag: "machine-1",
+						Location:   "/mnt/pieces",
+					},
+				},
+			},
+		},
+	}}
+	return results, nil
 }
