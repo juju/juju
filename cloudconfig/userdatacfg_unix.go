@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -125,7 +124,11 @@ func (w *unixConfigure) ConfigureBasic() error {
 		)
 		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
-	SetUbuntuUser(w.conf, groups, w.icfg.AuthorizedKeys)
+	if w.icfg.Series == "precise" {
+		w.conf.SetSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
+	} else {
+		SetUbuntuUser(w.conf, groups, w.icfg.AuthorizedKeys)
+	}
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
 	// nonce. The presence and contents of this file will be verified
@@ -152,9 +155,8 @@ func (w *unixConfigure) addCleanShutdownJob(initSystem string) {
 }
 
 func (w *unixConfigure) setDataDirPermissions() string {
-	seriesos, _ := series.GetOSFromSeries(w.icfg.Series)
 	var user string
-	switch seriesos {
+	switch w.os {
 	case os.CentOS:
 		user = "root"
 	default:

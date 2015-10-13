@@ -182,15 +182,19 @@ func TemplateUserData(
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
-	// For LTS series which need support for the cloud-tools archive,
-	// we need to enable apt-get update regardless of the environ
-	// setting, otherwise provisioning will fail.
-	if series == "precise" && !enablePackageUpdates {
-		logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
-		enablePackageUpdates = true
+	if series == "precise" {
+		// For LTS series which need cloud-tools archive support,
+		// we need to enable apt-get update regardless of the environ
+		// setting, otherwise provisioning will fail.
+		if !enablePackageUpdates {
+			logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
+			enablePackageUpdates = true
+		}
+		config.SetSSHAuthorizedKeys(authorizedKeys)
+	} else {
+		cloudconfig.SetUbuntuUser(config, cloudconfig.UbuntuGroups, authorizedKeys)
 	}
 
-	cloudconfig.SetUbuntuUser(config, cloudconfig.UbuntuGroups, authorizedKeys)
 	if enablePackageUpdates && config.RequiresCloudArchiveCloudTools() {
 		config.AddCloudArchiveCloudTools()
 	}

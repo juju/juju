@@ -82,7 +82,32 @@ var ctests = []struct {
 		cfg.SetDisableRoot(false)
 	},
 }, {
-	"AddUser",
+	"SetSSHAuthorizedKeys with two keys",
+	map[string]interface{}{"ssh_authorized_keys": []string{
+		fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyOne.Key),
+		fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyTwo.Key),
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHAuthorizedKeys(
+			sshtesting.ValidKeyOne.Key + " Juju:user@host\n" +
+				sshtesting.ValidKeyTwo.Key + " another@host")
+	},
+}, {
+	"SetSSHAuthorizedKeys with comments in keys",
+	map[string]interface{}{"ssh_authorized_keys": []string{
+		fmt.Sprintf("%s Juju:sshkey", sshtesting.ValidKeyOne.Key),
+		fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyTwo.Key),
+		fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyThree.Key),
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHAuthorizedKeys(
+			"#command\n" + sshtesting.ValidKeyOne.Key + "\n" +
+				sshtesting.ValidKeyTwo.Key + " user@host\n" +
+				"# comment\n\n" +
+				sshtesting.ValidKeyThree.Key + " another@host")
+	},
+}, {
+	"AddUser with keys",
 	map[string]interface{}{"users": []interface{}{map[string]interface{}{
 		"name":        "auser",
 		"lock_passwd": true,
@@ -100,28 +125,20 @@ var ctests = []struct {
 		})
 	},
 }, {
-	"AddUser with comments in keys",
+	"AddUser with groups",
 	map[string]interface{}{"users": []interface{}{map[string]interface{}{
 		"name":        "auser",
 		"lock_passwd": true,
-		"ssh-authorized-keys": []string{
-			fmt.Sprintf("%s Juju:sshkey", sshtesting.ValidKeyOne.Key),
-			fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyTwo.Key),
-			fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyThree.Key),
-		},
+		"groups":       []string{"agroup", "bgroup"},
 	}}},
 	func(cfg cloudinit.CloudConfig) {
-		keys := ("#command\n" + sshtesting.ValidKeyOne.Key + "\n" +
-			sshtesting.ValidKeyTwo.Key + " user@host\n" +
-			"# comment\n\n" +
-			sshtesting.ValidKeyThree.Key + " another@host")
 		cfg.AddUser(&cloudinit.User{
-			Name:              "auser",
-			SSHAuthorizedKeys: keys,
+			Name:   "auser",
+			Groups: []string{"agroup", "bgroup"},
 		})
 	},
 }, {
-	"AddUser with no keys",
+	"AddUser with only name",
 	map[string]interface{}{"users": []interface{}{map[string]interface{}{
 		"name":        "auser",
 		"lock_passwd": true,

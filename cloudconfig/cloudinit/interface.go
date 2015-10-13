@@ -48,6 +48,7 @@ type CloudConfig interface {
 	LocaleConfig
 	DeviceMountConfig
 	OutputConfig
+	SSHAuthorizedKeysConfig
 	RootUserConfig
 	WrittenFilesConfig
 	RenderConfig
@@ -260,6 +261,13 @@ type OutputConfig interface {
 	// Output returns the destination set by SetOutput for the given OutputKind.
 	// If it has not been previously set, empty strings are returned.
 	Output(OutputKind) (string, string)
+}
+
+// SSHAuthorizedKeysConfig is the interface for adding ssh authorized keys.
+type SSHAuthorizedKeysConfig interface {
+	// SetSSHAuthorizedKeys puts a set of authorized keys for the default
+	// user in the ~/.ssh/authorized_keys file.
+	SetSSHAuthorizedKeys(string)
 }
 
 // RootUserConfig is the interface for all root user-related settings.

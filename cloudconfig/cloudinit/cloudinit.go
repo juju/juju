@@ -316,6 +316,11 @@ func (cfg *cloudConfig) Output(kind OutputKind) (stdout, stderr string) {
 	return stdout, stderr
 }
 
+// SetSSHAuthorizedKeys is defined on the SSHKeysConfig interface.
+func (cfg *cloudConfig) SetSSHAuthorizedKeys(rawKeys string) {
+	cfg.SetAttr("ssh_authorized_keys", annotateKeys(rawKeys))
+}
+
 // SetDisableRoot is defined on the RootUserConfig interface.
 func (cfg *cloudConfig) SetDisableRoot(disable bool) {
 	cfg.SetAttr("disable_root", disable)
