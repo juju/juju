@@ -36,8 +36,24 @@ func (s *diskSuite) TestDiskSpecSizeGB(c *gc.C) {
 	c.Check(size, gc.Equals, uint64(15))
 }
 
-func (s *diskSuite) TestDiskSpecSizeGBMin(c *gc.C) {
+func (s *diskSuite) TestDiskSpecSizeGBMinUbuntu(c *gc.C) {
 	s.DiskSpec.SizeHintGB = 0
+	size := s.DiskSpec.SizeGB()
+
+	c.Check(size, gc.Equals, uint64(10))
+}
+
+func (s *diskSuite) TestDiskSpecSizeGBMinWindows(c *gc.C) {
+	s.DiskSpec.SizeHintGB = 0
+	s.DiskSpec.Series = "win2012r2"
+	size := s.DiskSpec.SizeGB()
+
+	c.Check(size, gc.Equals, uint64(50))
+}
+
+func (s *diskSuite) TestDiskSpecSizeGBMinUnknown(c *gc.C) {
+	s.DiskSpec.SizeHintGB = 0
+	s.DiskSpec.Series = "arch"
 	size := s.DiskSpec.SizeGB()
 
 	c.Check(size, gc.Equals, uint64(10))

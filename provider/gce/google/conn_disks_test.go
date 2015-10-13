@@ -4,7 +4,6 @@
 package google_test
 
 import (
-	//"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
@@ -16,6 +15,7 @@ const fakeVolName = "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4"
 
 func fakeDiskAndSpec() (google.DiskSpec, *compute.Disk, error) {
 	spec := google.DiskSpec{
+		Series:             "trusty",
 		SizeHintGB:         1,
 		Name:               fakeVolName,
 		PersistentDiskType: google.DiskPersistentSSD,
