@@ -152,29 +152,32 @@ func filterOne(payload Payload, predicates []func(Payload) bool) bool {
 func BuildPredicatesFor(patterns []string) ([]func(Payload) bool, error) {
 	var predicates []func(Payload) bool
 	for _, pattern := range patterns {
-		predicates = append(predicates, func(payload Payload) bool {
+		pattern = strings.ToLower(pattern)
+
+		predicate := func(payload Payload) bool {
 			switch {
-			case strings.ToLower(payload.Name) == strings.ToLower(pattern):
+			case strings.ToLower(payload.Name) == pattern:
 				return true
-			case strings.ToLower(payload.Type) == strings.ToLower(pattern):
+			case strings.ToLower(payload.Type) == pattern:
 				return true
-			case strings.ToLower(payload.ID) == strings.ToLower(pattern):
+			case strings.ToLower(payload.ID) == pattern:
 				return true
-			case strings.ToLower(payload.Status) == strings.ToLower(pattern):
+			case strings.ToLower(payload.Status) == pattern:
 				return true
-			case strings.ToLower(payload.Unit) == strings.ToLower(pattern):
+			case strings.ToLower(payload.Unit) == pattern:
 				return true
-			case strings.ToLower(payload.Machine) == strings.ToLower(pattern):
+			case strings.ToLower(payload.Machine) == pattern:
 				return true
 			default:
 				for _, tag := range payload.Tags {
-					if strings.ToLower(tag) == strings.ToLower(pattern) {
+					if strings.ToLower(tag) == pattern {
 						return true
 					}
 				}
 			}
 			return false
-		})
+		}
+		predicates = append(predicates, predicate)
 	}
 	return predicates, nil
 }
