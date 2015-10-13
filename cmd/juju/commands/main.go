@@ -40,6 +40,10 @@ func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
+// TODO(ericsnow) Move the following to cmd/juju/main.go:
+//  jujuDoc
+//  Main
+
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of cloud
 infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
