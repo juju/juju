@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
 
@@ -27,6 +28,25 @@ const (
 	// Provider Id for the default network
 	DefaultProviderId = "juju-unknown"
 )
+
+// noAddress represents an error when an address is requested but not available.
+type noAddress struct {
+	errors.Err
+}
+
+// NoAddressf returns an error which satisfies IsNoAddress().
+func NoAddressf(format string, args ...interface{}) error {
+	newErr := errors.NewErr(format+" no address", args...)
+	newErr.SetLocation(1)
+	return &noAddress{newErr}
+}
+
+// IsNoAddress reports whether err was created with NoAddressf().
+func IsNoAddress(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*noAddress)
+	return ok
+}
 
 // Id defines a provider-specific network id.
 type Id string
@@ -60,7 +80,7 @@ type SubnetInfo struct {
 	AllocatableIPLow  net.IP
 	AllocatableIPHigh net.IP
 
-	// AvailabilityZones describes with availability zone(s) this
+	// AvailabilityZones describes which availability zone(s) this
 	// subnet is in. It can be empty if the provider does not support
 	// availability zones.
 	AvailabilityZones []string
@@ -119,6 +139,10 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// AvailabilityZones describes the availability zones the associated
+	// subnet is in.
+	AvailabilityZones []string
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.

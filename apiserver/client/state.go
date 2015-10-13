@@ -21,8 +21,8 @@ type Unit interface {
 	Life() state.Life
 	Destroy() (err error)
 	IsPrincipal() bool
-	PublicAddress() (string, bool)
-	PrivateAddress() (string, bool)
+	PublicAddress() (network.Address, error)
+	PrivateAddress() (network.Address, error)
 	Resolve(retryHooks bool) error
 	AgentHistory() state.StatusHistoryGetter
 }

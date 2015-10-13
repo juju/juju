@@ -435,6 +435,16 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 		[]state.Metric{{"pings", "3.141592653589793238462643383279", now}},
 		meteredUnit,
 		`metric value is too large`,
+	}, {
+		"negative value returns error",
+		[]state.Metric{{"pings", "-42.0", now}},
+		meteredUnit,
+		`invalid value: value must be greater or equal to zero, got -42.0`,
+	}, {
+		"non-float value returns an error",
+		[]state.Metric{{"pings", "abcd", now}},
+		meteredUnit,
+		`invalid value type: expected float, got "abcd"`,
 	}}
 	for i, t := range tests {
 		c.Logf("test %d: %s", i, t.about)
@@ -541,4 +551,70 @@ func (s *MetricSuite) TestAddMetricDuplicateUUID(c *gc.C) {
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, "metrics batch .* already exists")
+}
+
+func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
+	tests := []struct {
+		about         string
+		value         string
+		expectedError string
+	}{{
+		about: "adding a positive value must succeed",
+		value: "5",
+	}, {
+		about:         "negative values return an error",
+		value:         "-42.0",
+		expectedError: "invalid value: value must be greater or equal to zero, got -42.0",
+	}, {
+		about:         "non-float values return an error",
+		value:         "abcd",
+		expectedError: `invalid value type: expected float, got "abcd"`,
+	}, {
+		about:         "long values return an error",
+		value:         "1234567890123456789012345678901234567890",
+		expectedError: "metric value is too large",
+	},
+	}
+	for _, test := range tests {
+		c.Logf("running test: %v", test.about)
+		now := state.NowToTheSecond()
+		envUUID := s.State.EnvironUUID()
+		m := state.Metric{"juju-units", test.value, now}
+		metricBatch, err := s.State.AddMetrics(
+			state.BatchParam{
+				UUID:     utils.MustNewUUID().String(),
+				Created:  now,
+				CharmURL: s.meteredCharm.URL().String(),
+				Metrics:  []state.Metric{m},
+				Unit:     s.unit.UnitTag(),
+			},
+		)
+		if test.expectedError == "" {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
+			c.Assert(metricBatch.EnvUUID(), gc.Equals, envUUID)
+			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
+			c.Assert(metricBatch.Sent(), jc.IsFalse)
+			c.Assert(metricBatch.Created(), gc.Equals, now)
+			c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
+
+			metric := metricBatch.Metrics()[0]
+			c.Assert(metric.Key, gc.Equals, "juju-units")
+			c.Assert(metric.Value, gc.Equals, test.value)
+			c.Assert(metric.Time.Equal(now), jc.IsTrue)
+
+			saved, err := s.State.MetricBatch(metricBatch.UUID())
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(saved.Unit(), gc.Equals, "metered/0")
+			c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
+			c.Assert(saved.Sent(), jc.IsFalse)
+			c.Assert(saved.Metrics(), gc.HasLen, 1)
+			metric = saved.Metrics()[0]
+			c.Assert(metric.Key, gc.Equals, "juju-units")
+			c.Assert(metric.Value, gc.Equals, test.value)
+			c.Assert(metric.Time.Equal(now), jc.IsTrue)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.expectedError)
+		}
+	}
 }

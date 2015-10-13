@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -232,23 +231,15 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(context.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
-	expect, expectOk := s.unit.PrivateAddress()
+	expect, expectErr := s.unit.PrivateAddress()
 	actual, actualErr := ctx.PrivateAddress()
-	c.Assert(actual, gc.Equals, expect)
-	if expectOk {
-		c.Assert(actualErr, jc.ErrorIsNil)
-	} else {
-		c.Assert(actualErr, jc.Satisfies, errors.IsNotFound)
-	}
+	c.Assert(actual, gc.Equals, expect.Value)
+	c.Assert(actualErr, jc.DeepEquals, expectErr)
 
-	expect, expectOk = s.unit.PublicAddress()
+	expect, expectErr = s.unit.PublicAddress()
 	actual, actualErr = ctx.PublicAddress()
-	c.Assert(actual, gc.Equals, expect)
-	if expectOk {
-		c.Assert(actualErr, jc.ErrorIsNil)
-	} else {
-		c.Assert(actualErr, gc.NotNil)
-	}
+	c.Assert(actual, gc.Equals, expect.Value)
+	c.Assert(actualErr, jc.DeepEquals, expectErr)
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)

@@ -34,6 +34,7 @@ func (s *steps124Suite) TestStateStepsFor124(c *gc.C) {
 		"change entityid field on status history to globalkey",
 		"change updated field on statushistory from time to int",
 		"change updated field on status from time to int",
+		"add preferred addresses to machines",
 	}
 	assertStateSteps(c, version.MustParse("1.24.0"), expected)
 }
