@@ -55,10 +55,6 @@ func (c workloads) registerForClient() error {
 }
 
 func (workloads) newPublicFacade(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
-	if st == nil {
-		return nil, errors.NewNotValid(nil, "st is nil")
-	}
-
 	up, err := st.EnvPayloads()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -134,10 +130,6 @@ func (workloads) newHookContextAPIClient(caller base.APICaller) context.APIClien
 }
 
 func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
-	if st == nil {
-		return nil, errors.NewNotValid(nil, "st is nil")
-	}
-
 	up, err := st.UnitWorkloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
