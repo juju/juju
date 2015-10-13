@@ -100,8 +100,6 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		}
 		// Display any error, but continue to print info if some was returned.
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-	} else if infos == nil {
-		return errors.Errorf("unable to list the current payloads")
 	}
 
 	formatter := newListFormatter(infos, c.CompatVersion())
