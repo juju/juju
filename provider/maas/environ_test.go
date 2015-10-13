@@ -255,6 +255,31 @@ iface juju-br0 inet dhcp
     bridge_ports eth0
 `
 
+var networkMultipleInitial = networkStaticInitial + `
+auto eth1
+iface eth1 inet static
+   address 1.2.3.5
+   netmask 255.255.255.0
+   gateway 4.3.2.1`
+
+var networkMultipleFinal = `auto lo
+iface lo inet loopback
+
+auto juju-br0
+iface juju-br0 inet static
+   bridge_ports eth0
+   address 1.2.3.4
+   netmask 255.255.255.0
+   gateway 4.3.2.1
+auto eth1
+iface eth1 inet static
+   address 1.2.3.5
+   netmask 255.255.255.0
+   gateway 4.3.2.1
+# Primary interface (defining the default route)
+iface eth0 inet manual
+`
+
 func writeNetworkScripts(c *gc.C, initialScript string) (string, string) {
 	tempDir := c.MkDir()
 	initialScriptPath := filepath.Join(tempDir, "foobar")
@@ -320,6 +345,17 @@ func (s *environSuite) TestRenderNetworkInterfacesScriptStatic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), jc.DeepEquals, networkStaticFinal)
 }
+
+func (s *environSuite) TestRenderNetworkInterfacesScriptMultiple(c *gc.C) {
+	scriptPath, resultPath := writeNetworkScripts(c, networkMultipleInitial)
+	cmd := exec.Command("/bin/sh", scriptPath)
+	err := cmd.Run()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadFile(resultPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), jc.DeepEquals, networkMultipleFinal)
+}
+
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
 	attrs := coretesting.Attrs{
 		"disable-network-management": true,
