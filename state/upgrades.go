@@ -672,6 +672,31 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
+func AddPreferredAddressesToMachines(st *State) error {
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, machine := range machines {
+		if machine.Life() == Dead {
+			continue
+		}
+		// Setting the addresses is enough to trigger setting the preferred
+		// addresses.
+		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = machine.SetMachineAddresses(machine.MachineAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+	}
+	return nil
+}
+
 func LowerCaseEnvUsersID(st *State) error {
 	users, closer := st.getRawCollection(envUsersC)
 	defer closer()

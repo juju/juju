@@ -151,7 +151,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// We can't always just use IsolationSuite because we still need
 	// PATH and possibly a couple other envars.
 	s.PatchEnvironment("BASH_ENV", "")
-	network.ResetGobalPreferIPv6()
+	network.ResetGlobalPreferIPv6()
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {

@@ -99,16 +99,29 @@ type StatePaths struct {
 // NewPaths returns the set of filesystem paths that the supplied unit should
 // use, given the supplied root juju data directory path.
 func NewPaths(dataDir string, unitTag names.UnitTag) Paths {
+	return NewWorkerPaths(dataDir, unitTag, "")
+}
 
+// NewWorkerPaths returns the set of filesystem paths that the supplied unit worker should
+// use, given the supplied root juju data directory path and worker identifier.
+// Distinct worker identifiers ensure that runtime paths of different worker do not interfere.
+func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string) Paths {
 	join := filepath.Join
 	baseDir := join(dataDir, "agents", unitTag.String())
 	stateDir := join(baseDir, "state")
 
 	socket := func(name string, abstract bool) string {
 		if os.HostOS() == os.Windows {
-			return fmt.Sprintf(`\\.\pipe\%s-%s`, unitTag, name)
+			base := fmt.Sprintf("%s", unitTag)
+			if worker != "" {
+				base = fmt.Sprintf("%s-%s", unitTag, worker)
+			}
+			return fmt.Sprintf(`\\.\pipe\%s-%s`, base, name)
 		}
 		path := join(baseDir, name+".socket")
+		if worker != "" {
+			path = join(baseDir, fmt.Sprintf("%s-%s.socket", worker, name))
+		}
 		if abstract {
 			path = "@" + path
 		}
