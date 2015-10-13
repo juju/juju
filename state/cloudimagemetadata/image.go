@@ -114,8 +114,8 @@ type imagesMetadataDoc struct {
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
 	Arch string `bson:"arch"`
 
-	// VirtualType contains the type of the cloud image, for e.g. "pv", "hvm". "kvm".
-	VirtualType string `bson:"virtual_type,omitempty"`
+	// VirtType contains virtualisation type of the cloud image, for e.g. "pv", "hvm". "kvm".
+	VirtType string `bson:"virt_type,omitempty"`
 
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string `bson:"root_storage_type,omitempty"`
@@ -150,7 +150,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Series:          m.Series,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
-			VirtualType:     m.VirtualType,
+			VirtType:        m.VirtType,
 		},
 		m.ImageId,
 	}
@@ -168,7 +168,7 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		Region:          m.Region,
 		Series:          m.Series,
 		Arch:            m.Arch,
-		VirtualType:     m.VirtualType,
+		VirtType:        m.VirtType,
 		RootStorageType: m.RootStorageType,
 		ImageId:         m.ImageId,
 		DateCreated:     time.Now().UnixNano(),
@@ -186,7 +186,7 @@ func buildKey(m Metadata) string {
 		m.Region,
 		m.Series,
 		m.Arch,
-		m.VirtualType,
+		m.VirtType,
 		m.RootStorageType,
 		m.Source)
 }
@@ -233,8 +233,8 @@ func buildSearchClauses(criteria MetadataFilter) bson.D {
 		all = append(all, bson.DocElem{"arch", bson.D{{"$in", criteria.Arches}}})
 	}
 
-	if criteria.VirtualType != "" {
-		all = append(all, bson.DocElem{"virtual_type", criteria.VirtualType})
+	if criteria.VirtType != "" {
+		all = append(all, bson.DocElem{"virt_type", criteria.VirtType})
 	}
 
 	if criteria.RootStorageType != "" {
@@ -265,8 +265,8 @@ type MetadataFilter struct {
 	// simplestreams metadata supports.
 	Stream string `json:"stream,omitempty"`
 
-	// VirtualType stores virtual type.
-	VirtualType string `json:"virtual_type,omitempty"`
+	// VirtType stores virtualisation type.
+	VirtType string `json:"virt_type,omitempty"`
 
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`

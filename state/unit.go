@@ -14,7 +14,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -732,34 +732,24 @@ func (u *Unit) machine() (*Machine, error) {
 	return m, nil
 }
 
-// addressesOfMachine returns Addresses of the related machine if present.
-func (u *Unit) addressesOfMachine() []network.Address {
+// PublicAddress returns the public address of the unit.
+func (u *Unit) PublicAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Errorf("%v", err)
-		return nil
+		return network.Address{}, errors.Trace(err)
 	}
-	return m.Addresses()
+	return m.PublicAddress()
 }
 
-// PublicAddress returns the public address of the unit and whether it is valid.
-func (u *Unit) PublicAddress() (string, bool) {
-	var publicAddress string
-	addresses := u.addressesOfMachine()
-	if len(addresses) > 0 {
-		publicAddress = network.SelectPublicAddress(addresses)
+// PrivateAddress returns the private address of the unit.
+func (u *Unit) PrivateAddress() (network.Address, error) {
+	m, err := u.machine()
+	if err != nil {
+		unitLogger.Errorf("%v", err)
+		return network.Address{}, errors.Trace(err)
 	}
-	return publicAddress, publicAddress != ""
-}
-
-// PrivateAddress returns the private address of the unit and whether it is valid.
-func (u *Unit) PrivateAddress() (string, bool) {
-	var privateAddress string
-	addresses := u.addressesOfMachine()
-	if len(addresses) > 0 {
-		privateAddress = network.SelectInternalAddress(addresses, false)
-	}
-	return privateAddress, privateAddress != ""
+	return m.PrivateAddress()
 }
 
 // AvailabilityZone returns the name of the availability zone into which

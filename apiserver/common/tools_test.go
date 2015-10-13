@@ -9,13 +9,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -205,6 +206,7 @@ func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22-beta1-trusty-amd64"))
 	s.testFindToolsExact(c, mockToolsStorage, true, true)
 	s.PatchValue(&version.Current, version.MustParseBinary("1.22.0-trusty-amd64"))
@@ -224,7 +226,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, version.Current.Number)
-		c.Assert(filter.Series, gc.Equals, version.Current.Series)
+		c.Assert(filter.Series, gc.Equals, series.HostSeries())
 		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
 			c.Assert(stream, gc.Equals, "devel")
@@ -238,7 +240,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Number:       version.Current.Number,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       version.Current.Series,
+		Series:       series.HostSeries(),
 		Arch:         arch.HostArch(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

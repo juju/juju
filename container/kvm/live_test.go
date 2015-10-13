@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"

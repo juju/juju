@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/juju/arch"
+	"github.com/juju/utils/arch"
 )
 
 const (

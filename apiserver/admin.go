@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -310,6 +311,7 @@ func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) err
 // machinePinger wraps a presence.Pinger.
 type machinePinger struct {
 	*presence.Pinger
+	mongoUnavailable *uint32
 }
 
 // Stop implements Pinger.Stop() as Pinger.Kill(), needed at
@@ -317,6 +319,14 @@ type machinePinger struct {
 func (p *machinePinger) Stop() error {
 	if err := p.Pinger.Stop(); err != nil {
 		return err
+	}
+	if atomic.LoadUint32(p.mongoUnavailable) > 0 {
+		// Kill marks the agent as not-present. If the
+		// Mongo server is known to be unavailable, then
+		// we do not perform this operation; the agent
+		// will naturally become "not present" when its
+		// presence expires.
+		return nil
 	}
 	return p.Pinger.Kill()
 }
@@ -336,7 +346,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 		return err
 	}
 
-	root.getResources().Register(&machinePinger{pinger})
+	root.getResources().Register(&machinePinger{pinger, root.mongoUnavailable})
 	action := func() {
 		if err := root.getRpcConn().Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)

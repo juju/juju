@@ -6,11 +6,12 @@ package bootstrap_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -257,12 +258,11 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	var allTools tools.List
-	for _, series := range version.SupportedSeries() {
+	for _, series := range series.SupportedSeries() {
 		binary := version.Binary{
 			Number: version.Current.Number,
 			Series: series,
 			Arch:   arch.HostArch(),
-			OS:     version.Current.OS,
 		}
 		allTools = append(allTools, &tools.Tools{
 			Version: binary,

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service/common"
@@ -95,9 +96,8 @@ func (s *BaseSuite) PatchAttempts(retries int) {
 	})
 }
 
-func (s *BaseSuite) PatchVersion(vers version.Binary) {
-	s.Patched.Version = vers
-	s.PatchValue(&getVersion, s.Patched.GetVersion)
+func (s *BaseSuite) PatchSeries(ser string) {
+	s.PatchValue(&series.HostSeries, func() string { return ser })
 }
 
 func NewDiscoveryCheck(name string, running bool, failure error) discoveryCheck {

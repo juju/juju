@@ -7,11 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -115,15 +117,14 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch *string
 // locallyBuildableTools returns the list of tools that
 // can be built locally, for series of the same OS.
 func locallyBuildableTools() (buildable coretools.List) {
-	for _, series := range version.SupportedSeries() {
-		if os, err := version.GetOSFromSeries(series); err != nil || os != version.Current.OS {
+	for _, ser := range series.SupportedSeries() {
+		if os, err := series.GetOSFromSeries(ser); err != nil || os != jujuos.HostOS() {
 			continue
 		}
 		binary := version.Binary{
 			Number: version.Current.Number,
-			Series: series,
+			Series: ser,
 			Arch:   arch.HostArch(),
-			OS:     version.Current.OS,
 		}
 		// Increment the build number so we know it's a development build.
 		binary.Build++

@@ -41,9 +41,12 @@ settings:
       type: string
       value: optimized
 
-NOTE: In the example above the descriptions and most other settings were omitted for
-brevity. The "engine" setting was left at its default value ("nginx"), while the
-"tuning" setting was set to "optimized" (the default value is "single").
+NOTE: In the example above the descriptions and most other settings were omitted or
+truncated for brevity. The "engine" setting was left at its default value ("nginx"),
+while the "tuning" setting was set to "optimized" (the default value is "single").
+
+Note that the "default" field indicates whether a configuration setting is at its
+default value. It does not indicate the default value for the setting.
 `
 
 func (c *GetCommand) Info() *cmd.Info {

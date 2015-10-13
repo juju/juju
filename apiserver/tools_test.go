@@ -24,7 +24,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"

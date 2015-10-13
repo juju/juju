@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -1050,14 +1050,14 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid",
-			err:             "charm url series is not resolved",
+			err:             "charm or bundle url series is not resolved",
 		},
 		{
 			about:           "invalid schema",
 			charm:           "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: nil},
 			url:             "not-valid:your-arguments",
-			err:             `charm URL has invalid schema: "not-valid:your-arguments"`,
+			err:             `charm or bundle URL has invalid schema: "not-valid:your-arguments"`,
 		},
 		{
 			about:           "unknown charm",
@@ -1625,10 +1625,10 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 
 func (s *clientRepoSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 	for url, expect := range map[string]string{
-		"wordpress":                   "charm url series is not resolved",
-		"cs:wordpress":                "charm url series is not resolved",
+		"wordpress":                   "charm or bundle url series is not resolved",
+		"cs:wordpress":                "charm or bundle url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `.* charm "cs:precise/wordpress-999999".* not found`,
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceDeploy(
@@ -1921,10 +1921,10 @@ func (s *clientRepoSuite) TestBlockServiceUpdateForced(c *gc.C) {
 func (s *clientRepoSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
-		"wordpress":                   "charm url series is not resolved",
-		"cs:wordpress":                "charm url series is not resolved",
+		"wordpress":                   "charm or bundle url series is not resolved",
+		"cs:wordpress":                "charm or bundle url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", charmUrl)
 		args := params.ServiceUpdate{
@@ -2209,10 +2209,10 @@ func (s *clientRepoSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
-		"wordpress":                   "charm url series is not resolved",
-		"cs:wordpress":                "charm url series is not resolved",
+		"wordpress":                   "charm or bundle url series is not resolved",
+		"cs:wordpress":                "charm or bundle url series is not resolved",
 		"cs:precise/wordpress":        "charm url must include revision",
-		"cs:precise/wordpress-999999": `cannot retrieve charm "cs:precise/wordpress-999999": charm not found`,
+		"cs:precise/wordpress-999999": `cannot retrieve "cs:precise/wordpress-999999": charm not found`,
 	} {
 		c.Logf("test %s", url)
 		err := s.APIState.Client().ServiceSetCharm(
@@ -2589,13 +2589,14 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PublicAddress("0")
-	c.Assert(err, gc.ErrorMatches, `machine "0" has no public address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": public no address`)
 	_, err = s.APIState.Client().PublicAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no public address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": public no address`)
 }
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	s.setUpScenario(c)
+	network.ResetGlobalPreferIPv6()
 
 	// Internally, network.SelectPublicAddress is used; the "most public"
 	// address is returned.
@@ -2631,13 +2632,14 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PrivateAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PrivateAddress("0")
-	c.Assert(err, gc.ErrorMatches, `machine "0" has no internal address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": private no address`)
 	_, err = s.APIState.Client().PrivateAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" has no internal address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": private no address`)
 }
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	s.setUpScenario(c)
+	network.ResetGlobalPreferIPv6()
 
 	// Internally, network.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.
@@ -3212,7 +3214,7 @@ func (s *testModeCharmRepo) WithTestMode() charmrepo.Interface {
 func (s *clientRepoSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
 	repo := &testModeCharmRepo{}
 	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-		p.URL = s.Srv.URL()
+		p.URL = s.Srv.URL
 		repo.CharmStore = charmrepo.NewCharmStore(p).(*charmrepo.CharmStore)
 		return repo
 	})
@@ -3273,15 +3275,15 @@ var resolveCharmTests = []struct {
 }, {
 	about:      "fully qualified reference not found",
 	url:        "cs:utopic/riak-42",
-	resolveErr: `cannot resolve charm URL "cs:utopic/riak-42": charm not found`,
+	resolveErr: `cannot resolve URL "cs:utopic/riak-42": charm not found`,
 }, {
 	about:      "reference not found",
 	url:        "cs:no-such",
-	resolveErr: `cannot resolve charm URL "cs:no-such": charm not found`,
+	resolveErr: `cannot resolve URL "cs:no-such": entity not found`,
 }, {
 	about:    "invalid charm name",
 	url:      "cs:",
-	parseErr: `charm URL has invalid charm name: "cs:"`,
+	parseErr: `URL has invalid charm or bundle name: "cs:"`,
 }, {
 	about:      "local charm",
 	url:        "local:wordpress",

@@ -21,8 +21,8 @@ type ImageMetadataFilter struct {
 	// simplestreams metadata supports.
 	Stream string `json:"stream,omitempty"`
 
-	// VirtualType stores virtual type.
-	VirtualType string `json:"virtual_type,omitempty"`
+	// VirtType stores virtualisation type.
+	VirtType string `json:"virt_type,omitempty"`
 
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`
@@ -46,8 +46,8 @@ type CloudImageMetadata struct {
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
 	Arch string `json:"arch"`
 
-	// VirtualType contains the type of the cloud image, for e.g. "pv", "hvm". "kvm".
-	VirtualType string `json:"virtual_type,omitempty"`
+	// VirtType contains the virtualisation type of the cloud image, for e.g. "pv", "hvm". "kvm".
+	VirtType string `json:"virt_type,omitempty"`
 
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
 	RootStorageType string `json:"root_storage_type,omitempty"`

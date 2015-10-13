@@ -18,6 +18,7 @@ var _ = gc.Suite(&steps118Suite{})
 
 func (s *steps118Suite) TestStateStepsFor118(c *gc.C) {
 	expected := []string{
+		"add the version field to all settings docs",
 		"update rsyslog port",
 		"remove deprecated environment config settings",
 		"migrate local provider agent config",

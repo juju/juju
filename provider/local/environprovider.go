@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.provider.local")
