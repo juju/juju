@@ -33,6 +33,8 @@ import (
 	"github.com/juju/juju/workload/workers"
 )
 
+const workloadsHookContextFacade = workload.ComponentName + "-hook-context"
+
 type workloads struct{}
 
 func (c workloads) registerForServer() error {
@@ -127,7 +129,7 @@ func (c workloads) registerHookContext(addEvents func(...workload.Event) error) 
 }
 
 func (workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
-	facadeCaller := base.NewFacadeCallerForVersion(caller, workload.ComponentName, 0)
+	facadeCaller := base.NewFacadeCallerForVersion(caller, workloadsHookContextFacade, 0)
 	return client.NewHookContextClient(facadeCaller)
 }
 
@@ -145,7 +147,7 @@ func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interf
 
 func (c workloads) registerHookContextFacade() {
 	common.RegisterHookContextFacade(
-		workload.ComponentName,
+		workloadsHookContextFacade,
 		0,
 		c.newHookContextFacade,
 		reflect.TypeOf(&server.HookContextAPI{}),
