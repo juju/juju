@@ -4,8 +4,6 @@
 package systemmanager_test
 
 import (
-	"time"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -67,17 +65,14 @@ func (s *destroySystemSuite) SetUpTest(c *gc.C) {
 	})
 	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
 	s.otherEnvUUID = s.otherState.EnvironUUID()
-
-	stopper := startMockUndertaker(s.otherState, c, 200*time.Millisecond)
-	s.AddCleanup(func(c *gc.C) { stopper() })
 }
 
 func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C) {
+	s.startMockUndertaker(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
-
 	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
 		DestroyEnvironments: true,
 		IgnoreBlocks:        true,
@@ -94,6 +89,7 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C)
 }
 
 func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *gc.C) {
+	s.startMockUndertaker(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -113,6 +109,7 @@ func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *g
 }
 
 func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
+	s.startMockUndertaker(c)
 	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
 		DestroyEnvironments: true,
 	})
@@ -127,6 +124,7 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
 }
 
 func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) {
+	s.startMockUndertaker(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
@@ -143,6 +141,7 @@ func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) 
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
+	s.startMockUndertaker(c)
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -155,6 +154,7 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
+	s.startMockUndertaker(c)
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -172,6 +172,7 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
 }
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
+	s.startMockUndertaker(c)
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -187,101 +188,42 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C)
 }
 
 // startMockUndertaker processes a dying environment and sets it to dead.
-// Normally, the undertaker worker, running on the machine agent, would
-// process all dying environments. But for the unit test, we process one
-// directly.
-func startMockUndertaker(st *state.State, c *gc.C, wait time.Duration) func() {
-	stop := make(chan bool)
-
+// Normally the undertaker worker, running on the machine agent, would
+// process all dying environments. But for the unit tests, we run a mock
+// undertaker in the background.
+func (s *destroySystemSuite) startMockUndertaker(c *gc.C) {
+	watcher := watchEnvironResources(c, s.otherState)
+	s.AddCleanup(func(c *gc.C) { c.Assert(watcher.Stop(), jc.ErrorIsNil) })
 	go func() {
 		for {
 			select {
-			case <-stop:
-				return
-
-			case <-time.After(wait):
-				st.ProcessDyingEnviron()
+			case _, ok := <-watcher.Changes():
+				if !ok {
+					return
+				}
+				if err := s.otherState.ProcessDyingEnviron(); err == nil {
+					watcher.Stop()
+					return
+				}
 			}
 		}
 	}()
-
-	return func() {
-		stop <- true
-	}
 }
 
-type destroySystemNoUndertakerSuite struct {
-	jujutesting.JujuConnSuite
-	systemManager *systemmanager.SystemManagerAPI
-	otherState    *state.State
-}
-
-var _ = gc.Suite(&destroySystemNoUndertakerSuite{})
-
-func (s *destroySystemNoUndertakerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-
-	authoriser := apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
-	}
-	systemManager, err := systemmanager.NewSystemManagerAPI(s.State, resources, authoriser)
+func watchEnvironResources(c *gc.C, st *state.State) state.NotifyWatcher {
+	env, err := st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	s.systemManager = systemManager
+	machines, err := st.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	services, err := st.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
-		Name:    "dummytoo",
-		Owner:   names.NewUserTag("jess@dummy"),
-		Prepare: true,
-		ConfigAttrs: testing.Attrs{
-			"state-server": false,
-		},
-	})
-	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
-}
-
-func (s *destroySystemNoUndertakerSuite) TestDestroySystemKillWaitsForHostedEnvs(c *gc.C) {
-	notify := make(chan string, 1)
-	cleanup := systemmanager.PatchNotificationChannel(notify)
-	defer cleanup()
-	waitOver := make(chan bool, 1)
-
-	go func() {
-		err := s.systemManager.DestroySystem(params.DestroySystemArgs{
-			DestroyEnvironments: true,
-		})
-		c.Check(err, jc.ErrorIsNil)
-		waitOver <- true
-	}()
-
-	select {
-	case n := <-notify:
-		c.Assert(n, gc.Equals, "waiting for environs to be dead")
-
-		env, err := s.otherState.Environment()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(env.Life(), gc.Equals, state.Dying)
-
-		env, err = s.State.Environment()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(env.Life(), gc.Equals, state.Alive)
-		c.Assert(s.otherState.ProcessDyingEnviron(), jc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for SystemDestroy wait notification")
+	watchers := []state.NotifyWatcher{env.Watch()}
+	for _, machine := range machines {
+		watchers = append(watchers, machine.Watch())
 	}
-
-	select {
-	case <-waitOver:
-		// DestroySystem has completed
-		env, err := s.otherState.Environment()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(env.Life(), gc.Equals, state.Dead)
-		env, err = s.State.Environment()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(env.Life(), gc.Equals, state.Dying)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for system to be destroyed")
+	for _, service := range services {
+		watchers = append(watchers, service.Watch())
 	}
+	return common.NewMultiNotifyWatcher(watchers...)
 }
