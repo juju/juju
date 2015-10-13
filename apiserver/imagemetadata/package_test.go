@@ -39,7 +39,7 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
 
 	s.calls = []string{}
-	s.state = s.constructState(c)
+	s.state = s.constructState()
 
 	var err error
 	s.api, err = imagemetadata.CreateAPI(s.state, s.resources, s.authorizer)
@@ -55,7 +55,7 @@ const (
 	saveMetadata = "saveMetadata"
 )
 
-func (s *baseImageMetadataSuite) constructState(c *gc.C) *mockState {
+func (s *baseImageMetadataSuite) constructState() *mockState {
 	return &mockState{
 		findMetadata: func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
 			s.calls = append(s.calls, findMetadata)
