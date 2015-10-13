@@ -244,15 +244,22 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("first instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
-	err = goyaml.Unmarshal(userData, &userDataMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(userDataMap, jc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
 		"output": map[interface{}]interface{}{
 			"all": "| tee -a /var/log/cloud-init-output.log",
 		},
-		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
+		"users": []interface{}{
+			map[interface{}]interface{}{
+				"name":        "ubuntu",
+				"lock_passwd": true,
+				"groups": []interface{}{"adm", "audio",
+					"cdrom", "dialout", "dip", "floppy",
+					"netdev", "plugdev", "sudo", "video"},
+				"shell":               "/bin/bash",
+				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
+			},
+		},
 		"runcmd": []interface{}{
 			"set -xe",
 			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
@@ -273,7 +280,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	userDataMap = nil
+	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
