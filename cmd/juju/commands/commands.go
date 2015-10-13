@@ -53,7 +53,7 @@ func (cri commandRegistryItem) command(ctx *cmd.Context) cmd.Command {
 	switch {
 	case cri.newCommand != nil:
 		command = cri.newCommand()
-	case cri.newCommand != nil:
+	case cri.newEnvCommand != nil:
 		envCommand := cri.newEnvCommand()
 		command = envCmdWrapper{
 			Command: envcmd.Wrap(envCommand),
