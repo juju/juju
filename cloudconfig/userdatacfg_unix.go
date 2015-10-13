@@ -96,13 +96,11 @@ func (w *unixConfigure) Configure() error {
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
 func (w *unixConfigure) ConfigureBasic() error {
-	var groups []string
 	w.conf.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	switch w.os {
 	case os.Ubuntu:
-		groups = UbuntuGroups
 		if w.icfg.Tools != nil {
 			initSystem, err := service.VersionInitSystem(w.icfg.Series)
 			if err != nil {
@@ -111,7 +109,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 			w.addCleanShutdownJob(initSystem)
 		}
 	case os.CentOS:
-		groups = CentOSGroups
 		w.conf.AddScripts(
 			// Mask and stop firewalld, if enabled, so it cannot start. See
 			// http://pad.lv/1492066. firewalld might be missing, in which case
@@ -124,11 +121,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 		)
 		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
-	if w.icfg.Series == "precise" {
-		w.conf.SetSSHAuthorizedKeys(w.icfg.AuthorizedKeys)
-	} else {
-		SetUbuntuUser(w.conf, groups, w.icfg.AuthorizedKeys)
-	}
+	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
 	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 	// Create a file in a well-defined location containing the machine's
 	// nonce. The presence and contents of this file will be verified

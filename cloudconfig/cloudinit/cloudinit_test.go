@@ -107,6 +107,13 @@ var ctests = []struct {
 				sshtesting.ValidKeyThree.Key + " another@host")
 	},
 }, {
+	"SetSSHAuthorizedKeys unsets keys",
+	map[string]interface{}{},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHAuthorizedKeys(sshtesting.ValidKeyOne.Key)
+		cfg.SetSSHAuthorizedKeys("")
+	},
+}, {
 	"AddUser with keys",
 	map[string]interface{}{"users": []interface{}{map[string]interface{}{
 		"name":        "auser",
@@ -129,12 +136,33 @@ var ctests = []struct {
 	map[string]interface{}{"users": []interface{}{map[string]interface{}{
 		"name":        "auser",
 		"lock_passwd": true,
-		"groups":       []string{"agroup", "bgroup"},
+		"groups":      []string{"agroup", "bgroup"},
 	}}},
 	func(cfg cloudinit.CloudConfig) {
 		cfg.AddUser(&cloudinit.User{
 			Name:   "auser",
 			Groups: []string{"agroup", "bgroup"},
+		})
+	},
+}, {
+	"AddUser with everything",
+	map[string]interface{}{"users": []interface{}{map[string]interface{}{
+		"name":        "auser",
+		"lock_passwd": true,
+		"groups":      []string{"agroup", "bgroup"},
+		"shell":       "/bin/sh",
+		"ssh-authorized-keys": []string{
+			sshtesting.ValidKeyOne.Key + " Juju:sshkey",
+		},
+		"sudo": []string{"ALL=(ALL) ALL"},
+	}}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.AddUser(&cloudinit.User{
+			Name:              "auser",
+			Groups:            []string{"agroup", "bgroup"},
+			Shell:             "/bin/sh",
+			SSHAuthorizedKeys: sshtesting.ValidKeyOne.Key + "\n",
+			Sudo:              []string{"ALL=(ALL) ALL"},
 		})
 	},
 }, {

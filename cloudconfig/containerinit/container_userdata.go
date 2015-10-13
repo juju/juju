@@ -179,20 +179,16 @@ func TemplateUserData(
 			return nil, errors.Trace(err)
 		}
 	}
+	cloudconfig.SetUbuntuUser(config, authorizedKeys)
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
-	if series == "precise" {
-		// For LTS series which need cloud-tools archive support,
-		// we need to enable apt-get update regardless of the environ
-		// setting, otherwise provisioning will fail.
-		if !enablePackageUpdates {
-			logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
-			enablePackageUpdates = true
-		}
-		config.SetSSHAuthorizedKeys(authorizedKeys)
-	} else {
-		cloudconfig.SetUbuntuUser(config, cloudconfig.UbuntuGroups, authorizedKeys)
+	// For LTS series which need support for the cloud-tools archive,
+	// we need to enable apt-get update regardless of the environ
+	// setting, otherwise provisioning will fail.
+	if series == "precise" && !enablePackageUpdates {
+		logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
+		enablePackageUpdates = true
 	}
 
 	if enablePackageUpdates && config.RequiresCloudArchiveCloudTools() {

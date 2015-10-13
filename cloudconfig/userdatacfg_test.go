@@ -1200,32 +1200,45 @@ func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
 	}
 }
 
-func (*cloudinitSuite) TestSetUbuntuUserWithDefaults(c *gc.C) {
-	ci, err := cloudinit.New("quantal")
+func (*cloudinitSuite) TestSetUbuntuUserPrecise(c *gc.C) {
+	ci, err := cloudinit.New("precise")
 	c.Assert(err, jc.ErrorIsNil)
-	cloudconfig.SetUbuntuUser(ci, nil, "")
+	cloudconfig.SetUbuntuUser(ci, "akey")
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.YAMLEquals, expectedUbuntuUser(nil, nil))
+	expected := map[string]interface{}{"ssh_authorized_keys": []string{
+		"akey",
+	}}
+	c.Assert(string(data), jc.YAMLEquals, expected)
 }
 
-func (*cloudinitSuite) TestSetUbuntuUserWithGroups(c *gc.C) {
-	ci, err := cloudinit.New("quantal")
+func (*cloudinitSuite) TestSetUbuntuUserPreciseNoKeys(c *gc.C) {
+	ci, err := cloudinit.New("precise")
 	c.Assert(err, jc.ErrorIsNil)
-	groups := []string{"agroup"}
-	cloudconfig.SetUbuntuUser(ci, groups, "")
+	cloudconfig.SetUbuntuUser(ci, "")
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.YAMLEquals, expectedUbuntuUser(groups, nil))
+	c.Assert(string(data), jc.YAMLEquals, map[string]interface{}{})
 }
 
-func (*cloudinitSuite) TestSetUbuntuUserWithAll(c *gc.C) {
+func (*cloudinitSuite) TestSetUbuntuUserQuantal(c *gc.C) {
 	ci, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	groups := []string{"agroup", "bgroup"}
-	cloudconfig.SetUbuntuUser(ci, groups, "a key")
+	cloudconfig.SetUbuntuUser(ci, "akey")
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	keys := []string{"a key"}
-	c.Assert(string(data), jc.YAMLEquals, expectedUbuntuUser(groups, keys))
+	keys := []string{"akey"}
+	expected := expectedUbuntuUser(cloudconfig.UbuntuGroups, keys)
+	c.Assert(string(data), jc.YAMLEquals, expected)
+}
+
+func (*cloudinitSuite) TestSetUbuntuUserCentOS(c *gc.C) {
+	ci, err := cloudinit.New("centos7")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudconfig.SetUbuntuUser(ci, "akey\n#also\nbkey")
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	keys := []string{"akey", "bkey"}
+	expected := expectedUbuntuUser(cloudconfig.CentOSGroups, keys)
+	c.Assert(string(data), jc.YAMLEquals, expected)
 }
