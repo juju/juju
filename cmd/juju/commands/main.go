@@ -27,20 +27,17 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
-	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-	utils.Must(components.RegisterForClient())
 }
 
 var jujuDoc = `
