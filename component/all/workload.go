@@ -81,25 +81,27 @@ func (c facadeCaller) Close() error {
 	return c.closeFunc()
 }
 
-func (workloads) registerPublicCommands() {
+func (workloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error) {
+	apiCaller, err := cmd.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caller := base.NewFacadeCallerForVersion(apiCaller, workload.ComponentName, 0)
+
+	listAPI := client.NewPublicClient(&facadeCaller{
+		FacadeCaller: caller,
+		closeFunc:    apiCaller.Close,
+	})
+	return listAPI, nil
+}
+
+func (c workloads) registerPublicCommands() {
 	if !markRegistered(workload.ComponentName, "public-commands") {
 		return
 	}
 
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
-		newFacadeCaller := func(c envcmd.EnvironCommand) (status.RawAPI, error) {
-			apiCaller, err := c.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			caller := base.NewFacadeCallerForVersion(apiCaller, workload.ComponentName, 0)
-			fc := &facadeCaller{
-				FacadeCaller: caller,
-				closeFunc:    apiCaller.Close,
-			}
-			return fc, nil
-		}
-		return status.NewListCommand(newFacadeCaller)
+		return status.NewListCommand(c.newListAPIClient)
 	})
 }
 

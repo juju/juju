@@ -12,40 +12,28 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api/client"
 )
 
-// RawAPI exposes the portions of api/base.FacadeCaller needed
-// for list-payloads.
-type RawAPI interface {
-	FacadeCall(request string, params, response interface{}) error
-	Close() error
-}
-
-type listAPI interface {
+// ListAPI has the API methods needed by ListCommand.
+type ListAPI interface {
 	List(patterns ...string) ([]workload.Payload, error)
 	Close() error
 }
 
-type listCommand struct {
+// ListCommand implements the list-payloads command.
+type ListCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	patterns []string
 
-	newAPIClient func(c *listCommand) (listAPI, error)
+	newAPIClient func(c *ListCommand) (ListAPI, error)
 }
 
 // NewListCommand returns a new command that lists charm payloads
 // in the current environment.
-func NewListCommand(newFacadeCaller func(envcmd.EnvironCommand) (RawAPI, error)) envcmd.EnvironCommand {
-	cmd := &listCommand{
-		newAPIClient: func(c *listCommand) (listAPI, error) {
-			caller, err := newFacadeCaller(c)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return client.NewPublicClient(caller), nil
-		},
+func NewListCommand(newAPIClient func(c *ListCommand) (ListAPI, error)) *ListCommand {
+	cmd := &ListCommand{
+		newAPIClient: newAPIClient,
 	}
 	return cmd
 }
@@ -66,7 +54,7 @@ When a pattern is specified, Juju will filter the status to only
 those payloads that match their respective patterns.
 `
 
-func (c *listCommand) Info() *cmd.Info {
+func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-payloads",
 		Args:    "[pattern ...]",
@@ -75,7 +63,7 @@ func (c *listCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"tabular": FormatTabular,
@@ -84,7 +72,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *listCommand) Init(args []string) error {
+func (c *ListCommand) Init(args []string) error {
 	c.patterns = args
 	return nil
 }
@@ -96,7 +84,7 @@ Error details:
 %v
 `
 
-func (c *listCommand) Run(ctx *cmd.Context) error {
+func (c *ListCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.newAPIClient(c)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
