@@ -143,7 +143,7 @@ func (env *joyentEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, env, args)
 }
 

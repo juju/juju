@@ -29,12 +29,12 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.PatchValue(&vsphere.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-	) (string, string, environs.BootstrapFinalizer, error) {
-		return "", "", nil, errors.New("Bootstrap called")
+	) (*environs.BootstrapResult, error) {
+		return nil, errors.New("Bootstrap called")
 	})
 
 	os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.VSphereProvider)
-	_, _, _, err := s.Env.Bootstrap(nil, environs.BootstrapParams{})
+	_, err := s.Env.Bootstrap(nil, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "Bootstrap called")
 }
 

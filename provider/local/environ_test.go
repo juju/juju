@@ -180,14 +180,14 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 		Version: version.Current,
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}}
-	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		AvailableTools: availableTools,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	icfg, err := instancecfg.NewBootstrapInstanceConfig(constraints.Value{}, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	icfg.Tools = availableTools[0]
-	err = finalizer(ctx, icfg)
+	err = result.Finalize(ctx, icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return environ
 }

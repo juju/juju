@@ -1,9 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
-package vsphere
+package lxd
 
 import (
 	"sync"
@@ -15,40 +13,60 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-// TODO(ericsnow) All imports from github.com/juju/govmomi should change
-// back to github.com/vmware/govmomi once our min Go is 1.3 or higher.
+type baseProvider interface {
+	// BootstrapEnv bootstraps a Juju environment.
+	BootstrapEnv(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
 
-// Note: This provider/environment does *not* implement storage.
+	// DestroyEnv destroys the provided Juju environment.
+	DestroyEnv() error
+}
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
-	name   string
-	ecfg   *environConfig
-	client *client
+	name string
+	uuid string
+	raw  *rawProvider
+	base baseProvider
 
-	lock     sync.Mutex
-	archLock sync.Mutex
-
-	supportedArchitectures []string
+	lock sync.Mutex
+	ecfg *environConfig
 }
 
-func newEnviron(cfg *config.Config) (*environ, error) {
+type newRawProviderFunc func(*environConfig) (*rawProvider, error)
+
+func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	client, err := newClient(ecfg)
+	// Connect and authenticate.
+	raw, err := newRawProvider(ecfg)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to create new client")
+		return nil, errors.Trace(err)
+	}
+
+	env, err := newEnvironRaw(ecfg, raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
+func newEnvironRaw(ecfg *environConfig, raw *rawProvider) (*environ, error) {
+	uuid, ok := ecfg.UUID()
+	if !ok {
+		return nil, errors.New("UUID not set")
 	}
 
 	env := &environ{
-		name:   ecfg.Name(),
-		ecfg:   ecfg,
-		client: client,
+		name: ecfg.Name(),
+		uuid: uuid,
+		ecfg: ecfg,
+		raw:  raw,
 	}
+	env.base = common.DefaultProvider{Env: env}
 	return env, nil
 }
 
@@ -89,22 +107,41 @@ func (env *environ) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
-var Bootstrap = common.Bootstrap
-
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju state server.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return Bootstrap(ctx, env, params)
-}
+	// TODO(ericsnow) Ensure currently not the root user
+	// if remote is local host?
 
-//this variable is exported, because it has to be rewritten in external unit tests
-var DestroyEnv = common.Destroy
+	// Using the Bootstrap func from provider/common should be fine.
+	// Local provider does its own thing because it has to deal directly
+	// with localhost rather than using SSH.
+	return env.base.BootstrapEnv(ctx, params)
+}
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy() error {
-	return DestroyEnv(env)
+	ports, err := env.Ports()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(ports) > 0 {
+		if err := env.ClosePorts(ports); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if err := env.base.DestroyEnv(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (env *environ) verifyCredentials() error {
+	// TODO(ericsnow) Do something here?
+	return nil
 }
