@@ -41,7 +41,10 @@ func NewListCommand(newAPIClient func(c *ListCommand) (ListAPI, error)) *ListCom
 var listDoc = `
 This command will report on the runtime state of defined payloads.
 
-Patterns can be one or more of:
+When one or more pattern is given, Juju will limit the results to only
+those payloads which match *any* of the provided patterns. Each pattern
+will be checked against the following info in Juju:
+
 - unit name
 - machine id
 - payload type
@@ -49,9 +52,6 @@ Patterns can be one or more of:
 - payload id
 - payload tag
 - payload status
-
-When a pattern is specified, Juju will filter the status to only
-those payloads that match their respective patterns.
 `
 
 func (c *ListCommand) Info() *cmd.Info {
