@@ -40,7 +40,6 @@ type workloads struct{}
 func (c workloads) registerForServer() error {
 	c.registerState()
 	c.registerPublicFacade()
-	c.registerPublicCommands()
 
 	addEvents := c.registerUnitWorkers()
 	c.registerHookContext(addEvents)
@@ -49,7 +48,8 @@ func (c workloads) registerForServer() error {
 	return nil
 }
 
-func (workloads) registerForClient() error {
+func (c workloads) registerForClient() error {
+	c.registerPublicCommands()
 	cmdstatus.RegisterUnitStatusFormatter(workload.ComponentName, status.Format)
 	return nil
 }
