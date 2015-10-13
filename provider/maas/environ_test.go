@@ -207,8 +207,11 @@ var expectedCloudinitConfig = []string{
 var expectedCloudinitConfigWithBridge = []string{
 	"set -xe",
 	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
-	"\n# In case we already created the bridge, don't do it again.\ngrep -q \"iface juju-br0 inet dhcp\" && exit 0\n\n# Discover primary interface at run-time using the default route (if set)\nPRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)\n\n# If $PRIMARY_IFACE is empty, there's nothing to do.\n[ -z \"$PRIMARY_IFACE\" ] && exit 0\n\n# Change the config to make $PRIMARY_IFACE manual instead of DHCP,\n# then create the bridge and enslave $PRIMARY_IFACE into it.\ngrep -q \"iface ${PRIMARY_IFACE} inet dhcp\" /etc/network/interfaces && \\\nsed -i \"s/iface ${PRIMARY_IFACE} inet dhcp//\" /etc/network/interfaces && \\\ncat >> /etc/network/interfaces << EOF\n\n# Primary interface (defining the default route)\niface ${PRIMARY_IFACE} inet manual\n\n# Bridge to use for LXC/KVM containers\nauto juju-br0\niface juju-br0 inet dhcp\n    bridge_ports ${PRIMARY_IFACE}\nEOF\n\n# Make the primary interface not auto-starting.\ngrep -q \"auto ${PRIMARY_IFACE}\" /etc/network/interfaces && \\\nsed -i \"s/auto ${PRIMARY_IFACE}//\" /etc/network/interfaces\n\n# Stop $PRIMARY_IFACE and start the bridge instead.\nifdown -v ${PRIMARY_IFACE} ; ifup -v juju-br0\n\n# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't\n# clash with the same automatically added route for juju-br0 (except\n# for the device name).\nip route flush dev $PRIMARY_IFACE scope link proto kernel || true\n",
 }
+
+var expectedCloudinitConfigWithBridgeScriptPreamble = "\n# In case we already created the bridge, don't do it again.\ngrep -q \"iface juju-br0 inet dhcp\" /etc/network/interfaces && exit 0\n\n# Discover primary interface at run-time using the default route (if set)\nPRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)\n\n# If $PRIMARY_IFACE is empty, there's nothing to do.\n[ -z \"$PRIMARY_IFACE\" ] && exit 0\n\n"
+
+var expectedCloudinitConfigWithBridgeScriptPostamble = "\n# Stop $PRIMARY_IFACE and start the bridge instead.\nifdown -v ${PRIMARY_IFACE} ; ifup -v juju-br0\n\n# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't\n# clash with the same automatically added route for juju-br0 (except\n# for the device name).\nip route flush dev $PRIMARY_IFACE scope link proto kernel || true\n"
 
 var networkStaticInitial = `auto lo
 iface lo inet loopback
@@ -276,7 +279,7 @@ func (*environSuite) TestNewCloudinitConfigWithFeatureFlag(c *gc.C) {
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
 
-func (s *environSuite) OldTestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
+func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -291,6 +294,10 @@ func (s *environSuite) OldTestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 
 	// Now test with the flag off.
 	s.SetFeatureFlags() // clear the flags.
+	modifyNetworkScript, err := maas.RenderEtcNetworkInterfacesScript("/etc/network/interfaces", "juju-br0")
+	c.Assert(err, jc.ErrorIsNil)
+	expectedCloudinitConfigWithBridgeScript := expectedCloudinitConfigWithBridgeScriptPreamble + modifyNetworkScript + expectedCloudinitConfigWithBridgeScriptPostamble
+	expectedCloudinitConfigWithBridge = append(expectedCloudinitConfigWithBridge, expectedCloudinitConfigWithBridgeScript)
 	testCase(expectedCloudinitConfigWithBridge)
 }
 
