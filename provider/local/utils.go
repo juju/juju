@@ -6,8 +6,7 @@ package local
 import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/utils/series"
 )
 
 // isPackageInstalled is a helper function which instantiates a new
@@ -16,7 +15,7 @@ import (
 var isPackageInstalled = func(pack string) bool {
 	// We know that there exists a package manager for this OS as the agent has
 	// been bootstrapped.
-	pacman, _ := manager.NewPackageManager(version.Current.Series)
+	pacman, _ := manager.NewPackageManager(series.HostSeries())
 	return pacman.IsInstalled(pack)
 }
 
@@ -24,7 +23,7 @@ var isPackageInstalled = func(pack string) bool {
 // PackageManager for the current system and checks for package manager proxy
 // settings.
 var detectPackageProxies = func() (proxy.Settings, error) {
-	pacman, err := manager.NewPackageManager(version.Current.Series)
+	pacman, err := manager.NewPackageManager(series.HostSeries())
 	if err != nil {
 		return proxy.Settings{}, err
 	}

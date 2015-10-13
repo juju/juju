@@ -5,6 +5,7 @@ package commands
 
 import (
 	"os"
+	"runtime"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,17 +24,40 @@ type SwitchSimpleSuite struct {
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
-func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
+func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = testing.RunCommand(c, &SwitchCommand{})
-	c.Assert(err, gc.ErrorMatches, "couldn't read the environment")
+	s.addTestSystem(c)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--list")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, "a-system (system)\n")
+}
+
+func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1496997: os.Chmod doesn't exist on windows, checking this on one platform is sufficent to test this case")
+	}
+
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	err := os.Chmod(envPath, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addTestSystem(c)
+	_, err = testing.RunCommand(c, &SwitchCommand{}, "--list")
+	c.Assert(err, gc.ErrorMatches, "couldn't read the environment: open .*: permission denied")
 }
 
 func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 	_, err := testing.RunCommand(c, &SwitchCommand{})
+	c.Assert(err, gc.ErrorMatches, "no currently specified environment")
+}
+
+func (*SwitchSimpleSuite) TestNoDefaultNoEnvironmentsFile(c *gc.C) {
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = testing.RunCommand(c, &SwitchCommand{})
 	c.Assert(err, gc.ErrorMatches, "no currently specified environment")
 }
 

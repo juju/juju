@@ -16,7 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -276,12 +276,11 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
-	err := ctx.unit.SetUnitStatus(
+	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
 		status.Data,
 	)
-	return errors.Annotatef(err, "could not set status %q with info %q and data: %v", status.Status, status.Info, status.Data)
 }
 
 // SetServiceStatus will set the given status to the service to which this

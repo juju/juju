@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"github.com/juju/utils/bzr"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/bzr"
 	"github.com/juju/juju/cmd/envcmd"
 )
 

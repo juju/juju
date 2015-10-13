@@ -9,16 +9,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -129,13 +130,7 @@ type MetricRecorderConfig struct {
 }
 
 // NewJSONMetricRecorder creates a new JSON metrics recorder.
-// It checks if the metrics spool directory exists, if it does not - it is created. Then
-// it tries to find an unused metric batch UUID 3 times.
 func NewJSONMetricRecorder(config MetricRecorderConfig) (rec *JSONMetricRecorder, rErr error) {
-	if err := checkSpoolDir(config.SpoolDir); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	mbUUID, err := utils.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -180,12 +175,32 @@ func (m *JSONMetricRecorder) Close() error {
 
 // AddMetric implements the MetricsRecorder interface.
 func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) error {
-	if !m.IsDeclaredMetric(key) {
-		return errors.Errorf("metric key %q not declared by the charm", key)
+	err := m.validateMetric(key, value)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
+}
+
+func (m *JSONMetricRecorder) validateMetric(key, value string) error {
+	if !m.IsDeclaredMetric(key) {
+		return errors.Errorf("metric key %q not declared by the charm", key)
+	}
+	// The largest number of digits that can be returned by strconv.FormatFloat is 24, so
+	// choose an arbitrary limit somewhat higher than that.
+	if len(value) > 30 {
+		return fmt.Errorf("metric value is too large")
+	}
+	fValue, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return fmt.Errorf("invalid value type: expected float, got %q", value)
+	}
+	if fValue < 0 {
+		return fmt.Errorf("invalid value: value must be greater or equal to zero, got %v", value)
+	}
+	return nil
 }
 
 // IsDeclaredMetric returns true if the metric recorder is permitted to store this metric.

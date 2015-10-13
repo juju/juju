@@ -4,17 +4,15 @@
 package cloudsigma
 
 import (
-	"encoding/base64"
-
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -258,11 +256,7 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	}
 
 	cc.SetMeta(jujuMetaEnvironment, c.uuid)
-	data, err := utils.Gunzip(userData)
-	if err != nil {
-		return cc, errors.Trace(err)
-	}
-	cc.SetMeta(jujuMetaCoudInit, base64.StdEncoding.EncodeToString(data))
+	cc.SetMeta(jujuMetaCoudInit, string(userData))
 	cc.SetMeta(jujuMetaBase64, jujuMetaCoudInit)
 
 	return cc, nil

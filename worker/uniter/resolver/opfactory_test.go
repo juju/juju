@@ -8,8 +8,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -32,7 +32,7 @@ func (s *ResolverOpFactorySuite) SetUpTest(c *gc.C) {
 
 func (s *ResolverOpFactorySuite) TestInitialState(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
-	c.Assert(f.LocalState, jc.DeepEquals, resolver.LocalState{})
+	c.Assert(f.LocalState, jc.DeepEquals, &resolver.LocalState{})
 	c.Assert(f.RemoteState, jc.DeepEquals, remotestate.Snapshot{})
 }
 

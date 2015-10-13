@@ -6,8 +6,6 @@
 package storagecommon
 
 import (
-	"path"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -46,17 +44,29 @@ type StorageInterface interface {
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 
 	// WatchFilesystemAttachment watches for changes to the filesystem
-	// attachment corresponding to the identfified machien and filesystem.
+	// attachment corresponding to the identfified machine and filesystem.
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 
 	// WatchVolumeAttachment watches for changes to the volume attachment
-	// corresponding to the identfified machien and volume.
+	// corresponding to the identfified machine and volume.
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+
+	// WatchBlockDevices watches for changes to block devices associated
+	// with the specified machine.
+	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
+
+	// BlockDevices returns information about block devices published
+	// for the specified machine.
+	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 // StorageAttachmentInfo returns the StorageAttachmentInfo for the specified
 // StorageAttachment by gathering information from related entities (volumes,
 // filesystems).
+//
+// StorageAttachmentInfo returns an error satisfying errors.IsNotProvisioned
+// if the storage attachment is not yet fully provisioned and ready for use
+// by a charm.
 func StorageAttachmentInfo(
 	st StorageInterface,
 	att state.StorageAttachment,
@@ -97,9 +107,26 @@ func volumeStorageAttachmentInfo(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting volume attachment info")
 	}
+	blockDevices, err := st.BlockDevices(machineTag)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting block devices")
+	}
+	blockDevice, ok := MatchingBlockDevice(
+		blockDevices,
+		volumeInfo,
+		volumeAttachmentInfo,
+	)
+	if !ok {
+		// We must not say that a block-kind storage attachment is
+		// provisioned until its block device has shown up on the
+		// machine, otherwise the charm may attempt to use it and
+		// fail.
+		return nil, errors.NotProvisionedf("%v", names.ReadableString(storageTag))
+	}
 	devicePath, err := volumeAttachmentDevicePath(
 		volumeInfo,
 		volumeAttachmentInfo,
+		*blockDevice,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -135,8 +162,8 @@ func filesystemStorageAttachmentInfo(
 }
 
 // WatchStorageAttachment returns a state.NotifyWatcher that reacts to changes
-// to the VolumeAttachmentInfo or FilesystemAttachmentInfo corresponding to the tags
-// specified.
+// to the VolumeAttachmentInfo or FilesystemAttachmentInfo corresponding to the
+// tags specified.
 func WatchStorageAttachment(
 	st StorageInterface,
 	storageTag names.StorageTag,
@@ -147,28 +174,41 @@ func WatchStorageAttachment(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage instance")
 	}
-	var w state.NotifyWatcher
+	var watchers []state.NotifyWatcher
 	switch storageInstance.Kind() {
 	case state.StorageKindBlock:
 		volume, err := st.StorageInstanceVolume(storageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage volume")
 		}
-		w = st.WatchVolumeAttachment(machineTag, volume.VolumeTag())
+		// We need to watch both the volume attachment, and the
+		// machine's block devices. A volume attachment's block
+		// device could change (most likely, become present).
+		watchers = []state.NotifyWatcher{
+			st.WatchVolumeAttachment(machineTag, volume.VolumeTag()),
+			// TODO(axw) 2015-09-30 #1501203
+			// We should filter the events to only those relevant
+			// to the volume attachment. This means we would need
+			// to either start th block device watcher after we
+			// have provisioned the volume attachment (cleaner?),
+			// or have the filter ignore changes until the volume
+			// attachment is provisioned.
+			st.WatchBlockDevices(machineTag),
+		}
 	case state.StorageKindFilesystem:
 		filesystem, err := st.StorageInstanceFilesystem(storageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage filesystem")
 		}
-		w = st.WatchFilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		watchers = []state.NotifyWatcher{
+			st.WatchFilesystemAttachment(machineTag, filesystem.FilesystemTag()),
+		}
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 	}
-	w2 := st.WatchStorageAttachment(storageTag, unitTag)
-	return common.NewMultiNotifyWatcher(w, w2), nil
+	watchers = append(watchers, st.WatchStorageAttachment(storageTag, unitTag))
+	return common.NewMultiNotifyWatcher(watchers...), nil
 }
-
-var errNoDevicePath = errors.New("cannot determine device path: no serial or persistent device name")
 
 // volumeAttachmentDevicePath returns the absolute device path for
 // a volume attachment. The value is only meaningful in the context
@@ -176,13 +216,22 @@ var errNoDevicePath = errors.New("cannot determine device path: no serial or per
 func volumeAttachmentDevicePath(
 	volumeInfo state.VolumeInfo,
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
+	blockDevice state.BlockDeviceInfo,
 ) (string, error) {
-	if volumeInfo.HardwareId != "" {
-		return path.Join("/dev/disk/by-id", volumeInfo.HardwareId), nil
-	} else if volumeAttachmentInfo.DeviceName != "" {
-		return path.Join("/dev", volumeAttachmentInfo.DeviceName), nil
+	if volumeInfo.HardwareId != "" || volumeAttachmentInfo.DeviceName != "" || volumeAttachmentInfo.DeviceLink != "" {
+		// Prefer the volume attachment's information over what is
+		// in the published block device information.
+		var deviceLinks []string
+		if volumeAttachmentInfo.DeviceLink != "" {
+			deviceLinks = []string{volumeAttachmentInfo.DeviceLink}
+		}
+		return storage.BlockDevicePath(storage.BlockDevice{
+			HardwareId:  volumeInfo.HardwareId,
+			DeviceName:  volumeAttachmentInfo.DeviceName,
+			DeviceLinks: deviceLinks,
+		})
 	}
-	return "", errNoDevicePath
+	return storage.BlockDevicePath(BlockDeviceFromState(blockDevice))
 }
 
 // MaybeAssignedStorageInstance calls the provided function to get a

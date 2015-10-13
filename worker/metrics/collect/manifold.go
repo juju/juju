@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -134,6 +134,8 @@ type collect struct {
 	charmdir        charmdir.Consumer
 }
 
+var errMetricsNotDefined = errors.New("no metrics defined")
+
 var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm UnitCharmLookup, metricFactory spool.MetricFactory) (spool.MetricRecorder, error) {
 	ch, err := corecharm.ReadCharm(paths.GetCharmDir())
 	if err != nil {
@@ -149,14 +151,18 @@ var newRecorder = func(unitTag names.UnitTag, paths context.Paths, unitCharm Uni
 	if ch.Metrics() != nil {
 		charmMetrics = ch.Metrics().Metrics
 	}
+	if len(charmMetrics) == 0 {
+		return nil, errMetricsNotDefined
+	}
 	return metricFactory.Recorder(charmMetrics, chURL.String(), unitTag.String())
 }
 
 // Do satisfies the worker.PeriodWorkerCall function type.
 func (w *collect) Do(stop <-chan struct{}) error {
 	err := w.charmdir.Run(w.do)
-	if err != nil {
-		logger.Debugf("%v", errors.Details(err))
+	if err == charmdir.ErrNotAvailable {
+		logger.Debugf("cannot execute collect-metrics - charmdir locked")
+		return nil
 	}
 	return err
 }
@@ -170,10 +176,13 @@ func (w *collect) do() error {
 	if !ok {
 		return errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewPaths(config.DataDir(), unitTag)
+	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect")
 
 	recorder, err := newRecorder(unitTag, paths, w.unitCharmLookup, w.metricFactory)
-	if err != nil {
+	if errors.Cause(err) == errMetricsNotDefined {
+		logger.Tracef("%v", err)
+		return nil
+	} else if err != nil {
 		return errors.Annotate(err, "failed to instantiate metric recorder")
 	}
 

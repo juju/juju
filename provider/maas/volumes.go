@@ -168,13 +168,13 @@ func (mi *maasInstance) volumes(
 	var volumes []storage.Volume
 	var attachments []storage.VolumeAttachment
 
-	deviceInfo, ok := mi.getMaasObject().GetMap()["physicalblockdevice_set"]
+	deviceInfo, ok := mi.maasObject.GetMap()["physicalblockdevice_set"]
 	// Older MAAS servers don't support storage.
 	if !ok || deviceInfo.IsNil() {
 		return volumes, attachments, nil
 	}
 
-	labelsMap, ok := mi.getMaasObject().GetMap()["constraint_map"]
+	labelsMap, ok := mi.maasObject.GetMap()["constraint_map"]
 	if !ok || labelsMap.IsNil() {
 		return nil, nil, errors.NotFoundf("constraint map field")
 	}

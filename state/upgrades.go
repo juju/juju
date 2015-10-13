@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -670,6 +670,31 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 		return errors.Trace(err)
 	}
 	return st.runRawTransaction(ops)
+}
+
+func AddPreferredAddressesToMachines(st *State) error {
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, machine := range machines {
+		if machine.Life() == Dead {
+			continue
+		}
+		// Setting the addresses is enough to trigger setting the preferred
+		// addresses.
+		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = machine.SetMachineAddresses(machine.MachineAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+	}
+	return nil
 }
 
 func LowerCaseEnvUsersID(st *State) error {
@@ -1967,6 +1992,7 @@ func AddBindingToFilesystems(st *State) error {
 // ChangeStatusHistoryUpdatedType seeks for historicalStatusDoc records
 // whose updated attribute is a time and converts them to int64.
 func ChangeStatusHistoryUpdatedType(st *State) error {
+	// Ensure all ids are using the new form.
 	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
 		return errors.Annotate(err, "cannot update ids of status history")
 	}
@@ -1981,10 +2007,8 @@ func ChangeStatusUpdatedType(st *State) error {
 	return runForAllEnvStates(st, run)
 }
 
-func changeIdsFromSeqToAuto(st *State) (err error) {
-	var (
-		docs []bson.M
-	)
+func changeIdsFromSeqToAuto(st *State) error {
+	var docs []bson.M
 	rawColl, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
@@ -1993,11 +2017,10 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 
 	// Filtering is done by hand because the ids we are trying to modify
 	// do not have uuid.
-	err = rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
+	if err := rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Annotatef(err, "cannot find all docs for %q", statusesHistoryC)
 	}
 
@@ -2041,11 +2064,6 @@ func changeUpdatedType(st *State, collection string) error {
 
 	wColl := coll.Writeable()
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		updated, ok := doc["updated"].(time.Time)
 		if ok {
@@ -2059,6 +2077,10 @@ func changeUpdatedType(st *State, collection string) error {
 
 // ChangeStatusHistoryEntityId renames entityId field to globalkey.
 func ChangeStatusHistoryEntityId(st *State) error {
+	// Ensure all ids are using the new form.
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
 	return runForAllEnvStates(st, changeStatusHistoryEntityId)
 }
 
@@ -2076,11 +2098,6 @@ func changeStatusHistoryEntityId(st *State) error {
 		return errors.Annotate(err, "cannot get entity ids")
 	}
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		entityId, ok := doc["entityid"].(string)
 		if !ok {
@@ -2198,4 +2215,99 @@ func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error)
 		}
 	}
 	return StatusAttached, nil
+}
+
+// MigrateSettingsSchema migrates the schema of the settings collection,
+// moving non-reserved keys at the top-level into a subdoc, and introducing
+// a top-level "version" field with the initial value matching txn-revno.
+//
+// This migration takes place both before and after env-uuid migration,
+// to get the correct txn-revno value.
+func MigrateSettingsSchema(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	upgradesLogger.Debugf("migrating schema of the %s collection", settingsC)
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+
+	var ops []txn.Op
+	var doc bson.M
+	for iter.Next(&doc) {
+		if !settingsDocNeedsMigration(doc) {
+			continue
+		}
+
+		id := doc["_id"]
+		txnRevno := doc["txn-revno"].(int64)
+
+		// Remove reserved attributes; we'll move the remaining
+		// ones to the "settings" subdoc.
+		delete(doc, "env-uuid")
+		delete(doc, "_id")
+		delete(doc, "txn-revno")
+		delete(doc, "txn-queue")
+
+		// If there exists a setting by the name "settings",
+		// we must remove it first, or it will collide with
+		// the dotted-notation $sets.
+		if _, ok := doc["settings"]; ok {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     id,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$unset", bson.D{{"settings", 1}}}},
+			})
+		}
+
+		var update bson.D
+		for key, value := range doc {
+			if key != "settings" && key != "version" {
+				// Don't try to unset these fields,
+				// as we've unset "settings" above
+				// already, and we'll overwrite
+				// "version" below.
+				update = append(update, bson.DocElem{
+					"$unset", bson.D{{key, 1}},
+				})
+			}
+			update = append(update, bson.DocElem{
+				"$set", bson.D{{"settings." + key, value}},
+			})
+		}
+		if len(update) == 0 {
+			// If there are no settings, then we need
+			// to add an empty "settings" map so we
+			// can tell for next time that migration
+			// is complete, and don't move the "version"
+			// field we add.
+			update = bson.D{{
+				"$set", bson.D{{"settings", bson.M{}}},
+			}}
+		}
+		update = append(update, bson.DocElem{
+			"$set", bson.D{{"version", txnRevno}},
+		})
+
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: update,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func settingsDocNeedsMigration(doc bson.M) bool {
+	// It is not possible for there to exist a settings value
+	// with type bson.M, so we know that it is the new settings
+	// field and not just a setting with the name "settings".
+	if _, ok := doc["settings"].(bson.M); ok {
+		return false
+	}
+	return true
 }

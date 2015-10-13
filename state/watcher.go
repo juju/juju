@@ -900,9 +900,9 @@ func emptyRelationUnitsChanges(changes *multiwatcher.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
-func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key string, revno int64) {
+func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key string, version int64) {
 	name := unitNameFromScopeKey(key)
-	settings := multiwatcher.UnitSettings{Version: revno}
+	settings := multiwatcher.UnitSettings{Version: version}
 	if changes.Changed == nil {
 		changes.Changed = map[string]multiwatcher.UnitSettings{}
 	}
@@ -910,15 +910,18 @@ func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key
 }
 
 // mergeSettings reads the relation settings node for the unit with the
-// supplied id, and sets a value in the Changed field keyed on the unit's
+// supplied key, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
 func (w *relationUnitsWatcher) mergeSettings(changes *multiwatcher.RelationUnitsChange, key string) (int64, error) {
-	node, err := readSettings(w.st, key)
-	if err != nil {
+	var doc struct {
+		TxnRevno int64 `bson:"txn-revno"`
+		Version  int64 `bson:"version"`
+	}
+	if err := readSettingsDocInto(w.st, key, &doc); err != nil {
 		return -1, err
 	}
-	setRelationUnitChangeVersion(changes, key, node.txnRevno)
-	return node.txnRevno, nil
+	setRelationUnitChangeVersion(changes, key, doc.Version)
+	return doc.TxnRevno, nil
 }
 
 // mergeScope starts and stops settings watches on the units entering and
@@ -999,7 +1002,9 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if !ok {
 				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
 			}
-			setRelationUnitChangeVersion(&changes, id, c.Revno)
+			if _, err := w.mergeSettings(&changes, id); err != nil {
+				return err
+			}
 			out = w.out
 		case out <- changes:
 			sentInitial = true
@@ -1326,12 +1331,26 @@ func (w *settingsWatcher) Changes() <-chan *Settings {
 func (w *settingsWatcher) loop(key string) (err error) {
 	ch := make(chan watcher.Change)
 	revno := int64(-1)
-	settings, err := readSettings(w.st, key)
-	if err == nil {
-		revno = settings.txnRevno
+
+	var settings *Settings
+	var rawDoc bson.Raw
+	if err := readSettingsDocInto(w.st, key, &rawDoc); err == nil {
+		var revnoDoc struct {
+			TxnRevno int64 `bson:"txn-revno"`
+		}
+		if err := rawDoc.Unmarshal(&revnoDoc); err != nil {
+			return err
+		}
+		revno = revnoDoc.TxnRevno
+		var doc settingsDoc
+		if err := rawDoc.Unmarshal(&doc); err != nil {
+			return err
+		}
+		settings = newSettingsWithDoc(w.st, key, &doc)
 	} else if !errors.IsNotFound(err) {
 		return err
 	}
+
 	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
 	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
 	out := w.out
@@ -1379,7 +1398,7 @@ func (s *Service) Watch() NotifyWatcher {
 // WatchLeaderSettings returns a watcher for observing changed to a service's
 // leader settings.
 func (s *Service) WatchLeaderSettings() NotifyWatcher {
-	docId := s.st.docID(leadershipSettingsDocId(s.Name()))
+	docId := s.st.docID(leadershipSettingsKey(s.Name()))
 	return newEntityWatcher(s.st, settingsC, docId)
 }
 
@@ -1471,7 +1490,7 @@ func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher
 	return newDocWatcher(st, []docKey{{collName, key}})
 }
 
-// docWatcher is a watcher that watchers for changes in 1 or more mongo documents
+// docWatcher watches for changes in 1 or more mongo documents
 // across collections.
 type docWatcher struct {
 	commonWatcher
@@ -1480,12 +1499,16 @@ type docWatcher struct {
 
 var _ Watcher = (*docWatcher)(nil)
 
+// docKey identifies a single item in a single collection.
+// It's used as a parameter to newDocWatcher to specify
+// which documents should be watched.
 type docKey struct {
-	coll string
-	key  interface{}
+	coll  string
+	docId interface{}
 }
 
-// newDocWatcher returns a new docWatcher
+// newDocWatcher returns a new docWatcher.
+// docKeys identifies the documents that should be watched (their id and which collection they are in)
 func newDocWatcher(st *State, docKeys []docKey) NotifyWatcher {
 	w := &docWatcher{
 		commonWatcher: commonWatcher{st: st},
@@ -1505,15 +1528,15 @@ func (w *docWatcher) Changes() <-chan struct{} {
 }
 
 // getTxnRevno returns the transaction revision number of the
-// given key in the given collection. It is useful to enable
+// given document id in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.
-func getTxnRevno(coll mongo.Collection, key interface{}) (int64, error) {
+func getTxnRevno(coll mongo.Collection, id interface{}) (int64, error) {
 	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
 	fields := bson.D{{"txn-revno", 1}}
-	if err := coll.FindId(key).Select(fields).One(&doc); err == mgo.ErrNotFound {
+	if err := coll.FindId(id).Select(fields).One(&doc); err == mgo.ErrNotFound {
 		return -1, nil
 	} else if err != nil {
 		return 0, err
@@ -1525,13 +1548,13 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 	in := make(chan watcher.Change)
 	for _, k := range docKeys {
 		coll, closer := w.st.getCollection(k.coll)
-		txnRevno, err := getTxnRevno(coll, k.key)
+		txnRevno, err := getTxnRevno(coll, k.docId)
 		closer()
 		if err != nil {
 			return err
 		}
-		w.st.watcher.Watch(coll.Name(), k.key, txnRevno, in)
-		defer w.st.watcher.Unwatch(coll.Name(), k.key, in)
+		w.st.watcher.Watch(coll.Name(), k.docId, txnRevno, in)
+		defer w.st.watcher.Unwatch(coll.Name(), k.docId, in)
 	}
 	out := w.out
 	for {

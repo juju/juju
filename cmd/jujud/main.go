@@ -22,9 +22,9 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/storage/looputil"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
