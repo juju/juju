@@ -6,6 +6,7 @@ package common
 import (
 	stderrors "errors"
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -157,4 +158,17 @@ func ServerError(err error) *params.Error {
 		Message: msg,
 		Code:    code,
 	}
+}
+
+func DestroyErr(desc string, ids, errs []string) error {
+	// TODO(waigani) refactor DestroyErr to take a map of ids to errors.
+	if len(errs) == 0 {
+		return nil
+	}
+	msg := "some %s were not destroyed"
+	if len(errs) == len(ids) {
+		msg = "no %s were destroyed"
+	}
+	msg = fmt.Sprintf(msg, desc)
+	return errors.Errorf("%s: %s", msg, strings.Join(errs, "; "))
 }

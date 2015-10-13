@@ -35,7 +35,6 @@ func (st *State) ProcessDyingEnviron() (err error) {
 		if l := len(services); l > 0 {
 			return nil, errors.Errorf("environment not empty, found %d service(s)", l)
 		}
-
 		return []txn.Op{{
 			C:      environmentsC,
 			Id:     st.EnvironUUID(),

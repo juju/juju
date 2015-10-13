@@ -50,7 +50,7 @@ func (s *undertakerSuite) TestStateEnvionInfo(c *gc.C) {
 	c.Assert(info.GlobalName, gc.Equals, "user-dummy-admin@local/dummyenv")
 	c.Assert(info.IsSystem, jc.IsTrue)
 	c.Assert(info.Life, gc.Equals, params.Alive)
-	c.Assert(info.TimeOfDeath.IsZero(), jc.IsTrue)
+	c.Assert(info.TimeOfDeath, gc.IsNil)
 }
 
 func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
@@ -92,7 +92,7 @@ func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
 	c.Assert(envInfo.GlobalName, gc.Equals, "user-dummy-admin@local/hosted_env")
 	c.Assert(envInfo.IsSystem, jc.IsFalse)
 	c.Assert(envInfo.Life, gc.Equals, params.Alive)
-	c.Assert(envInfo.TimeOfDeath.IsZero(), jc.IsTrue)
+	c.Assert(envInfo.TimeOfDeath, gc.IsNil)
 }
 
 func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
