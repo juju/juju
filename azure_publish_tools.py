@@ -232,12 +232,16 @@ def get_option_parser():
         subparser.add_argument(
             'purpose', help="<{}>".format(' | '.join(PURPOSES)))
         if command in (PUBLISH, DELETE):
-            subparser.add_argument(
-                'path', nargs="+",
-                help='The path to publish or files to delete')
+            if command == PUBLISH:
+                path_help = 'The path to publish'
+                dr_help = 'Do not publish'
+            else:
+                path_help = 'The files to delete'
+                dr_help = 'Do not delete'
+            subparser.add_argument('path', nargs="+", help=path_help)
             subparser.add_argument(
                 "-d", "--dry-run", action="store_true", default=False,
-                help="Do not publish or delete")
+                help=dr_help)
             subparser.add_argument(
                 '-v', '--verbose', action="store_true", default=False,
                 help='Increse verbosity.')
