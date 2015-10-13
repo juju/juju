@@ -6,8 +6,8 @@ package resolver
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -28,7 +28,7 @@ var logger = loggo.GetLogger("juju.worker.uniter.resolver")
 type resolverOpFactory struct {
 	operation.Factory
 
-	LocalState  LocalState
+	LocalState  *LocalState
 	RemoteState remotestate.Snapshot
 }
 
@@ -78,6 +78,9 @@ func (s *resolverOpFactory) NewAction(id string) (operation.Operation, error) {
 		return nil, errors.Trace(err)
 	}
 	f := func() {
+		if s.LocalState.CompletedActions == nil {
+			s.LocalState.CompletedActions = make(map[string]struct{})
+		}
 		s.LocalState.CompletedActions[id] = struct{}{}
 		s.LocalState.CompletedActions = trimCompletedActions(s.RemoteState.Actions, s.LocalState.CompletedActions)
 	}

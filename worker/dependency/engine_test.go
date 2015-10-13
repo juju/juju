@@ -513,3 +513,20 @@ func (s *EngineSuite) TestValidateComplexManifolds(c *gc.C) {
 	err = dependency.Validate(manifolds)
 	c.Check(err, gc.ErrorMatches, "cycle detected at .*")
 }
+
+func (s *EngineSuite) TestTracedErrMissing(c *gc.C) {
+
+	// Install a worker with an unmet dependency, check it doesn't start
+	// (because the implementation returns ErrMissing).
+	mh1 := newTracedManifoldHarness("later-task")
+	err := s.engine.Install("some-task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertNoStart(c)
+
+	// Install its dependency; check both start.
+	mh2 := newTracedManifoldHarness()
+	err = s.engine.Install("later-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+	mh1.AssertOneStart(c)
+}

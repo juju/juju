@@ -12,7 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -148,26 +148,69 @@ func (s *metricsRecorderSuite) TestInit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *metricsRecorderSuite) TestUnknownMetricKey(c *gc.C) {
-	w, err := spool.NewJSONMetricRecorder(
-		spool.MetricRecorderConfig{
-			SpoolDir: s.paths.GetMetricsSpoolDir(),
-			Metrics:  map[string]corecharm.Metric{},
-			CharmURL: "local:precise/wordpress",
-			UnitTag:  s.unitTag,
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
-	err = w.AddMetric("pings", "5", time.Now())
-	c.Assert(err, gc.ErrorMatches, `metric key "pings" not declared by the charm`)
-	err = w.Close()
-	c.Assert(err, jc.ErrorIsNil)
+func (s *metricsRecorderSuite) TestMetricValidation(c *gc.C) {
+	tests := []struct {
+		about         string
+		key           string
+		value         string
+		expectedError string
+	}{{
+		about:         "metric not declared",
+		key:           "pings",
+		value:         "5",
+		expectedError: `metric key "pings" not declared by the charm`,
+	}, {
+		about:         "non float metrics",
+		key:           "pongs",
+		value:         "abcd",
+		expectedError: `invalid value type: expected float, got "abcd"`,
+	}, {
+		about:         "negative value",
+		key:           "pongs",
+		value:         "-5.0",
+		expectedError: `invalid value: value must be greater or equal to zero, got -5.0`,
+	}, {
+		about:         "large value",
+		key:           "pongs",
+		value:         "1234567890123456789012345678901234567890",
+		expectedError: `metric value is too large`,
+	},
+	}
 
-	r, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
-	c.Assert(err, jc.ErrorIsNil)
-	batches, err := r.Read()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batches, gc.HasLen, 0)
+	for _, test := range tests {
+		w, err := spool.NewJSONMetricRecorder(
+			spool.MetricRecorderConfig{
+				SpoolDir: s.paths.GetMetricsSpoolDir(),
+				Metrics: map[string]corecharm.Metric{
+					"juju-units": corecharm.Metric{},
+					"pongs": corecharm.Metric{
+						Type: corecharm.MetricTypeAbsolute,
+					},
+				},
+				CharmURL: "local:precise/wordpress",
+				UnitTag:  s.unitTag,
+			})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(w, gc.NotNil)
+
+		c.Logf("running test: %s", test.about)
+		err = w.AddMetric(test.key, test.value, time.Now())
+		if test.expectedError != "" {
+			c.Assert(err, gc.ErrorMatches, test.expectedError)
+			err = w.Close()
+			c.Assert(err, jc.ErrorIsNil)
+
+			r, err := spool.NewJSONMetricReader(s.paths.GetMetricsSpoolDir())
+			c.Assert(err, jc.ErrorIsNil)
+			batches, err := r.Read()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(batches, gc.HasLen, 0)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			err = w.Close()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
 }
 
 type metricsReaderSuite struct {

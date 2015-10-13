@@ -3,6 +3,8 @@
 
 package upgrades
 
+import "github.com/juju/juju/environs"
+
 var (
 	UpgradeOperations         = &upgradeOperations
 	StateUpgradeOperations    = &stateUpgradeOperations
@@ -54,3 +56,14 @@ var (
 	RemoveJujudpass = removeJujudpass
 	AddJujuRegKey   = addJujuRegKey
 )
+
+type EnvironConfigUpdater environConfigUpdater
+type EnvironConfigReader environConfigReader
+
+func UpgradeEnvironConfig(
+	reader EnvironConfigReader,
+	updater EnvironConfigUpdater,
+	registry environs.ProviderRegistry,
+) error {
+	return upgradeEnvironConfig(reader, updater, registry)
+}

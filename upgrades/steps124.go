@@ -17,6 +17,13 @@ import (
 func stateStepsFor124() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "add the version field to all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateSettingsSchema(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "add block device documents for existing machines",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
@@ -67,6 +74,13 @@ func stateStepsFor124() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.ChangeStatusUpdatedType(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "add preferred addresses to machines",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddPreferredAddressesToMachines(context.State())
 			},
 		},
 	}

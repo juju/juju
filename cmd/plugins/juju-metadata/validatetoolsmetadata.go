@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
 )
 

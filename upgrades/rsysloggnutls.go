@@ -5,14 +5,13 @@ package upgrades
 
 import (
 	"github.com/juju/utils/packaging/manager"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/utils/series"
 )
 
 // getPackageManager is a helper function which returns the
 // package manager implementation for the current system.
 func getPackageManager() (manager.PackageManager, error) {
-	return manager.NewPackageManager(version.Current.Series)
+	return manager.NewPackageManager(series.HostSeries())
 }
 
 // installRsyslogGnutls installs the rsyslog-gnutls package,

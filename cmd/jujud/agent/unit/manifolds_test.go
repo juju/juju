@@ -62,6 +62,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		unit.UpgraderName,
 		unit.MetricSpoolName,
 		unit.MetricCollectName,
+		unit.MeterStatusName,
 		unit.MetricSenderName,
 		unit.CharmDirName,
 	}

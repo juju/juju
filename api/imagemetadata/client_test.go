@@ -27,7 +27,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	region := "region"
 	series := "series"
 	arch := "arch"
-	virtualType := "virtual-type"
+	virtType := "virt-type"
 	rootStorageType := "root-storage-type"
 	rootStorageSize := uint64(1024)
 	source := "source"
@@ -55,7 +55,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 						Region:          args.Region,
 						Series:          args.Series[0],
 						Arch:            args.Arches[0],
-						VirtualType:     args.VirtualType,
+						VirtType:        args.VirtType,
 						RootStorageType: args.RootStorageType,
 						RootStorageSize: &rootStorageSize,
 						Source:          source,
@@ -70,7 +70,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	found, err := client.List(
 		stream, region,
 		[]string{series}, []string{arch},
-		virtualType, rootStorageType,
+		virtType, rootStorageType,
 	)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -82,7 +82,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 			Region:          region,
 			Series:          series,
 			Arch:            arch,
-			VirtualType:     virtualType,
+			VirtType:        virtType,
 			RootStorageType: rootStorageType,
 			RootStorageSize: &rootStorageSize,
 			Source:          source,
@@ -174,5 +174,48 @@ func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 	found, err := client.Save(m)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *imagemetadataSuite) TestUpdateFromPublishedImages(c *gc.C) {
+	called := false
+
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdateFromPublishedImages")
+			return nil
+		})
+
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.UpdateFromPublishedImages()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *imagemetadataSuite) TestUpdateFromPublishedImagesFacadeCallError(c *gc.C) {
+	called := false
+	msg := "facade failure"
+	apiCaller := testing.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Check(objType, gc.Equals, "ImageMetadata")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UpdateFromPublishedImages")
+			return errors.New(msg)
+		})
+	client := imagemetadata.NewClient(apiCaller)
+	err := client.UpdateFromPublishedImages()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }

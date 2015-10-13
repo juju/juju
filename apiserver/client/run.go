@@ -28,7 +28,7 @@ import (
 // by the function that actually tries to execute the command.
 func remoteParamsForMachine(machine *state.Machine, command string, timeout time.Duration) *RemoteExec {
 	// magic boolean parameters are bad :-(
-	address := network.SelectInternalAddress(machine.Addresses(), false)
+	address, ok := network.SelectInternalAddress(machine.Addresses(), false)
 	execParams := &RemoteExec{
 		ExecParams: ssh.ExecParams{
 			Command: command,
@@ -36,8 +36,8 @@ func remoteParamsForMachine(machine *state.Machine, command string, timeout time
 		},
 		MachineId: machine.Id(),
 	}
-	if address != "" {
-		execParams.Host = fmt.Sprintf("ubuntu@%s", address)
+	if ok {
+		execParams.Host = fmt.Sprintf("ubuntu@%s", address.Value)
 	}
 	return execParams
 }

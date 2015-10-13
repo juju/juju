@@ -38,13 +38,6 @@ func (inst *environInstance) Status() string {
 	return ""
 }
 
-// Refresh implements instance.Instance.
-func (inst *environInstance) Refresh() error {
-	env := inst.env.getSnapshot()
-	err := env.client.Refresh(inst.base)
-	return errors.Trace(err)
-}
-
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
 	if inst.base.Guest == nil || inst.base.Guest.IpAddress == "" {

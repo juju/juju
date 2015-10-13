@@ -240,6 +240,5 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	c.Check(server, gc.NotNil)
 	c.Check(drive, gc.NotNil)
 	c.Check(arch, gc.NotNil)
-	fmt.Printf("%v", err)
 	c.Check(err, gc.IsNil)
 }

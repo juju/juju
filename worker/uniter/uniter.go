@@ -15,12 +15,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	jujuos "github.com/juju/juju/juju/os"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/charmdir"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/worker/uniter/storage"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -87,7 +87,7 @@ type Uniter struct {
 
 	// updateStatusAt defines a function that will be used to generate signals for
 	// the update-status hook
-	updateStatusAt TimedSignal
+	updateStatusAt func() <-chan time.Time
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -98,7 +98,7 @@ type UniterParams struct {
 	DataDir              string
 	MachineLock          *fslock.Lock
 	CharmDirLocker       charmdir.Locker
-	UpdateStatusSignal   TimedSignal
+	UpdateStatusSignal   func() <-chan time.Time
 	NewOperationExecutor NewExecutorFunc
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
@@ -174,28 +174,27 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		charmURL = curl
 	}
 
-	var watcher *remotestate.RemoteStateWatcher
+	var (
+		watcher   *remotestate.RemoteStateWatcher
+		watcherMu sync.Mutex
+	)
+
 	restartWatcher := func() error {
+		watcherMu.Lock()
+		defer watcherMu.Unlock()
+
 		if watcher != nil {
 			if err := watcher.Stop(); err != nil {
 				return errors.Trace(err)
 			}
 		}
 		var err error
-		updateStatusChannel := func() <-chan time.Time {
-			return u.updateStatusAt(
-				time.Now(),
-				time.Unix(u.operationState().UpdateStatusTime, 0),
-				statusPollInterval,
-			)
-		}
-
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
 				State:               remotestate.NewAPIState(u.st),
 				LeadershipTracker:   u.leadershipTracker,
 				UnitTag:             unitTag,
-				UpdateStatusChannel: updateStatusChannel,
+				UpdateStatusChannel: u.updateStatusAt,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -213,7 +212,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	// watcher may be replaced, so use a closure.
 	u.addCleanup(func() error {
-		return watcher.Stop()
+		watcherMu.Lock()
+		defer watcherMu.Unlock()
+
+		if watcher != nil {
+			return watcher.Stop()
+		}
+		return nil
 	})
 
 	onIdle := func() error {
@@ -261,20 +266,17 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		case <-watcher.RemoteStateChanged():
 		}
 
-		var conflicted bool
-		var localState resolver.LocalState
+		localState := resolver.LocalState{CharmURL: charmURL}
 		for err == nil {
-			localState, err = resolver.Loop(resolver.LoopConfig{
+			err = resolver.Loop(resolver.LoopConfig{
 				Resolver:       uniterResolver,
 				Watcher:        watcher,
 				Executor:       u.operationExecutor,
 				Factory:        u.operationFactory,
-				CharmURL:       charmURL,
-				Conflicted:     conflicted,
 				Dying:          u.tomb.Dying(),
 				OnIdle:         onIdle,
 				CharmDirLocker: u.charmDirLocker,
-			})
+			}, &localState)
 			switch cause := errors.Cause(err); cause {
 			case nil:
 				// Loop back around.
@@ -295,7 +297,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// We need to set conflicted from here, because error
 				// handling is outside of the resolver's control.
 				if operation.IsDeployConflictError(cause) {
-					conflicted = true
+					localState.Conflicted = true
 					err = setAgentStatus(u, params.StatusError, "upgrade failed", nil)
 				} else {
 					reportAgentError(u, "resolver loop error", err)
@@ -438,7 +440,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	u.addCleanup(func() error {
-		return u.runListener.Close()
+		err := u.runListener.Close()
+		if err != nil {
+			logger.Warningf("error closing runlistener: %v", err)
+		}
+		return nil
 	})
 	// The socket needs to have permissions 777 in order for other users to use it.
 	if jujuos.HostOS() != jujuos.Windows {

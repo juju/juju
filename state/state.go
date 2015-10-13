@@ -21,7 +21,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -468,9 +468,9 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 			}, {
 				C:      settingsC,
 				Id:     st.docID(environGlobalKey),
-				Assert: bson.D{{"txn-revno", settings.txnRevno}},
+				Assert: bson.D{{"version", settings.version}},
 				Update: bson.D{
-					{"$set", bson.D{{"agent-version", newVersion.String()}}},
+					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
 				},
 			},
 		}
@@ -1171,7 +1171,7 @@ func (st *State) AddService(
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(st, svc.settingsKey(), nil),
+		createSettingsOp(svc.settingsKey(), nil),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
@@ -1481,27 +1481,6 @@ func (st *State) strictLocalID(ID string) (string, error) {
 		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
 	return localID, nil
-}
-
-// ensureEnvUUID returns an environment UUID prefixed document ID. The
-// prefix is only added if it isn't already there.
-func ensureEnvUUID(envUUID, id string) string {
-	prefix := envUUID + ":"
-	if strings.HasPrefix(id, prefix) {
-		return id
-	}
-	return prefix + id
-}
-
-// splitDocID returns the 2 parts of environment UUID prefixed
-// document ID. If the id is not in the expected format the final
-// return value will be false.
-func splitDocID(id string) (string, string, bool) {
-	parts := strings.SplitN(id, ":", 2)
-	if len(parts) != 2 {
-		return "", "", false
-	}
-	return parts[0], parts[1], true
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.

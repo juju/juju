@@ -11,6 +11,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -217,7 +218,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 
 func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	toolsSeries := set.NewStrings(toolsLtsSeries...)
-	toolsSeries.Add(version.Current.Series)
+	toolsSeries.Add(series.HostSeries())
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Current
@@ -254,7 +255,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
 	defaultSeries := coretesting.FakeDefaultSeries
-	if version.Current.Series != defaultSeries {
+	if series.HostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)

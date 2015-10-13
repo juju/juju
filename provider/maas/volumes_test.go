@@ -74,7 +74,7 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 
 func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(validVolumeJson)
-	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	instance := maasInstance{&obj}
 	mTag := names.NewMachineTag("1")
 	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
 		names.NewVolumeTag("1"),
@@ -128,7 +128,7 @@ func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
 
 func (s *volumeSuite) TestInstanceVolumesOldMass(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
-	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	instance := maasInstance{&obj}
 	volumes, attachments, err := instance.volumes(names.NewMachineTag("1"), []names.VolumeTag{
 		names.NewVolumeTag("1"),
 		names.NewVolumeTag("2"),

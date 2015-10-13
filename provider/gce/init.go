@@ -16,8 +16,8 @@ func init() {
 	environs.RegisterProvider(providerType, providerInstance)
 
 	// Register the GCE specific providers.
-	registry.RegisterProvider(GCEProviderType, &storageProvider{})
+	registry.RegisterProvider(storageProviderType, &storageProvider{})
 
 	// Inform the storage provider registry about the GCE providers.
-	registry.RegisterEnvironStorageProviders(providerType, GCEProviderType)
+	registry.RegisterEnvironStorageProviders(providerType, storageProviderType)
 }

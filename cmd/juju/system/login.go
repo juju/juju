@@ -6,13 +6,13 @@ package system
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"

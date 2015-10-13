@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/api"
@@ -34,10 +35,10 @@ var logger = loggo.GetLogger("juju.agent")
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir          = paths.MustSucceed(paths.LogDir(version.Current.Series))
-	dataDir         = paths.MustSucceed(paths.DataDir(version.Current.Series))
-	confDir         = paths.MustSucceed(paths.ConfDir(version.Current.Series))
-	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(version.Current.Series))
+	logDir          = paths.MustSucceed(paths.LogDir(series.HostSeries()))
+	dataDir         = paths.MustSucceed(paths.DataDir(series.HostSeries()))
+	confDir         = paths.MustSucceed(paths.ConfDir(series.HostSeries()))
+	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(series.HostSeries()))
 )
 
 // Agent exposes the agent's configuration to other components. This

@@ -9,14 +9,13 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
-
-	"github.com/juju/juju/juju/os"
-	"github.com/juju/juju/version"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -379,8 +378,8 @@ type AdvancedPackagingConfig interface {
 }
 
 // New returns a new Config with no options set.
-func New(series string) (CloudConfig, error) {
-	seriesos, err := version.GetOSFromSeries(series)
+func New(ser string) (CloudConfig, error) {
+	seriesos, err := series.GetOSFromSeries(ser)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +388,7 @@ func New(series string) (CloudConfig, error) {
 		renderer, _ := shell.NewRenderer("powershell")
 		return &windowsCloudConfig{
 			&cloudConfig{
-				series:   series,
+				series:   ser,
 				renderer: renderer,
 				attrs:    make(map[string]interface{}),
 			},
@@ -398,9 +397,9 @@ func New(series string) (CloudConfig, error) {
 		renderer, _ := shell.NewRenderer("bash")
 		return &ubuntuCloudConfig{
 			&cloudConfig{
-				series:    series,
+				series:    ser,
 				paccmder:  commands.NewAptPackageCommander(),
-				pacconfer: config.NewAptPackagingConfigurer(series),
+				pacconfer: config.NewAptPackagingConfigurer(ser),
 				renderer:  renderer,
 				attrs:     make(map[string]interface{}),
 			},
@@ -409,15 +408,15 @@ func New(series string) (CloudConfig, error) {
 		renderer, _ := shell.NewRenderer("bash")
 		return &centOSCloudConfig{
 			&cloudConfig{
-				series:    series,
+				series:    ser,
 				paccmder:  commands.NewYumPackageCommander(),
-				pacconfer: config.NewYumPackagingConfigurer(series),
+				pacconfer: config.NewYumPackagingConfigurer(ser),
 				renderer:  renderer,
 				attrs:     make(map[string]interface{}),
 			},
 		}, nil
 	default:
-		return nil, errors.NotFoundf("cloudconfig for series %q", series)
+		return nil, errors.NotFoundf("cloudconfig for series %q", ser)
 	}
 }
 

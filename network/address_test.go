@@ -216,11 +216,11 @@ type selectTest struct {
 }
 
 // expected returns the expected address for the test.
-func (t selectTest) expected() string {
+func (t selectTest) expected() (network.Address, bool) {
 	if t.expectedIndex == -1 {
-		return ""
+		return network.Address{}, false
 	}
-	return t.addresses[t.expectedIndex].Value
+	return t.addresses[t.expectedIndex], true
 }
 
 var selectPublicTests = []selectTest{{
@@ -347,7 +347,10 @@ func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
 	for i, t := range selectPublicTests {
 		c.Logf("test %d: %s", i, t.about)
 		network.SetPreferIPv6(t.preferIPv6)
-		c.Check(network.SelectPublicAddress(t.addresses), gc.Equals, t.expected())
+		expectAddr, expectOK := t.expected()
+		actualAddr, actualOK := network.SelectPublicAddress(t.addresses)
+		c.Check(actualOK, gc.Equals, expectOK)
+		c.Check(actualAddr, gc.Equals, expectAddr)
 	}
 }
 
@@ -443,7 +446,10 @@ func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
 	for i, t := range selectInternalTests {
 		c.Logf("test %d: %s", i, t.about)
 		network.SetPreferIPv6(t.preferIPv6)
-		c.Check(network.SelectInternalAddress(t.addresses, false), gc.Equals, t.expected())
+		expectAddr, expectOK := t.expected()
+		actualAddr, actualOK := network.SelectInternalAddress(t.addresses, false)
+		c.Check(actualOK, gc.Equals, expectOK)
+		c.Check(actualAddr, gc.Equals, expectAddr)
 	}
 }
 
@@ -592,7 +598,10 @@ func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 	for i, t := range selectInternalMachineTests {
 		c.Logf("test %d: %s", i, t.about)
 		network.SetPreferIPv6(t.preferIPv6)
-		c.Check(network.SelectInternalAddress(t.addresses, true), gc.Equals, t.expected())
+		expectAddr, expectOK := t.expected()
+		actualAddr, actualOK := network.SelectInternalAddress(t.addresses, true)
+		c.Check(actualOK, gc.Equals, expectOK)
+		c.Check(actualAddr, gc.Equals, expectAddr)
 	}
 }
 
@@ -738,4 +747,46 @@ func (*AddressSuite) TestDecimalToIPv4(c *gc.C) {
 
 	addr = network.DecimalToIPv4(uint32(3232235777))
 	c.Assert(addr.String(), gc.Equals, "192.168.1.1")
+}
+
+func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
+	network.SetPreferIPv6(false)
+	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
+	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsTrue)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
+
+	addr = network.NewScopedAddress("8.8.8.8", network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
+	c.Assert(match, jc.IsTrue)
+}
+
+func (*AddressSuite) TestExactScopeMatchHonoursPreferIPv6(c *gc.C) {
+	network.SetPreferIPv6(true)
+	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
+	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
+
+	addr = network.NewScopedAddress("8.8.8.8", network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
+
+	addr = network.NewScopedAddress("2001:db8::ff00:42:8329", network.ScopePublic)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsFalse)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
+	c.Assert(match, jc.IsTrue)
+
+	addr = network.NewScopedAddress("fc00::1", network.ScopeCloudLocal)
+	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
+	c.Assert(match, jc.IsTrue)
+	match = network.ExactScopeMatch(addr, network.ScopePublic)
+	c.Assert(match, jc.IsFalse)
 }
