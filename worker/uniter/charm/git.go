@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 // GitDir exposes a specialized subset of git operations on a directory.

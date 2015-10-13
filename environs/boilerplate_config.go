@@ -96,7 +96,11 @@ func randomKey() string {
 func BoilerplateConfig() string {
 	configBuff := new(bytes.Buffer)
 	configBuff.WriteString(configHeader)
-	for name, p := range providers {
+	for _, name := range GlobalProviderRegistry().RegisteredProviders() {
+		p, err := GlobalProviderRegistry().Provider(name)
+		if err != nil {
+			panic(err)
+		}
 		t, err := parseTemplate(p.BoilerplateConfig())
 		if err != nil {
 			panic(fmt.Errorf("cannot parse boilerplate from %s: %v", name, err))

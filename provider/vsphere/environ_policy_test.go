@@ -7,10 +7,10 @@ package vsphere_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/vsphere"
 )
 

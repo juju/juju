@@ -11,17 +11,17 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apienvironment "github.com/juju/juju/api/environment"
-	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
@@ -30,7 +30,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/proxyupdater"
 )
 
@@ -42,7 +41,7 @@ type acCreator func() (cmd.Command, AgentConf)
 func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
 	err := coretesting.InitCommand(com, args)
-	dataDir, err := paths.DataDir(version.Current.Series)
+	dataDir, err := paths.DataDir(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.DataDir(), gc.Equals, dataDir)
 	badArgs := append(args, "--data-dir", "")
@@ -101,9 +100,9 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
 		return newDummyWorker()
 	})
-	s.PatchValue(&newMetadataUpdater, func(cl *imagemetadata.Client, l imagemetadataworker.ListPublishedMetadataFunc, env environs.Environ) worker.Worker {
-		return worker.NewNoOpWorker()
-	})
+
+	// Tests should not try to use internet. Ensure base url is empty.
+	imagemetadata.DefaultBaseURL = ""
 }
 
 func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {

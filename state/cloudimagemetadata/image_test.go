@@ -45,7 +45,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadata(c *gc.C) {
 		Region:          "region-test",
 		Series:          "series",
 		Arch:            "arch",
-		VirtualType:     "virtType-test",
+		VirtType:        "virtType-test",
 		RootStorageType: "rootStorageType-test"}
 
 	added := cloudimagemetadata.Metadata{attrs, "1"}
@@ -68,7 +68,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 		Region:          "region",
 		Series:          "series",
 		Arch:            "arch",
-		VirtualType:     "virtualType",
+		VirtType:        "virtType",
 		RootStorageType: "rootStorageType"}
 	m := cloudimagemetadata.Metadata{attrs, "1"}
 	s.assertRecordMetadata(c, m)
@@ -87,7 +87,7 @@ func buildAttributesFilter(attrs cloudimagemetadata.MetadataAttributes) cloudima
 	filter := cloudimagemetadata.MetadataFilter{
 		Stream:          attrs.Stream,
 		Region:          attrs.Region,
-		VirtualType:     attrs.VirtualType,
+		VirtType:        attrs.VirtType,
 		RootStorageType: attrs.RootStorageType}
 	if attrs.Series != "" {
 		filter.Series = []string{attrs.Series}
@@ -104,7 +104,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 		Region:          "region",
 		Series:          "series",
 		Arch:            "arch",
-		VirtualType:     "virtualType",
+		VirtType:        "virtType",
 		RootStorageType: "rootStorageType"}
 
 	m := cloudimagemetadata.Metadata{attrs, "1"}

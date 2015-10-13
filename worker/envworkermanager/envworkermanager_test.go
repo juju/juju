@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"

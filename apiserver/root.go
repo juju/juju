@@ -42,10 +42,11 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.MethodFinder which it
 // uses to dispatch Api calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	entity    state.Entity
+	state            *state.State
+	rpcConn          *rpc.Conn
+	resources        *common.Resources
+	entity           state.Entity
+	mongoUnavailable *uint32
 	// An empty envUUID means that the user has logged in through the
 	// root of the API server rather than the /environment/:env-uuid/api
 	// path, logins processed with v2 or later will only offer the
@@ -58,10 +59,11 @@ var _ = (*apiHandler)(nil)
 // newApiHandler returns a new apiHandler.
 func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
 	r := &apiHandler{
-		state:     st,
-		resources: common.NewResources(),
-		rpcConn:   rpcConn,
-		envUUID:   envUUID,
+		state:            st,
+		resources:        common.NewResources(),
+		rpcConn:          rpcConn,
+		envUUID:          envUUID,
+		mongoUnavailable: &srv.mongoUnavailable,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)

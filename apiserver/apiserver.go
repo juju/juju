@@ -48,6 +48,7 @@ type Server struct {
 	limiter           utils.Limiter
 	validator         LoginValidator
 	adminApiFactories map[int]adminApiFactory
+	mongoUnavailable  uint32 // non zero if mongoUnavailable
 
 	mu          sync.Mutex // protects the fields that follow
 	environUUID string
@@ -310,6 +311,11 @@ func (srv *Server) run(lis net.Listener) {
 	srv.wg.Add(1)
 	go func() {
 		err := srv.mongoPinger()
+		// Before killing the tomb, inform the API handlers that
+		// Mongo is unavailable. API handlers can use this to decide
+		// not to perform non-critical Mongo-related operations when
+		// tearing down.
+		atomic.AddUint32(&srv.mongoUnavailable, 1)
 		srv.tomb.Kill(err)
 		srv.wg.Done()
 	}()

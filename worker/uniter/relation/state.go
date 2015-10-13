@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )

@@ -12,6 +12,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -171,7 +172,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
-	c.Assert(m.Series(), gc.Equals, version.Current.Series)
+	c.Assert(m.Series(), gc.Equals, series.HostSeries())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotConstraints, err := m.Constraints()

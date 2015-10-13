@@ -58,7 +58,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		)
 	}
 
-	blockDeviceMap := make(map[string]storage.BlockDevice)
+	var devices []storage.BlockDevice
 	s := bufio.NewScanner(bytes.NewReader(output))
 	for s.Scan() {
 		pairs := pairsRE.FindAllStringSubmatch(s.Text(), -1)
@@ -126,17 +126,12 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 				dev.DeviceName, err,
 			)
 		}
-		blockDeviceMap[dev.DeviceName] = dev
+		devices = append(devices, dev)
 	}
 	if err := s.Err(); err != nil {
 		return nil, errors.Annotate(err, "cannot parse lsblk output")
 	}
-
-	blockDevices := make([]storage.BlockDevice, 0, len(blockDeviceMap))
-	for _, dev := range blockDeviceMap {
-		blockDevices = append(blockDevices, dev)
-	}
-	return blockDevices, nil
+	return devices, nil
 }
 
 // blockDeviceInUse checks if the specified block device
@@ -196,6 +191,8 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 		switch key {
 		case "DEVPATH":
 			devpath = value
+		case "DEVLINKS":
+			dev.DeviceLinks = strings.Split(value, " ")
 		case "ID_BUS":
 			idBus = value
 		case "ID_SERIAL":

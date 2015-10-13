@@ -69,19 +69,30 @@ func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
 	// filter out valid output, if any
 	var valid []params.StorageDetails
 	for _, one := range found {
-		if one.Error == nil {
-			valid = append(valid, one.StorageDetails)
+		if one.Error != nil {
+			fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
 			continue
 		}
-		// display individual error
-		fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
+		if one.Result != nil {
+			valid = append(valid, *one.Result)
+		} else {
+			details := storageDetailsFromLegacy(one.Legacy)
+			valid = append(valid, details)
+		}
 	}
 	if len(valid) == 0 {
 		return nil
 	}
-	output, err := formatStorageDetails(valid)
+	details, err := formatStorageDetails(valid)
 	if err != nil {
 		return err
+	}
+	var output interface{}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = map[string]map[string]StorageInfo{"storage": details}
+	default:
+		output = details
 	}
 	return c.out.Write(ctx, output)
 }
@@ -93,7 +104,7 @@ var (
 // StorageAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
-	List() ([]params.StorageInfo, error)
+	List() ([]params.StorageDetailsResult, error)
 }
 
 func (c *ListCommand) getStorageListAPI() (StorageListAPI, error) {

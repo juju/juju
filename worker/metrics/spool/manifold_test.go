@@ -4,6 +4,9 @@
 package spool_test
 
 import (
+	"io/ioutil"
+	"path/filepath"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,6 +23,7 @@ type ManifoldSuite struct {
 	factory     *stubFactory
 	manifold    dependency.Manifold
 	getResource dependency.GetResourceFunc
+	spoolDir    string
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -31,8 +35,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = spool.Manifold(spool.ManifoldConfig{
 		AgentName: "agent-name",
 	})
+	s.spoolDir = c.MkDir()
 	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: &dummyAgent{spoolDir: "/path/to/data/dir"}},
+		"agent-name": dt.StubResource{Output: &dummyAgent{spoolDir: s.spoolDir}},
 	})
 }
 
@@ -58,7 +63,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	var factory spool.MetricFactory
 	err := s.manifold.Output(worker, &factory)
 	c.Check(err, jc.ErrorIsNil)
-	s.factory.CheckCall(c, 0, "newFactory", "/path/to/data/dir")
+	s.factory.CheckCall(c, 0, "newFactory", s.spoolDir)
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
@@ -78,6 +83,20 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 	err := s.manifold.Output(worker, &spoolDirPlaceholder)
 	c.Check(err.Error(), gc.Equals, "expected *spool.spoolWorker->*spool.MetricFactory; got *spool.spoolWorker->*interface {}")
 	c.Check(spoolDirPlaceholder, gc.IsNil)
+}
+
+func (s *ManifoldSuite) TestCannotCreateSpoolDir(c *gc.C) {
+	c.Assert(ioutil.WriteFile(filepath.Join(s.spoolDir, "x"), nil, 0666), jc.ErrorIsNil)
+	spoolDir := filepath.Join(s.spoolDir, "x", "y")
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent-name": dt.StubResource{Output: &dummyAgent{spoolDir: spoolDir}},
+	})
+	w, err := s.manifold.Start(getResource)
+	c.Check(err, gc.ErrorMatches, ".*error checking spool directory.*")
+
+	var factory spool.MetricFactory
+	err = s.manifold.Output(w, &factory)
+	c.Check(err.Error(), gc.Equals, "expected *spool.spoolWorker->*spool.MetricFactory; got <nil>->*spool.MetricFactory")
 }
 
 type dummyAgent struct {
