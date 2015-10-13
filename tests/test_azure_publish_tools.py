@@ -17,29 +17,20 @@ class TestOptionParser(TestCase):
     def test_list(self):
         args = self.parse_args(['list', 'mypurpose'])
         self.assertEqual(Namespace(
-            command=LIST, purpose='mypurpose', dry_run=False, verbose=False,
-            path=[]), args)
-
-    def test_list_dry_run(self):
-        args = self.parse_args(['list', 'mypurpose', '--dry-run'])
-        self.assertIs(True, args.dry_run)
-
-    def test_list_verbose(self):
-        args = self.parse_args(['list', 'mypurpose', '--verbose'])
-        self.assertIs(True, args.verbose)
+            command=LIST, purpose='mypurpose'), args)
 
     def test_publish(self):
-        args = self.parse_args(['publish', 'mypurpose'])
+        args = self.parse_args(['publish', 'mypurpose', 'mypath'])
         self.assertEqual(Namespace(
             command=PUBLISH, purpose='mypurpose', dry_run=False, verbose=False,
-            path=[]), args)
+            path=['mypath']), args)
 
     def test_publish_dry_run(self):
-        args = self.parse_args(['publish', 'mypurpose', '--dry-run'])
+        args = self.parse_args(['publish', 'mypurpose', 'mypath', '--dry-run'])
         self.assertIs(True, args.dry_run)
 
     def test_publish_verbose(self):
-        args = self.parse_args(['publish', 'mypurpose', '--verbose'])
+        args = self.parse_args(['publish', 'mypurpose', 'mypath', '--verbose'])
         self.assertIs(True, args.verbose)
 
     def test_publish_path(self):
@@ -47,17 +38,17 @@ class TestOptionParser(TestCase):
         self.assertEqual(['mypath', 'mypath2'], args.path)
 
     def test_delete(self):
-        args = self.parse_args(['delete', 'mypurpose'])
+        args = self.parse_args(['delete', 'mypurpose', 'mypath'])
         self.assertEqual(Namespace(
             command=DELETE, purpose='mypurpose', dry_run=False, verbose=False,
-            path=[]), args)
+            path=['mypath']), args)
 
     def test_delete_dry_run(self):
-        args = self.parse_args(['delete', 'mypurpose', '--dry-run'])
+        args = self.parse_args(['delete', 'mypurpose', 'mypath', '--dry-run'])
         self.assertIs(True, args.dry_run)
 
     def test_delete_verbose(self):
-        args = self.parse_args(['delete', 'mypurpose', '--verbose'])
+        args = self.parse_args(['delete', 'mypurpose', 'mypath', '--verbose'])
         self.assertIs(True, args.verbose)
 
     def test_delete_path(self):

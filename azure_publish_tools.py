@@ -226,17 +226,21 @@ def main():
 def get_option_parser():
     """Return the option parser for this program."""
     parser = ArgumentParser("Manage objects in Azure blob storage")
-    parser.add_argument(
-        "-d", "--dry-run", action="store_true", default=False,
-        help="Do not publish or delete")
-    parser.add_argument(
-        '-v', '--verbose', action="store_true", default=False,
-        help='Increse verbosity.')
-    parser.add_argument('command', help="<list | publish | delete>")
-    parser.add_argument('purpose', help="<{}>".format(' | '.join(PURPOSES)))
-    parser.add_argument(
-        'path', nargs="*", default=None,
-        help='The path to publish or files to delete')
+    subparsers = parser.add_subparsers(help='sub-command help', dest='command')
+    for command in COMMANDS:
+        subparser = subparsers.add_parser(command, help='Command to run')
+        subparser.add_argument(
+            'purpose', help="<{}>".format(' | '.join(PURPOSES)))
+        if command in (PUBLISH, DELETE):
+            subparser.add_argument(
+                'path', nargs="+",
+                help='The path to publish or files to delete')
+            subparser.add_argument(
+                "-d", "--dry-run", action="store_true", default=False,
+                help="Do not publish or delete")
+            subparser.add_argument(
+                '-v', '--verbose', action="store_true", default=False,
+                help='Increse verbosity.')
     return parser
 
 
