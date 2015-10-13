@@ -4,6 +4,8 @@
 package client
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/workload"
@@ -12,30 +14,20 @@ import (
 
 type rawAPI interface {
 	facadeCaller
-	Close() error
+	io.Closer
 }
 
 // PublicClient provides methods for interacting with Juju's public
 // RPC API, relative to payloads.
 type PublicClient struct {
-	facadeCaller
-	closeFunc func() error
+	rawAPI
 }
 
 // NewPublicClient builds a new payload API client.
 func NewPublicClient(raw rawAPI) PublicClient {
 	return PublicClient{
-		facadeCaller: raw,
-		closeFunc:    raw.Close,
+		rawAPI: raw,
 	}
-}
-
-// Close closes the client.
-func (c PublicClient) Close() error {
-	if err := c.closeFunc(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // List calls the List API server method.
