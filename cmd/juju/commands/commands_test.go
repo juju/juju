@@ -106,6 +106,7 @@ func (s *commandRegistryItemSuite) TestCommandZeroValue(c *gc.C) {
 }
 
 func (s *commandRegistryItemSuite) TestApply(c *gc.C) {
+	s.command = &stubCommand{stub: &testing.Stub{}}
 	ctx := &cmd.Context{}
 	item := commandRegistryItem{
 		newCommand: s.newCommand,
@@ -130,6 +131,11 @@ func (c *stubCommand) Info() *cmd.Info {
 	c.stub.AddCall("Info")
 	c.stub.NextErr() // pop one off
 
+	if c.info == nil {
+		return &cmd.Info{
+			Name: "some-command",
+		}
+	}
 	return c.info
 }
 
@@ -151,25 +157,33 @@ func (c *stubCommand) SetEnvName(name string) {
 
 type stubRegistry struct {
 	stub *testing.Stub
+
+	names []string
 }
 
-func (r *stubRegistry) Register(sub cmd.Command) {
-	r.stub.AddCall("Register", sub)
+func (r *stubRegistry) Register(subcmd cmd.Command) {
+	r.stub.AddCall("Register", subcmd)
 	r.stub.NextErr() // pop one off
 
-	// Do nothing.
+	r.names = append(r.names, subcmd.Info().Name)
+	for _, name := range subcmd.Info().Aliases {
+		r.names = append(r.names, name)
+	}
 }
 
 func (r *stubRegistry) RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck) {
 	r.stub.AddCall("RegisterSuperAlias", name, super, forName)
 	r.stub.NextErr() // pop one off
 
-	// Do nothing.
+	r.names = append(r.names, name)
 }
 
 func (r *stubRegistry) RegisterDeprecated(subcmd cmd.Command, check cmd.DeprecationCheck) {
 	r.stub.AddCall("RegisterDeprecated", subcmd, check)
 	r.stub.NextErr() // pop one off
 
-	// Do nothing.
+	r.names = append(r.names, subcmd.Info().Name)
+	for _, name := range subcmd.Info().Aliases {
+		r.names = append(r.names, name)
+	}
 }
