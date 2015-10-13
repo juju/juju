@@ -77,6 +77,7 @@ func (c *ListCommand) Init(args []string) error {
 	return nil
 }
 
+// TODO(ericsnow) Move this to a common place, like cmd/envcmd?
 const connectionError = `Unable to connect to environment %q.
 Please check your credentials or use 'juju bootstrap' to create a new environment.
 
