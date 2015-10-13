@@ -9,16 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/workload"
 )
-
-func init() {
-	if err := all.RegisterForServer(); err != nil {
-		panic(err)
-	}
-}
 
 var _ = gc.Suite(&unitWorkloadsSuite{})
 
@@ -26,7 +19,7 @@ type unitWorkloadsSuite struct {
 	ConnSuite
 }
 
-const metaYAML = `
+const workloadsMetaYAML = `
 name: a-charm
 summary: a charm...
 description: a charm...
@@ -56,7 +49,7 @@ func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 }
 
 func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
-	_, unit := s.addUnit(c, "dummy", "a-service", metaYAML)
+	_, unit := s.addUnit(c, "dummy", "a-service", workloadsMetaYAML)
 
 	st, err := s.State.UnitWorkloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
