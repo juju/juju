@@ -12,14 +12,6 @@ import (
 // TODO(ericsnow) Replace all this with a better registry mechanism,
 // likely over in the cmd repo.
 
-type commandRegistryItem struct {
-	newCommand    func() cmd.Command
-	newEnvCommand func() envcmd.EnvironCommand
-	//aliases []alias
-	//deprecated bool
-	//featureFlags []string
-}
-
 var registeredCommands []commandRegistryItem
 
 func registerCommand(item commandRegistryItem) {
@@ -45,6 +37,14 @@ func RegisterEnvCommand(newCommand func() envcmd.EnvironCommand) {
 		newEnvCommand: newCommand,
 	}
 	registerCommand(item)
+}
+
+type commandRegistryItem struct {
+	newCommand    func() cmd.Command
+	newEnvCommand func() envcmd.EnvironCommand
+	//aliases []alias
+	//deprecated bool
+	//featureFlags []string
 }
 
 func (cri commandRegistryItem) command(ctx *cmd.Context) cmd.Command {
