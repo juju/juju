@@ -96,6 +96,7 @@ func (suite) TestTrack(c *gc.C) {
 			State:   workload.StateRunning,
 			Message: "okay",
 		},
+		Tags: []string{},
 		Details: workload.Details{
 			ID: "idfoo",
 			Status: workload.PluginStatus{
@@ -181,6 +182,7 @@ func (suite) TestListOne(c *gc.C) {
 			State:   workload.StateRunning,
 			Message: "okay",
 		},
+		Tags: []string{},
 		Details: api.WorkloadDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{
@@ -272,6 +274,7 @@ func (suite) TestListAll(c *gc.C) {
 			State:   workload.StateRunning,
 			Message: "okay",
 		},
+		Tags: []string{},
 		Details: api.WorkloadDetails{
 			ID: "idfoo",
 			Status: api.PluginStatus{

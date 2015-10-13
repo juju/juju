@@ -40,6 +40,7 @@ func (suite) TestAPI2Workload(c *gc.C) {
 			Blocker: "",
 			Message: "okay",
 		},
+		Tags: []string{},
 		Details: WorkloadDetails{
 			ID: "idfoo",
 			Status: PluginStatus{
@@ -86,6 +87,7 @@ func (suite) TestWorkload2API(c *gc.C) {
 			Blocker: "",
 			Message: "okay",
 		},
+		Tags: []string{},
 		Details: workload.Details{
 			ID: "idfoo",
 			Status: workload.PluginStatus{
