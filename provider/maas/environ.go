@@ -1126,21 +1126,13 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 }
 
 const modifyEtcNetworkInterfaces = `isDHCP() {
-    if grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}}
-         then
-             return 0
-         else
-             return 1
-    fi
+    grep -q "iface ${PRIMARY_IFACE} inet dhcp" {{.Config}}
+    return $?
 }
 
 isStatic() {
-    if grep -q "iface ${PRIMARY_IFACE} inet static" {{.Config}}
-         then
-             return 0
-         else
-             return 1
-    fi
+    grep -q "iface ${PRIMARY_IFACE} inet static" {{.Config}}
+    return $?
 }
 
 unAuto() {
