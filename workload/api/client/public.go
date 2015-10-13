@@ -10,6 +10,11 @@ import (
 	"github.com/juju/juju/workload/api"
 )
 
+type rawAPI interface {
+	facadeCaller
+	Close() error
+}
+
 // PublicClient provides methods for interacting with Juju's public
 // RPC API, relative to payloads.
 type PublicClient struct {
@@ -18,10 +23,10 @@ type PublicClient struct {
 }
 
 // NewPublicClient builds a new payload API client.
-func NewPublicClient(caller facadeCaller, closeFunc func() error) PublicClient {
+func NewPublicClient(raw rawAPI) PublicClient {
 	return PublicClient{
-		facadeCaller: caller,
-		closeFunc:    closeFunc,
+		facadeCaller: raw,
+		closeFunc:    raw.Close,
 	}
 }
 

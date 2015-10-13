@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/api/base"
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/commands"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/state"
@@ -70,19 +72,32 @@ func (c workloads) registerPublicFacade() {
 	)
 }
 
+type facadeCaller struct {
+	base.FacadeCaller
+	closeFunc func() error
+}
+
+func (c facadeCaller) Close() error {
+	return c.closeFunc()
+}
+
 func (workloads) registerPublicCommands() {
 	if !markRegistered(workload.ComponentName, "public-commands") {
 		return
 	}
 
 	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
-		newFacadeCaller := func(c envcmd.EnvironCommand) (facadeCaller, func() error) {
+		newFacadeCaller := func(c envcmd.EnvironCommand) (status.RawAPI, error) {
 			apiCaller, err := c.NewAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			facadeCaller := base.NewFacadeCallerForVersion(apiCaller, workload.ComponentName, 0)
-			return facadeCaller, apiCaller.Close
+			caller := base.NewFacadeCallerForVersion(apiCaller, workload.ComponentName, 0)
+			fc := &facadeCaller{
+				FacadeCaller: caller,
+				closeFunc:    apiCaller.Close,
+			}
+			return fc, nil
 		}
 		return status.NewListCommand(newFacadeCaller)
 	})

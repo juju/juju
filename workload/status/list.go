@@ -15,13 +15,16 @@ import (
 	"github.com/juju/juju/workload/api/client"
 )
 
-type listAPI interface {
-	List(patterns ...string) ([]workload.Payload, error)
+// RawAPI exposes the portions of api/base.FacadeCaller needed
+// for list-payloads.
+type RawAPI interface {
+	FacadeCall(request string, params, response interface{}) error
 	Close() error
 }
 
-type facadeCaller interface {
-	FacadeCall(request string, params, response interface{}) error
+type listAPI interface {
+	List(patterns ...string) ([]workload.Payload, error)
+	Close() error
 }
 
 type listCommand struct {
@@ -34,11 +37,14 @@ type listCommand struct {
 
 // NewListCommand returns a new command that lists charm payloads
 // in the current environment.
-func NewListCommand(newFacadeCaller func(envcmd.EnvironCommand) (facadeCaller, func() error)) envcmd.EnvironCommand {
+func NewListCommand(newFacadeCaller func(envcmd.EnvironCommand) (RawAPI, error)) envcmd.EnvironCommand {
 	cmd := &listCommand{
 		newAPIClient: func(c *listCommand) (listAPI, error) {
-			facadeCaller, closeFunc := newFacadeCaller(c)
-			return client.NewPublicClient(facadeCaller, closeFunc), nil
+			caller, err := newFacadeCaller(c)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return client.NewPublicClient(caller), nil
 		},
 	}
 	return cmd
