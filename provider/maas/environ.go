@@ -1136,7 +1136,7 @@ isStatic() {
 }
 
 unAuto() {
-    grep -q "auto ${PRIMARY_IFACE}" {{.Config}} && \
+    grep -q "auto ${PRIMARY_IFACE}\s*$" {{.Config}} && \
     sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
 }
 
@@ -1158,8 +1158,8 @@ EOF
     unAuto
 elif isStatic
 then
-    sed -i "s/iface ${PRIMARY_IFACE} inet static/iface {{.Bridge}} inet static\n   bridge_ports ${PRIMARY_IFACE}/" {{.Config}}
-    sed -i "s/auto ${PRIMARY_IFACE}/auto {{.Bridge}}/" {{.Config}}
+    sed -i "s/iface ${PRIMARY_IFACE} inet static/iface {{.Bridge}} inet static\n    bridge_ports ${PRIMARY_IFACE}/" {{.Config}}
+    sed -i "s/auto ${PRIMARY_IFACE}\s*$/auto {{.Bridge}}/" {{.Config}}
     cat >> {{.Config}} << EOF
 
 # Primary interface (defining the default route)
