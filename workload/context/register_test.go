@@ -53,7 +53,7 @@ func (registerSuite) TestInitWithTags(c *gc.C) {
 
 func (registerSuite) TestRun(c *gc.C) {
 	f := &fakeComponent{}
-	r := RegisterCmd{Comp: f}
+	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,7 +71,7 @@ func (registerSuite) TestRun(c *gc.C) {
 
 func (registerSuite) TestRunUnknownClass(c *gc.C) {
 	f := &fakeComponent{}
-	r := RegisterCmd{Comp: f}
+	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "badclass", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -82,7 +82,7 @@ func (registerSuite) TestRunUnknownClass(c *gc.C) {
 
 func (registerSuite) TestRunUnknownType(c *gc.C) {
 	f := &fakeComponent{}
-	r := RegisterCmd{Comp: f}
+	r := RegisterCmd{api: f}
 	err := r.Init([]string{"badtype", "class", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -93,7 +93,7 @@ func (registerSuite) TestRunUnknownType(c *gc.C) {
 
 func (registerSuite) TestRunTrackErr(c *gc.C) {
 	f := &fakeComponent{trackerr: errors.Errorf("boo")}
-	r := RegisterCmd{Comp: f}
+	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -104,7 +104,7 @@ func (registerSuite) TestRunTrackErr(c *gc.C) {
 
 func (registerSuite) TestRunFlushErr(c *gc.C) {
 	f := &fakeComponent{flusherr: errors.Errorf("boo")}
-	r := RegisterCmd{Comp: f}
+	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
