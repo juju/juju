@@ -1137,7 +1137,7 @@ isStatic() {
 
 unAuto() {
     grep -q "auto ${PRIMARY_IFACE}\s*$" {{.Config}} && \
-    sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+    sed -i "s/auto ${PRIMARY_IFACE}\s*$//" {{.Config}}
 }
 
 # Change the config to make $PRIMARY_IFACE manual instead of DHCP,
