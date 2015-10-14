@@ -208,7 +208,7 @@ var scenarioStatus = &params.FullStatus{
 	},
 	Services: map[string]params.ServiceStatus{
 		"logging": {
-			Charm: "local:quantal/logging-1",
+			Charm: "local:logging-1",
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
 			},
@@ -216,7 +216,7 @@ var scenarioStatus = &params.FullStatus{
 			// TODO(fwereade): why does the subordinate have no service status?
 		},
 		"mysql": {
-			Charm:         "local:quantal/mysql-1",
+			Charm:         "local:mysql-1",
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
 			Units:         map[string]params.UnitStatus{},
@@ -227,7 +227,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 		"wordpress": {
-			Charm: "local:quantal/wordpress-3",
+			Charm: "local:wordpress-3",
 			Relations: map[string][]string{
 				"logging-dir": {"logging"},
 			},

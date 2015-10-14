@@ -42,7 +42,8 @@ then a path will need to be supplied to allow an updated copy of the charm
 to be located.
 
 If the charm came from a local repository, its path will be assumed to be
-$JUJU_REPOSITORY unless overridden by --repository.
+$JUJU_REPOSITORY unless overridden by --repository. Note that deploying from
+a local repository is deprecated in favour of deploying from a path.
 
 Deploying from a path or local repository is intended to suit the workflow of a charm
 author working on a single client machine; use of this deployment method from
@@ -174,17 +175,14 @@ func (c *UpgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		if newName != oldURL.Name {
 			return nil, fmt.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
 		}
-		if *newURL == *oldURL {
-			return nil, fmt.Errorf("already running specified charm %q", newURL)
-		}
 		return client.AddLocalCharm(newURL, ch)
 	}
 	if _, ok := err.(*charmrepo.NotFoundError); ok {
 		return nil, errors.Errorf("no charm found at %q", charmRef)
 	}
-	// If we get a "not exists" error then we attempt to interpret the supplied
-	// charm reference as a URL below, otherwise we return the error.
-	if err != os.ErrNotExist {
+	// If we get a "not exists" or invalid path error then we attempt to interpret
+	// the supplied charm reference as a URL below, otherwise we return the error.
+	if err != os.ErrNotExist && !charmrepo.IsInvalidPathError(err) {
 		return nil, err
 	}
 

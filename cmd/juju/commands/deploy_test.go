@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"os"
 )
 
 type DeploySuite struct {
@@ -126,6 +127,17 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "dummy", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "multi-series")
+	wd, err := os.Getwd()
+	c.Assert(err, jc.ErrorIsNil)
+	defer os.Chdir(wd)
+	err = os.Chdir(s.SeriesPath)
+	c.Assert(err, jc.ErrorIsNil)
+	err = runDeploy(c, "multi-series")
+	c.Assert(err, gc.ErrorMatches, `.*"cs:trusty/multi-series": charm not found`)
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {

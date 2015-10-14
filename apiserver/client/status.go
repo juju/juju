@@ -290,6 +290,7 @@ func fetchAllServicesAndUnits(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	var storeCharms []*charm.URL
 	for _, s := range services {
 		units, err := s.AllUnits()
 		if err != nil {
@@ -306,19 +307,23 @@ func fetchAllServicesAndUnits(
 			// the latest store revision can be looked up.
 			charmURL, _ := s.CharmURL()
 			if charmURL.Schema == "cs" {
-				latestCharms[*charmURL.WithRevision(-1)] = ""
+				storeCharms = append(storeCharms, charmURL.WithRevision(-1))
 			}
 		}
 	}
-	for baseURL := range latestCharms {
-		ch, err := st.LatestPlaceholderCharm(&baseURL)
+	for _, baseURL := range storeCharms {
+		ch, err := st.LatestPlaceholderCharm(baseURL)
 		if errors.IsNotFound(err) {
 			continue
 		}
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		latestCharms[baseURL] = ch.String()
+		chNoSeries := ch.URL()
+		chNoSeries.Series = ""
+		baseNoSeries := *baseURL
+		baseNoSeries.Series = ""
+		latestCharms[baseNoSeries] = chNoSeries.String()
 	}
 	return svcMap, unitMap, latestCharms, nil
 }
@@ -565,12 +570,15 @@ func (context *statusContext) processServices() map[string]params.ServiceStatus 
 
 func (context *statusContext) processService(service *state.Service) (status params.ServiceStatus) {
 	serviceCharmURL, _ := service.CharmURL()
-	status.Charm = serviceCharmURL.String()
+	// We don't want to display the charm series in the URL anymore.
+	urlNoSeries := *serviceCharmURL
+	urlNoSeries.Series = ""
+	status.Charm = urlNoSeries.String()
 	status.Exposed = service.IsExposed()
 	status.Life = processLife(service)
 
-	latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]
-	if ok && latestCharm != serviceCharmURL.String() {
+	latestCharm, ok := context.latestCharms[*urlNoSeries.WithRevision(-1)]
+	if ok && latestCharm != urlNoSeries.String() {
 		status.CanUpgradeTo = latestCharm
 	}
 	var err error
@@ -669,7 +677,9 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	}
 	curl, _ := unit.CharmURL()
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
-		result.Charm = curl.String()
+		curlNoSeries := *curl
+		curlNoSeries.Series = ""
+		result.Charm = curlNoSeries.String()
 	}
 	processUnitAndAgentStatus(unit, &result)
 
