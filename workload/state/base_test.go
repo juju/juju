@@ -97,8 +97,8 @@ func (s *fakeWorkloadsPersistence) Track(info workload.Info) (bool, error) {
 	return true, nil
 }
 
-func (s *fakeWorkloadsPersistence) SetStatus(id string, status workload.CombinedStatus) (bool, error) {
-	s.AddCall("SetStatus", id, status)
+func (s *fakeWorkloadsPersistence) SetStatus(status, id string) (bool, error) {
+	s.AddCall("SetStatus", status, id)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
@@ -107,8 +107,8 @@ func (s *fakeWorkloadsPersistence) SetStatus(id string, status workload.Combined
 	if !ok {
 		return false, nil
 	}
-	wl.Status = status.Status
-	wl.Details.Status = status.PluginStatus
+	wl.Status.State = status
+	wl.Details.Status.State = status
 	return true, nil
 }
 
