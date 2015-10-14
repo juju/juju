@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 type baseProviderSuite struct {
@@ -246,7 +246,7 @@ Acquire::magic::Proxy "";
 		c.Assert(envConfig.FtpProxy(), gc.Equals, test.expectedProxy.Ftp)
 		c.Assert(envConfig.NoProxy(), gc.Equals, test.expectedProxy.NoProxy)
 
-		if version.Current.OS == version.Ubuntu {
+		if jujuos.HostOS() == jujuos.Ubuntu {
 			c.Assert(envConfig.AptHttpProxy(), gc.Equals, test.expectedAptProxy.Http)
 			c.Assert(envConfig.AptHttpsProxy(), gc.Equals, test.expectedAptProxy.Https)
 			c.Assert(envConfig.AptFtpProxy(), gc.Equals, test.expectedAptProxy.Ftp)

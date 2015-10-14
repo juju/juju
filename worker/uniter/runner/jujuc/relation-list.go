@@ -7,24 +7,35 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
 // RelationListCommand implements the relation-list command.
 type RelationListCommand struct {
 	cmd.CommandBase
-	ctx        Context
-	RelationId int
-	out        cmd.Output
+	ctx             Context
+	RelationId      int
+	relationIdProxy gnuflag.Value
+	out             cmd.Output
 }
 
-func NewRelationListCommand(ctx Context) cmd.Command {
-	return &RelationListCommand{ctx: ctx}
+func NewRelationListCommand(ctx Context) (cmd.Command, error) {
+	c := &RelationListCommand{ctx: ctx}
+
+	rV, err := newRelationIdValue(c.ctx, &c.RelationId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.relationIdProxy = rV
+
+	return c, nil
+
 }
 
 func (c *RelationListCommand) Info() *cmd.Info {
 	doc := "-r must be specified when not in a relation hook"
-	if _, found := c.ctx.HookRelation(); found {
+	if _, err := c.ctx.HookRelation(); err == nil {
 		doc = ""
 	}
 	return &cmd.Info{
@@ -35,11 +46,9 @@ func (c *RelationListCommand) Info() *cmd.Info {
 }
 
 func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {
-	rV := newRelationIdValue(c.ctx, &c.RelationId)
-
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(rV, "r", "specify a relation by id")
-	f.Var(rV, "relation", "")
+	f.Var(c.relationIdProxy, "r", "specify a relation by id")
+	f.Var(c.relationIdProxy, "relation", "")
 }
 
 func (c *RelationListCommand) Init(args []string) (err error) {
@@ -50,9 +59,9 @@ func (c *RelationListCommand) Init(args []string) (err error) {
 }
 
 func (c *RelationListCommand) Run(ctx *cmd.Context) error {
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
-		return fmt.Errorf("unknown relation id")
+	r, err := c.ctx.Relation(c.RelationId)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	unitNames := r.UnitNames()
 	if unitNames == nil {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -66,12 +66,13 @@ type RelationHookContext interface {
 
 type relationHookContext interface {
 	// HookRelation returns the ContextRelation associated with the executing
-	// hook if it was found, and whether it was found.
-	HookRelation() (ContextRelation, bool)
+	// hook if it was found, or an error if it was not found (or is not available).
+	HookRelation() (ContextRelation, error)
 
 	// RemoteUnitName returns the name of the remote unit the hook execution
-	// is associated with if it was found, and whether it was found.
-	RemoteUnitName() (string, bool)
+	// is associated with if it was found, and an error if it was not found or is not
+	// available.
+	RemoteUnitName() (string, error)
 }
 
 // ActionHookContext is the context for an action hook.
@@ -101,10 +102,6 @@ type ContextUnit interface {
 	// UnitName returns the executing unit's name.
 	UnitName() string
 
-	// OwnerTag returns the user tag of the service the executing
-	// units belongs to.
-	OwnerTag() string
-
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 }
@@ -127,8 +124,9 @@ type ContextStatus interface {
 
 // ContextInstance is the part of a hook context related to the unit's intance.
 type ContextInstance interface {
-	// AvailabilityZone returns the executing unit's availablilty zone.
-	AvailabilityZone() (string, bool)
+	// AvailabilityZone returns the executing unit's availablilty zone or an error
+	// if it was not found (or is not available).
+	AvailabilityZone() (string, error)
 
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
@@ -137,11 +135,13 @@ type ContextInstance interface {
 // ContextNetworking is the part of a hook context related to network
 // interface of the unit's instance.
 type ContextNetworking interface {
-	// PublicAddress returns the executing unit's public address.
-	PublicAddress() (string, bool)
+	// PublicAddress returns the executing unit's public address or an
+	// error if it is not available.
+	PublicAddress() (string, error)
 
-	// PrivateAddress returns the executing unit's private address.
-	PrivateAddress() (string, bool)
+	// PrivateAddress returns the executing unit's private address or an
+	// error if it is not available.
+	PrivateAddress() (string, error)
 
 	// OpenPorts marks the supplied port range for opening when the
 	// executing unit's service is exposed.
@@ -184,27 +184,33 @@ type ContextMetrics interface {
 // ContextStorage is the part of a hook context related to storage
 // resources associated with the unit.
 type ContextStorage interface {
+	// StorageTags returns a list of tags for storage instances
+	// attached to the unit or an error if they are not available.
+	StorageTags() ([]names.StorageTag, error)
+
 	// Storage returns the ContextStorageAttachment with the supplied
-	// tag if it was found, and whether it was found.
-	Storage(names.StorageTag) (ContextStorageAttachment, bool)
+	// tag if it was found, and an error if it was not found or is not
+	// available to the context.
+	Storage(names.StorageTag) (ContextStorageAttachment, error)
 
 	// HookStorage returns the storage attachment associated
-	// the executing hook if it was found, and whether it was found.
-	HookStorage() (ContextStorageAttachment, bool)
+	// the executing hook if it was found, and an error if it
+	// was not found or is not available.
+	HookStorage() (ContextStorageAttachment, error)
 
 	// AddUnitStorage saves storage constraints in the context.
-	AddUnitStorage(map[string]params.StorageConstraints)
+	AddUnitStorage(map[string]params.StorageConstraints) error
 }
 
 // ContextRelations exposes the relations associated with the unit.
 type ContextRelations interface {
 	// Relation returns the relation with the supplied id if it was found, and
-	// whether it was found.
-	Relation(id int) (ContextRelation, bool)
+	// an error if it was not found or is not available.
+	Relation(id int) (ContextRelation, error)
 
 	// RelationIds returns the ids of all relations the executing unit is
-	// currently participating in.
-	RelationIds() []int
+	// currently participating in or an error if they are not available.
+	RelationIds() ([]int, error)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -258,15 +264,17 @@ type Settings interface {
 
 // newRelationIdValue returns a gnuflag.Value for convenient parsing of relation
 // ids in ctx.
-func newRelationIdValue(ctx Context, result *int) *relationIdValue {
+func newRelationIdValue(ctx Context, result *int) (*relationIdValue, error) {
 	v := &relationIdValue{result: result, ctx: ctx}
 	id := -1
-	if r, found := ctx.HookRelation(); found {
+	if r, err := ctx.HookRelation(); err == nil {
 		id = r.Id()
 		v.value = r.FakeId()
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
 	*result = id
-	return v
+	return v, nil
 }
 
 // relationIdValue implements gnuflag.Value for use in relation commands.
@@ -293,8 +301,8 @@ func (v *relationIdValue) Set(value string) error {
 	if err != nil {
 		return fmt.Errorf("invalid relation id")
 	}
-	if _, found := v.ctx.Relation(id); !found {
-		return fmt.Errorf("unknown relation id")
+	if _, err := v.ctx.Relation(id); err != nil {
+		return errors.Trace(err)
 	}
 	*v.result = id
 	v.value = value
@@ -303,12 +311,14 @@ func (v *relationIdValue) Set(value string) error {
 
 // newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
 // ids in ctx.
-func newStorageIdValue(ctx Context, result *names.StorageTag) *storageIdValue {
+func newStorageIdValue(ctx Context, result *names.StorageTag) (*storageIdValue, error) {
 	v := &storageIdValue{result: result, ctx: ctx}
-	if s, found := ctx.HookStorage(); found {
+	if s, err := ctx.HookStorage(); err == nil {
 		*v.result = s.Tag()
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
-	return v
+	return v, nil
 }
 
 // storageIdValue implements gnuflag.Value for use in storage commands.
@@ -333,8 +343,8 @@ func (v *storageIdValue) Set(value string) error {
 		return errors.Errorf("invalid storage ID %q", value)
 	}
 	tag := names.NewStorageTag(value)
-	if _, found := v.ctx.Storage(tag); !found {
-		return fmt.Errorf("unknown storage ID")
+	if _, err := v.ctx.Storage(tag); err != nil {
+		return errors.Trace(err)
 	}
 	*v.result = tag
 	return nil

@@ -20,9 +20,10 @@ type InstanceType struct {
 	Cost     uint64
 	RootDisk uint64
 	// These attributes are not supported by all clouds.
-	VirtType *string // The type of virtualisation used by the hypervisor, must match the image.
-	CpuPower *uint64
-	Tags     []string
+	VirtType   *string // The type of virtualisation used by the hypervisor, must match the image.
+	CpuPower   *uint64
+	Tags       []string
+	Deprecated bool
 }
 
 func CpuPower(power uint64) *uint64 {
@@ -36,6 +37,9 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	nothing := InstanceType{}
 	if cons.Arch != nil {
 		itype.Arches = filterArches(itype.Arches, []string{*cons.Arch})
+	}
+	if itype.Deprecated && !cons.HasInstanceType() {
+		return nothing, false
 	}
 	if cons.HasInstanceType() && itype.Name != *cons.InstanceType {
 		return nothing, false

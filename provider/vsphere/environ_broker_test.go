@@ -6,13 +6,13 @@
 package vsphere_test
 
 import (
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/errors"
 	"github.com/juju/govmomi/vim25/methods"
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/tools"
@@ -127,7 +126,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 	c.Assert(*res.Hardware.CpuCores, gc.Equals, vsphere.DefaultCpuCores)
 	c.Assert(*res.Hardware.CpuPower, gc.Equals, vsphere.DefaultCpuPower)
 	c.Assert(*res.Hardware.Mem, gc.Equals, vsphere.DefaultMemMb)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB*1024)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
 
 func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
@@ -168,7 +167,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	res, err := s.Env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB*1024)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
 
 func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {

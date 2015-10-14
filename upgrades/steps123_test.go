@@ -18,6 +18,7 @@ var _ = gc.Suite(&steps123Suite{})
 
 func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 	expected := []string{
+		"add the version field to all settings docs",
 		"add default storage pools",
 		"drop old mongo indexes",
 		"migrate envuuid to env-uuid in envUsersC",
@@ -35,7 +36,6 @@ func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 func (s *steps123Suite) TestStepsFor123(c *gc.C) {
 	expected := []string{
 		"add environment UUID to agent config",
-		"add Stopped field to uniter state",
 	}
 	assertSteps(c, version.MustParse("1.23.0"), expected)
 }

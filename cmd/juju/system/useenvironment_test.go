@@ -111,8 +111,8 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 		envName: "foobar",
 		owner:   "user@remote",
 	}, {
-		args:        []string{"user+name/foobar"},
-		errorString: `"user\+name" is not a valid user`,
+		args:        []string{"+user+name/foobar"},
+		errorString: `"\+user\+name" is not a valid user`,
 	}, {
 		args:    []string{env1UUID},
 		envUUID: env1UUID,

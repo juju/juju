@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
-	"github.com/juju/juju/version"
 )
 
 var (
@@ -138,7 +138,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 
 // ListServices lists all installed services on the running system
 func ListServices() ([]string, error) {
-	initName, err := VersionInitSystem(version.Current.Series)
+	initName, err := VersionInitSystem(series.HostSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

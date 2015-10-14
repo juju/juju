@@ -20,13 +20,13 @@ var (
 	metricsHost      string
 )
 
-// DefaultSender is the default used for sending
+// HttpSender is the default used for sending
 // metrics to the collector service.
-type DefaultSender struct {
+type HttpSender struct {
 }
 
 // Send sends the given metrics to the collector service.
-func (s *DefaultSender) Send(metrics []*wireformat.MetricBatch) (*wireformat.Response, error) {
+func (s *HttpSender) Send(metrics []*wireformat.MetricBatch) (*wireformat.Response, error) {
 	b, err := json.Marshal(metrics)
 	if err != nil {
 		return nil, errors.Trace(err)

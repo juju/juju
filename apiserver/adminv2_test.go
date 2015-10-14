@@ -4,11 +4,11 @@
 package apiserver_test
 
 import (
-	"github.com/juju/juju/api"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/testing/factory"
 )
@@ -76,7 +76,9 @@ func (s *loginV2Suite) TestClientLoginToServerNoAccessToStateServerEnv(c *gc.C) 
 	// The user now has last login updated.
 	err = user.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.LastLogin(), gc.NotNil)
+	lastLogin, err := user.LastLogin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lastLogin, gc.NotNil)
 }
 
 func (s *loginV2Suite) TestClientLoginToRootOldClient(c *gc.C) {

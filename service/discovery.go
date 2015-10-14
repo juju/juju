@@ -6,6 +6,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/feature"
@@ -13,13 +15,7 @@ import (
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
-	"github.com/juju/juju/version"
 )
-
-// This exists to allow patching during tests.
-var getVersion = func() version.Binary {
-	return version.Current
-}
 
 // DiscoverService returns an interface to a service appropriate
 // for the current system
@@ -29,8 +25,7 @@ func DiscoverService(name string, conf common.Conf) (Service, error) {
 		return nil, errors.Trace(err)
 	}
 
-	jujuVersion := getVersion()
-	service, err := newService(name, conf, initName, jujuVersion.Series)
+	service, err := newService(name, conf, initName, series.HostSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -41,8 +36,7 @@ func discoverInitSystem() (string, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
-		jujuVersion := getVersion()
-		versionInitName, err2 := VersionInitSystem(jujuVersion.Series)
+		versionInitName, err2 := VersionInitSystem(series.HostSeries())
 		if err2 != nil {
 			// The key error is the one from discoverLocalInitSystem so
 			// that is what we return.
@@ -66,18 +60,18 @@ func VersionInitSystem(series string) (string, error) {
 	return initName, nil
 }
 
-func versionInitSystem(series string) (string, error) {
-	os, err := version.GetOSFromSeries(series)
+func versionInitSystem(ser string) (string, error) {
+	seriesos, err := series.GetOSFromSeries(ser)
 	if err != nil {
-		notFound := errors.NotFoundf("init system for series %q", series)
+		notFound := errors.NotFoundf("init system for series %q", ser)
 		return "", errors.Wrap(err, notFound)
 	}
 
-	switch os {
-	case version.Windows:
+	switch seriesos {
+	case os.Windows:
 		return InitSystemWindows, nil
-	case version.Ubuntu:
-		switch series {
+	case os.Ubuntu:
+		switch ser {
 		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
 			return InitSystemUpstart, nil
 		default:
@@ -87,10 +81,10 @@ func versionInitSystem(series string) (string, error) {
 			}
 			return InitSystemSystemd, nil
 		}
-	case version.CentOS:
+	case os.CentOS:
 		return InitSystemSystemd, nil
 	}
-	return "", errors.NotFoundf("unknown os %q (from series %q), init system", os, series)
+	return "", errors.NotFoundf("unknown os %q (from series %q), init system", seriesos, ser)
 }
 
 type discoveryCheck struct {

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
@@ -127,7 +127,7 @@ func (s *charmVersionSuite) TestWordpressCharmNoReadAccessIsntVisible(c *gc.C) {
 	s.SetupScenario(c)
 
 	// Disallow read access to the wordpress charm in the charm store.
-	err := s.Server.NewClient().Put("/quantal/wordpress/meta/perm/read", nil)
+	err := s.Client.Put("/quantal/wordpress/meta/perm/read", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Run the revision updater and check that the public charm updates are
@@ -155,7 +155,7 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	var header http.Header
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header = r.Header
-		s.Server.Handler().ServeHTTP(w, r)
+		s.Handler.ServeHTTP(w, r)
 	}))
 	defer srv.Close()
 

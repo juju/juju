@@ -5,11 +5,10 @@ package operation
 
 import (
 	"os"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -66,6 +65,9 @@ type State struct {
 	// Stopped indicates whether the stop hook has run.
 	Stopped bool `yaml:"stopped"`
 
+	// Installed indicates whether the install hook has run.
+	Installed bool `yaml:"installed"`
+
 	// StatusSet indicates whether the charm being deployed has ever invoked
 	// the status-set hook tool.
 	StatusSet bool `yaml:"status-set"`
@@ -91,19 +93,6 @@ type State struct {
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
-
-	// CollectMetricsTime records the time the collect metrics hook was last run.
-	// It's set to nil if the hook was not run at all. Recording time as int64
-	// because the yaml encoder cannot encode the time.Time struct.
-	CollectMetricsTime int64 `yaml:"collectmetricstime,omitempty"`
-
-	// SendMetricsTime records the time when metrics were last sent to the
-	// state server (see also CollectMetricsTime).
-	SendMetricsTime int64 `yaml:"sendmetricstime,omitempty"`
-
-	// UpdateStatusTime records the time the update status hook was last run.
-	// It's set to nil if the hook was not run at all.
-	UpdateStatusTime int64 `yaml:"updatestatustime,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.
@@ -114,7 +103,7 @@ func (st State) validate() (err error) {
 	hasCharm := st.CharmURL != nil
 	switch st.Kind {
 	case Install:
-		if hasHook {
+		if st.Installed {
 			return errors.New("unexpected hook info with Kind Install")
 		}
 		fallthrough
@@ -168,10 +157,6 @@ func (st State) validate() (err error) {
 	return nil
 }
 
-func (st State) CollectedMetricsAt() time.Time {
-	return time.Unix(st.CollectMetricsTime, 0)
-}
-
 // stateChange is useful for a variety of Operation implementations.
 type stateChange struct {
 	Kind            Kind
@@ -220,7 +205,7 @@ func (f *StateFile) Read() (*State, error) {
 // Write stores the supplied state to the file.
 func (f *StateFile) Write(st *State) error {
 	if err := st.validate(); err != nil {
-		panic(err)
+		return errors.Trace(err)
 	}
 	return utils.WriteYaml(f.path, st)
 }

@@ -66,6 +66,7 @@ func (env *environ) lookupArchitectures() ([]string, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
+	// TODO(dimitern: Replace Networks with Spaces in a follow-up.
 	constraints.Networks,
 }
 

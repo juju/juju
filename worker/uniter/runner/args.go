@@ -10,7 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/uniter/runner/context"
+	jujuos "github.com/juju/utils/os"
 )
 
 var windowsSuffixOrder = []string{
@@ -24,7 +25,7 @@ func lookPath(hook string) (string, error) {
 	hookFile, err := exec.LookPath(hook)
 	if err != nil {
 		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
-			return "", &missingHookError{hook}
+			return "", context.NewMissingHookError(hook)
 		}
 		return "", err
 	}
@@ -37,7 +38,7 @@ func lookPath(hook string) (string, error) {
 // being default.
 func searchHook(charmDir, hook string) (string, error) {
 	hookFile := filepath.Join(charmDir, hook)
-	if version.Current.OS != version.Windows {
+	if jujuos.HostOS() != jujuos.Windows {
 		// we are not running on windows,
 		// there is no need to look for suffixed hooks
 		return lookPath(hookFile)
@@ -46,7 +47,7 @@ func searchHook(charmDir, hook string) (string, error) {
 		file := fmt.Sprintf("%s%s", hookFile, suffix)
 		foundHook, err := lookPath(file)
 		if err != nil {
-			if IsMissingHookError(err) {
+			if context.IsMissingHookError(err) {
 				// look for next suffix
 				continue
 			}
@@ -54,7 +55,7 @@ func searchHook(charmDir, hook string) (string, error) {
 		}
 		return foundHook, nil
 	}
-	return "", &missingHookError{hook}
+	return "", context.NewMissingHookError(hook)
 }
 
 // hookCommand constructs an appropriate command to be passed to
@@ -64,7 +65,7 @@ func searchHook(charmDir, hook string) (string, error) {
 // and propagate error levels (-File). .cmd and .bat files can be run
 // directly.
 func hookCommand(hook string) []string {
-	if version.Current.OS != version.Windows {
+	if jujuos.HostOS() != jujuos.Windows {
 		// we are not running on windows,
 		// just return the hook name
 		return []string{hook}

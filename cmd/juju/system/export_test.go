@@ -23,9 +23,10 @@ func NewListCommand(cfgStore configstore.Storage) *ListCommand {
 }
 
 // NewCreateEnvironmentCommand returns a CreateEnvironmentCommand with the api provided as specified.
-func NewCreateEnvironmentCommand(api CreateEnvironmentAPI) *CreateEnvironmentCommand {
+func NewCreateEnvironmentCommand(api CreateEnvironmentAPI, parser func(interface{}) (interface{}, error)) *CreateEnvironmentCommand {
 	return &CreateEnvironmentCommand{
-		api: api,
+		api:          api,
+		configParser: parser,
 	}
 }
 
@@ -41,7 +42,7 @@ func NewEnvironmentsCommand(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI
 
 // NewLoginCommand returns a LoginCommand with the function used to open
 // the API connection mocked out.
-func NewLoginCommand(apiOpen APIOpenFunc, getUserManager GetUserManagerFunc) *LoginCommand {
+func NewLoginCommand(apiOpen api.OpenFunc, getUserManager GetUserManagerFunc) *LoginCommand {
 	return &LoginCommand{
 		apiOpen:        apiOpen,
 		getUserManager: getUserManager,
@@ -86,7 +87,7 @@ func (c *CreateEnvironmentCommand) ConfValues() map[string]string {
 	return c.confValues
 }
 
-// NewDestroyCommand returns a DestroyCommand with the the systemmanager and client
+// NewDestroyCommand returns a DestroyCommand with the systemmanager and client
 // endpoints mocked out.
 func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) *DestroyCommand {
 	return &DestroyCommand{
@@ -98,9 +99,9 @@ func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr 
 	}
 }
 
-// NewKillCommand returns a KillCommand with the the systemmanager and client
+// NewKillCommand returns a KillCommand with the systemmanager and client
 // endpoints mocked out.
-func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error, dialFunc func(string) (*api.State, error)) *KillCommand {
+func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error, dialFunc func(string) (api.Connection, error)) *KillCommand {
 	return &KillCommand{
 		DestroyCommandBase{
 			api:       api,
@@ -108,5 +109,14 @@ func NewKillCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr err
 			apierr:    apierr,
 		},
 		dialFunc,
+	}
+}
+
+// NewListBlocksCommand returns a ListBlocksCommand with the systemmanager
+// endpoint mocked out.
+func NewListBlocksCommand(api listBlocksAPI, apierr error) *ListBlocksCommand {
+	return &ListBlocksCommand{
+		api:    api,
+		apierr: apierr,
 	}
 }

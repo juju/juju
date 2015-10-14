@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -97,6 +98,7 @@ func (s *suite) TearDownSuite(c *gc.C) {
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 }
@@ -168,6 +170,33 @@ func (s *suite) TestSupportsAddressAllocation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(supported, jc.IsFalse)
+}
+
+func (s *suite) TestSupportsSpaces(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	// Without change spaces are supported.
+	ok, err := e.SupportsSpaces()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now turn it off.
+	isEnabled := dummy.SetSupportsSpaces(false)
+	c.Assert(isEnabled, jc.IsTrue)
+	ok, err = e.SupportsSpaces()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+
+	// And finally turn it on again.
+	isEnabled = dummy.SetSupportsSpaces(true)
+	c.Assert(isEnabled, jc.IsFalse)
+	ok, err = e.SupportsSpaces()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...string) {
@@ -393,6 +422,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		ProviderId:        "dummy-private",
 		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
 		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
+		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
 		CIDR:              "0.20.0.0/24",
 		ProviderId:        "dummy-public",
@@ -408,6 +438,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		noallocInfo[i].ProviderId = network.Id("noalloc-" + pid)
 		noallocInfo[i].AllocatableIPLow = nil
 		noallocInfo[i].AllocatableIPHigh = nil
+		noallocInfo[i].AvailabilityZones = exp.AvailabilityZones
 		noallocInfo[i].CIDR = exp.CIDR
 	}
 

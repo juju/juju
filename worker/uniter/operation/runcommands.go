@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type runCommands struct {
@@ -39,7 +40,7 @@ func (rc *runCommands) String() string {
 // Prepare ensures the commands can be run. It never returns a state change.
 // Prepare is part of the Operation interface.
 func (rc *runCommands) Prepare(state State) (*State, error) {
-	rnr, err := rc.runnerFactory.NewCommandRunner(runner.CommandInfo{
+	rnr, err := rc.runnerFactory.NewCommandRunner(context.CommandInfo{
 		RelationId:      rc.args.RelationId,
 		RemoteUnitName:  rc.args.RemoteUnitName,
 		ForceRemoteUnit: rc.args.ForceRemoteUnit,
@@ -47,7 +48,12 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = rnr.Context().Prepare()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	rc.runner = rnr
+
 	return nil, nil
 }
 
@@ -61,10 +67,10 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 
 	response, err := rc.runner.RunCommands(rc.args.Commands)
 	switch err {
-	case runner.ErrRequeueAndReboot:
+	case context.ErrRequeueAndReboot:
 		logger.Warningf("cannot requeue external commands")
 		fallthrough
-	case runner.ErrReboot:
+	case context.ErrReboot:
 		err = ErrNeedsReboot
 	}
 	rc.sendResponse(response, err)

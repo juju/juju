@@ -166,12 +166,18 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
-	pub, pubOK := u.PublicAddress()
-	priv, privOK := u.PrivateAddress()
-	if !pubOK && !privOK {
+	pub, pubErr := u.PublicAddress()
+	if pubErr != nil && !network.IsNoAddress(pubErr) {
+		return true, false, errors.Trace(pubErr)
+	}
+	priv, privErr := u.PrivateAddress()
+	if privErr != nil && !network.IsNoAddress(privErr) {
+		return true, false, errors.Trace(privErr)
+	}
+	if pubErr != nil && privErr != nil {
 		return true, false, nil
 	}
-	return matchSubnet(patterns, pub, priv)
+	return matchSubnet(patterns, pub.Value, priv.Value)
 }
 
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
@@ -332,9 +338,9 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentStatus state.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
-		// If the pattern isn't a valid status, ignore it.
+		// If the pattern isn't a known status, ignore it.
 		ps := state.Status(p)
-		if !ps.ValidWorkloadStatus() {
+		if !ps.KnownWorkloadStatus() {
 			continue
 		}
 
@@ -351,9 +357,9 @@ func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentSt
 func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
-		// If the pattern isn't a valid status, ignore it.
+		// If the pattern isn't a known status, ignore it.
 		ps := state.Status(p)
-		if !ps.ValidAgentStatus() {
+		if !ps.KnownAgentStatus() {
 			continue
 		}
 

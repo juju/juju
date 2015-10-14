@@ -97,9 +97,11 @@ func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo
 	for i, dev := range devices {
 		result[i] = state.BlockDeviceInfo{
 			dev.DeviceName,
+			dev.DeviceLinks,
 			dev.Label,
 			dev.UUID,
 			dev.HardwareId,
+			dev.BusAddress,
 			dev.Size,
 			dev.FilesystemType,
 			dev.InUse,

@@ -42,7 +42,7 @@ func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
-		listener.Close()
+		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})
 	return listener
 }
@@ -56,7 +56,7 @@ func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c
 	listener, err := uniter.NewRunListener(&mockRunner{}, s.socketPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
-	listener.Close()
+	c.Assert(listener.Close(), jc.ErrorIsNil)
 }
 
 func (s *ListenerSuite) TestClientCall(c *gc.C) {

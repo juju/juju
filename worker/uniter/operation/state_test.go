@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -44,9 +44,11 @@ var stateTests = []struct {
 	// Install operation.
 	{
 		st: operation.State{
-			Kind: operation.Install,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
+			Kind:      operation.Install,
+			Installed: true,
+			Step:      operation.Pending,
+			CharmURL:  stcurl,
+			Hook:      &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unexpected hook info with Kind Install`,
 	}, {
@@ -182,10 +184,9 @@ var stateTests = []struct {
 		err: `unexpected action id`,
 	}, {
 		st: operation.State{
-			Kind:               operation.Continue,
-			Step:               operation.Pending,
-			CollectMetricsTime: 98765432,
-			Leader:             true,
+			Kind:   operation.Continue,
+			Step:   operation.Pending,
+			Leader: true,
 		},
 	},
 }
@@ -197,19 +198,18 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		file := operation.NewStateFile(path)
 		_, err := file.Read()
 		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
-		write := func() {
-			err := file.Write(&t.st)
+
+		err = file.Write(&t.st)
+		if t.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
-		}
-		if t.err != "" {
-			c.Assert(write, gc.PanicMatches, "invalid operation state: "+t.err)
+		} else {
+			c.Assert(err, gc.ErrorMatches, "invalid operation state: "+t.err)
 			err := utils.WriteYaml(path, &t.st)
 			c.Assert(err, jc.ErrorIsNil)
 			_, err = file.Read()
 			c.Assert(err, gc.ErrorMatches, `cannot read ".*": invalid operation state: `+t.err)
 			continue
 		}
-		write()
 		st, err := file.Read()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, jc.DeepEquals, &t.st)

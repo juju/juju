@@ -28,7 +28,7 @@ type RebootSuite struct {
 
 	acfg    agent.Config
 	mgoInst testing.MgoInstance
-	st      *api.State
+	st      api.Connection
 
 	tmpDir           string
 	rebootScriptName string
@@ -54,7 +54,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	configParams := agent.AgentConfigParams{
-		DataDir:           c.MkDir(),
+		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{s.mgoInst.Addr()},

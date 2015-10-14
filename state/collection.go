@@ -4,11 +4,10 @@
 package state
 
 import (
-	"strings"
-
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/mongo"
 )
 
@@ -34,10 +33,9 @@ func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
 
 // envStateCollection wraps a mongo.Collection, preserving the
 // mongo.Collection interface and its Writeable behaviour. It will
-// automatically modify query selectors so that so that the query only
-// interacts with data for a single environment (where possible).
-//
-// In particular, Inserts are not trapped at all. Be careful.
+// automatically modify query selectors and documents so that queries
+// and inserts only interact with data for a single environment (where
+// possible).
 type envStateCollection struct {
 	mongo.WriteCollection
 	envUUID string
@@ -73,13 +71,30 @@ func (c *envStateCollection) Find(query interface{}) *mgo.Query {
 }
 
 // FindId looks up a single document by _id. If the id is a string the
-// relevant environment UUID prefix will be added on to it. Otherwise, the
+// relevant environment UUID prefix will be added to it. Otherwise, the
 // query will be handled as per Find().
 func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
 	if sid, ok := id.(string); ok {
 		return c.WriteCollection.FindId(ensureEnvUUID(c.envUUID, sid))
 	}
 	return c.Find(bson.D{{"_id", id}})
+}
+
+// Insert adds one or more documents to a collection. If the document
+// id is a string the environment UUID prefix will be automatically
+// added to it. The env-uuid field will also be automatically added if
+// it is missing. An error will be returned if an env-uuid field is
+// provided but is the wrong value.
+func (c *envStateCollection) Insert(docs ...interface{}) error {
+	var mungedDocs []interface{}
+	for _, doc := range docs {
+		mungedDoc, err := mungeDocForMultiEnv(doc, c.envUUID, envUUIDRequired)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		mungedDocs = append(mungedDocs, mungedDoc)
+	}
+	return c.WriteCollection.Insert(mungedDocs...)
 }
 
 // Update finds a single document matching the provided query document and
@@ -125,46 +140,16 @@ func (c *envStateCollection) RemoveId(id interface{}) error {
 	return c.Remove(bson.D{{"_id", id}})
 }
 
-// RemoveAll deletes all docuemnts that match a query. The query will
+// RemoveAll deletes all documents that match a query. The query will
 // be handled as per Find().
 func (c *envStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, error) {
 	return c.WriteCollection.RemoveAll(c.mungeQuery(query))
 }
 
 func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
-	outq := bson.D{{"env-uuid", c.envUUID}}
-	var add = func(name string, value interface{}) {
-		switch name {
-		case "_id":
-			if id, ok := value.(string); ok {
-				value = ensureEnvUUID(c.envUUID, id)
-			}
-		case "env-uuid":
-			panic("env-uuid is added automatically and should not be provided")
-		}
-		outq = append(outq, bson.DocElem{name, value})
-	}
-
-	switch inq := inq.(type) {
-	case bson.D:
-		for _, elem := range inq {
-			add(elem.Name, elem.Value)
-		}
-	case bson.M:
-		for name, value := range inq {
-			add(name, value)
-		}
-	case nil:
-	default:
-		panic("query must be bson.D, bson.M, or nil")
+	outq, err := mungeDocForMultiEnv(inq, c.envUUID, envUUIDRequired|noEnvUUIDInInput)
+	if err != nil {
+		panic(err)
 	}
 	return outq
-}
-
-func ensureEnvUUID(envUUID, id string) string {
-	prefix := envUUID + ":"
-	if strings.HasPrefix(id, prefix) {
-		return id
-	}
-	return prefix + id
 }

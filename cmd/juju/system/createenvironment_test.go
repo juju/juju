@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -26,6 +26,7 @@ import (
 type createSuite struct {
 	testing.FakeJujuHomeSuite
 	fake       *fakeCreateClient
+	parser     func(interface{}) (interface{}, error)
 	store      configstore.Storage
 	serverUUID string
 	server     configstore.EnvironInfo
@@ -37,6 +38,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.SetFeatureFlags(feature.JES)
 	s.fake = &fakeCreateClient{}
+	s.parser = nil
 	store := configstore.Default
 	s.AddCleanup(func(*gc.C) {
 		configstore.Default = store
@@ -65,7 +67,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := system.NewCreateEnvironmentCommand(s.fake)
+	command := system.NewCreateEnvironmentCommand(s.fake, s.parser)
 	return testing.RunCommand(c, envcmd.WrapSystem(command), args...)
 }
 
@@ -165,6 +167,66 @@ func (s *createSuite) TestConfigFileValuesPassedThrough(c *gc.C) {
 	c.Assert(s.fake.config["cloud"], gc.Equals, "9")
 }
 
+func (s *createSuite) TestConfigFileWithNestedMaps(c *gc.C) {
+	nestedConfig := map[string]interface{}{
+		"account": "magic",
+		"cloud":   "9",
+	}
+	config := map[string]interface{}{
+		"foo":    "bar",
+		"nested": nestedConfig,
+	}
+
+	bytes, err := yaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	file.Write(bytes)
+	file.Close()
+
+	_, err = s.run(c, "test", "--config", file.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.config["foo"], gc.Equals, "bar")
+	c.Assert(s.fake.config["nested"], jc.DeepEquals, nestedConfig)
+}
+
+func (s *createSuite) TestConfigFileFailsToConform(c *gc.C) {
+	nestedConfig := map[int]interface{}{
+		9: "9",
+	}
+	config := map[string]interface{}{
+		"foo":    "bar",
+		"nested": nestedConfig,
+	}
+	bytes, err := yaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	file.Write(bytes)
+	file.Close()
+
+	_, err = s.run(c, "test", "--config", file.Name())
+	c.Assert(err, gc.ErrorMatches, `unable to parse config file: map keyed with non-string value`)
+}
+
+func (s *createSuite) TestConfigFileFailsWithUnknownType(c *gc.C) {
+	config := map[string]interface{}{
+		"account": "magic",
+		"cloud":   "9",
+	}
+
+	bytes, err := yaml.Marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	file, err := ioutil.TempFile(c.MkDir(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	file.Write(bytes)
+	file.Close()
+
+	s.parser = func(interface{}) (interface{}, error) { return "not a map", nil }
+	_, err = s.run(c, "test", "--config", file.Name())
+	c.Assert(err, gc.ErrorMatches, `config must contain a YAML map with string keys`)
+}
+
 func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file, err := ioutil.TempFile(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,7 +234,7 @@ func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, gc.ErrorMatches, `YAML error: .*`)
+	c.Assert(err, gc.ErrorMatches, `unable to parse config file: yaml: .*`)
 }
 
 func (s *createSuite) TestConfigFileDoesntExist(c *gc.C) {

@@ -8,11 +8,12 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type RunActionSuite struct {
@@ -99,6 +100,49 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 
+func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
+	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name"}}
+	runnerFactory := &MockRunnerFactory{
+		MockNewActionRunner: &MockNewActionRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState, gc.NotNil)
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
+func (s *RunActionSuite) TestPrepareCtxError(c *gc.C) {
+	ctx := &MockContext{actionData: &context.ActionData{Name: "some-action-name"}}
+	ctx.SetErrors(errors.New("ctx prepare error"))
+	runnerFactory := &MockRunnerFactory{
+		MockNewActionRunner: &MockNewActionRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.ErrorMatches, `ctx prepare error`)
+	c.Assert(newState, gc.IsNil)
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
 func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	runnerFactory := NewRunActionRunnerFactory(errors.New("should not call"))
 	factory := operation.NewFactory(operation.FactoryParams{
@@ -128,13 +172,11 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	newState, err := op.Prepare(overwriteState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, &operation.State{
-		Kind:               operation.RunAction,
-		Step:               operation.Pending,
-		ActionId:           &someActionId,
-		Started:            true,
-		CollectMetricsTime: 1234567,
-		UpdateStatusTime:   1234567,
-		Hook:               &hook.Info{Kind: hooks.Install},
+		Kind:     operation.RunAction,
+		Step:     operation.Pending,
+		ActionId: &someActionId,
+		Started:  true,
+		Hook:     &hook.Info{Kind: hooks.Install},
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
@@ -155,13 +197,11 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		description: "preserves appropriate fields",
 		before:      overwriteState,
 		after: operation.State{
-			Kind:               operation.RunAction,
-			Step:               operation.Done,
-			ActionId:           &someActionId,
-			Hook:               &hook.Info{Kind: hooks.Install},
-			Started:            true,
-			CollectMetricsTime: 1234567,
-			UpdateStatusTime:   1234567,
+			Kind:     operation.RunAction,
+			Step:     operation.Done,
+			ActionId: &someActionId,
+			Hook:     &hook.Info{Kind: hooks.Install},
+			Started:  true,
 		},
 	}}
 
@@ -201,40 +241,32 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 	}, {
 		description: "preserves only appropriate fields, no hook",
 		before: operation.State{
-			Kind:               operation.Continue,
-			Step:               operation.Pending,
-			Started:            true,
-			CollectMetricsTime: 1234567,
-			UpdateStatusTime:   1234567,
-			CharmURL:           curl("cs:quantal/wordpress-2"),
-			ActionId:           &randomActionId,
+			Kind:     operation.Continue,
+			Step:     operation.Pending,
+			Started:  true,
+			CharmURL: curl("cs:quantal/wordpress-2"),
+			ActionId: &randomActionId,
 		},
 		after: operation.State{
-			Kind:               operation.Continue,
-			Step:               operation.Pending,
-			Started:            true,
-			CollectMetricsTime: 1234567,
-			UpdateStatusTime:   1234567,
+			Kind:    operation.Continue,
+			Step:    operation.Pending,
+			Started: true,
 		},
 	}, {
 		description: "preserves only appropriate fields, with hook",
 		before: operation.State{
-			Kind:               operation.Continue,
-			Step:               operation.Pending,
-			Started:            true,
-			CollectMetricsTime: 1234567,
-			UpdateStatusTime:   1234567,
-			CharmURL:           curl("cs:quantal/wordpress-2"),
-			ActionId:           &randomActionId,
-			Hook:               &hook.Info{Kind: hooks.Install},
+			Kind:     operation.Continue,
+			Step:     operation.Pending,
+			Started:  true,
+			CharmURL: curl("cs:quantal/wordpress-2"),
+			ActionId: &randomActionId,
+			Hook:     &hook.Info{Kind: hooks.Install},
 		},
 		after: operation.State{
-			Kind:               operation.RunHook,
-			Step:               operation.Pending,
-			Hook:               &hook.Info{Kind: hooks.Install},
-			Started:            true,
-			CollectMetricsTime: 1234567,
-			UpdateStatusTime:   1234567,
+			Kind:    operation.RunHook,
+			Step:    operation.Pending,
+			Hook:    &hook.Info{Kind: hooks.Install},
+			Started: true,
 		},
 	}}
 

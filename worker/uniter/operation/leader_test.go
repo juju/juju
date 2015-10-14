@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -83,19 +83,17 @@ func (s *LeaderSuite) TestAcceptLeadership_Commit_NotLeader_Preserve(c *gc.C) {
 	c.Check(err, gc.Equals, operation.ErrSkipExecute)
 
 	newState, err := op.Commit(operation.State{
-		Kind:               operation.Continue,
-		Started:            true,
-		CollectMetricsTime: 1234567,
-		Hook:               &hook.Info{Kind: hooks.Install},
+		Kind:    operation.Continue,
+		Started: true,
+		Hook:    &hook.Info{Kind: hooks.Install},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newState, gc.DeepEquals, &operation.State{
-		Kind:               operation.RunHook,
-		Step:               operation.Queued,
-		Hook:               &hook.Info{Kind: hook.LeaderElected},
-		Leader:             true,
-		Started:            true,
-		CollectMetricsTime: 1234567,
+		Kind:    operation.RunHook,
+		Step:    operation.Queued,
+		Hook:    &hook.Info{Kind: hook.LeaderElected},
+		Leader:  true,
+		Started: true,
 	})
 }
 

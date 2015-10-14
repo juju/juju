@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
@@ -649,7 +649,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	})
 
 	// Check the mount point has been created inside the container.
-	c.Assert(filepath.Join(s.LxcDir, name, "rootfs", agent.DefaultLogDir), jc.IsDirectory)
+	c.Assert(filepath.Join(s.LxcDir, name, "rootfs", agent.DefaultPaths.LogDir), jc.IsDirectory)
 	// Check that the config file is linked in the restart dir.
 	expectedLinkLocation := filepath.Join(s.RestartDir, name+".conf")
 	expectedTarget := filepath.Join(s.LxcDir, name, "config")
@@ -1251,6 +1251,19 @@ func (s *LxcSuite) TestIsLXCSupportedNonLinuxSystem(c *gc.C) {
 	supports, err := lxc.IsLXCSupported()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsFalse)
+}
+
+func (s *LxcSuite) TestWgetEnvironmentUsesNoProxy(c *gc.C) {
+	var wgetScript []byte
+	fakeCert := []byte("fakeCert")
+	s.PatchValue(lxc.WriteWgetTmpFile, func(filename string, data []byte, perm os.FileMode) error {
+		wgetScript = data
+		return nil
+	})
+	_, closer, err := lxc.WgetEnvironment(fakeCert)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	c.Assert(string(wgetScript), jc.Contains, "/usr/bin/wget --no-proxy --ca-certificate")
 }
 
 type mockLoopDeviceManager struct {

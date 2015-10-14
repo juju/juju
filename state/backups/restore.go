@@ -161,7 +161,7 @@ func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 		machineUpdating.Add(1)
 		go func() {
 			defer machineUpdating.Done()
-			err := runMachineUpdate(machine.Addresses(), setAgentAddressScript(privateAddress))
+			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress))
 			logger.Errorf("failed updating machine: %v", err)
 		}()
 	}
@@ -181,7 +181,7 @@ for agent in *
 do
 	status  jujud-$agent| grep -q "^jujud-$agent start" > /dev/null
 	if [ $? -eq 0 ]; then
-		initctl stop jujud-$agent 
+		initctl stop jujud-$agent
 	fi
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
@@ -218,12 +218,15 @@ func setAgentAddressScript(stateAddr string) string {
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script.
-func runMachineUpdate(allAddr []network.Address, sshArg string) error {
-	addr := network.SelectPublicAddress(allAddr)
-	if addr == "" {
-		return errors.Errorf("no appropriate public address found")
+func runMachineUpdate(machine *state.Machine, sshArg string) error {
+	addr, err := machine.PublicAddress()
+	if err != nil {
+		if network.IsNoAddress(err) {
+			return errors.Annotatef(err, "no appropriate public address found")
+		}
+		return errors.Trace(err)
 	}
-	return runViaSSH(addr, sshArg)
+	return runViaSSH(addr.Value, sshArg)
 }
 
 // sshCommand hods ssh.Command type for testing purposes.
@@ -255,14 +258,14 @@ func updateBackupMachineTag(oldTag, newTag names.Tag) error {
 	if oldTagString == newTagString {
 		return nil
 	}
-	oldTagPath := path.Join(agent.DefaultDataDir, oldTagString)
-	newTagPath := path.Join(agent.DefaultDataDir, newTagString)
+	oldTagPath := path.Join(agent.DefaultPaths.DataDir, oldTagString)
+	newTagPath := path.Join(agent.DefaultPaths.DataDir, newTagString)
 
-	oldToolsDir := tools.ToolsDir(agent.DefaultDataDir, oldTagString)
+	oldToolsDir := tools.ToolsDir(agent.DefaultPaths.DataDir, oldTagString)
 	oldLink, err := filepath.EvalSymlinks(oldToolsDir)
 
 	os.Rename(oldTagPath, newTagPath)
-	newToolsDir := tools.ToolsDir(agent.DefaultDataDir, newTagString)
+	newToolsDir := tools.ToolsDir(agent.DefaultPaths.DataDir, newTagString)
 	newToolsPath := strings.Replace(oldLink, oldTagPath, newTagPath, -1)
 	err = symlink.Replace(newToolsDir, newToolsPath)
 	return errors.Annotatef(err, "cannot set the new tools path")

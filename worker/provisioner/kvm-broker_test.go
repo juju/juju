@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
-	"github.com/juju/juju/juju/arch"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -82,7 +82,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:           "/not/used/here",
+			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: "/not/used/here"}),
 			Tag:               names.NewUnitTag("ubuntu/1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",
@@ -101,7 +101,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 func (s *kvmBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
 	// To isolate the tests from the host's architecture, we override it here.
-	s.PatchValue(&version.Current.Arch, arch.AMD64)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)

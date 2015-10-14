@@ -14,6 +14,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 // Ensure maasEnviron supports environs.NetworkingEnviron.
@@ -43,6 +44,7 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.SetFeatureFlags(feature.AddressAllocation)

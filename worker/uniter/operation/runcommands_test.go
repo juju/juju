@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type RunCommandsSuite struct {
@@ -34,7 +34,7 @@ func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, gc.ErrorMatches, "blooey")
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, runner.CommandInfo{
+	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, context.CommandInfo{
 		RelationId:      123,
 		RemoteUnitName:  "foo/456",
 		ForceRemoteUnit: true,
@@ -42,8 +42,13 @@ func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 }
 
 func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
+	ctx := &MockContext{}
 	runnerFactory := &MockRunnerFactory{
-		MockNewCommandRunner: &MockNewCommandRunner{},
+		MockNewCommandRunner: &MockNewCommandRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
 	}
 	factory := operation.NewFactory(operation.FactoryParams{
 		RunnerFactory: runnerFactory,
@@ -55,15 +60,39 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, runner.CommandInfo{
+	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, context.CommandInfo{
 		RelationId:      123,
 		RemoteUnitName:  "foo/456",
 		ForceRemoteUnit: true,
 	})
+	ctx.CheckCall(c, 0, "Prepare")
+}
+
+func (s *RunCommandsSuite) TestPrepareCtxError(c *gc.C) {
+	ctx := &MockContext{}
+	ctx.SetErrors(errors.New("ctx prepare error"))
+	runnerFactory := &MockRunnerFactory{
+		MockNewCommandRunner: &MockNewCommandRunner{
+			runner: &MockRunner{
+				context: ctx,
+			},
+		},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+	})
+	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
+	op, err := factory.NewCommands(someCommandArgs, sendResponse)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.ErrorMatches, "ctx prepare error")
+	c.Assert(newState, gc.IsNil)
+	ctx.CheckCall(c, 0, "Prepare")
 }
 
 func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
-	for _, sendErr := range []error{runner.ErrRequeueAndReboot, runner.ErrReboot} {
+	for _, sendErr := range []error{context.ErrRequeueAndReboot, context.ErrReboot} {
 		runnerFactory := NewRunCommandsRunnerFactory(
 			&utilexec.ExecResponse{Code: 101}, sendErr,
 		)

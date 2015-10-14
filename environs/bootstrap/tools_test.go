@@ -6,11 +6,12 @@ package bootstrap_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -24,9 +25,7 @@ var _ = gc.Suite(&toolsSuite{})
 
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	// Host runs amd64, want ppc64 tools.
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
@@ -34,16 +33,14 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	arch := "ppc64el"
+	arch := arch.PPC64EL
 	err := bootstrap.ValidateUploadAllowed(env, &arch)
 	c.Assert(err, gc.ErrorMatches, `cannot build tools for "ppc64el" using a machine running on "amd64"`)
 }
 
 func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	// Host runs ppc64el, environment only supports amd64, arm64.
-	s.PatchValue(&arch.HostArch, func() string {
-		return "ppc64el"
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
@@ -59,9 +56,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	// Host runs arm64, environment supports arm64.
 	arm64 := "arm64"
-	s.PatchValue(&arch.HostArch, func() string {
-		return arm64
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	err := bootstrap.ValidateUploadAllowed(env, &arm64)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -69,15 +64,18 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var called int
 	var filter tools.Filter
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	var findStream string
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		called++
 		c.Check(major, gc.Equals, version.Current.Major)
 		c.Check(minor, gc.Equals, version.Current.Minor)
+		findStream = stream
 		filter = f
 		return nil, nil
 	})
 
 	vers := version.MustParse("1.2.1")
+	devVers := version.MustParse("1.2-beta1")
 	arm64 := "arm64"
 
 	type test struct {
@@ -85,6 +83,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		arch    *string
 		dev     bool
 		filter  tools.Filter
+		stream  string
 	}
 	tests := []test{{
 		version: nil,
@@ -99,20 +98,47 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	}, {
 		version: &vers,
 		arch:    &arm64,
+		filter:  tools.Filter{Arch: arm64, Number: vers},
+	}, {
+		version: &vers,
+		arch:    &arm64,
 		dev:     true,
 		filter:  tools.Filter{Arch: arm64, Number: vers},
+	}, {
+		version: &devVers,
+		arch:    &arm64,
+		filter:  tools.Filter{Arch: arm64, Number: devVers},
+	}, {
+		version: &devVers,
+		arch:    &arm64,
+		filter:  tools.Filter{Arch: arm64, Number: devVers},
+		stream:  "devel",
 	}}
 
 	for i, test := range tests {
 		c.Logf("test %d: %#v", i, test)
-		bootstrap.FindBootstrapTools(nil, test.version, test.arch)
+		extra := map[string]interface{}{"development": test.dev}
+		if test.stream != "" {
+			extra["agent-stream"] = test.stream
+		}
+		env := newEnviron("foo", useDefaultKeys, extra)
+		bootstrap.FindBootstrapTools(env, test.version, test.arch)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
+		if test.stream != "" {
+			c.Check(findStream, gc.Equals, test.stream)
+		} else {
+			if test.dev || test.version.IsDev() {
+				c.Check(findStream, gc.Equals, "devel")
+			} else {
+				c.Check(findStream, gc.Equals, "released")
+			}
+		}
 	}
 }
 
 func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -121,7 +147,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -132,11 +158,9 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		findToolsCalled++
 		return nil, errors.NotFoundf("tools")
 	})
@@ -158,7 +182,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 		return arch.I386
 	})
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		findToolsCalled++
 		return nil, errors.NotFoundf("tools")
 	})
@@ -174,10 +198,11 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion.Minor = 3
 	s.PatchValue(&version.Current, currentVersion)
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
 		c.Assert(f.Number.Minor, gc.Equals, 11)
 		c.Assert(f.Number.Patch, gc.Equals, 12)
+		c.Assert(stream, gc.Equals, "released")
 		findToolsCalled++
 		return []*tools.Tools{
 			&tools.Tools{
@@ -200,15 +225,12 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
-	s.PatchValue(&version.Current.Arch, "amd64")
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	trustyTools := &tools.Tools{
 		Version: version.MustParseBinary("1.2.3-trusty-amd64"),
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		return tools.List{trustyTools}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -233,22 +255,22 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
-	s.PatchValue(&arch.HostArch, func() string {
-		return "amd64"
-	})
-	s.PatchValue(&version.Current.Arch, "amd64")
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	var allTools tools.List
-	for _, series := range version.SupportedSeries() {
-		binary := version.Current
-		binary.Series = series
+	for _, series := range series.SupportedSeries() {
+		binary := version.Binary{
+			Number: version.Current.Number,
+			Series: series,
+			Arch:   arch.HostArch(),
+		}
 		allTools = append(allTools, &tools.Tools{
 			Version: binary,
 			URL:     "http://testing.invalid/tools.tar.gz",
 		})
 	}
 
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)

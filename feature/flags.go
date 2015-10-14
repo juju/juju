@@ -41,6 +41,11 @@ const LegacyUpstart = "legacy-upstart"
 // use statically allocated IP addresses.
 const AddressAllocation = "address-allocation"
 
+// PostNetCLIMVP is used to indicate that additional networking
+// commands will be available in addition to the networking MVP ones
+// (space list|create, subnet list|add).
+const PostNetCLIMVP = "post-net-cli-mvp"
+
 // dbLog indicates that Juju's logs go to MongoDB. It is not exported
 // because it should be checked for using IsDbLogEnabled.
 const dbLog = "db-log"
@@ -54,9 +59,6 @@ func IsDbLogEnabled() bool {
 // DisableRsyslog will stop the writing of the rsyslog accumulation and
 // forwarding configuration files by stopping the rsyslog workers.
 const DisableRsyslog = "disable-rsyslog"
-
-// CloudSigma enables the CloudSigma provider.
-const CloudSigma = "cloudsigma"
 
 // VSphereProvider enables the generic vmware provider.
 const VSphereProvider = "vsphere-provider"

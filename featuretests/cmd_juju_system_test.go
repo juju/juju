@@ -4,14 +4,16 @@
 package featuretests
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
@@ -155,4 +157,17 @@ func (s *cmdSystemSuite) TestSystemKill(c *gc.C) {
 	store, err := configstore.Default()
 	_, err = store.ReadInfo("dummyenv")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *cmdSystemSuite) TestListBlocks(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
+	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
+
+	ctx := s.run(c, "list-blocks", "--format", "json")
+	expected := fmt.Sprintf(`[{"name":"dummyenv","env-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
+		s.State.EnvironUUID(), s.AdminUserTag(c).String())
+
+	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
+	c.Check(strippedOut, gc.Equals, expected)
 }

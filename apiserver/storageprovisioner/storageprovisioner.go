@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -28,6 +29,7 @@ type StorageProvisionerAPI struct {
 	*common.DeadEnsurer
 	*common.EnvironWatcher
 	*common.InstanceIdGetter
+	*common.StatusSetter
 
 	st                       provisionerState
 	settings                 poolmanager.SettingsManager
@@ -164,6 +166,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
 		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
+		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
 		st:                       stateInterface,
 		settings:                 settings,
@@ -313,7 +316,7 @@ func (s *StorageProvisionerAPI) WatchVolumeAttachments(args params.Entities) (pa
 		args,
 		s.st.WatchEnvironVolumeAttachments,
 		s.st.WatchMachineVolumeAttachments,
-		common.ParseVolumeAttachmentIds,
+		storagecommon.ParseVolumeAttachmentIds,
 	)
 }
 
@@ -324,7 +327,7 @@ func (s *StorageProvisionerAPI) WatchFilesystemAttachments(args params.Entities)
 		args,
 		s.st.WatchEnvironFilesystemAttachments,
 		s.st.WatchMachineFilesystemAttachments,
-		common.ParseFilesystemAttachmentIds,
+		storagecommon.ParseFilesystemAttachmentIds,
 	)
 }
 
@@ -396,7 +399,7 @@ func (s *StorageProvisionerAPI) Volumes(args params.Entities) (params.VolumeResu
 		} else if err != nil {
 			return params.Volume{}, err
 		}
-		return common.VolumeFromState(volume)
+		return storagecommon.VolumeFromState(volume)
 	}
 	for i, arg := range args.Entities {
 		var result params.VolumeResult
@@ -431,7 +434,7 @@ func (s *StorageProvisionerAPI) Filesystems(args params.Entities) (params.Filesy
 		} else if err != nil {
 			return params.Filesystem{}, err
 		}
-		return common.FilesystemFromState(filesystem)
+		return storagecommon.FilesystemFromState(filesystem)
 	}
 	for i, arg := range args.Entities {
 		var result params.FilesystemResult
@@ -460,7 +463,7 @@ func (s *StorageProvisionerAPI) VolumeAttachments(args params.MachineStorageIds)
 		if err != nil {
 			return params.VolumeAttachment{}, err
 		}
-		return common.VolumeAttachmentFromState(volumeAttachment)
+		return storagecommon.VolumeAttachmentFromState(volumeAttachment)
 	}
 	for i, arg := range args.Ids {
 		var result params.VolumeAttachmentResult
@@ -490,7 +493,7 @@ func (s *StorageProvisionerAPI) VolumeBlockDevices(args params.MachineStorageIds
 		if err != nil {
 			return storage.BlockDevice{}, err
 		}
-		return common.BlockDeviceFromState(stateBlockDevice), nil
+		return storagecommon.BlockDeviceFromState(stateBlockDevice), nil
 	}
 	for i, arg := range args.Ids {
 		var result params.BlockDeviceResult
@@ -519,7 +522,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachments(args params.MachineStorage
 		if err != nil {
 			return params.FilesystemAttachment{}, err
 		}
-		return common.FilesystemAttachmentFromState(filesystemAttachment)
+		return storagecommon.FilesystemAttachmentFromState(filesystemAttachment)
 	}
 	for i, arg := range args.Ids {
 		var result params.FilesystemAttachmentResult
@@ -564,14 +567,14 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
-		storageInstance, err := common.MaybeAssignedStorageInstance(
+		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
 			volume.StorageInstance,
 			s.st.StorageInstance,
 		)
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
-		volumeParams, err := common.VolumeParams(volume, storageInstance, envConfig, poolManager)
+		volumeParams, err := storagecommon.VolumeParams(volume, storageInstance, envConfig, poolManager)
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
@@ -646,14 +649,14 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 		} else if err != nil {
 			return params.FilesystemParams{}, err
 		}
-		storageInstance, err := common.MaybeAssignedStorageInstance(
+		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
 			filesystem.Storage,
 			s.st.StorageInstance,
 		)
 		if err != nil {
 			return params.FilesystemParams{}, err
 		}
-		filesystemParams, err := common.FilesystemParams(
+		filesystemParams, err := storagecommon.FilesystemParams(
 			filesystem, storageInstance, envConfig, poolManager,
 		)
 		if err != nil {
@@ -715,7 +718,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			volumeId = volumeInfo.VolumeId
 			pool = volumeInfo.Pool
 		}
-		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
+		providerType, _, err := storagecommon.StoragePoolConfig(pool, poolManager)
 		if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Trace(err)
 		}
@@ -794,7 +797,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
 		}
-		providerType, _, err := common.StoragePoolConfig(pool, poolManager)
+		providerType, _, err := storagecommon.StoragePoolConfig(pool, poolManager)
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}
@@ -885,7 +888,7 @@ func (s *StorageProvisionerAPI) oneVolumeBlockDevice(
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
-	blockDevice, ok := common.MatchingBlockDevice(
+	blockDevice, ok := storagecommon.MatchingBlockDevice(
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,
@@ -933,7 +936,7 @@ func (s *StorageProvisionerAPI) SetVolumeInfo(args params.Volumes) (params.Error
 		Results: make([]params.ErrorResult, len(args.Volumes)),
 	}
 	one := func(arg params.Volume) error {
-		volumeTag, volumeInfo, err := common.VolumeToState(arg)
+		volumeTag, volumeInfo, err := storagecommon.VolumeToState(arg)
 		if err != nil {
 			return errors.Trace(err)
 		} else if !canAccessVolume(volumeTag) {
@@ -962,7 +965,7 @@ func (s *StorageProvisionerAPI) SetFilesystemInfo(args params.Filesystems) (para
 		Results: make([]params.ErrorResult, len(args.Filesystems)),
 	}
 	one := func(arg params.Filesystem) error {
-		filesystemTag, filesystemInfo, err := common.FilesystemToState(arg)
+		filesystemTag, filesystemInfo, err := storagecommon.FilesystemToState(arg)
 		if err != nil {
 			return errors.Trace(err)
 		} else if !canAccessFilesystem(filesystemTag) {
@@ -994,7 +997,7 @@ func (s *StorageProvisionerAPI) SetVolumeAttachmentInfo(
 		Results: make([]params.ErrorResult, len(args.VolumeAttachments)),
 	}
 	one := func(arg params.VolumeAttachment) error {
-		machineTag, volumeTag, volumeAttachmentInfo, err := common.VolumeAttachmentToState(arg)
+		machineTag, volumeTag, volumeAttachmentInfo, err := storagecommon.VolumeAttachmentToState(arg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1027,7 +1030,7 @@ func (s *StorageProvisionerAPI) SetFilesystemAttachmentInfo(
 		Results: make([]params.ErrorResult, len(args.FilesystemAttachments)),
 	}
 	one := func(arg params.FilesystemAttachment) error {
-		machineTag, filesystemTag, filesystemAttachmentInfo, err := common.FilesystemAttachmentToState(arg)
+		machineTag, filesystemTag, filesystemAttachmentInfo, err := storagecommon.FilesystemAttachmentToState(arg)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -20,6 +20,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -42,7 +43,6 @@ func TestPackage(t *testing.T) {
 type syncSuite struct {
 	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
-	origVersion  version.Binary
 	storage      storage.Storage
 	localStorage string
 }
@@ -57,9 +57,9 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	}
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.origVersion = version.Current
+
 	// It's important that this be v1.8.x to match the test data.
-	version.Current.Number = version.MustParse("1.8.3")
+	s.PatchValue(&version.Current.Number, version.MustParse("1.8.3"))
 
 	// Create a source storage.
 	baseDir := c.MkDir()
@@ -85,7 +85,6 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 }
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
-	version.Current = s.origVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 }
@@ -237,17 +236,17 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
-	s.assertUploadedTools(c, t, []string{version.Current.Series}, "released")
+	s.assertUploadedTools(c, t, []string{series.HostSeries()}, "released")
 }
 
 func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	seriesToUpload := "precise"
-	if seriesToUpload == version.Current.Series {
+	if seriesToUpload == series.HostSeries() {
 		seriesToUpload = "raring"
 	}
 	t, err := sync.Upload(s.targetStorage, "released", nil, "quantal", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", version.Current.Series}, "released")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", series.HostSeries()}, "released")
 }
 
 func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
@@ -273,7 +272,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 
 func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 	seriesToUpload := "precise"
-	if seriesToUpload == version.Current.Series {
+	if seriesToUpload == series.HostSeries() {
 		seriesToUpload = "raring"
 	}
 	builtTools, err := sync.BuildToolsTarball(nil, "testing")
@@ -281,7 +280,7 @@ func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 
 	t, err := sync.SyncBuiltTools(s.targetStorage, "testing", builtTools, "quantal", seriesToUpload)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", version.Current.Series}, "testing")
+	s.assertUploadedTools(c, t, []string{seriesToUpload, "quantal", series.HostSeries()}, "testing")
 }
 
 func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {

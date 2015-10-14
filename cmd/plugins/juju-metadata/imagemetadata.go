@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/juju/arch"
 )
 
 type ImageMetadataCommandBase struct {
@@ -28,7 +28,7 @@ type ImageMetadataCommandBase struct {
 }
 
 func (c *ImageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
-	cfg, err := c.Config(store)
+	cfg, err := c.Config(store, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get config from store")
 	}
@@ -150,7 +150,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 }
 
 var helpDoc = `
-image metadata files have been written to:
+Image metadata files have been written to:
 %s.
 For Juju to use this metadata, the files need to be put into the
 image metadata search path. There are 2 options:
@@ -162,9 +162,6 @@ image metadata search path. There are 2 options:
 Configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.
-
-"
-
 `
 
 func (c *ImageMetadataCommand) Run(context *cmd.Context) error {

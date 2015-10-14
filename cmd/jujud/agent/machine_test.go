@@ -20,19 +20,24 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apiaddresser "github.com/juju/juju/api/addresser"
 	apideployer "github.com/juju/juju/api/deployer"
 	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/imagemetadata"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
@@ -42,10 +47,10 @@ import (
 	"github.com/juju/juju/cert"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -63,6 +68,8 @@ import (
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/addresser"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
@@ -108,8 +115,6 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	// We're not interested in whether EnsureJujudPassword works here since we test it somewhere else
-	s.PatchValue(&password.EnsureJujudPassword, func() error { return nil })
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -118,6 +123,7 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
+	s.AgentSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -161,6 +167,18 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *commonMachineSuite) primeAgent(
+	c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+	vers := version.Binary{
+		Number: version.Current.Number,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	return s.primeAgentVersion(c, vers, jobs...)
+}
+
+// primeAgentVersion is similar to primeAgent, but permits the
+// caller to specify the version.Binary to prime with.
+func (s *commonMachineSuite) primeAgentVersion(
 	c *gc.C, vers version.Binary,
 	jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 
@@ -173,7 +191,6 @@ func (s *commonMachineSuite) primeAgent(
 		err := pinger.Stop()
 		c.Check(err, jc.ErrorIsNil)
 	})
-
 	return s.configureMachine(c, m.Id(), vers)
 }
 
@@ -221,7 +238,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	logsCh, err := logsender.InstallBufferedLogWriter(1024)
 	c.Assert(err, jc.ErrorIsNil)
 	machineAgentFactory := MachineAgentFactoryFn(
-		&agentConf, &agentConf, logsCh, &mockLoopDeviceManager{},
+		&agentConf, logsCh, &mockLoopDeviceManager{},
 	)
 	return machineAgentFactory(m.Id())
 }
@@ -232,8 +249,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		a := NewMachineAgentCmd(
 			nil,
 			MachineAgentFactoryFn(
-				&agentConf, &agentConf, nil,
-				&mockLoopDeviceManager{},
+				&agentConf, nil, &mockLoopDeviceManager{},
 			),
 			&agentConf,
 			&agentConf,
@@ -266,7 +282,7 @@ const initialMachinePassword = "machine-password-1234567890"
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 	s.metricAPI = newMockMetricAPI()
-	s.PatchValue(&getMetricAPI, func(_ *api.State) apimetricsmanager.MetricsManagerClient {
+	s.PatchValue(&getMetricAPI, func(_ api.Connection) apimetricsmanager.MetricsManagerClient {
 		return s.metricAPI
 	})
 	s.AddCleanup(func(*gc.C) { s.metricAPI.Stop() })
@@ -296,7 +312,7 @@ func (s *MachineSuite) TestParseUnknown(c *gc.C) {
 
 func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 	c.Skip("agents don't yet distinguish between temporary and permanent errors")
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := s.newAgent(c, m).Run(nil)
 	c.Assert(err, gc.ErrorMatches, "some error")
 }
@@ -310,8 +326,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	a := NewMachineAgentCmd(
 		ctx,
 		MachineAgentFactoryFn(
-			agentConf, agentConf, nil,
-			&mockLoopDeviceManager{},
+			agentConf, nil, &mockLoopDeviceManager{},
 		),
 		agentConf,
 		agentConf,
@@ -339,7 +354,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	a := NewMachineAgentCmd(
 		ctx,
 		MachineAgentFactoryFn(
-			agentConf, agentConf, nil,
+			agentConf, nil,
 			&mockLoopDeviceManager{},
 		),
 		agentConf,
@@ -359,7 +374,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRunStop(c *gc.C) {
-	m, ac, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -372,7 +387,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	a := s.newAgent(c, m)
@@ -381,7 +396,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Remove()
@@ -392,7 +407,7 @@ func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingMachine(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -419,7 +434,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHostUnits(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	ctx, reset := patchDeployContext(c, s.BackingState)
 	defer reset()
@@ -512,7 +527,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -581,7 +596,7 @@ func (s *MachineSuite) TestManageEnvironRunsResumer(c *gc.C) {
 		return resumer.NewResumer(st)
 	})
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -608,7 +623,7 @@ func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 		return instancepoller.NewWorker(st)
 	})
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -632,7 +647,7 @@ func (s *MachineSuite) TestManageEnvironStartsInstancePoller(c *gc.C) {
 const startWorkerWait = 250 * time.Millisecond
 
 func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
-	s.PatchValue(&getFirewallMode, func(*api.State) (string, error) {
+	s.PatchValue(&getFirewallMode, func(api.Connection) (string, error) {
 		return config.FwNone, nil
 	})
 	started := make(chan struct{})
@@ -641,7 +656,7 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 		return newDummyWorker(), nil
 	})
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -666,8 +681,12 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+		c, s.DefaultToolsStorage,
+		s.Environ.Config().AgentStream(),
+		s.Environ.Config().AgentStream(),
+		usefulVersion,
+	)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -712,7 +731,7 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 		}
 		return newDummyWorker(), nil
 	})
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
@@ -725,10 +744,58 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) testAddresserNewWorkerResult(c *gc.C, expectFinished bool) {
+	// TODO(dimitern): Fix this in a follow-up.
+	c.Skip("Test temporarily disabled as flaky - see bug lp:1488576")
+
+	started := make(chan struct{})
+	s.PatchValue(&newAddresser, func(api *apiaddresser.API) (worker.Worker, error) {
+		close(started)
+		w, err := addresser.NewWorker(api)
+		c.Check(err, jc.ErrorIsNil)
+		if expectFinished {
+			// When the address-allocation feature flag is disabled.
+			c.Check(w, gc.FitsTypeOf, worker.FinishedWorker{})
+		} else {
+			// When the address-allocation feature flag is enabled.
+			c.Check(w, gc.Not(gc.FitsTypeOf), worker.FinishedWorker{})
+		}
+		return w, err
+	})
+
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), jc.ErrorIsNil)
+	}()
+
+	// Wait for the worker that starts before the addresser to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "cleaner")
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for addresser to start")
+	}
+}
+
+func (s *MachineSuite) TestAddresserWorkerDoesNotStopWhenAddressDeallocationSupported(c *gc.C) {
+	s.SetFeatureFlags(feature.AddressAllocation)
+	s.testAddresserNewWorkerResult(c, false)
+}
+
+func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupported(c *gc.C) {
+	s.SetFeatureFlags()
+	s.testAddresserNewWorkerResult(c, true)
+}
+
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
 	s.SetFeatureFlags("db-log")
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
@@ -738,7 +805,7 @@ func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *g
 }
 
 func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
@@ -751,11 +818,12 @@ func (s *MachineSuite) TestManageEnvironDoesntRunDbLogPrunerByDefault(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
+	_ = s.singularRecord.nextRunner(c)
 	runner := s.singularRecord.nextRunner(c)
 	runner.waitForWorker(c, "statushistorypruner")
 }
@@ -766,7 +834,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	usefulVersion.Series = "quantal"
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	calledChan := make(chan struct{}, 1)
 	s.AgentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
 	// Now, start the agent, and observe that a JobManageEnviron agent
@@ -785,7 +853,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	}
 	c.Check(a.Stop(), jc.ErrorIsNil)
 	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
-	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m2, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a2 := s.newAgent(c, m2)
 	defer a2.Stop()
 	go func() {
@@ -845,14 +913,14 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
-	m, _, currentTools := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
+	m, _, currentTools := s.primeAgent(c, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
 	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() { done <- a.Run(nil) }()
@@ -898,10 +966,10 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 func (s *MachineSuite) assertJobWithAPI(
 	c *gc.C,
 	job state.MachineJob,
-	test func(agent.Config, *api.State),
+	test func(agent.Config, api.Connection),
 ) {
 	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st interface{}) {
-		test(cfg, st.(*api.State))
+		test(cfg, st.(api.Connection))
 	})
 }
 
@@ -929,7 +997,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	job state.MachineJob,
 	test func(agent.Config, interface{}),
 ) {
-	stm, conf, _ := s.primeAgent(c, version.Current, job)
+	stm, conf, _ := s.primeAgent(c, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
 	logger.Debugf("new agent %#v", a)
@@ -975,7 +1043,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
 	vers := version.Current
 	vers.Minor = version.Current.Minor + 1
-	m, _, _ := s.primeAgent(c, vers, job)
+	m, _, _ := s.primeAgentVersion(c, vers, job)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1085,7 +1153,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
 	}
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1134,25 +1202,97 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	}
 }
 
-func (s *MachineSuite) TestOpenStateFailsForJobHostUnitsButOpenAPIWorks(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	s.RunTestOpenAPIState(c, m, a, initialMachinePassword)
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
+func (s *MachineSuite) TestOpenStateFailsForJobHostUnits(c *gc.C) {
+	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
+		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
+	})
+}
+
+func (s *MachineSuite) TestOpenStateFailsForJobManageNetworking(c *gc.C) {
+	s.assertJobWithAPI(c, state.JobManageNetworking, func(conf agent.Config, st api.Connection) {
 		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 	})
 }
 
 func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
 		s.AssertCanOpenState(c, conf.Tag(), conf.DataDir())
 	})
+}
+
+func (s *MachineSuite) TestOpenAPIStateWorksForJobHostUnits(c *gc.C) {
+	machine, conf, _ := s.primeAgent(c, state.JobHostUnits)
+	s.runOpenAPISTateTest(c, machine, conf)
+}
+
+func (s *MachineSuite) TestOpenAPIStateWorksForJobManageNetworking(c *gc.C) {
+	machine, conf, _ := s.primeAgent(c, state.JobManageNetworking)
+	s.runOpenAPISTateTest(c, machine, conf)
+}
+
+func (s *MachineSuite) TestOpenAPIStateWorksForJobManageEnviron(c *gc.C) {
+	machine, conf, _ := s.primeAgent(c, state.JobManageEnviron)
+	s.runOpenAPISTateTest(c, machine, conf)
+}
+
+func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf agent.Config) {
+	configPath := agent.ConfigPath(conf.DataDir(), conf.Tag())
+
+	// Set a failing password...
+	confW, err := agent.ReadConfig(configPath)
+	c.Assert(err, jc.ErrorIsNil)
+	confW.SetPassword("not-set-on-state-server")
+
+	// ...and also make sure the api info points to the testing api
+	// server (and not, as for JobManageEnviron machines, to the port
+	// chosen for the agent's own API server to run on. This is usually
+	// sane, but inconvenient here because we're not running the full
+	// agent and so the configured API server is not actually there).
+	apiInfo := s.APIInfo(c)
+	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs...)
+	c.Assert(err, jc.ErrorIsNil)
+	confW.SetAPIHostPorts([][]network.HostPort{hostPorts})
+	err = confW.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that it successfully connects with the conf's old password.
+	assertOpen := func() {
+		tagString := conf.Tag().String()
+		agent := NewAgentConf(conf.DataDir())
+		err := agent.ReadConfig(tagString)
+		c.Assert(err, jc.ErrorIsNil)
+		st, gotEntity, err := apicaller.OpenAPIState(agent)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(st, gc.NotNil)
+		st.Close()
+		c.Assert(gotEntity.Tag(), gc.Equals, tagString)
+	}
+	assertOpen()
+
+	// Check that the initial password is no longer valid.
+	assertPassword := func(password string, valid bool) {
+		err := machine.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(machine.PasswordValid(password), gc.Equals, valid)
+	}
+	assertPassword(initialMachinePassword, false)
+
+	// Read the configuration and check that we can connect with it.
+	confR, err := agent.ReadConfig(configPath)
+	c.Assert(err, gc.IsNil)
+	newPassword := confR.APIInfo().Password
+	assertPassword(newPassword, true)
+
+	// Double-check that we can open a fresh connection with the stored
+	// conf ... and that the password hasn't been changed again.
+	assertOpen()
+	assertPassword(newPassword, true)
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 	_, err := os.Stat(JujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
 		// juju-run should have been created
 		_, err := os.Stat(JujuRun)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1169,7 +1309,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(JujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st api.Connection) {
 		// juju-run should have been recreated
 		_, err := os.Stat(JujuRun)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1220,8 +1360,8 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 	}
 	s.AgentSuite.PatchValue(&proxyupdater.New, mockNew)
 
-	s.primeAgent(c, version.Current, state.JobHostUnits)
-	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
+	s.primeAgent(c, state.JobHostUnits)
+	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st api.Connection) {
 		for {
 			select {
 			case <-time.After(coretesting.LongWait):
@@ -1235,7 +1375,7 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 }
 
 func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
-	m, ac, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	a := s.newAgent(c, m)
@@ -1263,7 +1403,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 		created <- mode
 		return newDummyWorker(), nil
 	})
-	s.assertJobWithAPI(c, job, func(conf agent.Config, st *api.State) {
+	s.assertJobWithAPI(c, job, func(conf agent.Config, st api.Connection) {
 		select {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timeout while waiting for rsyslog worker to be created")
@@ -1275,7 +1415,7 @@ func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.Ma
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1309,7 +1449,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	s.PatchValue(&newDiskManager, newWorker)
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1329,7 +1469,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	})
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1348,8 +1488,66 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	c.Fatalf("timeout while waiting for block devices to be recorded")
 }
 
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForHostUnits(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobHostUnits, "can host units")
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageNetworking(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageNetworking, "can manage networking")
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageStateDeprecated(c *gc.C) {
+	s.checkMetadataWorkerNotRun(c, state.JobManageStateDeprecated, "can manage state (deprecated)")
+}
+
+func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
+	// Patch out the worker func before starting the agent.
+	started := make(chan struct{})
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newMetadataUpdater, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, job)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+		c.Fatalf("metadata update worker unexpectedly started for non-state server machine that %v", suffix)
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
+	// Patch out the worker func before starting the agent.
+	started := make(chan struct{})
+	newWorker := func(cl *imagemetadata.Client) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newMetadataUpdater, newWorker)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for metadata update worker to start")
+	}
+}
+
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 
 	started := make(chan struct{})
 	newWorker := func(
@@ -1360,6 +1558,8 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
+		_ clock.Clock,
 	) worker.Worker {
 		c.Check(scope, gc.Equals, m.Tag())
 		// storageDir is not empty for machine scoped storage provisioners
@@ -1383,7 +1583,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 
 	var numWorkers, machineWorkers, environWorkers uint32
 	started := make(chan struct{})
@@ -1395,6 +1595,8 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
+		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
@@ -1431,7 +1633,7 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1439,7 +1641,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1455,7 +1657,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1463,7 +1665,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonS
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1478,7 +1680,7 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonS
 
 func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 	// Set up the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	a.ReadConfig(names.NewMachineTag(m.Id()).String())
 
@@ -1514,14 +1716,14 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	// Disable the certificate work so it doesn't update the certificate.
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter, chan params.StateServingInfo,
+		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
 	// Set up the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 
 	// Set up check that certificate has been updated when the agent starts.
@@ -1605,7 +1807,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		m, _, _ := s.primeAgent(c, version.Current, test.jobs...)
+		m, _, _ := s.primeAgent(c, test.jobs...)
 		a := s.newAgent(c, m)
 		defer a.Stop()
 		doneCh := make(chan error)
@@ -1644,7 +1846,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+		m, _, _ := s.primeAgent(c, state.JobHostUnits)
 		a := s.newAgent(c, m)
 		defer a.Stop()
 		doneCh := make(chan error)
@@ -1665,7 +1867,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
-	m, agentConfig, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, agentConfig, _ := s.primeAgent(c, state.JobManageEnviron)
 	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
 	err := agentConfig.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1707,7 +1909,7 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 
 func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1723,7 +1925,7 @@ func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
 
 func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1741,7 +1943,7 @@ func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
 
 func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -1750,40 +1952,6 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	err := a.BeginRestore()
 	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
-}
-func (s *MachineSuite) TestMachineAgentAPIWorkerErrorClosesAPI(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	a.apiStateUpgrader = &machineAgentUpgrader{}
-
-	closedAPI := make(chan io.Closer, 1)
-	s.AgentSuite.PatchValue(&reportClosedMachineAPI, func(st io.Closer) {
-		select {
-		case closedAPI <- st:
-			close(closedAPI)
-		default:
-		}
-	})
-
-	worker, err := a.APIWorker()
-
-	select {
-	case closed := <-closedAPI:
-		c.Assert(closed, gc.NotNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("API not opened")
-	}
-
-	c.Assert(worker, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot set machine agent version: test failure")
-	c.Assert(a.isAgentUpgradePending(), jc.IsTrue)
-}
-
-type machineAgentUpgrader struct{}
-
-func (m *machineAgentUpgrader) SetVersion(s string, v version.Binary) error {
-	return errors.New("test failure")
 }
 
 func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
@@ -1812,6 +1980,8 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 		_ storageprovisioner.LifecycleManager,
 		_ storageprovisioner.EnvironAccessor,
 		_ storageprovisioner.MachineAccessor,
+		_ storageprovisioner.StatusSetter,
+		_ clock.Clock,
 	) worker.Worker {
 		// storageDir is empty for environ storage provisioners
 		if storageDir == "" {
@@ -1859,7 +2029,7 @@ func (s *MachineSuite) setUpAgent(c *gc.C) (expectedWorkers []string, closer fun
 	}
 	s.PatchValue(&watcher.Period, 100*time.Millisecond)
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 
@@ -1883,7 +2053,7 @@ func (s *MachineSuite) TestReplicasetInitiation(c *gc.C) {
 
 	s.fakeEnsureMongo.ReplicasetInitiated = false
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	agentConfig := a.CurrentConfig()
 
@@ -1901,7 +2071,7 @@ func (s *MachineSuite) TestReplicasetAlreadyInitiated(c *gc.C) {
 
 	s.fakeEnsureMongo.ReplicasetInitiated = true
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	agentConfig := a.CurrentConfig()
 
@@ -1920,7 +2090,7 @@ func (s *MachineSuite) TestReplicasetInitForNewStateServer(c *gc.C) {
 	s.fakeEnsureMongo.ServiceInstalled = false
 	s.fakeEnsureMongo.ReplicasetInitiated = true
 
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	agentConfig := a.CurrentConfig()
 
@@ -1946,8 +2116,8 @@ func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.commonMachineSuite.TearDownSuite(c)
 	s.CharmSuite.TearDownSuite(c)
+	s.commonMachineSuite.TearDownSuite(c)
 }
 
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
@@ -1956,12 +2126,12 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
-	s.commonMachineSuite.TearDownTest(c)
 	s.CharmSuite.TearDownTest(c)
+	s.commonMachineSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc.C) {
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 
 	s.SetupScenario(c)
 

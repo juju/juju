@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5/charmrepo"
+	"gopkg.in/juju/charmrepo.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -84,6 +84,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.CleanupSuite.SetUpTest(c)
+	t.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)

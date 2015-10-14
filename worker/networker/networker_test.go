@@ -40,7 +40,7 @@ type networkerSuite struct {
 	vlanModuleLoaded      bool
 	lastCommands          chan []string
 
-	apiState  *api.State
+	apiState  api.Connection
 	apiFacade apinetworker.State
 }
 

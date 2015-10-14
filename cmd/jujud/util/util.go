@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
@@ -27,7 +27,7 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud.util")
-	DataDir           = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	DataDir           = paths.MustSucceed(paths.DataDir(series.HostSeries()))
 	EnsureMongoServer = mongo.EnsureServer
 )
 
@@ -88,6 +88,14 @@ func importance(err error) int {
 // that is, whether we should act on err0 in preference to err1.
 func MoreImportant(err0, err1 error) bool {
 	return importance(err0) > importance(err1)
+}
+
+// MoreImportantError returns the most important error
+func MoreImportantError(err0, err1 error) error {
+	if importance(err0) > importance(err1) {
+		return err0
+	}
+	return err1
 }
 
 // AgentDone processes the error returned by
@@ -238,7 +246,7 @@ var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config
 	if err != nil {
 		return nil, err
 	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agentConfig.DataDir())
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agent.DefaultPaths.ConfDir)
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

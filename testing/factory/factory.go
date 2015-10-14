@@ -10,14 +10,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -81,6 +81,7 @@ type ServiceParams struct {
 	Name    string
 	Charm   *state.Charm
 	Creator names.Tag
+	Status  *state.StatusInfo
 }
 
 // UnitParams are used to create units.
@@ -89,6 +90,7 @@ type UnitParams struct {
 	Machine     *state.Machine
 	Password    string
 	SetCharmURL bool
+	Status      *state.StatusInfo
 }
 
 // RelationParams are used to create relations.
@@ -332,6 +334,12 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	_ = params.Creator.(names.UserTag)
 	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	if params.Status != nil {
+		err = service.SetStatus(params.Status.Status, params.Status.Message, params.Status.Data)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	return service
 }
 
@@ -373,6 +381,11 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	err = unit.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 
+	if params.Status != nil {
+		err = unit.SetStatus(params.Status.Status, params.Status.Message, params.Status.Data)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	return unit, params.Password
 }
 
@@ -399,7 +412,14 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 	chURL, ok := params.Unit.CharmURL()
 	c.Assert(ok, gc.Equals, true)
 
-	metric, err := params.Unit.AddMetrics(utils.MustNewUUID().String(), *params.Time, chURL.String(), params.Metrics)
+	metric, err := factory.st.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  *params.Time,
+			CharmURL: chURL.String(),
+			Metrics:  params.Metrics,
+			Unit:     params.Unit.UnitTag(),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
 		err := metric.SetSent()

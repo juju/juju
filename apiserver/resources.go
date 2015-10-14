@@ -41,7 +41,6 @@ func (h *resourcesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		h.sendExistingError(w, http.StatusNotFound, err)
 		return
 	}
-	defer stateWrapper.cleanup()
 
 	if _, err := stateWrapper.authenticateAgent(r); err != nil {
 		h.authError(w, h)
@@ -75,7 +74,6 @@ func (h *resourcesUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		h.sendExistingError(w, http.StatusNotFound, err)
 		return
 	}
-	defer stateWrapper.cleanup()
 
 	if err := stateWrapper.authenticateUser(r); err != nil {
 		h.authError(w, h)

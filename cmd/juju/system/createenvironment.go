@@ -12,11 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/keyvalues"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	localProvider "github.com/juju/juju/provider/local"
@@ -27,10 +28,11 @@ type CreateEnvironmentCommand struct {
 	envcmd.SysCommandBase
 	api CreateEnvironmentAPI
 
-	name       string
-	owner      string
-	configFile cmd.FileVar
-	confValues map[string]string
+	name         string
+	owner        string
+	configFile   cmd.FileVar
+	confValues   map[string]string
+	configParser func(interface{}) (interface{}, error)
 }
 
 const createEnvHelpDoc = `
@@ -82,6 +84,10 @@ func (c *CreateEnvironmentCommand) Init(args []string) error {
 
 	if c.owner != "" && !names.IsValidUser(c.owner) {
 		return errors.Errorf("%q is not a valid user", c.owner)
+	}
+
+	if c.configParser == nil {
+		c.configParser = common.ConformYAML
 	}
 
 	return nil
@@ -199,12 +205,25 @@ func (c *CreateEnvironmentCommand) getConfigValues(ctx *cmd.Context, serverSkele
 	if c.configFile.Path != "" {
 		configYAML, err := c.configFile.Read(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "unable to read config file")
 		}
-		err = yaml.Unmarshal(configYAML, &fileConfig)
+
+		rawFileConfig := make(map[string]interface{})
+		err = yaml.Unmarshal(configYAML, &rawFileConfig)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "unable to parse config file")
 		}
+
+		conformantConfig, err := c.configParser(rawFileConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "unable to parse config file")
+		}
+		betterConfig, ok := conformantConfig.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("config must contain a YAML map with string keys")
+		}
+
+		fileConfig = betterConfig
 	}
 
 	configValues := make(map[string]interface{})

@@ -14,7 +14,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -112,6 +112,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	presence.Presencer
+	StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -384,17 +385,16 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		return setDyingOps, nil
 	}
 
+	// See if the unit agent has started running.
+	// If so then we can't set directly to dead.
 	agentStatusDocId := u.globalAgentKey()
-	agentStatusDoc, agentErr := getStatus(u.st, agentStatusDocId)
+	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-
-	// See if the unit's machine has been allocated.
-	// If already allocated, then we can't set directly to dead.
-	if agentStatusDoc.Status != StatusAllocating {
+	if agentStatusInfo.Status != StatusAllocating {
 		return setDyingOps, nil
 	}
 
@@ -732,34 +732,24 @@ func (u *Unit) machine() (*Machine, error) {
 	return m, nil
 }
 
-// addressesOfMachine returns Addresses of the related machine if present.
-func (u *Unit) addressesOfMachine() []network.Address {
+// PublicAddress returns the public address of the unit.
+func (u *Unit) PublicAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Errorf("%v", err)
-		return nil
+		return network.Address{}, errors.Trace(err)
 	}
-	return m.Addresses()
+	return m.PublicAddress()
 }
 
-// PublicAddress returns the public address of the unit and whether it is valid.
-func (u *Unit) PublicAddress() (string, bool) {
-	var publicAddress string
-	addresses := u.addressesOfMachine()
-	if len(addresses) > 0 {
-		publicAddress = network.SelectPublicAddress(addresses)
+// PrivateAddress returns the private address of the unit.
+func (u *Unit) PrivateAddress() (network.Address, error) {
+	m, err := u.machine()
+	if err != nil {
+		unitLogger.Errorf("%v", err)
+		return network.Address{}, errors.Trace(err)
 	}
-	return publicAddress, publicAddress != ""
-}
-
-// PrivateAddress returns the private address of the unit and whether it is valid.
-func (u *Unit) PrivateAddress() (string, bool) {
-	var privateAddress string
-	addresses := u.addressesOfMachine()
-	if len(addresses) > 0 {
-		privateAddress = network.SelectInternalAddress(addresses, false)
-	}
-	return privateAddress, privateAddress != ""
+	return m.PrivateAddress()
 }
 
 // AvailabilityZone returns the name of the availability zone into which
@@ -790,8 +780,14 @@ func (u *Unit) Refresh() error {
 }
 
 // Agent Returns an agent by its unit's name.
-func (u *Unit) Agent() Entity {
+func (u *Unit) Agent() *UnitAgent {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
+}
+
+// AgentHistory returns an StatusHistoryGetter which can
+//be used to query the status history of the unit's agent.
+func (u *Unit) AgentHistory() StatusHistoryGetter {
+	return u.Agent()
 }
 
 // SetAgentStatus calls SetStatus for this unit's agent, this call
@@ -813,7 +809,7 @@ func (u *Unit) AgentStatus() (StatusInfo, error) {
 // StatusHistory returns a slice of at most <size> StatusInfo items
 // representing past statuses for this unit.
 func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
-	return statusHistory(size, u.globalKey(), u.st)
+	return statusHistory(u.st, u.globalKey(), size)
 }
 
 // Status returns the status of the unit.
@@ -824,22 +820,19 @@ func (u *Unit) Status() (StatusInfo, error) {
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
-	doc, err := getStatus(u.st, u.globalAgentKey())
+	// TODO(fwereade) as on unitagent, this transformation does not belong here.
+	// For now, pretend we're always reading the unit status.
+	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
 	if err != nil {
 		return StatusInfo{}, err
 	}
-	if doc.Status != StatusError {
-		doc, err = getStatus(u.st, u.globalKey())
+	if info.Status != StatusError {
+		info, err = getStatus(u.st, u.globalKey(), "unit")
 		if err != nil {
 			return StatusInfo{}, err
 		}
 	}
-	return StatusInfo{
-		Status:  doc.Status,
-		Message: doc.StatusInfo,
-		Data:    doc.StatusData,
-		Since:   doc.Updated,
-	}, nil
+	return info, nil
 }
 
 // SetStatus sets the status of the unit agent. The optional values
@@ -848,36 +841,16 @@ func (u *Unit) Status() (StatusInfo, error) {
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	oldDoc, err := getStatus(u.st, u.globalKey())
-	if IsStatusNotFound(err) {
-		logger.Debugf("there is no state for %q yet", u.globalKey())
-	} else if err != nil {
-		logger.Debugf("cannot get state for %q yet", u.globalKey())
+	if !ValidWorkloadStatus(status) {
+		return errors.Errorf("cannot set invalid status %q", status)
 	}
-
-	doc, err := newUnitStatusDoc(status, info, data)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-	},
-		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
-	}
-	err = u.st.runTransaction(ops)
-	if err != nil {
-		return errors.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
-	}
-
-	if oldDoc.Status != "" {
-		if err := updateStatusHistory(oldDoc, u.globalKey(), u.st); err != nil {
-			logger.Errorf("could not record status history before change to %q: %v", status, err)
-		}
-	}
-	return nil
+	return setStatus(u.st, setStatusParams{
+		badge:     "unit",
+		globalKey: u.globalKey(),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }
 
 // OpenPorts opens the given port range and protocol for the unit, if
@@ -2151,36 +2124,6 @@ func (u *Unit) ClearResolved() error {
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
-}
-
-// AddMetrics adds a new batch of metrics to the database.
-func (u *Unit) AddMetrics(batchUUID string, created time.Time, charmURLRaw string, metrics []Metric) (*MetricBatch, error) {
-	var charmURL *charm.URL
-	if charmURLRaw == "" {
-		var ok bool
-		charmURL, ok = u.CharmURL()
-		if !ok {
-			return nil, stderrors.New("failed to add metrics, couldn't find charm url")
-		}
-	} else {
-		var err error
-		charmURL, err = charm.ParseURL(charmURLRaw)
-		if err != nil {
-			return nil, errors.NewNotValid(err, "could not parse charm URL")
-		}
-	}
-	service, err := u.Service()
-	if err != nil {
-		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
-	}
-	batch := BatchParam{
-		UUID:        batchUUID,
-		CharmURL:    charmURL,
-		Created:     created,
-		Metrics:     metrics,
-		Credentials: service.MetricCredentials(),
-	}
-	return u.st.addMetrics(u.UnitTag(), batch)
 }
 
 // StorageConstraints returns the unit's storage constraints.

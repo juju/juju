@@ -8,6 +8,12 @@ type BlockDevice struct {
 	// DeviceName is the block device's OS-specific name (e.g. "sdb").
 	DeviceName string `yaml:"devicename,omitempty"`
 
+	// DeviceLinks is a collection of symlinks to the block device
+	// that the OS maintains (e.g. "/dev/disk/by-id/..."). Storage
+	// provisioners can match volume attachments to device links if
+	// they know ahead of time how the OS will name them.
+	DeviceLinks []string `yaml:"devicelinks,omitempty"`
+
 	// Label is the label for the filesystem on the block device.
 	//
 	// This will be empty if the block device does not have a filesystem,
@@ -29,6 +35,15 @@ type BlockDevice struct {
 	// a block device if it is available, in preference to UUID or device
 	// name, as the hardware ID is immutable.
 	HardwareId string `yaml:"hardwareid,omitempty"`
+
+	// BusAddress is the bus address: where the block device is attached
+	// to the machine. This is currently only populated for disks attached
+	// to the SCSI bus.
+	//
+	// The format for this is <bus>@<bus-specific-address> as according to
+	// "lshw -businfo". For example, for a SCSI disk with Host=1, Bus=2,
+	// Target=3, Lun=4, we populate this field with "scsi@1:2.3.4".
+	BusAddress string `yaml:"busaddress,omitempty"`
 
 	// Size is the size of the block device, in MiB.
 	Size uint64 `yaml:"size"`

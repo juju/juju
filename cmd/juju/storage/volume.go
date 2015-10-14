@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 const volumeCmdDoc = `
@@ -23,14 +24,14 @@ const volumeCmdPurpose = "manage storage volumes"
 // NewVolumeSuperCommand creates the storage volume super subcommand and
 // registers the subcommands that it supports.
 func NewVolumeSuperCommand() cmd.Command {
-	poolcmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
+	supercmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
 		Name:        "volume",
 		Doc:         volumeCmdDoc,
 		UsagePrefix: "juju storage",
 		Purpose:     volumeCmdPurpose,
 	})
-	poolcmd.Register(envcmd.Wrap(&VolumeListCommand{}))
-	return poolcmd
+	supercmd.Register(envcmd.Wrap(&VolumeListCommand{}))
+	return supercmd
 }
 
 // VolumeCommandBase is a helper base structure for volume commands.
@@ -41,10 +42,17 @@ type VolumeCommandBase struct {
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {
 	// from params.Volume. This is provider-supplied unique volume id.
-	VolumeId string `yaml:"id" json:"id"`
+	ProviderVolumeId string `yaml:"provider-id,omitempty" json:"provider-id,omitempty"`
+
+	// Storage is the ID of the storage instance that the volume is
+	// assigned to, if any.
+	Storage string `yaml:"storage,omitempty" json:"storage,omitempty"`
+
+	// Attachments is the set of entities attached to the volume.
+	Attachments *VolumeAttachments `yaml:"attachments,omitempty" json:"attachments,omitempty"`
 
 	// from params.Volume
-	HardwareId string `yaml:"hardwareid" json:"hardwareid"`
+	HardwareId string `yaml:"hardware-id,omitempty" json:"hardware-id,omitempty"`
 
 	// from params.Volume
 	Size uint64 `yaml:"size" json:"size"`
@@ -52,36 +60,40 @@ type VolumeInfo struct {
 	// from params.Volume
 	Persistent bool `yaml:"persistent" json:"persistent"`
 
-	// from params.VolumeAttachments
-	DeviceName string `yaml:"device,omitempty" json:"device,omitempty"`
-
-	// from params.VolumeAttachments
-	ReadOnly bool `yaml:"read-only" json:"read-only"`
-
-	// from params.Volume. This is juju volume id.
-	Volume string `yaml:"volume,omitempty" json:"volume,omitempty"`
+	// from params.Volume
+	Status EntityStatus `yaml:"status,omitempty" json:"status,omitempty"`
 }
 
-// convertToVolumeInfo returns map of maps with volume info
-// keyed first on machine_id and then on volume_id.
-func convertToVolumeInfo(all []params.VolumeItem) (map[string]map[string]map[string]VolumeInfo, error) {
-	result := map[string]map[string]map[string]VolumeInfo{}
+type EntityStatus struct {
+	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
+	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
+	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
+}
+
+type VolumeAttachments struct {
+	Machines map[string]MachineVolumeAttachment `yaml:"machines,omitempty" json:"machines,omitempty"`
+	Units    map[string]UnitStorageAttachment   `yaml:"units,omitempty" json:"units,omitempty"`
+}
+
+type MachineVolumeAttachment struct {
+	DeviceName string `yaml:"device,omitempty" json:"device,omitempty"`
+	DeviceLink string `yaml:"device-link,omitempty" json:"device-link,omitempty"`
+	BusAddress string `yaml:"bus-address,omitempty" json:"bus-address,omitempty"`
+	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
+	// TODO(axw) add machine volume attachment status when we have it
+}
+
+// convertToVolumeInfo returns a map of volume IDs to volume info.
+func convertToVolumeInfo(all []params.VolumeDetailsResult) (map[string]VolumeInfo, error) {
+	result := make(map[string]VolumeInfo)
 	for _, one := range all {
-		if err := convertVolumeItem(one, result); err != nil {
+		volumeTag, info, err := createVolumeInfo(one)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		result[volumeTag.Id()] = info
 	}
 	return result, nil
-}
-
-func convertVolumeItem(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
-	if len(item.Attachments) != 0 {
-		// add info for volume attachments
-		return convertVolumeAttachments(item, all)
-	}
-	unattached, unit, storage := createInfo(item.Volume)
-	addOneToAll("unattached", unit, storage, unattached, all)
-	return nil
 }
 
 var idFromTag = func(s string) (string, error) {
@@ -92,50 +104,104 @@ var idFromTag = func(s string) (string, error) {
 	return tag.Id(), nil
 }
 
-func convertVolumeAttachments(item params.VolumeItem, all map[string]map[string]map[string]VolumeInfo) error {
-	for _, one := range item.Attachments {
-		machine, err := idFromTag(one.MachineTag)
-		if err != nil {
-			return errors.Trace(err)
+func createVolumeInfo(result params.VolumeDetailsResult) (names.VolumeTag, VolumeInfo, error) {
+	details := result.Details
+	if details == nil {
+		details = volumeDetailsFromLegacy(result)
+	}
+
+	volumeTag, err := names.ParseVolumeTag(details.VolumeTag)
+	if err != nil {
+		return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+	}
+
+	var info VolumeInfo
+	info.ProviderVolumeId = details.Info.VolumeId
+	info.HardwareId = details.Info.HardwareId
+	info.Size = details.Info.Size
+	info.Persistent = details.Info.Persistent
+	info.Status = EntityStatus{
+		details.Status.Status,
+		details.Status.Info,
+		// TODO(axw) we should support formatting as ISO time
+		common.FormatTime(details.Status.Since, false),
+	}
+
+	if len(details.MachineAttachments) > 0 {
+		machineAttachments := make(map[string]MachineVolumeAttachment)
+		for machineTag, attachment := range details.MachineAttachments {
+			machineId, err := idFromTag(machineTag)
+			if err != nil {
+				return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+			}
+			machineAttachments[machineId] = MachineVolumeAttachment{
+				attachment.DeviceName,
+				attachment.DeviceLink,
+				attachment.BusAddress,
+				attachment.ReadOnly,
+			}
 		}
-		info, unit, storage := createInfo(item.Volume)
-		info.DeviceName = one.Info.DeviceName
-		info.ReadOnly = one.Info.ReadOnly
-
-		addOneToAll(machine, unit, storage, info, all)
+		info.Attachments = &VolumeAttachments{
+			Machines: machineAttachments,
+		}
 	}
-	return nil
+
+	if details.Storage != nil {
+		storageTag, storageInfo, err := createStorageInfo(*details.Storage)
+		if err != nil {
+			return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+		}
+		info.Storage = storageTag.Id()
+		if storageInfo.Attachments != nil {
+			info.Attachments.Units = storageInfo.Attachments.Units
+		}
+	}
+
+	return volumeTag, info, nil
 }
 
-func addOneToAll(machineId, unitId, storageId string, item VolumeInfo, all map[string]map[string]map[string]VolumeInfo) {
-	machineVolumes, ok := all[machineId]
-	if !ok {
-		machineVolumes = map[string]map[string]VolumeInfo{}
-		all[machineId] = machineVolumes
+// volumeDetailsFromLegacy converts from legacy data structures
+// to params.VolumeDetails. This exists only for backwards-
+// compatibility. Please think long and hard before changing it.
+func volumeDetailsFromLegacy(result params.VolumeDetailsResult) *params.VolumeDetails {
+	details := &params.VolumeDetails{
+		VolumeTag: result.LegacyVolume.VolumeTag,
+		Status:    result.LegacyVolume.Status,
 	}
-	unitVolumes, ok := machineVolumes[unitId]
-	if !ok {
-		unitVolumes = map[string]VolumeInfo{}
-		machineVolumes[unitId] = unitVolumes
+	details.Info.VolumeId = result.LegacyVolume.VolumeId
+	details.Info.HardwareId = result.LegacyVolume.HardwareId
+	details.Info.Size = result.LegacyVolume.Size
+	details.Info.Persistent = result.LegacyVolume.Persistent
+	if len(result.LegacyAttachments) > 0 {
+		attachments := make(map[string]params.VolumeAttachmentInfo)
+		for _, attachment := range result.LegacyAttachments {
+			attachments[attachment.MachineTag] = attachment.Info
+		}
+		details.MachineAttachments = attachments
 	}
-	unitVolumes[storageId] = item
-}
-
-func createInfo(volume params.VolumeInstance) (info VolumeInfo, unit, storage string) {
-	info.VolumeId = volume.VolumeId
-	info.HardwareId = volume.HardwareId
-	info.Size = volume.Size
-	info.Persistent = volume.Persistent
-
-	if v, err := idFromTag(volume.VolumeTag); err == nil {
-		info.Volume = v
+	if result.LegacyVolume.StorageTag != "" {
+		details.Storage = &params.StorageDetails{
+			StorageTag: result.LegacyVolume.StorageTag,
+			Status:     details.Status,
+		}
+		if result.LegacyVolume.UnitTag != "" {
+			// Servers with legacy storage do not support shared
+			// storage, so there will only be one attachment, and
+			// the owner is always a unit.
+			details.Storage.OwnerTag = result.LegacyVolume.UnitTag
+			if len(result.LegacyAttachments) == 1 {
+				details.Storage.Attachments = map[string]params.StorageAttachmentDetails{
+					result.LegacyVolume.UnitTag: params.StorageAttachmentDetails{
+						StorageTag: result.LegacyVolume.StorageTag,
+						UnitTag:    result.LegacyVolume.UnitTag,
+						MachineTag: result.LegacyAttachments[0].MachineTag,
+						// Don't set Location, because we can't infer that
+						// from the legacy volume details.
+						Location: "",
+					},
+				}
+			}
+		}
 	}
-	var err error
-	if storage, err = idFromTag(volume.StorageTag); err != nil {
-		storage = "unassigned"
-	}
-	if unit, err = idFromTag(volume.UnitTag); err != nil {
-		unit = "unattached"
-	}
-	return
+	return details
 }

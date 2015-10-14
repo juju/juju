@@ -8,57 +8,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
-
-// conform ensures all keys of any nested maps are strings.  This is
-// necessary because YAML unmarshals map[interface{}]interface{} in nested
-// maps, which cannot be serialized by bson. Also, handle []interface{}.
-// cf. gopkg.in/juju/charm.v4/actions.go cleanse
-func conform(input interface{}) (interface{}, error) {
-	switch typedInput := input.(type) {
-
-	case map[string]interface{}:
-		newMap := make(map[string]interface{})
-		for key, value := range typedInput {
-			newValue, err := conform(value)
-			if err != nil {
-				return nil, err
-			}
-			newMap[key] = newValue
-		}
-		return newMap, nil
-
-	case map[interface{}]interface{}:
-		newMap := make(map[string]interface{})
-		for key, value := range typedInput {
-			typedKey, ok := key.(string)
-			if !ok {
-				return nil, errors.New("map keyed with non-string value")
-			}
-			newMap[typedKey] = value
-		}
-		return conform(newMap)
-
-	case []interface{}:
-		newSlice := make([]interface{}, len(typedInput))
-		for i, sliceValue := range typedInput {
-			newSliceValue, err := conform(sliceValue)
-			if err != nil {
-				return nil, errors.New("map keyed with non-string value")
-			}
-			newSlice[i] = newSliceValue
-		}
-		return newSlice, nil
-
-	default:
-		return input, nil
-	}
-}
 
 // displayActionResult returns any error from an ActionResult and displays
 // its response values otherwise.

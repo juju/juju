@@ -11,8 +11,8 @@ import (
 	"sort"
 
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/version"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 )
 
 func init() {
@@ -114,7 +114,7 @@ type ImageConstraint struct {
 
 func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
 	if len(params.Series) == 0 {
-		params.Series = version.SupportedSeries()
+		params.Series = series.SupportedSeries()
 	}
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches
@@ -150,8 +150,8 @@ func (ic *ImageConstraint) ProductIds() ([]string, error) {
 	nrSeries := len(ic.Series)
 	ids := make([]string, nrArches*nrSeries)
 	for i, arch := range ic.Arches {
-		for j, series := range ic.Series {
-			version, err := version.SeriesVersion(series)
+		for j, ser := range ic.Series {
+			version, err := series.SeriesVersion(ser)
 			if err != nil {
 				return nil, err
 			}

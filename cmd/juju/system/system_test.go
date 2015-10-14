@@ -8,10 +8,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/system"
-	"github.com/juju/juju/testing"
-
 	// Bring in the dummy provider definition.
 	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 type SystemCommandSuite struct {
@@ -28,6 +27,7 @@ var expectedCommmandNames = []string{
 	"help",
 	"kill",
 	"list",
+	"list-blocks",
 	"login",
 	"remove-blocks",
 	"use-env", // alias for use-environment

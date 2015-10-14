@@ -9,8 +9,8 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	goyaml "gopkg.in/yaml.v1"
+	"gopkg.in/juju/charm.v6-unstable"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"

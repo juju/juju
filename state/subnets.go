@@ -38,6 +38,10 @@ type SubnetInfo struct {
 	// AvailabilityZone describes which availability zone this subnet is in. It can
 	// be empty if the provider does not support availability zones.
 	AvailabilityZone string
+
+	// SpaceName is the name of the space the subnet is associated with. It
+	// can be empty if the subnet is in the default space.
+	SpaceName string
 }
 
 type Subnet struct {
@@ -55,6 +59,9 @@ type subnetDoc struct {
 	AllocatableIPLow  string `bson:"allocatableiplow,omitempty"`
 	VLANTag           int    `bson:"vlantag,omitempty"`
 	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
+	IsPublic          bool   `bson:"is-public",omitempty`
+	// TODO(dooferlad 2015-08-03): add an upgrade step to insert IsPublic=false
+	SpaceName string `bson:"space-name",omitempty`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.
@@ -166,6 +173,12 @@ func (s *Subnet) AllocatableIPHigh() string {
 // is not associated with an availability zone it will be the empty string.
 func (s *Subnet) AvailabilityZone() string {
 	return s.doc.AvailabilityZone
+}
+
+// SpaceName returns the space the subnet is associated with. If the subnet is
+// in the default space it will be the empty string.
+func (s *Subnet) SpaceName() string {
+	return s.doc.SpaceName
 }
 
 // Validate validates the subnet, checking the CIDR, VLANTag and

@@ -10,10 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
@@ -22,10 +21,10 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
-func agentStatusFromStatusInfo(s []state.StatusInfo, kind params.HistoryKind) []api.AgentStatus {
-	result := []api.AgentStatus{}
+func agentStatusFromStatusInfo(s []state.StatusInfo, kind params.HistoryKind) []params.AgentStatus {
+	result := []params.AgentStatus{}
 	for _, v := range s {
-		result = append(result, api.AgentStatus{
+		result = append(result, params.AgentStatus{
 			Status: params.Status(v.Status),
 			Info:   v.Message,
 			Data:   v.Data,
@@ -37,7 +36,7 @@ func agentStatusFromStatusInfo(s []state.StatusInfo, kind params.HistoryKind) []
 
 }
 
-type sortableStatuses []api.AgentStatus
+type sortableStatuses []params.AgentStatus
 
 func (s sortableStatuses) Len() int {
 	return len(s)
@@ -49,49 +48,28 @@ func (s sortableStatuses) Less(i, j int) bool {
 	return s[i].Since.Before(*s[j].Since)
 }
 
-// TODO(perrito666) this client method requires more testing, only its parts are unittested.
 // UnitStatusHistory returns a slice of past statuses for a given unit.
-func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatusHistory, error) {
-	size := args.Size - 1
-	if size < 1 {
-		return api.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
+func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatusHistory, error) {
+	if args.Size < 1 {
+		return params.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
 	}
-	unit, err := c.api.state.Unit(args.Name)
+	unit, err := c.api.stateAccessor.Unit(args.Name)
 	if err != nil {
-		return api.UnitStatusHistory{}, errors.Trace(err)
+		return params.UnitStatusHistory{}, errors.Trace(err)
 	}
-	statuses := api.UnitStatusHistory{}
+	statuses := params.UnitStatusHistory{}
 	if args.Kind == params.KindCombined || args.Kind == params.KindWorkload {
-		unitStatuses, err := unit.StatusHistory(size)
+		unitStatuses, err := unit.StatusHistory(args.Size)
 		if err != nil {
-			return api.UnitStatusHistory{}, errors.Trace(err)
+			return params.UnitStatusHistory{}, errors.Trace(err)
 		}
-
-		current, err := unit.Status()
-		if err != nil {
-			return api.UnitStatusHistory{}, errors.Trace(err)
-		}
-		unitStatuses = append(unitStatuses, current)
-
 		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
 	}
 	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
-		agentEntity := unit.Agent()
-		agent, ok := agentEntity.(*state.UnitAgent)
-		if !ok {
-			return api.UnitStatusHistory{}, errors.Errorf("cannot obtain agent for %q", args.Name)
-		}
-		agentStatuses, err := agent.StatusHistory(size)
+		agentStatuses, err := unit.AgentHistory().StatusHistory(args.Size)
 		if err != nil {
-			return api.UnitStatusHistory{}, errors.Trace(err)
+			return params.UnitStatusHistory{}, errors.Trace(err)
 		}
-
-		current, err := agent.Status()
-		if err != nil {
-			return api.UnitStatusHistory{}, errors.Trace(err)
-		}
-		agentStatuses = append(agentStatuses, current)
-
 		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(agentStatuses, params.KindAgent)...)
 	}
 
@@ -107,21 +85,21 @@ func (c *Client) UnitStatusHistory(args params.StatusHistory) (api.UnitStatusHis
 }
 
 // FullStatus gives the information needed for juju status over the api
-func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
-	cfg, err := c.api.state.EnvironConfig()
+func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
+	cfg, err := c.api.stateAccessor.EnvironConfig()
 	if err != nil {
-		return api.Status{}, errors.Annotate(err, "could not get environ config")
+		return params.FullStatus{}, errors.Annotate(err, "could not get environ config")
 	}
-	var noStatus api.Status
+	var noStatus params.FullStatus
 	var context statusContext
 	if context.services, context.units, context.latestCharms, err =
-		fetchAllServicesAndUnits(c.api.state, len(args.Patterns) <= 0); err != nil {
+		fetchAllServicesAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
-	} else if context.machines, err = fetchMachines(c.api.state, nil); err != nil {
+	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
-	} else if context.relations, err = fetchRelations(c.api.state); err != nil {
+	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
-	} else if context.networks, err = fetchNetworks(c.api.state); err != nil {
+	} else if context.networks, err = fetchNetworks(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch networks")
 	}
 
@@ -198,26 +176,56 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		}
 	}
 
-	return api.Status{
-		EnvironmentName: cfg.Name(),
-		Machines:        processMachines(context.machines),
-		Services:        context.processServices(),
-		Networks:        context.processNetworks(),
-		Relations:       context.processRelations(),
+	newToolsVersion, err := c.newToolsVersionAvailable()
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
+	}
+
+	return params.FullStatus{
+		EnvironmentName:  cfg.Name(),
+		AvailableVersion: newToolsVersion,
+		Machines:         processMachines(context.machines),
+		Services:         context.processServices(),
+		Networks:         context.processNetworks(),
+		Relations:        context.processRelations(),
 	}, nil
 }
 
+// newToolsVersionAvailable will return a string representing a tools
+// version only if the latest check is newer than current tools.
+func (c *Client) newToolsVersionAvailable() (string, error) {
+	env, err := c.api.stateAccessor.Environment()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot get environment")
+	}
+
+	latestVersion := env.LatestToolsVersion()
+
+	envConfig, err := c.api.stateAccessor.EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain current environ config")
+	}
+	oldV, ok := envConfig.AgentVersion()
+	if !ok {
+		return "", nil
+	}
+	if oldV.Compare(latestVersion) < 0 {
+		return latestVersion.String(), nil
+	}
+	return "", nil
+}
+
 // Status is a stub version of FullStatus that was introduced in 1.16
-func (c *Client) Status() (api.LegacyStatus, error) {
-	var legacyStatus api.LegacyStatus
+func (c *Client) Status() (params.LegacyStatus, error) {
+	var legacyStatus params.LegacyStatus
 	status, err := c.FullStatus(params.StatusParams{})
 	if err != nil {
 		return legacyStatus, err
 	}
 
-	legacyStatus.Machines = make(map[string]api.LegacyMachineStatus)
+	legacyStatus.Machines = make(map[string]params.LegacyMachineStatus)
 	for machineName, machineStatus := range status.Machines {
-		legacyStatus.Machines[machineName] = api.LegacyMachineStatus{
+		legacyStatus.Machines[machineName] = params.LegacyMachineStatus{
 			InstanceId: string(machineStatus.InstanceId),
 		}
 	}
@@ -240,7 +248,7 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st *state.State, machineIds set.Strings) (map[string][]*state.Machine, error) {
+func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -271,7 +279,7 @@ func fetchMachines(st *state.State, machineIds set.Strings) (map[string][]*state
 // fetchAllServicesAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllServicesAndUnits(
-	st *state.State,
+	st stateInterface,
 	matchAny bool,
 ) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
 
@@ -343,7 +351,7 @@ func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (set.Strings, 
 // to have the relations for each service. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // service that used to happen in processServiceRelations().
-func fetchRelations(st *state.State) (map[string][]*state.Relation, error) {
+func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
 		return nil, err
@@ -358,7 +366,7 @@ func fetchRelations(st *state.State) (map[string][]*state.Relation, error) {
 }
 
 // fetchNetworks returns a map from network name to network.
-func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
+func fetchNetworks(st stateInterface) (map[string]*state.Network, error) {
 	networks, err := st.AllNetworks()
 	if err != nil {
 		return nil, err
@@ -381,9 +389,9 @@ func (m machineAndContainers) Containers(id string) []*state.Machine {
 	return m[id][1:]
 }
 
-func processMachines(idToMachines map[string][]*state.Machine) map[string]api.MachineStatus {
-	machinesMap := make(map[string]api.MachineStatus)
-	cache := make(map[string]api.MachineStatus)
+func processMachines(idToMachines map[string][]*state.Machine) map[string]params.MachineStatus {
+	machinesMap := make(map[string]params.MachineStatus)
+	cache := make(map[string]params.MachineStatus)
 	for id, machines := range idToMachines {
 
 		if len(machines) <= 0 {
@@ -409,7 +417,7 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]api.Ma
 	return machinesMap
 }
 
-func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
+func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 	status.Id = machine.Id()
 	agentStatus, compatStatus := processMachine(machine)
 	status.Agent = agentStatus
@@ -432,7 +440,14 @@ func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 		if err != nil {
 			status.InstanceState = "error"
 		}
-		status.DNSName = network.SelectPublicAddress(machine.Addresses())
+		addr, err := machine.PublicAddress()
+		if err != nil {
+			// Usually this indicates that no addresses have been set on the
+			// machine yet.
+			addr = network.Address{}
+			logger.Warningf("error fetching public address: %q", err)
+		}
+		status.DNSName = addr.Value
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
@@ -453,19 +468,19 @@ func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 	} else {
 		status.Hardware = hc.String()
 	}
-	status.Containers = make(map[string]api.MachineStatus)
+	status.Containers = make(map[string]params.MachineStatus)
 	return
 }
 
-func (context *statusContext) processRelations() []api.RelationStatus {
-	var out []api.RelationStatus
+func (context *statusContext) processRelations() []params.RelationStatus {
+	var out []params.RelationStatus
 	relations := context.getAllRelations()
 	for _, relation := range relations {
-		var eps []api.EndpointStatus
+		var eps []params.EndpointStatus
 		var scope charm.RelationScope
 		var relationInterface string
 		for _, ep := range relation.Endpoints() {
-			eps = append(eps, api.EndpointStatus{
+			eps = append(eps, params.EndpointStatus{
 				ServiceName: ep.ServiceName,
 				Name:        ep.Name,
 				Role:        ep.Role,
@@ -475,7 +490,7 @@ func (context *statusContext) processRelations() []api.RelationStatus {
 			relationInterface = ep.Interface
 			scope = ep.Scope
 		}
-		relStatus := api.RelationStatus{
+		relStatus := params.RelationStatus{
 			Id:        relation.Id(),
 			Key:       relation.String(),
 			Interface: relationInterface,
@@ -503,16 +518,16 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 	return out
 }
 
-func (context *statusContext) processNetworks() map[string]api.NetworkStatus {
-	networksMap := make(map[string]api.NetworkStatus)
+func (context *statusContext) processNetworks() map[string]params.NetworkStatus {
+	networksMap := make(map[string]params.NetworkStatus)
 	for name, network := range context.networks {
 		networksMap[name] = context.makeNetworkStatus(network)
 	}
 	return networksMap
 }
 
-func (context *statusContext) makeNetworkStatus(network *state.Network) api.NetworkStatus {
-	return api.NetworkStatus{
+func (context *statusContext) makeNetworkStatus(network *state.Network) params.NetworkStatus {
+	return params.NetworkStatus{
 		ProviderId: network.ProviderId(),
 		CIDR:       network.CIDR(),
 		VLANTag:    network.VLANTag(),
@@ -540,15 +555,15 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
 	return paramsJobs
 }
 
-func (context *statusContext) processServices() map[string]api.ServiceStatus {
-	servicesMap := make(map[string]api.ServiceStatus)
+func (context *statusContext) processServices() map[string]params.ServiceStatus {
+	servicesMap := make(map[string]params.ServiceStatus)
 	for _, s := range context.services {
 		servicesMap[s.Name()] = context.processService(s)
 	}
 	return servicesMap
 }
 
-func (context *statusContext) processService(service *state.Service) (status api.ServiceStatus) {
+func (context *statusContext) processService(service *state.Service) (status params.ServiceStatus) {
 	serviceCharmURL, _ := service.CharmURL()
 	status.Charm = serviceCharmURL.String()
 	status.Exposed = service.IsExposed()
@@ -578,12 +593,13 @@ func (context *statusContext) processService(service *state.Service) (status api
 			return
 		}
 	}
+	// TODO(dimitern): Drop support for this in a follow-up.
 	if len(networks) > 0 || cons.HaveNetworks() {
 		// Only the explicitly requested networks (using "juju deploy
 		// <svc> --networks=...") will be enabled, and altough when
 		// specified, networks constraints will be used for instance
 		// selection, they won't be actually enabled.
-		status.Networks = api.NetworksSpecification{
+		status.Networks = params.NetworksSpecification{
 			Enabled:  networks,
 			Disabled: append(cons.IncludeNetworks(), cons.ExcludeNetworks()...),
 		}
@@ -609,15 +625,15 @@ func isColorStatus(code state.MeterStatusCode) bool {
 	return code == state.MeterGreen || code == state.MeterAmber || code == state.MeterRed
 }
 
-func (context *statusContext) processUnitMeterStatuses(units map[string]*state.Unit) map[string]api.MeterStatus {
-	unitsMap := make(map[string]api.MeterStatus)
+func (context *statusContext) processUnitMeterStatuses(units map[string]*state.Unit) map[string]params.MeterStatus {
+	unitsMap := make(map[string]params.MeterStatus)
 	for _, unit := range units {
 		status, err := unit.GetMeterStatus()
 		if err != nil {
 			continue
 		}
 		if isColorStatus(status.Code) {
-			unitsMap[unit.Name()] = api.MeterStatus{Color: strings.ToLower(status.Code.String()), Message: status.Info}
+			unitsMap[unit.Name()] = params.MeterStatus{Color: strings.ToLower(status.Code.String()), Message: status.Info}
 		}
 	}
 	if len(unitsMap) > 0 {
@@ -626,17 +642,24 @@ func (context *statusContext) processUnitMeterStatuses(units map[string]*state.U
 	return nil
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]api.UnitStatus {
-	unitsMap := make(map[string]api.UnitStatus)
+func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]params.UnitStatus {
+	unitsMap := make(map[string]params.UnitStatus)
 	for _, unit := range units {
 		unitsMap[unit.Name()] = context.processUnit(unit, serviceCharm)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) api.UnitStatus {
-	var result api.UnitStatus
-	result.PublicAddress, _ = unit.PublicAddress()
+func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) params.UnitStatus {
+	var result params.UnitStatus
+	addr, err := unit.PublicAddress()
+	if err != nil {
+		// Usually this indicates that no addresses have been set on the
+		// machine yet.
+		addr = network.Address{}
+		logger.Warningf("error fetching public address: %v", err)
+	}
+	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
 	for _, port := range unitPorts {
 		result.OpenedPorts = append(result.OpenedPorts, port.String())
@@ -651,7 +674,7 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	processUnitAndAgentStatus(unit, &result)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
-		result.Subordinates = make(map[string]api.UnitStatus)
+		result.Subordinates = make(map[string]params.UnitStatus)
 		for _, name := range subUnits {
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
@@ -701,7 +724,7 @@ type lifer interface {
 }
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
-func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
+func processUnitAndAgentStatus(unit *state.Unit, status *params.UnitStatus) {
 	status.UnitAgent, status.Workload = processUnitStatus(unit)
 
 	// Legacy fields required until Juju 2.0.
@@ -730,8 +753,8 @@ func processUnitAndAgentStatus(unit *state.Unit, status *api.UnitStatus) {
 	return
 }
 
-// makeStatusForEntity creates status information for machines, units.
-func makeStatusForEntity(agent *api.AgentStatus, getter state.StatusGetter) {
+// populateStatusFromGetter creates status information for machines, units.
+func populateStatusFromGetter(agent *params.AgentStatus, getter state.StatusGetter) {
 	statusInfo, err := getter.Status()
 	agent.Err = err
 	agent.Status = params.Status(statusInfo.Status)
@@ -742,14 +765,14 @@ func makeStatusForEntity(agent *api.AgentStatus, getter state.StatusGetter) {
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func processMachine(machine *state.Machine) (out api.AgentStatus, compat api.AgentStatus) {
+func processMachine(machine *state.Machine) (out params.AgentStatus, compat params.AgentStatus) {
 	out.Life = processLife(machine)
 
 	if t, err := machine.AgentTools(); err == nil {
 		out.Version = t.Version.Number.String()
 	}
 
-	makeStatusForEntity(&out, machine)
+	populateStatusFromGetter(&out, machine)
 	compat = out
 
 	if out.Err != nil {
@@ -793,21 +816,21 @@ func processMachine(machine *state.Machine) (out api.AgentStatus, compat api.Age
 }
 
 // processUnit retrieves version and status information for the given unit.
-func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus api.AgentStatus) {
+func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.AgentStatus) {
 	// First determine the agent status information.
-	unitAgent := unit.Agent().(*state.UnitAgent)
-	makeStatusForEntity(&agentStatus, unitAgent)
+	unitAgent := unit.Agent()
+	populateStatusFromGetter(&agentStatus, unitAgent)
 	agentStatus.Life = processLife(unit)
 	if t, err := unit.AgentTools(); err == nil {
 		agentStatus.Version = t.Version.Number.String()
 	}
 
 	// Second, determine the workload (unit) status.
-	makeStatusForEntity(&workloadStatus, unit)
+	populateStatusFromGetter(&workloadStatus, unit)
 	return
 }
 
-func canBeLost(status *api.UnitStatus) bool {
+func canBeLost(status *params.UnitStatus) bool {
 	// Pending and Installing are deprecated.
 	// Need to still check pending for existing deployments.
 	switch status.UnitAgent.Status {
@@ -816,14 +839,17 @@ func canBeLost(status *api.UnitStatus) bool {
 	case params.StatusExecuting:
 		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
 	}
-	// TODO(wallyworld) - use status history to see if start hook has run.
+	// TODO(fwereade/wallyworld): we should have an explicit place in the model
+	// to tell us when we've hit this point, instead of piggybacking on top of
+	// status and/or status history.
 	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != state.MessageInstalling
 	return isInstalled
 }
 
 // processUnitLost determines whether the given unit should be marked as lost.
-// TODO(wallyworld) - move this to state and the canBeLost() code can be simplified.
-func processUnitLost(unit *state.Unit, status *api.UnitStatus) {
+// TODO(fwereade/wallyworld): this is also model-level code and should sit in
+// between state and this package.
+func processUnitLost(unit *state.Unit, status *params.UnitStatus) {
 	if !canBeLost(status) {
 		// The status is allocating or installing - there's no point
 		// in enquiring about the agent liveness.

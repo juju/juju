@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 )
 
@@ -32,15 +32,24 @@ key-value arguments. A value of "-" for the filename means <stdin>.
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
 	cmd.CommandBase
-	ctx          Context
-	RelationId   int
-	Settings     map[string]string
-	settingsFile cmd.FileVar
-	formatFlag   string // deprecated
+	ctx             Context
+	RelationId      int
+	relationIdProxy gnuflag.Value
+	Settings        map[string]string
+	settingsFile    cmd.FileVar
+	formatFlag      string // deprecated
 }
 
-func NewRelationSetCommand(ctx Context) cmd.Command {
-	return &RelationSetCommand{ctx: ctx}
+func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
+	c := &RelationSetCommand{ctx: ctx}
+
+	rV, err := newRelationIdValue(ctx, &c.RelationId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.relationIdProxy = rV
+
+	return c, nil
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
@@ -53,10 +62,8 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	rV := newRelationIdValue(c.ctx, &c.RelationId)
-
-	f.Var(rV, "r", "specify a relation by id")
-	f.Var(rV, "relation", "")
+	f.Var(c.relationIdProxy, "r", "specify a relation by id")
+	f.Var(c.relationIdProxy, "relation", "")
 
 	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
@@ -82,27 +89,6 @@ func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, erro
 	data, err := ioutil.ReadAll(in)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	skipValidation := false // for debugging
-	if !skipValidation {
-		// Can this validation be done more simply or efficiently?
-
-		var scalar string
-		if err := goyaml.Unmarshal(data, &scalar); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if scalar != "" {
-			return nil, errors.Errorf("expected YAML map, got %q", scalar)
-		}
-
-		var sequence []string
-		if err := goyaml.Unmarshal(data, &sequence); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(sequence) != 0 {
-			return nil, errors.Errorf("expected YAML map, got %#v", sequence)
-		}
 	}
 
 	kvs := make(map[string]string)
@@ -145,9 +131,9 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	r, found := c.ctx.Relation(c.RelationId)
-	if !found {
-		return fmt.Errorf("unknown relation id")
+	r, err := c.ctx.Relation(c.RelationId)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	settings, err := r.Settings()
 	if err != nil {

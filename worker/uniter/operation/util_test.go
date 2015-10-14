@@ -5,14 +5,16 @@ package operation_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/exec"
-	corecharm "gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -41,7 +43,6 @@ type DeployCallbacks struct {
 	operation.Callbacks
 	*MockGetArchiveInfo
 	*MockSetCurrentCharm
-	MockClearResolvedFlag       *MockNoArgs
 	MockInitializeMetricsTimers *MockNoArgs
 }
 
@@ -51,10 +52,6 @@ func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bundle
 
 func (cb *DeployCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return cb.MockSetCurrentCharm.Call(charmURL)
-}
-
-func (cb *DeployCallbacks) ClearResolvedFlag() error {
-	return cb.MockClearResolvedFlag.Call()
 }
 
 func (cb *DeployCallbacks) InitializeMetricsTimers() error {
@@ -162,16 +159,11 @@ func (mock *MockPrepareHook) Call(hookInfo hook.Info) (string, error) {
 type PrepareHookCallbacks struct {
 	operation.Callbacks
 	*MockPrepareHook
-	MockClearResolvedFlag *MockNoArgs
-	executingMessage      string
+	executingMessage string
 }
 
 func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
 	return cb.MockPrepareHook.Call(hookInfo)
-}
-
-func (cb *PrepareHookCallbacks) ClearResolvedFlag() error {
-	return cb.MockClearResolvedFlag.Call()
 }
 
 func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
@@ -264,12 +256,12 @@ func (mock *MockNewHookRunner) Call(hookInfo hook.Info) (runner.Runner, error) {
 }
 
 type MockNewCommandRunner struct {
-	gotInfo *runner.CommandInfo
+	gotInfo *context.CommandInfo
 	runner  *MockRunner
 	err     error
 }
 
-func (mock *MockNewCommandRunner) Call(info runner.CommandInfo) (runner.Runner, error) {
+func (mock *MockNewCommandRunner) Call(info context.CommandInfo) (runner.Runner, error) {
 	mock.gotInfo = &info
 	return mock.runner, mock.err
 }
@@ -288,18 +280,19 @@ func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, er
 	return f.MockNewHookRunner.Call(hookInfo)
 }
 
-func (f *MockRunnerFactory) NewCommandRunner(commandInfo runner.CommandInfo) (runner.Runner, error) {
+func (f *MockRunnerFactory) NewCommandRunner(commandInfo context.CommandInfo) (runner.Runner, error) {
 	return f.MockNewCommandRunner.Call(commandInfo)
 }
 
 type MockContext struct {
 	runner.Context
-	actionData      *runner.ActionData
+	testing.Stub
+	actionData      *context.ActionData
 	setStatusCalled bool
 	status          jujuc.StatusInfo
 }
 
-func (mock *MockContext) ActionData() (*runner.ActionData, error) {
+func (mock *MockContext) ActionData() (*context.ActionData, error) {
 	if mock.actionData == nil {
 		return nil, errors.New("not an action context")
 	}
@@ -320,8 +313,17 @@ func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	return nil
 }
 
+func (mock *MockContext) UnitName() string {
+	return "unit/0"
+}
+
 func (mock *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return &mock.status, nil
+}
+
+func (mock *MockContext) Prepare() error {
+	mock.MethodCall(mock, "Prepare")
+	return mock.NextErr()
 }
 
 type MockRunAction struct {
@@ -382,9 +384,8 @@ func (r *MockRunner) RunHook(hookName string) error {
 
 func NewDeployCallbacks() *DeployCallbacks {
 	return &DeployCallbacks{
-		MockGetArchiveInfo:    &MockGetArchiveInfo{info: &MockBundleInfo{}},
-		MockSetCurrentCharm:   &MockSetCurrentCharm{},
-		MockClearResolvedFlag: &MockNoArgs{},
+		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockSetCurrentCharm: &MockSetCurrentCharm{},
 	}
 }
 
@@ -404,8 +405,7 @@ func NewMockDeployer() *MockDeployer {
 
 func NewPrepareHookCallbacks() *PrepareHookCallbacks {
 	return &PrepareHookCallbacks{
-		MockPrepareHook:       &MockPrepareHook{nil, "some-hook-name", nil},
-		MockClearResolvedFlag: &MockNoArgs{},
+		MockPrepareHook: &MockPrepareHook{nil, "some-hook-name", nil},
 	}
 }
 
@@ -415,7 +415,7 @@ func NewRunActionRunnerFactory(runErr error) *MockRunnerFactory {
 			runner: &MockRunner{
 				MockRunAction: &MockRunAction{err: runErr},
 				context: &MockContext{
-					actionData: &runner.ActionData{ActionName: "some-action-name"},
+					actionData: &context.ActionData{Name: "some-action-name"},
 				},
 			},
 		},
@@ -427,6 +427,7 @@ func NewRunCommandsRunnerFactory(runResponse *utilexec.ExecResponse, runErr erro
 		MockNewCommandRunner: &MockNewCommandRunner{
 			runner: &MockRunner{
 				MockRunCommands: &MockRunCommands{response: runResponse, err: runErr},
+				context:         &MockContext{},
 			},
 		},
 	}
@@ -457,14 +458,12 @@ var curl = corecharm.MustParseURL
 var someActionId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 var randomActionId = "9f484882-2f18-4fd2-967d-db9663db7bea"
 var overwriteState = operation.State{
-	Kind:               operation.Continue,
-	Step:               operation.Pending,
-	Started:            true,
-	CollectMetricsTime: 1234567,
-	UpdateStatusTime:   1234567,
-	CharmURL:           curl("cs:quantal/wordpress-2"),
-	ActionId:           &randomActionId,
-	Hook:               &hook.Info{Kind: hooks.Install},
+	Kind:     operation.Continue,
+	Step:     operation.Pending,
+	Started:  true,
+	CharmURL: curl("cs:quantal/wordpress-2"),
+	ActionId: &randomActionId,
+	Hook:     &hook.Info{Kind: hooks.Install},
 }
 var someCommandArgs = operation.CommandArgs{
 	Commands:        "do something",

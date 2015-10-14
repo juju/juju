@@ -23,6 +23,11 @@ type MetricSender interface {
 	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
+var (
+	defaultMaxBatchesPerSend              = 10
+	defaultSender            MetricSender = &NopSender{}
+)
+
 func handleResponse(mm *state.MetricsManager, st *state.State, response wireformat.Response) {
 	for _, envResp := range response.EnvResponses {
 		err := st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
@@ -57,16 +62,22 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	sent := 0
 	for {
 		metrics, err := st.MetricsToSend(batchSize)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if len(metrics) == 0 {
-			logger.Infof("nothing to send")
+		lenM := len(metrics)
+		if lenM == 0 {
+			if sent == 0 {
+				logger.Infof("nothing to send")
+			} else {
+				logger.Infof("done sending")
+			}
 			break
 		}
-		wireData := make([]*wireformat.MetricBatch, len(metrics))
+		wireData := make([]*wireformat.MetricBatch, lenM)
 		for i, m := range metrics {
 			wireData[i] = wireformat.ToWire(m)
 		}
@@ -88,17 +99,28 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 				return errors.Trace(err)
 			}
 		}
+		sent += lenM
 	}
 
 	unsent, err := st.CountOfUnsentMetrics()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sent, err := st.CountOfSentMetrics()
+	sentStored, err := st.CountOfSentMetrics()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("metrics collection summary: sent:%d unsent:%d", sent, unsent)
+	logger.Infof("metrics collection summary: sent:%d unsent:%d (%d sent metrics stored)", sent, unsent, sentStored)
 
 	return nil
+}
+
+// DefaultMaxBatchesPerSend returns the default number of batches per send.
+func DefaultMaxBatchesPerSend() int {
+	return defaultMaxBatchesPerSend
+}
+
+// DefaultMetricSender returns the default metric sender.
+func DefaultMetricSender() MetricSender {
+	return defaultSender
 }

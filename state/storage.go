@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -22,11 +22,6 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
-
-var ErrPersistentVolumesExist = errors.New(`
-Environment cannot be destroyed until all persistent volumes have been destroyed.
-Run "juju storage list" to display persistent storage volumes.
-`[1:])
 
 // StorageInstance represents the state of a unit or service-wide storage
 // instance in the environment.

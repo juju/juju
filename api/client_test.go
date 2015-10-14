@@ -22,7 +22,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -137,7 +137,7 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 	c.Assert(charm.String(), gc.Equals, curl.String())
 }
 
-func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, *api.State) {
+func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, api.Connection) {
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	info := s.APIInfo(c)
 	info.EnvironTag = otherSt.EnvironTag()
@@ -183,7 +183,7 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 }
 
 // envEndpoint returns "/environment/<env-uuid>/<destination>"
-func envEndpoint(c *gc.C, apiState *api.State, destination string) string {
+func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
 	envTag, err := apiState.EnvironTag()
 	c.Assert(err, jc.ErrorIsNil)
 	return path.Join("/environment", envTag.Id(), destination)

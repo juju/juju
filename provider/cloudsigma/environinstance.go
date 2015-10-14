@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 
@@ -84,7 +83,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, CloudSigmaRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -194,23 +193,4 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	}
 
 	return err
-}
-
-// AllocateAddress requests a new address to be allocated for the
-// given instance on the given network.
-func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address, macAddress, hostname string) error {
-	return errors.NotSupportedf("AllocateAddress")
-}
-func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address, macAddress string) error {
-	return errors.NotSupportedf("ReleaseAddress")
-}
-func (env *environ) Subnets(inst instance.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.NotSupportedf("Subnets")
-}
-
-// ListNetworks returns basic information about all networks known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-func (env *environ) ListNetworks() ([]network.SubnetInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
 }

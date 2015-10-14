@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	apilogger "github.com/juju/juju/api/logger"
@@ -320,6 +322,11 @@ func (st *State) Deployer() *deployer.State {
 	return deployer.NewState(st)
 }
 
+// Addresser returns access to the Addresser API.
+func (st *State) Addresser() *addresser.API {
+	return addresser.NewAPI(st)
+}
+
 // Environment returns access to the Environment API
 func (st *State) Environment() *environment.Facade {
 	return environment.NewFacade(st)
@@ -361,4 +368,9 @@ func (st *State) Rsyslog() *rsyslog.State {
 // set.
 func (st *State) ServerVersion() (version.Number, bool) {
 	return st.serverVersion, st.serverVersion != version.Zero
+}
+
+// MetadataUpdater returns access to the imageMetadata API
+func (st *State) MetadataUpdater() *imagemetadata.Client {
+	return imagemetadata.NewClient(st)
 }

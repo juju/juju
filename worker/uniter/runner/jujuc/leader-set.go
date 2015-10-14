@@ -17,8 +17,8 @@ type leaderSetCommand struct {
 }
 
 // NewLeaderSetCommand returns a new leaderSetCommand with the given context.
-func NewLeaderSetCommand(ctx Context) cmd.Command {
-	return &leaderSetCommand{ctx: ctx}
+func NewLeaderSetCommand(ctx Context) (cmd.Command, error) {
+	return &leaderSetCommand{ctx: ctx}, nil
 }
 
 // Info is part of the cmd.Command interface.

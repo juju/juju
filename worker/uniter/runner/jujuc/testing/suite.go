@@ -6,7 +6,7 @@ package testing
 import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 // ContextSuite is the base suite for testing jujuc.Context-related code.
@@ -31,7 +31,6 @@ func (s *ContextSuite) NewInfo() *ContextInfo {
 		"title":               "My Title",
 		"username":            "admin001",
 	}
-	info.OwnerTag = "test-owner"
 	info.AvailabilityZone = "us-east-1a"
 	info.PublicAddress = "gimli.minecraft.testing.invalid"
 	info.PrivateAddress = "192.168.0.99"

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v5"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
 )
 
 var (
@@ -32,11 +32,9 @@ func NewDeployConflictError(charmURL *corecharm.URL) error {
 	return &deployConflictError{charmURL}
 }
 
-// DeployConflictCharmURL returns the charm URL used to create the supplied
-// deploy conflict error, and a bool indicating success.
-func DeployConflictCharmURL(err error) (*corecharm.URL, bool) {
-	if e, ok := err.(*deployConflictError); ok {
-		return e.charmURL, true
-	}
-	return nil, false
+// IsDeployConflictError returns true if the error is a
+// deploy conflict error.
+func IsDeployConflictError(err error) bool {
+	_, ok := err.(*deployConflictError)
+	return ok
 }

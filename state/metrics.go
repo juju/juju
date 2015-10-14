@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -75,17 +75,30 @@ func (m *MetricBatch) validate() error {
 // BatchParam contains the properties of the metrics batch used when creating a metrics
 // batch.
 type BatchParam struct {
-	UUID        string
-	CharmURL    *charm.URL
-	Created     time.Time
-	Metrics     []Metric
-	Credentials []byte
+	UUID     string
+	CharmURL string
+	Created  time.Time
+	Metrics  []Metric
+	Unit     names.UnitTag
 }
 
-// addMetrics adds a new batch of metrics to the database.
-func (st *State) addMetrics(unitTag names.UnitTag, batch BatchParam) (*MetricBatch, error) {
+// AddMetrics adds a new batch of metrics to the database.
+func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	if len(batch.Metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
+	}
+	charmURL, err := charm.ParseURL(batch.CharmURL)
+	if err != nil {
+		return nil, errors.NewNotValid(err, "could not parse charm URL")
+	}
+
+	unit, err := st.Unit(batch.Unit.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	service, err := unit.Service()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	metric := &MetricBatch{
@@ -93,21 +106,22 @@ func (st *State) addMetrics(unitTag names.UnitTag, batch BatchParam) (*MetricBat
 		doc: metricBatchDoc{
 			UUID:        batch.UUID,
 			EnvUUID:     st.EnvironUUID(),
-			Unit:        unitTag.Id(),
-			CharmUrl:    batch.CharmURL.String(),
+			Unit:        batch.Unit.Id(),
+			CharmUrl:    charmURL.String(),
 			Sent:        false,
 			Created:     batch.Created,
 			Metrics:     batch.Metrics,
-			Credentials: batch.Credentials,
-		}}
+			Credentials: service.MetricCredentials(),
+		},
+	}
 	if err := metric.validate(); err != nil {
 		return nil, err
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			notDead, err := isNotDead(st, unitsC, unitTag.Id())
+			notDead, err := isNotDead(st, unitsC, batch.Unit.Id())
 			if err != nil || !notDead {
-				return nil, errors.NotFoundf(unitTag.Id())
+				return nil, errors.NotFoundf(batch.Unit.Id())
 			}
 			exists, err := st.MetricBatch(batch.UUID)
 			if exists != nil && err == nil {
@@ -119,7 +133,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, batch BatchParam) (*MetricBat
 		}
 		ops := []txn.Op{{
 			C:      unitsC,
-			Id:     st.docID(unitTag.Id()),
+			Id:     st.docID(batch.Unit.Id()),
 			Assert: notDeadDoc,
 		}, {
 			C:      metricsC,
@@ -129,7 +143,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, batch BatchParam) (*MetricBat
 		}}
 		return ops, nil
 	}
-	err := st.run(buildTxn)
+	err = st.run(buildTxn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

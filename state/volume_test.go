@@ -376,36 +376,53 @@ func (s *VolumeStateSuite) TestWatchMachineVolumes(c *gc.C) {
 
 func (s *VolumeStateSuite) TestWatchMachineVolumeAttachments(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "block")
-	addUnit := func() {
-		u, err := service.AddUnit()
+	addUnit := func(to *state.Machine) (u *state.Unit, m *state.Machine) {
+		var err error
+		u, err = service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
+		if to != nil {
+			err = u.AssignToMachine(to)
+			c.Assert(err, jc.ErrorIsNil)
+			return u, to
+		}
 		err = s.State.AssignUnit(u, state.AssignCleanEmpty)
 		c.Assert(err, jc.ErrorIsNil)
+		mid, err := u.AssignedMachineId()
+		c.Assert(err, jc.ErrorIsNil)
+		m, err = s.State.Machine(mid)
+		c.Assert(err, jc.ErrorIsNil)
+		return u, m
 	}
-	addUnit()
+	_, m0 := addUnit(nil)
 
 	w := s.State.WatchMachineVolumeAttachments(names.NewMachineTag("0"))
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent("0:0", "0:0/1", "0:0/2") // initial
+	wc.AssertChangeInSingleEvent("0:0/1", "0:0/2") // initial
 	wc.AssertNoChange()
 
-	addUnit()
+	addUnit(nil)
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
 	err := s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0") // dying
+	// no change, since we're only interested in attachments of
+	// machine-scoped volumes.
 	wc.AssertNoChange()
 
-	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0"))
+	err = s.State.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent("0:0") // removed
+	wc.AssertChangeInSingleEvent("0:0/1") // dying
 	wc.AssertNoChange()
 
-	// TODO(axw) respond to changes to the same machine when we support
-	// dynamic storage and/or placement.
+	err = s.State.RemoveVolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent("0:0/1") // removed
+	wc.AssertNoChange()
+
+	addUnit(m0)
+	wc.AssertChangeInSingleEvent("0:0/7", "0:0/8") // added
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
@@ -441,19 +458,6 @@ func (s *VolumeStateSuite) TestAllVolumes(c *gc.C) {
 		tags[i] = v.VolumeTag()
 	}
 	c.Assert(tags, jc.SameContents, expected)
-}
-
-func (s *VolumeStateSuite) TestPersistentVolumes(c *gc.C) {
-	_, _, persistentVolumes := s.assertCreateVolumes(c)
-	c.Assert(persistentVolumes, gc.HasLen, 1)
-
-	volumes, err := s.State.PersistentVolumes()
-	c.Assert(err, jc.ErrorIsNil)
-	tags := make([]names.VolumeTag, len(volumes))
-	for i, v := range volumes {
-		tags[i] = v.VolumeTag()
-	}
-	c.Assert(tags, jc.SameContents, persistentVolumes)
 }
 
 func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, persistent []names.VolumeTag) {
@@ -722,8 +726,14 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 
 	allVolumes, err := s.State.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
-	persistentVolumes, err := s.State.PersistentVolumes()
-	c.Assert(err, jc.ErrorIsNil)
+
+	persistentVolumes := make([]state.Volume, 0, len(allVolumes))
+	for _, v := range allVolumes {
+		info, err := v.Info()
+		if err == nil && info.Persistent {
+			persistentVolumes = append(persistentVolumes, v)
+		}
+	}
 	c.Assert(len(allVolumes), jc.GreaterThan, len(persistentVolumes))
 
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)

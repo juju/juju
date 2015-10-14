@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	awsec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
@@ -18,8 +20,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -74,14 +76,15 @@ func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.srv.startServer(c)
-	s.Tests.SetUpTest(c)
 	s.PatchValue(&version.Current, version.Binary{
-		Number: version.Current.Number,
+		Number: testing.FakeVersionNumber,
 		Series: testing.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+	s.BaseSuite.SetUpTest(c)
+	s.srv.startServer(c)
+	s.Tests.SetUpTest(c)
+	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
 }
 
 func (s *ebsVolumeSuite) TearDownTest(c *gc.C) {
@@ -99,7 +102,7 @@ func (s *ebsVolumeSuite) volumeSource(c *gc.C, cfg *storage.Config) storage.Volu
 	return vs
 }
 
-func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId string) ([]storage.Volume, error) {
+func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId string) ([]storage.CreateVolumesResult, error) {
 	if instanceId == "" {
 		instanceId = s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Running, nil)[0]
 	}
@@ -111,26 +114,28 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 		Size:     10 * 1000,
 		Provider: ec2.EBS_ProviderType,
 		Attributes: map[string]interface{}{
-			"persistent":  true,
 			"volume-type": "io1",
-			"iops":        100,
+			"iops":        30,
 		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				InstanceId: instance.Id(instanceId),
 			},
+		},
+		ResourceTags: map[string]string{
+			tags.JujuEnv: s.TestConfig["uuid"].(string),
 		},
 	}, {
 		Tag:      volume1,
 		Size:     20 * 1000,
 		Provider: ec2.EBS_ProviderType,
-		Attributes: map[string]interface{}{
-			"persistent": true,
-		},
 		Attachment: &storage.VolumeAttachmentParams{
 			AttachmentParams: storage.AttachmentParams{
 				InstanceId: instance.Id(instanceId),
 			},
+		},
+		ResourceTags: map[string]string{
+			tags.JujuEnv: "something-else",
 		},
 	}, {
 		Tag:      volume2,
@@ -145,36 +150,37 @@ func (s *ebsVolumeSuite) createVolumes(vs storage.VolumeSource, instanceId strin
 			},
 		},
 	}}
-	vols, _, err := vs.CreateVolumes(params)
-	return vols, err
+	return vs.CreateVolumes(params)
 }
 
 func (s *ebsVolumeSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, instanceId string) {
-	vols, err := s.createVolumes(vs, instanceId)
+	results, err := s.createVolumes(vs, instanceId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 3)
-	c.Assert(vols, jc.SameContents, []storage.Volume{{
+	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results[0].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("0"),
 		storage.VolumeInfo{
 			Size:       10240,
 			VolumeId:   "vol-0",
 			Persistent: true,
 		},
-	}, {
+	})
+	c.Assert(results[1].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
 			Size:       20480,
 			VolumeId:   "vol-1",
 			Persistent: true,
 		},
-	}, {
+	})
+	c.Assert(results[2].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("2"),
 		storage.VolumeInfo{
 			Size:       30720,
 			VolumeId:   "vol-2",
-			Persistent: false,
+			Persistent: true,
 		},
-	}})
+	})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,40 +221,47 @@ func (s *ebsVolumeSuite) TestCreateVolumes(c *gc.C) {
 
 func (s *ebsVolumeSuite) TestVolumeTags(c *gc.C) {
 	vs := s.volumeSource(c, nil)
-	vols, err := s.createVolumes(vs, "")
+	results, err := s.createVolumes(vs, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 3)
-	c.Assert(vols, jc.SameContents, []storage.Volume{{
+	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results[0].Error, jc.ErrorIsNil)
+	c.Assert(results[0].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("0"),
 		storage.VolumeInfo{
 			Size:       10240,
 			VolumeId:   "vol-0",
 			Persistent: true,
 		},
-	}, {
+	})
+	c.Assert(results[1].Error, jc.ErrorIsNil)
+	c.Assert(results[1].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
 			Size:       20480,
 			VolumeId:   "vol-1",
 			Persistent: true,
 		},
-	}, {
+	})
+	c.Assert(results[2].Error, jc.ErrorIsNil)
+	c.Assert(results[2].Volume, jc.DeepEquals, &storage.Volume{
 		names.NewVolumeTag("2"),
 		storage.VolumeInfo{
 			Size:       30720,
 			VolumeId:   "vol-2",
-			Persistent: false,
+			Persistent: true,
 		},
-	}})
+	})
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
+		{"juju-env-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 		{"Name", "juju-sample-volume-0"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
+		{"juju-env-uuid", "something-else"},
 		{"Name", "juju-sample-volume-1"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
@@ -281,12 +294,13 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 			},
 		}}
 		if alias[1] == "io1" {
-			params[0].Attributes["iops"] = 100
+			params[0].Attributes["iops"] = 30
 		}
-		vols, _, err := vs.CreateVolumes(params)
+		results, err := vs.CreateVolumes(params)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(vols, gc.HasLen, 1)
-		c.Assert(vols[0].VolumeId, gc.Equals, fmt.Sprintf("vol-%d", i))
+		c.Assert(results, gc.HasLen, 1)
+		c.Assert(results[0].Error, jc.ErrorIsNil)
+		c.Assert(results[0].Volume.VolumeId, gc.Equals, fmt.Sprintf("vol-%d", i))
 	}
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -299,12 +313,14 @@ func (s *ebsVolumeSuite) TestVolumeTypeAliases(c *gc.C) {
 	}
 }
 
-func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
+func (s *ebsVolumeSuite) TestDestroyVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
-	err := vs.DetachVolumes(params)
+	errs, err := vs.DetachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
-	errs := vs.DestroyVolumes([]string{"vol-0"})
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+	errs, err = vs.DestroyVolumes([]string{"vol-0"})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 
 	ec2Client := ec2.StorageEC2(vs)
@@ -315,20 +331,59 @@ func (s *ebsVolumeSuite) TestDeleteVolumes(c *gc.C) {
 	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
 }
 
-func (s *ebsVolumeSuite) TestVolumes(c *gc.C) {
+func (s *ebsVolumeSuite) TestDestroyVolumesStillAttached(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	s.setupAttachVolumesTest(c, vs, ec2test.Running)
+	errs, err := vs.DestroyVolumes([]string{"vol-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+
+	ec2Client := ec2.StorageEC2(vs)
+	ec2Vols, err := ec2Client.Volumes(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2Vols.Volumes, gc.HasLen, 2)
+	sortBySize(ec2Vols.Volumes)
+	c.Assert(ec2Vols.Volumes[0].Size, gc.Equals, 20)
+}
+
+func (s *ebsVolumeSuite) TestDescribeVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	s.assertCreateVolumes(c, vs, "")
 
 	vols, err := vs.DescribeVolumes([]string{"vol-0", "vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 2)
-	c.Assert(vols, jc.SameContents, []storage.VolumeInfo{{
-		Size:     10240,
-		VolumeId: "vol-0",
+	c.Assert(vols, jc.DeepEquals, []storage.DescribeVolumesResult{{
+		VolumeInfo: &storage.VolumeInfo{
+			Size:       10240,
+			VolumeId:   "vol-0",
+			Persistent: true,
+		},
 	}, {
-		Size:     20480,
-		VolumeId: "vol-1",
+		VolumeInfo: &storage.VolumeInfo{
+			Size:       20480,
+			VolumeId:   "vol-1",
+			Persistent: true,
+		},
 	}})
+}
+
+func (s *ebsVolumeSuite) TestDescribeVolumesNotFound(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	vols, err := vs.DescribeVolumes([]string{"vol-42"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
+	c.Assert(vols[0].Error, gc.ErrorMatches, "vol-42 not found")
+}
+
+func (s *ebsVolumeSuite) TestListVolumes(c *gc.C) {
+	vs := s.volumeSource(c, nil)
+	s.assertCreateVolumes(c, vs, "")
+
+	// Only one volume created by assertCreateVolumes has
+	// the env-uuid tag with the expected value.
+	volIds, err := vs.ListVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volIds, jc.SameContents, []string{"vol-0"})
 }
 
 func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
@@ -348,6 +403,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 		err    string
 	}{{
 		params: storage.VolumeParams{
+			Size:     1024,
 			Provider: ec2.EBS_ProviderType,
 			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
@@ -358,6 +414,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 		err: `querying instance details: instance "woat" not found \(InvalidInstanceID.NotFound\)`,
 	}, {
 		params: storage.VolumeParams{
+			Size:     1024,
 			Provider: ec2.EBS_ProviderType,
 			Attachment: &storage.VolumeAttachmentParams{
 				AttachmentParams: storage.AttachmentParams{
@@ -365,7 +422,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 				},
 			},
 		},
-		err: "querying instance details: volumes can only be attached to running instances, these instances are not running: i-3",
+		err: "cannot attach to non-running instance i-3",
 	}, {
 		params: storage.VolumeParams{
 			Size:       100000000,
@@ -373,7 +430,28 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 			Attributes: map[string]interface{}{},
 			Attachment: &attachmentParams,
 		},
-		err: "97657 GiB exceeds the maximum of 1024 GiB",
+		err: "volume size 97657 GiB exceeds the maximum of 1024 GiB",
+	}, {
+		params: storage.VolumeParams{
+			Size:     100000000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"volume-type": "gp2",
+			},
+			Attachment: &attachmentParams,
+		},
+		err: "volume size 97657 GiB exceeds the maximum of 16384 GiB",
+	}, {
+		params: storage.VolumeParams{
+			Size:     100000000,
+			Provider: ec2.EBS_ProviderType,
+			Attributes: map[string]interface{}{
+				"volume-type": "io1",
+				"iops":        "30",
+			},
+			Attachment: &attachmentParams,
+		},
+		err: "volume size 97657 GiB exceeds the maximum of 16384 GiB",
 	}, {
 		params: storage.VolumeParams{
 			Tag:      volume0,
@@ -381,11 +459,11 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 			Provider: ec2.EBS_ProviderType,
 			Attributes: map[string]interface{}{
 				"volume-type": "io1",
-				"iops":        "1234",
+				"iops":        "30",
 			},
 			Attachment: &attachmentParams,
 		},
-		err: "volume size is 1 GiB, must be at least 10 GiB for provisioned IOPS",
+		err: "volume size is 1 GiB, must be at least 4 GiB",
 	}, {
 		params: storage.VolumeParams{
 			Tag:      volume0,
@@ -397,7 +475,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 			},
 			Attachment: &attachmentParams,
 		},
-		err: "volume size is 10 GiB, must be at least 41 GiB to support 1234 IOPS",
+		err: "specified IOPS ratio is 1234/GiB, maximum is 30/GiB",
 	}, {
 		params: storage.VolumeParams{
 			Tag:      volume0,
@@ -405,7 +483,7 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 			Provider: ec2.EBS_ProviderType,
 			Attributes: map[string]interface{}{
 				"volume-type": "standard",
-				"iops":        "1234",
+				"iops":        "30",
 			},
 			Attachment: &attachmentParams,
 		},
@@ -422,8 +500,10 @@ func (s *ebsVolumeSuite) TestCreateVolumesErrors(c *gc.C) {
 		},
 		err: "validating EBS storage config: volume-type: unexpected value \"what\"",
 	}} {
-		_, _, err := vs.CreateVolumes([]storage.VolumeParams{test.params})
-		c.Check(err, gc.ErrorMatches, test.err)
+		results, err := vs.CreateVolumes([]storage.VolumeParams{test.params})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(results, gc.HasLen, 1)
+		c.Check(results[0].Error, gc.ErrorMatches, test.err)
 	}
 }
 
@@ -449,8 +529,12 @@ func (s *ebsVolumeSuite) setupAttachVolumesTest(
 func (s *ebsVolumeSuite) TestAttachVolumesNotRunning(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	instanceId := s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)[0]
-	_, err := s.createVolumes(vs, instanceId)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".* these instances are not running: i-3")
+	results, err := s.createVolumes(vs, instanceId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.Not(gc.HasLen), 0)
+	for _, result := range results {
+		c.Check(errors.Cause(result.Error), gc.ErrorMatches, "cannot attach to non-running instance i-3")
+	}
 }
 
 func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
@@ -459,7 +543,8 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	result, err := vs.AttachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
+	c.Assert(result[0].Error, jc.ErrorIsNil)
+	c.Assert(result[0].VolumeAttachment, jc.DeepEquals, &storage.VolumeAttachment{
 		names.NewVolumeTag("0"),
 		names.NewMachineTag("1"),
 		storage.VolumeAttachmentInfo{
@@ -474,18 +559,18 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 3)
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Attachments, jc.DeepEquals, []awsec2.VolumeAttachment{{
-		VolumeId:            "vol-0",
-		InstanceId:          "i-3",
-		Device:              "/dev/sdf",
-		Status:              "attached",
-		DeleteOnTermination: true,
+		VolumeId:   "vol-0",
+		InstanceId: "i-3",
+		Device:     "/dev/sdf",
+		Status:     "attached",
 	}})
 
 	// Test idempotency.
 	result, err = vs.AttachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0], gc.Equals, storage.VolumeAttachment{
+	c.Assert(result[0].Error, jc.ErrorIsNil)
+	c.Assert(result[0].VolumeAttachment, jc.DeepEquals, &storage.VolumeAttachment{
 		names.NewVolumeTag("0"),
 		names.NewMachineTag("1"),
 		storage.VolumeAttachmentInfo{
@@ -495,13 +580,17 @@ func (s *ebsVolumeSuite) TestAttachVolumes(c *gc.C) {
 	})
 }
 
+// TODO(axw) add tests for attempting to attach while
+// a volume is still in the "creating" state.
+
 func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
 	vs := s.volumeSource(c, nil)
 	params := s.setupAttachVolumesTest(c, vs, ec2test.Running)
 	_, err := vs.AttachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
-	err = vs.DetachVolumes(params)
+	errs, err := vs.DetachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
 
 	ec2Client := ec2.StorageEC2(vs)
 	ec2Vols, err := ec2Client.Volumes(nil, nil)
@@ -511,8 +600,9 @@ func (s *ebsVolumeSuite) TestDetachVolumes(c *gc.C) {
 	c.Assert(ec2Vols.Volumes[0].Attachments, gc.HasLen, 0)
 
 	// Test idempotent
-	err = vs.DetachVolumes(params)
+	errs, err = vs.DetachVolumes(params)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
 
 type blockDeviceMappingSuite struct {
@@ -543,9 +633,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	}
 
 	// First without numbers.
-	nextName = ec2.BlockDeviceNamer(awsec2.Instance{
-		VirtType: "hvm",
-	})
+	nextName = ec2.BlockDeviceNamer(false)
 	expect("/dev/sdf", "xvdf")
 	expect("/dev/sdg", "xvdg")
 	expect("/dev/sdh", "xvdh")
@@ -560,9 +648,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 	expectErr("too many EBS volumes to attach")
 
 	// Now with numbers.
-	nextName = ec2.BlockDeviceNamer(awsec2.Instance{
-		VirtType: "paravirtual",
-	})
+	nextName = ec2.BlockDeviceNamer(true)
 	expect("/dev/sdf1", "xvdf1")
 	expect("/dev/sdf2", "xvdf2")
 	expect("/dev/sdf3", "xvdf3")
@@ -583,8 +669,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty")
 	c.Assert(mapping, gc.DeepEquals, []awsec2.BlockDeviceMapping{{
 		VolumeSize: 8,
 		DeviceName: "/dev/sda1",

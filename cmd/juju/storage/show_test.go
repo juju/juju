@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
@@ -17,6 +18,11 @@ import (
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
+
+// epoch is the time we use for "since" in statuses. The time
+// is always shown as a local time, so we override the local
+// location to be UTC+8.
+var epoch = time.Unix(0, 0)
 
 type ShowSuite struct {
 	SubStorageSuite
@@ -32,6 +38,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(storage.GetStorageShowAPI, func(c *storage.ShowCommand) (storage.StorageShowAPI, error) {
 		return s.mockAPI, nil
 	})
+	s.PatchValue(&time.Local, time.FixedZone("Australia/Perth", 3600*8))
 
 }
 
@@ -56,19 +63,20 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		[]string{"shared-fs/0"},
 		// Default format is yaml
 		`
-postgresql/0:
-  shared-fs/0:
-    storage: shared-fs
-    kind: block
-    status: pending
-    persistent: false
-transcode/0:
-  shared-fs/0:
-    storage: shared-fs
-    kind: filesystem
-    status: attached
-    persistent: false
-    location: a location
+shared-fs/0:
+  kind: filesystem
+  status:
+    current: attached
+    since: 01 Jan 1970 08:00:00\+08:00
+  persistent: true
+  attachments:
+    units:
+      transcode/0:
+        machine: \"1\"
+        location: a location
+      transcode/1:
+        machine: \"2\"
+        location: b location
 `[1:],
 	)
 }
@@ -82,7 +90,7 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"postgresql/0":{"shared-fs/0":{"storage":"shared-fs","kind":"block","status":"pending","persistent":false}},"transcode/0":{"shared-fs/0":{"storage":"shared-fs","kind":"filesystem","status":"attached","persistent":false,"location":"a location"}}}
+		`{"shared-fs/0":{"kind":"filesystem","status":{"current":"attached","since":"01 Jan 1970 08:00:00\+08:00"},"persistent":true,"attachments":{"units":{"transcode/0":{"machine":"1","location":"a location"},"transcode/1":{"machine":"2","location":"b location"}}}}}
 `,
 	)
 }
@@ -92,24 +100,29 @@ func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
 		`
-postgresql/0:
-  db-dir/1000:
-    storage: db-dir
-    kind: block
-    status: pending
-    persistent: true
-  shared-fs/0:
-    storage: shared-fs
-    kind: block
-    status: pending
-    persistent: false
-transcode/0:
-  shared-fs/0:
-    storage: shared-fs
-    kind: filesystem
-    status: attached
-    persistent: false
-    location: a location
+db-dir/1000:
+  kind: block
+  status:
+    current: pending
+    since: .*
+  persistent: true
+  attachments:
+    units:
+      postgresql/0: {}
+shared-fs/0:
+  kind: filesystem
+  status:
+    current: attached
+    since: 01 Jan 1970 08:00:00\+08:00
+  persistent: true
+  attachments:
+    units:
+      transcode/0:
+        machine: \"1\"
+        location: a location
+      transcode/1:
+        machine: \"2\"
+        location: b location
 `[1:],
 	)
 }
@@ -119,7 +132,7 @@ func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := testing.Stdout(context)
-	c.Assert(obtained, gc.Equals, expected)
+	c.Assert(obtained, gc.Matches, expected)
 }
 
 type mockShowAPI struct {
@@ -130,32 +143,43 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetails, error) {
+func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetailsResult, error) {
 	if s.noMatch {
 		return nil, nil
 	}
-	all := make([]params.StorageDetails, len(tags))
+	all := make([]params.StorageDetailsResult, len(tags))
 	for i, tag := range tags {
-		all[i] = params.StorageDetails{
-			StorageTag: tag.String(),
-			UnitTag:    "unit-postgresql-0",
-			Kind:       params.StorageKindBlock,
-			Status:     "pending",
-		}
-		if i == 1 {
-			all[i].Persistent = true
-		}
-	}
-	for _, tag := range tags {
 		if strings.Contains(tag.String(), "shared") {
-			all = append(all, params.StorageDetails{
+			all[i].Result = &params.StorageDetails{
 				StorageTag: tag.String(),
-				OwnerTag:   "unit-transcode-0",
-				UnitTag:    "unit-transcode-0",
+				OwnerTag:   "service-transcode",
 				Kind:       params.StorageKindFilesystem,
-				Location:   "a location",
-				Status:     "attached",
-			})
+				Status: params.EntityStatus{
+					Status: "attached",
+					Since:  &epoch,
+				},
+				Persistent: true,
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-transcode-0": params.StorageAttachmentDetails{
+						MachineTag: "machine-1",
+						Location:   "a location",
+					},
+					"unit-transcode-1": params.StorageAttachmentDetails{
+						MachineTag: "machine-2",
+						Location:   "b location",
+					},
+				},
+			}
+		} else {
+			all[i].Legacy = params.LegacyStorageDetails{
+				StorageTag: tag.String(),
+				UnitTag:    "unit-postgresql-0",
+				Kind:       params.StorageKindBlock,
+				Status:     "pending",
+			}
+			if i == 1 {
+				all[i].Legacy.Persistent = true
+			}
 		}
 	}
 	return all, nil

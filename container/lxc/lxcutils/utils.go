@@ -3,6 +3,8 @@
 
 package lxcutils
 
+var initProcessCgroupFile = "/proc/1/cgroup"
+
 // RunningInsideLXC reports whether or not we are running inside an
 // LXC container.
 func RunningInsideLXC() (bool, error) {

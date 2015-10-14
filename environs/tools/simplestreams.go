@@ -20,11 +20,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -153,8 +154,8 @@ func (tc *ToolsConstraint) IndexIds() []string {
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
-	for _, series := range tc.Series {
-		version, err := version.SeriesVersion(series)
+	for _, ser := range tc.Series {
+		version, err := series.SeriesVersion(ser)
 		if err != nil {
 			return nil, err
 		}
@@ -189,26 +190,21 @@ func (t *ToolsMetadata) sortString() string {
 }
 
 // binary returns the tools metadata's binary version, which may be used for
-// map lookup. It is possible for a binary to have an unkown OS.
+// map lookup.
 func (t *ToolsMetadata) binary() (version.Binary, error) {
 	num, err := version.Parse(t.Version)
 	if err != nil {
-		return version.Binary{}, errors.Trace(err)
-	}
-	toolsOS, err := version.GetOSFromSeries(t.Release)
-	if err != nil && !version.IsUnknownOSForSeriesError(err) {
 		return version.Binary{}, errors.Trace(err)
 	}
 	return version.Binary{
 		Number: num,
 		Series: t.Release,
 		Arch:   t.Arch,
-		OS:     toolsOS,
 	}, nil
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
-	seriesVersion, err := version.SeriesVersion(t.Release)
+	seriesVersion, err := series.SeriesVersion(t.Release)
 	if err != nil {
 		return "", err
 	}

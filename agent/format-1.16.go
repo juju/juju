@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/names"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
@@ -98,8 +98,7 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 	config := &configInternal{
 		tag:               tag,
 		nonce:             format.Nonce,
-		dataDir:           DefaultDataDir,
-		logDir:            DefaultLogDir,
+		paths:             DefaultPaths,
 		upgradedToVersion: *format.UpgradedToVersion,
 		caCert:            string(caCert),
 		oldPassword:       format.OldPassword,

@@ -114,7 +114,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, result.Instance, icfg)
+		return FinishBootstrap(ctx, client, env, result.Instance, icfg)
 	}
 	return result, series, finalize, nil
 }
@@ -123,7 +123,13 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 // to the instance via SSH and carrying out the cloud-config.
 //
 // Note: FinishBootstrap is exposed so it can be replaced for testing.
-var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, instanceConfig *instancecfg.InstanceConfig) error {
+var FinishBootstrap = func(
+	ctx environs.BootstrapContext,
+	client ssh.Client,
+	env environs.Environ,
+	inst instance.Instance,
+	instanceConfig *instancecfg.InstanceConfig,
+) error {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
@@ -150,7 +156,7 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 		interrupted,
 		client,
 		checkNonceCommand,
-		inst,
+		&refreshableInstance{inst, env},
 		instanceConfig.Config.BootstrapSSHOpts(),
 	)
 	if err != nil {
@@ -206,6 +212,21 @@ type addresser interface {
 	Addresses() ([]network.Address, error)
 }
 
+type refreshableInstance struct {
+	instance.Instance
+	env environs.Environ
+}
+
+// Refresh refreshes the addresses for the instance.
+func (i *refreshableInstance) Refresh() error {
+	instances, err := i.env.Instances([]instance.Id{i.Id()})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	i.Instance = instances[0]
+	return nil
+}
+
 type hostChecker struct {
 	addr   network.Address
 	client ssh.Client
@@ -238,8 +259,9 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 	done := make(chan error, 1)
 	var lastErr error
 	for {
+		address := hc.addr.Value
 		go func() {
-			done <- connectSSH(hc.client, hc.addr.Value, hc.checkHostScript)
+			done <- connectSSH(hc.client, address, hc.checkHostScript)
 		}()
 		select {
 		case <-hc.closed:
@@ -249,6 +271,8 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 		case lastErr = <-done:
 			if lastErr == nil {
 				return hc, nil
+			} else {
+				logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 			}
 		}
 		select {

@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -135,7 +135,7 @@ func (s *uniterBaseSuite) testSetStatus(
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusRebooting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
@@ -174,7 +174,7 @@ func (s *uniterBaseSuite) testSetAgentStatus(
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusExecuting, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusRebooting, Info: "blah"},
@@ -213,7 +213,7 @@ func (s *uniterBaseSuite) testSetUnitStatus(
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
 			{Tag: "unit-wordpress-0", Status: params.StatusTerminated, Info: "foobar"},
 			{Tag: "unit-foo-42", Status: params.StatusActive, Info: "blah"},
@@ -442,9 +442,9 @@ func (s *uniterBaseSuite) testPublicAddress(
 		network.NewScopedAddress("1.2.3.4", network.ScopePublic),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	address, ok := s.wordpressUnit.PublicAddress()
-	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, jc.IsTrue)
+	address, err := s.wordpressUnit.PublicAddress()
+	c.Assert(address.Value, gc.Equals, "1.2.3.4")
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = facade.PublicAddress(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,9 +487,9 @@ func (s *uniterBaseSuite) testPrivateAddress(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	address, ok := s.wordpressUnit.PrivateAddress()
-	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, jc.IsTrue)
+	address, err := s.wordpressUnit.PrivateAddress()
+	c.Assert(address.Value, gc.Equals, "1.2.3.4")
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = facade.PrivateAddress(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2165,29 +2165,6 @@ type getMeterStatus interface {
 	GetMeterStatus(args params.Entities) (params.MeterStatusResults, error)
 }
 
-func (s *uniterBaseSuite) testGetMeterStatus(c *gc.C, facade getMeterStatus) {
-	args := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}}}
-	result, err := facade.GetMeterStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Code, gc.Equals, "AMBER")
-	c.Assert(result.Results[0].Info, gc.Equals, "not set")
-
-	newCode := "GREEN"
-	newInfo := "All is ok."
-
-	err = s.wordpressUnit.SetMeterStatus(newCode, newInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err = facade.GetMeterStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].Code, gc.DeepEquals, newCode)
-	c.Assert(result.Results[0].Info, gc.DeepEquals, newInfo)
-}
-
 func (s *uniterBaseSuite) testGetMeterStatusUnauthenticated(c *gc.C, facade getMeterStatus) {
 	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
 	result, err := facade.GetMeterStatus(args)
@@ -2219,44 +2196,6 @@ func (s *uniterBaseSuite) testGetMeterStatusBadTag(c *gc.C, facade getMeterStatu
 		c.Assert(result.Info, gc.Equals, "")
 		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
 	}
-}
-
-func (s *uniterBaseSuite) testWatchMeterStatus(
-	c *gc.C,
-	facade interface {
-		WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error)
-	},
-) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-	}}
-	result, err := facade.WatchMeterStatus(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{NotifyWatcherId: "1"},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	err = s.wordpressUnit.SetMeterStatus("GREEN", "No additional information.")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
 }
 
 func (s *uniterBaseSuite) assertOneStringsWatcher(c *gc.C, result params.StringsWatchResults, err error) {

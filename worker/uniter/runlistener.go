@@ -39,7 +39,7 @@ type CommandRunner interface {
 }
 
 // RunListener is responsible for listening on the network connection and
-// seting up the rpc server on that net connection. Also starts the go routine
+// setting up the rpc server on that net connection. Also starts the go routine
 // that listens and hands off the work.
 type RunListener struct {
 	listener net.Listener
@@ -122,9 +122,11 @@ func (s *RunListener) Run() (err error) {
 
 // Close immediately stops accepting connections, and blocks until all existing
 // connections have been closed.
-func (s *RunListener) Close() {
+func (s *RunListener) Close() error {
+	defer func() {
+		<-s.closed
+		logger.Debugf("juju-run listener stopped")
+	}()
 	close(s.closing)
-	s.listener.Close()
-	<-s.closed
-	logger.Debugf("juju-run listener stopped")
+	return s.listener.Close()
 }

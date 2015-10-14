@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -28,8 +29,10 @@ var ErrNoBackingVolume = errors.New("filesystem has no backing volume")
 // backed by a volume, and managed by Juju; otherwise they are first-class
 // entities managed by a filesystem provider.
 type Filesystem interface {
-	Entity
+	GlobalEntity
 	LifeBinder
+	StatusGetter
+	StatusSetter
 
 	// FilesystemTag returns the tag for the filesystem.
 	FilesystemTag() names.FilesystemTag
@@ -84,6 +87,7 @@ type FilesystemAttachment interface {
 }
 
 type filesystem struct {
+	st  *State
 	doc filesystemDoc
 }
 
@@ -186,7 +190,12 @@ func (f *filesystem) validate() error {
 	return nil
 }
 
-// Tag is required to implement Entity.
+// globalKey is required to implement GlobalEntity.
+func (f *filesystem) globalKey() string {
+	return filesystemGlobalKey(f.doc.FilesystemId)
+}
+
+// Tag is required to implement GlobalEntity.
 func (f *filesystem) Tag() names.Tag {
 	return f.FilesystemTag()
 }
@@ -259,6 +268,16 @@ func (f *filesystem) Params() (FilesystemParams, bool) {
 	return *f.doc.Params, true
 }
 
+// Status is required to implement StatusGetter.
+func (f *filesystem) Status() (StatusInfo, error) {
+	return f.st.FilesystemStatus(f.FilesystemTag())
+}
+
+// SetStatus is required to implement StatusSetter.
+func (f *filesystem) SetStatus(status Status, info string, data map[string]interface{}) error {
+	return f.st.SetFilesystemStatus(f.FilesystemTag(), status, info, data)
+}
+
 // Filesystem is required to implement FilesystemAttachment.
 func (f *filesystemAttachment) Filesystem() names.FilesystemTag {
 	return names.NewFilesystemTag(f.doc.Filesystem)
@@ -327,11 +346,31 @@ func (st *State) VolumeFilesystem(tag names.VolumeTag) (Filesystem, error) {
 	return f, err
 }
 
+func (st *State) filesystems(query interface{}) ([]*filesystem, error) {
+	coll, cleanup := st.getCollection(filesystemsC)
+	defer cleanup()
+
+	var fDocs []filesystemDoc
+	err := coll.Find(query).All(&fDocs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	filesystems := make([]*filesystem, len(fDocs))
+	for i, doc := range fDocs {
+		f := &filesystem{st, doc}
+		if err := f.validate(); err != nil {
+			return nil, errors.Annotate(err, "filesystem validation failed")
+		}
+		filesystems[i] = f
+	}
+	return filesystems, nil
+}
+
 func (st *State) filesystem(query bson.D, description string) (*filesystem, error) {
 	coll, cleanup := st.getCollection(filesystemsC)
 	defer cleanup()
 
-	var f filesystem
+	f := filesystem{st: st}
 	err := coll.Find(query).One(&f.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf(description)
@@ -605,12 +644,15 @@ func (st *State) RemoveFilesystem(tag names.FilesystemTag) (err error) {
 }
 
 func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
-	ops := []txn.Op{{
-		C:      filesystemsC,
-		Id:     filesystem.Tag().Id(),
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
+	ops := []txn.Op{
+		{
+			C:      filesystemsC,
+			Id:     filesystem.Tag().Id(),
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+		removeStatusOp(st, filesystem.globalKey()),
+	}
 	// If the filesystem is backed by a volume, the volume should
 	// be destroyed once the filesystem is removed if it is bound
 	// to the filesystem.
@@ -695,36 +737,42 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
 	if !provider.Supports(storage.StorageKindFilesystem) {
-		var volumeOp txn.Op
+		var volumeOps []txn.Op
 		volumeParams := VolumeParams{
 			params.storage,
 			filesystemTag, // volume is bound to filesystem
 			params.Pool,
 			params.Size,
 		}
-		volumeOp, volumeTag, err = st.addVolumeOp(volumeParams, machineId)
+		volumeOps, volumeTag, err = st.addVolumeOps(volumeParams, machineId)
 		if err != nil {
 			return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "creating backing volume")
 		}
 		volumeId = volumeTag.Id()
-		ops = append(ops, volumeOp)
+		ops = append(ops, volumeOps...)
 	}
 
-	filesystemOp := txn.Op{
-		C:      filesystemsC,
-		Id:     filesystemId,
-		Assert: txn.DocMissing,
-		Insert: &filesystemDoc{
-			FilesystemId: filesystemId,
-			VolumeId:     volumeId,
-			StorageId:    params.storage.Id(),
-			Binding:      params.binding.String(),
-			Params:       &params,
-			// Every filesystem is created with one attachment.
-			AttachmentCount: 1,
+	filesystemOps := []txn.Op{
+		createStatusOp(st, filesystemGlobalKey(filesystemId), statusDoc{
+			Status:  StatusPending,
+			Updated: time.Now().UnixNano(),
+		}),
+		{
+			C:      filesystemsC,
+			Id:     filesystemId,
+			Assert: txn.DocMissing,
+			Insert: &filesystemDoc{
+				FilesystemId: filesystemId,
+				VolumeId:     volumeId,
+				StorageId:    params.storage.Id(),
+				Binding:      params.binding.String(),
+				Params:       &params,
+				// Every filesystem is created with one attachment.
+				AttachmentCount: 1,
+			},
 		},
 	}
-	ops = append(ops, filesystemOp)
+	ops = append(ops, filesystemOps...)
 	return ops, filesystemTag, volumeTag, nil
 }
 
@@ -1061,4 +1109,62 @@ func validateFilesystemMountPoints(m *Machine, newFilesystems []filesystemAttach
 		}
 	}
 	return nil
+}
+
+// AllFilesystems returns all Filesystems for this state.
+func (st *State) AllFilesystems() ([]Filesystem, error) {
+	filesystems, err := st.filesystems(nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get filesystems")
+	}
+	return filesystemsToInterfaces(filesystems), nil
+}
+
+func filesystemsToInterfaces(fs []*filesystem) []Filesystem {
+	result := make([]Filesystem, len(fs))
+	for i, f := range fs {
+		result[i] = f
+	}
+	return result
+}
+
+func filesystemGlobalKey(name string) string {
+	return "f#" + name
+}
+
+// FilesystemStatus returns the status of the specified filesystem.
+func (st *State) FilesystemStatus(tag names.FilesystemTag) (StatusInfo, error) {
+	return getStatus(st, filesystemGlobalKey(tag.Id()), "filesystem")
+}
+
+// SetFilesystemStatus sets the status of the specified filesystem.
+func (st *State) SetFilesystemStatus(tag names.FilesystemTag, status Status, info string, data map[string]interface{}) error {
+	switch status {
+	case StatusAttaching, StatusAttached, StatusDetaching, StatusDetached, StatusDestroying:
+	case StatusError:
+		if info == "" {
+			return errors.Errorf("cannot set status %q without info", status)
+		}
+	case StatusPending:
+		// If a filesystem is not yet provisioned, we allow its status
+		// to be set back to pending (when a retry is to occur).
+		v, err := st.Filesystem(tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = v.Info()
+		if errors.IsNotProvisioned(err) {
+			break
+		}
+		return errors.Errorf("cannot set status %q", status)
+	default:
+		return errors.Errorf("cannot set invalid status %q", status)
+	}
+	return setStatus(st, setStatusParams{
+		badge:     "filesystem",
+		globalKey: filesystemGlobalKey(tag.Id()),
+		status:    status,
+		message:   info,
+		rawData:   data,
+	})
 }

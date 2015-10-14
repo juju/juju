@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
@@ -54,7 +54,7 @@ func registerAmazonTests() {
 		"control-bucket": "juju-test-" + uniqueName,
 		"admin-secret":   "for real",
 		"firewall-mode":  config.FwInstance,
-		"agent-version":  version.Current.Number.String(),
+		"agent-version":  coretesting.FakeVersionNumber.String(),
 	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
@@ -87,13 +87,13 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.BaseSuite.SetUpTest(c)
-	t.LiveTests.SetUpTest(c)
 	t.BaseSuite.PatchValue(&version.Current, version.Binary{
-		Number: version.Current.Number,
+		Number: coretesting.FakeVersionNumber,
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+	t.BaseSuite.SetUpTest(c)
+	t.LiveTests.SetUpTest(c)
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
@@ -124,21 +124,21 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 
 	ec2inst := ec2.InstanceEC2(insts[0])
 	c.Assert(ec2inst.IPAddress, gc.Equals, addresses[0].Value)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.small")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "m3.medium")
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	t.PrepareOnce(c)
-	cons := constraints.MustParse("mem=2G")
+	cons := constraints.MustParse("mem=4G")
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, "30", cons)
 	defer t.Env.StopInstances(inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.medium")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "m3.large")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
-	c.Assert(*hc.Mem, gc.Equals, uint64(3840))
+	c.Assert(*hc.Mem, gc.Equals, uint64(7680))
 	c.Assert(*hc.RootDisk, gc.Equals, uint64(8192))
-	c.Assert(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(200))
+	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(650))
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {

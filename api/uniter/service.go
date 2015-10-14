@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
@@ -169,7 +169,7 @@ func (s *Service) SetStatus(unitName string, status params.Status, info string, 
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
-		Entities: []params.EntityStatus{
+		Entities: []params.EntityStatusArgs{
 			{
 				Tag:    tag.String(),
 				Status: status,
@@ -212,4 +212,10 @@ func (s *Service) Status(unitName string) (params.ServiceStatusResult, error) {
 		return params.ServiceStatusResult{}, result.Error
 	}
 	return result, nil
+}
+
+// WatchLeadershipSettings returns a watcher which can be used to wait
+// for leadership settings changes to be made for the service.
+func (s *Service) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
+	return s.st.LeadershipSettings.WatchLeadershipSettings(s.tag.Id())
 }

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -26,8 +28,8 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -50,8 +52,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
-
-var AssignPrivateIPAddress = assignPrivateIPAddress
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
@@ -89,6 +89,11 @@ type defaultVpc struct {
 	id            network.Id
 }
 
+// AssignPrivateIPAddress is a wrapper around ec2Inst.AssignPrivateIPAddresses.
+var AssignPrivateIPAddress = assignPrivateIPAddress
+
+// assignPrivateIPAddress should not be called directly so tests can patch it (use
+// AssignPrivateIPAddress).
 func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
 	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
 	return err
@@ -222,6 +227,11 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	})
 	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
 	return e.supportedArchitectures, err
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (e *environ) SupportsSpaces() (bool, error) {
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.
@@ -481,6 +491,29 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}
 
+	// If spaces= constraints is also set, then filter availabilityZones to only
+	// contain zones matching the space's subnets' zones
+	if len(args.SubnetsToZones) > 0 {
+		// find all the available zones that match the subnets that match our
+		// space/subnet constraints
+		zonesSet := set.NewStrings(availabilityZones...)
+		subnetZones := set.NewStrings()
+
+		for _, zones := range args.SubnetsToZones {
+			for _, zone := range zones {
+				subnetZones.Add(zone)
+			}
+		}
+
+		if len(zonesSet.Intersection(subnetZones).SortedValues()) == 0 {
+			return nil, errors.Errorf(
+				"unable to resolve constraints: space and/or subnet unavailable in zones %v",
+				availabilityZones)
+		}
+
+		availabilityZones = zonesSet.Intersection(subnetZones).SortedValues()
+	}
+
 	if args.InstanceConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
@@ -490,10 +523,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, err
 	}
 
-	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      series,
+		Series:      args.InstanceConfig.Series,
 		Arches:      arches,
 		Constraints: args.Constraints,
 		Storage:     []string{ssdStorage, ebsStorage},
@@ -506,12 +538,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
+	if spec.InstanceType.Deprecated {
+		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
+	}
+
 	args.InstanceConfig.Tools = tools[0]
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
 	}
 
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -523,15 +559,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, err := getBlockDeviceMappings(args.Constraints)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create block device mappings")
-	}
+	blockDeviceMappings := getBlockDeviceMappings(args.Constraints, args.InstanceConfig.Series)
 	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
 
 	for _, availZone := range availabilityZones {
 		instResp, err = runInstances(e.ec2(), &ec2.RunInstances{
-			AvailZone:           availZone,
+			AvailZone: availZone,
+			// TODO: SubnetId: <a subnet in the AZ that conforms to our constraints>
 			ImageId:             spec.Image.Id,
 			MinCount:            1,
 			MaxCount:            1,
@@ -560,11 +594,22 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
 	// Tag instance, for accounting and identification.
-	args.InstanceConfig.Tags[tagName] = resourceName(
+	instanceName := resourceName(
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
+	args.InstanceConfig.Tags[tagName] = instanceName
 	if err := tagResources(e.ec2(), args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, errors.Annotate(err, "tagging instance")
+	}
+
+	// Tag the machine's root EBS volume, if it has one.
+	if inst.Instance.RootDeviceType == "ebs" {
+		uuid, _ := cfg.UUID()
+		tags := tags.ResourceTags(names.NewEnvironTag(uuid), cfg)
+		tags[tagName] = instanceName + "-root"
+		if err := tagRootDisk(e.ec2(), tags, inst.Instance); err != nil {
+			return nil, errors.Annotate(err, "tagging root disk")
+		}
 	}
 
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
@@ -607,6 +652,42 @@ func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) err
 		}
 	}
 	return err
+}
+
+func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
+	if len(tags) == 0 {
+		return nil
+	}
+	findVolumeId := func(inst *ec2.Instance) string {
+		for _, m := range inst.BlockDeviceMappings {
+			if m.DeviceName != inst.RootDeviceName {
+				continue
+			}
+			return m.VolumeId
+		}
+		return ""
+	}
+	// Wait until the instance has an associated EBS volume in the
+	// block-device-mapping.
+	volumeId := findVolumeId(inst)
+	waitRootDiskAttempt := utils.AttemptStrategy{
+		Total: 5 * time.Minute,
+		Delay: 5 * time.Second,
+	}
+	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
+		resp, err := e.Instances([]string{inst.InstanceId}, nil)
+		if err != nil {
+			return err
+		}
+		if len(resp.Reservations) > 0 && len(resp.Reservations[0].Instances) > 0 {
+			inst = &resp.Reservations[0].Instances[0]
+			volumeId = findVolumeId(inst)
+		}
+	}
+	if volumeId == "" {
+		return errors.New("timed out waiting for EBS volume to be associated")
+	}
+	return tagResources(e, tags, volumeId)
 }
 
 var runInstances = _runInstances
@@ -897,13 +978,14 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		cidr := subnet.CIDRBlock
 
 		result[i] = network.InterfaceInfo{
-			DeviceIndex:      iface.Attachment.DeviceIndex,
-			MACAddress:       iface.MACAddress,
-			CIDR:             cidr,
-			NetworkName:      "", // Not needed for now.
-			ProviderId:       network.Id(iface.Id),
-			ProviderSubnetId: network.Id(iface.SubnetId),
-			VLANTag:          0, // Not supported on EC2.
+			DeviceIndex:       iface.Attachment.DeviceIndex,
+			MACAddress:        iface.MACAddress,
+			CIDR:              cidr,
+			NetworkName:       "", // Not needed for now.
+			ProviderId:        network.Id(iface.Id),
+			ProviderSubnetId:  network.Id(iface.SubnetId),
+			AvailabilityZones: []string{subnet.AvailZone},
+			VLANTag:           0, // Not supported on EC2.
 			// Getting the interface name is not supported on EC2, so fake it.
 			InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
 			Disabled:      false,
@@ -915,68 +997,105 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
-// Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance. subnetIds must not be
-// empty. Implements NetworkingEnviron.Subnets.
-func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	// At some point in the future an empty netIds may mean "fetch all subnets"
-	// but until that functionality is needed it's an error.
-	if len(subnetIds) == 0 {
-		return nil, errors.Errorf("subnetIds must not be empty")
-	}
-	ec2Inst := e.ec2()
-	// We can't filter by instance id here, unfortunately.
-	resp, err := ec2Inst.Subnets(nil, nil)
+func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
+	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to retrieve subnets")
+		logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
+		return network.SubnetInfo{}, err
 	}
+	// ec2 only uses IPv4 addresses for subnets
+	start, err := network.IPv4ToDecimal(ip)
+	if err != nil {
+		logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
+		return network.SubnetInfo{}, err
+	}
+	// First four addresses in a subnet are reserved, see
+	// http://goo.gl/rrWTIo
+	allocatableLow := network.DecimalToIPv4(start + 4)
 
+	ones, bits := ipnet.Mask.Size()
+	zeros := bits - ones
+	numIPs := uint32(1) << uint32(zeros)
+	highIP := start + numIPs - 1
+	// The last address in a subnet is also reserved (see same ref).
+	allocatableHigh := network.DecimalToIPv4(highIP - 1)
+
+	info := network.SubnetInfo{
+		CIDR:              cidr,
+		ProviderId:        subnetId,
+		VLANTag:           0, // Not supported on EC2
+		AllocatableIPLow:  allocatableLow,
+		AllocatableIPHigh: allocatableHigh,
+		AvailabilityZones: availZones,
+	}
+	logger.Tracef("found subnet with info %#v", info)
+	return info, nil
+
+}
+
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance or list of ids. subnetIds can be
+// empty, in which case all known are returned. Implements
+// NetworkingEnviron.Subnets.
+func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	var results []network.SubnetInfo
 	subIdSet := make(map[string]bool)
 	for _, subId := range subnetIds {
 		subIdSet[string(subId)] = false
 	}
 
-	var results []network.SubnetInfo
-	for _, subnet := range resp.Subnets {
-		_, ok := subIdSet[subnet.Id]
-		if !ok {
-			logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
-			continue
-		}
-		subIdSet[subnet.Id] = true
-
-		cidr := subnet.CIDRBlock
-		ip, ipnet, err := net.ParseCIDR(cidr)
+	if instId != instance.UnknownId {
+		interfaces, err := e.NetworkInterfaces(instId)
 		if err != nil {
-			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
-			continue
+			return results, errors.Trace(err)
 		}
-		// ec2 only uses IPv4 addresses for subnets
-		start, err := network.IPv4ToDecimal(ip)
+		if len(subnetIds) == 0 {
+			for _, iface := range interfaces {
+				subIdSet[string(iface.ProviderSubnetId)] = false
+			}
+		}
+		for _, iface := range interfaces {
+			_, ok := subIdSet[string(iface.ProviderSubnetId)]
+			if !ok {
+				logger.Tracef("subnet %q not in %v, skipping", iface.ProviderSubnetId, subnetIds)
+				continue
+			}
+			subIdSet[string(iface.ProviderSubnetId)] = true
+			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
+			if err != nil {
+				// Error will already have been logged.
+				continue
+			}
+			results = append(results, info)
+		}
+	} else {
+		ec2Inst := e.ec2()
+		resp, err := ec2Inst.Subnets(nil, nil)
 		if err != nil {
-			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
-			continue
+			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
-		// First four addresses in a subnet are reserved, see
-		// http://goo.gl/rrWTIo
-		allocatableLow := network.DecimalToIPv4(start + 4)
-
-		ones, bits := ipnet.Mask.Size()
-		zeros := bits - ones
-		numIPs := uint32(1) << uint32(zeros)
-		highIP := start + numIPs - 1
-		// The last address in a subnet is also reserved (see same ref).
-		allocatableHigh := network.DecimalToIPv4(highIP - 1)
-
-		info := network.SubnetInfo{
-			CIDR:              cidr,
-			ProviderId:        network.Id(subnet.Id),
-			VLANTag:           0, // Not supported on EC2
-			AllocatableIPLow:  allocatableLow,
-			AllocatableIPHigh: allocatableHigh,
+		if len(subnetIds) == 0 {
+			for _, subnet := range resp.Subnets {
+				subIdSet[subnet.Id] = false
+			}
 		}
-		logger.Tracef("found subnet with info %#v", info)
-		results = append(results, info)
+
+		for _, subnet := range resp.Subnets {
+			_, ok := subIdSet[subnet.Id]
+			if !ok {
+				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
+				continue
+			}
+			subIdSet[subnet.Id] = true
+			cidr := subnet.CIDRBlock
+			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
+			if err != nil {
+				// Error will already have been logged.
+				continue
+			}
+			results = append(results, info)
+
+		}
 	}
 
 	notFound := []string{}

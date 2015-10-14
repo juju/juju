@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package api
@@ -85,73 +85,19 @@ type State struct {
 	certPool *x509.CertPool
 }
 
-// Info encapsulates information about a server holding juju state and
-// can be used to make a connection to it.
-type Info struct {
-	// Addrs holds the addresses of the state servers.
-	Addrs []string
-
-	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
-	CACert string
-
-	// Tag holds the name of the entity that is connecting.
-	// If this is nil, and the password are empty, no login attempt will be made.
-	// (this is to allow tests to access the API to check that operations
-	// fail when not logged in).
-	Tag names.Tag
-
-	// Password holds the password for the administrator or connecting entity.
-	Password string
-
-	// Nonce holds the nonce used when provisioning the machine. Used
-	// only by the machine agent.
-	Nonce string `yaml:",omitempty"`
-
-	// EnvironTag holds the environ tag for the environment we are
-	// trying to connect to.
-	EnvironTag names.EnvironTag
-}
-
-// DialOpts holds configuration parameters that control the
-// Dialing behavior when connecting to a state server.
-type DialOpts struct {
-	// DialAddressInterval is the amount of time to wait
-	// before starting to dial another address.
-	DialAddressInterval time.Duration
-
-	// Timeout is the amount of time to wait contacting
-	// a state server.
-	Timeout time.Duration
-
-	// RetryDelay is the amount of time to wait between
-	// unsucssful connection attempts.
-	RetryDelay time.Duration
-}
-
-// DefaultDialOpts returns a DialOpts representing the default
-// parameters for contacting a state server.
-func DefaultDialOpts() DialOpts {
-	return DialOpts{
-		DialAddressInterval: 50 * time.Millisecond,
-		Timeout:             10 * time.Minute,
-		RetryDelay:          2 * time.Second,
-	}
-}
-
 // Open establishes a connection to the API server using the Info
 // given, returning a State instance which can be used to make API
 // requests.
 //
 // See Connect for details of the connection mechanics.
-func Open(info *Info, opts DialOpts) (*State, error) {
+func Open(info *Info, opts DialOpts) (Connection, error) {
 	return open(info, opts, (*State).Login)
 }
 
 // This unexported open method is used both directly above in the Open
 // function, and also the OpenWithVersion function below to explicitly cause
 // the API server to think that the client is older than it really is.
-func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (*State, error) {
+func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (Connection, error) {
 	conn, err := Connect(info, "", nil, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -186,7 +132,7 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce s
 // OpenWithVersion uses an explicit version of the Admin facade to call Login
 // on. This allows the caller to pretend to be an older client, and is used
 // only in testing.
-func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (*State, error) {
+func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
 	var loginFunc func(st *State, tag, pwd, nonce string) error
 	switch loginVersion {
 	case 0:

@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/version"
 )
 
 // environGlobalKey is the key for the environment, its
@@ -33,6 +34,10 @@ type environmentDoc struct {
 	Life       Life
 	Owner      string `bson:"owner"`
 	ServerUUID string `bson:"server-uuid"`
+
+	// LatestAvailableTools is a string representing the newest version
+	// found while checking streams for new versions.
+	LatestAvailableTools string `bson:"available-tools,omitempty"`
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.
@@ -237,6 +242,43 @@ func (e *Environment) Config() (*config.Config, error) {
 	return envState.EnvironConfig()
 }
 
+// UpdateLatestToolsVersion looks up for the latest available version of
+// juju tools and updates environementDoc with it.
+func (e *Environment) UpdateLatestToolsVersion(ver version.Number) error {
+	v := ver.String()
+	// TODO(perrito666): I need to assert here that there isn't a newer
+	// version in place.
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     e.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"available-tools", v}}}},
+	}}
+	err := e.st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return e.Refresh()
+}
+
+// LatestToolsVersion returns the newest version found in the last
+// check in the streams.
+// Bear in mind that the check was performed filtering only
+// new patches for the current major.minor. (major.minor.patch)
+func (e *Environment) LatestToolsVersion() version.Number {
+	ver := e.doc.LatestAvailableTools
+	if ver == "" {
+		return version.Zero
+	}
+	v, err := version.Parse(ver)
+	if err != nil {
+		// This is being stored from a valid version but
+		// in case this data would beacame corrupt It is not
+		// worth to fail because of it.
+		return version.Zero
+	}
+	return v
+}
+
 // globalKey returns the global database key for the environment.
 func (e *Environment) globalKey() string {
 	return environGlobalKey
@@ -386,12 +428,12 @@ func checkManualMachines(machines []*Machine) error {
 // found.
 func (e *Environment) ensureDestroyable() error {
 
-	// TODO(waigani) bug #1475212: Environment destroy can miss manual machines and
-	// persistent volumes. We need to be able to assert the absence of these
-	// as part of the destroy txn, but in order to do this  manual machines
-	// and persistent volumes need to add refcounts to their environments.
+	// TODO(waigani) bug #1475212: Environment destroy can miss manual
+	// machines. We need to be able to assert the absence of these as
+	// part of the destroy txn, but in order to do this  manual machines
+	// need to add refcounts to their environments.
 
-	// First, check for manual machines. We bail out if there are any,
+	// Check for manual machines. We bail out if there are any,
 	// to stop the user from prematurely hobbling the environment.
 	machines, err := e.st.AllMachines()
 	if err != nil {
@@ -402,14 +444,6 @@ func (e *Environment) ensureDestroyable() error {
 		return errors.Trace(err)
 	}
 
-	// If there are any persistent volumes, the environment can't be destroyed.
-	volumes, err := e.st.PersistentVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(volumes) > 0 {
-		return ErrPersistentVolumesExist
-	}
 	return nil
 }
 

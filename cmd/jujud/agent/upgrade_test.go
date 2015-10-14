@@ -72,7 +72,7 @@ func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) {
 	}
 }
 
-func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
+func (s *UpgradeSuite) getInstallCmds() []*exec.Cmd {
 	s.aptMutex.Lock()
 	defer s.aptMutex.Unlock()
 	return s.aptCmds
@@ -275,7 +275,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 		return nil
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-	s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
+	s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
 	s.captureLogs(c)
 
 	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
@@ -353,7 +353,7 @@ func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
-	s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
+	s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
 
 	config := s.makeFakeConfig()
 	agent := NewFakeUpgradingMachineAgent(config)
@@ -449,7 +449,6 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 		envtesting.AssertUploadFakeToolsVersions(
 			c, stor, "releases", s.Environ.Config().AgentStream(), s.oldVersion)
 	}
-
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
 	s.assertStateServerUpgrades(c)
 }
@@ -459,7 +458,7 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 	s.setInstantRetryStrategy(c)
 	// We need to first start up a state server that thinks it has already been upgraded.
-	ss, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	ss, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, ss)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
@@ -470,7 +469,7 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 
 func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// Create machine agent to upgrade
-	machine, machine0Conf, _ := s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
+	machine, machine0Conf, _ := s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
 	a := s.newAgent(c, machine)
 
 	// Mock out upgrade logic, using a channel so that the test knows
@@ -514,7 +513,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// API logins are tested manually so there's no need to actually
 	// start this machine.
 	var machine1Conf agent.Config
-	_, machine1Conf, _ = s.primeAgent(c, version.Current, state.JobHostUnits)
+	_, machine1Conf, _ = s.primeAgent(c, state.JobHostUnits)
 
 	c.Assert(waitForUpgradeToStart(upgradeCh), jc.IsTrue)
 
@@ -569,7 +568,7 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	// version.Current (so that we can see it change) but not to
 	// trigger upgrade steps.
 	initialVersion := makeBumpedCurrentVersion()
-	machine, agentConf, _ := s.primeAgent(c, initialVersion, state.JobManageEnviron)
+	machine, agentConf, _ := s.primeAgentVersion(c, initialVersion, state.JobManageEnviron)
 	a := s.newAgent(c, machine)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() {
@@ -671,7 +670,7 @@ func (s *UpgradeSuite) makeFakeConfig() *fakeConfigSetter {
 // Create 3 configured state servers that appear to be running tools
 // with version s.oldVersion and return their ids.
 func (s *UpgradeSuite) createUpgradingStateServers(c *gc.C) (machineIdA, machineIdB, machineIdC string) {
-	machine0, _, _ := s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
+	machine0, _, _ := s.primeAgentVersion(c, s.oldVersion, state.JobManageEnviron)
 	machineIdA = machine0.Id()
 
 	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
@@ -802,11 +801,16 @@ func (s *UpgradeSuite) keyFile() string {
 
 func (s *UpgradeSuite) assertCommonUpgrades(c *gc.C) {
 	// rsyslog-gnutls should have been installed.
-	cmds := s.getAptCmds()
+	cmds := s.getInstallCmds()
 	c.Assert(cmds, gc.HasLen, 1)
 	args := cmds[0].Args
 	c.Assert(len(args), jc.GreaterThan, 1)
-	c.Assert(args[0], gc.Equals, "apt-get")
+
+	pm, err := coretesting.GetPackageManager()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(args[0], gc.Equals, pm.PackageManager)
+
 	c.Assert(args[len(args)-1], gc.Equals, "rsyslog-gnutls")
 }
 
@@ -845,7 +849,7 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 }
 
 func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob) (*MachineAgent, func()) {
-	machine, _, _ := s.primeAgent(c, s.oldVersion, job)
+	machine, _, _ := s.primeAgentVersion(c, s.oldVersion, job)
 	a := s.newAgent(c, machine)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	return a, func() { c.Check(a.Stop(), gc.IsNil) }
@@ -912,7 +916,7 @@ func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	defer apiState.Close()
 
 	// this call should always work
-	var result api.Status
+	var result params.FullStatus
 	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1001,7 +1005,7 @@ type MachineStatusCall struct {
 	Info   string
 }
 
-func (a *fakeUpgradingMachineAgent) setMachineStatus(_ *api.State, status params.Status, info string) error {
+func (a *fakeUpgradingMachineAgent) setMachineStatus(_ api.Connection, status params.Status, info string) error {
 	// Record setMachineStatus calls for later inspection.
 	a.MachineStatusCalls = append(a.MachineStatusCalls, MachineStatusCall{status, info})
 	return nil

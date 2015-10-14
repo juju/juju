@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -67,7 +68,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
-		"default-series":  version.Current.Series,
+		"default-series":  series.HostSeries(),
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -80,6 +81,7 @@ func configGetter(c *gc.C) configFunc {
 }
 
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
 	env := &mockEnviron{
@@ -124,6 +126,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
+	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")

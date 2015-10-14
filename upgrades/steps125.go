@@ -7,17 +7,25 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/exec"
+	"github.com/juju/utils/os"
+
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
-	"github.com/juju/utils/exec"
 )
 
 // stateStepsFor125 returns upgrade steps for Juju 1.25 that manipulate state directly.
 func stateStepsFor125() []Step {
 	return []Step{
+		&upgradeStep{
+			description: "add the version field to all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateSettingsSchema(context.State())
+			},
+		},
 		&upgradeStep{
 			description: "set hosted environment count to number of hosted environments",
 			targets:     []Target{DatabaseMaster},
@@ -45,6 +53,66 @@ func stateStepsFor125() []Step {
 				return addInstanceTags(env, machines)
 			},
 		},
+		&upgradeStep{
+			description: "add missing env-uuid to statuses",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddMissingEnvUUIDOnStatuses(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "add attachmentCount to volume",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddVolumeAttachmentCount(context.State())
+			}},
+		&upgradeStep{
+			description: "add attachmentCount to filesystem",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddFilesystemsAttachmentCount(context.State())
+			}},
+		&upgradeStep{
+			description: "add binding to volume",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddBindingToVolumes(context.State())
+			}},
+		&upgradeStep{
+			description: "add binding to filesystem",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddBindingToFilesystems(context.State())
+			}},
+		&upgradeStep{
+			description: "add status to volume",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddVolumeStatus(context.State())
+			}},
+		&upgradeStep{
+			description: "move lastlogin and last connection to their own collections",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateLastLoginAndLastConnection(context.State())
+			}},
+		&upgradeStep{
+			description: "add preferred addresses to machines",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddPreferredAddressesToMachines(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "upgrade environment config",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				// TODO(axw) updateEnvironConfig should be
+				// called for all upgrades, to decouple this
+				// package from provider-specific upgrades.
+				st := context.State()
+				return upgradeEnvironConfig(st, st, environs.GlobalProviderRegistry())
+			}},
 	}
 }
 
@@ -68,7 +136,7 @@ func stepsFor125() []Step {
 // The Jujud.pass file was created during cloud init before
 // so we know it's location for sure in case it exists
 func removeJujudpass(context Context) error {
-	if version.Current.OS == version.Windows {
+	if os.HostOS() == os.Windows {
 		fileLocation := "C:\\Juju\\Jujud.pass"
 		if err := osRemove(fileLocation); err != nil {
 			// Don't fail the step if we can't get rid of the old files.
@@ -86,7 +154,7 @@ var execRunCommands = exec.RunCommands
 // Since support for ACL's in golang is quite disastrous at the moment, and they're
 // not especially easy to use, this is done using the exact same steps used in cloudinit
 func addJujuRegKey(context Context) error {
-	if version.Current.OS == version.Windows {
+	if os.HostOS() == os.Windows {
 		cmds := cloudconfig.CreateJujuRegistryKeyCmds()
 		_, err := execRunCommands(exec.RunParams{
 			Commands: strings.Join(cmds, "\n"),

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
-	"github.com/juju/utils"
 )
 
 const (
@@ -93,17 +92,13 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 	}
 	cloudcfg.AddPackage("open-vm-tools")
 	cloudcfg.AddPackage("iptables-persistent")
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, VsphereRenderer{})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "cannot make user data")
 	}
-	userData, err = utils.Gunzip(userData)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
-	rootDisk := common.MinRootDiskSizeGiB * 1024
+	rootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
 	if args.Constraints.RootDisk != nil && *args.Constraints.RootDisk > rootDisk {
 		rootDisk = *args.Constraints.RootDisk
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/utils/ssh"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -43,7 +43,7 @@ var _ worker.NotifyWatchHandler = (*keyupdaterWorker)(nil)
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
 func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
-	if version.Current.OS == version.Windows {
+	if os.HostOS() == os.Windows {
 		return worker.NewNoOpWorker()
 	}
 	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag().(names.MachineTag)}

@@ -6,10 +6,8 @@ package addresser
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -20,8 +18,6 @@ const addresserFacade = "Addresser"
 
 // API provides access to the InstancePoller API facade.
 type API struct {
-	*common.EnvironWatcher
-
 	facade base.FacadeCaller
 }
 
@@ -30,55 +26,36 @@ func NewAPI(caller base.APICaller) *API {
 	if caller == nil {
 		panic("caller is nil")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, addresserFacade)
 	return &API{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		facade:         facadeCaller,
+		facade: base.NewFacadeCaller(caller, addresserFacade),
 	}
 }
 
-// IPAddresses retrieves the IP addresses with the given tags.
-func (api *API) IPAddresses(tags ...names.IPAddressTag) ([]*IPAddress, error) {
-	var results params.LifeResults
-	args := params.Entities{
-		Entities: make([]params.Entity, len(tags)),
+// CanDeallocateAddresses checks if the current environment can
+// deallocate IP addresses.
+func (api *API) CanDeallocateAddresses() (bool, error) {
+	var result params.BoolResult
+	if err := api.facade.FacadeCall("CanDeallocateAddresses", nil, &result); err != nil {
+		return false, errors.Trace(err)
 	}
-	for i, tag := range tags {
-		args.Entities[i].Tag = tag.String()
+	if result.Error == nil {
+		return result.Result, nil
 	}
-	if err := api.facade.FacadeCall("Life", args, &results); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != len(tags) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
-	}
-	var err error
-	ipAddresses := make([]*IPAddress, len(tags))
-	for i, result := range results.Results {
-		if result.Error != nil {
-			logger.Warningf("error retieving IP address %v: %v", tags[i], result.Error)
-			ipAddresses[i] = nil
-			err = common.ErrPartialResults
-		} else {
-			ipAddresses[i] = &IPAddress{api.facade, tags[i], result.Life}
-		}
-	}
-	return ipAddresses, err
+	return false, errors.Trace(result.Error)
 }
 
-// Remove deletes the given IP addresses.
-func (api *API) Remove(ipAddresses ...*IPAddress) error {
-	var results params.ErrorResults
-	args := params.Entities{
-		Entities: make([]params.Entity, len(ipAddresses)),
-	}
-	for i, ipAddress := range ipAddresses {
-		args.Entities[i].Tag = ipAddress.Tag().String()
-	}
-	if err := api.facade.FacadeCall("Remove", args, &results); err != nil {
+// CleanupIPAddresses releases and removes the dead IP addresses. If not
+// all IP addresses could be released and removed a params.ErrTryAgain
+// is returned.
+func (api *API) CleanupIPAddresses() error {
+	var result params.ErrorResult
+	if err := api.facade.FacadeCall("CleanupIPAddresses", nil, &result); err != nil {
 		return errors.Trace(err)
 	}
-	return results.Combine()
+	if result.Error == nil {
+		return nil
+	}
+	return errors.Trace(result.Error)
 }
 
 var newEntityWatcher = watcher.NewEntityWatcher
@@ -91,14 +68,11 @@ func (api *API) WatchIPAddresses() (watcher.EntityWatcher, error) {
 	var result params.EntityWatchResult
 	err := api.facade.FacadeCall("WatchIPAddresses", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	if err != nil {
-		return nil, err
+	if result.Error == nil {
+		w := newEntityWatcher(api.facade.RawAPICaller(), result)
+		return w, nil
 	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := newEntityWatcher(api.facade.RawAPICaller(), result)
-	return w, nil
+	return nil, errors.Trace(result.Error)
 }

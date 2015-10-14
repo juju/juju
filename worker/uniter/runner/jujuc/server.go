@@ -30,7 +30,7 @@ var logger = loggo.GetLogger("worker.uniter.jujuc")
 // stdin, and none is supplied.
 var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
-type creator func(Context) cmd.Command
+type creator func(Context) (cmd.Command, error)
 
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
@@ -47,7 +47,6 @@ var baseCommands = map[string]creator{
 	"relation-list" + cmdSuffix: NewRelationListCommand,
 	"relation-set" + cmdSuffix:  NewRelationSetCommand,
 	"unit-get" + cmdSuffix:      NewUnitGetCommand,
-	"owner-get" + cmdSuffix:     NewOwnerGetCommand,
 	"add-metric" + cmdSuffix:    NewAddMetricCommand,
 	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
 	"status-get" + cmdSuffix:    NewStatusGetCommand,
@@ -55,8 +54,9 @@ var baseCommands = map[string]creator{
 }
 
 var storageCommands = map[string]creator{
-	"storage-add" + cmdSuffix: NewStorageAddCommand,
-	"storage-get" + cmdSuffix: NewStorageGetCommand,
+	"storage-add" + cmdSuffix:  NewStorageAddCommand,
+	"storage-get" + cmdSuffix:  NewStorageGetCommand,
+	"storage-list" + cmdSuffix: NewStorageListCommand,
 }
 
 var leaderCommands = map[string]creator{
@@ -94,7 +94,7 @@ func NewCommand(ctx Context, name string) (cmd.Command, error) {
 	if f == nil {
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}
-	return f(ctx), nil
+	return f(ctx)
 }
 
 // Request contains the information necessary to run a Command remotely.

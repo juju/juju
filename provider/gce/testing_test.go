@@ -4,12 +4,12 @@
 package gce
 
 import (
-	"encoding/base64"
 	"fmt"
 	"strings"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
@@ -85,13 +84,15 @@ type BaseSuiteUnpatched struct {
 	Env       *environ
 	Prefix    string
 
-	Addresses     []network.Address
-	BaseInstance  *google.Instance
-	Instance      *environInstance
-	InstName      string
-	Metadata      map[string]string
-	StartInstArgs environs.StartInstanceParams
-	InstanceType  instances.InstanceType
+	Addresses       []network.Address
+	BaseInstance    *google.Instance
+	BaseDisk        *google.Disk
+	Instance        *environInstance
+	InstName        string
+	UbuntuMetadata  map[string]string
+	WindowsMetadata map[string]string
+	StartInstArgs   environs.StartInstanceParams
+	InstanceType    instances.InstanceType
 
 	Ports []network.PortRange
 }
@@ -130,18 +131,21 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig.Tools = tools[0]
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
-	userData, err := providerinit.ComposeUserData(instanceConfig, nil)
+	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})
 	c.Assert(err, jc.ErrorIsNil)
-	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
 
 	authKeys, err := google.FormatAuthorizedKeys(instanceConfig.AuthorizedKeys, "ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Metadata = map[string]string{
+	s.UbuntuMetadata = map[string]string{
 		metadataKeyIsState:   metadataValueTrue,
-		metadataKeyCloudInit: b64UserData,
+		metadataKeyCloudInit: string(userData),
 		metadataKeyEncoding:  "base64",
 		metadataKeySSHKeys:   authKeys,
+	}
+	s.WindowsMetadata = map[string]string{
+		metadataKeyWindowsUserdata: string(userData),
+		metadataKeyWindowsSysprep:  fmt.Sprintf(winSetHostnameScript, "juju.*"),
 	}
 	s.Addresses = []network.Address{{
 		Value: "10.0.0.1",
@@ -161,6 +165,14 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.InstanceType = allInstanceTypes[0]
+	// Storage
+	s.BaseDisk = &google.Disk{
+		Id:     1234567,
+		Name:   "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:   "home-zone",
+		Status: google.StatusReady,
+		Size:   1024,
+	}
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
@@ -200,6 +212,7 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 
 func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instance {
 	diskSpec := google.DiskSpec{
+		Series:     "trusty",
 		SizeHintGB: 15,
 		ImageURL:   "some/image/path",
 		Boot:       true,
@@ -213,14 +226,14 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 		Disks:             []google.DiskSpec{diskSpec},
 		Network:           google.NetworkSpec{Name: "somenetwork"},
 		NetworkInterfaces: []string{"somenetif"},
-		Metadata:          s.Metadata,
+		Metadata:          s.UbuntuMetadata,
 		Tags:              []string{id},
 	}
 	summary := google.InstanceSummary{
 		ID:        id,
 		ZoneName:  "home-zone",
 		Status:    google.StatusRunning,
-		Metadata:  s.Metadata,
+		Metadata:  s.UbuntuMetadata,
 		Addresses: s.Addresses,
 	}
 	return google.NewInstance(summary, &instanceSpec)
@@ -422,6 +435,10 @@ type fakeConnCall struct {
 	FirewallName string
 	PortRanges   []network.PortRange
 	Region       string
+	Disks        []google.DiskSpec
+	VolumeName   string
+	InstanceId   string
+	Mode         string
 }
 
 type fakeConn struct {
@@ -431,6 +448,12 @@ type fakeConn struct {
 	Insts      []google.Instance
 	PortRanges []network.PortRange
 	Zones      []google.AvailabilityZone
+
+	GoogleDisks   []*google.Disk
+	GoogleDisk    *google.Disk
+	AttachedDisk  *google.AttachedDisk
+	AttachedDisks []*google.AttachedDisk
+
 	Err        error
 	FailOnCall int
 }
@@ -517,6 +540,71 @@ func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone,
 		Region:   region,
 	})
 	return fc.Zones, fc.err()
+}
+
+func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*google.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "CreateDisks",
+		ZoneName: zone,
+		Disks:    disks,
+	})
+	return fc.GoogleDisks, fc.err()
+}
+
+func (fc *fakeConn) Disks(zone string) ([]*google.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Disks",
+		ZoneName: zone,
+	})
+	return fc.GoogleDisks, fc.err()
+}
+
+func (fc *fakeConn) RemoveDisk(zone, id string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "RemoveDisk",
+		ZoneName: zone,
+		ID:       id,
+	})
+	return fc.err()
+}
+
+func (fc *fakeConn) Disk(zone, id string) (*google.Disk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Disk",
+		ZoneName: zone,
+		ID:       id,
+	})
+	return fc.GoogleDisk, fc.err()
+}
+
+func (fc *fakeConn) AttachDisk(zone, volumeName, instanceId string, mode google.DiskMode) (*google.AttachedDisk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "AttachDisk",
+		ZoneName:   zone,
+		VolumeName: volumeName,
+		InstanceId: instanceId,
+		Mode:       string(mode),
+	})
+	return fc.AttachedDisk, fc.err()
+}
+
+func (fc *fakeConn) DetachDisk(zone, instanceId, volumeName string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "DetachDisk",
+		ZoneName:   zone,
+		InstanceId: instanceId,
+		VolumeName: volumeName,
+	})
+	return fc.err()
+}
+
+func (fc *fakeConn) InstanceDisks(zone, instanceId string) ([]*google.AttachedDisk, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:   "InstanceDisks",
+		ZoneName:   zone,
+		InstanceId: instanceId,
+	})
+	return fc.AttachedDisks, fc.err()
 }
 
 func (fc *fakeConn) WasCalled(funcName string) (bool, []fakeConnCall) {

@@ -11,8 +11,6 @@ import (
 	"github.com/juju/errors"
 )
 
-var initProcessCgroupFile = "/proc/1/cgroup"
-
 func runningInsideLXC() (bool, error) {
 	file, err := os.Open(initProcessCgroupFile)
 	if err != nil {

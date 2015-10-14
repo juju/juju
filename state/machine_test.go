@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -1088,9 +1087,9 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 }
 
 func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId string) names.VolumeTag {
-	op, tag, err := state.AddVolumeOp(s.State, params, machineId)
+	ops, tag, err := state.AddVolumeOps(s.State, params, machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RunTransaction(s.State, []txn.Op{op})
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, jc.ErrorIsNil)
 	return tag
 }
@@ -1694,169 +1693,6 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `constraints not found`)
 }
 
-func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusError, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.machine.SetStatus(state.StatusDown, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.machine.SetStatus(state.Status("vliegkat"), "orville", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
-
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-
-	err = s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-
-	err = s.machine.SetStatus(state.StatusError, "provisioning failed", map[string]interface{}{
-		"foo": "bar",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"foo": "bar",
-	})
-}
-
-func (s *MachineSuite) TestSetStatusPending(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusPending, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	// Cannot set status to pending once a machine is provisioned.
-	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetStatus(state.StatusPending, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-}
-
-func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
-	// When Dying set/get should work.
-	err := s.machine.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetStatus(state.StatusStopped, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStopped)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-
-	// When Dead set should fail, but get will work.
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStopped)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-
-	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
-	_, err = s.machine.Status()
-	c.Assert(err, gc.ErrorMatches, `status for key "m#1" not found`)
-}
-
-func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Regular status setting with data.
-	err = s.machine.SetStatus(state.StatusError, "provisioning failed", map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-}
-
-func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Status setting with MongoDB special values.
-	err = s.machine.SetStatus(state.StatusError, "mongo", map[string]interface{}{
-		`{name: "Joe"}`: "$where",
-		"eval":          `eval(function(foo) { return foo; }, "bar")`,
-		"mapReduce":     "mapReduce",
-		"group":         "group",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "mongo")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		`{name: "Joe"}`: "$where",
-		"eval":          `eval(function(foo) { return foo; }, "bar")`,
-		"mapReduce":     "mapReduce",
-		"group":         "group",
-	})
-}
-
-func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Status setting and changing data afterwards.
-	data := map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	}
-	err = s.machine.SetStatus(state.StatusError, "provisioning failed", data)
-	c.Assert(err, jc.ErrorIsNil)
-	data["4th-key"] = 4.0
-
-	statusInfo, err := s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	c.Assert(statusInfo.Message, gc.Equals, "provisioning failed")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
-		"1st-key": "one",
-		"2nd-key": 2,
-		"3rd-key": true,
-	})
-
-	// Set status data to nil, so an empty map will be returned.
-	err = s.machine.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	statusInfo, err = s.machine.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
-	c.Assert(statusInfo.Message, gc.Equals, "")
-	c.Assert(statusInfo.Data, gc.HasLen, 0)
-}
-
 func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2155,6 +1991,324 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno2, jc.GreaterThan, revno1)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0})
+}
+
+func (s *MachineSuite) TestPublicAddressSetOnNewMachine(c *gc.C) {
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobHostUnits},
+		Addresses: network.NewAddresses("10.0.0.1", "8.8.8.8"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	addr, err := m.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+}
+
+func (s *MachineSuite) TestPrivateAddressSetOnNewMachine(c *gc.C) {
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:    "quantal",
+		Jobs:      []state.MachineJob{state.JobHostUnits},
+		Addresses: network.NewAddresses("10.0.0.1", "8.8.8.8"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	addr, err := m.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+}
+
+func (s *MachineSuite) TestPublicAddressEmptyAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	addr, err := machine.PublicAddress()
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(addr.Value, gc.Equals, "")
+}
+
+func (s *MachineSuite) TestPrivateAddressEmptyAddresses(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	addr, err := machine.PrivateAddress()
+	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(addr.Value, gc.Equals, "")
+}
+
+func (s *MachineSuite) TestPublicAddress(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+}
+
+func (s *MachineSuite) TestPrivateAddress(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
+}
+
+func (s *MachineSuite) TestPublicAddressBetterMatch(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+}
+
+func (s *MachineSuite) TestPrivateAddressBetterMatch(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
+}
+
+func (s *MachineSuite) TestPublicAddressChanges(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+}
+
+func (s *MachineSuite) TestPrivateAddressChanges(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
+}
+
+func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+
+	err = machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A dead machine should still report the last known addresses.
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.4.4")
+}
+
+func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+
+	// Now add an address that would previously have sorted before the
+	// default.
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.1"), network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert the address is unchanged.
+	addr, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
+}
+
+func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+
+	// Now add an address that would previously have sorted before the
+	// default.
+	err = machine.SetProviderAddresses(network.NewAddress("8.8.4.4"), network.NewAddress("8.8.8.8"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert the address is unchanged.
+	addr, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
+}
+
+func (s *MachineSuite) TestPublicAddressRaceExactScope(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changeAddresses := jujutxn.TestHook{
+		Before: func() {
+			err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+			c.Assert(err, jc.ErrorIsNil)
+		},
+	}
+	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
+
+	err = machine.SetMachineAddresses(network.NewAddress("8.8.4.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err = s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	address, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+}
+
+func (s *MachineSuite) TestPublicAddressRaceFallbackScope(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changeAddresses := jujutxn.TestHook{
+		Before: func() {
+			err = machine.SetProviderAddresses(network.NewAddress("10.0.0.1"))
+			c.Assert(err, jc.ErrorIsNil)
+			address, err := machine.PublicAddress()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+		},
+	}
+	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
+
+	err = machine.SetMachineAddresses(network.NewAddress("8.8.4.4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err = s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	address, err := machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.4.4"))
+	address, err = machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+}
+
+func (s *MachineSuite) TestPrivateAddressRaceExactScope(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changeAddresses := jujutxn.TestHook{
+		Before: func() {
+			err = machine.SetProviderAddresses(network.NewAddress("10.0.0.1"))
+			c.Assert(err, jc.ErrorIsNil)
+		},
+	}
+	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err = s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	address, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.1"))
+}
+
+func (s *MachineSuite) TestPrivateAddressRaceFallbackScope(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changeAddresses := jujutxn.TestHook{
+		Before: func() {
+			err = machine.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+			c.Assert(err, jc.ErrorIsNil)
+			address, err := machine.PrivateAddress()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
+		},
+	}
+	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
+
+	err = machine.SetMachineAddresses(network.NewAddress("10.0.0.2"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	machine, err = s.State.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	address, err := machine.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("10.0.0.2"))
+	address, err = machine.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, jc.DeepEquals, network.NewAddress("8.8.8.8"))
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {

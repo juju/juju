@@ -13,19 +13,20 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/persistent-cookiejar"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/charmrepo"
-	"gopkg.in/juju/charmstore.v4"
-	"gopkg.in/juju/charmstore.v4/charmstoretesting"
-	"gopkg.in/juju/charmstore.v4/csclient"
-	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v0/bakerytest"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v1"
+	"gopkg.in/juju/charmrepo.v1/csclient"
+	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
@@ -96,7 +97,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, `entity not found in ".*": local:trusty/unknown-123`)
 }
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
@@ -193,27 +194,19 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2 networks=net1,^net2")
+	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,^net2"))
+	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
 }
 
-func (s *DeploySuite) TestNetworks(c *gc.C) {
+func (s *DeploySuite) TestNetworksIsDeprecated(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
-	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
-	networks, err := service.Networks()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(networks, jc.DeepEquals, []string{"net1", "net2"})
-	cons, err := service.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))
+	c.Assert(err, gc.ErrorMatches, "use of --networks is deprecated. Please use spaces")
 }
 
 // TODO(wallyworld) - add another test that deploy with storage fails for older environments
@@ -436,7 +429,7 @@ var deployAuthorizationTests = []struct {
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
 	deployURL:    "cs:~bob/trusty/wordpress5",
 	readPermUser: "bob",
-	expectError:  `cannot resolve charm URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
+	expectError:  `cannot resolve (charm )?URL "cs:~bob/trusty/wordpress5": cannot get "/~bob/trusty/wordpress5/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
 }, {
 	about:        "non-public charm, fully resolved, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress6-47",
@@ -448,7 +441,7 @@ var deployAuthorizationTests = []struct {
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 	for i, test := range deployAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := s.uploadCharm(c, test.uploadURL, "wordpress")
+		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
@@ -478,7 +471,9 @@ const (
 // place to allow testing code that calls addCharmViaAPI.
 type charmStoreSuite struct {
 	testing.JujuConnSuite
-	srv        *charmstoretesting.Server
+	handler    charmstore.HTTPCloseHandler
+	srv        *httptest.Server
+	client     *csclient.Client
 	discharger *bakerytest.Discharger
 }
 
@@ -489,7 +484,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
 		cookie, err := req.Cookie(clientUserCookie)
 		if err != nil {
-			return nil, errors.New("discharge denied to non-clients")
+			return nil, errors.Annotate(err, "discharge denied to non-clients")
 		}
 		return []checkers.Caveat{
 			checkers.DeclaredCaveat("username", cookie.Value),
@@ -497,9 +492,21 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	})
 
 	// Set up the charm store testing server.
-	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
+	db := s.Session.DB("juju-testing")
+	params := charmstore.ServerParams{
+		AuthUsername:     "test-user",
+		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
 		PublicKeyLocator: s.discharger,
+	}
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.handler = handler
+	s.srv = httptest.NewServer(handler)
+	s.client = csclient.New(csclient.Params{
+		URL:      s.srv.URL,
+		User:     params.AuthUsername,
+		Password: params.AuthPassword,
 	})
 
 	// Initialize the charm cache dir.
@@ -512,7 +519,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		if err != nil {
 			return nil, err
 		}
-		csclient.params.URL = s.srv.URL()
+		csclient.params.URL = s.srv.URL
 		// Add a cookie so that the discharger can detect whether the
 		// HTTP client is the juju environment or the juju client.
 		lurl, err := url.Parse(s.discharger.Location())
@@ -527,32 +534,20 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	})
 
 	// Point the Juju API server to the charm store testing server.
-	s.PatchValue(&csclient.ServerURL, s.srv.URL())
+	s.PatchValue(&csclient.ServerURL, s.srv.URL)
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
 	s.discharger.Close()
+	s.handler.Close()
 	s.srv.Close()
 	s.JujuConnSuite.TearDownTest(c)
-}
-
-// uploadCharm adds a charm with the given URL and name to the charm store.
-func (s *charmStoreSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
-	id := charm.MustParseReference(url)
-	promulgated := false
-	if id.User == "" {
-		id.User = "who"
-		promulgated = true
-	}
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
-	id = s.srv.UploadCharm(c, ch, id, promulgated)
-	return (*charm.URL)(id), ch
 }
 
 // changeReadPerm changes the read permission of the given charm URL.
 // The charm must be present in the testing charm store.
 func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
-	err := s.srv.NewClient().Put("/"+url.Path()+"/meta/perm/read", perms)
+	err := s.client.Put("/"+url.Path()+"/meta/perm/read", perms)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -582,7 +577,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -609,7 +604,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -639,7 +634,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 		},
 	}
 
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ *api.State) (metricCredentialsAPI, error) {
+	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
 		return setter, nil
 	})
 	defer cleanup()
@@ -654,4 +649,16 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 	c.Assert(handler.registrationCalls, gc.HasLen, 1)
 	c.Assert(handler.registrationCalls[0].CharmURL, gc.DeepEquals, "local:quantal/metered-1")
 	c.Assert(handler.registrationCalls[0].ServiceName, gc.DeepEquals, "metered")
+}
+
+func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
+
+	s.PatchValue(&registerMeteredCharm, func(r string, s api.Connection, j *cookiejar.Jar, c string, sv, e string) error {
+		return &params.Error{"IsMetered", params.CodeNotImplemented}
+	})
+
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
 }

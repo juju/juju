@@ -16,6 +16,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -48,7 +50,7 @@ type provisionerSuite struct {
 	*apitesting.EnvironWatcherTests
 	*apitesting.APIAddresserTests
 
-	st      *api.State
+	st      api.Connection
 	machine *state.Machine
 
 	provisioner *provisioner.State
@@ -470,13 +472,29 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
-	cons := constraints.MustParse("cpu-cores=12 mem=8G networks=^net3,^net4")
+	// Add a couple of spaces.
+	_, err := s.State.AddSpace("space1", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("space2", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add 2 subnets into each space.
+	// Only the first subnet of space2 has AllocatableIPLow|High set.
+	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
+	testing.AddSubnetsWithTemplate(c, s.State, 4, state.SubnetInfo{
+		CIDR:              "10.{{.}}.0.0/16",
+		ProviderId:        "subnet-{{.}}",
+		AllocatableIPLow:  "{{if (eq . 2)}}10.{{.}}.0.5{{end}}",
+		AllocatableIPHigh: "{{if (eq . 2)}}10.{{.}}.254.254{{end}}",
+		AvailabilityZone:  "zone{{.}}",
+		SpaceName:         "{{if (lt . 2)}}space1{{else}}space2{{end}}",
+	})
+
+	cons := constraints.MustParse("cpu-cores=12 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Placement:         "valid",
-		Constraints:       cons,
-		RequestedNetworks: []string{"net1", "net2"},
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Placement:   "valid",
+		Constraints: cons,
 	}
 	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -486,8 +504,12 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
-	c.Assert(provisioningInfo.Constraints, gc.DeepEquals, template.Constraints)
-	c.Assert(provisioningInfo.Networks, gc.DeepEquals, template.RequestedNetworks)
+	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
+	c.Assert(provisioningInfo.Networks, gc.HasLen, 0)
+	c.Assert(provisioningInfo.SubnetsToZones, jc.DeepEquals, map[string][]string{
+		"subnet-2": []string{"zone2"},
+		"subnet-3": []string{"zone3"},
+	})
 }
 
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
@@ -786,17 +808,22 @@ func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
 func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
 	var toolsList = coretools.List{&coretools.Tools{Version: version.Current}}
 	var called bool
+	var a string
+	if matchArch {
+		// if matchArch is true, this will be overwriten with the host's arch, otherwise
+		// leave a blank.
+		a = arch.HostArch()
+	}
+
 	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "FindTools")
 		expected := params.FindToolsParams{
 			Number:       version.Current.Number,
-			Series:       version.Current.Series,
+			Series:       series.HostSeries(),
+			Arch:         a,
 			MinorVersion: -1,
 			MajorVersion: -1,
-		}
-		if matchArch {
-			expected.Arch = version.Current.Arch
 		}
 		c.Assert(args, gc.Equals, expected)
 		result := response.(*params.FindToolsResult)
@@ -806,12 +833,7 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 		}
 		return apiError
 	})
-
-	var arch *string
-	if matchArch {
-		arch = &version.Current.Arch
-	}
-	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, arch)
+	apiList, err := s.provisioner.FindTools(version.Current.Number, series.HostSeries(), a)
 	c.Assert(called, jc.IsTrue)
 	if apiError != nil {
 		c.Assert(err, gc.Equals, apiError)

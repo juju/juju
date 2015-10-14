@@ -25,7 +25,7 @@ import (
 
 type upgradingMachineAgent interface {
 	ensureMongoServer(agent.Config) error
-	setMachineStatus(*api.State, params.Status, string) error
+	setMachineStatus(api.Connection, params.Status, string) error
 	CurrentConfig() agent.Config
 	ChangeConfig(agent.ConfigMutator) error
 	Dying() <-chan struct{}
@@ -66,7 +66,7 @@ type upgradeWorkerContext struct {
 	tag             names.MachineTag
 	machineId       string
 	isMaster        bool
-	apiState        *api.State
+	apiState        api.Connection
 	jobs            []multiwatcher.MachineJob
 	agentConfig     agent.Config
 	isStateServer   bool
@@ -97,7 +97,7 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 
 func (c *upgradeWorkerContext) Worker(
 	agent upgradingMachineAgent,
-	apiState *api.State,
+	apiState api.Connection,
 	jobs []multiwatcher.MachineJob,
 ) worker.Worker {
 	c.agent = agent
@@ -179,6 +179,10 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 
 		stor := storage.NewStorage(c.st.EnvironUUID(), c.st.MongoSession())
 		registerSimplestreamsDataSource(stor)
+
+		// This state-dependent data source will be useless
+		// once state is closed in previous defer - un-register it.
+		defer unregisterSimplestreamsDataSource()
 	}
 	if err := c.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to

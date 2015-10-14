@@ -12,6 +12,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -27,13 +28,13 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -114,6 +115,7 @@ type localJujuTestSuite struct {
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)

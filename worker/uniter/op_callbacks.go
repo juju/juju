@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v5"
-	"gopkg.in/juju/charm.v5/hooks"
+	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -45,9 +45,11 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		// TODO(axw) if the agent is not installed yet,
 		// set the status to "preparing storage".
 	case hi.Kind == hooks.ConfigChanged:
-		opc.u.f.DiscardConfigEvent()
+		// TODO(axw)
+		//opc.u.f.DiscardConfigEvent()
 	case hi.Kind == hook.LeaderSettingsChanged:
-		opc.u.f.DiscardLeaderSettingsEvent()
+		// TODO(axw)
+		//opc.u.f.DiscardLeaderSettingsEvent()
 	}
 	return name, nil
 }
@@ -61,19 +63,12 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind == hooks.ConfigChanged:
 		opc.u.ranConfigChanged = true
-	case hi.Kind == hook.LeaderSettingsChanged:
-		opc.u.ranLeaderSettingsChanged = true
 	}
 	return nil
 }
 
-// UpdateRelations is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) UpdateRelations(ids []int) error {
-	return opc.u.relations.Update(ids)
-}
-
 func notifyHook(hook string, ctx runner.Context, method func(string)) {
-	if r, ok := ctx.HookRelation(); ok {
+	if r, err := ctx.HookRelation(); err == nil {
 		remote, _ := ctx.RemoteUnitName()
 		if remote != "" {
 			remote = " " + remote
@@ -121,17 +116,7 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 
 // SetCurrentCharm is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
-	return opc.u.f.SetCharm(charmURL)
-}
-
-// ClearResolvedFlag is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) ClearResolvedFlag() error {
-	return opc.u.f.ClearResolved()
-}
-
-// InitializeMetricsTimers is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) InitializeMetricsTimers() error {
-	return opc.u.initializeMetricsTimers()
+	return opc.u.unit.SetCharmURL(charmURL)
 }
 
 // SetExecutingStatus is part of the operation.Callbacks interface.

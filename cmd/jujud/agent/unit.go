@@ -5,11 +5,10 @@ package agent
 
 import (
 	"fmt"
-	"io"
 	"runtime"
+	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
@@ -18,27 +17,18 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/leadership"
+	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apiaddressupdater"
-	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/proxyupdater"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 var (
-	agentLogger         = loggo.GetLogger("juju.jujud")
-	reportClosedUnitAPI = func(io.Closer) {}
+	agentLogger = loggo.GetLogger("juju.jujud")
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
@@ -46,13 +36,12 @@ type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	UnitName         string
-	runner           worker.Runner
-	bufferedLogs     logsender.LogRecordCh
-	setupLogging     func(agent.Config) error
-	logToStdErr      bool
-	ctx              *cmd.Context
-	apiStateUpgrader APIStateUpgrader
+	UnitName     string
+	runner       worker.Runner
+	bufferedLogs logsender.LogRecordCh
+	setupLogging func(agent.Config) error
+	logToStdErr  bool
+	ctx          *cmd.Context
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -69,13 +58,6 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAge
 		initialAgentUpgradeCheckComplete: make(chan struct{}),
 		bufferedLogs:                     bufferedLogs,
 	}
-}
-
-func (a *UnitAgent) getUpgrader(st *api.State) APIStateUpgrader {
-	if a.apiStateUpgrader != nil {
-		return a.apiStateUpgrader
-	}
-	return st.Upgrader()
 }
 
 // Info returns usage information for the command.
@@ -141,117 +123,71 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
-
 	network.InitializeFromConfig(agentConfig)
+
+	// Sometimes there are upgrade steps that are needed for each unit.
+	// There are plans afoot to unify the unit and machine agents. When
+	// this happens, there will be a simple helper function for the upgrade
+	// steps to run something for each unit on the machine. Until then, we
+	// need to have the uniter do it, as the overhead of getting a full
+	// upgrade process in the unit agent out weights the current benefits.
+	// So.. since the upgrade steps are all idempotent, we will just call
+	// the upgrade steps when we start the uniter. To be clear, these
+	// should move back to the upgrade package when we do unify the agents.
+	runUpgrades(agentConfig.Tag(), agentConfig.DataDir())
+
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := cmdutil.AgentDone(logger, a.runner.Wait())
 	a.tomb.Kill(err)
 	return err
 }
 
-func (a *UnitAgent) APIWorkers() (_ worker.Worker, err error) {
-	agentConfig := a.CurrentConfig()
-	dataDir := agentConfig.DataDir()
-	hookLock, err := cmdutil.HookExecutionLock(dataDir)
+// runUpgrades is a temporary fix to deal with upgrade steps that need
+// to be run for each unit. This function cannot fail. Errors in the
+// upgrade steps are logged, but the uniter will attempt to continue.
+// Worst case, we are no worse off than we are today, best case, things
+// actually work properly. Only simple upgrade steps that don't use the API
+// are available now. If we need really complex steps using the API, there
+// should be significant steps to unify the agents first.
+func runUpgrades(tag names.Tag, dataDir string) {
+	unitTag, ok := tag.(names.UnitTag)
+	if !ok {
+		logger.Errorf("unit agent tag not a unit tag: %v", tag)
+		return
+	}
+	if err := uniter.AddStoppedFieldToUniterState(unitTag, dataDir); err != nil {
+		logger.Errorf("Upgrade step failed - add Stopped field to uniter state: %v", err)
+	}
+	if err := uniter.AddInstalledToUniterState(unitTag, dataDir); err != nil {
+		logger.Errorf("Upgrade step failed - installed boolean needs to be set in the uniter local state: %v", err)
+	}
+}
+
+// APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
+func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
+	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+		Agent:               agent.APIHostPortsSetter{a},
+		LogSource:           a.bufferedLogs,
+		LeadershipGuarantee: 30 * time.Second,
+	})
+
+	config := dependency.EngineConfig{
+		IsFatal:     cmdutil.IsFatal,
+		WorstError:  cmdutil.MoreImportantError,
+		ErrorDelay:  3 * time.Second,
+		BounceDelay: 10 * time.Millisecond,
+	}
+	engine, err := dependency.NewEngine(config)
 	if err != nil {
 		return nil, err
 	}
-	st, entity, err := OpenAPIState(agentConfig, a)
-	if err != nil {
+	if err := dependency.Install(engine, manifolds); err != nil {
+		if err := worker.Stop(engine); err != nil {
+			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+		}
 		return nil, err
 	}
-	unitTag, err := names.ParseUnitTag(entity.Tag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Ensure that the environment uuid is stored in the agent config.
-	// Luckily the API has it recorded for us after we connect.
-	if agentConfig.Environment().Id() == "" {
-		err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-			environTag, err := st.EnvironTag()
-			if err != nil {
-				return errors.Annotate(err, "no environment uuid set on api")
-			}
-
-			return setter.Migrate(agent.MigrateParams{
-				Environment: environTag,
-			})
-		})
-		if err != nil {
-			logger.Warningf("unable to save environment uuid: %v", err)
-			// Not really fatal, just annoying.
-		}
-	}
-
-	defer func() {
-		if err != nil {
-			st.Close()
-			reportClosedUnitAPI(st)
-		}
-	}()
-
-	// Before starting any workers, ensure we record the Juju version this unit
-	// agent is running.
-	currentTools := &tools.Tools{Version: version.Current}
-	apiStateUpgrader := a.getUpgrader(st)
-	if err := apiStateUpgrader.SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
-		return nil, errors.Annotate(err, "cannot set unit agent version")
-	}
-
-	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
-
-	// start proxyupdater first to ensure proxy settings are correct
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), false), nil
-	})
-	if feature.IsDbLogEnabled() {
-		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, agentConfig.APIInfo()), nil
-		})
-	}
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewAgentUpgrader(
-			st.Upgrader(),
-			agentConfig,
-			agentConfig.UpgradedToVersion(),
-			func() bool { return false },
-			a.initialAgentUpgradeCheckComplete,
-		), nil
-	})
-	runner.StartWorker("logger", func() (worker.Worker, error) {
-		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
-	})
-	runner.StartWorker("uniter", func() (worker.Worker, error) {
-		uniterFacade, err := st.Uniter()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		uniterParams := uniter.UniterParams{
-			uniterFacade,
-			unitTag,
-			leadership.NewClient(st),
-			dataDir,
-			hookLock,
-			uniter.NewMetricsTimerChooser(),
-			uniter.NewUpdateStatusTimer(),
-			operation.NewExecutor,
-		}
-		return uniter.NewUniter(&uniterParams), nil
-	})
-
-	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		uniterFacade, err := st.Uniter()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
-	})
-	if !featureflag.Enabled(feature.DisableRsyslog) {
-		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-			return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
-		})
-	}
-	return cmdutil.NewCloseWorker(logger, runner, st), nil
+	return engine, nil
 }
 
 func (a *UnitAgent) Tag() names.Tag {

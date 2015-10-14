@@ -41,7 +41,7 @@ type KillCommand struct {
 	// TODO (cherylj) If timeouts for dialing the API are added to new or
 	// existing commands later, the dialer should be pulled into a common
 	// base and made to be an interface rather than a function.
-	apiDialerFunc func(string) (*api.State, error)
+	apiDialerFunc func(string) (api.Connection, error)
 }
 
 // Info implements Command.Info.
@@ -76,7 +76,7 @@ func (c *KillCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemA
 	}
 
 	// Attempt to connect to the API with a short timeout
-	apic := make(chan *api.State)
+	apic := make(chan api.Connection)
 	errc := make(chan error)
 	go func() {
 		api, dialErr := c.apiDialerFunc(c.systemName)
@@ -87,7 +87,7 @@ func (c *KillCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemA
 		apic <- api
 	}()
 
-	var apiRoot *api.State
+	var apiRoot api.Connection
 	select {
 	case err := <-errc:
 		return nil, err

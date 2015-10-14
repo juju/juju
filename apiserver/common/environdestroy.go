@@ -7,10 +7,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
+
+var sendMetrics = func(st *state.State) error {
+	err := metricsender.SendMetrics(st, metricsender.DefaultMetricSender(), metricsender.DefaultMaxBatchesPerSend())
+	return errors.Trace(err)
+}
 
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment. This function assumes that all
@@ -41,6 +47,11 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 	machines, err := st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	err = sendMetrics(st)
+	if err != nil {
+		logger.Warningf("failed to send leftover metrics: %v", err)
 	}
 
 	// We must destroy instances server-side to support JES (Juju Environment

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,33 +16,10 @@ import (
 )
 
 type EngineSuite struct {
-	testing.IsolationSuite
-	engine dependency.Engine
+	engineFixture
 }
 
 var _ = gc.Suite(&EngineSuite{})
-
-func (s *EngineSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.startEngine(c, nothingFatal)
-}
-
-func (s *EngineSuite) TearDownTest(c *gc.C) {
-	s.stopEngine(c)
-	s.IsolationSuite.TearDownTest(c)
-}
-
-func (s *EngineSuite) startEngine(c *gc.C, isFatal dependency.IsFatalFunc) {
-	s.engine = dependency.NewEngine(isFatal, coretesting.ShortWait/2, coretesting.ShortWait/10)
-}
-
-func (s *EngineSuite) stopEngine(c *gc.C) {
-	if s.engine != nil {
-		err := worker.Stop(s.engine)
-		s.engine = nil
-		c.Check(err, jc.ErrorIsNil)
-	}
-}
 
 func (s *EngineSuite) TestInstallConvenienceWrapper(c *gc.C) {
 	mh1 := newManifoldHarness()
@@ -107,6 +83,21 @@ func (s *EngineSuite) TestDoubleInstall(c *gc.C) {
 	err = s.engine.Install("some-task", mh.Manifold())
 	c.Assert(err, gc.ErrorMatches, `"some-task" manifold already installed`)
 	mh.AssertNoStart(c)
+}
+
+func (s *EngineSuite) TestInstallCycle(c *gc.C) {
+
+	// Install a worker with an unmet dependency.
+	mh1 := newManifoldHarness("robin-hood")
+	err := s.engine.Install("friar-tuck", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertNoStart(c)
+
+	// Can't install another worker that creates a dependency cycle.
+	mh2 := newManifoldHarness("friar-tuck")
+	err = s.engine.Install("robin-hood", mh2.Manifold())
+	c.Assert(err, gc.ErrorMatches, `cannot install "robin-hood" manifold: cycle detected at .*`)
+	mh2.AssertNoStart(c)
 }
 
 func (s *EngineSuite) TestInstallAlreadyStopped(c *gc.C) {
@@ -399,4 +390,143 @@ func (s *EngineSuite) TestErrMissing(c *gc.C) {
 	mh1.InjectError(c, nil)
 	mh1.AssertNoStart(c)
 	mh2.AssertOneStart(c)
+}
+
+// TestWorstError starts an engine with two manifolds that always error
+// with fatal errors. We test that the most important error is the one
+// returned by the engine.
+//
+// This test uses manifolds whose workers ignore kill requests. We want
+// this (dangerous!) behaviour so that we don't race over which fatal
+// error is seen by the engine first.
+func (s *EngineSuite) TestWorstError(c *gc.C) {
+	// Setup the errors, their importance, and the function
+	// that decides.
+	importantError := errors.New("an important error")
+	moreImportant := func(_, _ error) error {
+		return importantError
+	}
+
+	allFatal := func(error) bool { return true }
+
+	// Start a new engine with moreImportant configured
+	config := dependency.EngineConfig{
+		IsFatal:     allFatal,
+		WorstError:  moreImportant,
+		ErrorDelay:  coretesting.ShortWait / 2,
+		BounceDelay: coretesting.ShortWait / 10,
+	}
+	engine, err := dependency.NewEngine(config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mh1 := newErrorIgnoringManifoldHarness()
+	err = engine.Install("task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertOneStart(c)
+
+	mh2 := newErrorIgnoringManifoldHarness()
+	err = engine.Install("another task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+
+	mh1.InjectError(c, errors.New("kerrang"))
+	mh2.InjectError(c, importantError)
+
+	err = engine.Wait()
+	c.Check(err, gc.ErrorMatches, importantError.Error())
+	report := engine.Report()
+	c.Check(report["error"], gc.ErrorMatches, importantError.Error())
+}
+
+func (s *EngineSuite) TestConfigValidate(c *gc.C) {
+	validIsFatal := func(error) bool { return true }
+	validWorstError := func(err0, err1 error) error { return err0 }
+	validErrorDelay := time.Second
+	validBounceDelay := time.Second
+
+	tests := []struct {
+		about  string
+		config dependency.EngineConfig
+		err    string
+	}{{
+		"IsFatal invalid",
+		dependency.EngineConfig{nil, validWorstError, validErrorDelay, validBounceDelay},
+		"IsFatal not specified",
+	}, {
+		"WorstError invalid",
+		dependency.EngineConfig{validIsFatal, nil, validErrorDelay, validBounceDelay},
+		"WorstError not specified",
+	}, {
+		"ErrorDelay invalid",
+		dependency.EngineConfig{validIsFatal, validWorstError, -time.Second, validBounceDelay},
+		"ErrorDelay is negative",
+	}, {
+		"BounceDelay invalid",
+		dependency.EngineConfig{validIsFatal, validWorstError, validErrorDelay, -time.Second},
+		"BounceDelay is negative",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test.about)
+
+		c.Logf("config validation...")
+		validateErr := test.config.Validate()
+		c.Check(validateErr, gc.ErrorMatches, test.err)
+
+		c.Logf("engine creation...")
+		engine, createErr := dependency.NewEngine(test.config)
+		c.Check(engine, gc.IsNil)
+		c.Check(createErr, gc.ErrorMatches, "invalid config: "+test.err)
+	}
+}
+
+func (s *EngineSuite) TestValidateEmptyManifolds(c *gc.C) {
+	err := dependency.Validate(dependency.Manifolds{})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *EngineSuite) TestValidateTrivialCycle(c *gc.C) {
+	err := dependency.Validate(dependency.Manifolds{
+		"a": dependency.Manifold{Inputs: []string{"a"}},
+	})
+	c.Check(err.Error(), gc.Equals, `cycle detected at "a" (considering: map[a:true])`)
+}
+
+func (s *EngineSuite) TestValidateComplexManifolds(c *gc.C) {
+
+	// Create a bunch of manifolds with tangled but acyclic dependencies; check
+	// that they pass validation.
+	manifolds := dependency.Manifolds{
+		"root1": dependency.Manifold{},
+		"root2": dependency.Manifold{},
+		"mid1":  dependency.Manifold{Inputs: []string{"root1"}},
+		"mid2":  dependency.Manifold{Inputs: []string{"root1", "root2"}},
+		"leaf1": dependency.Manifold{Inputs: []string{"root2", "mid1"}},
+		"leaf2": dependency.Manifold{Inputs: []string{"root1", "mid2"}},
+		"leaf3": dependency.Manifold{Inputs: []string{"root1", "root2", "mid1", "mid2"}},
+	}
+	err := dependency.Validate(manifolds)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Introduce a cycle; check the manifolds no longer validate.
+	manifolds["root1"] = dependency.Manifold{Inputs: []string{"leaf1"}}
+	err = dependency.Validate(manifolds)
+	c.Check(err, gc.ErrorMatches, "cycle detected at .*")
+}
+
+func (s *EngineSuite) TestTracedErrMissing(c *gc.C) {
+
+	// Install a worker with an unmet dependency, check it doesn't start
+	// (because the implementation returns ErrMissing).
+	mh1 := newTracedManifoldHarness("later-task")
+	err := s.engine.Install("some-task", mh1.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh1.AssertNoStart(c)
+
+	// Install its dependency; check both start.
+	mh2 := newTracedManifoldHarness()
+	err = s.engine.Install("later-task", mh2.Manifold())
+	c.Assert(err, jc.ErrorIsNil)
+	mh2.AssertOneStart(c)
+	mh1.AssertOneStart(c)
 }

@@ -18,6 +18,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -87,7 +88,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	for _, versionString := range versionStrings {
 		binary, err := version.ParseBinary(versionString)
 		if err != nil {
-			c.Assert(err, jc.Satisfies, version.IsUnknownOSForSeriesError)
+			c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
 		}
 		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
 		data := binary.String()
@@ -166,9 +167,9 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 				toolsMetadata := item.(*tools.ToolsMetadata)
 				toolsMetadataMap[key] = toolsMetadata
 				toolsVersions.Add(key)
-				seriesVersion, err := version.SeriesVersion(toolsMetadata.Release)
+				seriesVersion, err := series.SeriesVersion(toolsMetadata.Release)
 				if err != nil {
-					c.Assert(err, jc.Satisfies, version.IsUnknownSeriesVersionError)
+					c.Assert(err, jc.Satisfies, series.IsUnknownSeriesVersionError)
 				}
 				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
 				expectedProductIds.Add(productId)

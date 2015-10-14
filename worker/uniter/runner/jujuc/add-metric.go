@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"gopkg.in/juju/charm.v5"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
+	"gopkg.in/juju/charm.v6-unstable"
 )
 
 // Metric represents a single metric set by the charm.
@@ -29,8 +28,8 @@ type AddMetricCommand struct {
 }
 
 // NewAddMetricCommand generates a new AddMetricCommand.
-func NewAddMetricCommand(ctx Context) cmd.Command {
-	return &AddMetricCommand{ctx: ctx}
+func NewAddMetricCommand(ctx Context) (cmd.Command, error) {
+	return &AddMetricCommand{ctx: ctx}, nil
 }
 
 // Info returns the command infor structure for the add-metric command.

@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/zip"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
@@ -48,7 +48,6 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	defer stateWrapper.cleanup()
 
 	switch r.Method {
 	case "POST":

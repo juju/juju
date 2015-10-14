@@ -87,7 +87,7 @@ func (c *SysCommandBase) NewUserManagerAPIClient() (*usermanager.Client, error) 
 // newAPIRoot returns a restricted API for the current system using the current
 // credentials.  Only the UserManager and EnvironmentManager may be accessed
 // through this API connection.
-func (c *SysCommandBase) newAPIRoot() (*api.State, error) {
+func (c *SysCommandBase) newAPIRoot() (api.Connection, error) {
 	if c.systemName == "" {
 		return nil, errors.Trace(ErrNoSystemSpecified)
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 var logger = loggo.GetLogger("juju.provider.local")
@@ -145,7 +146,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		setIfNotBlank(config.FtpProxyKey, proxySettings.Ftp)
 		setIfNotBlank(config.NoProxyKey, proxySettings.NoProxy)
 	}
-	if version.Current.OS == version.Ubuntu {
+	if jujuos.HostOS() == jujuos.Ubuntu {
 		if cfg.AptHttpProxy() == "" &&
 			cfg.AptHttpsProxy() == "" &&
 			cfg.AptFtpProxy() == "" {

@@ -87,7 +87,6 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 				return
 			}
-			defer stateWrapper.cleanup()
 
 			tag, err := stateWrapper.authenticateAgent(req)
 			if err != nil {

@@ -4,7 +4,9 @@
 package azure
 
 import (
+	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -14,10 +16,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -724,7 +729,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	logger.Infof("picked tools %q", args.InstanceConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(args.InstanceConfig)
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AzureRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot compose user data")
 	}
@@ -758,14 +763,20 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		}
 	}
 
-	vhd := env.newOSDisk(sourceImageName)
+	vhd, err := env.newOSDisk(sourceImageName, args.InstanceConfig.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
 	stateServer := multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...)
-	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
+	role, err := env.newRole(instanceType.Id, vhd, stateServer, string(userData), args.InstanceConfig.Series, snapshot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	hc := &instance.HardwareCharacteristics{
 		Mem:      &instanceType.Mem,
@@ -834,15 +845,26 @@ func (env *azureEnviron) getInstance(hostedService *gwacl.HostedService, roleNam
 
 // newOSDisk creates a gwacl.OSVirtualHardDisk object suitable for an
 // Azure Virtual Machine.
-func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardDisk {
+func (env *azureEnviron) newOSDisk(sourceImageName string, ser string) (*gwacl.OSVirtualHardDisk, error) {
 	vhdName := gwacl.MakeRandomDiskName("juju")
 	vhdPath := fmt.Sprintf("vhds/%s", vhdName)
 	snap := env.getSnapshot()
 	storageAccount := snap.ecfg.storageAccountName()
 	mediaLink := gwacl.CreateVirtualHardDiskMediaLink(storageAccount, vhdPath)
+	os, err := series.GetOSFromSeries(ser)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var OSType string
+	switch os {
+	case jujuos.Windows:
+		OSType = "Windows"
+	default:
+		OSType = "Linux"
+	}
 	// The disk label is optional and the disk name can be omitted if
 	// mediaLink is provided.
-	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
+	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, OSType), nil
 }
 
 // getInitialEndpoints returns a slice of the endpoints every instance should have open
@@ -877,31 +899,128 @@ func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndp
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
 // the given Virtual Hard Drive.
 //
+// roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
+// Large, A6 etc.
+func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, stateServer bool, userdata, ser string, snapshot *azureEnviron) (*gwacl.Role, error) {
+	// Do some common initialization
+	roleName := gwacl.MakeRandomRoleName("juju")
+	hostname := roleName
+	password := gwacl.MakeRandomPassword()
+
+	os, err := series.GetOSFromSeries(ser)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Generate a Network Configuration with the initially required ports open.
+	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(stateServer), nil)
+
+	var role *gwacl.Role
+	switch os {
+	case jujuos.Windows:
+		role, err = makeWindowsRole(password, roleSize, roleName, userdata, vhd, networkConfigurationSet, snapshot)
+	default:
+		role, err = makeLinuxRole(hostname, password, roleSize, roleName, userdata, vhd, networkConfigurationSet)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	role.AvailabilitySetName = "juju"
+	return role, nil
+}
+
+// makeLinuxRole will create a gwacl.Role for a Linux VM.
 // The VM will have:
 // - an 'ubuntu' user defined with an unguessable (randomly generated) password
 // - its ssh port (TCP 22) open
 // (if a state server)
 // - its state port (TCP mongoDB) port open
 // - its API port (TCP) open
-//
-// roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
-// Large, A6 etc.
-func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, userData string, stateServer bool) *gwacl.Role {
-	roleName := gwacl.MakeRandomRoleName("juju")
+// On Linux the userdata is sent as a base64 encoded string in the CustomData xml field of the role.
+func makeLinuxRole(
+	hostname, password, roleSize, roleName, userdata string,
+	vhd *gwacl.OSVirtualHardDisk, networkConfigSet *gwacl.ConfigurationSet) (*gwacl.Role, error) {
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
-	hostname := roleName
 	username := "ubuntu"
-	password := gwacl.MakeRandomPassword()
-	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
-	// Generate a Network Configuration with the initially required ports open.
-	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(stateServer), nil)
-	role := gwacl.NewRole(
-		roleSize, roleName, vhd,
-		[]gwacl.ConfigurationSet{*linuxConfigurationSet, *networkConfigurationSet},
-	)
-	role.AvailabilitySetName = "juju"
-	return role
+	cfgSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userdata, "true")
+	finalCfgSet := []gwacl.ConfigurationSet{*cfgSet, *networkConfigSet}
+	return gwacl.NewLinuxRole(roleSize, roleName, vhd, finalCfgSet), nil
+
+}
+
+// makeWindowsRole will create a gwacl.Role for a Windows VM.
+// The VM will have:
+// - an 'JujuAdministrator' user defined with an unguessable (randomly generated) password
+// TODO(bogdanteleaga): Open the winrm port and provide winrm access
+// - for now only port 22 is open(by default)
+// On Windows the userdata is uploaded to the storage and then a reference to it is sent
+// using CustomScriptExtension. For more details see makeUserdataResourceExtension
+func makeWindowsRole(
+	password, roleSize, roleName, userdata string, vhd *gwacl.OSVirtualHardDisk,
+	networkConfigSet *gwacl.ConfigurationSet, snapshot *azureEnviron) (*gwacl.Role, error) {
+	// Later we will add WinRM configuration here
+	// Windows does not accept hostnames over 15 characters.
+	roleName = roleName[:15]
+	hostname := roleName
+	username := "JujuAdministrator"
+	cfgSet := gwacl.NewWindowsProvisioningConfigurationSet(hostname, password, "true", "", nil, nil, username, "", userdata)
+	finalCfgSet := []gwacl.ConfigurationSet{*cfgSet, *networkConfigSet}
+	resourceExtension, err := makeUserdataResourceExtension(hostname, userdata, snapshot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return gwacl.NewWindowsRole(roleSize, roleName, vhd, finalCfgSet, &[]gwacl.ResourceExtensionReference{*resourceExtension}, "true"), nil
+
+}
+
+// makeUserdataResourceExtension will upload the userdata to storage and then fill in the proper xml
+// following the example here
+// https://msdn.microsoft.com/en-us/library/azure/dn781373.aspx
+func makeUserdataResourceExtension(nonce string, userData string, snapshot *azureEnviron) (*gwacl.ResourceExtensionReference, error) {
+	// The bootstrap userdata script is the same for all machines.
+	// So we first check if it's already uploaded and if it isn't we upload it
+	_, err := snapshot.storage.Get(bootstrapUserdataScriptFilename)
+	if errors.IsNotFound(err) {
+		err := snapshot.storage.Put(bootstrapUserdataScriptFilename, bytes.NewReader([]byte(bootstrapUserdataScript)), int64(len(bootstrapUserdataScript)))
+		if err != nil {
+			logger.Errorf(err.Error())
+			return nil, errors.Annotate(err, "cannot upload userdata to storage")
+		}
+	}
+
+	uri, err := snapshot.storage.URL(bootstrapUserdataScriptFilename)
+	if err != nil {
+		logger.Errorf(err.Error())
+		return nil, errors.Trace(err)
+	}
+
+	scriptPublicConfig, err := makeUserdataResourceScripts(uri, bootstrapUserdataScriptFilename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	publicParam := gwacl.NewResourceExtensionParameter("CustomScriptExtensionPublicConfigParameter", scriptPublicConfig, gwacl.ResourceExtensionParameterTypePublic)
+	return gwacl.NewResourceExtensionReference("MyCustomScriptExtension", "Microsoft.Compute", "CustomScriptExtension", "1.4", "", []gwacl.ResourceExtensionParameter{*publicParam}), nil
+}
+
+func makeUserdataResourceScripts(uri, filename string) (publicParam string, err error) {
+	type publicConfig struct {
+		FileUris         []string `json:"fileUris"`
+		CommandToExecute string   `json:"commandToExecute"`
+	}
+
+	public := publicConfig{
+		FileUris:         []string{uri},
+		CommandToExecute: fmt.Sprintf("powershell -ExecutionPolicy Unrestricted -file %s", filename),
+	}
+
+	publicConf, err := json.Marshal(public)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	scriptPublicConfig := base64.StdEncoding.EncodeToString(publicConf)
+
+	return scriptPublicConfig, nil
 }
 
 // StopInstances is specified in the InstanceBroker interface.

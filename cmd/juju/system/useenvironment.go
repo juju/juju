@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
@@ -21,7 +22,7 @@ import (
 type UseEnvironmentCommand struct {
 	envcmd.SysCommandBase
 
-	apiOpen   APIOpenFunc
+	apiOpen   api.OpenFunc
 	api       UseEnvironmentAPI
 	userCreds *configstore.APICredentials
 	endpoint  *configstore.APIEndpoint
@@ -203,7 +204,7 @@ func (c *UseEnvironmentCommand) Run(ctx *cmd.Context) error {
 	if err == nil {
 		// We have an existing environment with the same name. If it is the
 		// same environment with the same user, then this is fine, and we just
-		// change the current envrionment.
+		// change the current environment.
 		endpoint := existing.APIEndpoint()
 		existingCreds := existing.APICredentials()
 		// Need to make sure we check the username of the credentials,

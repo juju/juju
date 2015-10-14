@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +14,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -668,6 +670,31 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 		return errors.Trace(err)
 	}
 	return st.runRawTransaction(ops)
+}
+
+func AddPreferredAddressesToMachines(st *State) error {
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, machine := range machines {
+		if machine.Life() == Dead {
+			continue
+		}
+		// Setting the addresses is enough to trigger setting the preferred
+		// addresses.
+		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = machine.SetMachineAddresses(machine.MachineAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+	}
+	return nil
 }
 
 func LowerCaseEnvUsersID(st *State) error {
@@ -1539,4 +1566,748 @@ func SetHostedEnvironCount(st *State) error {
 	}
 
 	return st.runTransaction([]txn.Op{op})
+}
+
+type oldUserDoc struct {
+	DocID     string     `bson:"_id"`
+	EnvUUID   string     `bson:"env-uuid"`
+	LastLogin *time.Time `bson:"lastlogin"`
+}
+
+type oldEnvUserDoc struct {
+	DocID          string     `bson:"_id"`
+	EnvUUID        string     `bson:"env-uuid"`
+	UserName       string     `bson:"user"`
+	LastConnection *time.Time `bson:"lastconnection"`
+}
+
+// MigrateLastLoginAndLastConnection is an upgrade step that separates out
+// LastLogin from the userDoc into its own collection and removes the
+// lastlogin field from the userDoc. It does the same for LastConnection in
+// the envUserDoc.
+func MigrateLastLoginAndLastConnection(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return err
+	}
+
+	// 0. setup
+	users, closer := st.getRawCollection(usersC)
+	defer closer()
+	envUsers, closer := st.getRawCollection(envUsersC)
+	defer closer()
+	userLastLogins, closer := st.getRawCollection(userLastLoginC)
+	defer closer()
+	envUserLastConnections, closer := st.getRawCollection(envUserLastConnectionC)
+	defer closer()
+
+	var oldUserDocs []oldUserDoc
+	if err = users.Find(bson.D{{
+		"lastlogin", bson.D{{"$exists", true}}}}).All(&oldUserDocs); err != nil {
+		return err
+	}
+
+	var oldEnvUserDocs []oldEnvUserDoc
+	if err = envUsers.Find(bson.D{{
+		"lastconnection", bson.D{{"$exists", true}}}}).All(&oldEnvUserDocs); err != nil {
+		return err
+	}
+
+	// 1. collect data we need to move
+	var lastLoginDocs []interface{}
+	var lastConnectionDocs []interface{}
+
+	for _, oldUser := range oldUserDocs {
+		if oldUser.LastLogin == nil {
+			continue
+		}
+		lastLoginDocs = append(lastLoginDocs, userLastLoginDoc{
+			oldUser.DocID,
+			oldUser.EnvUUID,
+			*oldUser.LastLogin,
+		})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		if oldEnvUser.LastConnection == nil {
+			continue
+		}
+		lastConnectionDocs = append(lastConnectionDocs, envUserLastConnectionDoc{
+			oldEnvUser.DocID,
+			oldEnvUser.EnvUUID,
+			oldEnvUser.UserName,
+			*oldEnvUser.LastConnection,
+		})
+	}
+
+	// 2. raw-write all that data to the new collections, overwriting
+	// everything.
+	//
+	// If a user accesses the API during the upgrade, a lastLoginDoc could
+	// already exist. In this is the case, we hit a duplicate key error, which
+	// we ignore. The insert becomes a no-op, keeping the new lastLoginDoc
+	// which will be more up-to-date than what's read in through the usersC
+	// collection.
+	for _, lastLoginDoc := range lastLoginDocs {
+		if err := userLastLogins.Insert(lastLoginDoc); err != nil && !mgo.IsDup(err) {
+			id := lastLoginDoc.(userLastLoginDoc).DocID
+			logger.Debugf("failed to insert userLastLoginDoc with id %q. Got error: %v", id, err)
+			return err
+		}
+	}
+
+	for _, lastConnectionDoc := range lastConnectionDocs {
+		if err := envUserLastConnections.Insert(lastConnectionDoc); err != nil && !mgo.IsDup(err) {
+			id := lastConnectionDoc.(envUserLastConnectionDoc).ID
+			logger.Debugf("failed to insert envUserLastConnectionDoc with id %q. Got error: %v", id, err)
+			return err
+		}
+	}
+
+	// 3. run txn operations to remove the old unwanted fields
+	ops := []txn.Op{}
+
+	for _, oldUser := range oldUserDocs {
+		upgradesLogger.Debugf("updating lastlogin for user %q", oldUser.DocID)
+		ops = append(ops,
+			txn.Op{
+				C:      usersC,
+				Id:     oldUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastlogin", nil}}},
+				},
+			})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		upgradesLogger.Debugf("updating lastconnection for environment user %q", oldEnvUser.DocID)
+
+		ops = append(ops,
+			txn.Op{
+				C:      envUsersC,
+				Id:     oldEnvUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastconnection", nil}}},
+				},
+			})
+	}
+	return st.runRawTransaction(ops)
+}
+
+// AddMissingEnvUUIDOnStatuses populates the env-uuid field where it
+// is missing due to LP #1474606.
+func AddMissingEnvUUIDOnStatuses(st *State) error {
+	statuses, closer := st.getRawCollection(statusesC)
+	defer closer()
+
+	sel := bson.M{"$or": []bson.M{
+		{"env-uuid": bson.M{"$exists": false}},
+		{"env-uuid": ""},
+	}}
+	var docs []bson.M
+	err := statuses.Find(sel).Select(bson.M{"_id": 1}).All(&docs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read statuses")
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		id, ok := doc["_id"].(string)
+		if !ok {
+			return errors.Errorf("unexpected id: %v", doc["_id"])
+		}
+
+		idParts := strings.SplitN(id, ":", 2)
+		if len(idParts) != 2 {
+			return errors.Errorf("unexpected id format: %v", id)
+		}
+
+		ops = append(ops, txn.Op{
+			C:      statusesC,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"env-uuid": idParts[0]}},
+		})
+	}
+
+	if err := st.runRawTransaction(ops); err != nil {
+		return errors.Annotate(err, "statuses update failed")
+	}
+	return nil
+}
+
+// runForAllEnvStates will run runner function for every env passing a state
+// for that env.
+func runForAllEnvStates(st *State, runner func(st *State) error) error {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+		if err := runner(envSt); err != nil {
+			return errors.Annotatef(err, "environment UUID %q", envUUID)
+		}
+	}
+	return nil
+}
+
+// AddMissingServiceStatuses creates all service status documents that do
+// not already exist.
+func AddMissingServiceStatuses(st *State) error {
+	now := time.Now()
+
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	var envDocs []bson.M
+	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
+	if err != nil {
+		return errors.Annotate(err, "failed to read environments")
+	}
+
+	for _, envDoc := range envDocs {
+		envUUID := envDoc["_id"].(string)
+		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
+		if err != nil {
+			return errors.Annotatef(err, "failed to open environment %q", envUUID)
+		}
+		defer envSt.Close()
+
+		services, err := envSt.AllServices()
+		if err != nil {
+			return errors.Annotatef(err, "failed to retrieve machines for environment %q", envUUID)
+		}
+		logger.Debugf("found %d services in environment %s", len(services), envUUID)
+
+		for _, service := range services {
+			_, err := service.Status()
+			if cause := errors.Cause(err); errors.IsNotFound(cause) {
+				logger.Debugf("service %s lacks status doc", service)
+				statusDoc := statusDoc{
+					EnvUUID:    envSt.EnvironUUID(),
+					Status:     StatusUnknown,
+					StatusInfo: MessageWaitForAgentInit,
+					Updated:    now.UnixNano(),
+					// This exists to preserve questionable unit-aggregation behaviour
+					// while we work out how to switch to an implementation that makes
+					// sense. It is also set in AddService.
+					NeverSet: true,
+				}
+				probablyUpdateStatusHistory(envSt, service.globalKey(), statusDoc)
+				err := envSt.runTransaction([]txn.Op{
+					createStatusOp(envSt, service.globalKey(), statusDoc),
+				})
+				if err != nil && err != txn.ErrAborted {
+					return err
+				}
+			} else if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func addVolumeAttachmentCount(st *State) error {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(volumes))
+	for i, volume := range volumes {
+		volAttachments, err := st.VolumeAttachments(volume.VolumeTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops[i] = txn.Op{
+			C:      volumesC,
+			Id:     volume.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"attachmentcount", len(volAttachments)},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddVolumeAttachmentCount adds volumeDoc.AttachmentCount and
+// sets the right number to it.
+func AddVolumeAttachmentCount(st *State) error {
+	return runForAllEnvStates(st, addVolumeAttachmentCount)
+}
+
+func addFilesystemsAttachmentCount(st *State) error {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(filesystems))
+	for i, fs := range filesystems {
+		fsAttachments, err := st.FilesystemAttachments(fs.FilesystemTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops[i] = txn.Op{
+			C:      filesystemsC,
+			Id:     fs.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"attachmentcount", len(fsAttachments)},
+			}}},
+		}
+
+	}
+	return st.runTransaction(ops)
+}
+
+// AddFilesystemAttachmentCount adds filesystemDoc.AttachmentCount and
+// sets the right number to it.
+func AddFilesystemsAttachmentCount(st *State) error {
+	return runForAllEnvStates(st, addFilesystemsAttachmentCount)
+}
+
+func getVolumeBinding(st *State, volume Volume) (string, error) {
+	// first filesystem
+	fs, err := st.VolumeFilesystem(volume.VolumeTag())
+	if err == nil {
+		return fs.FilesystemTag().String(), nil
+	} else if !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+
+	// then Volume.StorageInstance
+	storageInstance, err := volume.StorageInstance()
+	if err == nil {
+		return storageInstance.String(), nil
+
+	} else if !errors.IsNotAssigned(err) {
+		return "", errors.Trace(err)
+	}
+
+	// then machine
+	atts, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(atts) == 1 {
+		return atts[0].Machine().String(), nil
+	}
+	return "", nil
+
+}
+
+func addBindingToVolume(st *State) error {
+	volumes, err := st.AllVolumes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(volumes))
+	for i, volume := range volumes {
+		b, err := getVolumeBinding(st, volume)
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine binding for %q", volume.Tag().String())
+		}
+		ops[i] = txn.Op{
+			C:      volumesC,
+			Id:     volume.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"binding", b},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddBindingToVolumes adds the binding field to volumesDoc and
+// populates it.
+func AddBindingToVolumes(st *State) error {
+	return runForAllEnvStates(st, addBindingToVolume)
+}
+
+func getFilesystemBinding(st *State, filesystem Filesystem) (string, error) {
+	storage, err := filesystem.Storage()
+	if err == nil {
+		return storage.String(), nil
+	} else if !errors.IsNotAssigned(err) {
+		return "", errors.Trace(err)
+	}
+	atts, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(atts) == 1 {
+		return atts[0].Machine().String(), nil
+	}
+	return "", nil
+
+}
+
+func addBindingToFilesystems(st *State) error {
+	filesystems, err := st.AllFilesystems()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ops := make([]txn.Op, len(filesystems))
+	for i, filesystem := range filesystems {
+		b, err := getFilesystemBinding(st, filesystem)
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine binding for %q", filesystem.Tag().String())
+		}
+		ops[i] = txn.Op{
+			C:      filesystemsC,
+			Id:     filesystem.Tag().Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"binding", b},
+			}}},
+		}
+	}
+	return st.runTransaction(ops)
+}
+
+// AddBindingToFilesystems adds the binding field to filesystemDoc and populates it.
+func AddBindingToFilesystems(st *State) error {
+	return runForAllEnvStates(st, addBindingToFilesystems)
+}
+
+// ChangeStatusHistoryUpdatedType seeks for historicalStatusDoc records
+// whose updated attribute is a time and converts them to int64.
+func ChangeStatusHistoryUpdatedType(st *State) error {
+	// Ensure all ids are using the new form.
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
+	run := func(st *State) error { return changeUpdatedType(st, statusesHistoryC) }
+	return runForAllEnvStates(st, run)
+}
+
+// ChangeStatusUpdatedType seeks for statusDoc records
+// whose updated attribute is a time and converts them to int64.
+func ChangeStatusUpdatedType(st *State) error {
+	run := func(st *State) error { return changeUpdatedType(st, statusesC) }
+	return runForAllEnvStates(st, run)
+}
+
+func changeIdsFromSeqToAuto(st *State) error {
+	var docs []bson.M
+	rawColl, closer := st.getRawCollection(statusesHistoryC)
+	defer closer()
+
+	coll, closer := st.getCollection(statusesHistoryC)
+	defer closer()
+
+	// Filtering is done by hand because the ids we are trying to modify
+	// do not have uuid.
+	if err := rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Annotatef(err, "cannot find all docs for %q", statusesHistoryC)
+	}
+
+	writeableColl := coll.Writeable()
+	for _, doc := range docs {
+		id, ok := doc["_id"].(string)
+		if !ok {
+			if _, isObjectId := doc["_id"].(bson.ObjectId); isObjectId {
+				continue
+			}
+
+			return errors.Errorf("unexpected id: %v", doc["_id"])
+		}
+		_, err := strconv.ParseInt(id, 10, 64)
+		if err == nil {
+			// _id will be automatically added by mongo upon insert.
+			delete(doc, "_id")
+			if err := writeableColl.Insert(doc); err != nil {
+				return errors.Annotate(err, "cannot insert replacement doc without sequential id")
+			}
+			if err := rawColl.Remove(bson.M{"_id": id}); err != nil {
+				return errors.Annotatef(err, "cannot migrate %q ids from sequences, current id is: %s", statusesHistoryC, id)
+			}
+		}
+	}
+	return nil
+
+}
+
+func changeUpdatedType(st *State, collection string) error {
+	var docs []bson.M
+	coll, closer := st.getCollection(collection)
+	defer closer()
+	err := coll.Find(nil).All(&docs)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot find all docs for collection %q", collection)
+	}
+
+	wColl := coll.Writeable()
+	for _, doc := range docs {
+		id := doc["_id"]
+		updated, ok := doc["updated"].(time.Time)
+		if ok {
+			if err := wColl.Update(bson.M{"_id": id}, bson.M{"$set": bson.M{"updated": updated.UTC().UnixNano()}}); err != nil {
+				return errors.Annotatef(err, "cannot change %v updated from time to int64", id)
+			}
+		}
+	}
+	return nil
+}
+
+// ChangeStatusHistoryEntityId renames entityId field to globalkey.
+func ChangeStatusHistoryEntityId(st *State) error {
+	// Ensure all ids are using the new form.
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
+	return runForAllEnvStates(st, changeStatusHistoryEntityId)
+}
+
+func changeStatusHistoryEntityId(st *State) error {
+	statusHistory, closer := st.getRawCollection(statusesHistoryC)
+	defer closer()
+
+	var docs []bson.M
+	err := statusHistory.Find(bson.D{{
+		"entityid", bson.D{{"$exists", true}}}}).All(&docs)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotate(err, "cannot get entity ids")
+	}
+	for _, doc := range docs {
+		id := doc["_id"]
+		entityId, ok := doc["entityid"].(string)
+		if !ok {
+			return errors.Errorf("unexpected entity id: %v", doc["entityid"])
+		}
+		err := statusHistory.Update(bson.M{"_id": id}, bson.M{
+			"$set":   bson.M{"globalkey": entityId},
+			"$unset": bson.M{"entityid": nil}})
+		if err != nil {
+			return errors.Annotatef(err, "cannot update %q entityid to globalkey", id)
+		}
+	}
+	return nil
+}
+
+// AddVolumeStatus ensures each volume has a status doc.
+func AddVolumeStatus(st *State) error {
+	return runForAllEnvStates(st, func(st *State) error {
+		volumes, err := st.AllVolumes()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ops []txn.Op
+		for _, volume := range volumes {
+			_, err := volume.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Annotate(err, "getting status")
+			}
+			status, err := upgradingVolumeStatus(st, volume)
+			if err != nil {
+				return errors.Annotate(err, "deciding volume status")
+			}
+			ops = append(ops, createStatusOp(st, volume.globalKey(), statusDoc{
+				Status:  status,
+				Updated: time.Now().UnixNano(),
+			}))
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runTransaction(ops))
+		}
+		return nil
+	})
+}
+
+// If the volume has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment,
+// then it should be Attaching; otherwise it is Attached.
+func upgradingVolumeStatus(st *State, volume Volume) (Status, error) {
+	if _, err := volume.Info(); errors.IsNotProvisioned(err) {
+		return StatusPending, nil
+	}
+	attachments, err := st.VolumeAttachments(volume.VolumeTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, attachment := range attachments {
+		_, err := attachment.Info()
+		if errors.IsNotProvisioned(err) {
+			return StatusAttaching, nil
+		}
+	}
+	return StatusAttached, nil
+}
+
+// AddFilesystemStatus ensures each filesystem has a status doc.
+func AddFilesystemStatus(st *State) error {
+	return runForAllEnvStates(st, func(st *State) error {
+		filesystems, err := st.AllFilesystems()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ops []txn.Op
+		for _, filesystem := range filesystems {
+			_, err := filesystem.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return errors.Annotate(err, "getting status")
+			}
+			status, err := upgradingFilesystemStatus(st, filesystem)
+			if err != nil {
+				return errors.Annotate(err, "deciding filesystem status")
+			}
+			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
+				Status:  status,
+				Updated: time.Now().UnixNano(),
+			}))
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runTransaction(ops))
+		}
+		return nil
+	})
+}
+
+// If the filesystem has not been provisioned, then it should be Pending;
+// if it has been provisioned, but there is an unprovisioned attachment, then
+// it should be Attaching; otherwise it is Attached.
+func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error) {
+	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
+		return StatusPending, nil
+	}
+	attachments, err := st.FilesystemAttachments(filesystem.FilesystemTag())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	for _, attachment := range attachments {
+		_, err := attachment.Info()
+		if errors.IsNotProvisioned(err) {
+			return StatusAttaching, nil
+		}
+	}
+	return StatusAttached, nil
+}
+
+// MigrateSettingsSchema migrates the schema of the settings collection,
+// moving non-reserved keys at the top-level into a subdoc, and introducing
+// a top-level "version" field with the initial value matching txn-revno.
+//
+// This migration takes place both before and after env-uuid migration,
+// to get the correct txn-revno value.
+func MigrateSettingsSchema(st *State) error {
+	coll, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	upgradesLogger.Debugf("migrating schema of the %s collection", settingsC)
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+
+	var ops []txn.Op
+	var doc bson.M
+	for iter.Next(&doc) {
+		if !settingsDocNeedsMigration(doc) {
+			continue
+		}
+
+		id := doc["_id"]
+		txnRevno := doc["txn-revno"].(int64)
+
+		// Remove reserved attributes; we'll move the remaining
+		// ones to the "settings" subdoc.
+		delete(doc, "env-uuid")
+		delete(doc, "_id")
+		delete(doc, "txn-revno")
+		delete(doc, "txn-queue")
+
+		// If there exists a setting by the name "settings",
+		// we must remove it first, or it will collide with
+		// the dotted-notation $sets.
+		if _, ok := doc["settings"]; ok {
+			ops = append(ops, txn.Op{
+				C:      settingsC,
+				Id:     id,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$unset", bson.D{{"settings", 1}}}},
+			})
+		}
+
+		var update bson.D
+		for key, value := range doc {
+			if key != "settings" && key != "version" {
+				// Don't try to unset these fields,
+				// as we've unset "settings" above
+				// already, and we'll overwrite
+				// "version" below.
+				update = append(update, bson.DocElem{
+					"$unset", bson.D{{key, 1}},
+				})
+			}
+			update = append(update, bson.DocElem{
+				"$set", bson.D{{"settings." + key, value}},
+			})
+		}
+		if len(update) == 0 {
+			// If there are no settings, then we need
+			// to add an empty "settings" map so we
+			// can tell for next time that migration
+			// is complete, and don't move the "version"
+			// field we add.
+			update = bson.D{{
+				"$set", bson.D{{"settings", bson.M{}}},
+			}}
+		}
+		update = append(update, bson.DocElem{
+			"$set", bson.D{{"version", txnRevno}},
+		})
+
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: update,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
+func settingsDocNeedsMigration(doc bson.M) bool {
+	// It is not possible for there to exist a settings value
+	// with type bson.M, so we know that it is the new settings
+	// field and not just a setting with the name "settings".
+	if _, ok := doc["settings"].(bson.M); ok {
+		return false
+	}
+	return true
 }

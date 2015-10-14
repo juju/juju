@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/packaging/commands"
 	pacconfig "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -23,7 +24,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/proxyupdater"
 )
@@ -31,7 +31,7 @@ import (
 type ProxyUpdaterSuite struct {
 	jujutesting.JujuConnSuite
 
-	apiRoot        *api.State
+	apiRoot        api.Connection
 	environmentAPI *environment.Facade
 	machine        *state.Machine
 
@@ -158,7 +158,7 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
 
-	paccmder, err := commands.NewPackageCommander(version.Current.Series)
+	paccmder, err := commands.NewPackageCommander(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
@@ -173,7 +173,7 @@ func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
 
-	paccmder, err := commands.NewPackageCommander(version.Current.Series)
+	paccmder, err := commands.NewPackageCommander(series.HostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }

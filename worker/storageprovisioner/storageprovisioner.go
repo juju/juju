@@ -1,12 +1,36 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// Package storageprovisioner provides a worker that manages the provisioning
+// and deprovisioning of storage volumes and filesystems, and attaching them
+// to and detaching them from machines.
+//
+// A storage provisioner worker is run at each environment manager, which
+// manages environment-scoped storage such as virtual disk services of the
+// cloud provider. In addition to this, each machine agent runs a machine-
+// storage provisioner worker that manages storage scoped to that machine,
+// such as loop devices, temporary filesystems (tmpfs), and rootfs.
+//
+// The storage provisioner worker is comprised of the following major
+// components:
+//  - a set of watchers for provisioning and attachment events
+//  - a schedule of pending operations
+//  - event-handling code fed by the watcher, that identifies
+//    interesting changes (unprovisioned -> provisioned, etc.),
+//    ensures prerequisites are met (e.g. volume and machine are both
+//    provisioned before attachment is attempted), and populates
+//    operations into the schedule
+//  - operation execution code fed by the schedule, that groups
+//    operations to make bulk calls to storage providers; updates
+//    status; and reschedules operations upon failure
+//
 package storageprovisioner
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
@@ -17,6 +41,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
 )
 
 var logger = loggo.GetLogger("juju.worker.storageprovisioner")
@@ -128,6 +153,11 @@ type LifecycleManager interface {
 	RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
+// StatusSetter defines an interface used to set the status of entities.
+type StatusSetter interface {
+	SetStatus([]params.EntityStatusArgs) error
+}
+
 // EnvironAccessor defines an interface used to enable a storage provisioner
 // worker to watch changes to and read environment config, to use when
 // provisioning storage.
@@ -156,6 +186,8 @@ func NewStorageProvisioner(
 	l LifecycleManager,
 	e EnvironAccessor,
 	m MachineAccessor,
+	s StatusSetter,
+	clock clock.Clock,
 ) worker.Worker {
 	w := &storageprovisioner{
 		scope:       scope,
@@ -165,6 +197,8 @@ func NewStorageProvisioner(
 		life:        l,
 		environ:     e,
 		machines:    m,
+		status:      s,
+		clock:       clock,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -186,6 +220,8 @@ type storageprovisioner struct {
 	life        LifecycleManager
 	environ     EnvironAccessor
 	machines    MachineAccessor
+	status      StatusSetter
+	clock       clock.Clock
 }
 
 // Kill implements Worker.Kill().
@@ -262,25 +298,27 @@ func (w *storageprovisioner) loop() error {
 	}
 
 	ctx := context{
-		scope:                             w.scope,
-		storageDir:                        w.storageDir,
-		volumeAccessor:                    w.volumes,
-		filesystemAccessor:                w.filesystems,
-		life:                              w.life,
-		machineAccessor:                   w.machines,
-		volumes:                           make(map[names.VolumeTag]storage.Volume),
-		volumeAttachments:                 make(map[params.MachineStorageId]storage.VolumeAttachment),
-		volumeBlockDevices:                make(map[names.VolumeTag]storage.BlockDevice),
-		filesystems:                       make(map[names.FilesystemTag]storage.Filesystem),
-		filesystemAttachments:             make(map[params.MachineStorageId]storage.FilesystemAttachment),
-		machines:                          make(map[names.MachineTag]*machineWatcher),
-		machineChanges:                    machineChanges,
-		pendingVolumes:                    make(map[names.VolumeTag]storage.VolumeParams),
-		pendingVolumeAttachments:          make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
-		pendingVolumeBlockDevices:         make(set.Tags),
-		pendingFilesystems:                make(map[names.FilesystemTag]storage.FilesystemParams),
-		pendingFilesystemAttachments:      make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
-		pendingDyingFilesystemAttachments: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
+		scope:                                w.scope,
+		storageDir:                           w.storageDir,
+		volumeAccessor:                       w.volumes,
+		filesystemAccessor:                   w.filesystems,
+		life:                                 w.life,
+		machineAccessor:                      w.machines,
+		statusSetter:                         w.status,
+		time:                                 w.clock,
+		volumes:                              make(map[names.VolumeTag]storage.Volume),
+		volumeAttachments:                    make(map[params.MachineStorageId]storage.VolumeAttachment),
+		volumeBlockDevices:                   make(map[names.VolumeTag]storage.BlockDevice),
+		filesystems:                          make(map[names.FilesystemTag]storage.Filesystem),
+		filesystemAttachments:                make(map[params.MachineStorageId]storage.FilesystemAttachment),
+		machines:                             make(map[names.MachineTag]*machineWatcher),
+		machineChanges:                       machineChanges,
+		schedule:                             schedule.NewSchedule(w.clock),
+		incompleteVolumeParams:               make(map[names.VolumeTag]storage.VolumeParams),
+		incompleteVolumeAttachmentParams:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
+		incompleteFilesystemParams:           make(map[names.FilesystemTag]storage.FilesystemParams),
+		incompleteFilesystemAttachmentParams: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
+		pendingVolumeBlockDevices:            make(set.Tags),
 	}
 	ctx.managedFilesystemSource = newManagedFilesystemSource(
 		ctx.volumeBlockDevices, ctx.filesystems,
@@ -292,9 +330,9 @@ func (w *storageprovisioner) loop() error {
 	}()
 
 	for {
-		// Check if any pending operations can be fulfilled.
-		if err := processPending(&ctx); err != nil {
-			return errors.Trace(err)
+		// Check if block devices need to be refreshed.
+		if err := processPendingVolumeBlockDevices(&ctx); err != nil {
+			return errors.Annotate(err, "processing pending block devices")
 		}
 
 		select {
@@ -355,30 +393,87 @@ func (w *storageprovisioner) loop() error {
 			if err := refreshMachine(&ctx, machineTag); err != nil {
 				return errors.Trace(err)
 			}
+		case <-ctx.schedule.Next():
+			// Ready to pick something(s) off the pending queue.
+			if err := processSchedule(&ctx); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
 
-// processPending checks if the pending operations' prerequisites have
-// been met, and processes them if so.
-func processPending(ctx *context) error {
-	if err := processPendingVolumes(ctx); err != nil {
-		return errors.Annotate(err, "processing pending volumes")
+// processSchedule executes scheduled operations.
+func processSchedule(ctx *context) error {
+	ready := ctx.schedule.Ready(ctx.time.Now())
+	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
+	destroyVolumeOps := make(map[names.VolumeTag]*destroyVolumeOp)
+	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
+	detachVolumeOps := make(map[params.MachineStorageId]*detachVolumeOp)
+	createFilesystemOps := make(map[names.FilesystemTag]*createFilesystemOp)
+	destroyFilesystemOps := make(map[names.FilesystemTag]*destroyFilesystemOp)
+	attachFilesystemOps := make(map[params.MachineStorageId]*attachFilesystemOp)
+	detachFilesystemOps := make(map[params.MachineStorageId]*detachFilesystemOp)
+	for _, item := range ready {
+		op := item.(scheduleOp)
+		key := op.key()
+		switch op := op.(type) {
+		case *createVolumeOp:
+			createVolumeOps[key.(names.VolumeTag)] = op
+		case *destroyVolumeOp:
+			destroyVolumeOps[key.(names.VolumeTag)] = op
+		case *attachVolumeOp:
+			attachVolumeOps[key.(params.MachineStorageId)] = op
+		case *detachVolumeOp:
+			detachVolumeOps[key.(params.MachineStorageId)] = op
+		case *createFilesystemOp:
+			createFilesystemOps[key.(names.FilesystemTag)] = op
+		case *destroyFilesystemOp:
+			destroyFilesystemOps[key.(names.FilesystemTag)] = op
+		case *attachFilesystemOp:
+			attachFilesystemOps[key.(params.MachineStorageId)] = op
+		case *detachFilesystemOp:
+			detachFilesystemOps[key.(params.MachineStorageId)] = op
+		}
 	}
-	if err := processPendingVolumeAttachments(ctx); err != nil {
-		return errors.Annotate(err, "processing pending volume attachments")
+	if len(destroyVolumeOps) > 0 {
+		if err := destroyVolumes(ctx, destroyVolumeOps); err != nil {
+			return errors.Annotate(err, "destroying volumes")
+		}
 	}
-	if err := processPendingVolumeBlockDevices(ctx); err != nil {
-		return errors.Annotate(err, "processing pending block devices")
+	if len(createVolumeOps) > 0 {
+		if err := createVolumes(ctx, createVolumeOps); err != nil {
+			return errors.Annotate(err, "creating volumes")
+		}
 	}
-	if err := processPendingFilesystems(ctx); err != nil {
-		return errors.Annotate(err, "processing pending filesystems")
+	if len(detachVolumeOps) > 0 {
+		if err := detachVolumes(ctx, detachVolumeOps); err != nil {
+			return errors.Annotate(err, "detaching volumes")
+		}
 	}
-	if err := processPendingDyingFilesystemAttachments(ctx); err != nil {
-		return errors.Annotate(err, "processing pending, dying filesystem attachments")
+	if len(attachVolumeOps) > 0 {
+		if err := attachVolumes(ctx, attachVolumeOps); err != nil {
+			return errors.Annotate(err, "attaching volumes")
+		}
 	}
-	if err := processPendingFilesystemAttachments(ctx); err != nil {
-		return errors.Annotate(err, "processing pending filesystem attachments")
+	if len(destroyFilesystemOps) > 0 {
+		if err := destroyFilesystems(ctx, destroyFilesystemOps); err != nil {
+			return errors.Annotate(err, "destroying filesystems")
+		}
+	}
+	if len(createFilesystemOps) > 0 {
+		if err := createFilesystems(ctx, createFilesystemOps); err != nil {
+			return errors.Annotate(err, "creating filesystems")
+		}
+	}
+	if len(detachFilesystemOps) > 0 {
+		if err := detachFilesystems(ctx, detachFilesystemOps); err != nil {
+			return errors.Annotate(err, "detaching filesystems")
+		}
+	}
+	if len(attachFilesystemOps) > 0 {
+		if err := attachFilesystems(ctx, attachFilesystemOps); err != nil {
+			return errors.Annotate(err, "attaching filesystems")
+		}
 	}
 	return nil
 }
@@ -397,6 +492,8 @@ type context struct {
 	filesystemAccessor FilesystemAccessor
 	life               LifecycleManager
 	machineAccessor    MachineAccessor
+	statusSetter       StatusSetter
+	time               clock.Clock
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume
@@ -422,29 +519,47 @@ type context struct {
 	// their machine is known to have been provisioned.
 	machineChanges chan<- names.MachineTag
 
-	// pendingVolumes contains parameters for volumes that are yet to be
-	// created.
-	pendingVolumes map[names.VolumeTag]storage.VolumeParams
+	// schedule is the schedule of storage operations.
+	schedule *schedule.Schedule
 
-	// pendingVolumeAttachments contains parameters for volume attachments
-	// that are yet to be created.
-	pendingVolumeAttachments map[params.MachineStorageId]storage.VolumeAttachmentParams
+	// incompleteVolumeParams contains incomplete parameters for volumes.
+	//
+	// Volume parameters are incomplete when they lack information about
+	// the initial attachment. Once the initial attachment information is
+	// available, the parameters are removed from this map and a volume
+	// creation operation is scheduled.
+	incompleteVolumeParams map[names.VolumeTag]storage.VolumeParams
+
+	// incompleteVolumeAttachmentParams contains incomplete parameters
+	// for volume attachments
+	//
+	// Volume attachment parameters are incomplete when they lack
+	// information about the associated volume or machine. Once this
+	// information is available, the parameters are removed from this
+	// map and a volume attachment operation is scheduled.
+	incompleteVolumeAttachmentParams map[params.MachineStorageId]storage.VolumeAttachmentParams
+
+	// incompleteFilesystemParams contains incomplete parameters for
+	// filesystems.
+	//
+	// Filesystem parameters are incomplete when they lack information
+	// about the initial attachment. Once the initial attachment
+	// information is available, the parameters are removed from this
+	// map and a filesystem creation operation is scheduled.
+	incompleteFilesystemParams map[names.FilesystemTag]storage.FilesystemParams
+
+	// incompleteFilesystemAttachmentParams contains incomplete parameters
+	// for filesystem attachments
+	//
+	// Filesystem attachment parameters are incomplete when they lack
+	// information about the associated filesystem or machine. Once this
+	// information is available, the parameters are removed from this
+	// map and a filesystem attachment operation is scheduled.
+	incompleteFilesystemAttachmentParams map[params.MachineStorageId]storage.FilesystemAttachmentParams
 
 	// pendingVolumeBlockDevices contains the tags of volumes about whose
 	// block devices we wish to enquire.
 	pendingVolumeBlockDevices set.Tags
-
-	// pendingFilesystems contains parameters for filesystems that are
-	// yet to be created.
-	pendingFilesystems map[names.FilesystemTag]storage.FilesystemParams
-
-	// pendingFilesystemAttachments contains parameters for filesystem attachments
-	// that are yet to be created.
-	pendingFilesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachmentParams
-
-	// pendingDyingFilesystemAttachments contains parameters for filesystem attachments
-	// that are to be destroyed.
-	pendingDyingFilesystemAttachments map[params.MachineStorageId]storage.FilesystemAttachmentParams
 
 	// managedFilesystemSource is a storage.FilesystemSource that
 	// manages filesystems backed by volumes attached to the host

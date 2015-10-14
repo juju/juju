@@ -129,16 +129,16 @@ func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResul
 }
 
 // FindTools returns al ist of tools matching the specified version number and
-// series, and, if non-empty, arch.
-func (st *State) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+// series, and, arch. If arch is blank, a default will be used.
+func (st *State) FindTools(v version.Number, series string, arch string) (tools.List, error) {
 	args := params.FindToolsParams{
 		Number:       v,
 		Series:       series,
 		MajorVersion: -1,
 		MinorVersion: -1,
 	}
-	if arch != nil {
-		args.Arch = *arch
+	if arch != "" {
+		args.Arch = arch
 	}
 	var result params.FindToolsResult
 	if err := st.facade.FacadeCall("FindTools", args, &result); err != nil {

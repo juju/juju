@@ -11,6 +11,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -37,7 +39,7 @@ type ToolsFixture struct {
 
 	// UploadArches holds the architectures of tools to
 	// upload in UploadFakeTools. If empty, it will default
-	// to just version.Current.Arch.
+	// to just arch.HostArch()
 	UploadArches []string
 }
 
@@ -63,7 +65,7 @@ func (s *ToolsFixture) UploadFakeToolsToDirectory(c *gc.C, dir, toolsDir, stream
 func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
 	arches := s.UploadArches
 	if len(arches) == 0 {
-		arches = []string{version.Current.Arch}
+		arches = []string{arch.HostArch()}
 	}
 	var versions []version.Binary
 	for _, arch := range arches {
@@ -216,7 +218,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 
 func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	toolsSeries := set.NewStrings(toolsLtsSeries...)
-	toolsSeries.Add(version.Current.Series)
+	toolsSeries.Add(series.HostSeries())
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Current
@@ -253,7 +255,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
 	defaultSeries := coretesting.FakeDefaultSeries
-	if version.Current.Series != defaultSeries {
+	if series.HostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)

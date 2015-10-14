@@ -8,15 +8,18 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/storage"
 )
 
 var (
-	Provider          environs.EnvironProvider = providerInstance
-	NewInstance                                = newInstance
-	CheckInstanceType                          = checkInstanceType
-	GetMetadata                                = getMetadata
-	GetDisks                                   = getDisks
-	ConfigImmutable                            = configImmutableFields
+	Provider             environs.EnvironProvider = providerInstance
+	NewInstance                                   = newInstance
+	CheckInstanceType                             = checkInstanceType
+	GetMetadata                                   = getMetadata
+	GetDisks                                      = getDisks
+	ConfigImmutable                               = configImmutableFields
+	UbuntuImageBasePath                           = ubuntuImageBasePath
+	WindowsImageBasePath                          = windowsImageBasePath
 )
 
 func ExposeInstBase(inst *environInstance) *google.Instance {
@@ -73,4 +76,9 @@ func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst
 
 func GetInstances(env *environ) ([]instance.Instance, error) {
 	return env.instances()
+}
+
+// Storage
+func GCEStorageProvider() storage.Provider {
+	return &storageProvider{}
 }

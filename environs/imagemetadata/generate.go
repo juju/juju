@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/version"
 )
 
 // IndexStoragePath returns the storage path for the image metadata index file.
@@ -28,14 +28,14 @@ func ProductMetadataStoragePath() string {
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with supplied metadata, writing the resulting metadata is written to storage.
-func MergeAndWriteMetadata(series string, metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec,
+func MergeAndWriteMetadata(ser string, metadata []*ImageMetadata, cloudSpec *simplestreams.CloudSpec,
 	metadataStore storage.Storage) error {
 
 	existingMetadata, err := readMetadata(metadataStore)
 	if err != nil {
 		return err
 	}
-	seriesVersion, err := version.SeriesVersion(series)
+	seriesVersion, err := series.SeriesVersion(ser)
 	if err != nil {
 		return err
 	}

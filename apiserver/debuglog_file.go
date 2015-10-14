@@ -12,15 +12,16 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/tailer"
+
+	"github.com/juju/juju/state"
 )
 
-func newDebugLogFileHandler(ssState *state.State, stop <-chan struct{}, logDir string) http.Handler {
+func newDebugLogFileHandler(statePool *state.StatePool, stop <-chan struct{}, logDir string) http.Handler {
 	fileHandler := &debugLogFileHandler{logDir: logDir}
-	return newDebugLogHandler(ssState, stop, fileHandler.handle)
+	return newDebugLogHandler(statePool, stop, fileHandler.handle)
 }
 
 // debugLogFileHandler handles requests to watch all-machines.log.

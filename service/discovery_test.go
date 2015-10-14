@@ -14,6 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/feature"
@@ -37,14 +39,13 @@ func init() {
 const unknownExecutable = "/sbin/unknown/init/system"
 
 type discoveryTest struct {
-	os       version.OSType
+	os       jujuos.OSType
 	series   string
 	expected string
 }
 
 func (dt discoveryTest) version() version.Binary {
 	return version.Binary{
-		OS:     dt.os,
 		Series: dt.series,
 	}
 }
@@ -58,9 +59,8 @@ func (dt discoveryTest) disableLocalDiscovery(c *gc.C, s *discoverySuite) {
 }
 
 func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
-	s.PatchVersion(version.Binary{
-		OS: version.Unknown,
-	})
+	dt.os = jujuos.Unknown
+	dt.setVersion(s)
 }
 
 func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
@@ -69,7 +69,7 @@ func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
 
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
 	vers := dt.version()
-	s.PatchVersion(vers)
+	s.PatchSeries(vers.Series)
 	return vers
 }
 
@@ -114,31 +114,31 @@ func (dt discoveryTest) checkInitSystem(c *gc.C, name string, err error) {
 }
 
 var discoveryTests = []discoveryTest{{
-	os:       version.Windows,
+	os:       jujuos.Windows,
 	series:   "win2012",
 	expected: service.InitSystemWindows,
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "oneiric",
 	expected: "",
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "precise",
 	expected: service.InitSystemUpstart,
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "utopic",
 	expected: service.InitSystemUpstart,
 }, {
-	os:       version.Ubuntu,
+	os:       jujuos.Ubuntu,
 	series:   "vivid",
 	expected: maybeSystemd,
 }, {
-	os:       version.CentOS,
+	os:       jujuos.CentOS,
 	series:   "centos7",
 	expected: service.InitSystemSystemd,
 }, {
-	os:       version.Unknown,
+	os:       jujuos.Unknown,
 	expected: "",
 }}
 
@@ -180,13 +180,13 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		localInitSystem, err = service.VersionInitSystem(version.Current.Series)
+		localInitSystem, err = service.VersionInitSystem(series.HostSeries())
 	}
 	c.Assert(err, gc.IsNil)
 
 	test := discoveryTest{
-		os:       version.Current.OS,
-		series:   version.Current.Series,
+		os:       jujuos.HostOS(),
+		series:   series.HostSeries(),
 		expected: localInitSystem,
 	}
 	test.disableVersionDiscovery(s)
@@ -221,7 +221,7 @@ func (s *discoverySuite) TestVersionInitSystem(c *gc.C) {
 func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
 	s.setLegacyUpstart(c)
 	test := discoveryTest{
-		os:       version.Ubuntu,
+		os:       jujuos.Ubuntu,
 		series:   "vivid",
 		expected: service.InitSystemUpstart,
 	}
@@ -235,7 +235,7 @@ func (s *discoverySuite) TestVersionInitSystemLegacyUpstart(c *gc.C) {
 func (s *discoverySuite) TestVersionInitSystemNoLegacyUpstart(c *gc.C) {
 	s.unsetLegacyUpstart(c)
 	test := discoveryTest{
-		os:       version.Ubuntu,
+		os:       jujuos.Ubuntu,
 		series:   "vivid",
 		expected: service.InitSystemSystemd,
 	}
