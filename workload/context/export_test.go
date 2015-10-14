@@ -14,7 +14,6 @@ func SetComponent(cmd cmd.Command, compCtx Component) {
 	case *WorkloadTrackCommand:
 		cmd.compCtx = compCtx
 	}
-	// TODO(ericsnow) Add WorkloadLaunchCommand here.
 }
 
 func AddWorkload(ctx *Context, id string, info workload.Info) {
@@ -34,8 +33,6 @@ func AddWorkloads(ctx *Context, workloads ...workload.Info) {
 func GetCmdInfo(cmd cmd.Command) *workload.Info {
 	switch cmd := cmd.(type) {
 	case *WorkloadTrackCommand:
-		return cmd.info
-	case *WorkloadLaunchCommand:
 		return cmd.info
 	default:
 		return nil
