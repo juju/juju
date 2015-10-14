@@ -111,7 +111,6 @@ func NewCommand(ctx Context, name string) (cmd.Command, error) {
 type Request struct {
 	ContextId   string
 	Dir         string
-	EnvPath     string
 	CommandName string
 	Args        []string
 
@@ -159,10 +158,7 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	}
 	var stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{
-		Dir: req.Dir,
-		Env: map[string]string{
-			"PATH": req.EnvPath,
-		},
+		Dir:    req.Dir,
 		Stdin:  stdin,
 		Stdout: &stdout,
 		Stderr: &stderr,
