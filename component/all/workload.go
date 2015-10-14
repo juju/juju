@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/workload/api/client"
 	"github.com/juju/juju/workload/api/server"
 	"github.com/juju/juju/workload/context"
+	"github.com/juju/juju/workload/persistence"
 	workloadstate "github.com/juju/juju/workload/state"
 	"github.com/juju/juju/workload/status"
 	"github.com/juju/juju/workload/workers"
@@ -281,10 +282,37 @@ func (workloads) registerState() {
 	state.SetWorkloadsComponent(newUnitWorkloads)
 
 	newEnvPayloads := func(persist state.Persistence, listMachines func() ([]string, error), listUnits func(string) ([]names.UnitTag, error)) (state.EnvPayloads, error) {
-		envPayloads := &workloadstate.EnvPayloads{
-			Base:         persist,
-			ListMachines: listMachines,
-			ListUnits:    listUnits,
+		unitListFuncs := func() ([]func() ([]workload.Info, string, string, error), error) {
+			machines, err := listMachines()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var funcs []func() ([]workload.Info, string, string, error)
+			for i := range machines {
+				machine := machines[i]
+				units, err := listUnits(machine)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+
+				for i := range units {
+					unit := units[i]
+					machine := machine
+					workloadsPersist := persistence.NewPersistence(persist, unit)
+					funcs = append(funcs, func() ([]workload.Info, string, string, error) {
+						workloads, err := workloadsPersist.ListAll()
+						if err != nil {
+							return nil, "", "", errors.Trace(err)
+						}
+						return workloads, machine, unit.String(), nil
+					})
+				}
+			}
+			return funcs, nil
+		}
+		envPayloads := workloadstate.EnvPayloads{
+			UnitListFuncs: unitListFuncs,
 		}
 		return envPayloads, nil
 	}

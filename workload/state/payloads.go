@@ -5,53 +5,36 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/persistence"
 )
-
-// The persistence methods needed for payloads in state.
-type payloadsPersistence interface {
-	ListPayloads() ([]workload.Payload, error)
-}
 
 // EnvPayloads provides the functionality related to an env's
 // payloads, as needed by state.
 type EnvPayloads struct {
-	Base         persistence.PersistenceBase
-	ListMachines func() ([]string, error)
-	ListUnits    func(string) ([]names.UnitTag, error)
+	UnitListFuncs func() ([]func() ([]workload.Info, string, string, error), error)
 }
 
 // ListAll builds the list of payload information that is registered in state.
 func (ps EnvPayloads) ListAll() ([]workload.Payload, error) {
 	logger.Tracef("listing all payloads")
 
-	machines, err := ps.ListMachines()
+	funcs, err := ps.UnitListFuncs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var payloads []workload.Payload
-	for _, machine := range machines {
-		units, err := ps.ListUnits(machine)
+	for _, listAll := range funcs {
+		workloads, machine, unit, err := listAll()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		for _, unit := range units {
-			persist := persistence.NewPersistence(ps.Base, unit)
-			workloads, err := persist.ListAll()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			for _, info := range workloads {
-				payload := info.AsPayload()
-				payload.Unit = unit.String()
-				payload.Machine = machine
-				payloads = append(payloads, payload)
-			}
+		for _, info := range workloads {
+			payload := info.AsPayload()
+			payload.Unit = unit
+			payload.Machine = machine
+			payloads = append(payloads, payload)
 		}
 	}
 	return payloads, nil
