@@ -7,26 +7,12 @@ import (
 	"sync"
 	"time"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	"github.com/juju/errors"
->>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
-=======
->>>>>>> spread code out a bit more; improved docs
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	"github.com/juju/juju/worker/dependency"
->>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
-=======
->>>>>>> spread code out a bit more; improved docs
 	"github.com/juju/juju/worker/fortress"
 )
 
@@ -36,10 +22,6 @@ type FortressSuite struct {
 
 var _ = gc.Suite(&FortressSuite{})
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> spread code out a bit more; improved docs
 func (s *FortressSuite) TestOutputBadSource(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
@@ -51,33 +33,14 @@ func (s *FortressSuite) TestOutputBadSource(c *gc.C) {
 	c.Check(out, gc.IsNil)
 }
 
-<<<<<<< HEAD
-=======
->>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
-=======
->>>>>>> spread code out a bit more; improved docs
 func (s *FortressSuite) TestOutputBadTarget(c *gc.C) {
 	fix := newFixture(c)
 	defer fix.TearDown(c)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 	var out interface{}
 	err := fix.manifold.Output(fix.worker, &out)
 	c.Check(err.Error(), gc.Equals, "out should be *fortress.Guest or *fortress.Guard; is *interface {}")
 	c.Check(out, gc.IsNil)
-=======
-	var state interface{}
-	err := fix.manifold.Output(fix.worker, &state)
-	c.Check(err.Error(), gc.Equals, "out should be *fortress.Guest or *fortress.Guard; is *interface {}")
-	c.Check(state, gc.IsNil)
->>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
-=======
-	var out interface{}
-	err := fix.manifold.Output(fix.worker, &out)
-	c.Check(err.Error(), gc.Equals, "out should be *fortress.Guest or *fortress.Guard; is *interface {}")
-	c.Check(out, gc.IsNil)
->>>>>>> spread code out a bit more; improved docs
 }
 
 func (s *FortressSuite) TestStoppedUnlock(c *gc.C) {
@@ -354,86 +317,3 @@ func (s *FortressSuite) TestAbortedLockdownUnlock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	AssertUnlocked(c, fix.Guest(c))
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-
-type fixture struct {
-	manifold dependency.Manifold
-	worker   worker.Worker
-}
-
-func newFixture(c *gc.C) *fixture {
-	manifold := fortress.Manifold()
-	worker, err := manifold.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return &fixture{
-		manifold: manifold,
-		worker:   worker,
-	}
-}
-
-func (fix *fixture) TearDown(c *gc.C) {
-	CheckStop(c, fix.worker)
-}
-
-func (fix *fixture) Guard(c *gc.C) (out fortress.Guard) {
-	err := fix.manifold.Output(fix.worker, &out)
-	c.Assert(err, jc.ErrorIsNil)
-	return out
-}
-
-func (fix *fixture) Guest(c *gc.C) (out fortress.Guest) {
-	err := fix.manifold.Output(fix.worker, &out)
-	c.Assert(err, jc.ErrorIsNil)
-	return out
-}
-
-func AssertUnlocked(c *gc.C, guest fortress.Guest) {
-	visited := make(chan error)
-	go func() {
-		visited <- guest.Visit(badVisit, nil)
-	}()
-
-	select {
-	case err := <-visited:
-		c.Assert(err, gc.ErrorMatches, "bad!")
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("abort never handled")
-	}
-}
-
-func AssertLocked(c *gc.C, guest fortress.Guest) {
-	visited := make(chan error)
-	abort := make(chan struct{})
-	go func() {
-		visited <- guest.Visit(badVisit, abort)
-	}()
-
-	// NOTE(fwereade): this isn't about interacting with a timer; it's about
-	// making sure other goroutines have had ample opportunity to do stuff.
-	delay := time.After(coretesting.ShortWait)
-	for {
-		select {
-		case <-delay:
-			delay = nil
-			close(abort)
-		case err := <-visited:
-			c.Assert(err, gc.Equals, fortress.ErrAborted)
-			return
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-	}
-}
-
-func CheckStop(c *gc.C, w worker.Worker) {
-	c.Check(worker.Stop(w), jc.ErrorIsNil)
-}
-
-func badVisit() error {
-	return errors.New("bad!")
-}
->>>>>>> add worker/fortress (intended to replace worker/charmdir..?)
-=======
->>>>>>> spread code out a bit more; improved docs

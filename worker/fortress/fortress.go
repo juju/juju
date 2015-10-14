@@ -93,6 +93,10 @@ func (f *fortress) loop() error {
 			active.Add(1)
 			go ticket.complete(active.Done)
 		case ticket := <-f.guardTickets:
+			// guard ticket requests are idempotent; it's not worth building
+			// the extra mechanism needed to (1) complain about abuse but
+			// (2) remain comprehensible and functional in the face of aborted
+			// Lockdowns.
 			if ticket.allowGuests {
 				guestTickets = f.guestTickets
 			} else {

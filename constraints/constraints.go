@@ -440,7 +440,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	values := map[interface{}]interface{}{}
 	err := unmarshal(&values)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	for k, val := range values {
 		vstr := fmt.Sprintf("%v", val)
@@ -466,7 +466,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			var spaces *[]string
 			spaces, err = parseYamlStrings("spaces", val)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			err = v.validateSpaces(spaces)
 			if err == nil {
@@ -476,7 +476,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			var networks *[]string
 			networks, err = parseYamlStrings("networks", val)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			err = v.validateNetworks(networks)
 			if err == nil {
@@ -486,7 +486,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
