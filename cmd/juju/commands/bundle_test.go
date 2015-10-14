@@ -262,7 +262,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
                 options:
                     blog-title: 42
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot set options for service "wp": option "blog-title" expected string, got 42`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy service "wp": option "blog-title" expected string, got 42`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
@@ -414,10 +414,8 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
 	expectedOutput := `
 added charm cs:precise/dummy-0
 service customized deployed (charm: cs:precise/dummy-0)
-service customized configured
 added charm cs:trusty/wordpress-42
 service wordpress deployed (charm: cs:trusty/wordpress-42)
-service wordpress configured
 added customized/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
@@ -439,6 +437,44 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 }
 
+func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceConstrants(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
+	output, err := s.deployBundleYAML(c, `
+        services:
+            wordpress:
+                charm: wordpress
+                constraints: mem=4G cpu-cores=2
+            customized:
+                charm: precise/dummy-0
+                num_units: 1
+                constraints: arch=i386
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedOutput := `
+added charm cs:precise/dummy-0
+service customized deployed (charm: cs:precise/dummy-0)
+added charm cs:trusty/wordpress-42
+service wordpress deployed (charm: cs:trusty/wordpress-42)
+added customized/0 unit to new machine
+deployment of bundle "local:bundle/example-0" completed`
+	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	s.assertCharmsUplodaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
+	s.assertServicesDeployed(c, map[string]serviceInfo{
+		"customized": {
+			charm:       "cs:precise/dummy-0",
+			constraints: constraints.MustParse("arch=i386"),
+		},
+		"wordpress": {
+			charm:       "cs:trusty/wordpress-42",
+			constraints: constraints.MustParse("mem=4G cpu-cores=2"),
+		},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"customized/0": "0",
+	})
+}
+
 func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "vivid/upgrade-1", "upgrade1")
@@ -452,6 +488,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
                 num_units: 1
                 options:
                     blog-title: these are the voyages
+                constraints: spaces=final,frontiers mem=8000M
             up:
                 charm: vivid/upgrade-1
                 num_units: 1
@@ -462,7 +499,6 @@ added charm cs:vivid/upgrade-1
 service up deployed (charm: cs:vivid/upgrade-1)
 added charm cs:trusty/wordpress-42
 service wordpress deployed (charm: cs:trusty/wordpress-42)
-service wordpress configured
 added up/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
@@ -477,6 +513,7 @@ deployment of bundle "local:bundle/example-0" completed`
                 num_units: 1
                 options:
                     blog-title: new title
+                constraints: spaces=new cpu-cores=8
             up:
                 charm: vivid/upgrade-2
                 num_units: 1
@@ -487,7 +524,8 @@ added charm cs:vivid/upgrade-2
 upgraded charm for existing service up (from cs:vivid/upgrade-1 to cs:vivid/upgrade-2)
 added charm cs:trusty/wordpress-42
 reusing service wordpress (charm: cs:trusty/wordpress-42)
-service wordpress configured
+configuration updated for service wordpress
+constraints applied for service wordpress
 avoid adding new units to service up: 1 unit already present
 avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "local:bundle/example-0" completed`
@@ -496,8 +534,9 @@ deployment of bundle "local:bundle/example-0" completed`
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"up": {charm: "cs:vivid/upgrade-2"},
 		"wordpress": {
-			charm:  "cs:trusty/wordpress-42",
-			config: charm.Settings{"blog-title": "new title"},
+			charm:       "cs:trusty/wordpress-42",
+			config:      charm.Settings{"blog-title": "new title"},
+			constraints: constraints.MustParse("spaces=new cpu-cores=8"),
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
@@ -681,7 +720,6 @@ added charm cs:trusty/mysql-2
 service sql deployed (charm: cs:trusty/mysql-2)
 added charm cs:trusty/wordpress-0
 service wp deployed (charm: cs:trusty/wordpress-0)
-service wp configured
 created new machine 0 for holding wp unit
 created new machine 1 for holding wp unit
 added wp/0 unit to machine 0
@@ -716,7 +754,7 @@ added charm cs:trusty/mysql-2
 reusing service sql (charm: cs:trusty/mysql-2)
 added charm cs:trusty/wordpress-0
 reusing service wp (charm: cs:trusty/wordpress-0)
-service wp configured
+configuration updated for service wp
 avoid creating other machines to host wp units
 avoid adding new units to service wp: 2 units already present
 avoid creating other machines to host sql units

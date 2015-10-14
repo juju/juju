@@ -84,7 +84,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	}, {
 		Id:       "deploy-1",
 		Method:   "deploy",
-		Args:     []interface{}{"django", "django", map[string]interface{}{"debug": true}},
+		Args:     []interface{}{"$addCharm-0", "django", map[string]interface{}{"debug": true}, ""},
 		Requires: []string{"addCharm-0"},
 	}, {
 		Id:     "addCharm-2",
@@ -93,7 +93,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	}, {
 		Id:       "deploy-3",
 		Method:   "deploy",
-		Args:     []interface{}{"cs:trusty/haproxy-42", "haproxy", map[string]interface{}{}},
+		Args:     []interface{}{"$addCharm-2", "haproxy", map[string]interface{}{}, ""},
 		Requires: []string{"addCharm-2"},
 	}, {
 		Id:       "addRelation-4",
