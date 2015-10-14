@@ -2,15 +2,14 @@ from mock import (
     patch
 )
 import subprocess
-from unittest import TestCase
 
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
 from cs_staging_deploy import CSStagingTest
-from utility import (
-    setup_test_logging,
+from tests import (
+    FakeHomeTestCase,
 )
 
 
@@ -22,10 +21,7 @@ def fake_SimpleEnvironment_from_config(name):
     return SimpleEnvironment(name, {})
 
 
-class TestCSStagingDeploy(TestCase):
-
-    def setUp(self):
-        setup_test_logging(self)
+class TestCSStagingDeploy(FakeHomeTestCase):
 
     def test_from_args(self):
         with patch('jujupy.EnvJujuClient.by_version',

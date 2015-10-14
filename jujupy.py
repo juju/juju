@@ -29,6 +29,7 @@ from jujuconfig import (
 from utility import (
     check_free_disk_space,
     ensure_deleted,
+    ensure_dir,
     pause,
     print_now,
     scoped_environ,
@@ -674,14 +675,6 @@ class EnvJujuClient24(EnvJujuClient25):
 
 def get_local_root(juju_home, env):
     return os.path.join(juju_home, env.environment)
-
-
-def ensure_dir(path):
-    try:
-        os.mkdir(path)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
 
 
 def bootstrap_from_env(juju_home, client):
