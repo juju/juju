@@ -208,16 +208,6 @@ func (workloads) registerHookContextCommands() {
 		}
 		return cmd
 	})
-
-	name = context.InfoCommandInfo.Name
-	jujuc.RegisterCommand(name, func(ctx jujuc.Context) cmd.Command {
-		compCtx := workloadsHookContext{ctx}
-		cmd, err := context.NewWorkloadInfoCommand(compCtx)
-		if err != nil {
-			panic(err)
-		}
-		return cmd
-	})
 }
 
 func (workloads) registerState() {

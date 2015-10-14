@@ -13,8 +13,6 @@ func SetComponent(cmd cmd.Command, compCtx Component) {
 	switch cmd := cmd.(type) {
 	case *WorkloadTrackCommand:
 		cmd.compCtx = compCtx
-	case *WorkloadInfoCommand:
-		cmd.compCtx = compCtx
 	}
 	// TODO(ericsnow) Add WorkloadLaunchCommand here.
 }
