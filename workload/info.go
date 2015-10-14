@@ -19,6 +19,8 @@ type Payload struct {
 	// the underlying technology.
 	ID string
 
+	// TODO(ericsnow) Use the workload.Status type instead of a string?
+
 	// Status is the Juju-level status of the workload.
 	Status string
 
@@ -30,6 +32,55 @@ type Payload struct {
 
 	// Machine identifies the Juju machine associated with the payload.
 	Machine string
+}
+
+// FullID composes a unique ID for the payload (relative to the unit/charm).
+func (p Payload) FullID() string {
+	return fullID(p.PayloadClass.Name, p.ID)
+}
+
+// Validate checks the payload info to ensure it is correct.
+func (p Payload) Validate() error {
+	if err := p.PayloadClass.Validate(); err != nil {
+		return errors.NewNotValid(err, "")
+	}
+
+	if p.ID == "" {
+		return errors.NotValidf("missing ID")
+	}
+
+	if err := validateState(p.Status); err != nil {
+		return errors.Trace(err)
+	}
+
+	if p.Unit == "" {
+		return errors.NotValidf("missing Unit")
+	}
+
+	if p.Machine == "" {
+		return errors.NotValidf("missing Machine")
+	}
+
+	return nil
+}
+
+// AsWorkload converts the Payload into an Info.
+func (p Payload) AsWorkload() Info {
+	tags := make([]string, len(p.Tags))
+	copy(tags, p.Tags)
+	return Info{
+		Workload: charm.Workload{
+			Name: p.Name,
+			Type: p.Type,
+		},
+		Status: Status{
+			State: p.Status,
+		},
+		Tags: tags,
+		Details: Details{
+			ID: p.ID,
+		},
+	}
 }
 
 // Info holds information about a workload that Juju needs. Iff the
