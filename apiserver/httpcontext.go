@@ -22,14 +22,12 @@ import (
 
 // httpContext provides context for HTTP handlers.
 type httpContext struct {
-	// A cache of State instances for different environments.
-	statePool *state.StatePool
 	// strictValidation means that empty envUUID values are not valid.
 	strictValidation bool
 	// stateServerEnvOnly only validates the state server environment
 	stateServerEnvOnly bool
-
-	authCtxt *authContext
+	// srv holds the API server instance.
+	srv *Server
 }
 
 type errorSender interface {
@@ -43,7 +41,7 @@ var errUnauthorized = errors.NewUnauthorized(nil, "unauthorized")
 // without checking any authentication information.
 func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.State, error) {
 	envUUID, err := validateEnvironUUID(validateArgs{
-		statePool:          ctxt.statePool,
+		statePool:          ctxt.srv.statePool,
 		envUUID:            r.URL.Query().Get(":envuuid"),
 		strict:             ctxt.strictValidation,
 		stateServerEnvOnly: ctxt.stateServerEnvOnly,
@@ -51,7 +49,7 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := ctxt.statePool.Get(envUUID)
+	st, err := ctxt.srv.statePool.Get(envUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,7 +68,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.S
 	if err != nil {
 		return nil, nil, errors.NewUnauthorized(err, "")
 	}
-	entity, _, err := checkCreds(st, req, true, ctxt.authCtxt.authenticatorForTag)
+	entity, _, err := checkCreds(st, req, true, ctxt.srv.authCtxt)
 	if err != nil {
 		// All errors other than a macaroon-discharge error count as
 		// unauthorized at this point.
@@ -118,12 +116,11 @@ func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*st
 func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		if ctxt.authCtxt.macaroon != nil {
-			return params.LoginRequest{
-				Macaroons: httpbakery.RequestMacaroons(r),
-			}, nil
-		}
-		return params.LoginRequest{}, errors.New("no authorization header found")
+		// No authorization header implies an attempt
+		// to login with macaroon authentication.
+		return params.LoginRequest{
+			Macaroons: httpbakery.RequestMacaroons(r),
+		}, nil
 	}
 	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || parts[0] != "Basic" {

@@ -74,7 +74,7 @@ var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c)})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
 }
 
 func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {

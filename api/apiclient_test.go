@@ -4,12 +4,11 @@
 package api_test
 
 import (
-	"fmt"
-	"io"
 	"net"
-	"strconv"
+	"sync/atomic"
 
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/parallel"
 	"golang.org/x/net/websocket"
@@ -52,76 +51,24 @@ func (s *apiclientSuite) TestConnectWebsocketToRoot(c *gc.C) {
 	assertConnAddrForRoot(c, conn, info.Addrs[0])
 }
 
-func (s *apiclientSuite) TestConnectWebsocketPrefersLocalhostIfPresent(c *gc.C) {
-	// Create a socket that proxies to the API server though our localhost address.
-	info := s.APIInfo(c)
-	serverAddr := info.Addrs[0]
-	server, err := net.Dial("tcp", serverAddr)
-	c.Assert(err, jc.ErrorIsNil)
-	defer server.Close()
-	listener, err := net.Listen("tcp", "localhost:0")
-	c.Assert(err, jc.ErrorIsNil)
-	defer listener.Close()
-	go func() {
-		for {
-			client, err := listener.Accept()
-			if err != nil {
-				return
-			}
-			go io.Copy(client, server)
-			go io.Copy(server, client)
-		}
-	}()
-
-	// Check that we are using our working address to connect
-	listenerAddress := listener.Addr().String()
-	// listenAddress contains the actual IP address, but APIHostPorts
-	// is going to report localhost, so just find the port
-	_, port, err := net.SplitHostPort(listenerAddress)
-	c.Check(err, jc.ErrorIsNil)
-	portNum, err := strconv.Atoi(port)
-	c.Check(err, jc.ErrorIsNil)
-	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
-	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
-	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer conn.Close()
-	assertConnAddrForEnv(c, conn, expectedHostPort, s.State.EnvironUUID(), "/api")
-}
-
 func (s *apiclientSuite) TestConnectWebsocketMultiple(c *gc.C) {
 	// Create a socket that proxies to the API server.
 	info := s.APIInfo(c)
 	serverAddr := info.Addrs[0]
-	server, err := net.Dial("tcp", serverAddr)
-	c.Assert(err, jc.ErrorIsNil)
-	defer server.Close()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, jc.ErrorIsNil)
-	defer listener.Close()
-	go func() {
-		for {
-			client, err := listener.Accept()
-			if err != nil {
-				return
-			}
-			go io.Copy(client, server)
-			go io.Copy(server, client)
-		}
-	}()
+	proxy := testing.NewTCPProxy(c, serverAddr)
+	defer proxy.Close()
 
 	// Check that we can use the proxy to connect.
-	proxyAddr := listener.Addr().String()
-	info.Addrs = []string{proxyAddr}
+	info.Addrs = []string{proxy.Addr()}
 	conn, _, err := api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
-	assertConnAddrForEnv(c, conn, proxyAddr, s.State.EnvironUUID(), "/api")
+	assertConnAddrForEnv(c, conn, proxy.Addr(), s.State.EnvironUUID(), "/api")
 
 	// Now break Addrs[0], and ensure that Addrs[1]
 	// is successfully connected to.
-	info.Addrs = []string{proxyAddr, serverAddr}
-	listener.Close()
+	proxy.Close()
+	info.Addrs = []string{proxy.Addr(), serverAddr}
 	conn, _, err = api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
@@ -132,12 +79,15 @@ func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
+	// count holds the number of times we've accepted a connection.
+	var count int32
 	go func() {
 		for {
 			client, err := listener.Accept()
 			if err != nil {
 				return
 			}
+			atomic.AddInt32(&count, 1)
 			client.Close()
 		}
 	}()
@@ -146,6 +96,7 @@ func (s *apiclientSuite) TestConnectWebsocketMultipleError(c *gc.C) {
 	info.Addrs = []string{addr, addr, addr}
 	_, _, err = api.ConnectWebsocket(info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
+	c.Assert(count, gc.Equals, int32(3))
 }
 
 func (s *apiclientSuite) TestOpen(c *gc.C) {

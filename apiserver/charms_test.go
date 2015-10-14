@@ -109,7 +109,7 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 
 func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no authorization header found")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
 }
 
 func (s *charmsSuite) TestGETDoesNotRequireAuth(c *gc.C) {

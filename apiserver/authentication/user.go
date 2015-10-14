@@ -40,8 +40,18 @@ func (u *UserAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Ta
 // *common.DischargeRequiredError holding a macaroon to be
 // discharged.
 type MacaroonAuthenticator struct {
-	Service          *bakery.Service
-	Macaroon         *macaroon.Macaroon
+	// Service holds the service that is
+	// used to verify macaroon authorization.
+	Service *bakery.Service
+
+	// Macaroon guards macaroon-authentication-based access
+	// to the APIs. Appropriate caveats will be added before
+	// sending it to a client.
+	Macaroon *macaroon.Macaroon
+
+	// IdentityLocation holds the URL of the trusted third party
+	// that is used to address the is-authenticated-user
+	// third party caveat to.
 	IdentityLocation string
 }
 

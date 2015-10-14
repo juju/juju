@@ -48,10 +48,10 @@ func (st *state) Login(tag names.Tag, password, nonce string) error {
 		err = st.loginV1(tag, password, nonce)
 		if params.IsCodeNotImplemented(err) {
 			// TODO (cmars): remove fallback once we can drop v0 compatibility
-			return st.loginV0(tag, password, nonce)
+			return errors.Trace(st.loginV0(tag, password, nonce))
 		}
 	}
-	return err
+	return errors.Trace(err)
 }
 
 func (st *state) loginV2(tag names.Tag, password, nonce string) error {

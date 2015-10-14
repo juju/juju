@@ -85,7 +85,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	serverOnlyLogin := loginVersion > 1 && a.root.envUUID == ""
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt.authenticatorForTag)
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
@@ -198,9 +198,9 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 // run API workers for that environment to do things like provisioning
 // machines.
 func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
-	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.authCtxt.authenticatorForTag)
+	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.authCtxt)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	machine, ok := entity.(*state.Machine)
 	if !ok {
@@ -242,7 +242,7 @@ var doCheckCreds = checkCreds
 // for the environment.  In the case of a user logging in to the server, but
 // not an environment, there is no env user needed.  While we have the env
 // user, if we do have it, update the last login time.
-func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, authenticatorForTag func(names.Tag) (authentication.EntityAuthenticator, error)) (state.Entity, *time.Time, error) {
+func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 	var tag names.Tag
 	if req.AuthTag != "" {
 		var err error
@@ -251,16 +251,8 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool, a
 			return nil, nil, errors.Trace(err)
 		}
 	}
-	if authenticatorForTag == nil {
-		return nil, nil, errors.New("no authenticatorForTag provided")
-	}
-	authenticator, err := authenticatorForTag(tag)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 	entity, err := authenticator.Authenticate(st, tag, req)
 	if err != nil {
-		logger.Debugf("bad credentials")
 		return nil, nil, errors.Trace(err)
 	}
 

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -189,6 +191,30 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	c.Assert(st, gc.IsNil)
 }
 
+func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
+	mongoInfo := s.MongoInfo(c)
+
+	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
+	mongoInfo.Addrs = []string{proxy.Addr()}
+
+	st, err := state.Open(s.State.EnvironTag(), mongoInfo, mongo.DefaultDialOpts(), nil)
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	// Now close the proxy so that any attempts to use the
+	// state server will fail.
+	proxy.Close()
+
+	client, srv := newClientAndServer(c, st)
+	defer client.Close()
+	defer srv.Stop()
+
+	// Check  that we really have killed the connection by
+	// trying to make a call that requires the state.
+	err = client.Login(names.NewUserTag("blah"), "bad", "")
+	c.Assert(err, gc.ErrorMatches, "connection is shut down")
+}
+
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	// This is the same steps as OpenAPIAsNewMachine but we need to assert
 	// the agent is not alive before we actually open the API.
@@ -292,8 +318,10 @@ func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
 	defer srv.Stop()
 	// By default, when there is no identity location, no
 	// bakery service or macaroon is created.
-	c.Assert(apiserver.ServerMacaroon(srv), gc.IsNil)
-	c.Assert(apiserver.ServerBakeryService(srv), gc.IsNil)
+	_, err := apiserver.ServerMacaroon(srv)
+	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
+	_, err = apiserver.ServerBakeryService(srv)
+	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
 }
 
 type macaroonServerSuite struct {
@@ -319,16 +347,16 @@ func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
 func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	m := apiserver.ServerMacaroon(srv)
-	c.Assert(m, gc.NotNil)
-	bsvc := apiserver.ServerBakeryService(srv)
-	c.Assert(bsvc, gc.NotNil)
+	m, err := apiserver.ServerMacaroon(srv)
+	c.Assert(err, gc.IsNil)
+	bsvc, err := apiserver.ServerBakeryService(srv)
+	c.Assert(err, gc.IsNil)
 
 	// Check that we can add a third party caveat addressed to the
 	// discharger, which indirectly ensures that the discharger's public
 	// key has been added to the bakery service's locator.
 	m = m.Clone()
-	err := bsvc.AddCaveat(m, checkers.Caveat{
+	err = bsvc.AddCaveat(m, checkers.Caveat{
 		Location:  s.discharger.Location(),
 		Condition: "true",
 	})
@@ -370,8 +398,12 @@ func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
 func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	m := apiserver.ServerMacaroon(srv).Clone()
-	err := apiserver.ServerBakeryService(srv).AddCaveat(m, checkers.Caveat{
+	m, err := apiserver.ServerMacaroon(srv)
+	c.Assert(err, gc.IsNil)
+	m = m.Clone()
+	bsvc, err := apiserver.ServerBakeryService(srv)
+	c.Assert(err, gc.IsNil)
+	err = bsvc.AddCaveat(m, checkers.Caveat{
 		Location:  s.discharger.Location(),
 		Condition: "true",
 	})
@@ -415,7 +447,8 @@ func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	c.Assert(resource.stopped, jc.IsTrue)
 }
 
-// newClientAndServer returns a new running API server with client.
+// newClientAndServer returns a new running API server with a client
+// that is not logged in.
 func newClientAndServer(c *gc.C, st *state.State) (api.Connection, *apiserver.Server) {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
