@@ -6,6 +6,7 @@ from azure_publish_tools import (
     get_option_parser,
     get_published_files,
     LIST,
+    list_sync_files,
     PUBLISH,
     RELEASED,
     SyncFile,
@@ -91,6 +92,14 @@ class FakeBlobService:
 
     def list_blobs(self, container_name, prefix=None, marker=None,
                    maxresults=None, include=None, delimiter=None):
+        if marker is not None:
+            raise NotImplementedError('marker not implemented.')
+        if maxresults is not None:
+            raise NotImplementedError('maxresults not implemented.')
+        if include != 'metadata':
+            raise NotImplementedError('include must be "metadata".')
+        if delimiter is not None:
+            raise NotImplementedError('delimiter not implemented.')
         return [b for p,b in self.blobs.items() if p.startswith(prefix)]
 
 
@@ -114,3 +123,25 @@ class TestGetPublishedFiles(TestCase):
             'tools/index.json': FakeBlob.from_sync_file(expected)
             })
         self.assertEqual([expected], get_published_files(RELEASED, service))
+
+
+class TestListSyncFiles(TestCase):
+
+    def test_none(self):
+        self.assertEqual([], list_sync_files('tools', FakeBlobService()))
+
+    def test_prefix_wrong(self):
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'fools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        self.assertEqual([], list_sync_files('tools', service))
+
+    def test_prefix_right(self):
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        self.assertEqual([expected], list_sync_files('tools', service))

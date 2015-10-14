@@ -62,6 +62,11 @@ def get_prefix(purpose):
 def get_published_files(purpose, blob_service):
     """Return the SyncFile info about the published files."""
     prefix = get_prefix(purpose)
+    return list_sync_files(prefix, blob_service)
+
+
+def list_sync_files(prefix, blob_service):
+    """Return the SyncFile info about files under the specified prefix."""
     files = []
     for blob in blob_service.list_blobs(
             JUJU_DIST, prefix=prefix, include='metadata'):
