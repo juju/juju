@@ -163,42 +163,62 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
 	h.log.Infof("added charm %s", url)
-	// TODO frankban: the key here should really be the change id, but in the
-	// current bundlechanges format the charm name is included in the service
-	// change, not a placeholder pointing to the corresponding charm change, as
-	// it should be instead.
-	h.results["resolved-"+p.Charm] = url.String()
+	h.results[id] = url.String()
 	return nil
 }
 
 // addService deploys or update a service with no units. Service options are
 // also set or updated.
 func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams) error {
-	// TODO frankban: the charm should really be resolved using
-	// resolve(p.Charm, h.results) at this point: see TODO in addCharm.
-	ch := h.results["resolved-"+p.Charm]
-	// TODO frankban: handle service constraints in the bundle changes.
-	numUnits, configYAML, cons, toMachineSpec := 0, "", constraints.Value{}, ""
+	h.results[id] = p.Service
+	ch := resolve(p.Charm, h.results)
+	// Handle service configuration.
+	configYAML := ""
+	if len(p.Options) > 0 {
+		config, err := yaml.Marshal(map[string]map[string]interface{}{p.Service: p.Options})
+		if err != nil {
+			return errors.Annotatef(err, "cannot marshal options for service %q", p.Service)
+		}
+		configYAML = string(config)
+	}
+	// Handle service constraints.
+	cons, err := constraints.Parse(p.Constraints)
+	if err != nil {
+		// This should never happen, as the bundle is already verified.
+		return errors.Annotate(err, "invalid constraints for service")
+	}
+	// Deploy the service.
+	numUnits, toMachineSpec := 0, ""
 	if err := h.client.ServiceDeploy(ch, p.Service, numUnits, configYAML, cons, toMachineSpec); err == nil {
 		h.log.Infof("service %s deployed (charm: %s)", p.Service, ch)
-	} else if isErrServiceExists(err) {
-		// The service is already deployed in the environment: check that its
-		// charm is compatible with the one declared in the bundle. If it is,
-		// reuse the existing service or upgrade to a specified revision.
-		// Exit with an error otherwise.
-		if err := upgradeCharm(h.client, h.log, p.Service, ch); err != nil {
-			return errors.Annotatef(err, "cannot upgrade service %q", p.Service)
-		}
-	} else {
+		return nil
+	} else if !isErrServiceExists(err) {
 		return errors.Annotatef(err, "cannot deploy service %q", p.Service)
 	}
-	if len(p.Options) > 0 {
-		if err := setServiceOptions(h.client, p.Service, p.Options); err != nil {
-			return errors.Trace(err)
-		}
-		h.log.Infof("service %s configured", p.Service)
+	// The service is already deployed in the environment: check that its
+	// charm is compatible with the one declared in the bundle. If it is,
+	// reuse the existing service or upgrade to a specified revision.
+	// Exit with an error otherwise.
+	if err := upgradeCharm(h.client, h.log, p.Service, ch); err != nil {
+		return errors.Annotatef(err, "cannot upgrade service %q", p.Service)
 	}
-	h.results[id] = p.Service
+	// Update service configuration.
+	if configYAML != "" {
+		if err := h.client.ServiceSetYAML(p.Service, configYAML); err != nil {
+			// This should never happen as possible errors are already returned
+			// by the ServiceDeploy call above.
+			return errors.Annotatef(err, "cannot update options for service %q", p.Service)
+		}
+		h.log.Infof("configuration updated for service %s", p.Service)
+	}
+	// Update service constraints.
+	if p.Constraints != "" {
+		if err := h.client.SetServiceConstraints(p.Service, cons); err != nil {
+			// This should never happen, as the bundle is already verified.
+			return errors.Annotatef(err, "cannot update constraints for service %q", p.Service)
+		}
+		h.log.Infof("constraints applied for service %s", p.Service)
+	}
 	return nil
 }
 
@@ -575,18 +595,6 @@ func upgradeCharm(client *api.Client, log deploymentLogger, service, id string) 
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
 	log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)
-	return nil
-}
-
-// setServiceOptions changes the configuration for the given service.
-func setServiceOptions(client *api.Client, service string, options map[string]interface{}) error {
-	config, err := yaml.Marshal(map[string]map[string]interface{}{service: options})
-	if err != nil {
-		return errors.Annotatef(err, "cannot marshal options for service %q", service)
-	}
-	if err := client.ServiceSetYAML(service, string(config)); err != nil {
-		return errors.Annotatef(err, "cannot set options for service %q", service)
-	}
 	return nil
 }
 
