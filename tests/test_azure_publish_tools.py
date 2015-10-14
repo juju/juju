@@ -4,8 +4,11 @@ from unittest import TestCase
 from azure_publish_tools import (
     DELETE,
     get_option_parser,
+    get_published_files,
     LIST,
     PUBLISH,
+    RELEASED,
+    SyncFile,
     )
 
 class TestOptionParser(TestCase):
@@ -54,3 +57,60 @@ class TestOptionParser(TestCase):
     def test_delete_path(self):
         args = self.parse_args(['delete', 'mypurpose', 'mypath', 'mypath2'])
         self.assertEqual(['mypath', 'mypath2'], args.path)
+
+
+class FakeBlobProperties:
+
+    def __init__(self, md5, length, content_type):
+        self.content_md5 = md5
+        self.content_length = length
+        self.content_type = content_type
+
+
+class FakeBlob:
+
+    def __init__(self, name='', md5=None, length=None, content_type=None):
+        self.name = name
+        self.snapshot = ''
+        self.url = ''
+        self.properties = FakeBlobProperties(md5, length, content_type)
+        self.metadata = {}
+
+    @classmethod
+    def from_sync_file(cls, sync_file):
+        return FakeBlob(sync_file.path, sync_file.md5content,
+                        sync_file.size, sync_file.mimetype)
+
+
+class FakeBlobService:
+
+    def __init__(self, blobs=None):
+        if blobs is None:
+            blobs = {}
+        self.blobs = blobs
+
+    def list_blobs(self, container_name, prefix=None, marker=None,
+                   maxresults=None, include=None, delimiter=None):
+        return [b for p,b in self.blobs.items() if p.startswith(prefix)]
+
+
+class TestGetPublishedFiles(TestCase):
+
+    def test_none(self):
+        self.assertEqual([], get_published_files(RELEASED, FakeBlobService()))
+
+    def test_prefix_wrong(self):
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'fools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        self.assertEqual([], get_published_files(RELEASED, service))
+
+    def test_prefix_right(self):
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        self.assertEqual([expected], get_published_files(RELEASED, service))

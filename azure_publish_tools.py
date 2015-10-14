@@ -205,9 +205,6 @@ def main():
     if args.purpose not in PURPOSES:
         print('Unknown purpose: {}'.format(args.purpose))
         return UNKNOWN_PURPOSE
-    if args.command not in COMMANDS:
-        print('Unknown command: {}'.format(args.command))
-        return UNKNOWN_COMMAND
     elif args.command == LIST:
         return list_published_files(args.purpose)
     elif args.command == PUBLISH:
