@@ -27,12 +27,13 @@ func (lf *listFormatter) format() []FormattedPayload {
 
 	var formatted []FormattedPayload
 	for _, payload := range lf.payloads {
-		formatted = append(formatted, lf.formatPayload(payload))
+		formatted = append(formatted, FormatPayload(payload, lf.compatVersion))
 	}
 	return formatted
 }
 
-func (lf *listFormatter) formatPayload(payload workload.Payload) FormattedPayload {
+// FormatPayload converts the Payload into a FormattedPayload.
+func FormatPayload(payload workload.Payload, compatVersion int) FormattedPayload {
 	var tags []string
 	if len(payload.Tags) > 0 {
 		tags = make([]string, len(payload.Tags))
