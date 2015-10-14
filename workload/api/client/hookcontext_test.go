@@ -130,28 +130,15 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 
 		arg := typedParams.Args[0]
 		c.Check(arg, jc.DeepEquals, api.SetStatusArg{
-			ID: "idfoo/bar",
-			Status: api.WorkloadStatus{
-				State:   workload.StateRunning,
-				Message: "okay",
-			},
-			PluginStatus: api.PluginStatus{
-				State: "Running",
-			},
+			ID:     "idfoo/bar",
+			Status: workload.StateRunning,
 		})
 
 		return nil
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	status := workload.Status{
-		State:   workload.StateRunning,
-		Message: "okay",
-	}
-	pluginStatus := workload.PluginStatus{
-		State: "Running",
-	}
-	err := pclient.SetStatus(status, pluginStatus, "idfoo/bar")
+	err := pclient.SetStatus(workload.StateRunning, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)

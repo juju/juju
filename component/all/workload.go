@@ -177,7 +177,6 @@ func (c workloads) registerUnitWorkers() func(...workload.Event) error {
 
 	handlerFuncs := []func([]workload.Event, context.APIClient, workers.Runner) error{
 		workers.WorkloadHandler,
-		workers.StatusEventHandler,
 	}
 
 	unitHandlers := workers.NewEventHandlers()

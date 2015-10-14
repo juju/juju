@@ -86,16 +86,15 @@ func newStatusInfo(state, message, pluginStatus string) workload.CombinedStatus 
 func (s *unitWorkloadsSuite) TestSetStatusOkay(c *gc.C) {
 	wl := s.newWorkloads("docker", "workloadA")[0]
 	s.persist.setWorkloads(&wl)
-	status := newStatusInfo(workload.StateRunning, "good to go", "okay")
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.SetStatus(wl.ID(), status)
+	err := ps.SetStatus(workload.StateRunning, wl.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetStatus")
 	current := s.persist.workloads[wl.ID()]
-	c.Check(current.Status, jc.DeepEquals, status.Status)
-	c.Check(current.Details.Status, jc.DeepEquals, status.PluginStatus)
+	c.Check(current.Status.State, jc.DeepEquals, workload.StateRunning)
+	c.Check(current.Details.Status.State, jc.DeepEquals, workload.StateRunning)
 }
 
 func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
@@ -103,19 +102,16 @@ func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
 	s.stub.SetErrors(failure)
 	wl := s.newWorkloads("docker", "workloadA")[0]
 	s.persist.setWorkloads(&wl)
-	status := newStatusInfo(workload.StateRunning, "good to go", "okay")
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.SetStatus(wl.ID(), status)
+	err := ps.SetStatus(workload.StateRunning, wl.ID())
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *unitWorkloadsSuite) TestSetStatusMissing(c *gc.C) {
-	status := newStatusInfo(workload.StateRunning, "good to go", "okay")
-
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.SetStatus("some/workload", status)
+	err := ps.SetStatus(workload.StateRunning, "some/workload")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

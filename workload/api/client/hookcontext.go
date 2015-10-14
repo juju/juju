@@ -84,16 +84,14 @@ func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
 }
 
 // SetStatus calls the SetStatus API server method.
-func (c HookContextClient) SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error {
+func (c HookContextClient) SetStatus(status string, ids ...string) error {
 	statusArgs := make([]api.SetStatusArg, len(ids))
 	for i, id := range ids {
 		statusArgs[i] = api.SetStatusArg{
-			ID:           id,
-			Status:       api.Status2apiStatus(status),
-			PluginStatus: api.PluginStatus2apiPluginStatus(pluginStatus),
+			ID:     id,
+			Status: status,
 		}
 	}
-
 	args := api.SetStatusArgs{Args: statusArgs}
 	return c.FacadeCall("SetStatus", &args, nil)
 }
