@@ -34,7 +34,6 @@ func init() {
 	gc.Suite(&cloudImageMetadataSuite{})
 	gc.Suite(&cmdSpaceSuite{})
 	gc.Suite(&cmdSubnetSuite{})
-	initWorkloadsSuites()
 }
 
 func Test(t *testing.T) {
