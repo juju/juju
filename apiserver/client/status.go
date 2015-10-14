@@ -656,26 +656,6 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 			}
 		}
 	}
-
-	if len(statusProvidersForUnits) > 0 {
-		// Grab structured statuses from all the registered status providers.
-		result.Components = make(map[string]params.ComponentStatus, len(statusProvidersForUnits))
-	}
-	for statusType, getStatus := range statusProvidersForUnits {
-
-		status, err := getStatus(unit)
-		if err != nil {
-			result.Err = err
-			// TODO(katco): Errs should be per status provider
-			break
-		}
-		if status != nil {
-			result.Components[statusType] = params.NewComponentStatus(status)
-		}
-	}
-	if len(result.Components) == 0 {
-		result.Components = nil
-	}
 	return result
 }
 

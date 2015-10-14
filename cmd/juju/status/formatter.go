@@ -178,15 +178,6 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		}
 	}
 
-	components := info.unit.Components
-	if len(components) > 0 {
-		out.Components = map[string]interface{}{}
-		for component, status := range components {
-			formatter := unitStatusFormatters[component]
-			out.Components[component] = formatter(status.Bytes())
-		}
-	}
-
 	// These legacy fields will be dropped for Juju 2.0.
 	if sf.compatVersion < 2 || out.AgentStatusInfo.Current == "" {
 		out.Err = info.unit.Err

@@ -12,11 +12,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
-	cmdstatus "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -44,14 +42,12 @@ func (c workloads) registerForServer() error {
 
 	addEvents := c.registerUnitWorkers()
 	c.registerHookContext(addEvents)
-	c.registerUnitStatus()
 
 	return nil
 }
 
 func (c workloads) registerForClient() error {
 	c.registerPublicCommands()
-	cmdstatus.RegisterUnitStatusFormatter(workload.ComponentName, status.Format)
 	return nil
 }
 
@@ -317,19 +313,4 @@ func (workloads) registerState() {
 		return envPayloads, nil
 	}
 	state.SetPayloadsComponent(newEnvPayloads)
-}
-
-func (workloads) registerUnitStatus() {
-	apiserverclient.RegisterStatusProviderForUnits(workload.ComponentName,
-		func(unit *state.Unit) (interface{}, error) {
-			up, err := unit.Workloads()
-			if err != nil {
-				return nil, err
-			}
-			workloads, err := up.List()
-			if err != nil {
-				return nil, err
-			}
-			return status.UnitStatus(workloads)
-		})
 }
