@@ -27,14 +27,14 @@ landscape-scalable:
                 ssl_certlocation: apache2.cert
                 ssl_keylocation: apache2.key
         landscape:
-            charm: cs:trusty/landscape-server
+            charm: cs:trusty/landscape-server-10
             constraints: mem=2048
             options:
                 service-count: "2"
                 services: static appserver pingserver combo-loader async-frontend apiserver package-upload jobhandler package-search cron juju-sync
                 repository: http://ppa.launchpad.net/landscape/14.10/ubuntu
         landscape-msg:
-            charm: cs:trusty/landscape-server
+            charm: cs:trusty/landscape-server-10
             constraints: mem=2048
             options:
                 services: msgserver
