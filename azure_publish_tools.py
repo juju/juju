@@ -137,22 +137,29 @@ def publish_local_file(purpose, blob_service, sync_file):
         x_ms_blob_content_md5=sync_file.md5content)
 
 
-def list_published_files(purpose):
+def list_published_files(blob_service, purpose):
     """List the files specified by the purpose."""
-    blob_service = BlobService()
-    published_files = get_published_files(purpose, blob_service)
-    for sync_file in published_files:
+    for sync_file in get_published_files(purpose, blob_service):
         print(
             '%s %s %s' % (
                 sync_file.path, sync_file.size, sync_file.md5content))
     return OK
 
 
-def publish_files(purpose, local_dir, args):
-    """Publish the streams to the location for the intended purpose."""
-    blob_service = BlobService()
+def normalized_dir(local_dir):
     if local_dir.endswith('/'):
         local_dir = local_dir[:-1]
+    return local_dir
+
+
+def sync_files(blob_service, prefix, local_dir, args):
+    local_dir = normalized_dir(local_dir)
+    remote_files = list_sync_files()
+
+
+def publish_files(blob_service, purpose, local_dir, args):
+    """Publish the streams to the location for the intended purpose."""
+    local_dir = normalized_dir(local_dir)
     print("Looking for published files in %s" % purpose)
     published_files = get_published_files(purpose, blob_service)
     print("Looking for local files in %s" % local_dir)
@@ -186,9 +193,8 @@ def publish_files(purpose, local_dir, args):
     return OK
 
 
-def delete_files(purpose, files, args):
+def delete_files(blob_service, purpose, files, args):
     prefix = get_prefix(purpose)
-    blob_service = BlobService()
     for path in files:
         if prefix is not None:
             path = '%s/%s' % (prefix, path)
@@ -205,19 +211,20 @@ def main():
     if args.purpose not in PURPOSES:
         print('Unknown purpose: {}'.format(args.purpose))
         return UNKNOWN_PURPOSE
-    elif args.command == LIST:
-        return list_published_files(args.purpose)
+    blob_service = BlobService()
+    if args.command == LIST:
+        return list_published_files(blob_service, args.purpose)
     elif args.command == PUBLISH:
         if args.path is None or len(args.path) != 1:
             parser.print_usage()
             return BAD_ARGS
         stream_path = os.path.join(args.path[0], get_prefix(args.purpose))
-        return publish_files(args.purpose, stream_path, args)
+        return publish_files(blob_service, args.purpose, stream_path, args)
     elif args.command == DELETE:
         if args.path is None:
             parser.print_usage()
             return BAD_ARGS
-        return delete_files(args.purpose, args.path, args)
+        return delete_files(blob_service, args.purpose, args.path, args)
 
 
 def get_option_parser():
