@@ -22,7 +22,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"

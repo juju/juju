@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/names"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
