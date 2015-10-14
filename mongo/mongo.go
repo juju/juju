@@ -46,16 +46,101 @@ var (
 	numaCtlPkg = "numactl"
 )
 
-// Version represents the major.minor version of the runnig mongo.
-type Version string
+// Storage represents the storage used by mongo.
+type Storage string
 
 const (
+	// MMAPIV2 is the default storage engine in mongo db up to 3.x
+	MMAPIV2 Storage = "mmapiv2"
+	// WiredTiger is a storage type introduced in 3
+	WiredTiger Storage = "wiredTiger"
+)
+
+// Version represents the major.minor version of the runnig mongo.
+// TODO (perrito666) Grow a storageConf
+type Version struct {
+	Major   int
+	Minor   int
+	Patch   string // supports variants like 1-alpha
+	Storage Storage
+}
+
+// NewVersion returns a mongo Version parsing the passed version string
+// or error if not possible.
+func NewVersion(v string) (Version, error) {
+	version := Version{}
+
+	parts := strings.SplitN(v, "/", 2)
+	if len(parts) == 0 {
+		return Version{}, errors.New("invalid version string")
+	}
+	if len(parts) == 2 {
+		switch Storage(parts[1]) {
+		case MMAPIV2:
+			version.Storage = MMAPIV2
+		case WiredTiger:
+			version.Storage = WiredTiger
+		}
+	}
+	vParts := strings.SplitN(parts[0], ".", 3)
+
+	if len(vParts) >= 1 {
+		i, err := strconv.Atoi(vParts[0])
+		if err != nil {
+			return Version{}, errors.Annotate(err, "Invalid version string, major is not an int")
+		}
+		version.Major = i
+	}
+	if len(vParts) >= 2 {
+		i, err := strconv.Atoi(vParts[1])
+		if err != nil {
+			return Version{}, errors.Annotate(err, "Invalid version string, minor is not an int")
+		}
+		version.Minor = i
+	}
+	if len(vParts) == 3 {
+		version.Patch = vParts[2]
+	}
+	return version, nil
+}
+
+// String serializes the version into a string.
+func (v Version) String() string {
+	s := fmt.Sprintf("%d.%d", v.Major, v.Minor)
+	if v.Patch != "" {
+		s = fmt.Sprintf("%s.%s", s, v.Patch)
+	}
+	if v.Storage != "" {
+		s = fmt.Sprintf("%s/%s", s, v.Storage)
+	}
+	return s
+}
+
+var (
 	// Mongo24 represents juju-mongodb 2.4.x
-	Mongo24 Version = "2.4"
+	Mongo24 = Version{Major: 2,
+		Minor:   4,
+		Patch:   "",
+		Storage: MMAPIV2,
+	}
 	// Mongo26 represents juju-mongodb26 2.6.x
-	Mongo26 Version = "2.6"
-	// Mongo31 represents juju-mongodb31 3.1.x
-	Mongo31 Version = "3.1"
+	Mongo26 = Version{Major: 2,
+		Minor:   6,
+		Patch:   "",
+		Storage: MMAPIV2,
+	}
+	// Mongo30 represents juju-mongodb3 3.x.x
+	Mongo30 = Version{Major: 3,
+		Minor:   0,
+		Patch:   "",
+		Storage: MMAPIV2,
+	}
+	// Mongo30wt represents juju-mongodb3 3.x.x with wiredTiger storage.
+	Mongo30wt = Version{Major: 3,
+		Minor:   0,
+		Patch:   "",
+		Storage: WiredTiger,
+	}
 )
 
 // BinariesAvailable returns true if the binaries for the
@@ -68,7 +153,7 @@ func BinariesAvailable(v Version) bool {
 
 	case Mongo26:
 		path = JujuMongod26Path
-	case Mongo31:
+	case Mongo30, Mongo30wt:
 		path = JujuMongod30Path
 	default:
 		return false
@@ -146,6 +231,7 @@ func GenerateSharedSecret() (string, error) {
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
 func Path(version Version) (string, error) {
+	logger.Infof("*************************%v", version)
 	if version == Mongo24 {
 		if _, err := os.Stat(JujuMongodPath); err == nil {
 			return JujuMongodPath, nil
@@ -158,7 +244,7 @@ func Path(version Version) (string, error) {
 		}
 		return path, nil
 	}
-	if version == Mongo24 {
+	if version == Mongo26 {
 		var err error
 		if _, err = os.Stat(JujuMongod26Path); err == nil {
 			return JujuMongod26Path, nil
@@ -166,7 +252,7 @@ func Path(version Version) (string, error) {
 		logger.Infof("could not find %q ", JujuMongod26Path)
 		return "", err
 	}
-	if version == Mongo31 {
+	if version == Mongo30 || version == Mongo30wt {
 		var err error
 		if _, err = os.Stat(JujuMongod30Path); err == nil {
 			return JujuMongod30Path, nil
@@ -451,11 +537,16 @@ func packagesForSeries(series string) []string {
 	}
 }
 
+// DbDir returns the dir where mongo storage is.
+func DbDir(dataDir string) string {
+	return filepath.Join(dataDir, "db")
+}
+
 // noauthCommand returns an os/exec.Cmd that may be executed to
 // run mongod without security.
 func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
-	dbDir := filepath.Join(dataDir, "db")
+	dbDir := DbDir(dataDir)
 	// Make this smarter, to guess mongo version.
 	mongoPath, err := Path(version)
 	if err != nil {
@@ -474,7 +565,7 @@ func noauthCommand(dataDir string, port int, version Version) (*exec.Cmd, error)
 		"--journal",
 		"--quiet",
 	}
-	if version == Mongo31 {
+	if version == Mongo30wt {
 		args = append(args, "--storageEngine", "wiredTiger")
 
 	} else {

@@ -79,6 +79,39 @@ func isServiceInstalled(namespace string) (bool, error) {
 	return svc.Installed()
 }
 
+// StopService will stop mongodb service.
+func StopService(namespace string) error {
+	svc, err := discoverService(ServiceName(namespace))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return svc.Stop()
+}
+
+// StartService will start mongodb service.
+func StartService(namespace string) error {
+	svc, err := discoverService(ServiceName(namespace))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return svc.Start()
+}
+
+// ReStartService will stop and then start mongodb service.
+func ReStartService(namespace string) error {
+	svc, err := discoverService(ServiceName(namespace))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Stop(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Start(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // RemoveService removes the mongoDB init service from this machine.
 func RemoveService(namespace string) error {
 	svc, err := discoverService(ServiceName(namespace))
@@ -127,7 +160,9 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		" --ipv6" +
 		" --quiet" +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
-	if version != Mongo31 {
+	// TODO(perrito666) implement a proper version comparision with <>
+	// also make sure storageEngine is explicit every time it is possible.
+	if version != Mongo30wt {
 		mongoCmd = mongoCmd +
 			" --noprealloc" +
 			" --smallfiles"
