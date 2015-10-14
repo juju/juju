@@ -25,7 +25,6 @@ mimetypes.init()
 OK = 0
 BAD_ARGS = 1
 UNKNOWN_COMMAND = 2
-NO_PUBLISHED_FILES = 3
 NO_LOCAL_FILES = 4
 UNKNOWN_PURPOSE = 5
 
@@ -142,8 +141,6 @@ def list_published_files(purpose):
     """List the files specified by the purpose."""
     blob_service = BlobService()
     published_files = get_published_files(purpose, blob_service)
-    if published_files is None:
-        return NO_PUBLISHED_FILES
     for sync_file in published_files:
         print(
             '%s %s %s' % (
@@ -158,8 +155,6 @@ def publish_files(purpose, local_dir, args):
         local_dir = local_dir[:-1]
     print("Looking for published files in %s" % purpose)
     published_files = get_published_files(purpose, blob_service)
-    if published_files is None:
-        return NO_PUBLISHED_FILES
     print("Looking for local files in %s" % local_dir)
     local_files = get_local_files(purpose, local_dir)
     if local_files is None:
