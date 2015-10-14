@@ -26,7 +26,7 @@ var columns = []string{
 
 // FormatTabular returns a tabular summary of payloads.
 func FormatTabular(value interface{}) ([]byte, error) {
-	payloads, valueConverted := value.([]formattedPayload)
+	payloads, valueConverted := value.([]FormattedPayload)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", payloads, value)
 	}

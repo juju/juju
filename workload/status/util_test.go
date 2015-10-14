@@ -28,16 +28,16 @@ func NewPayload(name, service string, machine, unit int, tags ...string) workloa
 	}
 }
 
-func Formatted(payloads ...workload.Payload) []formattedPayload {
-	var formatted []formattedPayload
+func Formatted(payloads ...workload.Payload) []FormattedPayload {
+	var formatted []FormattedPayload
 	for _, payload := range payloads {
 		formatted = append(formatted, FormatPayload(payload))
 	}
 	return formatted
 }
 
-func FormatPayload(payload workload.Payload) formattedPayload {
-	return formattedPayload{
+func FormatPayload(payload workload.Payload) FormattedPayload {
+	return FormattedPayload{
 		Unit:    payload.Unit,
 		Machine: payload.Machine,
 		ID:      payload.ID,

@@ -9,7 +9,9 @@ import (
 
 var allFields = strings.Split("unit machine id type payload-class tags status", " ")
 
-type formattedPayload struct {
+// FormattedPayload holds the formatted representation of a Payload.
+type FormattedPayload struct {
+	// These fields are exported for the sake of serialization.
 	Unit    string   `json:"unit" yaml:"unit"`
 	Machine string   `json:"machine" yaml:"machine"`
 	ID      string   `json:"id" yaml:"id"`
@@ -19,7 +21,7 @@ type formattedPayload struct {
 	Status  string   `json:"status" yaml:"status"`
 }
 
-func (fp formattedPayload) lookUp(field string) string {
+func (fp FormattedPayload) lookUp(field string) string {
 	switch field {
 	case "unit":
 		return fp.Unit
@@ -43,7 +45,7 @@ func (fp formattedPayload) lookUp(field string) string {
 	}
 }
 
-func (fp formattedPayload) strings(fields ...string) []string {
+func (fp FormattedPayload) strings(fields ...string) []string {
 	if len(fields) == 0 {
 		fields = allFields
 	}

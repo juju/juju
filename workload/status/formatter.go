@@ -20,25 +20,25 @@ func newListFormatter(payloads []workload.Payload, compatVersion int) *listForma
 	return &lf
 }
 
-func (lf *listFormatter) format() []formattedPayload {
+func (lf *listFormatter) format() []FormattedPayload {
 	if lf.payloads == nil {
 		return nil
 	}
 
-	var formatted []formattedPayload
+	var formatted []FormattedPayload
 	for _, payload := range lf.payloads {
 		formatted = append(formatted, lf.formatPayload(payload))
 	}
 	return formatted
 }
 
-func (lf *listFormatter) formatPayload(payload workload.Payload) formattedPayload {
+func (lf *listFormatter) formatPayload(payload workload.Payload) FormattedPayload {
 	var tags []string
 	if len(payload.Tags) > 0 {
 		tags = make([]string, len(payload.Tags))
 		copy(tags, payload.Tags)
 	}
-	return formattedPayload{
+	return FormattedPayload{
 		Unit:    payload.Unit,
 		Machine: payload.Machine,
 		ID:      payload.ID,
