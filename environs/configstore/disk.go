@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/set"
@@ -35,8 +36,10 @@ const (
 	sourceMem     configSource = "mem"
 )
 
-// A second should be way more than enough to write or read any files.
-var lockTimeout = time.Second
+// A second should be way more than enough to write or read any files. But
+// some disks are very slow when under load, so lets give the disk a
+// reasonable time to get the lock.
+var lockTimeout = 5 * time.Second
 
 // Default returns disk-based environment config storage
 // rooted at JujuHome.
@@ -190,7 +193,7 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read info")
 	}
-	defer lock.Unlock()
+	defer unlockEnvironmentLock(lock)
 
 	info, err := d.readCacheFile(envName)
 	if err != nil {
@@ -306,7 +309,7 @@ func (info *environInfo) Write() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot write info")
 	}
-	defer lock.Unlock()
+	defer unlockEnvironmentLock(lock)
 
 	// In order to write out the environment info to the cache
 	// file we need to make sure the server UUID is set. Sufficiently
@@ -362,7 +365,7 @@ func (info *environInfo) Destroy() error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot destroy environment info")
 	}
-	defer lock.Unlock()
+	defer unlockEnvironmentLock(lock)
 
 	if info.initialized() {
 		if info.source == sourceJenv {
@@ -488,10 +491,46 @@ func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
 	}
 	message := fmt.Sprintf("pid: %d, operation: %s", os.Getpid(), operation)
 	err = lock.LockWithTimeout(lockTimeout, message)
+	if err == nil {
+		return lock, nil
+	}
+	if errors.Cause(err) != fslock.ErrTimeout {
+		return nil, errors.Trace(err)
+	}
+
+	logger.Warningf("breaking configstore lock, lock dir: %s", filepath.Join(dir, lockName))
+	logger.Warningf("  lock holder message: %s", lock.Message())
+
+	// If we are unable to acquire the lock within the lockTimeout,
+	// consider it broken for some reason, and break it.
+	err = lock.BreakLock()
 	if err != nil {
-		logger.Warningf("configstore lock held, lock dir: %s", filepath.Join(dir, lockName))
-		logger.Warningf("  lock holder message: %s", lock.Message())
+		return nil, errors.Annotate(err, "unable to break the configstore lock")
+	}
+
+	err = lock.LockWithTimeout(lockTimeout, message)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return lock, nil
+}
+
+// It appears that sometimes the lock is not cleared when we expect it to be.
+// Capture and log any errors from the Unlock method and retry a few times.
+func unlockEnvironmentLock(lock *fslock.Lock) {
+	attempts := utils.AttemptStrategy{
+		Delay: 50 * time.Millisecond,
+		Min:   10,
+	}
+	var err error
+	for a := attempts.Start(); a.Next(); {
+		err = lock.Unlock()
+		if err == nil {
+			return
+		}
+		if a.HasNext() {
+			logger.Debugf("failed to unlock configstore lock: %s, retrying", err)
+		}
+	}
+	logger.Errorf("unable to unlock configstore lock: %s", err)
 }
