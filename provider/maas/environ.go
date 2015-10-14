@@ -1179,7 +1179,13 @@ PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
 # If $PRIMARY_IFACE is empty, there's nothing to do.
 [ -z "$PRIMARY_IFACE" ] && exit 0
 
+# Log the contents of /etc/network/interfaces prior to modifying
+echo "Contents of /etc/network/interfaces before changes"
+cat /etc/network/interfaces
 {{.Script}}
+# Log the contents of /etc/network/interfaces after modifying
+echo "Contents of /etc/network/interfaces after changes"
+cat /etc/network/interfaces
 # Stop $PRIMARY_IFACE and start the bridge instead.
 ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
 
