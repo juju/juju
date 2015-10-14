@@ -58,7 +58,7 @@ def go_test(args, gopath):
     if args.project_url:
         print_now("Cloning {} from {}".format(args.project, args.project_url))
         git("clone", args.project_url, directory)
-    if args.go_get_all:
+    if args.go_get_all and not (args.project_url and args.merge_url):
         print_now("Getting {} and dependencies using go".format(args.project))
         go("get", "-v", "-d", "-t", project_ellipsis)
     os.chdir(directory)
@@ -70,7 +70,7 @@ def go_test(args, gopath):
         git("fetch", args.merge_url, args.merge_ref)
         git("merge", "--no-ff", "-m", "Merged " + args.merge_ref, "FETCH_HEAD")
         if args.go_get_all:
-            print_now("Refreshing dependencies after merge using go")
+            print_now("Updating {} dependencies using go".format(args.project))
             go("get", "-v", "-d", "-t", project_ellipsis)
     if args.dependencies:
         for dep in args.dependencies:
