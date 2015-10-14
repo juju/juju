@@ -5,6 +5,7 @@ package status
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -17,7 +18,7 @@ import (
 // ListAPI has the API methods needed by ListCommand.
 type ListAPI interface {
 	List(patterns ...string) ([]workload.Payload, error)
-	Close() error
+	io.Closer
 }
 
 // ListCommand implements the list-payloads command.
@@ -58,7 +59,7 @@ func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-payloads",
 		Args:    "[pattern ...]",
-		Purpose: "display status information about currently running payloads",
+		Purpose: "display status information about known payloads",
 		Doc:     listDoc,
 	}
 }
