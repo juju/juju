@@ -59,6 +59,13 @@ func (s *statusSetSuite) TestTooFewArgs(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `missing .*`)
 }
 
+func (s *statusSetSuite) TestInvalidStatjs(c *gc.C) {
+	s.init(c, "created", "foo")
+	err := s.cmd.Run(s.cmdCtx)
+
+	c.Check(err, gc.ErrorMatches, `invalid status, .*`)
+}
+
 func (s *statusSetSuite) TestStatusSet(c *gc.C) {
 	s.init(c, workload.StateStopped, "foo")
 	err := s.cmd.Run(s.cmdCtx)
