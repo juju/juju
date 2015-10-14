@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+
+import os
+
+from common import *
+
+print "Relationship with %s broken." % database_name
+
+open(broken_path,'w').close()
+
+cursor = get_db_cursor()
+try:
+    cursor.execute("revoke all privileges on `%s`.* from `%s`" % (database_name, user))
+    print "revoked privileges for `%s` on database `%s`" % (user, database_name)
+except Exception as e:
+    print "revoking failed, possibly incomplete relation. %s" % (e)
+
+cleanup_service_user(database_name)
+
+if slave and slave_configured:
+    os.unlink(slave_configured_path)

@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+from common import *
+
+import urllib
+import subprocess
+import os
+import sys
+import string
+import random
+import pickle
+
+cursor = get_db_cursor()
+
+admin = os.path.basename(sys.argv[0]) == 'db-admin-relation-joined'
+
+def runsql(sql):
+	print "[%s]" % sql
+	cursor.execute(sql)
+
+runsql(
+    "grant replication client on *.* to `%s` identified by '%s'"  % (
+    user,
+    service_password))
+
+if slave and not admin:
+    try:
+        runsql(
+            "revoke all on `%s`.* from `%s`"  % (
+            database_name,   
+            user))
+    except:
+        print "revoke failed, ignoring error"
+    runsql(
+        "grant select on `%s`.* to `%s`"  % (
+        database_name,   
+        user))
+else:
+    if admin:
+        runsql(
+            "grant all privileges on *.* to `%s` identified by '%s'" % (
+            user,
+            service_password))
+    else:
+        runsql(
+            "grant all on `%s`.* to `%s` identified by '%s'" % (
+            database_name,
+            user,
+            service_password))
+
+hostname = subprocess.check_output(['unit-get','private-address']).strip()
+
+print str(["relation-set",
+ "database=%s" % database_name,
+ "user=%s" % user,
+ "password=%s" % service_password,
+ 'host=%s' % hostname,
+ 'slave=%s' % slave])
+
+# Create new database or touch slave.configured file
+if slave:
+    open(slave_configured_path,'w').close()
+elif not broken and not admin:
+  # Find existing databases
+  cursor.execute("show databases")
+  databases = [i[0] for i in cursor.fetchall()]
+  if database_name in databases:
+      print "database exists already"
+  else:
+      if not broken and not admin:
+          runsql("create database `%s` character set utf8" % database_name)
+          with open(database_name_file, 'w') as dbname:
+              dbname.write(database_name)
+
+if broken:
+    os.unlink(broken_path)
+
+cursor.close()
+
+# Store new values in relation settings.
+subprocess.call(
+    ["relation-set",
+     "database=%s" % database_name,
+     "user=%s" % user,
+     "password=%s" % service_password,
+     'host=%s' % hostname,
+     'slave=%s' % slave,])

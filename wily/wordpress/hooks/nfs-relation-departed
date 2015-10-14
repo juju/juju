@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -eu
+
+juju-log "We've got a mount"
+source inc/common
+
+if [ ! -f .nfs-mount ]; then
+	juju-log "I guess we've already done this."
+	exit 0
+fi
+
+source .nfs-mount
+umount /mnt/wordpress
+
+rm -f .nfs-mount
+
+juju-log "Fairwell nfs mount, we hardly knew you"
+
+. hooks/config-changed
