@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var allFields = strings.Split("unit machine id type payload-class tags status", " ")
+
 type formattedPayload struct {
 	Unit    string   `json:"unit" yaml:"unit"`
 	Machine string   `json:"machine" yaml:"machine"`
@@ -43,7 +45,7 @@ func (fp formattedPayload) lookUp(field string) string {
 
 func (fp formattedPayload) strings(fields ...string) []string {
 	if len(fields) == 0 {
-		fields = strings.Split("unit machine id type payload-class tags status", " ")
+		fields = allFields
 	}
 
 	var result []string
