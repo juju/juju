@@ -151,6 +151,7 @@ func (s *filterSuite) newPayload(name string) workload.Payload {
 		},
 		ID:      "id" + name,
 		Status:  "running",
+		Tags:    []string{"a-tag"},
 		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
@@ -248,5 +249,79 @@ func (s *filterSuite) TestFilterMultiMatchPartial(c *gc.C) {
 	c.Check(matched, jc.DeepEquals, []workload.Payload{
 		s.newPayload("spam"),
 		s.newPayload("ham"),
+	})
+}
+
+func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
+	payload := workload.Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: "spam",
+			Type: "docker",
+		},
+		ID:      "idspam",
+		Status:  "running",
+		Tags:    []string{"tagA", "tagB"},
+		Unit:    "unit-a-service-0",
+		Machine: "1",
+	}
+
+	// Check matching patterns.
+
+	patterns := []string{
+		"spam",
+		"docker",
+		"idspam",
+		"running",
+		"tagA",
+		"tagB",
+		"unit-a-service-0",
+		"1",
+	}
+	for _, pattern := range patterns {
+		predicates, err := workload.BuildPredicatesFor([]string{
+			pattern,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(predicates, gc.HasLen, 1)
+		matched := predicates[0](payload)
+		c.Check(matched, jc.IsTrue)
+	}
+
+	// Check a non-matching pattern.
+
+	predicates, err := workload.BuildPredicatesFor([]string{
+		"tagC",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(predicates, gc.HasLen, 1)
+	matched := predicates[0](payload)
+	c.Check(matched, jc.IsFalse)
+}
+
+func (s *filterSuite) TestBuildPredicatesForMulti(c *gc.C) {
+	predicates, err := workload.BuildPredicatesFor([]string{
+		"tagC",
+		"spam",
+		"1",
+		"2",
+		"idspam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(predicates, gc.HasLen, 5)
+	payload := s.newPayload("spam")
+	var matches []bool
+	for _, pred := range predicates {
+		matched := pred(payload)
+		matches = append(matches, matched)
+	}
+	c.Check(matches, jc.DeepEquals, []bool{
+		false,
+		true,
+		true,
+		false,
+		true,
 	})
 }
