@@ -11,7 +11,6 @@ import subprocess
 import sys
 import tempfile
 from textwrap import dedent
-from unittest import TestCase
 
 from mock import (
     call,
@@ -50,6 +49,10 @@ from jujupy import (
     _temp_env as temp_env,
     uniquify_local,
 )
+from tests import (
+    TestCase,
+    FakeHomeTestCase,
+)
 from utility import (
     scoped_environ,
     temp_dir,
@@ -82,10 +85,13 @@ class TestErroredUnit(TestCase):
         self.assertEqual('bar is in state baz', str(e))
 
 
-class ClientTest(TestCase):
+class ClientTest(FakeHomeTestCase):
 
     def setUp(self):
         super(ClientTest, self).setUp()
+        patcher = patch('jujupy.pause')
+        self.addCleanup(patcher.stop)
+        self.pause_mock = patcher.start()
         patcher = patch('jujupy.pause')
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
@@ -267,7 +273,8 @@ class TestEnvJujuClient(ClientTest):
         juju_mock.assert_called_with(
             'upgrade-juju', ('--upload-tools',))
 
-    def test_by_version(self):
+    @patch.object(EnvJujuClient, 'get_full_path', return_value='fake-path')
+    def test_by_version(self, gfp_mock):
         def juju_cmd_iterator():
             yield '1.17'
             yield '1.16'
@@ -836,12 +843,11 @@ class TestEnvJujuClient(ClientTest):
             'services': {},
         })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        with patch('sys.stdout'):
-            with patch.object(client, 'get_juju_output', return_value=value):
-                with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for voting to be enabled.'):
-                    client.wait_for_ha(0.01)
+        with patch.object(client, 'get_juju_output', return_value=value):
+            with self.assertRaisesRegexp(
+                    Exception,
+                    'Timed out waiting for voting to be enabled.'):
+                client.wait_for_ha(0.01)
 
     def test_wait_for_ha_timeout(self):
         value = yaml.safe_dump({
@@ -923,9 +929,8 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
         devnull = open(os.devnull, 'w')
-        with patch('sys.stdout', devnull):
-            with patch(output_real, get_juju_output_fake):
-                client.wait_for_version('1.17.2')
+        with patch(output_real, get_juju_output_fake):
+            client.wait_for_version('1.17.2')
 
     def test_wait_for_version_raises_non_connection_error(self):
         err = Exception('foo')
@@ -942,10 +947,9 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
         devnull = open(os.devnull, 'w')
-        with patch('sys.stdout', devnull):
-            with patch(output_real, get_juju_output_fake):
-                with self.assertRaisesRegexp(Exception, 'foo'):
-                    client.wait_for_version('1.17.2')
+        with patch(output_real, get_juju_output_fake):
+            with self.assertRaisesRegexp(Exception, 'foo'):
+                client.wait_for_version('1.17.2')
 
     def test_get_env_option(self):
         env = SimpleEnvironment('foo', None)
@@ -1064,11 +1068,9 @@ class TestEnvJujuClient(ClientTest):
 
         def check_env(*args, **kwargs):
             self.assertEqual('/juju', os.environ['JUJU'])
-        with patch('sys.stdout'):
-            with patch('subprocess.check_call', side_effect=check_env) as mock:
-                client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
-        env = dict(os.environ)
-        env.update(extra_env)
+
+        with patch('subprocess.check_call', side_effect=check_env) as mock:
+            client.juju('quickstart', ('bar', 'baz'), extra_env=extra_env)
         mock.assert_called_with(
             ('juju', '--show-log', 'quickstart', '-e', 'qux', 'bar', 'baz'))
 
@@ -1081,8 +1083,7 @@ class TestEnvJujuClient(ClientTest):
             return 'foojuju-backup-24.tgzz'
         with patch('subprocess.check_output',
                    side_effect=check_env) as co_mock:
-            with patch('sys.stdout'):
-                backup_file = client.backup()
+            backup_file = client.backup()
         self.assertEqual(backup_file, os.path.abspath('juju-backup-24.tgz'))
         assert_juju_call(self, co_mock, client, ['juju', 'backup'])
 
@@ -1091,8 +1092,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, '/foobar/baz')
         with patch('subprocess.check_output',
                    return_value='foojuju-backup-123-456.tar.gzbar'):
-            with patch('sys.stdout'):
-                backup_file = client.backup()
+            backup_file = client.backup()
         self.assertEqual(
             backup_file, os.path.abspath('juju-backup-123-456.tar.gz'))
 
@@ -1102,8 +1102,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_output', return_value=''):
             with self.assertRaisesRegexp(
                     Exception, 'The backup file was not found in output'):
-                with patch('sys.stdout'):
-                    client.backup()
+                client.backup()
 
     def test_juju_backup_wrong_file(self):
         env = SimpleEnvironment('qux')
@@ -1112,8 +1111,7 @@ class TestEnvJujuClient(ClientTest):
                    return_value='mumu-backup-24.tgz'):
             with self.assertRaisesRegexp(
                     Exception, 'The backup file was not found in output'):
-                with patch('sys.stdout'):
-                    client.backup()
+                client.backup()
 
     def test_juju_backup_environ(self):
         env = SimpleEnvironment('qux')
@@ -1125,8 +1123,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertEqual(environ, os.environ)
             return 'foojuju-backup-123-456.tar.gzbar'
         with patch('subprocess.check_output', side_effect=side_effect):
-            with patch('sys.stdout'):
-                client.backup()
+            client.backup()
             self.assertNotEqual(environ, os.environ)
 
     def test_juju_async(self):
@@ -1406,11 +1403,15 @@ def stub_bootstrap(client):
         f.write('Bogus jenv')
 
 
-class TestTempBootstrapEnv(TestCase):
+class TestTempBootstrapEnv(FakeHomeTestCase):
+
+    @staticmethod
+    def get_client(env):
+        return EnvJujuClient24(env, '1.24-fake', 'fake-juju-path')
 
     def test_no_config_mangling_side_effect(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
+        client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
                 stub_bootstrap(client)
@@ -1419,7 +1420,7 @@ class TestTempBootstrapEnv(TestCase):
     def test_temp_bootstrap_env_environment(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
         with bootstrap_context() as fake_home:
-            client = EnvJujuClient.by_version(env)
+            client = self.get_client(env)
             agent_version = client.get_matching_agent_version()
             with temp_bootstrap_env(fake_home, client):
                 temp_home = os.environ['JUJU_HOME']
@@ -1442,31 +1443,30 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_temp_bootstrap_env_provides_dir(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
-        with temp_dir() as fake_home:
-            juju_home = os.path.join(fake_home, 'asdf')
+        client = self.get_client(env)
+        juju_home = os.path.join(self.home_dir, 'asdf')
 
-            def side_effect(*args, **kwargs):
-                os.mkdir(juju_home)
-                return juju_home
+        def side_effect(*args, **kwargs):
+            os.mkdir(juju_home)
+            return juju_home
 
-            with patch('utility.mkdtemp', side_effect=side_effect):
-                with temp_bootstrap_env(fake_home, client) as temp_home:
+        with patch('utility.mkdtemp', side_effect=side_effect):
+            with patch('jujupy.check_free_disk_space', autospec=True):
+                with temp_bootstrap_env(self.home_dir, client) as temp_home:
                     pass
         self.assertEqual(temp_home, juju_home)
 
     def test_temp_bootstrap_env_no_set_home(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
-        with temp_dir() as fake_home:
-            with scoped_environ():
-                os.environ['JUJU_HOME'] = 'foo'
-                with temp_bootstrap_env(fake_home, client, set_home=False):
-                    self.assertEqual(os.environ['JUJU_HOME'], 'foo')
+        client = self.get_client(env)
+        os.environ['JUJU_HOME'] = 'foo'
+        with patch('jujupy.check_free_disk_space', autospec=True):
+            with temp_bootstrap_env(self.home_dir, client, set_home=False):
+                self.assertEqual(os.environ['JUJU_HOME'], 'foo')
 
     def test_output(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
+        client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
                 stub_bootstrap(client)
@@ -1476,7 +1476,7 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_rename_on_exception(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
+        client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with self.assertRaisesRegexp(Exception, 'test-rename'):
                 with temp_bootstrap_env(fake_home, client):
@@ -1488,7 +1488,7 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_exception_no_jenv(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
+        client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with self.assertRaisesRegexp(Exception, 'test-rename'):
                 with temp_bootstrap_env(fake_home, client):
@@ -1501,7 +1501,7 @@ class TestTempBootstrapEnv(TestCase):
     def test_check_space_local_lxc(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
         with bootstrap_context() as fake_home:
-            client = EnvJujuClient.by_version(env)
+            client = self.get_client(env)
             with patch('jujupy.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
                     stub_bootstrap(client)
@@ -1513,7 +1513,7 @@ class TestTempBootstrapEnv(TestCase):
     def test_check_space_local_kvm(self):
         env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
         with bootstrap_context() as fake_home:
-            client = EnvJujuClient.by_version(env)
+            client = self.get_client(env)
             with patch('jujupy.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
                     stub_bootstrap(client)
@@ -1524,7 +1524,7 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_error_on_jenv(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
+        client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             jenv_path = get_jenv_path(fake_home, 'qux')
             os.mkdir(os.path.dirname(jenv_path))
@@ -1536,7 +1536,7 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_not_permanent(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
+        client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             client.juju_home = fake_home
             with temp_bootstrap_env(fake_home, client,
@@ -1554,7 +1554,7 @@ class TestTempBootstrapEnv(TestCase):
 
     def test_permanent(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
-        client = EnvJujuClient.by_version(env)
+        client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             client.juju_home = fake_home
             with temp_bootstrap_env(fake_home, client,
@@ -1569,7 +1569,7 @@ class TestTempBootstrapEnv(TestCase):
         self.assertEqual(client.juju_home, tb_home)
 
 
-class TestStatus(TestCase):
+class TestStatus(FakeHomeTestCase):
 
     def test_iter_machines_no_containers(self):
         status = Status({
@@ -2049,10 +2049,13 @@ class TestSimpleEnvironment(TestCase):
 
     def test_from_config_none(self):
         with temp_config():
-            with scoped_environ():
-                os.environ['JUJU_ENV'] = 'foo'
+            os.environ['JUJU_ENV'] = 'foo'
+            # GZ 2015-10-15: Currently default_env calls the juju on path here.
+            with patch('jujuconfig.default_env', autospec=True,
+                       return_value='foo') as cde_mock:
                 env = SimpleEnvironment.from_config(None)
-                self.assertEqual(env.environment, 'foo')
+            self.assertEqual(env.environment, 'foo')
+            cde_mock.assert_called_once_with()
 
 
 class TestGroupReporter(TestCase):
