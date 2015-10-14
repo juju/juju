@@ -1,16 +1,23 @@
 from argparse import Namespace
+import hashlib
+import os
 from unittest import TestCase
 
 from azure_publish_tools import (
     DELETE,
     get_option_parser,
     get_published_files,
+    get_md5content,
+    JUJU_DIST,
     LIST,
     list_sync_files,
     PUBLISH,
+    publish_files,
     RELEASED,
     SyncFile,
     )
+from generate_simplestreams import json_dump
+from utils import temp_dir
 
 class TestOptionParser(TestCase):
 
@@ -76,6 +83,7 @@ class FakeBlob:
         self.url = ''
         self.properties = FakeBlobProperties(md5, length, content_type)
         self.metadata = {}
+        self._blocks = {}
 
     @classmethod
     def from_sync_file(cls, sync_file):
@@ -88,7 +96,7 @@ class FakeBlobService:
     def __init__(self, blobs=None):
         if blobs is None:
             blobs = {}
-        self.blobs = blobs
+        self.containers = {JUJU_DIST: blobs}
 
     def list_blobs(self, container_name, prefix=None, marker=None,
                    maxresults=None, include=None, delimiter=None):
@@ -100,7 +108,25 @@ class FakeBlobService:
             raise NotImplementedError('include must be "metadata".')
         if delimiter is not None:
             raise NotImplementedError('delimiter not implemented.')
-        return [b for p,b in self.blobs.items() if p.startswith(prefix)]
+        return [b for p, b in self.containers[container_name].items()
+                if p.startswith(prefix)]
+
+    def put_blob(self, container_name, blob_name, blob, x_ms_blob_type):
+        if x_ms_blob_type != 'BlockBlob':
+            raise NotImplementedError('x_ms_blob_type not implemented.')
+        if blob != '':
+            raise NotImplementedError('blob not implemented.')
+        self.containers[container_name][blob_name] = FakeBlob(blob_name)
+
+    def put_block(self, container_name, blob_name, block, block_id):
+        self.containers[container_name][blob_name]._blocks[block_id] = block
+
+    def put_block_list(self, container_name, blob_name, block_list,
+                       content_md5=None, x_ms_blob_content_type=None,
+                       x_ms_blob_content_encoding=None,
+                       x_ms_blob_content_language=None,
+                       x_ms_blob_content_md5=None):
+        pass
 
 
 class TestGetPublishedFiles(TestCase):
@@ -145,3 +171,68 @@ class TestListSyncFiles(TestCase):
             'tools/index.json': FakeBlob.from_sync_file(expected)
             })
         self.assertEqual([expected], list_sync_files('tools', service))
+
+
+class TestPublishFiles(TestCase):
+
+    def test_no_files(self):
+        args = Namespace(verbose=False, dry_run=False)
+        with temp_dir() as local_dir:
+            publish_files(FakeBlobService(), RELEASED, local_dir, args)
+
+    def test_one_remote_file(self):
+        args = Namespace(verbose=False, dry_run=False)
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            publish_files(service, RELEASED, local_dir, args)
+
+    def test_one_local_file(self):
+        args = Namespace(verbose=False, dry_run=False)
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            json_dump({}, os.path.join(local_dir, 'index2.json'))
+            publish_files(service, RELEASED, local_dir, args)
+        self.assertEqual(['tools/index.json', 'tools/index2.json'],
+            service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+
+    def test_different_local_remote(self):
+        args = Namespace(verbose=False, dry_run=False)
+        expected = SyncFile(
+            'tools/index2.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index2.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            json_dump({}, os.path.join(local_dir, 'index2.json'))
+            publish_files(service, RELEASED, local_dir, args)
+        self.assertEqual(['tools/index2.json'],
+            service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+
+    def test_same_local_remote(self):
+        args = Namespace(verbose=False, dry_run=False)
+        with temp_dir() as local_dir:
+            file_path = os.path.join(local_dir, 'index2.json')
+            json_dump({}, file_path)
+            md5_sum = get_md5content(file_path)
+            expected = SyncFile(
+                'tools/index2.json', 33, md5_sum, 'application/json', '')
+            service = FakeBlobService({
+                'tools/index2.json': FakeBlob.from_sync_file(expected)
+                })
+            publish_files(service, RELEASED, local_dir, args)
+        self.assertEqual(['tools/index2.json'],
+            service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({}, blob._blocks)
