@@ -1061,7 +1061,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(
-	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints, settingValues charm.Settings,
+	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints, settings charm.Settings,
 ) (service *Service, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
 	ownerTag, err := names.ParseUserTag(owner)
@@ -1104,9 +1104,6 @@ func (st *State) AddService(
 		}
 	}
 
-	settings := newSettings(nil, "")
-	settings.apply(settingValues)
-
 	serviceID := st.docID(name)
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
@@ -1137,6 +1134,11 @@ func (st *State) AddService(
 		NeverSet: true,
 	}
 
+	// when creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	settings = removeNils(settings)
+
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
@@ -1146,7 +1148,7 @@ func (st *State) AddService(
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(st, svc.settingsKey(), settings.Map()),
+		createSettingsOp(st, svc.settingsKey(), settings),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
@@ -1187,6 +1189,18 @@ func (st *State) AddService(
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
+}
+
+// removeNils removes any nil values from the given map and returns an updated
+// map.
+func removeNils(m map[string]interface{}) map[string]interface{} {
+	out := map[string]interface{}{}
+	for k, v := range m {
+		if v != nil {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an

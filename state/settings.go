@@ -118,18 +118,6 @@ func (c *Settings) Delete(key string) {
 	delete(c.core, key)
 }
 
-// apply updates the Settings with the provided changes. Any requested
-// setting with a nil value will be removed.
-func (c *Settings) apply(changes map[string]interface{}) {
-	for name, value := range changes {
-		if value == nil {
-			c.Delete(name)
-		} else {
-			c.Set(name, value)
-		}
-	}
-}
-
 // cacheKeys returns the keys of all caches as a key=>true map.
 func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	keys := make(map[string]bool)
