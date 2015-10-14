@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 )
 
-const UntrackCmdName = "workload-untrack"
+const UntrackCmdName = "payload-unregister"
 
 // NewUntrackCmd returns an UntrackCmd that uses the given hook context.
 func NewUntrackCmd(ctx HookContext) (*UntrackCmd, error) {
@@ -20,12 +20,12 @@ func NewUntrackCmd(ctx HookContext) (*UntrackCmd, error) {
 		baseCommand: base,
 	}
 	c.cmdInfo = cmdInfo{
-		Name:    "workload-untrack",
-		Summary: "stop tracking a workload",
+		Name:    "payload-unregister",
+		Summary: "stop tracking a payload",
 		Doc: `
-"workload-untrack" is used while a hook is running to let Juju know
-that a workload has been manually stopped. The id
-used to start tracking the workload must be provided.
+"payload-unregister" is used while a hook is running to let Juju know
+that a payload has been manually stopped. The id
+used to start tracking the payload must be provided.
 `,
 	}
 	return c, nil

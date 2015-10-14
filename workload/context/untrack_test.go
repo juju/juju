@@ -24,7 +24,7 @@ func (s *untrackSuite) SetUpTest(c *gc.C) {
 
 	cmd, err := context.NewUntrackCmd(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setCommand(c, "workload-untrack", cmd)
+	s.setCommand(c, "payload-unregister", cmd)
 }
 
 func (s *untrackSuite) TestCommandRegistered(c *gc.C) {
@@ -33,12 +33,12 @@ func (s *untrackSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *untrackSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: workload-untrack <name-or-id>
-purpose: stop tracking a workload
+usage: payload-unregister <name-or-id>
+purpose: stop tracking a payload
 
-"workload-untrack" is used while a hook is running to let Juju know
-that a workload has been manually stopped. The id
-used to start tracking the workload must be provided.
+"payload-unregister" is used while a hook is running to let Juju know
+that a payload has been manually stopped. The id
+used to start tracking the payload must be provided.
 `[1:])
 }
 
