@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -347,44 +348,33 @@ func (s *environSuite) TestNewCloudinitConfigNoFeatureFlag(c *gc.C) {
 	testCase(expectedCloudinitConfigWithBridge)
 }
 
-func (s *environSuite) TestRenderNetworkInterfacesScriptDHCP(c *gc.C) {
-	scriptPath, resultPath := writeNetworkScripts(c, networkDHCPInitial)
+func (s *environSuite) assertNetworkScript(c *gc.C, initial, final string) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Tests relevant only on *nix systems")
+	}
+	scriptPath, resultPath := writeNetworkScripts(c, initial)
 	cmd := exec.Command("/bin/sh", scriptPath)
 	err := cmd.Run()
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadFile(resultPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.DeepEquals, networkDHCPFinal)
+	c.Assert(string(data), jc.DeepEquals, final)
+}
+
+func (s *environSuite) TestRenderNetworkInterfacesScriptDHCP(c *gc.C) {
+	s.assertNetworkScript(c, networkDHCPInitial, networkDHCPFinal)
 }
 
 func (s *environSuite) TestRenderNetworkInterfacesScriptStatic(c *gc.C) {
-	scriptPath, resultPath := writeNetworkScripts(c, networkStaticInitial)
-	cmd := exec.Command("/bin/sh", scriptPath)
-	err := cmd.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(resultPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.DeepEquals, networkStaticFinal)
+	s.assertNetworkScript(c, networkStaticInitial, networkStaticFinal)
 }
 
 func (s *environSuite) TestRenderNetworkInterfacesScriptMultiple(c *gc.C) {
-	scriptPath, resultPath := writeNetworkScripts(c, networkMultipleInitial)
-	cmd := exec.Command("/bin/sh", scriptPath)
-	err := cmd.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(resultPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.DeepEquals, networkMultipleFinal)
+	s.assertNetworkScript(c, networkMultipleInitial, networkMultipleFinal)
 }
 
 func (s *environSuite) TestRenderNetworkInterfacesScriptWithAlias(c *gc.C) {
-	scriptPath, resultPath := writeNetworkScripts(c, networkWithAliasInitial)
-	cmd := exec.Command("/bin/sh", scriptPath)
-	err := cmd.Run()
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadFile(resultPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), jc.DeepEquals, networkWithAliasFinal)
+	s.assertNetworkScript(c, networkWithAliasInitial, networkWithAliasFinal)
 }
 
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
