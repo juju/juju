@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"os"
 )
 
 type DeploySuite struct {

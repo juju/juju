@@ -3183,7 +3183,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
-		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1")},
+		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", state.StatusStarted, ""},
 		addCharm{"wordpress"},
 		addCharm{"mysql"},
@@ -3254,10 +3254,10 @@ wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns
   logging/0 active         idle                              dummyenv-1.dns                                
 
 [Machines] 
-ID         STATE   DNS            INS-ID     SERIES  AZ        
-0          started dummyenv-0.dns dummyenv-0 quantal us-east-1 
-1          started dummyenv-1.dns dummyenv-1 quantal           
-2          started dummyenv-2.dns dummyenv-2 quantal           
+ID         STATE   DNS            INS-ID     SERIES  AZ         
+0          started dummyenv-0.dns dummyenv-0 quantal us-east-1a 
+1          started dummyenv-1.dns dummyenv-1 quantal            
+2          started dummyenv-2.dns dummyenv-2 quantal            
 
 [Juju]            
 UPGRADE-AVAILABLE 
