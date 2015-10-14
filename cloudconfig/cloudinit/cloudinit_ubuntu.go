@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 )
 
 // ubuntuCloudConfig is the cloudconfig type specific to Ubuntu machines
