@@ -698,7 +698,7 @@ class TestEnvJujuClient(ClientTest):
             with self.assertRaisesRegexp(
                     Exception,
                     'Timed out waiting for agents to start in local'):
-                with patch('logging.error') as le_mock:
+                with patch('jujupy.log.error') as le_mock:
                     client.wait_for_started(0)
         le_mock.assert_called_once_with(value)
 
@@ -996,14 +996,12 @@ class TestEnvJujuClient(ClientTest):
     def test_juju(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, None)
-        with patch('sys.stdout') as stdout_mock:
-            with patch('subprocess.check_call') as mock:
-                client.juju('foo', ('bar', 'baz'))
+        with patch('subprocess.check_call') as mock:
+            client.juju('foo', ('bar', 'baz'))
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.juju_home
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
                                  'bar', 'baz'))
-        stdout_mock.flush.assert_called_with()
 
     def test_juju_env(self):
         env = SimpleEnvironment('qux')
@@ -1019,12 +1017,10 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, None)
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.juju_home
-        with patch('sys.stdout') as stdout_mock:
-            with patch('subprocess.call') as mock:
-                client.juju('foo', ('bar', 'baz'), check=False)
+        with patch('subprocess.call') as mock:
+            client.juju('foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
                                  'bar', 'baz'))
-        stdout_mock.flush.assert_called_with()
 
     def test_juju_no_check_env(self):
         env = SimpleEnvironment('qux')

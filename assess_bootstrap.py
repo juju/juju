@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import logging
 import os.path
 
 from deploy_stack import update_env
@@ -10,7 +11,13 @@ from jujupy import (
     SimpleEnvironment,
     temp_bootstrap_env,
     )
-from utility import scoped_environ
+from utility import (
+    configure_logging,
+    scoped_environ,
+)
+
+
+log = logging.getLogger("assess_bootstrap")
 
 
 def assess_bootstrap(juju, env, debug, region, temp_env_name):
@@ -31,7 +38,7 @@ def assess_bootstrap(juju, env, debug, region, temp_env_name):
             raise
     try:
         client.get_status(1)
-        print('Environment successfully bootstrapped.')
+        log.info('Environment successfully bootstrapped.')
     finally:
         client.destroy_environment()
 
@@ -50,6 +57,7 @@ def parse_args(argv=None):
 
 def main():
     args = parse_args()
+    configure_logging(logging.INFO)
     assess_bootstrap(**args.__dict__)
 
 
