@@ -76,7 +76,7 @@ func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error 
 	})
 }
 
-// SetStateServingInfo trivially wraps an Agent to implement
+// StateServingInfoSetter trivially wraps an Agent to implement
 // worker/certupdater/SetStateServingInfo.
 type StateServingInfoSetter struct {
 	Agent
@@ -372,7 +372,7 @@ type configInternal struct {
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
 	preferIPv6        bool
-	mongoVersion      mongo.Version
+	mongoVersion      string
 }
 
 // AgentConfigParams holds the parameters required to create
@@ -435,7 +435,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
 		preferIPv6:        configParams.PreferIPv6,
-		mongoVersion:      configParams.MongoVersion,
+		mongoVersion:      configParams.MongoVersion.String(),
 	}
 
 	if len(configParams.StateAddresses) > 0 {
@@ -742,15 +742,16 @@ func (c *configInternal) check() error {
 
 // MongoVersion implements Config.
 func (c *configInternal) MongoVersion() mongo.Version {
-	if c.mongoVersion != "" {
-		return c.mongoVersion
+	v, err := mongo.NewVersion(c.mongoVersion)
+	if err != nil {
+		return mongo.Mongo24
 	}
-	return mongo.Mongo24
+	return v
 }
 
 // SetMongoVersion implements configSetterOnly.
 func (c *configInternal) SetMongoVersion(v mongo.Version) {
-	c.mongoVersion = v
+	c.mongoVersion = v.String()
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

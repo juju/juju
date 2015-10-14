@@ -98,7 +98,11 @@ type context struct {
 }
 
 func (ctx *context) mongoVersion() string {
-	return ctx.st.MongoVersion()
+	v, err := ctx.st.MongoVersion()
+	if err != nil {
+		return ""
+	}
+	return v
 }
 
 func (ctx *context) reset(c *gc.C) {

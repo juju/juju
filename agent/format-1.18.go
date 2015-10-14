@@ -13,7 +13,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
@@ -152,7 +151,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	}
 	// Mongo version is set, we might be running a version other than default.
 	if format.MongoVersion != "" {
-		config.mongoVersion = mongo.Version(format.MongoVersion)
+		config.mongoVersion = format.MongoVersion
 	}
 	return config, nil
 }
