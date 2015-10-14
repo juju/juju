@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
@@ -48,7 +48,7 @@ import (
 
 type BootstrapSuite struct {
 	coretesting.FakeJujuHomeSuite
-	gitjujutesting.MgoSuite
+	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
 }
@@ -182,7 +182,7 @@ type bootstrapTest struct {
 	keepBroken  bool
 }
 
-func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutesting.Restorer) {
+func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	env := resetJujuHome(c, "peckham")
@@ -192,7 +192,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 	// called with the right arguments.
 	prepareCalled := false
 	addrConnectedTo := "localhost:17070"
-	restore = gitjujutesting.PatchValue(
+	restore := testing.PatchValue(
 		&prepareEndpointsForCaching,
 		func(info configstore.EnvironInfo, hps [][]network.HostPort, addr network.HostPort) (_, _ []string, _ bool) {
 			prepareCalled = true
@@ -206,21 +206,14 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
-		origVersion := version.Current
-		version.Current = version.MustParseBinary(useVersion)
-		restore = restore.Add(func() {
-			version.Current = origVersion
-		})
+		v := version.MustParseBinary(useVersion)
+		restore = restore.Add(testing.PatchValue(&version.Current.Number, v.Number))
+		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
 	}
 
 	if test.hostArch != "" {
-		origArch := arch.HostArch
-		arch.HostArch = func() string {
-			return test.hostArch
-		}
-		restore = restore.Add(func() {
-			arch.HostArch = origArch
-		})
+		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return test.hostArch }))
 	}
 
 	// Run command and check for uploads.
@@ -483,7 +476,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	jenvFile := gitjujutesting.HomePath(".juju", "environments", envName+".jenv")
+	jenvFile := testing.HomePath(".juju", "environments", envName+".jenv")
 	err = os.Chmod(jenvFile, os.FileMode(0200))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -862,7 +855,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuHome restores an new, clean Juju home environment without tools.
 func resetJujuHome(c *gc.C, envName string) environs.Environ {
-	jenvDir := gitjujutesting.HomePath(".juju", "environments")
+	jenvDir := testing.HomePath(".juju", "environments")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
 	coretesting.WriteEnvironments(c, envConfig)
