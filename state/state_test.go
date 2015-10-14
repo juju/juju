@@ -2791,7 +2791,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	indexColl, closer := state.GetCollection(st, "userenvname")
 	defer closer()
-	id := state.UserEnvNameIndex(env.Owner().Username(), env.Name())
+	id := state.UserEnvNameIndex(env.Owner().Canonical(), env.Name())
 	n, err := indexColl.FindId(id).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
@@ -3234,8 +3234,8 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
 			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
-				expected := test.tag.(names.UserTag).Username()
-				c.Assert(e.Tag().(names.UserTag).Username(), gc.Equals, expected)
+				expected := test.tag.(names.UserTag).Canonical()
+				c.Assert(e.Tag().(names.UserTag).Canonical(), gc.Equals, expected)
 			} else {
 				c.Assert(e.Tag(), gc.Equals, test.tag)
 			}
