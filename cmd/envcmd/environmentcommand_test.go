@@ -6,8 +6,6 @@ package envcmd_test
 import (
 	"io"
 	"io/ioutil"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -18,19 +16,14 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
-	coretesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -447,28 +440,20 @@ func (s *EnvConfigSuite) TestConfigEnvDoesntExist(c *gc.C) {
 var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
-	coretesting.JujuConnSuite
-	discharger     *bakerytest.Discharger
-	checker        func(string, string) ([]checkers.Caveat, error)
+	apitesting.MacaroonSuite
 	serverFilePath string
 	envName        string
 }
 
+const testUser = "testuser@somewhere"
+
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
-		return s.checker(cond, arg)
-	})
-	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
-		config.IdentityURL: s.discharger.Location(),
-	}
-	s.JujuConnSuite.SetUpTest(c)
+	s.MacaroonSuite.SetUpTest(c)
 
 	environTag := names.NewEnvironTag(s.State.EnvironUUID())
 	s.envName = environTag.Id()
 
-	s.Factory.MakeUser(c, &factory.UserParams{
-		Name: "test",
-	})
+	s.MacaroonSuite.AddEnvUser(c, testUser)
 
 	apiInfo := s.APIInfo(c)
 	var serverDetails envcmd.ServerFile
@@ -487,7 +472,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	cfg := store.CreateInfo(s.envName)
 	cfg.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   apiInfo.Addrs,
-		Hostnames:   []string{"test"},
+		Hostnames:   []string{"0.1.2.3"},
 		CACert:      apiInfo.CACert,
 		EnvironUUID: s.envName,
 	})
@@ -499,17 +484,9 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
-	s.discharger.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
-	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
-		if cond == "is-authenticated-user" {
-			return []checkers.Caveat{checkers.DeclaredCaveat("username", "test")}, nil
-		}
-		return nil, errors.New("unknown caveat")
+	s.DischargerLogin = func() string {
+		return testUser
 	}
 
 	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
@@ -518,44 +495,23 @@ func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
-	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
-		return nil, errors.New("unknown caveat")
+	s.DischargerLogin = func() string {
+		return ""
 	}
 
 	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "environment \""+s.envName+"\" not found")
+	// TODO(rog) is this really the right error here?
+	c.Assert(err, gc.ErrorMatches, `environment "`+s.envName+`" not found`)
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
-	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
-		if cond == "is-authenticated-user" {
-			return []checkers.Caveat{checkers.DeclaredCaveat("username", "testUnknown")}, nil
-		}
-		return nil, errors.New("unknown caveat")
+	s.DischargerLogin = func() string {
+		return "testUnknown@nowhere"
 	}
 
 	cmd := envcmd.NewEnvCommandBase(s.envName, nil, nil)
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "environment \""+s.envName+"\" not found")
-}
-
-// newClientAndServer returns a new running API server.
-func (s *macaroonLoginSuite) newClientAndServer(c *gc.C) (api.Connection, *apiserver.Server) {
-	listener, err := net.Listen("tcp", "localhost:0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
-		Cert: []byte(testing.ServerCert),
-		Key:  []byte(testing.ServerKey),
-		Tag:  names.NewMachineTag("0"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	client, err := api.Open(&api.Info{
-		Addrs:  []string{srv.Addr().String()},
-		CACert: testing.CACert,
-	}, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	return client, srv
+	// TODO(rog) is this really the right error here?
+	c.Assert(err, gc.ErrorMatches, `environment "`+s.envName+`" not found`)
 }

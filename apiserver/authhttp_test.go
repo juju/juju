@@ -15,19 +15,16 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -41,48 +38,51 @@ type authHttpSuite struct {
 	// of the suite.
 	macaroonAuthEnabled bool
 
-	jujutesting.JujuConnSuite
+	// MacaroonSuite is embedded because we need
+	// it when macaroonAuthEnabled is true.
+	// When macaroonAuthEnabled is false,
+	// only the JujuConnSuite in it will be initialized;
+	// all other fields will be zero.
+	apitesting.MacaroonSuite
+
 	envUUID string
 
 	// userTag and password hold the user tag and password
-	// to use in authRequest.
+	// to use in authRequest. When macaroonAuthEnabled
+	// is true, password will be empty.
 	userTag  names.UserTag
 	password string
-
-	// discharger holds the macaroon discharger.
-	// It will only be non-nil if macaroonAuthEnabled is true.
-	discharger *bakerytest.Discharger
-
-	// checker is used by the above discharger to
-	// check third party caveats. It must be set
-	// before any caveats are discharged.
-	checker func(cond, arg string) ([]checkers.Caveat, error)
 }
 
 func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	if s.macaroonAuthEnabled {
-		s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
-			return s.checker(cond, arg)
-		})
-		s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
-			config.IdentityURL: s.discharger.Location(),
-		}
+		s.MacaroonSuite.SetUpTest(c)
+	} else {
+		// No macaroons, so don't enable them.
+		s.JujuConnSuite.SetUpTest(c)
 	}
 
-	s.JujuConnSuite.SetUpTest(c)
 	s.envUUID = s.State.EnvironUUID()
 
-	// Make a user in the state.
-	s.password = "password"
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: s.password})
-	s.userTag = user.UserTag()
+	if s.macaroonAuthEnabled {
+		// When macaroon authentication is enabled, we must use
+		// an external user.
+		s.userTag = names.NewUserTag("bob@authhttpsuite")
+		s.AddEnvUser(c, s.userTag.Id())
+	} else {
+		// Make a user in the state.
+		s.password = "password"
+		user := s.Factory.MakeUser(c, &factory.UserParams{Password: s.password})
+		s.userTag = user.UserTag()
+	}
 }
 
 func (s *authHttpSuite) TearDownTest(c *gc.C) {
-	if s.discharger != nil {
-		s.discharger.Close()
+	if s.macaroonAuthEnabled {
+		s.MacaroonSuite.TearDownTest(c)
+	} else {
+		s.JujuConnSuite.TearDownTest(c)
 	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {

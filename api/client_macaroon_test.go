@@ -28,9 +28,9 @@ type clientMacaroonSuite struct {
 
 func (s *clientMacaroonSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	s.AddUser(c, "testuser")
+	s.AddEnvUser(c, "testuser@somewhere")
 	s.cookieJar = apitesting.NewClearableCookieJar()
-	s.DischargerLogin = func() string { return "testuser" }
+	s.DischargerLogin = func() string { return "testuser@somewhere" }
 	s.client = s.OpenAPI(c, nil, s.cookieJar).Client()
 
 	// Even though we've logged into the API, we want
