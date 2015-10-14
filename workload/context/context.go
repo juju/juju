@@ -60,32 +60,30 @@ type Context struct {
 	workloads map[string]workload.Info
 	updates   map[string]workload.Info
 
-	addEvents func(...workload.Event) error
 	// FindPlugin is the function used to find the plugin for the given
 	// plugin name.
 	FindPlugin func(pluginName, dataDir string) (workload.Plugin, error)
 }
 
 // NewContext returns a new jujuc.ContextComponent for workloads.
-func NewContext(api APIClient, dataDir string, addEvents func(...workload.Event) error) *Context {
+func NewContext(api APIClient, dataDir string) *Context {
 	return &Context{
 		api:        api,
 		dataDir:    dataDir,
 		workloads:  make(map[string]workload.Info),
 		updates:    make(map[string]workload.Info),
-		addEvents:  addEvents,
 		FindPlugin: plugin.Find,
 	}
 }
 
 // NewContextAPI returns a new jujuc.ContextComponent for workloads.
-func NewContextAPI(api APIClient, dataDir string, addEvents func(...workload.Event) error) (*Context, error) {
+func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
 	workloads, err := api.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ctx := NewContext(api, dataDir, addEvents)
+	ctx := NewContext(api, dataDir)
 	for _, wl := range workloads {
 		ctx.workloads[wl.ID()] = wl
 	}

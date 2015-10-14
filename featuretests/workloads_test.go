@@ -363,6 +363,11 @@ func (s *workloadsSuite) TestHookContextDestroy(c *gc.C) {
 	c.Skip("not finished")
 }
 
+func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
+	// TODO(ericsnow) Finish!
+	c.Skip("not finished")
+}
+
 func (s *workloadsSuite) TestWorkerCleanUp(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")

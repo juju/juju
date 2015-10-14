@@ -29,13 +29,13 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 
 	s.apiClient = newStubAPIClient(s.Stub)
 	s.dataDir = "some-data-dir"
-	s.compCtx = context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	s.compCtx = context.NewContext(s.apiClient, s.dataDir)
 
 	context.AddWorkloads(s.compCtx, s.workload)
 }
 
 func (s *contextSuite) newContext(c *gc.C, workloads ...workload.Info) *context.Context {
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	for _, wl := range workloads {
 		c.Logf("adding workload: %s", wl.ID())
 		context.AddWorkload(ctx, wl.ID(), wl)
@@ -43,16 +43,8 @@ func (s *contextSuite) newContext(c *gc.C, workloads ...workload.Info) *context.
 	return ctx
 }
 
-func (s *contextSuite) addEvents(events ...workload.Event) error {
-	s.Stub.AddCall("addEvents", events)
-	if err := s.Stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -84,7 +76,7 @@ func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
 func (s *contextSuite) TestNewContextAPIOkay(c *gc.C) {
 	expected := s.apiClient.setNew("A/xyx123")
 
-	ctx, err := context.NewContextAPI(s.apiClient, s.dataDir, s.addEvents)
+	ctx, err := context.NewContextAPI(s.apiClient, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	workloads, err := ctx.Workloads()
@@ -96,14 +88,14 @@ func (s *contextSuite) TestNewContextAPIOkay(c *gc.C) {
 func (s *contextSuite) TestNewContextAPICalls(c *gc.C) {
 	s.apiClient.setNew("A/xyz123")
 
-	_, err := context.NewContextAPI(s.apiClient, s.dataDir, s.addEvents)
+	_, err := context.NewContextAPI(s.apiClient, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "List")
 }
 
 func (s *contextSuite) TestNewContextAPIEmpty(c *gc.C) {
-	ctx, err := context.NewContextAPI(s.apiClient, s.dataDir, s.addEvents)
+	ctx, err := context.NewContextAPI(s.apiClient, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	workloads, err := ctx.Workloads()
@@ -116,7 +108,7 @@ func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
 	expected := errors.Errorf("<failed>")
 	s.Stub.SetErrors(expected)
 
-	_, err := context.NewContextAPI(s.apiClient, s.dataDir, s.addEvents)
+	_, err := context.NewContextAPI(s.apiClient, s.dataDir)
 
 	c.Check(errors.Cause(err), gc.Equals, expected)
 	s.Stub.CheckCallNames(c, "List")
@@ -124,7 +116,7 @@ func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
 
 func (s *contextSuite) TestContextComponentOkay(c *gc.C) {
 	hctx, info := s.NewHookContext()
-	expected := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	expected := context.NewContext(s.apiClient, s.dataDir)
 	info.SetComponent(workload.ComponentName, expected)
 
 	compCtx, err := context.ContextComponent(hctx)
@@ -182,7 +174,7 @@ func (s *contextSuite) TestWorkloadsOkay(c *gc.C) {
 func (s *contextSuite) TestWorkloadsAPI(c *gc.C) {
 	expected := s.apiClient.setNew("A/spam", "B/eggs", "C/ham")
 
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	context.AddWorkload(ctx, "A/spam", s.apiClient.workloads["A/spam"])
 	context.AddWorkload(ctx, "B/eggs", s.apiClient.workloads["B/eggs"])
 	context.AddWorkload(ctx, "C/ham", s.apiClient.workloads["C/ham"])
@@ -195,7 +187,7 @@ func (s *contextSuite) TestWorkloadsAPI(c *gc.C) {
 }
 
 func (s *contextSuite) TestWorkloadsEmpty(c *gc.C) {
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	workloads, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -227,7 +219,7 @@ func (s *contextSuite) TestWorkloadsOverrides(c *gc.C) {
 	infoC := s.newWorkload("C", "myplugin", "xyz789", "okay")
 	expected = append(expected[:1], infoB, infoC)
 
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	context.AddWorkload(ctx, "A/xyz123", s.apiClient.workloads["A/xyz123"])
 	context.AddWorkload(ctx, "B/xyz456", infoB)
 	ctx.Track(infoB)
@@ -271,7 +263,7 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 }
 
 func (s *contextSuite) TestGetNotFound(c *gc.C) {
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	_, err := ctx.Get("A/spam")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -279,7 +271,7 @@ func (s *contextSuite) TestGetNotFound(c *gc.C) {
 
 func (s *contextSuite) TestSetOkay(c *gc.C) {
 	info := s.newWorkload("A", "myplugin", "spam", "okay")
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.Track(info)
@@ -317,7 +309,7 @@ func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 }
 
 func (s *contextSuite) TestFlushEmpty(c *gc.C) {
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	err := ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -326,7 +318,7 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 
 func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
 	info := s.newWorkload("A", "myplugin", "spam", "okay")
-	ctx := context.NewContext(s.apiClient, s.dataDir, s.addEvents)
+	ctx := context.NewContext(s.apiClient, s.dataDir)
 	err := ctx.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
 	before, err := ctx.Workloads()

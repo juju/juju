@@ -10,18 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
-	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/worker/util"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/client"
 	"github.com/juju/juju/workload/api/server"
@@ -29,7 +24,6 @@ import (
 	"github.com/juju/juju/workload/persistence"
 	workloadstate "github.com/juju/juju/workload/state"
 	"github.com/juju/juju/workload/status"
-	"github.com/juju/juju/workload/workers"
 )
 
 const workloadsHookContextFacade = workload.ComponentName + "-hook-context"
@@ -40,8 +34,7 @@ func (c workloads) registerForServer() error {
 	c.registerState()
 	c.registerPublicFacade()
 
-	addEvents := c.registerUnitWorkers()
-	c.registerHookContext(addEvents)
+	c.registerHookContext()
 
 	return nil
 }
@@ -100,7 +93,7 @@ func (c workloads) registerPublicCommands() {
 	})
 }
 
-func (c workloads) registerHookContext(addEvents func(...workload.Event) error) {
+func (c workloads) registerHookContext() {
 	if !markRegistered(workload.ComponentName, "hook-context") {
 		return
 	}
@@ -109,7 +102,7 @@ func (c workloads) registerHookContext(addEvents func(...workload.Event) error) 
 		func(config runner.ComponentConfig) (jujuc.ContextComponent, error) {
 			hctxClient := c.newHookContextAPIClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
-			component, err := context.NewContextAPI(hctxClient, config.DataDir, addEvents)
+			component, err := context.NewContextAPI(hctxClient, config.DataDir)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -225,47 +218,6 @@ func (workloads) registerHookContextCommands() {
 		}
 		return cmd
 	})
-}
-
-// TODO(ericsnow) Use a watcher instead of passing around the event handlers?
-
-func (c workloads) registerUnitWorkers() func(...workload.Event) error {
-	if !markRegistered(workload.ComponentName, "workers") {
-		return nil
-	}
-
-	handlerFuncs := []func([]workload.Event, context.APIClient, workers.Runner) error{
-		workers.WorkloadHandler,
-	}
-
-	unitHandlers := workers.NewEventHandlers()
-	for _, handlerFunc := range handlerFuncs {
-		unitHandlers.RegisterHandler(handlerFunc)
-	}
-
-	newManifold := func(config unit.ComponentManifoldConfig) (dependency.Manifold, error) {
-		// At this point no workload workers are running for the unit.
-		// TODO(ericsnow) Move this code to workers.Manifold
-		// (and ManifoldConfig)?
-		apiConfig := util.AgentApiManifoldConfig{
-			APICallerName: config.APICallerName,
-			AgentName:     config.AgentName,
-		}
-		manifold := util.AgentApiManifold(apiConfig, func(unitAgent agent.Agent, caller base.APICaller) (worker.Worker, error) {
-			apiClient := c.newHookContextAPIClient(caller)
-			config := unitAgent.CurrentConfig()
-			dataDir := workload.DataDir(agent.Dir(config.DataDir(), config.Tag()))
-			unitHandlers.Reset(apiClient, dataDir)
-			return unitHandlers.StartEngine()
-		})
-		return manifold, nil
-	}
-	err := unit.RegisterComponentManifoldFunc(workload.ComponentName, newManifold)
-	if err != nil {
-		panic(err)
-	}
-
-	return unitHandlers.AddEvents
 }
 
 func (workloads) registerState() {
