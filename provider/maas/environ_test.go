@@ -301,6 +301,45 @@ iface eth0:1 inet static
 # Primary interface (defining the default route)
 iface eth0 inet manual
 `
+var networkDHCPWithAliasInitial = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    gateway 10.14.0.1
+    address 10.14.0.102/24
+
+auto eth0:1
+iface eth0:1 inet static
+    address 10.14.0.103/24
+
+auto eth0:2
+iface eth0:2 inet static
+    address 10.14.0.100/24
+
+dns-nameserver 192.168.1.142`
+
+var networkDHCPWithAliasFinal = `auto lo
+iface lo inet loopback
+
+auto juju-br0
+iface juju-br0 inet static
+    bridge_ports eth0
+    gateway 10.14.0.1
+    address 10.14.0.102/24
+
+auto eth0:1
+iface eth0:1 inet static
+    address 10.14.0.103/24
+
+auto eth0:2
+iface eth0:2 inet static
+    address 10.14.0.100/24
+
+dns-nameserver 192.168.1.142
+# Primary interface (defining the default route)
+iface eth0 inet manual
+`
 
 func writeNetworkScripts(c *gc.C, initialScript string) (string, string) {
 	tempDir := c.MkDir()
@@ -375,6 +414,10 @@ func (s *environSuite) TestRenderNetworkInterfacesScriptMultiple(c *gc.C) {
 
 func (s *environSuite) TestRenderNetworkInterfacesScriptWithAlias(c *gc.C) {
 	s.assertNetworkScript(c, networkWithAliasInitial, networkWithAliasFinal)
+}
+
+func (s *environSuite) TestRenderNetworkInterfacesScriptDHCPWithAlias(c *gc.C) {
+	s.assertNetworkScript(c, networkDHCPWithAliasInitial, networkDHCPWithAliasFinal)
 }
 
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
