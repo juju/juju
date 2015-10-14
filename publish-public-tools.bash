@@ -175,7 +175,7 @@ publish_to_azure() {
     echo "Phase 2: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
     if [[ ! $PURPOSE =~ ^(devel|proposed)$ ]]; then
-        ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish $PURPOSE $JUJU_DIST
+        ${SCRIPT_DIR}/azure_publish_tools.py publish $DRY_RUN $PURPOSE $JUJU_DIST
         verify_stream $AZURE_SITE $STREAM_PATH
     fi
     #
@@ -184,7 +184,7 @@ publish_to_azure() {
     if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
-    ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish released $JUJU_DIST
+    ${SCRIPT_DIR}/azure_publish_tools.py publish $DRY_RUN released $JUJU_DIST
     verify_stream $AZURE_SITE $JUJU_DIST/tools
 }
 
