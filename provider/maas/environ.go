@@ -1136,6 +1136,8 @@ isStatic() {
 }
 
 unAuto() {
+    # Remove the line auto starting the primary interface. \s*$ matches
+    # whitespace and the end of the line to avoid mangling aliases.
     grep -q "auto ${PRIMARY_IFACE}\s*$" {{.Config}} && \
     sed -i "s/auto ${PRIMARY_IFACE}\s*$//" {{.Config}}
 }
