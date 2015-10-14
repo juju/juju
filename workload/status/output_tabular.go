@@ -6,6 +6,7 @@ package status
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/juju/errors"
@@ -44,7 +45,11 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	// Write the header.
 	fmt.Fprintln(tw, section)
-	row(columns...)
+	var labels []string
+	for _, name := range columns {
+		labels = append(labels, strings.ToUpper(name))
+	}
+	row(labels...)
 
 	// Print each payload to its own row.
 	for _, payload := range payloads {

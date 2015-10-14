@@ -23,7 +23,7 @@ func (s *outputTabularSuite) TestFormatTabularOkay(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-unit             machine payload-class status  type   id     tags        
+UNIT             MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS        
 unit-a-service-0 1       spam          running docker idspam a-tag other 
 `[1:])
 }
@@ -36,7 +36,7 @@ func (s *outputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-unit             machine payload-class status  type   id     tags 
+UNIT             MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS 
 unit-a-service-0 1       spam          running docker idspam      
 `[1:])
 }
@@ -67,7 +67,7 @@ func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-unit                   machine payload-class status  type   id      tags        
+UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID      TAGS        
 unit-a-service-0       1       spam          running docker idspam  a-tag       
 unit-a-service-1       2       spam          stopped docker idspam  a-tag       
 unit-a-service-1       2       spam          running docker idspamB             
