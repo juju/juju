@@ -30,6 +30,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		return nil, errors.Errorf("expected value of type %T, got %T", payloads, value)
 	}
 
+	// TODO(ericsnow) sort the rows first?
+
 	var out bytes.Buffer
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
