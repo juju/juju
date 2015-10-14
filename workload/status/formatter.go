@@ -33,8 +33,11 @@ func (lf *listFormatter) format() []formattedPayload {
 }
 
 func (lf *listFormatter) formatPayload(payload workload.Payload) formattedPayload {
-	tags := make([]string, len(payload.Tags))
-	copy(tags, payload.Tags)
+	var tags []string
+	if len(payload.Tags) > 0 {
+		tags = make([]string, len(payload.Tags))
+		copy(tags, payload.Tags)
+	}
 	return formattedPayload{
 		Unit:    payload.Unit,
 		Machine: payload.Machine,
@@ -42,6 +45,7 @@ func (lf *listFormatter) formatPayload(payload workload.Payload) formattedPayloa
 		Type:    payload.Type,
 		Class:   payload.Name,
 		Tags:    tags,
-		Status:  payload.Status,
+		// TODO(ericsnow) Explicitly convert to a string?
+		Status: payload.Status,
 	}
 }
