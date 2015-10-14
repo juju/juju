@@ -151,8 +151,8 @@ func filterOne(payload Payload, predicates []func(Payload) bool) bool {
 // that may be passed to Filter.
 func BuildPredicatesFor(patterns []string) ([]func(Payload) bool, error) {
 	var predicates []func(Payload) bool
-	for _, pattern := range patterns {
-		pattern = strings.ToLower(pattern)
+	for i := range patterns {
+		pattern := strings.ToLower(patterns[i])
 
 		predicate := func(payload Payload) bool {
 			switch {
