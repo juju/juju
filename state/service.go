@@ -675,17 +675,27 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			return "", nil, err
 		}
 	}
-	return s.addUnitOpsWithCons(principalName, asserts, cons, false)
+	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
+	if err == nil {
+		// we verify the service is alive
+		asserts = append(isAliveDoc, asserts...)
+		ops = append(ops, s.incCountOp(asserts))
+	}
+	return names, ops, err
 }
 
 // addServiceUnitOps is just like addUnitOps but explicitly takes a
-// constraints value (this is useful at service creation time).
+// constraints value (this is used at service creation time).
 func (s *Service) addServiceUnitOps(principalName string, asserts bson.D, cons constraints.Value) (string, []txn.Op, error) {
-	return s.addUnitOpsWithCons(principalName, asserts, cons, true)
+	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
+	if err == nil {
+		ops = append(ops, s.incCountOp(asserts))
+	}
+	return names, ops, err
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
-func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons constraints.Value, duringAddService bool) (string, []txn.Op, error) {
+func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Value) (string, []txn.Op, error) {
 	if s.doc.Subordinate && principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !s.doc.Subordinate && principalName != "" {
@@ -730,20 +740,6 @@ func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons 
 		EnvUUID:    s.st.EnvironUUID(),
 	}
 
-	unitcntOp := txn.Op{
-		C:      servicesC,
-		Id:     s.doc.DocID,
-		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-	}
-
-	if !duringAddService {
-		// if we're performing this add unit during the service creation process,
-		// we can't assert that the service is alive yet... because it's not.
-		unitcntOp.Assert = append(isAliveDoc, asserts...)
-	} else if len(asserts) > 0 {
-		unitcntOp.Assert = asserts
-	}
-
 	ops := []txn.Op{
 		createStatusOp(s.st, globalKey, unitStatusDoc),
 		createStatusOp(s.st, agentGlobalKey, agentStatusDoc),
@@ -754,7 +750,6 @@ func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons 
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
-		unitcntOp,
 	}
 	ops = append(ops, storageOps...)
 
@@ -778,6 +773,16 @@ func (s *Service) addUnitOpsWithCons(principalName string, asserts bson.D, cons 
 	probablyUpdateStatusHistory(s.st, globalKey, unitStatusDoc)
 	probablyUpdateStatusHistory(s.st, agentGlobalKey, agentStatusDoc)
 	return name, ops, nil
+}
+
+// unitCountOp returns the operation to increment the service's unit count.
+func (s *Service) incCountOp(asserts bson.D) txn.Op {
+	return txn.Op{
+		C:      servicesC,
+		Id:     s.doc.DocID,
+		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+		Assert: asserts,
+	}
 }
 
 // unitStorageOps returns operations for creating storage
