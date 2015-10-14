@@ -210,9 +210,9 @@ var expectedCloudinitConfigWithBridge = []string{
 	"mkdir -p '/var/lib/juju'\ncat > '/var/lib/juju/MAASmachine.txt' << 'EOF'\n'hostname: testing.invalid\n'\nEOF\nchmod 0755 '/var/lib/juju/MAASmachine.txt'",
 }
 
-var expectedCloudinitConfigWithBridgeScriptPreamble = "\n# In case we already created the bridge, don't do it again.\ngrep -q \"iface juju-br0 inet dhcp\" /etc/network/interfaces && exit 0\n\n# Discover primary interface at run-time using the default route (if set)\nPRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)\n\n# If $PRIMARY_IFACE is empty, there's nothing to do.\n[ -z \"$PRIMARY_IFACE\" ] && exit 0\n\n"
+var expectedCloudinitConfigWithBridgeScriptPreamble = "\n# In case we already created the bridge, don't do it again.\ngrep -q \"iface juju-br0 inet dhcp\" /etc/network/interfaces && exit 0\n\n# Discover primary interface at run-time using the default route (if set)\nPRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)\n\n# If $PRIMARY_IFACE is empty, there's nothing to do.\n[ -z \"$PRIMARY_IFACE\" ] && exit 0\n\n# Log the contents of /etc/network/interfaces prior to modifying\necho \"Contents of /etc/network/interfaces before changes\"\ncat /etc/network/interfaces\n"
 
-var expectedCloudinitConfigWithBridgeScriptPostamble = "\n# Stop $PRIMARY_IFACE and start the bridge instead.\nifdown -v ${PRIMARY_IFACE} ; ifup -v juju-br0\n\n# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't\n# clash with the same automatically added route for juju-br0 (except\n# for the device name).\nip route flush dev $PRIMARY_IFACE scope link proto kernel || true\n"
+var expectedCloudinitConfigWithBridgeScriptPostamble = "\n# Log the contents of /etc/network/interfaces after modifying\necho \"Contents of /etc/network/interfaces after changes\"\ncat /etc/network/interfaces\n# Stop $PRIMARY_IFACE and start the bridge instead.\nifdown -v ${PRIMARY_IFACE} ; ifup -v juju-br0\n\n# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't\n# clash with the same automatically added route for juju-br0 (except\n# for the device name).\nip route flush dev $PRIMARY_IFACE scope link proto kernel || true\n"
 
 var networkStaticInitial = `auto lo
 iface lo inet loopback
@@ -301,6 +301,45 @@ iface eth0:1 inet static
 # Primary interface (defining the default route)
 iface eth0 inet manual
 `
+var networkDHCPWithAliasInitial = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    gateway 10.14.0.1
+    address 10.14.0.102/24
+
+auto eth0:1
+iface eth0:1 inet static
+    address 10.14.0.103/24
+
+auto eth0:2
+iface eth0:2 inet static
+    address 10.14.0.100/24
+
+dns-nameserver 192.168.1.142`
+
+var networkDHCPWithAliasFinal = `auto lo
+iface lo inet loopback
+
+auto juju-br0
+iface juju-br0 inet static
+    bridge_ports eth0
+    gateway 10.14.0.1
+    address 10.14.0.102/24
+
+auto eth0:1
+iface eth0:1 inet static
+    address 10.14.0.103/24
+
+auto eth0:2
+iface eth0:2 inet static
+    address 10.14.0.100/24
+
+dns-nameserver 192.168.1.142
+# Primary interface (defining the default route)
+iface eth0 inet manual
+`
 
 func writeNetworkScripts(c *gc.C, initialScript string) (string, string) {
 	tempDir := c.MkDir()
@@ -375,6 +414,10 @@ func (s *environSuite) TestRenderNetworkInterfacesScriptMultiple(c *gc.C) {
 
 func (s *environSuite) TestRenderNetworkInterfacesScriptWithAlias(c *gc.C) {
 	s.assertNetworkScript(c, networkWithAliasInitial, networkWithAliasFinal)
+}
+
+func (s *environSuite) TestRenderNetworkInterfacesScriptDHCPWithAlias(c *gc.C) {
+	s.assertNetworkScript(c, networkDHCPWithAliasInitial, networkDHCPWithAliasFinal)
 }
 
 func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
