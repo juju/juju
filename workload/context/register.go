@@ -95,6 +95,8 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Print out the full ID.
+
 	return nil
 }
 
