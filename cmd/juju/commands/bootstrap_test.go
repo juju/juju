@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
@@ -48,7 +48,7 @@ import (
 
 type BootstrapSuite struct {
 	coretesting.FakeJujuHomeSuite
-	gitjujutesting.MgoSuite
+	testing.MgoSuite
 	envtesting.ToolsFixture
 	mockBlockClient *mockBlockClient
 }
@@ -182,7 +182,22 @@ type bootstrapTest struct {
 	keepBroken  bool
 }
 
-func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutesting.Restorer) {
+func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, envName string) {
+	env := resetJujuHome(c, envName)
+	s.PatchValue(&series.HostSeries, func() string { return config.PreferredSeries(env.Config()) })
+	s.patchVersion(c)
+}
+
+func (s *BootstrapSuite) patchVersion(c *gc.C) {
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	num := version.Current.Number
+	num.Build = 1234
+	s.PatchValue(&version.Current.Number, num)
+}
+
+func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	env := resetJujuHome(c, "peckham")
@@ -192,7 +207,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 	// called with the right arguments.
 	prepareCalled := false
 	addrConnectedTo := "localhost:17070"
-	restore = gitjujutesting.PatchValue(
+	restore := testing.PatchValue(
 		&prepareEndpointsForCaching,
 		func(info configstore.EnvironInfo, hps [][]network.HostPort, addr network.HostPort) (_, _ []string, _ bool) {
 			prepareCalled = true
@@ -206,21 +221,14 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
-		origVersion := version.Current
-		version.Current = version.MustParseBinary(useVersion)
-		restore = restore.Add(func() {
-			version.Current = origVersion
-		})
+		v := version.MustParseBinary(useVersion)
+		restore = restore.Add(testing.PatchValue(&version.Current.Number, v.Number))
+		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
+		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
 	}
 
 	if test.hostArch != "" {
-		origArch := arch.HostArch
-		arch.HostArch = func() string {
-			return test.hostArch
-		}
-		restore = restore.Add(func() {
-			arch.HostArch = origArch
-		})
+		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return test.hostArch }))
 	}
 
 	// Run command and check for uploads.
@@ -407,19 +415,13 @@ func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
-	env := resetJujuHome(c, "devenv")
-	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Build = 1234
-	s.PatchValue(&version.Current, defaultSeriesVersion)
+	const envName = "devenv"
+	s.patchVersionAndSeries(c, envName)
 
-	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
+	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-e", "devenv")
+	_, err = coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
@@ -468,14 +470,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	}
 
 	const envName = "devenv"
-	env := resetJujuHome(c, envName)
-	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Build = 1234
-	s.PatchValue(&version.Current, defaultSeriesVersion)
+	s.patchVersionAndSeries(c, envName)
 	s.PatchValue(&environType, func(string) (string, error) { return "", nil })
 
 	_, err := coretesting.RunCommand(c, newBootstrapCommand(), "-e", envName)
@@ -483,7 +478,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 
 	// Change permissions on the jenv file to simulate some kind of
 	// unexpected error when trying to read info from the environment
-	jenvFile := gitjujutesting.HomePath(".juju", "environments", envName+".jenv")
+	jenvFile := testing.HomePath(".juju", "environments", envName+".jenv")
 	err = os.Chmod(jenvFile, os.FileMode(0200))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -582,26 +577,20 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
-	env := resetJujuHome(c, "devenv")
-	defaultSeriesVersion := version.Current
-	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Build = 1234
-	s.PatchValue(&version.Current, defaultSeriesVersion)
+	const envName = "devenv"
+	s.patchVersionAndSeries(c, envName)
 
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
-	environs.PrepareFromName("devenv", envcmd.BootstrapContext(ctx), store)
+	environs.PrepareFromName(envName, envcmd.BootstrapContext(ctx), store)
 
 	logger := "jenv.warning.test"
 	var testWriter loggo.TestWriter
 	loggo.RegisterWriter(logger, &testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
-	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", "devenv")
+	_, errc := cmdtesting.RunCommand(ctx, newBootstrapCommand(), "-e", envName)
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
@@ -649,36 +638,36 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 	sourceDir, _ := createImageMetadata(c)
 	resetJujuHome(c, "devenv")
 
-	_bootstrap := &fakeBootstrapFuncs{}
+	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return _bootstrap
+		return &bootstrap
 	})
 
 	coretesting.RunCommand(
 		c, newBootstrapCommand(),
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 	)
-	c.Assert(_bootstrap.args.MetadataDir, gc.Equals, sourceDir)
+	c.Assert(bootstrap.args.MetadataDir, gc.Equals, sourceDir)
 }
 
 func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string) {
 	resetJujuHome(c, "devenv")
 
-	_bootstrap := &fakeBootstrapFuncs{}
+	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return _bootstrap
+		return &bootstrap
 	})
 
-	currentVersion := version.Current
-	currentVersion.Major = 2
-	currentVersion.Minor = 3
-	s.PatchValue(&version.Current, currentVersion)
+	num := version.Current.Number
+	num.Major = 2
+	num.Minor = 3
+	s.PatchValue(&version.Current.Number, num)
 	coretesting.RunCommand(
 		c, newBootstrapCommand(),
 		"--agent-version", vers,
 	)
-	c.Assert(_bootstrap.args.AgentVersion, gc.NotNil)
-	c.Assert(*_bootstrap.args.AgentVersion, gc.Equals, version.MustParse(expect))
+	c.Assert(bootstrap.args.AgentVersion, gc.NotNil)
+	c.Assert(*bootstrap.args.AgentVersion, gc.Equals, version.MustParse(expect))
 }
 
 func (s *BootstrapSuite) TestBootstrapWithVersionNumber(c *gc.C) {
@@ -692,24 +681,24 @@ func (s *BootstrapSuite) TestBootstrapWithBinaryVersionNumber(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
 	resetJujuHome(c, "devenv")
 
-	_bootstrap := &fakeBootstrapFuncs{}
+	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return _bootstrap
+		return &bootstrap
 	})
 
-	currentVersion := version.Current
-	currentVersion.Major = 2
-	currentVersion.Minor = 22
-	currentVersion.Patch = 46
-	currentVersion.Series = "incorrect"
-	currentVersion.Arch = "amd64"
-	s.PatchValue(&version.Current, currentVersion)
+	num := version.Number{
+		Major: 2,
+		Minor: 22,
+		Patch: 46,
+	}
+	s.PatchValue(&version.Current.Number, num)
 	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&arch.HostArch, func() string { return "amd64" })
 	coretesting.RunCommand(
 		c, newBootstrapCommand(),
 		"--no-auto-upgrade",
 	)
-	c.Assert(*_bootstrap.args.AgentVersion, gc.Equals, version.MustParse("2.22.46"))
+	c.Assert(*bootstrap.args.AgentVersion, gc.Equals, version.MustParse("2.22.46"))
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -727,7 +716,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	checkTools(c, env, v120All)
 }
 
-func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
+func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) environs.Environ {
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
@@ -736,7 +725,8 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+arch.HostArch()))
+	s.PatchValue(&version.Current.Number, version.MustParse(vers))
+	s.PatchValue(&series.HostSeries, func() string { return ser })
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -793,12 +783,8 @@ Building tools to upload (1.7.3.1-raring-%s)
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	resetJujuHome(c, "devenv")
-	devVersion := version.Current
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	devVersion.Build = 1234
-	s.PatchValue(&version.Current, devVersion)
+	s.patchVersion(c)
+
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
@@ -820,12 +806,8 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	resetJujuHome(c, "devenv")
-	devVersion := version.Current
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	devVersion.Build = 1234
-	s.PatchValue(&version.Current, devVersion)
+	s.patchVersion(c)
+
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), newBootstrapCommand(), "-e", "brokenenv", "--keep-broken")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
@@ -862,7 +844,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuHome restores an new, clean Juju home environment without tools.
 func resetJujuHome(c *gc.C, envName string) environs.Environ {
-	jenvDir := gitjujutesting.HomePath(".juju", "environments")
+	jenvDir := testing.HomePath(".juju", "environments")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, jc.ErrorIsNil)
 	coretesting.WriteEnvironments(c, envConfig)

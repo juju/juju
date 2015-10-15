@@ -38,6 +38,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
+	"github.com/juju/juju/api/statushistory"
 	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
@@ -1082,9 +1083,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
 				})
 			}
-			a.startWorkerAfterUpgrade(singularRunner, "statushistorypruner", func() (worker.Worker, error) {
-				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
-			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
@@ -1214,6 +1212,21 @@ func (a *MachineAgent) startEnvWorkers(
 	} else {
 		logger.Debugf("not starting firewaller worker - firewall-mode is %q", fwMode)
 	}
+
+	singularRunner.StartWorker("statushistorypruner", func() (worker.Worker, error) {
+		f := statushistory.NewFacade(apiSt)
+		conf := statushistorypruner.Config{
+			Facade:           f,
+			MaxLogsPerEntity: params.DefaultMaxLogsPerEntity,
+			PruneInterval:    params.DefaultPruneInterval,
+			NewTimer:         worker.NewTimer,
+		}
+		w, err := statushistorypruner.New(conf)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start \"statushistorypruner\"")
+		}
+		return w, nil
+	})
 
 	return runner, nil
 }

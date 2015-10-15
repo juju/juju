@@ -126,7 +126,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 	c.Assert(*res.Hardware.CpuCores, gc.Equals, vsphere.DefaultCpuCores)
 	c.Assert(*res.Hardware.CpuPower, gc.Equals, vsphere.DefaultCpuPower)
 	c.Assert(*res.Hardware.Mem, gc.Equals, vsphere.DefaultMemMb)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB*1024)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
 
 func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
@@ -167,7 +167,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 	startInstArgs.Constraints.RootDisk = &rootDisk
 	res, err := s.Env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB*1024)
+	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
 
 func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {

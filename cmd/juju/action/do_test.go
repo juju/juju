@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -233,17 +233,17 @@ func (s *DoSuite) TestRun(c *gc.C) {
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidParams.yml",
 		},
-		expectedErr: "YAML error: line 3: mapping values are not allowed in this context",
+		expectedErr: "yaml: line 3: mapping values are not allowed in this context",
 	}, {
 		should: "fail with invalid UTF in file",
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidUTF.yml",
 		},
-		expectedErr: "YAML error: invalid leading UTF-8 octet",
+		expectedErr: "yaml: invalid leading UTF-8 octet",
 	}, {
 		should:      "fail with invalid YAML passed as arg and no --string-args",
 		withArgs:    []string{validUnitId, "some-action", "foo.bar=\""},
-		expectedErr: "YAML error: found unexpected end of stream",
+		expectedErr: "yaml: found unexpected end of stream",
 	}, {
 		should:   "enqueue a basic action with no params",
 		withArgs: []string{validUnitId, "some-action"},

@@ -669,8 +669,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty")
 	c.Assert(mapping, gc.DeepEquals, []awsec2.BlockDeviceMapping{{
 		VolumeSize: 8,
 		DeviceName: "/dev/sda1",

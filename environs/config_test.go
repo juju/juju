@@ -48,7 +48,7 @@ var invalidConfigTests = []struct {
 	env string
 	err string
 }{
-	{"'", "YAML error:.*"},
+	{"'", "yaml:.*"},
 	{`
 default: unknown
 environments:

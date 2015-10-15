@@ -25,7 +25,7 @@ type MeterStatusClient interface {
 }
 
 // NewClient creates a new client for accessing the MeterStatus API.
-func NewClient(caller base.APICaller, tag names.UnitTag) *Client {
+func NewClient(caller base.APICaller, tag names.UnitTag) MeterStatusClient {
 	return &Client{
 		facade: base.NewFacadeCaller(caller, "MeterStatus"),
 		tag:    tag,
