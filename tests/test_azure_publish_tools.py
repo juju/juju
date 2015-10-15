@@ -212,6 +212,10 @@ class TestPublishFiles(QuietTestCase):
             })
         with temp_dir() as local_dir:
             publish_files(service, RELEASED, local_dir, args)
+        self.assertEqual(['tools/index.json'],
+                         service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index.json']
+        self.assertEqual({}, blob._blocks)
 
     def test_one_local_file(self):
         args = Namespace(verbose=False, dry_run=False)
