@@ -167,7 +167,7 @@ func (s *Status) Resolve(message string) error {
 
 // Validate checkes the status to ensure it contains valid data.
 func (s Status) Validate() error {
-	if !okayStates.Contains(s.State) {
+	if err := ValidateState(s.State); err != nil {
 		return errors.NotValidf("Status.State (%q)", s.State)
 	}
 
