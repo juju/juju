@@ -32,6 +32,7 @@ UNKNOWN_PURPOSE = 5
 LIST = 'list'
 PUBLISH = 'publish'
 DELETE = 'delete'
+SYNC = 'sync'
 COMMANDS = (LIST, PUBLISH, DELETE)
 RELEASED = 'released'
 PROPOSED = 'proposed'
@@ -225,23 +226,29 @@ def main():
     """Execute the commands from the command line."""
     parser = get_option_parser()
     args = parser.parse_args()
+    blob_service = BlobService()
+    if args.command == SYNC:
+        return sync_files(blob_service, args.prefix, args.local_dir, args)
     if args.purpose not in PURPOSES:
         print('Unknown purpose: {}'.format(args.purpose))
         return UNKNOWN_PURPOSE
-    blob_service = BlobService()
     if args.command == LIST:
         return list_published_files(blob_service, args.purpose)
     elif args.command == PUBLISH:
-        if args.path is None or len(args.path) != 1:
-            parser.print_usage()
-            return BAD_ARGS
-        stream_path = os.path.join(args.path[0], get_prefix(args.purpose))
+        stream_path = os.path.join(args.path, get_prefix(args.purpose))
         return publish_files(blob_service, args.purpose, stream_path, args)
     elif args.command == DELETE:
         if args.path is None:
             parser.print_usage()
             return BAD_ARGS
         return delete_files(blob_service, args.purpose, args.path, args)
+
+
+def add_mutation_args(parser, dr_help):
+    parser.add_argument("-d", "--dry-run", action="store_true",
+                        default=False, help=dr_help)
+    parser.add_argument('-v', '--verbose', action="store_true",
+                        default=False, help='Increse verbosity.')
 
 
 def get_option_parser():
@@ -252,20 +259,20 @@ def get_option_parser():
         subparser = subparsers.add_parser(command, help='Command to run')
         subparser.add_argument(
             'purpose', help="<{}>".format(' | '.join(PURPOSES)))
-        if command in (PUBLISH, DELETE):
-            if command == PUBLISH:
-                path_help = 'The path to publish'
-                dr_help = 'Do not publish'
-            else:
-                path_help = 'The files to delete'
-                dr_help = 'Do not delete'
-            subparser.add_argument('path', nargs="+", help=path_help)
-            subparser.add_argument(
-                "-d", "--dry-run", action="store_true", default=False,
-                help=dr_help)
-            subparser.add_argument(
-                '-v', '--verbose', action="store_true", default=False,
-                help='Increse verbosity.')
+        if command == PUBLISH:
+            subparser.add_argument('path', help='The path to publish')
+            add_mutation_args(subparser, 'Do not publish')
+        elif command == DELETE:
+            subparser.add_argument('path', nargs="+",
+                                   help='The files to delete')
+            add_mutation_args(subparser, 'Do not delete')
+    sync_parser = subparsers.add_parser('sync',
+                                        help='Sync local files to remote.')
+    sync_parser.add_argument('local_dir', metavar='LOCAL-DIR',
+                             help='The local directory to sync')
+    sync_parser.add_argument('prefix', metavar='PREFIX',
+                             help='The remote prefix to sync to')
+    add_mutation_args(sync_parser, 'Do not sync')
     return parser
 
 

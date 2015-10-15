@@ -18,6 +18,7 @@ from azure_publish_tools import (
     PUBLISH,
     publish_files,
     RELEASED,
+    SYNC,
     SyncFile,
     sync_files,
     )
@@ -58,7 +59,7 @@ class TestOptionParser(TestCase):
         args = self.parse_args(['publish', 'mypurpose', 'mypath'])
         self.assertEqual(Namespace(
             command=PUBLISH, purpose='mypurpose', dry_run=False, verbose=False,
-            path=['mypath']), args)
+            path='mypath'), args)
 
     def test_publish_dry_run(self):
         args = self.parse_args(['publish', 'mypurpose', 'mypath', '--dry-run'])
@@ -69,8 +70,8 @@ class TestOptionParser(TestCase):
         self.assertIs(True, args.verbose)
 
     def test_publish_path(self):
-        args = self.parse_args(['publish', 'mypurpose', 'mypath', 'mypath2'])
-        self.assertEqual(['mypath', 'mypath2'], args.path)
+        args = self.parse_args(['publish', 'mypurpose', 'mypath2'])
+        self.assertEqual('mypath2', args.path)
 
     def test_delete(self):
         args = self.parse_args(['delete', 'mypurpose', 'mypath'])
@@ -89,6 +90,24 @@ class TestOptionParser(TestCase):
     def test_delete_path(self):
         args = self.parse_args(['delete', 'mypurpose', 'mypath', 'mypath2'])
         self.assertEqual(['mypath', 'mypath2'], args.path)
+
+    def test_sync(self):
+        args = self.parse_args(['sync', 'mypath', 'myprefix'])
+        self.assertEqual(Namespace(
+            command=SYNC, prefix='myprefix', dry_run=False, verbose=False,
+            local_dir='mypath'), args)
+
+    def test_sync_dry_run(self):
+        args = self.parse_args(['sync', 'mypath', 'myprefix', '--dry-run'])
+        self.assertIs(True, args.dry_run)
+
+    def test_sync_verbose(self):
+        args = self.parse_args(['sync', 'mypath', 'myprefix', '--verbose'])
+        self.assertIs(True, args.verbose)
+
+    def test_sync_path(self):
+        args = self.parse_args(['sync', 'mypath2', 'myprefix'])
+        self.assertEqual('mypath2', args.local_dir)
 
 
 class FakeBlobProperties:
