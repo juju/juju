@@ -82,13 +82,18 @@ def get_local_files(purpose, local_dir):
     if not os.path.isdir(local_dir):
         print('%s not found.' % local_dir)
         return None
-    replacements = (local_dir, get_prefix(purpose))
+    return [x for x in get_local_sync_files(get_prefix(purpose), local_dir) if
+            'mirror' not in os.path.basename(x.local_path)]
+
+
+def get_local_sync_files(prefix, local_dir):
+    replacements = (local_dir, prefix)
     found = []
     for path, subdirs, files in os.walk(local_dir):
         for name in files:
             local_path = os.path.join(path, name)
             publish_path = local_path.replace(*replacements)
-            if 'mirror' in name or os.path.islink(local_path):
+            if os.path.islink(local_path):
                 # The mirror files only belong on streams.canonical.com.
                 continue
             size = os.path.getsize(local_path)
@@ -150,11 +155,6 @@ def normalized_dir(local_dir):
     if local_dir.endswith('/'):
         local_dir = local_dir[:-1]
     return local_dir
-
-
-def sync_files(blob_service, prefix, local_dir, args):
-    local_dir = normalized_dir(local_dir)
-    remote_files = list_sync_files()
 
 
 def publish_files(blob_service, purpose, local_dir, args):
