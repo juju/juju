@@ -12,6 +12,8 @@ import (
 
 // TODO(ericsnow) Track juju-level status in the status collection.
 
+// EnvPayloads exposes high-level interaction with all workloads
+// in an environment.
 type EnvPayloads interface {
 	// ListAll builds the list of registered payloads in the env and returns it.
 	ListAll() ([]workload.Payload, error)
@@ -19,16 +21,34 @@ type EnvPayloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newEnvPayloadsFunc func(_ Persistence, machineNames func() ([]string, error), machineUnits func(string) ([]names.UnitTag, error)) (EnvPayloads, error)
+// PayloadsEnvPersistence provides all the information needed to produce
+// a new EnvPayloads value.
+type PayloadsEnvPersistence interface {
+	Persistence
+
+	// TODO(ericsnow) Drop the machine-related API and provide UnitTags()?
+
+	// MachineNames builds the list of the names that identify
+	// all machines in State.
+	MachineNames() ([]string, error)
+
+	// MachineUnits builds the list of tags that identify all units
+	// for a given machine.
+	MachineUnits(machineName string) ([]names.UnitTag, error)
+}
+
+type newEnvPayloadsFunc func(PayloadsEnvPersistence) (EnvPayloads, error)
 
 var (
 	newEnvPayloads newEnvPayloadsFunc
 )
 
+// TODO(ericsnow) Merge the 2 Set*Component funcs.
+
 // SetPayloadComponent registers the functions that provide the state
 // functionality related to payloads.
-func SetPayloadsComponent(upFunc newEnvPayloadsFunc) {
-	newEnvPayloads = upFunc
+func SetPayloadsComponent(epFunc newEnvPayloadsFunc) {
+	newEnvPayloads = epFunc
 }
 
 // EnvPayloads exposes interaction with payloads in state.
@@ -37,8 +57,11 @@ func (st *State) EnvPayloads() (EnvPayloads, error) {
 		return nil, errors.Errorf("payloads not supported")
 	}
 
-	persist := st.newPersistence()
-	envPayloads, err := newEnvPayloads(persist, st.allMachineNames, st.unitTagsFor)
+	persist := &payloadsEnvPersistence{
+		Persistence: st.newPersistence(),
+		st:          st,
+	}
+	envPayloads, err := newEnvPayloads(persist)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -46,8 +69,14 @@ func (st *State) EnvPayloads() (EnvPayloads, error) {
 	return envPayloads, nil
 }
 
-func (st *State) allMachineNames() ([]string, error) {
-	ms, err := st.AllMachines()
+type payloadsEnvPersistence struct {
+	Persistence
+	st *State
+}
+
+// MachineNames implements PayloadsEnvPersistence.
+func (ep *payloadsEnvPersistence) MachineNames() ([]string, error) {
+	ms, err := ep.st.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -58,8 +87,9 @@ func (st *State) allMachineNames() ([]string, error) {
 	return names, nil
 }
 
-func (st *State) unitTagsFor(machine string) ([]names.UnitTag, error) {
-	us, err := st.UnitsFor(machine)
+// MachineUnits implements PayloadsEnvPersistence.
+func (ep *payloadsEnvPersistence) MachineUnits(machine string) ([]names.UnitTag, error) {
+	us, err := ep.st.UnitsFor(machine)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

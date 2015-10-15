@@ -50,12 +50,12 @@ func (s *envPayloadsSuite) TestListAllOkay(c *gc.C) {
 	s.persists.setPayloads(p1, p2)
 
 	ps := state.EnvPayloads{
-		UnitListFuncs: s.persists.listFuncs,
+		Persist: s.persists,
 	}
 	payloads, err := ps.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListAll")
+	s.stub.CheckCallNames(c, "ListAll", "ListAll")
 	checkPayloads(c, payloads, []workload.Payload{
 		p1,
 		p2,
@@ -74,12 +74,12 @@ func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 	s.persists.setPayloads(p1, p2, p3, p4)
 
 	ps := state.EnvPayloads{
-		UnitListFuncs: s.persists.listFuncs,
+		Persist: s.persists,
 	}
 	payloads, err := ps.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListAll", "ListAll", "ListAll")
+	s.stub.CheckCallNames(c, "ListAll", "ListAll", "ListAll", "ListAll")
 	checkPayloads(c, payloads, []workload.Payload{
 		p1,
 		p2,
@@ -96,7 +96,7 @@ func (s *envPayloadsSuite) TestListAllFailed(c *gc.C) {
 	s.persists.setPayloads(p1, p2)
 
 	ps := state.EnvPayloads{
-		UnitListFuncs: s.persists.listFuncs,
+		Persist: s.persists,
 	}
 	_, err := ps.ListAll()
 
@@ -143,23 +143,29 @@ type stubPayloadsPersistence struct {
 	persists map[string]map[string]*fakeWorkloadsPersistence
 }
 
-func (s *stubPayloadsPersistence) listFuncs() ([]func() ([]workload.Info, string, string, error), error) {
-	var funcs []func() ([]workload.Info, string, string, error)
+func (s *stubPayloadsPersistence) ListAll() ([]workload.Payload, error) {
+	s.stub.AddCall("ListAll")
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var payloads []workload.Payload
 	for machine, units := range s.persists {
 		for unit, unitWorkloads := range units {
-			pmachine := machine
-			punit := unit
-			persist := unitWorkloads
-			funcs = append(funcs, func() ([]workload.Info, string, string, error) {
-				workloads, err := persist.ListAll()
-				if err != nil {
-					return nil, "", "", errors.Trace(err)
-				}
-				return workloads, pmachine, punit, nil
-			})
+			workloads, err := unitWorkloads.ListAll()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			for _, workload := range workloads {
+				payload := workload.AsPayload()
+				payload.Machine = machine
+				payload.Unit = unit
+				payloads = append(payloads, payload)
+			}
 		}
 	}
-	return funcs, nil
+	return payloads, nil
 }
 
 func (s *stubPayloadsPersistence) checkPayloads(c *gc.C, expectedList []workload.Payload) {

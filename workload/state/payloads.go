@@ -9,33 +9,26 @@ import (
 	"github.com/juju/juju/workload"
 )
 
+// EnvPersistence provides the persistence functionality for the
+// Juju environment as a whole.
+type EnvPersistence interface {
+	// ListAll returns the list of all payloads in the environment.
+	ListAll() ([]workload.Payload, error)
+}
+
 // EnvPayloads provides the functionality related to an env's
 // payloads, as needed by state.
 type EnvPayloads struct {
-	UnitListFuncs func() ([]func() ([]workload.Info, string, string, error), error)
+	Persist EnvPersistence
 }
 
 // ListAll builds the list of payload information that is registered in state.
 func (ps EnvPayloads) ListAll() ([]workload.Payload, error) {
 	logger.Tracef("listing all payloads")
 
-	funcs, err := ps.UnitListFuncs()
+	payloads, err := ps.Persist.ListAll()
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	var payloads []workload.Payload
-	for _, listAll := range funcs {
-		workloads, machine, unit, err := listAll()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, info := range workloads {
-			payload := info.AsPayload()
-			payload.Unit = unit
-			payload.Machine = machine
-			payloads = append(payloads, payload)
-		}
 	}
 	return payloads, nil
 }
