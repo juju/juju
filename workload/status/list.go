@@ -103,7 +103,8 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
 
-	formatter := newListFormatter(infos, c.CompatVersion())
+	// Note that we do not worry about c.CompatVersion for list-payloads...
+	formatter := newListFormatter(infos)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }

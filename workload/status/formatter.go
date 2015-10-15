@@ -8,14 +8,14 @@ import (
 )
 
 type listFormatter struct {
-	payloads      []workload.Payload
-	compatVersion int
+	payloads []workload.Payload
 }
 
-func newListFormatter(payloads []workload.Payload, compatVersion int) *listFormatter {
+func newListFormatter(payloads []workload.Payload) *listFormatter {
+	// Note that unlike the "juju status" code, we don't worry
+	// about "compatVersion".
 	lf := listFormatter{
-		payloads:      payloads,
-		compatVersion: compatVersion,
+		payloads: payloads,
 	}
 	return &lf
 }
@@ -27,13 +27,13 @@ func (lf *listFormatter) format() []FormattedPayload {
 
 	var formatted []FormattedPayload
 	for _, payload := range lf.payloads {
-		formatted = append(formatted, FormatPayload(payload, lf.compatVersion))
+		formatted = append(formatted, FormatPayload(payload))
 	}
 	return formatted
 }
 
 // FormatPayload converts the Payload into a FormattedPayload.
-func FormatPayload(payload workload.Payload, compatVersion int) FormattedPayload {
+func FormatPayload(payload workload.Payload) FormattedPayload {
 	var tags []string
 	if len(payload.Tags) > 0 {
 		tags = make([]string, len(payload.Tags))

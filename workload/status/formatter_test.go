@@ -17,7 +17,7 @@ type formatterSuite struct{}
 func (s *formatterSuite) TestFormatPayloadOkay(c *gc.C) {
 	payload := status.NewPayload("spam", "a-service", 1, 0)
 	payload.Tags = []string{"a-tag"}
-	formatted := status.FormatPayload(payload, 0)
+	formatted := status.FormatPayload(payload)
 
 	c.Check(formatted, jc.DeepEquals, status.FormattedPayload{
 		Unit:    "unit-a-service-0",
