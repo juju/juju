@@ -56,7 +56,7 @@ func (c *StatusSetCmd) Init(args []string) error {
 	c.class = args[0]
 	c.id = args[1]
 	c.status = args[2]
-	return nil
+	return cmd.CheckEmpty(args[3:])
 }
 
 // Run implements cmd.Command.
