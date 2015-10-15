@@ -23,7 +23,7 @@ type UnitWorkloads interface {
 	// List returns information on the workload with the id on the unit.
 	List(ids ...string) ([]workload.Info, error)
 	// Settatus sets the status for the workload with the given id on the unit.
-	SetStatus(class, id, status string) error
+	SetStatus(docID, status string) error
 	// Untrack removes the information for the workload with the given id.
 	Untrack(id string) error
 }
@@ -108,10 +108,11 @@ func (a HookContextAPI) List(args api.ListArgs) (api.ListResults, error) {
 func (a HookContextAPI) SetStatus(args api.SetStatusArgs) (api.WorkloadResults, error) {
 	r := api.WorkloadResults{}
 	for _, arg := range args.Args {
+		ID := workload.BuildID(arg.Class, arg.ID)
 		res := api.WorkloadResult{
-			ID: arg.Class + "/" + arg.ID,
+			ID: ID,
 		}
-		err := a.State.SetStatus(arg.Class, arg.ID, arg.Status)
+		err := a.State.SetStatus(ID, arg.Status)
 		if err != nil {
 			res.Error = common.ServerError(err)
 			r.Error = common.ServerError(api.BulkFailure)

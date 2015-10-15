@@ -28,14 +28,19 @@ type Info struct {
 	Details Details
 }
 
-// ID composes a unique ID for the workload (relative to the unit/charm).
+// ID returns a uniqueID for a workload (relative to the unit/charm).
 func (info Info) ID() string {
-	if info.Details.ID == "" {
+	return BuildID(info.Workload.Name, info.Details.ID)
+}
+
+// BuildID composes an ID from a class and id
+func BuildID(class, id string) string {
+	if id == "" {
 		// TODO(natefinch) remove this special case when we can be sure the ID
 		// is never empty (and fix the tests).
-		return info.Workload.Name
+		return class
 	}
-	return info.Workload.Name + "/" + info.Details.ID
+	return class + "/" + id
 }
 
 // ParseID extracts the workload name and details ID from the provided string.

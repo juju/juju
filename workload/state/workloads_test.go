@@ -89,8 +89,7 @@ func (s *unitWorkloadsSuite) TestSetStatusOkay(c *gc.C) {
 
 	ps := state.UnitWorkloads{Persist: s.persist}
 
-	cls, id := workload.ParseID(wl.ID())
-	err := ps.SetStatus(cls, id, workload.StateRunning)
+	err := ps.SetStatus(wl.ID(), workload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetStatus")
@@ -106,14 +105,14 @@ func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
 	s.persist.setWorkloads(&wl)
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.SetStatus("docker", "workloadA", workload.StateRunning)
+	err := ps.SetStatus(wl.ID(), workload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *unitWorkloadsSuite) TestSetStatusMissing(c *gc.C) {
 	ps := state.UnitWorkloads{Persist: s.persist}
-	err := ps.SetStatus("some", "workload", workload.StateRunning)
+	err := ps.SetStatus("some/workload", workload.StateRunning)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
