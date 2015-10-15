@@ -177,7 +177,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	username := names.NewUserTag(creds.User).Username()
+	username := names.NewUserTag(creds.User).Canonical()
 
 	env, err := c.findMatchingEnvironment(ctx, client, creds)
 	if err != nil {
@@ -208,7 +208,7 @@ func (c *useEnvironmentCommand) Run(ctx *cmd.Context) error {
 		existingCreds := existing.APICredentials()
 		// Need to make sure we check the username of the credentials,
 		// not just matching tags.
-		existingUsername := names.NewUserTag(existingCreds.User).Username()
+		existingUsername := names.NewUserTag(existingCreds.User).Canonical()
 		if endpoint.EnvironUUID == env.UUID && existingUsername == username {
 			ctx.Infof("You already have environment details for %q cached locally.", c.LocalName)
 			return envcmd.SetCurrentEnvironment(ctx, c.LocalName)
@@ -247,7 +247,7 @@ func (c *useEnvironmentCommand) findMatchingEnvironment(ctx *cmd.Context, client
 	var owner string
 	if c.Owner != "" {
 		// The username always contains the provider aspect of the user.
-		owner = names.NewUserTag(c.Owner).Username()
+		owner = names.NewUserTag(c.Owner).Canonical()
 	}
 
 	// If we have a UUID, we warn if the owner is different, but accept it.

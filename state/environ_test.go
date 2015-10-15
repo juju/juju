@@ -62,7 +62,7 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 		"uuid": newUUID.String(),
 	})
 	_, _, err = s.State.NewEnvironment(cfg2, owner)
-	errMsg := fmt.Sprintf("environment %q for %s already exists", cfg2.Name(), owner.Username())
+	errMsg := fmt.Sprintf("environment %q for %s already exists", cfg2.Name(), owner.Canonical())
 	c.Assert(err, gc.ErrorMatches, errMsg)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
@@ -363,7 +363,7 @@ func (s *EnvironSuite) TestAllEnvironments(c *gc.C) {
 	c.Assert(envs, gc.HasLen, 3)
 	var obtained []string
 	for _, env := range envs {
-		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Username(), env.Name()))
+		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Canonical(), env.Name()))
 	}
 	expected := []string{
 		"test-admin@local/testenv",

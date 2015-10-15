@@ -304,7 +304,7 @@ func (s *EnvUserSuite) TestIsSystemAdministrator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: user.UserTag().Username()})
+	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: user.UserTag().Canonical()})
 	isAdmin, err = s.State.IsSystemAdministrator(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)

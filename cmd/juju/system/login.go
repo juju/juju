@@ -153,8 +153,8 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 		}
 
 		userTag = names.NewUserTag(serverDetails.Username)
-		if userTag.Provider() != names.LocalProvider {
-			// Remove users do not have their passwords stored in Juju
+		if !userTag.IsLocal() {
+			// Remote users do not have their passwords stored in Juju
 			// so we never attempt to change them.
 			c.KeepPassword = true
 		}

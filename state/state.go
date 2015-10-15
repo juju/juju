@@ -111,7 +111,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	id := userEnvNameIndex(env.Owner().Username(), env.Name())
+	id := userEnvNameIndex(env.Owner().Canonical(), env.Name())
 	ops := []txn.Op{{
 		// Cleanup the owner:envName unique key.
 		C:      userenvnameC,
@@ -763,7 +763,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.UserTag:
 		coll = usersC
 		if !tag.IsLocal() {
-			return "", nil, fmt.Errorf("%q is not a local user", tag.Username())
+			return "", nil, fmt.Errorf("%q is not a local user", tag.Canonical())
 		}
 		id = tag.Name()
 	case names.RelationTag:

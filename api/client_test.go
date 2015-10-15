@@ -377,7 +377,7 @@ func (s *clientSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
 
 	err := client.UnshareEnvironment(user)
 	c.Assert(err, jc.ErrorIsNil)
-	logMsg := fmt.Sprintf("WARNING juju.api environment was not previously shared with user %s", user.Username())
+	logMsg := fmt.Sprintf("WARNING juju.api environment was not previously shared with user %s", user.Canonical())
 	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
 }
 
