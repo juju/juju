@@ -112,19 +112,19 @@ func environFromNameProductionFunc(
 	return env, cleanup, err
 }
 
-// resolveCharmURL resolves the given charm URL string
+// resolveCharmStoreEntityURL resolves the given charm or bundle URL string
 // by looking it up in the appropriate charm repository.
-// If it is a charm store charm URL, the given csParams will
+// If it is a charm store URL, the given csParams will
 // be used to access the charm store repository.
-// If it is a local charm URL, the local charm repository at
+// If it is a local charm or bundle URL, the local charm repository at
 // the given repoPath will be used. The given configuration
 // will be used to add any necessary attributes to the repo
 // and to resolve the default series if possible.
 //
-// resolveCharmURL also returns the charm repository holding
-// the charm.
-func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, repoPath string, conf *config.Config) (*charm.URL, charmrepo.Interface, error) {
-	ref, err := charm.ParseReference(curlStr)
+// resolveCharmStoreEntityURL also returns the charm repository holding
+// the charm or bundle.
+func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreParams, repoPath string, conf *config.Config) (*charm.URL, charmrepo.Interface, error) {
+	ref, err := charm.ParseReference(urlStr)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -164,8 +164,7 @@ func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, rep
 // addCharmViaAPI calls the appropriate client API calls to add the
 // given charm URL to state. For non-public charm URLs, this function also
 // handles the macaroon authorization process using the given csClient.
-// The resulting charm URL of the added charm is displayed on stdout.
-func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
+func addCharmViaAPI(client *api.Client, curl *charm.URL, repo charmrepo.Interface, csclient *csClient) (*charm.URL, error) {
 	switch curl.Schema {
 	case "local":
 		ch, err := repo.Get(curl)
@@ -193,7 +192,6 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	default:
 		return nil, fmt.Errorf("unsupported charm URL schema: %q", curl.Schema)
 	}
-	ctx.Infof("Added charm %q to the environment.", curl)
 	return curl, nil
 }
 
