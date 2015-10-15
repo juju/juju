@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -17,13 +16,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
 
 	"github.com/juju/juju/api"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -978,68 +975,52 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
-	jujutesting.JujuConnSuite
-	discharger *bakerytest.Discharger
-
-	// checker holds the checker used by the above discharger.
-	checker func(string, string) ([]checkers.Caveat, error)
-
-	// client holds an API connection that has not logged in.
-	client api.Connection
+	apitesting.MacaroonSuite
 }
 
-func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
-		return s.checker(cond, arg)
-	})
-	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
-		config.IdentityURL: s.discharger.Location(),
+func (s *macaroonLoginSuite) TestLoginToSystem(c *gc.C) {
+	// Note that currently we cannot use macaroon auth
+	// to log into the system rather than an environment
+	// because there's no place to store the fact that
+	// a given external user is allowed access to the system.
+	s.DischargerLogin = func() string {
+		return "test@somewhere"
 	}
-	s.JujuConnSuite.SetUpTest(c)
-	s.Factory.MakeUser(c, &factory.UserParams{
-		Name: "test",
-	})
-	apiInfo := s.APIInfo(c)
-	// Don't log in.
-	apiInfo.Tag = nil
-	apiInfo.Password = ""
-	client, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.client = client
+	info := s.APIInfo(c)
+
+	// Zero the environment tag so that we log into the system
+	// not the environment.
+	info.EnvironTag = names.EnvironTag{}
+
+	client, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(client, gc.Equals, nil)
 }
 
-func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
-	s.discharger.Close()
-	s.client.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *macaroonLoginSuite) TestSuccessfulLogin(c *gc.C) {
-	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
-		if cond == "is-authenticated-user" {
-			return []checkers.Caveat{checkers.DeclaredCaveat("username", "test")}, nil
-		}
-		return nil, errors.New("unknown caveat")
+func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
+	s.AddEnvUser(c, "test@somewhere")
+	s.DischargerLogin = func() string {
+		return "test@somewhere"
 	}
-	err := s.client.Login(nil, "", "")
+	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
+	client.Close()
 }
 
 func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
-	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
-		return nil, errors.New("unknown caveat")
+	s.DischargerLogin = func() string {
+		return ""
 	}
-	err := s.client.Login(nil, "", "")
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: unknown caveat`)
+	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(client, gc.Equals, nil)
 }
 
 func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
-	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
-		if cond == "is-authenticated-user" {
-			return []checkers.Caveat{checkers.DeclaredCaveat("username", "testUnknown")}, nil
-		}
-		return nil, errors.New("unknown caveat")
+	s.DischargerLogin = func() string {
+		return "testUnknown@somewhere"
 	}
-	err := s.client.Login(nil, "", "")
+	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(client, gc.Equals, nil)
 }

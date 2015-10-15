@@ -86,16 +86,34 @@ func (m *MacaroonAuthenticator) newDischargeRequiredError(cause error) error {
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
 func (m *MacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
 	declared, err := m.Service.CheckAny(req.Macaroons, nil, checkers.New(checkers.TimeBefore))
-	if err != nil {
+	if _, ok := errors.Cause(err).(*bakery.VerificationError); ok {
 		return nil, m.newDischargeRequiredError(err)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !names.IsValidUser(declared[usernameKey]) {
-		return nil, errors.Errorf("%q is an invalid user name", declared[usernameKey])
+	username := declared[usernameKey]
+	var tag names.UserTag
+	if names.IsValidUserName(username) {
+		// The name is a local name without an explicit @local suffix.
+		// In this case, for compatibility with 3rd parties that don't
+		// care to add their own domain, we add an @external domain
+		// to ensure there is no confusion between local and external
+		// users.
+		// TODO(rog) remove this logic when deployed dischargers
+		// always add an @ domain.
+		tag = names.NewLocalUserTag(username).WithDomain("external")
+	} else {
+		// We have a name with an explicit domain (or an invalid user name).
+		if !names.IsValidUser(username) {
+			return nil, errors.Errorf("%q is an invalid user name", username)
+		}
+		tag = names.NewUserTag(username)
+		if tag.IsLocal() {
+			return nil, errors.Errorf("external identity provider has provided ostensibly local name %q", username)
+		}
 	}
-	entity, err := entityFinder.FindEntity(names.NewUserTag(declared[usernameKey]))
+	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
 		return nil, errors.Trace(common.ErrBadCreds)
 	} else if err != nil {

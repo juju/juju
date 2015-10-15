@@ -205,14 +205,11 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	// state server will fail.
 	proxy.Close()
 
-	client, srv := newClientAndServer(c, st)
-	defer client.Close()
-	defer srv.Stop()
-
-	// Check  that we really have killed the connection by
-	// trying to make a call that requires the state.
-	err = client.Login(names.NewUserTag("blah"), "bad", "")
-	c.Assert(err, gc.ErrorMatches, "connection is shut down")
+	// Creating the server should succeed because it doesn't
+	// access the state (note that newServer does not log in,
+	// which *would* access the state).
+	srv := newServer(c, st)
+	srv.Stop()
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
@@ -447,9 +444,8 @@ func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	c.Assert(resource.stopped, jc.IsTrue)
 }
 
-// newClientAndServer returns a new running API server with a client
-// that is not logged in.
-func newClientAndServer(c *gc.C, st *state.State) (api.Connection, *apiserver.Server) {
+// newServer returns a new running API server.
+func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
@@ -458,19 +454,5 @@ func newClientAndServer(c *gc.C, st *state.State) (api.Connection, *apiserver.Se
 		Tag:  names.NewMachineTag("0"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	client, err := api.Open(&api.Info{
-		Addrs:  []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},
-		CACert: coretesting.CACert,
-	}, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	return client, srv
-}
-
-// newServer returns a new running API server.
-func newServer(c *gc.C, st *state.State) *apiserver.Server {
-	client, server := newClientAndServer(c, st)
-	client.Close()
-	return server
+	return srv
 }

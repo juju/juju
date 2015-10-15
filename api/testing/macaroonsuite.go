@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
@@ -62,10 +63,15 @@ func (s *MacaroonSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-// AddUser adds a new user to the user database.
-func (s *MacaroonSuite) AddUser(c *gc.C, name string) {
-	s.Factory.MakeUser(c, &factory.UserParams{
-		Name: name,
+// AddEnvUser is a convenience function that adds an external
+// user to the current environment. It will panic
+// if the user name is local.
+func (s *MacaroonSuite) AddEnvUser(c *gc.C, username string) {
+	if names.NewUserTag(username).IsLocal() {
+		panic("cannot use MacaroonSuite.AddEnvUser to add a local name")
+	}
+	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		User: username,
 	})
 }
 

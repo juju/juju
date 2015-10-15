@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver"
@@ -141,14 +140,9 @@ func (s *backupsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredE
 
 func (s *backupsWithMacaroonsSuite) TestCanGetWithDischargedMacaroon(c *gc.C) {
 	checkCount := 0
-	s.checker = func(cond, arg string) ([]checkers.Caveat, error) {
-		if cond != "is-authenticated-user" {
-			return nil, errors.Errorf("unrecognized caveat %q", cond)
-		}
+	s.DischargerLogin = func() string {
 		checkCount++
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", s.userTag.Id()),
-		}, nil
+		return s.userTag.Id()
 	}
 	s.fake.Error = errors.New("failed!")
 	resp := s.sendRequest(c, httpRequestParams{

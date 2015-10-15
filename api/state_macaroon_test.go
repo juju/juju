@@ -18,9 +18,11 @@ type macaroonLoginSuite struct {
 	client api.Connection
 }
 
+const testUserName = "testuser@somewhere"
+
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	s.AddUser(c, "testuser")
+	s.AddEnvUser(c, testUserName)
 	info := s.APIInfo(c)
 	// Don't log in.
 	info.UseMacaroons = false
@@ -33,7 +35,7 @@ func (s *macaroonLoginSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestSuccessfulLogin(c *gc.C) {
-	s.DischargerLogin = func() string { return "testuser" }
+	s.DischargerLogin = func() string { return testUserName }
 	err := s.client.Login(nil, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -57,7 +59,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	dischargeCount := 0
 	s.DischargerLogin = func() string {
 		dischargeCount++
-		return "testuser"
+		return testUserName
 	}
 	// First log into the regular API.
 	err := s.client.Login(nil, "", "")
@@ -92,7 +94,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 		if dischargeError {
 			return ""
 		}
-		return "testuser"
+		return testUserName
 	}
 
 	// Make an API connection that uses a cookie jar
