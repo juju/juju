@@ -67,7 +67,7 @@ func (ps UnitWorkloads) Track(info workload.Info) error {
 // SetStatus updates the raw status for the identified workload to the
 // provided value.
 func (ps UnitWorkloads) SetStatus(docID, status string) error {
-	logger.Tracef("setting payload status for %q/%q to %q", docID, status)
+	logger.Tracef("setting payload status for %q to %q", docID, status)
 
 	if err := workload.ValidateState(status); err != nil {
 		return errors.Trace(err)
