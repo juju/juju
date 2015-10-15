@@ -5,7 +5,8 @@ set -eux
 candidate_version="$1"
 old_juju_version="$2"
 new_to_old="$3"
-shift 3
+log_dir="$4"
+shift 4
 
 if [ -f $HOME/old-juju/win/juju-$candidate_version-win.zip ]; then
     /cygdrive/c/progra~2/7-Zip/7z.exe e -y -ocandidate C:\\users\\Administrator\\old-juju\\win\\juju-$candidate_version-win.zip
@@ -27,7 +28,8 @@ fi
 echo "Server:" `$server --version`
 echo "Client:" `$client --version`
 
-mkdir logs
+mkdir $log_dir
 juju destroy-environment --force -y compatibility-control-win || true
 python C:\\users\\Administrator\\juju-ci-tools\\assess_heterogeneous_control.py \
-  $server $client test-win-client-server compatibility-control-win logs "$@"
+  $server $client test-win-client-server compatibility-control-win $log_dir "$@"
+
