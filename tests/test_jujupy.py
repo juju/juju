@@ -680,11 +680,14 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch('jujupy.until_timeout', lambda x, start=None: range(1)):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for agents to start in local'):
-                    with patch('logging.error'):
+                writes = []
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda self, s: writes.append(s)):
+                    with self.assertRaisesRegexp(
+                            Exception,
+                            'Timed out waiting for agents to start in local'):
                         client.wait_for_started()
+                self.assertEqual(writes, ['pending: 0', ' .', '\n'])
 
     def test_wait_for_started_start(self):
         value = self.make_status_yaml('agent-state', 'started', 'pending')
@@ -692,22 +695,28 @@ class TestEnvJujuClient(ClientTest):
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
-                with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for agents to start in local'):
-                    with patch('logging.error'):
+                writes = []
+                with patch.object(GroupReporter, '_write', autospec=True,
+                                  side_effect=lambda self, s: writes.append(s)):
+                    with self.assertRaisesRegexp(
+                            Exception,
+                            'Timed out waiting for agents to start in local'):
                         client.wait_for_started(start=now - timedelta(1200))
+                self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            with self.assertRaisesRegexp(
-                    Exception,
-                    'Timed out waiting for agents to start in local'):
-                with patch('jujupy.log.error') as le_mock:
+            writes = []
+            with patch.object(GroupReporter, '_write', autospec=True,
+                              side_effect=lambda self, s: writes.append(s)):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
                     client.wait_for_started(0)
-        le_mock.assert_called_once_with(value)
+            self.assertEqual(writes, ['pending: 0', '\n'])
+        self.assertEqual(self.log_stream.getvalue(), 'ERROR %s\n' % value)
 
     def test_wait_for_subordinate_units(self):
         value = dedent("""\
@@ -794,9 +803,8 @@ class TestEnvJujuClient(ClientTest):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for agents to start in local'):
-                    with patch('logging.error'):
-                        client.wait_for_subordinate_units(
-                            'jenkins', 'sub1', start=now - timedelta(1200))
+                    client.wait_for_subordinate_units(
+                        'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_subordinate_units_no_subordinate(self):
         value = dedent("""\
@@ -816,9 +824,8 @@ class TestEnvJujuClient(ClientTest):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for agents to start in local'):
-                    with patch('logging.error'):
-                        client.wait_for_subordinate_units(
-                            'jenkins', 'sub1', start=now - timedelta(1200))
+                    client.wait_for_subordinate_units(
+                        'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
@@ -844,10 +851,16 @@ class TestEnvJujuClient(ClientTest):
         })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            with self.assertRaisesRegexp(
-                    Exception,
-                    'Timed out waiting for voting to be enabled.'):
-                client.wait_for_ha(0.01)
+            writes = []
+            with patch.object(GroupReporter, '_write', autospec=True,
+                              side_effect=lambda self, s: writes.append(s)):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for voting to be enabled.'):
+                    client.wait_for_ha(0.01)
+            self.assertEqual(writes[:2], ['no-vote: 0, 1, 2', ' .'])
+            self.assertEqual(writes[2:-1], ['.'] * (len(writes) - 3))
+            self.assertEqual(writes[-1:], ['\n'])
 
     def test_wait_for_ha_timeout(self):
         value = yaml.safe_dump({
