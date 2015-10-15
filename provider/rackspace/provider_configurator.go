@@ -11,13 +11,17 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/openstack"
 )
 
 type rackspaceProviderConfigurator struct{}
 
+var _ openstack.OpenstackProviderConfigurator = (*rackspaceProviderConfigurator)(nil)
+
 // InitialNetworks implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) InitialNetworks() []nova.ServerNetworks {
-	// this are default racksapace networks http://docs.rackspace.com/servers/api/v2/cs-devguide/content/provision_server_with_networks.html
+	// These are the default rackspace networks, see:
+	// http://docs.rackspace.com/servers/api/v2/cs-devguide/content/provision_server_with_networks.html
 	return []nova.ServerNetworks{
 		{NetworkId: "00000000-0000-0000-0000-000000000000"},
 		{NetworkId: "11111111-1111-1111-1111-111111111111"},
@@ -26,7 +30,8 @@ func (c *rackspaceProviderConfigurator) InitialNetworks() []nova.ServerNetworks 
 
 // ModifyRunServerOptions implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
-	// more on how ConfigDrive option is used on rackspace http://docs.rackspace.com/servers/api/v2/cs-devguide/content/config_drive_ext.html
+	// More on how ConfigDrive option is used on rackspace:
+	// http://docs.rackspace.com/servers/api/v2/cs-devguide/content/config_drive_ext.html
 	options.ConfigDrive = true
 }
 
@@ -36,21 +41,18 @@ func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstan
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// we need this package for sshInstanceConfigurator, to save iptables state between restarts
+	// Additional package required for sshInstanceConfigurator, to save
+	// iptables state between restarts.
 	cloudcfg.AddPackage("iptables-persistent")
 	return cloudcfg, nil
 }
 
-// OpenPorts opens the given port ranges for the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
+// OpenPorts is not supported on the environment for Rackspace.
 func (c *rackspaceProviderConfigurator) OpenPorts(ports []network.PortRange) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
 
-// ClosePorts closes the given port ranges for the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
+// ClosePorts is not supported on the environment for Rackspace.
 func (c *rackspaceProviderConfigurator) ClosePorts(ports []network.PortRange) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
@@ -62,7 +64,7 @@ func (c *rackspaceProviderConfigurator) Ports() ([]network.PortRange, error) {
 	return nil, errors.Trace(errors.NotSupportedf("Ports"))
 }
 
-// DeleteglobalGroups implements OpenstackProviderConfigurator interface.
+// DeleteGlobalGroups implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) DeleteGlobalGroups() error {
 	return nil
 }

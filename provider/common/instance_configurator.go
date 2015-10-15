@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
-// Implementations of this interface should provide a way to configure external IP allocation and add firewall functionality,
-// for  providers, that don't support those features natively in their API.
+// Implementations of this interface should provide a way to configure external
+// IP allocation and add firewall functionality.
 type InstanceConfigurator interface {
 
 	// Close all ports.

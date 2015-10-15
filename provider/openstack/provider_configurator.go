@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// This interface  is added to allow to customize openstack provider behaviour.
-// This is used in other providers, that embeds openstack provider.
+// OpenstackProviderConfigurator allows custom openstack provider behaviour.
+// This is used in other providers, that embed the openstack provider.
 type OpenstackProviderConfigurator interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	OpenPorts(ports []network.PortRange) error
@@ -35,7 +35,7 @@ type OpenstackProviderConfigurator interface {
 	// Ports returns the port ranges opened for the whole environment.
 	Ports() ([]network.PortRange, error)
 
-	//Implementations shoud delete all global security groups.
+	// Implementations shoud delete all global security groups.
 	DeleteGlobalGroups() error
 
 	// Implementations should return list of security groups, that belong to given instances.
@@ -51,7 +51,7 @@ type OpenstackProviderConfigurator interface {
 	ModifyRunServerOptions(options *nova.RunServerOpts)
 
 	// This method provides default cloud config.
-	// This config can be defferent for different providers.
+	// This config can be different for different providers.
 	GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error)
 }
 
@@ -73,7 +73,7 @@ func (c *defaultProviderConfigurator) GetCloudConfig(args environs.StartInstance
 	return nil, nil
 }
 
-// setUpGroups creates the security groups for the new machine, and
+// SetUpGroups creates the security groups for the new machine, and
 // returns them.
 //
 // Instances are tagged with a group so they can be distinguished from
@@ -109,6 +109,7 @@ func (c *defaultProviderConfigurator) SetUpGroups(machineId string, apiPort int)
 	}
 	return groups, nil
 }
+
 func (c *defaultProviderConfigurator) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
 	return c.ensureGroup(groupName,
 		[]nova.RuleInfo{
@@ -219,7 +220,7 @@ func (c *defaultProviderConfigurator) GetSecurityGroups(ids ...instance.Id) ([]s
 	return securityGroupNames, nil
 }
 
-// DeleteglobalGroups implements OpenstackProviderConfigurator interface.
+// DeleteGlobalGroups implements OpenstackProviderConfigurator interface.
 func (c *defaultProviderConfigurator) DeleteGlobalGroups() error {
 	novaClient := c.environ.nova()
 	securityGroups, err := novaClient.ListSecurityGroups()
