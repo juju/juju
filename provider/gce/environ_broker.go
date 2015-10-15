@@ -176,7 +176,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	instSpec := google.InstanceSpec{
 		ID:                machineID,
 		Type:              spec.InstanceType.Name,
-		Disks:             getDisks(spec, args.Constraints),
+		Disks:             getDisks(spec, args.Constraints, args.InstanceConfig.Series),
 		NetworkInterfaces: []string{"ExternalNAT"},
 		Metadata:          metadata,
 		Tags:              tags,
@@ -229,8 +229,8 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.DiskSpec {
-	size := common.MinRootDiskSizeGiB
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, series string) []google.DiskSpec {
+	size := common.MinRootDiskSizeGiB(series)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
 	}

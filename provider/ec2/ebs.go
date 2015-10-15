@@ -847,13 +847,13 @@ func minRootDiskSizeMiB(ser string) uint64 {
 func getBlockDeviceMappings(cons constraints.Value, ser string) []ec2.BlockDeviceMapping {
 	rootDiskSizeMiB := minRootDiskSizeMiB(ser)
 	if cons.RootDisk != nil {
-		if *cons.RootDisk >= minRootDiskSizeMiB(ser) {
+		if *cons.RootDisk >= rootDiskSizeMiB {
 			rootDiskSizeMiB = *cons.RootDisk
 		} else {
 			logger.Infof(
 				"Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
 				*cons.RootDisk,
-				minRootDiskSizeMiB(ser),
+				rootDiskSizeMiB,
 			)
 		}
 	}

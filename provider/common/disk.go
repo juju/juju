@@ -4,8 +4,7 @@
 package common
 
 import (
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	"github.com/juju/juju/version"
 )
 
 // MinRootDiskSizeGiB is the minimum size for the root disk of an
@@ -14,11 +13,11 @@ import (
 // data.
 func MinRootDiskSizeGiB(ser string) uint64 {
 	// See comment below that explains why we're ignoring the error
-	os, _ := series.GetOSFromSeries(ser)
+	os, _ := version.GetOSFromSeries(ser)
 	switch os {
-	case jujuos.Ubuntu, jujuos.CentOS:
+	case version.Ubuntu, version.CentOS:
 		return 8
-	case jujuos.Windows:
+	case version.Windows:
 		return 40
 	// By default we just return a "sane" default, since the error will just
 	// be returned by the api and seen in juju status

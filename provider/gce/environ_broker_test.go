@@ -174,7 +174,7 @@ func (s *environBrokerSuite) TestGetMetadata(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
-	diskSpecs := gce.GetDisks(s.spec, s.StartInstArgs.Constraints)
+	diskSpecs := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "trusty")
 
 	c.Assert(diskSpecs, gc.HasLen, 1)
 
