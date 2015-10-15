@@ -95,25 +95,12 @@ func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func newStatusInfo(state, message, pluginStatus string) workload.CombinedStatus {
-	return workload.CombinedStatus{
-		Status: workload.Status{
-			State:   state,
-			Message: message,
-		},
-		PluginStatus: workload.PluginStatus{
-			State: pluginStatus,
-		},
-	}
-}
-
 func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
 	s.SetDocs(wl)
-	status := newStatusInfo(workload.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(wl.ID(), status)
+	okay, err := pp.SetStatus(wl.ID(), workload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
@@ -126,9 +113,8 @@ func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 			Update: bson.D{
 				{"$set", bson.D{
 					{"state", workload.StateRunning},
-					{"blocker", ""},
-					{"status", "good to go"},
-					{"pluginstatus", "still running"},
+					{"status", workload.StateRunning},
+					{"pluginstatus", workload.StateRunning},
 				}},
 			},
 		},
@@ -137,10 +123,9 @@ func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 
 func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
-	status := newStatusInfo(workload.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus("workloadA/workloadA-xyz", status)
+	okay, err := pp.SetStatus("workloadA/workloadA-xyz", workload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
@@ -153,9 +138,8 @@ func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 			Update: bson.D{
 				{"$set", bson.D{
 					{"state", workload.StateRunning},
-					{"blocker", ""},
-					{"status", "good to go"},
-					{"pluginstatus", "still running"},
+					{"status", workload.StateRunning},
+					{"pluginstatus", workload.StateRunning},
 				}},
 			},
 		},
@@ -167,10 +151,9 @@ func (s *workloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.SetDocs(wl)
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
-	status := newStatusInfo(workload.StateRunning, "good to go", "still running")
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus(wl.ID(), status)
+	_, err := pp.SetStatus(wl.ID(), workload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

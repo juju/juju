@@ -139,15 +139,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, jc.DeepEquals, []workload.Info{info})
 
-	err = st.SetStatus("workloadA/xyz", workload.CombinedStatus{
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "still okay",
-		},
-		PluginStatus: workload.PluginStatus{
-			State: "still running",
-		},
-	})
+	err = st.SetStatus("workloadA/xyz", "running")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workloads, err = st.List("workloadA/xyz")
@@ -175,12 +167,12 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,
-			Message: "still okay",
+			Message: "running",
 		},
 		Details: workload.Details{
 			ID: "xyz",
 			Status: workload.PluginStatus{
-				State: "still running",
+				State: "running",
 			},
 		},
 	}})

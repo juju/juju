@@ -84,18 +84,38 @@ func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
 }
 
 // SetStatus calls the SetStatus API server method.
-func (c HookContextClient) SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error {
+func (c HookContextClient) SetStatus(class, status string, ids ...string) ([]workload.Result, error) {
 	statusArgs := make([]api.SetStatusArg, len(ids))
 	for i, id := range ids {
 		statusArgs[i] = api.SetStatusArg{
-			ID:           id,
-			Status:       api.Status2apiStatus(status),
-			PluginStatus: api.PluginStatus2apiPluginStatus(pluginStatus),
+			Class:  class,
+			ID:     id,
+			Status: status,
+		}
+	}
+	args := api.SetStatusArgs{Args: statusArgs}
+
+	res := api.WorkloadResults{}
+	if err := c.FacadeCall("SetStatus", &args, &res); err != nil {
+		return nil, err
+	}
+	if res.Error != nil {
+		return nil, errors.Errorf(res.Error.GoString())
+	}
+
+	var errs []workload.Result
+	if len(res.Results) > 0 {
+		errs = make([]workload.Result, len(res.Results))
+		for i, r := range res.Results {
+			p := workload.Result{ID: r.ID}
+			if r.Error != nil {
+				p.Err = r.Error
+			}
+			errs[i] = p
 		}
 	}
 
-	args := api.SetStatusArgs{Args: statusArgs}
-	return c.FacadeCall("SetStatus", &args, nil)
+	return errs, nil
 }
 
 // Untrack calls the Untrack API server method.

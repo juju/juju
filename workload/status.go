@@ -13,15 +13,15 @@ import (
 // The Juju-recognized states in which a workload might be.
 const (
 	StateUndefined = ""
-	StateDefined   = "defined"
-	StateStarting  = "starting"
-	StateRunning   = "running"
-	StateStopping  = "stopping"
-	StateStopped   = "stopped"
+	//TODO(wwitzel3) remove defined throughout
+	StateDefined  = "defined"
+	StateStarting = "starting"
+	StateRunning  = "running"
+	StateStopping = "stopping"
+	StateStopped  = "stopped"
 )
 
 var okayStates = set.NewStrings(
-	StateDefined,
 	StateStarting,
 	StateRunning,
 	StateStopping,
@@ -167,7 +167,7 @@ func (s *Status) Resolve(message string) error {
 
 // Validate checkes the status to ensure it contains valid data.
 func (s Status) Validate() error {
-	if !okayStates.Contains(s.State) {
+	if err := ValidateState(s.State); err != nil {
 		return errors.NotValidf("Status.State (%q)", s.State)
 	}
 
@@ -187,6 +187,14 @@ func (s Status) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+// ValidateState verifies the state passed in is a valid okayState.
+func ValidateState(state string) error {
+	if !okayStates.Contains(state) {
+		return errors.NotValidf("state (%q)", state)
+	}
 	return nil
 }
 

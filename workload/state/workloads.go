@@ -21,7 +21,8 @@ var logger = loggo.GetLogger("juju.workload.state")
 // The persistence methods needed for workloads in state.
 type workloadsPersistence interface {
 	Track(info workload.Info) (bool, error)
-	SetStatus(id string, status workload.CombinedStatus) (bool, error)
+	// SetStatus updates the status for a payload.
+	SetStatus(docID, status string) (bool, error)
 	List(ids ...string) ([]workload.Info, []string, error)
 	ListAll() ([]workload.Info, error)
 	Untrack(id string) (bool, error)
@@ -65,18 +66,19 @@ func (ps UnitWorkloads) Track(info workload.Info) error {
 
 // SetStatus updates the raw status for the identified workload to the
 // provided value.
-func (ps UnitWorkloads) SetStatus(id string, status workload.CombinedStatus) error {
-	logger.Tracef("setting status for %q", id)
-	if err := status.Validate(); err != nil {
+func (ps UnitWorkloads) SetStatus(docID, status string) error {
+	logger.Tracef("setting payload status for %q to %q", docID, status)
+
+	if err := workload.ValidateState(status); err != nil {
 		return errors.Trace(err)
 	}
 
-	found, err := ps.Persist.SetStatus(id, status)
+	found, err := ps.Persist.SetStatus(docID, status)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !found {
-		return errors.NotFoundf(id)
+		return errors.NotFoundf(docID)
 	}
 	return nil
 }

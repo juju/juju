@@ -26,7 +26,7 @@ type APIClient interface {
 	// Untrack removes the workloads from our list track.
 	Untrack(ids []string) ([]workload.Result, error)
 	// SetStatus sets the status for the given IDs.
-	SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error
+	SetStatus(class, status string, ids ...string) ([]workload.Result, error)
 }
 
 // TODO(ericsnow) Rename Get and Set to more specifically describe what
@@ -42,6 +42,8 @@ type Component interface {
 	Track(info workload.Info) error
 	// Untrack removes the workload from our list of workloads to track.
 	Untrack(id string) error
+	// SetStatus sets the status of the payload.
+	SetStatus(class, id, status string) error
 	// List returns the list of registered workload IDs.
 	List() ([]string, error)
 	// Flush pushes the hook context data out to state.
@@ -219,6 +221,20 @@ func (c *Context) Untrack(id string) error {
 		return errors.Trace(res[0].Err)
 	}
 	delete(c.workloads, id)
+
+	return nil
+}
+
+func (c *Context) SetStatus(class, id, status string) error {
+	logger.Tracef("Calling status-set on payload context %q", id)
+
+	res, err := c.api.SetStatus(class, status, id)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(res) > 0 && res[0].Err != nil {
+		return errors.Trace(res[0].Err)
+	}
 
 	return nil
 }

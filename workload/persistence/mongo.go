@@ -71,13 +71,12 @@ func (pp Persistence) newInsertWorkloadOps(info workload.Info) []txn.Op {
 	return ops
 }
 
-func (pp Persistence) newSetRawStatusOps(id string, status workload.CombinedStatus) []txn.Op {
+func (pp Persistence) newSetRawStatusOps(status, id string) []txn.Op {
 	id = pp.workloadID(id)
 	updates := bson.D{
-		{"state", status.Status.State},
-		{"blocker", status.Status.Blocker},
-		{"status", status.Status.Message},
-		{"pluginstatus", status.PluginStatus.State},
+		{"state", status},
+		{"status", status},
+		{"pluginstatus", status},
 	}
 	return []txn.Op{{
 		C:      workloadsC,

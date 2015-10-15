@@ -296,29 +296,16 @@ func (suite) TestSetStatus(c *gc.C) {
 	a := HookContextAPI{st}
 	args := api.SetStatusArgs{
 		Args: []api.SetStatusArg{{
-			ID: "fooID/bar",
-			Status: api.WorkloadStatus{
-				State:   workload.StateRunning,
-				Message: "okay",
-			},
-			PluginStatus: api.PluginStatus{
-				State: "statusfoo",
-			},
+			Class:  "fooID",
+			ID:     "bar",
+			Status: workload.StateRunning,
 		}},
 	}
 	res, err := a.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(st.id, gc.Equals, "fooID/bar")
-	c.Assert(st.status, jc.DeepEquals, workload.CombinedStatus{
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		PluginStatus: workload.PluginStatus{
-			State: "statusfoo",
-		},
-	})
+	c.Assert(st.status, gc.Equals, workload.StateRunning)
 
 	expected := api.WorkloadResults{
 		Results: []api.WorkloadResult{{
@@ -384,7 +371,7 @@ type FakeState struct {
 	// inputs
 	id     string
 	ids    []string
-	status workload.CombinedStatus
+	status string
 
 	// info is used as input and output
 	info workload.Info
@@ -405,7 +392,7 @@ func (f *FakeState) List(ids ...string) ([]workload.Info, error) {
 	return f.workloads, f.err
 }
 
-func (f *FakeState) SetStatus(id string, status workload.CombinedStatus) error {
+func (f *FakeState) SetStatus(id, status string) error {
 	f.id = id
 	f.status = status
 	return f.err

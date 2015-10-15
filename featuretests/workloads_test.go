@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/workers"
 )
 
 func initWorkloadsSuites() {
@@ -363,75 +361,6 @@ func (s *workloadsSuite) TestHookContextUntrack(c *gc.C) {
 func (s *workloadsSuite) TestHookContextDestroy(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Skip("not finished")
-}
-
-func (s *workloadsSuite) TestWorkerSetStatus(c *gc.C) {
-	svc := s.env.addService(c, "workload-actions", "status-worker")
-	s.svc = svc
-
-	svc.dummy.prepPlugin(c, "myworkload", "xyz123", "running")
-
-	args := map[string]interface{}{
-		"name": "myworkload",
-	}
-	period := time.Second * 5
-	// TODO(ericsnow) This does not propagate out to other machines.
-	workers.SetStatusWorkerUpdatePeriod(period)
-	svc.dummy.runAction(c, "launch", args)
-
-	args = map[string]interface{}{
-		"id":     "xyz123",
-		"status": "testing",
-	}
-	svc.dummy.runAction(c, "plugin-setstatus", args)
-	time.Sleep(period * 2)
-
-	svc.dummy.checkState(c, []workload.Info{{
-		Workload: charm.Workload{
-			Name: "myworkload",
-			Type: "myplugin",
-			TypeOptions: map[string]string{
-				"critical": "true",
-			},
-			Command: "run-server",
-			Image:   "web-server",
-			Ports: []charm.WorkloadPort{{
-				External: 8080,
-				Internal: 80,
-				Endpoint: "",
-			}, {
-				External: 8081,
-				Internal: 443,
-				Endpoint: "",
-			}},
-			Volumes: []charm.WorkloadVolume{{
-				ExternalMount: "/var/some-server/html",
-				InternalMount: "/usr/share/some-server/html",
-				Mode:          "ro",
-				Name:          "",
-			}, {
-				ExternalMount: "/var/some-server/conf",
-				InternalMount: "/etc/some-server",
-				Mode:          "ro",
-				Name:          "",
-			}},
-			EnvVars: map[string]string{
-				"IMPORTANT": "some value",
-			},
-		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Blocker: "",
-			Message: "myworkload/xyz123 is being tracked",
-		},
-		Details: workload.Details{
-			ID: "xyz123",
-			Status: workload.PluginStatus{
-				State: "testing",
-			},
-		},
-	}})
-
 }
 
 func (s *workloadsSuite) TestWorkerCleanUp(c *gc.C) {

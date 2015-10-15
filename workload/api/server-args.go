@@ -72,12 +72,12 @@ type SetStatusArgs struct {
 // SetStatusArg are the arguments for a single call to the
 // SetStatus endpoint.
 type SetStatusArg struct {
+	// Class is the Class of the workload.
+	Class string
 	// ID is the ID of the workload.
 	ID string
 	// Status is the status of the workload.
-	Status WorkloadStatus
-	// PluginStatus is the plugin-provided status of the workload.
-	PluginStatus PluginStatus
+	Status string
 }
 
 // UntrackArgs are the arguments for the Untrack endpoint.

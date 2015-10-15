@@ -173,6 +173,19 @@ func (c *stubContextComponent) Untrack(id string) error {
 	return nil
 }
 
+func (c *stubContextComponent) SetStatus(class, id, status string) error {
+	c.stub.AddCall("SetStatus", class, id, status)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	ID := class + "/" + id
+	workload := c.workloads[ID]
+	workload.Status.State = status
+	workload.Details.Status.State = status
+	return nil
+}
+
 func (c *stubContextComponent) Flush() error {
 	c.stub.AddCall("Flush")
 	if err := c.stub.NextErr(); err != nil {
@@ -278,18 +291,22 @@ func (c *stubAPIClient) Untrack(ids []string) ([]workload.Result, error) {
 	return errs, nil
 }
 
-func (c *stubAPIClient) SetStatus(status workload.Status, pluginStatus workload.PluginStatus, ids ...string) error {
-	c.stub.AddCall("SetStatus", status, pluginStatus, ids)
+func (c *stubAPIClient) SetStatus(class, status string, ids ...string) ([]workload.Result, error) {
+	c.stub.AddCall("SetStatus", class, status, ids)
 	if err := c.stub.NextErr(); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
+	errs := []workload.Result{}
 	for _, id := range ids {
-		workload := c.workloads[id]
-		workload.Status = status
-		workload.Details.Status = pluginStatus
+		ID := class + "/" + id
+		wkl := c.workloads[ID]
+		wkl.Status.State = status
+		wkl.Details.Status.State = status
+		errs = append(errs, workload.Result{ID: ID})
 	}
-	return nil
+
+	return errs, nil
 }
 
 type stubPlugin struct {

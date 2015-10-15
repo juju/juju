@@ -82,13 +82,13 @@ func (pp Persistence) Track(info workload.Info) (bool, error) {
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The workload is not checked for inconsistent records.
-func (pp Persistence) SetStatus(id string, status workload.CombinedStatus) (bool, error) {
+func (pp Persistence) SetStatus(id, status string) (bool, error) {
 	logger.Tracef("setting status for %q", id)
 
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
+	ops = append(ops, pp.newSetRawStatusOps(status, id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			found = false
