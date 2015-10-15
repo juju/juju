@@ -5,7 +5,6 @@ from datetime import (
     timedelta,
 )
 import os
-import shutil
 import StringIO
 import subprocess
 import sys
@@ -89,9 +88,6 @@ class ClientTest(FakeHomeTestCase):
 
     def setUp(self):
         super(ClientTest, self).setUp()
-        patcher = patch('jujupy.pause')
-        self.addCleanup(patcher.stop)
-        self.pause_mock = patcher.start()
         patcher = patch('jujupy.pause')
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
@@ -1057,20 +1053,19 @@ class TestEnvJujuClient(ClientTest):
 
     def test_juju_juju_home(self):
         env = SimpleEnvironment('qux')
-        with scoped_environ():
-            os.environ['JUJU_HOME'] = 'foo'
-            client = EnvJujuClient(env, None, '/foobar/baz')
+        os.environ['JUJU_HOME'] = 'foo'
+        client = EnvJujuClient(env, None, '/foobar/baz')
 
-            def check_home(*args, **kwargs):
-                self.assertEqual(os.environ['JUJU_HOME'], 'foo')
-                yield
-                self.assertEqual(os.environ['JUJU_HOME'], 'asdf')
-                yield
+        def check_home(*args, **kwargs):
+            self.assertEqual(os.environ['JUJU_HOME'], 'foo')
+            yield
+            self.assertEqual(os.environ['JUJU_HOME'], 'asdf')
+            yield
 
-            with patch('subprocess.check_call', side_effect=check_home):
-                client.juju('foo', ('bar', 'baz'))
-                client.juju_home = 'asdf'
-                client.juju('foo', ('bar', 'baz'))
+        with patch('subprocess.check_call', side_effect=check_home):
+            client.juju('foo', ('bar', 'baz'))
+            client.juju_home = 'asdf'
+            client.juju('foo', ('bar', 'baz'))
 
     def test_juju_extra_env(self):
         env = SimpleEnvironment('qux')
@@ -2006,24 +2001,14 @@ def fast_timeout(count):
 
 @contextmanager
 def temp_config():
-    home = tempfile.mkdtemp()
-    try:
-        environments_path = os.path.join(home, 'environments.yaml')
-        old_home = os.environ.get('JUJU_HOME')
+    with temp_dir() as home:
         os.environ['JUJU_HOME'] = home
-        try:
-            with open(environments_path, 'w') as environments:
-                yaml.dump({'environments': {
-                    'foo': {'type': 'local'}
-                }}, environments)
-            yield
-        finally:
-            if old_home is None:
-                del os.environ['JUJU_HOME']
-            else:
-                os.environ['JUJU_HOME'] = old_home
-    finally:
-        shutil.rmtree(home)
+        environments_path = os.path.join(home, 'environments.yaml')
+        with open(environments_path, 'w') as environments:
+            yaml.dump({'environments': {
+                'foo': {'type': 'local'}
+            }}, environments)
+        yield
 
 
 class TestSimpleEnvironment(TestCase):
