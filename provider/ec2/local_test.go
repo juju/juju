@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
@@ -193,11 +194,9 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
-	t.PatchValue(&version.Current, version.Binary{
-		Number: coretesting.FakeVersionNumber,
-		Series: coretesting.FakeDefaultSeries,
-		Arch:   arch.AMD64,
-	})
+	t.BaseSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
