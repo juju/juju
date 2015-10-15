@@ -49,3 +49,8 @@ def get_random_hex_string(size=64):
 
 def autopatch(target, **kwargs):
     return patch(target, autospec=True, **kwargs)
+
+
+def write_file(path, contents):
+    with open(path, 'w') as f:
+        f.write(contents)
