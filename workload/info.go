@@ -36,7 +36,7 @@ type Payload struct {
 
 // FullID composes a unique ID for the payload (relative to the unit/charm).
 func (p Payload) FullID() string {
-	return fullID(p.PayloadClass.Name, p.ID)
+	return BuildID(p.PayloadClass.Name, p.ID)
 }
 
 // Validate checks the payload info to ensure it is correct.
@@ -49,7 +49,7 @@ func (p Payload) Validate() error {
 		return errors.NotValidf("missing ID")
 	}
 
-	if err := validateState(p.Status); err != nil {
+	if err := ValidateState(p.Status); err != nil {
 		return errors.Trace(err)
 	}
 
