@@ -147,7 +147,7 @@ func (engine *engine) loop() error {
 			engine.gotStopped(ticket.name, ticket.error, ticket.resourceLog)
 		}
 		if engine.isDying() {
-			if engine.allStopped() {
+			if engine.allOthersStopped() {
 				return tomb.ErrDying
 			}
 		}
@@ -514,11 +514,12 @@ func (engine *engine) isDying() bool {
 	}
 }
 
-// allStopped returns true if no workers are running or starting. It must only
+// allOthersStopped returns true if no workers (other than the engine itself,
+// if it happens to have been injected) are running or starting. It must only
 // be called from the loop goroutine.
-func (engine *engine) allStopped() bool {
+func (engine *engine) allOthersStopped() bool {
 	for _, info := range engine.current {
-		if !info.stopped() {
+		if !info.stopped() && info.worker != engine {
 			return false
 		}
 	}

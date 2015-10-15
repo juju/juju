@@ -5,14 +5,16 @@ package dependency
 
 import (
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/worker"
 )
 
 // Install is a convenience function for installing multiple manifolds into an
-// engine at once. It returns the first error it encounters (and installs no more
-// manifolds).
-func Install(engine Engine, manifolds Manifolds) error {
+// Installer at once. It returns the first error it encounters (and installs no
+// more manifolds).
+func Install(installer Installer, manifolds Manifolds) error {
 	for name, manifold := range manifolds {
-		if err := engine.Install(name, manifold); err != nil {
+		if err := installer.Install(name, manifold); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -67,4 +69,29 @@ func (v validator) visit(node string) error {
 		v.doing[node] = false
 	}
 	return nil
+}
+
+// InceptionManifold returns a manifold exposing a running dependency engine's
+// Installer and Reporter services. The returned manifold is suitable (indeed,
+// intended) for installation into the engine it wraps.
+func InceptionManifold(engine Engine) Manifold {
+	return Manifold{
+		Start: func(_ GetResourceFunc) (worker.Worker, error) {
+			return engine, nil
+		},
+		Output: func(in worker.Worker, out interface{}) error {
+			if in != engine {
+				return errors.New("unexpected input worker")
+			}
+			switch outPtr := out.(type) {
+			case *Installer:
+				*outPtr = engine
+			case *Reporter:
+				*outPtr = engine
+			default:
+				return errors.Errorf("out should be a *Installer or a *Reporter; is %#v", out)
+			}
+			return nil
+		},
+	}
 }

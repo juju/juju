@@ -9,17 +9,25 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// Engine is a mechanism for persistently running named workers and managing
-// dependencies between them.
+// Engine is a mechanism for persistently running named workers, managing the
+// dependencies between them, and reporting on their status.
 type Engine interface {
+
+	// Engine's primary purpose is to implement Installer responsibilities.
+	Installer
+
+	// Engine also exposes human-comprehensible status data to its clients.
+	Reporter
 
 	// Engine is itself a Worker.
 	worker.Worker
+}
 
-	// Engine exposes human-comprehensible status data to its clients.
-	Reporter
+// Installer takes responsibility for persistently running named workers and
+// managing the dependencies between them.
+type Installer interface {
 
-	// Install causes the Engine to accept responsibility for maintaining a
+	// Install causes the implementor to accept responsibility for maintaining a
 	// worker corresponding to the supplied manifold, restarting it when it
 	// fails and when its inputs' workers change, until the Engine shuts down.
 	Install(name string, manifold Manifold) error
