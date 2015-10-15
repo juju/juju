@@ -224,7 +224,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 		err = s.State.SetStateServingInfo(ssi)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		agentConfig, tools = s.PrimeAgent(c, tag, initialMachinePassword, vers)
+		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)
 	}
 	err = agentConfig.Write()
 	c.Assert(err, jc.ErrorIsNil)
