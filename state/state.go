@@ -1291,13 +1291,6 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	results := make([]UnitAssignmentResult, len(docs))
 	for i, doc := range docs {
 		err := st.assignStagedUnit(doc)
-		if err == nil || errors.IsNotFound(err) {
-			err = st.runTransaction([]txn.Op{{
-				C:      assignUnitC,
-				Id:     doc.DocId,
-				Remove: true,
-			}})
-		}
 		results[i].Unit = doc.Unit
 		results[i].Error = err
 	}
@@ -1307,6 +1300,14 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 		}
 	}
 	return results, nil
+}
+
+func removeStagedAssignmentOp(id string) txn.Op {
+	return txn.Op{
+		C:      assignUnitC,
+		Id:     id,
+		Remove: true,
+	}
 }
 
 func resContains(res []UnitAssignmentResult, id string) bool {
