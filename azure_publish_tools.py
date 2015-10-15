@@ -115,7 +115,7 @@ def get_md5content(local_path):
     return base64_md5
 
 
-def publish_local_file(purpose, blob_service, sync_file):
+def publish_local_file(blob_service, sync_file):
     """Published the local file to the location specified by the purpose.
 
     The file is broken down into blocks that can be uploaded within
@@ -168,11 +168,28 @@ def publish_files(blob_service, purpose, local_dir, args):
         if args.verbose:
             print("No files were found at {}".format(local_dir))
         return NO_LOCAL_FILES
+    return publish_changed(blob_service, local_files, published_files, args)
+
+
+def sync_files(blob_service, prefix, local_dir, args):
+    local_dir = normalized_dir(local_dir)
+    print("Looking for published files in %s" % prefix)
+    sync_files = list_sync_files(prefix, blob_service)
+    print("Looking for local files in %s" % local_dir)
+    local_files = get_local_sync_files(prefix, local_dir)
+    if local_files == []:
+        if args.verbose:
+            print("No files were found at {}".format(local_dir))
+        return NO_LOCAL_FILES
+    return publish_changed(blob_service, local_files, sync_files, args)
+
+
+def publish_changed(blob_service, local_files, remote_files, args):
     if args.verbose:
         for lf in local_files:
             print(lf.path)
     published_dict = dict(
-        (sync_file.path, sync_file) for sync_file in published_files)
+        (sync_file.path, sync_file) for sync_file in remote_files)
     for sync_file in local_files:
         if sync_file.path not in published_dict:
             print('%s is new.' % sync_file.path)
@@ -189,7 +206,7 @@ def publish_files(blob_service, purpose, local_dir, args):
                     sync_file.path, published_dict[sync_file.path].md5content))
             continue
         if not args.dry_run:
-            publish_local_file(purpose, blob_service, sync_file)
+            publish_local_file(blob_service, sync_file)
     return OK
 
 
