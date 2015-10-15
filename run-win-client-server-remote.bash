@@ -32,3 +32,4 @@ mkdir $log_dir
 juju destroy-environment --force -y compatibility-control-win || true
 python C:\\users\\Administrator\\juju-ci-tools\\assess_heterogeneous_control.py \
   $server $client test-win-client-server compatibility-control-win $log_dir "$@"
+

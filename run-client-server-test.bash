@@ -67,7 +67,7 @@ EOT
 set +e
 for i in `seq 1 2`; do
     if [[ "$client_os" == "ubuntu" ]]; then
-        $SCRIPTS/assess_heterogeneous_control.py $server $client test-reliability-aws $JOB_NAME $local_log_dir $agent_arg --debug
+        $SCRIPTS/assess_heterogeneous_control.py $server $client test-reliability-aws $JOB_NAME $local_log_dir $agent_arg
     else
         run_remote_script
     fi
@@ -81,3 +81,4 @@ for i in `seq 1 2`; do
     fi
 done
 exit $RESULT
+
