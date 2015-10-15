@@ -5,7 +5,6 @@ package workload
 
 import (
 	"reflect"
-	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
@@ -106,27 +105,6 @@ type Info struct {
 // ID returns a uniqueID for a workload (relative to the unit/charm).
 func (info Info) ID() string {
 	return BuildID(info.Workload.Name, info.Details.ID)
-}
-
-// BuildID composes an ID from a class and id
-func BuildID(class, id string) string {
-	if id == "" {
-		// TODO(natefinch) remove this special case when we can be sure the ID
-		// is never empty (and fix the tests).
-		return class
-	}
-	return class + "/" + id
-}
-
-// ParseID extracts the workload name and details ID from the provided string.
-// The format is expected to be name/pluginID. If no separator is found, the
-// whole string is assumed to be the name.
-func ParseID(id string) (name, pluginID string) {
-	parts := strings.SplitN(id, "/", 2)
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
-	return id, ""
 }
 
 // Validate checks the workload info to ensure it is correct.

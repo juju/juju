@@ -176,27 +176,6 @@ func (s *infoSuite) TestIDNameOnly(c *gc.C) {
 	c.Check(id, gc.Equals, "a-workload")
 }
 
-func (s *infoSuite) TestParseIDFull(c *gc.C) {
-	name, id := workload.ParseID("a-workload/my-workload")
-
-	c.Check(name, gc.Equals, "a-workload")
-	c.Check(id, gc.Equals, "my-workload")
-}
-
-func (s *infoSuite) TestParseIDNameOnly(c *gc.C) {
-	name, id := workload.ParseID("a-workload")
-
-	c.Check(name, gc.Equals, "a-workload")
-	c.Check(id, gc.Equals, "")
-}
-
-func (s *infoSuite) TestParseIDExtras(c *gc.C) {
-	name, id := workload.ParseID("somecharm/0/a-workload/my-workload")
-
-	c.Check(name, gc.Equals, "somecharm")
-	c.Check(id, gc.Equals, "0/a-workload/my-workload")
-}
-
 func (s *infoSuite) TestValidateOkay(c *gc.C) {
 	info := s.newInfo("a workload", "docker")
 	info.Status.State = workload.StateRunning
