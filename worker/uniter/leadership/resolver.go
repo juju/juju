@@ -36,7 +36,7 @@ func (l *leadershipResolver) NextOp(
 	}
 
 	// Check for any leadership change, and enact it if possible.
-	logger.Infof("checking leadership status")
+	logger.Debugf("checking leadership status")
 
 	// If we've already accepted leadership, we don't need to do it again.
 	canAcceptLeader := !localState.Leader
@@ -67,6 +67,6 @@ func (l *leadershipResolver) NextOp(
 		}
 	}
 
-	logger.Infof("leadership status is up-to-date")
+	logger.Debugf("leadership status is up-to-date")
 	return nil, resolver.ErrNoOperation
 }

@@ -533,7 +533,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 }
 
 func (ctx *HookContext) handleReboot(err *error) {
-	logger.Infof("handling reboot")
+	logger.Debugf("checking for reboot request")
 	rebootPriority := ctx.GetRebootPriority()
 	switch rebootPriority {
 	case jujuc.RebootSkip:
