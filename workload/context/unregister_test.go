@@ -4,35 +4,49 @@
 package context_test
 
 import (
+	"bytes"
+
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/context"
 )
 
 type unregisterSuite struct {
-	commandSuite
-
-	details workload.Details
+	stub    *testing.Stub
+	compCtx *stubUnregisterContext
+	ctx     *cmd.Context
 }
 
 var _ = gc.Suite(&unregisterSuite{})
 
 func (s *unregisterSuite) SetUpTest(c *gc.C) {
-	s.commandSuite.SetUpTest(c)
-
-	cmd, err := context.NewUnregisterCmd(s.Ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	s.setCommand(c, "payload-unregister", cmd)
+	s.stub = &testing.Stub{}
+	s.compCtx = &stubUnregisterContext{stub: s.stub}
+	s.ctx = coretesting.Context(c)
 }
 
-func (s *unregisterSuite) TestCommandRegistered(c *gc.C) {
-	s.checkCommandRegistered(c)
+func (s *unregisterSuite) Component(name string) (context.Component, error) {
+	s.stub.AddCall("Component", name)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.compCtx, nil
 }
 
 func (s *unregisterSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, `
+	unregister, err := context.NewUnregisterCmd(s)
+	c.Assert(err, jc.ErrorIsNil)
+	code := cmd.Main(unregister, s.ctx, []string{"--help"})
+	c.Assert(code, gc.Equals, 0)
+
+	c.Check(s.ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 usage: payload-unregister <class> <id>
 purpose: stop tracking a payload
 
@@ -44,12 +58,47 @@ payload-register.
 }
 
 func (s *unregisterSuite) TestRunOkay(c *gc.C) {
-	s.setMetadata(s.workload)
-	s.compCtx.workloads[s.workload.ID()] = s.workload
-	err := s.cmd.Init([]string{s.workload.Name, s.workload.Details.ID})
+	unregister, err := context.NewUnregisterCmd(s)
+	c.Assert(err, jc.ErrorIsNil)
+	err = unregister.Init([]string{"spam", "eggs"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unregister.Run(s.ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("%#v", s.cmd)
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "Component",
+		Args: []interface{}{
+			workload.ComponentName,
+		},
+	}, {
+		FuncName: "Untrack",
+		Args: []interface{}{
+			"spam/eggs",
+		},
+	}, {
+		FuncName: "Flush",
+	}})
+}
 
-	s.checkRun(c, "", "")
+type stubUnregisterContext struct {
+	context.Component
+	stub *testing.Stub
+}
+
+func (s stubUnregisterContext) Untrack(id string) error {
+	s.stub.AddCall("Untrack", id)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s stubUnregisterContext) Flush() error {
+	s.stub.AddCall("Flush")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

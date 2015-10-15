@@ -13,7 +13,7 @@ const UnregisterCmdName = "payload-unregister"
 
 // UnregisterCmd implements the untrack command.
 type UnregisterCmd struct {
-	*cmd.CommandBase
+	cmd.CommandBase
 
 	api   Component
 	class string
@@ -27,7 +27,10 @@ func NewUnregisterCmd(ctx HookContext) (*UnregisterCmd, error) {
 		// The component wasn't tracked properly.
 		return nil, errors.Trace(err)
 	}
-	return &UnregisterCmd{api: compCtx}, nil
+	c := &UnregisterCmd{
+		api: compCtx,
+	}
+	return c, nil
 }
 
 // Info implements cmd.Command.
@@ -60,17 +63,21 @@ func (c *UnregisterCmd) Init(args []string) error {
 	return nil
 }
 
-// Run runs the untrack command.
+// Run runs the unregister command.
 func (c *UnregisterCmd) Run(ctx *cmd.Context) error {
 	//TODO(wwitzel3) make Unregister accept class and id and
 	// compose the ID in the API layer using BuildID
 
 	ID := c.class + "/" + c.id
-	logger.Tracef("Running untrack command for %q", ID)
+	logger.Tracef("Running unregister command with id %q", c.id)
 
+	// TODO(ericsnow) Verify that Untrack gives a meaningful error when
+	// the ID is not found.
 	if err := c.api.Untrack(ID); err != nil {
 		return errors.Trace(err)
 	}
+
+	// TODO(ericsnow) Is the flush really necessary?
 
 	// We flush to state immedeiately so that status reflects the
 	// workload correctly.

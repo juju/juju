@@ -4,34 +4,43 @@
 package context_test
 
 import (
+	"bytes"
+
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/context"
 )
 
 type statusSetSuite struct {
-	commandSuite
+	stub    *testing.Stub
+	compCtx *stubSetStatusContext
+	ctx     *cmd.Context
 
-	statusSetCmd *context.StatusSetCmd
-	details      workload.Details
+	cmd     *context.StatusSetCmd
+	details workload.Details
 }
 
 var _ = gc.Suite(&statusSetSuite{})
 
 func (s *statusSetSuite) SetUpTest(c *gc.C) {
-	s.commandSuite.SetUpTest(c)
+	s.stub = &testing.Stub{}
+	s.compCtx = &stubSetStatusContext{stub: s.stub}
+	s.ctx = coretesting.Context(c)
 
-	cmd, err := context.NewStatusSetCmd(s.Ctx)
+	cmd, err := context.NewStatusSetCmd(s)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.statusSetCmd = cmd
-	s.setCommand(c, "payload-status-set", s.statusSetCmd)
+	s.cmd = cmd
 }
 
 func (s *statusSetSuite) init(c *gc.C, class, id, status string) {
-	err := s.statusSetCmd.Init([]string{class, id, status})
+	err := s.cmd.Init([]string{class, id, status})
 	c.Assert(err, jc.ErrorIsNil)
 	s.details = workload.Details{
 		ID: class + "/" + id,
@@ -39,8 +48,20 @@ func (s *statusSetSuite) init(c *gc.C, class, id, status string) {
 	s.details.Status.State = workload.StateRunning
 }
 
+func (s *statusSetSuite) Component(name string) (context.Component, error) {
+	s.stub.AddCall("Component", name)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.compCtx, nil
+}
+
 func (s *statusSetSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, `
+	code := cmd.Main(s.cmd, s.ctx, []string{"--help"})
+	c.Assert(code, gc.Equals, 0)
+
+	c.Check(s.ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 usage: payload-status-set <class> <id> <status>
 purpose: update the status of a payload
 
@@ -52,23 +73,46 @@ follow: starting, started, stopping, stopped
 }
 
 func (s *statusSetSuite) TestTooFewArgs(c *gc.C) {
-	err := s.statusSetCmd.Init([]string{})
+	err := s.cmd.Init([]string{})
 	c.Check(err, gc.ErrorMatches, `missing .*`)
 
-	err = s.statusSetCmd.Init([]string{workload.StateRunning})
+	err = s.cmd.Init([]string{workload.StateRunning})
 	c.Check(err, gc.ErrorMatches, `missing .*`)
 }
 
 func (s *statusSetSuite) TestInvalidStatjs(c *gc.C) {
 	s.init(c, "docker", "foo", "created")
-	err := s.cmd.Run(s.cmdCtx)
+	err := s.cmd.Run(s.ctx)
 
 	c.Check(err, gc.ErrorMatches, `state .* not valid`)
 }
 
 func (s *statusSetSuite) TestStatusSet(c *gc.C) {
 	s.init(c, "docker", "foo", workload.StateStopped)
-	err := s.cmd.Run(s.cmdCtx)
+	err := s.cmd.Run(s.ctx)
 
 	c.Check(err, jc.ErrorIsNil)
+}
+
+type stubSetStatusContext struct {
+	context.Component
+	stub *testing.Stub
+}
+
+func (s stubSetStatusContext) SetStatus(class, id, status string) error {
+	s.stub.AddCall("SetStatus", class, id, status)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s stubSetStatusContext) Flush() error {
+	s.stub.AddCall("Flush")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
