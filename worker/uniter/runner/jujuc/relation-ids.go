@@ -19,8 +19,8 @@ type RelationIdsCommand struct {
 	out  cmd.Output
 }
 
-func NewRelationIdsCommand(ctx Context) cmd.Command {
-	return &RelationIdsCommand{ctx: ctx}
+func NewRelationIdsCommand(ctx Context) (cmd.Command, error) {
+	return &RelationIdsCommand{ctx: ctx}, nil
 }
 
 func (c *RelationIdsCommand) Info() *cmd.Info {

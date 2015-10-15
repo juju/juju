@@ -33,7 +33,7 @@ var logger = loggo.GetLogger("worker.uniter.jujuc")
 // stdin, and none is supplied.
 var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
-type creator func(Context) cmd.Command
+type creator func(Context) (cmd.Command, error)
 
 var registeredCommands = map[string]creator{}
 
@@ -102,9 +102,13 @@ func CommandNames() (names []string) {
 func NewCommand(ctx Context, name string) (cmd.Command, error) {
 	f := allEnabledCommands()[name]
 	if f == nil {
-		return nil, fmt.Errorf("unknown command: %s", name)
+		return nil, errors.Errorf("unknown command: %s", name)
 	}
-	return f(ctx), nil
+	command, err := f(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return command, nil
 }
 
 // Request contains the information necessary to run a Command remotely.

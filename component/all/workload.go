@@ -158,34 +158,31 @@ func (workloads) registerHookContextCommands() {
 		return
 	}
 
-	jujuc.RegisterCommand(context.RegisterCmdName, func(ctx jujuc.Context) cmd.Command {
+	jujuc.RegisterCommand(context.RegisterCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
 		compCtx := workloadsHookContext{ctx}
 		cmd, err := context.NewRegisterCmd(compCtx)
 		if err != nil {
-			// TODO(ericsnow) Return an error instead.
-			panic(err)
+			return nil, errors.Trace(err)
 		}
-		return cmd
+		return cmd, nil
 	})
 
-	jujuc.RegisterCommand(context.StatusSetCmdName, func(ctx jujuc.Context) cmd.Command {
+	jujuc.RegisterCommand(context.StatusSetCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
 		compCtx := workloadsHookContext{ctx}
 		cmd, err := context.NewStatusSetCmd(compCtx)
 		if err != nil {
-			// TODO(ericsnow) Return an error instead.
-			panic(err)
+			return nil, errors.Trace(err)
 		}
-		return cmd
+		return cmd, nil
 	})
 
-	jujuc.RegisterCommand(context.UnregisterCmdName, func(ctx jujuc.Context) cmd.Command {
+	jujuc.RegisterCommand(context.UnregisterCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
 		compCtx := workloadsHookContext{ctx}
 		cmd, err := context.NewUnregisterCmd(compCtx)
 		if err != nil {
-			// TODO(ericsnow) Return an error instead.
-			panic(err)
+			return nil, errors.Trace(err)
 		}
-		return cmd
+		return cmd, nil
 	})
 }
 

@@ -39,8 +39,8 @@ type RelationSetCommand struct {
 	formatFlag   string // deprecated
 }
 
-func NewRelationSetCommand(ctx Context) cmd.Command {
-	return &RelationSetCommand{ctx: ctx}
+func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
+	return &RelationSetCommand{ctx: ctx}, nil
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
