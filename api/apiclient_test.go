@@ -112,7 +112,7 @@ func (s *apiclientSuite) TestOpen(c *gc.C) {
 
 	remoteVersion, versionSet := st.ServerVersion()
 	c.Assert(versionSet, jc.IsTrue)
-	c.Assert(remoteVersion, gc.Equals, version.Current.Number)
+	c.Assert(remoteVersion, gc.Equals, version.Current)
 }
 
 func (s *apiclientSuite) TestOpenHonorsEnvironTag(c *gc.C) {

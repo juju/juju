@@ -123,7 +123,7 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
-	s.AgentSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.AgentSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -166,10 +166,9 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
-func (s *commonMachineSuite) primeAgent(
-	c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	vers := version.Binary{
-		Number: version.Current.Number,
+		Number: version.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -178,10 +177,7 @@ func (s *commonMachineSuite) primeAgent(
 
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
-func (s *commonMachineSuite) primeAgentVersion(
-	c *gc.C, vers version.Binary,
-	jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-
+func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	m, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -523,10 +519,12 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 }
 
 func (s *MachineSuite) TestManageEnviron(c *gc.C) {
-	usefulVersion := version.Current
-	usefulVersion.Series = "quantal" // to match the charm created below
-	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
+	usefulVersion := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: "quantal", // to match the charm created below
+	}
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
@@ -678,8 +676,11 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
-	usefulVersion := version.Current
-	usefulVersion.Series = "quantal" // to match the charm created below
+	usefulVersion := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: "quantal", // to match the charm created below
+	}
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage,
 		s.Environ.Config().AgentStream(),
@@ -830,8 +831,11 @@ func (s *MachineSuite) TestManageEnvironRunsStatusHistoryPruner(c *gc.C) {
 
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
-	usefulVersion := version.Current
-	usefulVersion.Series = "quantal"
+	usefulVersion := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: "quantal", // to match the charm created below
+	}
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
@@ -897,7 +901,11 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 }
 
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
-	newVers := version.Current
+	newVers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
@@ -991,12 +999,7 @@ func (s *MachineSuite) assertJobWithState(
 // given job will call the function pointed to by reportOpened. The
 // agent's configuration and the value passed to reportOpened are then
 // passed to the test function for further checking.
-func (s *MachineSuite) assertAgentOpensState(
-	c *gc.C,
-	reportOpened *func(io.Closer),
-	job state.MachineJob,
-	test func(agent.Config, interface{}),
-) {
+func (s *MachineSuite) assertAgentOpensState(c *gc.C, reportOpened *func(io.Closer), job state.MachineJob, test func(agent.Config, interface{})) {
 	stm, conf, _ := s.primeAgent(c, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
@@ -1043,8 +1046,12 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
-	vers := version.Current
-	vers.Minor = version.Current.Minor + 1
+	vers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	vers.Minor++
 	m, _, _ := s.primeAgentVersion(c, vers, job)
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
@@ -1066,7 +1073,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 			if agentTools.Version.Minor != version.Current.Minor {
 				continue
 			}
-			c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+			c.Assert(agentTools.Version.Number, gc.DeepEquals, version.Current)
 			done = true
 		}
 	}

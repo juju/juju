@@ -362,9 +362,7 @@ func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
 		if test.toVersion != "" {
 			toVersion = version.MustParse(test.toVersion)
 		}
-		vers := version.Current
-		vers.Number = toVersion
-		s.PatchValue(&version.Current, vers)
+		s.PatchValue(&version.Current, toVersion)
 		result := upgrades.AreUpgradesDefined(fromVersion)
 		c.Check(result, gc.Equals, test.expected)
 	}
@@ -550,9 +548,7 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		if test.toVersion != "" {
 			toVersion = version.MustParse(test.toVersion)
 		}
-		vers := version.Current
-		vers.Number = toVersion
-		s.PatchValue(&version.Current, vers)
+		s.PatchValue(&version.Current, toVersion)
 		err := upgrades.PerformUpgrade(fromVersion, test.targets, ctx)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)

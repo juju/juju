@@ -256,7 +256,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 	if c.Version == agent {
 		return nil, errUpToDate
 	}
-	clientVersion := version.Current.Number
+	clientVersion := version.Current
 	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
 	if err != nil {
 		return nil, err

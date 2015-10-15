@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -36,11 +35,7 @@ var osReleaseFile = "/etc/os-release"
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
-var Current = Binary{
-	Number: MustParse(version),
-	Series: series.HostSeries(),
-	Arch:   arch.HostArch(),
-}
+var Current = MustParse(version)
 
 var Compiler = runtime.Compiler
 
@@ -53,7 +48,7 @@ func init() {
 		}
 		return
 	}
-	Current.Number = MustParse(strings.TrimSpace(string(v)))
+	Current = MustParse(strings.TrimSpace(string(v)))
 }
 
 // Number represents a juju version.  When bugs are fixed the patch number is

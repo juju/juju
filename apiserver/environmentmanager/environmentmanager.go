@@ -170,7 +170,7 @@ func (em *EnvironmentManagerAPI) checkVersion(cfg map[string]interface{}) error 
 	// otherwise we need to check for tools
 	value, found := cfg["agent-version"]
 	if !found {
-		cfg["agent-version"] = version.Current.Number.String()
+		cfg["agent-version"] = version.Current.String()
 		return nil
 	}
 	valuestr, ok := value.(string)
@@ -181,8 +181,8 @@ func (em *EnvironmentManagerAPI) checkVersion(cfg map[string]interface{}) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if comp := num.Compare(version.Current.Number); comp > 0 {
-		return errors.Errorf("agent-version cannot be greater than the server: %s", version.Current.Number)
+	if comp := num.Compare(version.Current); comp > 0 {
+		return errors.Errorf("agent-version cannot be greater than the server: %s", version.Current)
 	} else if comp < 0 {
 		// Look to see if we have tools available for that version.
 		// Obviously if the version is the same, we have the tools available.

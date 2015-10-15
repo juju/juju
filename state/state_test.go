@@ -19,6 +19,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2"
@@ -2873,7 +2875,7 @@ func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	cur := version.Current.Number
+	cur := version.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	w := s.State.WatchForEnvironConfigChanges()
@@ -3672,7 +3674,11 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
-	s.PatchValue(&version.Current, version.MustParseBinary("1.24.7-trusty-amd64"))
+	current := version.MustParseBinary("1.24.7-trusty-amd64")
+	s.PatchValue(&version.Current, current.Number)
+	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return current.Series })
+
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
 
@@ -3685,15 +3691,15 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
 	// Set other environ version == server environ version
-	err = otherSt.SetEnvironAgentVersion(version.Current.Number)
+	err = otherSt.SetEnvironAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAgentVersion(c, otherSt, version.Current.Number.String())
+	assertAgentVersion(c, otherSt, version.Current.String())
 
 	// Set other environ version to > server environ version
 	err = otherSt.SetEnvironAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
-		higher.Number.String(),
-		version.Current.Number.String(),
+		higher.Number,
+		version.Current,
 	)
 	c.Assert(err, gc.ErrorMatches, expected)
 }

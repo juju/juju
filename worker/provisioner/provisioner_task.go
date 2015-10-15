@@ -616,7 +616,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		possibleTools, err := task.toolsFinder.FindTools(
-			version.Current.Number,
+			version.Current,
 			pInfo.Series,
 			arch,
 		)

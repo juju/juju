@@ -3416,7 +3416,7 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("1.2.0")
-	s.PatchValue(&version.Current.Number, current)
+	s.PatchValue(&version.Current, current)
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)

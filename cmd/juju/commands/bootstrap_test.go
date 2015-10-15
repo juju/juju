@@ -68,7 +68,9 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// Set version.Current to a known value, for which we
 	// will make tools available. Individual tests may
 	// override this.
-	s.PatchValue(&version.Current, v100p64)
+	s.PatchValue(&version.Current, v100p64.Number)
+	s.PatchValue(&arch.HostArch, func() string { return v100p64.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return v100p64.Series })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	// Set up a local source with tools.
@@ -192,9 +194,9 @@ func (s *BootstrapSuite) patchVersion(c *gc.C) {
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	num := version.Current.Number
+	num := version.Current
 	num.Build = 1234
-	s.PatchValue(&version.Current.Number, num)
+	s.PatchValue(&version.Current, num)
 }
 
 func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
@@ -222,7 +224,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
 		v := version.MustParseBinary(useVersion)
-		restore = restore.Add(testing.PatchValue(&version.Current.Number, v.Number))
+		restore = restore.Add(testing.PatchValue(&version.Current, v.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
 		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return v.Series }))
 	}
@@ -596,7 +598,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
-	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
+	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
 	env := resetJujuHome(c, "devenv")
 
 	// Bootstrap the environment with an invalid source.
@@ -658,10 +660,10 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string)
 		return &bootstrap
 	})
 
-	num := version.Current.Number
+	num := version.Current
 	num.Major = 2
 	num.Minor = 3
-	s.PatchValue(&version.Current.Number, num)
+	s.PatchValue(&version.Current, num)
 	coretesting.RunCommand(
 		c, newBootstrapCommand(),
 		"--agent-version", vers,
@@ -691,7 +693,7 @@ func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
 		Minor: 22,
 		Patch: 46,
 	}
-	s.PatchValue(&version.Current.Number, num)
+	s.PatchValue(&version.Current, num)
 	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&arch.HostArch, func() string { return "amd64" })
 	coretesting.RunCommand(
@@ -703,7 +705,7 @@ func (s *BootstrapSuite) TestBootstrapWithNoAutoUpgrade(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
-	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
+	s.PatchValue(&version.Current, version.MustParse("1.2.0"))
 	env := resetJujuHome(c, "peckham")
 
 	// Bootstrap the environment with the valid source.
@@ -725,7 +727,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) environs
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	s.PatchValue(&version.Current.Number, version.MustParse(vers))
+	s.PatchValue(&version.Current, version.MustParse(vers))
 	s.PatchValue(&series.HostSeries, func() string { return ser })
 
 	// Create home with dummy provider and remove all
@@ -734,7 +736,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) environs
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&version.Current.Series, config.LatestLtsSeries())
+	s.PatchValue(&series.HostSeries, func() string { return config.LatestLtsSeries() })
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.

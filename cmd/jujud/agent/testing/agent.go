@@ -112,7 +112,7 @@ type AgentSuite struct {
 // current tools.
 func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
 	vers := version.Binary{
-		Number: version.Current.Number,
+		Number: version.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}

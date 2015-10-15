@@ -11,6 +11,8 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v1"
 
@@ -84,7 +86,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.CleanupSuite.SetUpTest(c)
-	t.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	t.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
@@ -428,7 +430,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, jc.IsTrue)
-	c.Check(agentVersion, gc.Equals, version.Current.Number)
+	c.Check(agentVersion, gc.Equals, version.Current)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := st.EnvironConstraints()
@@ -452,8 +454,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	defer mw0.Stop()
 
 	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
-	expectedVersion := version.Current
-	expectedVersion.Series = config.LatestLtsSeries()
+	expectedVersion := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: config.LatestLtsSeries(),
+	}
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)
 
@@ -750,7 +755,11 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		c.Skip("HasProvisioner is false; cannot test deployment")
 	}
 
-	current := version.Current
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	other := current
 	other.Series = "quantal"
 	if current == other {

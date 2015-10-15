@@ -13,6 +13,8 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -247,17 +249,22 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 
 func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	uploadToolsErr := errors.New("uh oh")
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	fake := fakeSyncToolsAPI{
 		uploadTools: func(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
 			data, err := ioutil.ReadAll(r)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(string(data), gc.Equals, "abc")
-			c.Assert(v, gc.Equals, version.Current)
+			c.Assert(v, gc.Equals, current)
 			return nil, uploadToolsErr
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	err := a.UploadTools("released", "released", &coretools.Tools{Version: version.Current}, []byte("abc"))
+	err := a.UploadTools("released", "released", &coretools.Tools{Version: current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
 }
 

@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -145,7 +146,12 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 
-	err = machine.SetAgentVersion(version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	err = machine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
@@ -508,7 +514,9 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	// Set a current version that does not match the
 	// agent-version in the environ config.
 	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
-	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
+	s.PatchValue(&series.HostSeries, func() string { return currentVersion.Series })
+	s.PatchValue(&version.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")
