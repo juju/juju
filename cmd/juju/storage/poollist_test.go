@@ -14,7 +14,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -33,16 +32,11 @@ func (s *poolListSuite) SetUpTest(c *gc.C) {
 	s.mockAPI = &mockPoolListAPI{
 		attrs: map[string]interface{}{"key": "value", "one": "1", "two": 2},
 	}
-	s.PatchValue(storage.GetPoolListAPI,
-		func(c *storage.PoolListCommand) (storage.PoolListAPI, error) {
-			return s.mockAPI, nil
-		})
-
 }
 
-func runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c,
-		envcmd.Wrap(&storage.PoolListCommand{}), args...)
+func (s *poolListSuite) runPoolList(c *gc.C, args []string) (*cmd.Context, error) {
+	args = append(args, []string{"-e", "dummyenv"}...)
+	return testing.RunCommand(c, storage.NewPoolListCommand(s.mockAPI), args...)
 }
 
 func (s *poolListSuite) TestPoolListEmpty(c *gc.C) {
@@ -119,7 +113,7 @@ type unmarshaller func(in []byte, out interface{}) (err error)
 
 func (s *poolListSuite) assertUnmarshalledOutput(c *gc.C, unmarshall unmarshaller, args ...string) {
 
-	context, err := runPoolList(c, args)
+	context, err := s.runPoolList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 	var result map[string]storage.PoolInfo
 	err = unmarshall(context.Stdout.(*bytes.Buffer).Bytes(), &result)
@@ -166,7 +160,7 @@ func (s poolListSuite) expect(c *gc.C, types, names []string) map[string]storage
 }
 
 func (s *poolListSuite) assertValidList(c *gc.C, args []string, expected string) {
-	context, err := runPoolList(c, args)
+	context, err := s.runPoolList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := testing.Stdout(context)

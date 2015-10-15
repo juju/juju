@@ -60,6 +60,11 @@ import (
 //         root of the juju data storage space.
 // $HOME is set to point to RootDir/home/ubuntu.
 type JujuConnSuite struct {
+	// ConfigAttrs can be set up before SetUpTest
+	// is invoked. Any attributes set here will be
+	// added to the suite's environment configuration.
+	ConfigAttrs map[string]interface{}
+
 	// TODO: JujuConnSuite should not be concerned both with JUJU_HOME and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
@@ -478,6 +483,10 @@ func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
 		"admin-secret":  AdminSecret,
 		"agent-version": version.Current.Number.String(),
 	}).Delete("name")
+	// Add any custom attributes required.
+	for attr, val := range s.ConfigAttrs {
+		attrs[attr] = val
+	}
 	whole := map[string]interface{}{
 		"environments": map[string]interface{}{
 			"dummyenv": attrs,

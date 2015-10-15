@@ -55,7 +55,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&DeploySuite{})
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), args...)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), args...)
 	return err
 }
 
@@ -65,13 +65,10 @@ var initErrorTests = []struct {
 }{
 	{
 		args: nil,
-		err:  `no charm specified`,
+		err:  `no charm or bundle specified`,
 	}, {
 		args: []string{"charm-name", "service-name", "hotdog"},
 		err:  `unrecognized args: \["hotdog"\]`,
-	}, {
-		args: []string{"craz~ness"},
-		err:  `invalid charm name "craz~ness"`,
 	}, {
 		args: []string{"craziness", "burble-1"},
 		err:  `invalid service name "burble-1"`,
@@ -90,7 +87,7 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := coretesting.InitCommand(envcmd.Wrap(&DeployCommand{}), t.args)
+		err := coretesting.InitCommand(envcmd.Wrap(&deployCommand{}), t.args)
 		c.Assert(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -118,7 +115,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy", "-u")
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), "local:dummy", "-u")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
@@ -436,23 +433,70 @@ var deployAuthorizationTests = []struct {
 	deployURL:    "cs:~bob/trusty/wordpress6-47",
 	readPermUser: "bob",
 	expectError:  `cannot retrieve charm "cs:~bob/trusty/wordpress6-47": cannot get archive: unauthorized: access denied for user "client-username"`,
+}, {
+	about:     "public bundle, success",
+	uploadURL: "cs:~bob/bundle/wordpress-simple1-42",
+	deployURL: "cs:~bob/bundle/wordpress-simple1",
+	expectOutput: `
+added charm cs:trusty/mysql-0
+service mysql deployed (charm: cs:trusty/mysql-0)
+added charm cs:trusty/wordpress-1
+service wordpress deployed (charm: cs:trusty/wordpress-1)
+related wordpress:db and mysql:server
+added mysql/0 unit to new machine
+added wordpress/0 unit to new machine
+deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
+}, {
+	about:        "non-public bundle, success",
+	uploadURL:    "cs:~bob/bundle/wordpress-simple2-0",
+	deployURL:    "cs:~bob/bundle/wordpress-simple2-0",
+	readPermUser: clientUserName,
+	expectOutput: `
+added charm cs:trusty/mysql-0
+reusing service mysql (charm: cs:trusty/mysql-0)
+added charm cs:trusty/wordpress-1
+reusing service wordpress (charm: cs:trusty/wordpress-1)
+wordpress:db and mysql:server are already related
+avoid adding new units to service mysql: 1 unit already present
+avoid adding new units to service wordpress: 1 unit already present
+deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
+}, {
+	about:        "non-public bundle, access denied",
+	uploadURL:    "cs:~bob/bundle/wordpress-simple3-47",
+	deployURL:    "cs:~bob/bundle/wordpress-simple3",
+	readPermUser: "bob",
+	expectError:  `cannot resolve charm URL "cs:~bob/bundle/wordpress-simple3": cannot get "/~bob/bundle/wordpress-simple3/meta/any\?include=id": unauthorized: access denied for user "client-username"`,
 }}
 
 func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
+	// Upload the two charms required to upload the bundle.
+	testcharms.UploadCharm(c, s.client, "trusty/mysql-0", "mysql")
+	testcharms.UploadCharm(c, s.client, "trusty/wordpress-1", "wordpress")
+
+	// Run the tests.
 	for i, test := range deployAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
-		url, _ := testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+
+		// Upload the charm or bundle under test.
+		url := charm.MustParseURL(test.uploadURL)
+		if url.Series == "bundle" {
+			url, _ = testcharms.UploadBundle(c, s.client, test.uploadURL, "wordpress-simple")
+		} else {
+			url, _ = testcharms.UploadCharm(c, s.client, test.uploadURL, "wordpress")
+		}
+
+		// Change the ACL of the uploaded entity if required in this case.
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
-		ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), test.deployURL, fmt.Sprintf("wordpress%d", i))
+		ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectError)
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		output := strings.Trim(coretesting.Stderr(ctx), "\n")
-		c.Assert(output, gc.Equals, test.expectOutput)
+		c.Assert(output, gc.Equals, strings.TrimSpace(test.expectOutput))
 	}
 }
 
@@ -551,6 +595,75 @@ func (s *charmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...strin
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// assertCharmsUplodaded checks that the given charm ids have been uploaded.
+func (s *charmStoreSuite) assertCharmsUplodaded(c *gc.C, ids ...string) {
+	charms, err := s.State.AllCharms()
+	c.Assert(err, jc.ErrorIsNil)
+	uploaded := make([]string, len(charms))
+	for i, charm := range charms {
+		uploaded[i] = charm.URL().String()
+	}
+	c.Assert(uploaded, jc.SameContents, ids)
+}
+
+// serviceInfo holds information about a deployed service.
+type serviceInfo struct {
+	charm       string
+	config      charm.Settings
+	constraints constraints.Value
+}
+
+// assertServicesDeployed checks that the given services have been deployed.
+func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]serviceInfo) {
+	services, err := s.State.AllServices()
+	c.Assert(err, jc.ErrorIsNil)
+	deployed := make(map[string]serviceInfo, len(services))
+	for _, service := range services {
+		charm, _ := service.CharmURL()
+		config, err := service.ConfigSettings()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(config) == 0 {
+			config = nil
+		}
+		constraints, err := service.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		deployed[service.Name()] = serviceInfo{
+			charm:       charm.String(),
+			config:      config,
+			constraints: constraints,
+		}
+	}
+	c.Assert(deployed, jc.DeepEquals, info)
+}
+
+// assertRelationsEstablished checks that the given relations have been set.
+func (s *charmStoreSuite) assertRelationsEstablished(c *gc.C, relations ...string) {
+	rs, err := s.State.AllRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	established := make([]string, len(rs))
+	for i, r := range rs {
+		established[i] = r.String()
+	}
+	c.Assert(established, jc.SameContents, relations)
+}
+
+// assertUnitsCreated checks that the given units have been created. The
+// expectedUnits argument maps unit names to machine names.
+func (s *charmStoreSuite) assertUnitsCreated(c *gc.C, expectedUnits map[string]string) {
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	created := make(map[string]string)
+	for _, m := range machines {
+		id := m.Id()
+		units, err := s.State.UnitsFor(id)
+		c.Assert(err, jc.ErrorIsNil)
+		for _, u := range units {
+			created[u.Name()] = id
+		}
+	}
+	c.Assert(created, jc.DeepEquals, expectedUnits)
+}
+
 type testMetricCredentialsSetter struct {
 	assert func(string, []byte)
 }
@@ -587,7 +700,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
 	s.AssertService(c, "metered", curl, 1, 0)
@@ -640,7 +753,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 	defer cleanup()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
 	s.AssertService(c, "metered", curl, 1, 0)
@@ -654,11 +767,14 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
 	s.PatchValue(&registerMeteredCharm, func(r string, s api.Connection, j *cookiejar.Jar, c string, sv, e string) error {
-		return &params.Error{"IsMetered", params.CodeNotImplemented}
+		return &params.Error{
+			Message: "IsMetered",
+			Code:    params.CodeNotImplemented,
+		}
 	})
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
 }

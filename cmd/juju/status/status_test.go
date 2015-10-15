@@ -44,7 +44,7 @@ var nextVersion = defineNextVersion()
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
-	code = cmd.Main(envcmd.Wrap(&StatusCommand{}), ctx, args)
+	code = cmd.Main(NewStatusCommand(), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
 	return
@@ -2943,7 +2943,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 		Networks: map[string]params.NetworkStatus{},
 		// Relations field intentionally not set
 	})
-	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
+	s.PatchValue(&newApiClientForStatus, func(_ *statusCommand) (statusAPI, error) {
 		return &client, nil
 	})
 
@@ -3325,7 +3325,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	s.PatchValue(&status, func(_ []string) (*params.FullStatus, error) {
 		return nil, nil
 	})
-	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
+	s.PatchValue(&newApiClientForStatus, func(_ *statusCommand) (statusAPI, error) {
 		return &client, nil
 	})
 
@@ -3652,8 +3652,8 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 	// Test should not panic.
 }
 
-func initStatusCommand(args ...string) (*StatusCommand, error) {
-	com := &StatusCommand{}
+func initStatusCommand(args ...string) (*statusCommand, error) {
+	com := &statusCommand{}
 	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
 }
 

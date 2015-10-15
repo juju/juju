@@ -8,21 +8,26 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
 const removeDoc = `
 "remove" removes a backup from remote storage.
 `
 
-// CreateCommand is the sub-command for creating a new backup.
-type RemoveCommand struct {
+func newRemoveCommand() cmd.Command {
+	return envcmd.Wrap(&removeCommand{})
+}
+
+type removeCommand struct {
 	CommandBase
 	// ID refers to the backup to be removed.
 	ID string
 }
 
 // Info implements Command.Info.
-func (c *RemoveCommand) Info() *cmd.Info {
+func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove",
 		Args:    "<ID>",
@@ -32,7 +37,7 @@ func (c *RemoveCommand) Info() *cmd.Info {
 }
 
 // Init implements Command.Init.
-func (c *RemoveCommand) Init(args []string) error {
+func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("missing ID")
 	}
@@ -45,7 +50,7 @@ func (c *RemoveCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *RemoveCommand) Run(ctx *cmd.Context) error {
+func (c *removeCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -57,6 +62,7 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	fmt.Fprintln(ctx.Stdout, "successfully removed:", c.ID)
+	output := fmt.Sprintf("successfully removed: %v\n", c.ID)
+	ctx.Stdout.Write([]byte(output))
 	return nil
 }
