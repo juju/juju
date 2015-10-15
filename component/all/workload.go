@@ -195,38 +195,10 @@ func (workloads) registerState() {
 	}
 	state.SetWorkloadsComponent(newUnitWorkloads)
 
-	newEnvPayloads := func(persist state.Persistence, listMachines func() ([]string, error), listUnits func(string) ([]names.UnitTag, error)) (state.EnvPayloads, error) {
-		unitListFuncs := func() ([]func() ([]workload.Info, string, string, error), error) {
-			machines, err := listMachines()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			var funcs []func() ([]workload.Info, string, string, error)
-			for i := range machines {
-				machine := machines[i]
-				units, err := listUnits(machine)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-
-				for i := range units {
-					unit := units[i]
-					machine := machine
-					workloadsPersist := persistence.NewPersistence(persist, unit)
-					funcs = append(funcs, func() ([]workload.Info, string, string, error) {
-						workloads, err := workloadsPersist.ListAll()
-						if err != nil {
-							return nil, "", "", errors.Trace(err)
-						}
-						return workloads, machine, unit.String(), nil
-					})
-				}
-			}
-			return funcs, nil
-		}
+	newEnvPayloads := func(persist state.PayloadsEnvPersistence) (state.EnvPayloads, error) {
+		envPersist := persistence.NewEnvPersistence(persist)
 		envPayloads := workloadstate.EnvPayloads{
-			UnitListFuncs: unitListFuncs,
+			Persist: envPersist,
 		}
 		return envPayloads, nil
 	}
