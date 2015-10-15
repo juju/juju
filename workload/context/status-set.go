@@ -28,6 +28,7 @@ type StatusSetCmd struct {
 	cmd.CommandBase
 
 	api    Component
+	class  string
 	id     string
 	status string
 }
@@ -36,24 +37,25 @@ type StatusSetCmd struct {
 func (c StatusSetCmd) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    StatusSetCmdName,
-		Args:    "<status> <id>",
+		Args:    "<class> <id> <status>",
 		Purpose: "update the status of a payload",
 		Doc: `
 "payload-status-set" is used while a hook (update-status) is running to update the
-current status of a registered payload. The <id> provided must match a payload that
-has been previously registered with juju using payload-register. The <status> must
-be on of the follow: starting, started, stopping, stopped
+current status of a registered payload. The <class> and <id> provided must match a
+payload that has been previously registered with juju using payload-register.
+The <status> must be on of the follow: starting, started, stopping, stopped
 `,
 	}
 }
 
 // Init implements cmd.Command.
 func (c *StatusSetCmd) Init(args []string) error {
-	if len(args) < 2 {
+	if len(args) < 3 {
 		return errors.Errorf("missing required arguments")
 	}
+	c.class = args[0]
 	c.id = args[1]
-	c.status = args[0]
+	c.status = args[2]
 	return nil
 }
 
@@ -63,7 +65,7 @@ func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.api.SetStatus(c.status, c.id); err != nil {
+	if err := c.api.SetStatus(c.class, c.id, c.status); err != nil {
 		return errors.Trace(err)
 	}
 

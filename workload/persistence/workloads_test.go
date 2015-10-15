@@ -94,7 +94,6 @@ func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
-
 func newStatusInfo(state, message, pluginStatus string) workload.CombinedStatus {
 	return workload.CombinedStatus{
 		Status: workload.Status{
@@ -112,7 +111,7 @@ func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	s.SetDocs(wl)
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(workload.StateRunning, wl.ID())
+	okay, err := pp.SetStatus(wl.ID(), workload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
@@ -137,7 +136,7 @@ func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.SetErrors(txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(workload.StateRunning, "workloadA/workloadA-xyz")
+	okay, err := pp.SetStatus("workloadA/workloadA-xyz", workload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
@@ -165,7 +164,7 @@ func (s *workloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus(workload.StateRunning, wl.ID())
+	_, err := pp.SetStatus(wl.ID(), workload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

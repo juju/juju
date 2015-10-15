@@ -72,6 +72,8 @@ type SetStatusArgs struct {
 // SetStatusArg are the arguments for a single call to the
 // SetStatus endpoint.
 type SetStatusArg struct {
+	// Class is the Class of the workload.
+	Class string
 	// ID is the ID of the workload.
 	ID string
 	// Status is the status of the workload.

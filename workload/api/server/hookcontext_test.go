@@ -296,14 +296,16 @@ func (suite) TestSetStatus(c *gc.C) {
 	a := HookContextAPI{st}
 	args := api.SetStatusArgs{
 		Args: []api.SetStatusArg{{
-			ID:     "fooID/bar",
+			Class:  "fooID",
+			ID:     "bar",
 			Status: workload.StateRunning,
 		}},
 	}
 	res, err := a.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(st.id, gc.Equals, "fooID/bar")
+	c.Check(st.class, gc.Equals, "fooID")
+	c.Check(st.id, gc.Equals, "bar")
 	c.Assert(st.status, gc.Equals, workload.StateRunning)
 
 	expected := api.WorkloadResults{
@@ -368,6 +370,7 @@ func (suite) TestUntrackEmpty(c *gc.C) {
 
 type FakeState struct {
 	// inputs
+	class  string
 	id     string
 	ids    []string
 	status string
@@ -391,7 +394,8 @@ func (f *FakeState) List(ids ...string) ([]workload.Info, error) {
 	return f.workloads, f.err
 }
 
-func (f *FakeState) SetStatus(status, id string) error {
+func (f *FakeState) SetStatus(class, id, status string) error {
+	f.class = class
 	f.id = id
 	f.status = status
 	return f.err

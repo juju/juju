@@ -130,7 +130,8 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 
 		arg := typedParams.Args[0]
 		c.Check(arg, jc.DeepEquals, api.SetStatusArg{
-			ID:     "idfoo/bar",
+			Class:  "idfoo",
+			ID:     "bar",
 			Status: workload.StateRunning,
 		})
 
@@ -138,7 +139,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	err := pclient.SetStatus(workload.StateRunning, "idfoo/bar")
+	_, err := pclient.SetStatus("idfoo", workload.StateRunning, "bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)

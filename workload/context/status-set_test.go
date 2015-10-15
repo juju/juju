@@ -30,24 +30,24 @@ func (s *statusSetSuite) SetUpTest(c *gc.C) {
 	s.setCommand(c, "payload-status-set", s.statusSetCmd)
 }
 
-func (s *statusSetSuite) init(c *gc.C, status, id string) {
-	err := s.statusSetCmd.Init([]string{status, id})
+func (s *statusSetSuite) init(c *gc.C, class, id, status string) {
+	err := s.statusSetCmd.Init([]string{class, id, status})
 	c.Assert(err, jc.ErrorIsNil)
 	s.details = workload.Details{
-		ID: id,
+		ID: class + "/" + id,
 	}
 	s.details.Status.State = workload.StateRunning
 }
 
 func (s *statusSetSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: payload-status-set <status> <id>
+usage: payload-status-set <class> <id> <status>
 purpose: update the status of a payload
 
 "payload-status-set" is used while a hook (update-status) is running to update the
-current status of a registered payload. The <id> provided must match a payload that
-has been previously registered with juju using payload-register. The <status> must
-be on of the follow: starting, started, stopping, stopped
+current status of a registered payload. The <class> and <id> provided must match a
+payload that has been previously registered with juju using payload-register.
+The <status> must be on of the follow: starting, started, stopping, stopped
 `[1:])
 }
 
@@ -60,14 +60,14 @@ func (s *statusSetSuite) TestTooFewArgs(c *gc.C) {
 }
 
 func (s *statusSetSuite) TestInvalidStatjs(c *gc.C) {
-	s.init(c, "created", "foo")
+	s.init(c, "docker", "foo", "created")
 	err := s.cmd.Run(s.cmdCtx)
 
 	c.Check(err, gc.ErrorMatches, `state .* not valid`)
 }
 
 func (s *statusSetSuite) TestStatusSet(c *gc.C) {
-	s.init(c, workload.StateStopped, "foo")
+	s.init(c, "docker", "foo", workload.StateStopped)
 	err := s.cmd.Run(s.cmdCtx)
 
 	c.Check(err, jc.ErrorIsNil)

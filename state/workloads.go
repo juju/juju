@@ -22,7 +22,7 @@ type UnitWorkloads interface {
 	// must be set on the provided info: Name, Status, Details.ID, and
 	// Details.Status. If the workload is not in state then the request
 	// will fail.
-	SetStatus(status, id string) error
+	SetStatus(class, id, status string) error
 	// List builds the list of workloads registered for
 	// the given unit and IDs. If no IDs are provided then all
 	// registered workloads for the unit are returned. In the case that

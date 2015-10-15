@@ -97,8 +97,8 @@ func (s *fakeWorkloadsPersistence) Track(info workload.Info) (bool, error) {
 	return true, nil
 }
 
-func (s *fakeWorkloadsPersistence) SetStatus(status, id string) (bool, error) {
-	s.AddCall("SetStatus", status, id)
+func (s *fakeWorkloadsPersistence) SetStatus(id, status string) (bool, error) {
+	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
