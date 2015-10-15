@@ -5,6 +5,8 @@ package google
 
 import (
 	"github.com/juju/errors"
+	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -46,11 +48,24 @@ const (
 // GCE disks.
 //
 // Note: GCE does not currently have an official minimum disk size.
-// However, in testing we found the minimum size to be 10 GB due to
-// the image size. See gceapi messsage.
+// However, in testing we found the minimum size to be 10 GB for ubuntu
+// and 50 GB for windows due to the image size. See gceapi message.
 //
 // gceapi: Requested disk size cannot be smaller than the image size (10 GB)
-const MinDiskSizeGB uint64 = 10
+func MinDiskSizeGB(ser string) uint64 {
+	// See comment below that explains why we're ignoring the error
+	os, _ := series.GetOSFromSeries(ser)
+	switch os {
+	case jujuos.Ubuntu:
+		return 10
+	case jujuos.Windows:
+		return 50
+	// On default we just return a "sane" default since the error
+	// will be propagated through the api and appear in juju status anyway
+	default:
+		return 10
+	}
+}
 
 // gibToMib converts gibibytes to mebibytes.
 func gibToMib(g int64) uint64 {
@@ -61,6 +76,8 @@ func gibToMib(g int64) uint64 {
 // Some fields are used only for attached disks (i.e. in association
 // with instances).
 type DiskSpec struct {
+	// Series is the OS series on which the disk size depends
+	Series string
 	// SizeHintGB is the requested disk size in Gigabytes. It must be
 	// greater than 0.
 	SizeHintGB uint64
@@ -94,7 +111,7 @@ type DiskSpec struct {
 // TooSmall checks the spec's size hint and indicates whether or not
 // it is smaller than the minimum disk size.
 func (ds *DiskSpec) TooSmall() bool {
-	return ds.SizeHintGB < MinDiskSizeGB
+	return ds.SizeHintGB < MinDiskSizeGB(ds.Series)
 }
 
 // SizeGB returns the disk size to use for a new disk. The size hint
@@ -103,7 +120,7 @@ func (ds *DiskSpec) TooSmall() bool {
 func (ds *DiskSpec) SizeGB() uint64 {
 	size := ds.SizeHintGB
 	if ds.TooSmall() {
-		size = MinDiskSizeGB
+		size = MinDiskSizeGB(ds.Series)
 	}
 	return size
 }

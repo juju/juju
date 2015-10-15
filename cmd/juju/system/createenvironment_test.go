@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -234,7 +234,7 @@ func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	file.Close()
 
 	_, err = s.run(c, "test", "--config", file.Name())
-	c.Assert(err, gc.ErrorMatches, `unable to parse config file: YAML error: .*`)
+	c.Assert(err, gc.ErrorMatches, `unable to parse config file: yaml: .*`)
 }
 
 func (s *createSuite) TestConfigFileDoesntExist(c *gc.C) {
