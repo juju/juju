@@ -51,11 +51,14 @@ func (c *UntrackCmd) Init(args []string) error {
 	}
 	c.class = args[0]
 	c.id = args[1]
-	return nil
+	return cmd.CheckEmpty(args[2:])
 }
 
 // Run runs the untrack command.
 func (c *UntrackCmd) Run(ctx *cmd.Context) error {
+	//TODO(wwitzel3) make Untrack accept class and id and
+	// compose the ID in the API layer using BuildID
+
 	ID := c.class + "/" + c.id
 	logger.Tracef("Running untrack command for %q", ID)
 
