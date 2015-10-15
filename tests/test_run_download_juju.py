@@ -30,7 +30,7 @@ class TestGetCandidateInfo(TestCase):
                 ensure_dir(ver_dir)
                 make_build_var_file(ver_dir, version=ver, revision_build=rev)
             rev = get_revisions(dir_path)
-        self.assertEqual(rev, ['2870', '2999'])
+        self.assertEqual(sorted(rev), ['2870', '2999'])
 
     def test_create_workspace_yaml(self):
         with NamedTemporaryFile() as temp_file:
