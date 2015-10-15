@@ -12,7 +12,7 @@ import (
 )
 
 type statusSetSuite struct {
-	registeringCommandSuite
+	commandSuite
 
 	statusSetCmd *context.StatusSetCmd
 	details      workload.Details

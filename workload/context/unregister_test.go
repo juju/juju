@@ -11,27 +11,27 @@ import (
 	"github.com/juju/juju/workload/context"
 )
 
-type untrackSuite struct {
+type unregisterSuite struct {
 	commandSuite
 
 	details workload.Details
 }
 
-var _ = gc.Suite(&untrackSuite{})
+var _ = gc.Suite(&unregisterSuite{})
 
-func (s *untrackSuite) SetUpTest(c *gc.C) {
+func (s *unregisterSuite) SetUpTest(c *gc.C) {
 	s.commandSuite.SetUpTest(c)
 
-	cmd, err := context.NewUntrackCmd(s.Ctx)
+	cmd, err := context.NewUnregisterCmd(s.Ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setCommand(c, "payload-unregister", cmd)
 }
 
-func (s *untrackSuite) TestCommandRegistered(c *gc.C) {
+func (s *unregisterSuite) TestCommandRegistered(c *gc.C) {
 	s.checkCommandRegistered(c)
 }
 
-func (s *untrackSuite) TestHelp(c *gc.C) {
+func (s *unregisterSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
 usage: payload-unregister <class> <id>
 purpose: stop tracking a payload
@@ -43,7 +43,7 @@ payload-register.
 `[1:])
 }
 
-func (s *untrackSuite) TestRunOkay(c *gc.C) {
+func (s *unregisterSuite) TestRunOkay(c *gc.C) {
 	s.setMetadata(s.workload)
 	s.compCtx.workloads[s.workload.ID()] = s.workload
 	err := s.cmd.Init([]string{s.workload.Name, s.workload.Details.ID})
