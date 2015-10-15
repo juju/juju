@@ -94,17 +94,6 @@ func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
-func newStatusInfo(state, message, pluginStatus string) workload.CombinedStatus {
-	return workload.CombinedStatus{
-		Status: workload.Status{
-			State:   state,
-			Message: message,
-		},
-		PluginStatus: workload.PluginStatus{
-			State: pluginStatus,
-		},
-	}
-}
 
 func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]

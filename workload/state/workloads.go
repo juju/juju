@@ -83,17 +83,6 @@ func (ps UnitWorkloads) SetStatus(docID, status string) error {
 	return nil
 }
 
-func validateStatus(status string) error {
-	switch status {
-	case workload.StateStarting,
-		workload.StateRunning,
-		workload.StateStopping,
-		workload.StateStopped:
-		return nil
-	}
-	return errors.Errorf("invalid status, must be one of the following: starting, running, stopping, stopped")
-}
-
 // List builds the list of workload information for the provided workload
 // IDs. If none are provided then the list contains the info for all
 // workloads associated with the unit. Missing workloads

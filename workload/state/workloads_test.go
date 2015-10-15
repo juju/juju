@@ -71,18 +71,6 @@ func (s *unitWorkloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func newStatusInfo(state, message, pluginStatus string) workload.CombinedStatus {
-	return workload.CombinedStatus{
-		Status: workload.Status{
-			State:   state,
-			Message: message,
-		},
-		PluginStatus: workload.PluginStatus{
-			State: pluginStatus,
-		},
-	}
-}
-
 func (s *unitWorkloadsSuite) TestSetStatusOkay(c *gc.C) {
 	wl := s.newWorkloads("docker", "workloadA")[0]
 	s.persist.setWorkloads(&wl)
