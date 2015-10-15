@@ -33,19 +33,20 @@ func (s *untrackSuite) TestCommandRegistered(c *gc.C) {
 
 func (s *untrackSuite) TestHelp(c *gc.C) {
 	s.checkHelp(c, `
-usage: payload-unregister <name-or-id>
+usage: payload-unregister <class> <id>
 purpose: stop tracking a payload
 
 "payload-unregister" is used while a hook is running to let Juju know
-that a payload has been manually stopped. The id
-used to start tracking the payload must be provided.
+that a payload has been manually stopped. The <class> and <id> provided
+must match a payload that has been previously registered with juju using
+payload-register.
 `[1:])
 }
 
 func (s *untrackSuite) TestRunOkay(c *gc.C) {
 	s.setMetadata(s.workload)
 	s.compCtx.workloads[s.workload.ID()] = s.workload
-	err := s.cmd.Init([]string{s.workload.Name})
+	err := s.cmd.Init([]string{s.workload.Name, s.workload.Details.ID})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("%#v", s.cmd)

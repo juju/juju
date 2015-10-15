@@ -10,40 +10,64 @@ import (
 
 const UntrackCmdName = "payload-unregister"
 
-// NewUntrackCmd returns an UntrackCmd that uses the given hook context.
+// NewUntrackCmd returns a new UntrackCmd that wraps the given context.
 func NewUntrackCmd(ctx HookContext) (*UntrackCmd, error) {
-	base, err := newCommand(ctx)
+	compCtx, err := ContextComponent(ctx)
 	if err != nil {
+		// The component wasn't tracked properly.
 		return nil, errors.Trace(err)
 	}
-	c := &UntrackCmd{
-		baseCommand: base,
-	}
-	c.cmdInfo = cmdInfo{
-		Name:    "payload-unregister",
-		Summary: "stop tracking a payload",
-		Doc: `
-"payload-unregister" is used while a hook is running to let Juju know
-that a payload has been manually stopped. The id
-used to start tracking the payload must be provided.
-`,
-	}
-	return c, nil
+	return &UntrackCmd{api: compCtx}, nil
 }
 
-var _ cmd.Command = (*UntrackCmd)(nil)
+// Info implements cmd.Command.
+func (c UntrackCmd) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "payload-unregister",
+		Args:    "<class> <id>",
+		Purpose: "stop tracking a payload",
+		Doc: `
+"payload-unregister" is used while a hook is running to let Juju know
+that a payload has been manually stopped. The <class> and <id> provided
+must match a payload that has been previously registered with juju using
+payload-register.
+`,
+	}
+}
 
 // UntrackCmd implements the untrack command.
 type UntrackCmd struct {
-	*baseCommand
+	*cmd.CommandBase
+
+	api   Component
+	class string
+	id    string
+}
+
+// Init implements cmd.Command.
+func (c *UntrackCmd) Init(args []string) error {
+	if len(args) < 2 {
+		return errors.Errorf("missing required arguments")
+	}
+	c.class = args[0]
+	c.id = args[1]
+	return nil
 }
 
 // Run runs the untrack command.
 func (c *UntrackCmd) Run(ctx *cmd.Context) error {
-	logger.Tracef("Running untrack command with id %q", c.ID)
-	if err := c.baseCommand.Run(ctx); err != nil {
+	ID := c.class + "/" + c.id
+	logger.Tracef("Running untrack command for %q", ID)
+
+	if err := c.api.Untrack(ID); err != nil {
 		return errors.Trace(err)
 	}
 
-	return c.compCtx.Untrack(c.ID)
+	// We flush to state immedeiately so that status reflects the
+	// workload correctly.
+	if err := c.api.Flush(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
