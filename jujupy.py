@@ -31,7 +31,6 @@ from utility import (
     ensure_deleted,
     ensure_dir,
     pause,
-    print_now,
     scoped_environ,
     temp_dir,
     until_timeout,
@@ -44,6 +43,8 @@ __metaclass__ = type
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
+
+log = logging.getLogger("jujupy")
 
 
 def get_timeout_path():
@@ -235,7 +236,7 @@ class EnvJujuClient:
         args = self.get_bootstrap_args(upload_tools)
         with self.juju_async('bootstrap', args):
             yield
-            logging.info('Waiting for bootstrap of {}.'.format(
+            log.info('Waiting for bootstrap of {}.'.format(
                 self.env.environment))
 
     def destroy_environment(self, force=True, delete_jenv=False):
@@ -265,12 +266,12 @@ class EnvJujuClient:
         env = self._shell_environ()
         with tempfile.TemporaryFile() as stderr:
             try:
-                logging.debug(args)
+                log.debug(args)
                 # Mutate os.environ instead of supplying env parameter so
                 # Windows can search env['PATH']
                 with scoped_environ(env):
                     sub_output = subprocess.check_output(args, stderr=stderr)
-                logging.debug(sub_output)
+                log.debug(sub_output)
                 return sub_output
             except subprocess.CalledProcessError as e:
                 stderr.seek(0)
@@ -279,7 +280,7 @@ class EnvJujuClient:
                         'MissingOrIncorrectVersionHeader' in e.stderr or
                         '307: Temporary Redirect' in e.stderr):
                     raise CannotConnectEnv(e)
-                print('!!! ' + e.stderr)
+                log.debug('!!! ' + e.stderr)
                 raise
 
     def get_status(self, timeout=60, raw=False, *args):
@@ -323,8 +324,7 @@ class EnvJujuClient:
         """Run a command under juju for the current environment."""
         args = self._full_args(command, sudo, args, include_e=include_e,
                                timeout=timeout)
-        print(' '.join(args))
-        sys.stdout.flush()
+        log.info(' '.join(args))
         env = self._shell_environ()
         if extra_env is not None:
             env.update(extra_env)
@@ -351,7 +351,7 @@ class EnvJujuClient:
     def juju_async(self, command, args, include_e=True, timeout=None):
         full_args = self._full_args(command, False, args, include_e=include_e,
                                     timeout=timeout)
-        print_now(' '.join(args))
+        log.info(' '.join(args))
         env = self._shell_environ()
         # Mutate os.environ instead of supplying env parameter so Windows can
         # search env['PATH']
@@ -418,14 +418,14 @@ class EnvJujuClient:
                 try:
                     status = self.get_status()
                 except CannotConnectEnv:
-                    print('Supressing "Unable to connect to environment"')
+                    log.info('Suppressing "Unable to connect to environment"')
                     continue
                 states = status.check_agents_started()
                 if states is None:
                     break
                 reporter.update(states)
             else:
-                logging.error(status.status_text)
+                log.error(status.status_text)
                 raise AgentsNotStarted(self.env.environment, status)
         finally:
             reporter.finish()
@@ -442,7 +442,7 @@ class EnvJujuClient:
                 try:
                     status = self.get_status()
                 except CannotConnectEnv:
-                    print('Supressing "Unable to connect to environment"')
+                    log.info('Suppressing "Unable to connect to environment"')
                     continue
                 service_unit_count = status.get_service_unit_count(service)
                 subordinate_unit_count = 0
@@ -457,7 +457,7 @@ class EnvJujuClient:
                         unit_states.keys() == ['started']):
                     break
             else:
-                logging.error(status.status_text)
+                log.error(status.status_text)
                 raise AgentsNotStarted(self.env.environment, status)
         finally:
             reporter.finish()
@@ -470,7 +470,7 @@ class EnvJujuClient:
                 try:
                     versions = self.get_status(300).get_agent_versions()
                 except CannotConnectEnv:
-                    print('Supressing "Unable to connect to environment"')
+                    log.info('Suppressing "Unable to connect to environment"')
                     continue
                 if versions.keys() == [version]:
                     break
@@ -549,9 +549,9 @@ class EnvJujuClient:
             with scoped_environ(environ):
                 output = subprocess.check_output(['juju', 'backup'])
         except subprocess.CalledProcessError as e:
-            print_now(e.output)
+            log.info(e.output)
             raise
-        print_now(output)
+        log.info(output)
         backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.(t|tar.)gz)')
         match = backup_file_pattern.search(output)
         if match is None:
@@ -559,7 +559,7 @@ class EnvJujuClient:
                             output)
         backup_file_name = match.group(1)
         backup_file_path = os.path.abspath(backup_file_name)
-        print_now("State-Server backup at %s" % backup_file_path)
+        log.info("State-Server backup at %s", backup_file_path)
         return backup_file_path
 
     def action_fetch(self, id, action=None, timeout="1m"):

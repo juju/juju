@@ -12,7 +12,7 @@ import utility
 class TestCase(unittest.TestCase):
     """TestCase provides a better isolated version of unittest.TestCase."""
 
-    log_level = None
+    log_level = logging.INFO
 
     def setUp(self):
         super(TestCase, self).setUp()
@@ -53,5 +53,5 @@ def setup_test_logging(testcase, level=None):
     handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
     log.addHandler(handler)
     if level is not None:
-        testcase.addCleanup(setattr, log, 'level', log.level)
-        log.level = level
+        testcase.addCleanup(log.setLevel, log.level)
+        log.setLevel(level)
