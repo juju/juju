@@ -13,11 +13,12 @@ import (
 // The Juju-recognized states in which a workload might be.
 const (
 	StateUndefined = ""
-	StateDefined   = "defined"
-	StateStarting  = "starting"
-	StateRunning   = "running"
-	StateStopping  = "stopping"
-	StateStopped   = "stopped"
+	//TODO(wwitzel3) remove defined throughout
+	StateDefined  = "defined"
+	StateStarting = "starting"
+	StateRunning  = "running"
+	StateStopping = "stopping"
+	StateStopped  = "stopped"
 )
 
 var okayStates = set.NewStrings(
