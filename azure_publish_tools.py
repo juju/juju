@@ -33,7 +33,6 @@ LIST = 'list'
 PUBLISH = 'publish'
 DELETE = 'delete'
 SYNC = 'sync'
-COMMANDS = (LIST, PUBLISH, DELETE)
 RELEASED = 'released'
 PROPOSED = 'proposed'
 DEVEL = 'devel'
@@ -117,7 +116,7 @@ def get_md5content(local_path):
 
 
 def publish_local_file(blob_service, sync_file):
-    """Published the local file to the location specified by the purpose.
+    """Published the local file to the remote location.
 
     The file is broken down into blocks that can be uploaded within
     the azure restrictions. The blocks are then assembled into a blob
@@ -255,7 +254,7 @@ def get_option_parser():
     """Return the option parser for this program."""
     parser = ArgumentParser("Manage objects in Azure blob storage")
     subparsers = parser.add_subparsers(help='sub-command help', dest='command')
-    for command in COMMANDS:
+    for command in (LIST, PUBLISH, DELETE):
         subparser = subparsers.add_parser(command, help='Command to run')
         subparser.add_argument(
             'purpose', help="<{}>".format(' | '.join(PURPOSES)))
