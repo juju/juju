@@ -7,14 +7,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 )
 
 var _ = gc.Suite(&commandsSuite{})
-var _ = gc.Suite(&commandRegistryItemSuite{})
 
 type commandsSuite struct {
 	stub    *testing.Stub
@@ -36,9 +34,9 @@ func (s *commandsSuite) TestRegisterCommand(c *gc.C) {
 	})
 
 	// We can't compare functions directly, so...
+	c.Check(registeredEnvCommands, gc.HasLen, 0)
 	c.Assert(registeredCommands, gc.HasLen, 1)
-	c.Check(registeredCommands[0].newEnvCommand, gc.IsNil)
-	command := registeredCommands[0].newCommand()
+	command := registeredCommands[0]()
 	c.Check(command, gc.Equals, s.command)
 }
 
@@ -48,77 +46,10 @@ func (s *commandsSuite) TestRegisterEnvCommand(c *gc.C) {
 	})
 
 	// We can't compare functions directly, so...
-	c.Assert(registeredCommands, gc.HasLen, 1)
-	c.Check(registeredCommands[0].newCommand, gc.IsNil)
-	command := registeredCommands[0].newEnvCommand()
+	c.Assert(registeredCommands, gc.HasLen, 0)
+	c.Assert(registeredEnvCommands, gc.HasLen, 1)
+	command := registeredEnvCommands[0]()
 	c.Check(command, gc.Equals, s.command)
-}
-
-type commandRegistryItemSuite struct {
-	stub     *testing.Stub
-	command  *stubCommand
-	registry *stubRegistry
-}
-
-func (s *commandRegistryItemSuite) newCommand() cmd.Command {
-	return s.command
-}
-
-func (s *commandRegistryItemSuite) newEnvCommand() envcmd.EnvironCommand {
-	return s.command
-}
-
-func (s *commandRegistryItemSuite) SetUpTest(c *gc.C) {
-	s.stub = &testing.Stub{}
-	s.command = &stubCommand{stub: s.stub}
-	s.registry = &stubRegistry{stub: s.stub}
-}
-
-func (s *commandRegistryItemSuite) TestCommandBasic(c *gc.C) {
-	ctx := &cmd.Context{}
-	item := commandRegistryItem{
-		newCommand: s.newCommand,
-	}
-	command := item.command(ctx)
-
-	c.Check(command, gc.Equals, s.command)
-}
-
-func (s *commandRegistryItemSuite) TestCommandEnv(c *gc.C) {
-	ctx := &cmd.Context{}
-	item := commandRegistryItem{
-		newEnvCommand: s.newEnvCommand,
-	}
-	command := item.command(ctx)
-
-	c.Check(command, jc.DeepEquals, envCmdWrapper{
-		Command: envcmd.Wrap(s.command),
-		ctx:     ctx,
-	})
-}
-
-func (s *commandRegistryItemSuite) TestCommandZeroValue(c *gc.C) {
-	ctx := &cmd.Context{}
-	var item commandRegistryItem
-	command := item.command(ctx)
-
-	c.Check(command, gc.IsNil)
-}
-
-func (s *commandRegistryItemSuite) TestApply(c *gc.C) {
-	s.command = &stubCommand{stub: &testing.Stub{}}
-	ctx := &cmd.Context{}
-	item := commandRegistryItem{
-		newCommand: s.newCommand,
-	}
-	item.apply(s.registry, ctx)
-
-	s.stub.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Register",
-		Args: []interface{}{
-			s.command,
-		},
-	}})
 }
 
 type stubCommand struct {

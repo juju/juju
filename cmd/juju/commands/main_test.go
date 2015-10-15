@@ -386,15 +386,13 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	extraNames := []string{"cmd-a", "cmd-b"}
 	for i := range extraNames {
 		name := extraNames[i]
-		registerCommand(commandRegistryItem{
-			newCommand: func() cmd.Command {
-				return &stubCommand{
-					stub: stub,
-					info: &cmd.Info{
-						Name: name,
-					},
-				}
-			},
+		RegisterCommand(func() cmd.Command {
+			return &stubCommand{
+				stub: stub,
+				info: &cmd.Info{
+					Name: name,
+				},
+			}
 		})
 	}
 

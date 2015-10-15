@@ -238,8 +238,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 
 	// Commands registered elsewhere.
-	for _, item := range registeredCommands {
-		item.apply(r, ctx)
+	for _, newCommand := range registeredCommands {
+		command := newCommand()
+		r.Register(command)
+	}
+	for _, newCommand := range registeredEnvCommands {
+		command := newCommand()
+		r.Register(wrapEnvCommand(command))
 	}
 }
 
