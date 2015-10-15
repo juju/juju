@@ -171,6 +171,11 @@ const (
 	// interfaces created for LXC containers. See also bug #1442257.
 	LXCDefaultMTU = "lxc-default-mtu"
 
+	// CloudImageBaseURL allows a user to override the default url that the
+	// 'ubuntu-cloudimg-query' executable uses to find container images. This
+	// is primarily for enabling Juju to work cleanly in a closed network.
+	CloudImageBaseURL = "cloudimg-base-url"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -1163,6 +1168,13 @@ func (c *Config) AllowLXCLoopMounts() (bool, bool) {
 	return v, ok
 }
 
+// CloudImageBaseURL returns the specified override url that the 'ubuntu-
+// cloudimg-query' executable uses to find container images. The empty string
+// means that the default URL is used.
+func (c *Config) CloudImageBaseURL() string {
+	return c.asString(CloudImageBaseURL)
+}
+
 // ResourceTags returns a set of tags to set on environment resources
 // that Juju creates and manages, if the provider supports them. These
 // tags have no special meaning to Juju, but may be used for existing
@@ -1274,6 +1286,7 @@ var alwaysOptional = schema.Defaults{
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
+	CloudImageBaseURL:            schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -1635,6 +1648,11 @@ var configSchema = environschema.Fields{
 	"ca-private-key-path": {
 		Description: "Path to file containing CA private key",
 		Type:        environschema.Tstring,
+	},
+	CloudImageBaseURL: {
+		Description: "A URL to use instead of the default 'https://cloud-images.ubuntu.com/query' that the 'ubuntu-cloudimg-query' executable uses to find container images. This is primarily for enabling Juju to work cleanly in a closed network.",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
 	},
 	"default-series": {
 		Description: "The default series of Ubuntu to use for deploying charms",
