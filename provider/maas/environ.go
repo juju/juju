@@ -1136,8 +1136,10 @@ isStatic() {
 }
 
 unAuto() {
+    # Remove the line auto starting the primary interface. \s*$ matches
+    # whitespace and the end of the line to avoid mangling aliases.
     grep -q "auto ${PRIMARY_IFACE}\s*$" {{.Config}} && \
-    sed -i "s/auto ${PRIMARY_IFACE}//" {{.Config}}
+    sed -i "s/auto ${PRIMARY_IFACE}\s*$//" {{.Config}}
 }
 
 # Change the config to make $PRIMARY_IFACE manual instead of DHCP,
@@ -1177,7 +1179,13 @@ PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
 # If $PRIMARY_IFACE is empty, there's nothing to do.
 [ -z "$PRIMARY_IFACE" ] && exit 0
 
+# Log the contents of /etc/network/interfaces prior to modifying
+echo "Contents of /etc/network/interfaces before changes"
+cat /etc/network/interfaces
 {{.Script}}
+# Log the contents of /etc/network/interfaces after modifying
+echo "Contents of /etc/network/interfaces after changes"
+cat /etc/network/interfaces
 # Stop $PRIMARY_IFACE and start the bridge instead.
 ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
 
