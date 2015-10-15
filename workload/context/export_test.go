@@ -4,17 +4,8 @@
 package context
 
 import (
-	"github.com/juju/cmd"
-
 	"github.com/juju/juju/workload"
 )
-
-func SetComponent(cmd cmd.Command, compCtx Component) {
-	switch cmd := cmd.(type) {
-	case *WorkloadTrackCommand:
-		cmd.compCtx = compCtx
-	}
-}
 
 func AddWorkload(ctx *Context, id string, info workload.Info) {
 	if _, ok := ctx.workloads[id]; !ok {
@@ -29,14 +20,3 @@ func AddWorkloads(ctx *Context, workloads ...workload.Info) {
 		AddWorkload(ctx, wl.Name, wl)
 	}
 }
-
-func GetCmdInfo(cmd cmd.Command) *workload.Info {
-	switch cmd := cmd.(type) {
-	case *WorkloadTrackCommand:
-		return cmd.info
-	default:
-		return nil
-	}
-}
-
-var ArgNameOrId = idArg

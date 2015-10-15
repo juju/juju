@@ -8,6 +8,8 @@ import (
 	"github.com/juju/errors"
 )
 
+// TODO(ericsnow) Rename everything to "untrack" -> "unregister".
+
 const UntrackCmdName = "payload-unregister"
 
 // NewUntrackCmd returns a new UntrackCmd that wraps the given context.
