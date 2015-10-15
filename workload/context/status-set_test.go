@@ -44,10 +44,10 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 usage: payload-status-set <class> <id> <status>
 purpose: update the status of a payload
 
-"payload-status-set" is used while a hook (update-status) is running to update the
-current status of a registered payload. The <class> and <id> provided must match a
-payload that has been previously registered with juju using payload-register.
-The <status> must be on of the follow: starting, started, stopping, stopped
+"payload-status-set" is used to update the current status of a registered payload.
+The <class> and <id> provided must match a payload that has been previously
+registered with juju using payload-register. The <status> must be one of the
+follow: starting, started, stopping, stopped
 `[1:])
 }
 
