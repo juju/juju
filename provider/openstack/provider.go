@@ -524,8 +524,6 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	return machineAddresses
 }
 
-// TODO: following 30 lines nearly verbatim from environs/ec2
-
 func (inst *openstackInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",

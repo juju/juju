@@ -26,6 +26,8 @@ type environProvider struct {
 >>>>>>> review comments implemented
 }
 
+var _ environs.EnvironProvider = (*environProvider)(nil)
+
 var providerInstance environProvider
 
 <<<<<<< HEAD
@@ -164,7 +166,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 func (p environProvider) BoilerplateConfig() string {
 	return `
 # https://juju.ubuntu.com/docs/config-rackspace.html
-racksapce:
+rackspace:
     type: rackspace
 
     # network specifies the network label or uuid to bring machines up
