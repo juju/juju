@@ -682,7 +682,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client, 'get_juju_output', return_value=value):
                 writes = []
                 with patch.object(GroupReporter, '_write', autospec=True,
-                                  side_effect=lambda self, s: writes.append(s)):
+                                  side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
                             Exception,
                             'Timed out waiting for agents to start in local'):
@@ -697,7 +697,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(client, 'get_juju_output', return_value=value):
                 writes = []
                 with patch.object(GroupReporter, '_write', autospec=True,
-                                  side_effect=lambda self, s: writes.append(s)):
+                                  side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
                             Exception,
                             'Timed out waiting for agents to start in local'):
@@ -710,7 +710,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
             with patch.object(GroupReporter, '_write', autospec=True,
-                              side_effect=lambda self, s: writes.append(s)):
+                              side_effect=lambda _, s: writes.append(s)):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for agents to start in local'):
@@ -853,7 +853,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
             with patch.object(GroupReporter, '_write', autospec=True,
-                              side_effect=lambda self, s: writes.append(s)):
+                              side_effect=lambda _, s: writes.append(s)):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for voting to be enabled.'):
@@ -941,7 +941,6 @@ class TestEnvJujuClient(ClientTest):
 
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
-        devnull = open(os.devnull, 'w')
         with patch(output_real, get_juju_output_fake):
             client.wait_for_version('1.17.2')
 
@@ -959,7 +958,6 @@ class TestEnvJujuClient(ClientTest):
 
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
         output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
-        devnull = open(os.devnull, 'w')
         with patch(output_real, get_juju_output_fake):
             with self.assertRaisesRegexp(Exception, 'foo'):
                 client.wait_for_version('1.17.2')

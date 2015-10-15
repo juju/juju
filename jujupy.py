@@ -31,7 +31,6 @@ from utility import (
     ensure_deleted,
     ensure_dir,
     pause,
-    print_now,
     scoped_environ,
     temp_dir,
     until_timeout,
