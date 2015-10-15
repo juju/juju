@@ -4,15 +4,12 @@
 package context
 
 import (
-	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/plugin"
 )
 
 var logger = loggo.GetLogger("juju.workload.context")
@@ -34,8 +31,6 @@ type APIClient interface {
 
 // Component provides the hook context data specific to workloads.
 type Component interface {
-	// Plugin returns the plugin to use for the given workload.
-	Plugin(info *workload.Info, path string) (workload.Plugin, error)
 	// Get returns the workload info corresponding to the given ID.
 	Get(id string) (*workload.Info, error)
 	// Track records the workload info in the hook context.
@@ -56,23 +51,17 @@ var _ Component = (*Context)(nil)
 type Context struct {
 	api       APIClient
 	dataDir   string
-	plugin    workload.Plugin
 	workloads map[string]workload.Info
 	updates   map[string]workload.Info
-
-	// FindPlugin is the function used to find the plugin for the given
-	// plugin name.
-	FindPlugin func(pluginName, dataDir string) (workload.Plugin, error)
 }
 
 // NewContext returns a new jujuc.ContextComponent for workloads.
 func NewContext(api APIClient, dataDir string) *Context {
 	return &Context{
-		api:        api,
-		dataDir:    dataDir,
-		workloads:  make(map[string]workload.Info),
-		updates:    make(map[string]workload.Info),
-		FindPlugin: plugin.Find,
+		api:       api,
+		dataDir:   dataDir,
+		workloads: make(map[string]workload.Info),
+		updates:   make(map[string]workload.Info),
 	}
 }
 
@@ -110,26 +99,6 @@ func ContextComponent(ctx HookContext) (Component, error) {
 		return nil, errors.Errorf("component %q disabled", workload.ComponentName)
 	}
 	return compCtx, nil
-}
-
-// Plugin returns the plugin to use in this context.
-func (c *Context) Plugin(info *workload.Info, envPath string) (workload.Plugin, error) {
-	if c.plugin != nil {
-		return c.plugin, nil
-	}
-
-	if envPath != "" {
-		envPath += string(filepath.ListSeparator) + os.Getenv("PATH")
-		if err := os.Setenv("PATH", envPath); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	plugin, err := c.FindPlugin(info.Type, c.dataDir)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return plugin, nil
 }
 
 // TODO(ericsnow) Should we build in refreshes in all the methods?
