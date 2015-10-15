@@ -21,6 +21,7 @@ var logger = loggo.GetLogger("juju.workload.state")
 // The persistence methods needed for workloads in state.
 type workloadsPersistence interface {
 	Track(info workload.Info) (bool, error)
+	// SetStatus updates the status for a payload.
 	SetStatus(status, id string) (bool, error)
 	List(ids ...string) ([]workload.Info, []string, error)
 	ListAll() ([]workload.Info, error)
