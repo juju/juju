@@ -19,7 +19,7 @@ type EnvPayloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newEnvPayloadsFunc func(Persistence, func() ([]string, error), func(string) ([]names.UnitTag, error)) (EnvPayloads, error)
+type newEnvPayloadsFunc func(_ Persistence, machineNames func() ([]string, error), machineUnits func(string) ([]names.UnitTag, error)) (EnvPayloads, error)
 
 var (
 	newEnvPayloads newEnvPayloadsFunc
