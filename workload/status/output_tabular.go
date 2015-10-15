@@ -12,17 +12,22 @@ import (
 	"github.com/juju/errors"
 )
 
-const section = "[Unit Payloads]"
+const tabularSection = "[Unit Payloads]"
 
-var columns = []string{
-	"unit",
-	"machine",
-	"payload-class",
-	"status",
-	"type",
-	"id",
-	"tags",
-}
+var (
+	tabularColumns = []string{
+		"UNIT",
+		"MACHINE",
+		"PAYLOAD-CLASS",
+		"STATUS",
+		"TYPE",
+		"ID",
+		"TAGS",
+	}
+
+	tabularHeader = strings.Join(tabularColumns, "\t") + "\t"
+	tabularRow    = strings.Repeat("%s\t", len(tabularColumns))
+)
 
 // FormatTabular returns a tabular summary of payloads.
 func FormatTabular(value interface{}) ([]byte, error) {
@@ -36,25 +41,23 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	var out bytes.Buffer
 	// To format things into columns.
 	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
-	row := func(values ...string) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%s\t", v)
-		}
-		fmt.Fprintln(tw)
-	}
 
 	// Write the header.
-	fmt.Fprintln(tw, section)
-	var labels []string
-	for _, name := range columns {
-		labels = append(labels, strings.ToUpper(name))
-	}
-	row(labels...)
+	fmt.Fprintln(tw, tabularSection)
+	fmt.Fprintln(tw, tabularHeader)
 
 	// Print each payload to its own row.
 	for _, payload := range payloads {
-		values := payload.strings(columns...)
-		row(values...)
+		// tabularColumns must be kept in sync with these.
+		fmt.Fprintf(tw, tabularRow+"\n",
+			payload.Unit,
+			payload.Machine,
+			payload.Class,
+			payload.Status,
+			payload.Type,
+			payload.ID,
+			strings.Join(payload.Tags, " "),
+		)
 	}
 	tw.Flush()
 
