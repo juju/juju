@@ -160,11 +160,8 @@ func (c *Context) List() ([]string, error) {
 	return ids, nil
 }
 
-// TODO(ericsnow) rename to Track
-
 // Track records the workload info in the hook context.
 func (c *Context) Track(info workload.Info) error {
-	// TODO(ericsnow) rename to Track
 	logger.Tracef("adding %q to hook context: %#v", info.ID(), info)
 
 	if err := info.Validate(); err != nil {
