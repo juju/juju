@@ -63,7 +63,7 @@ func (s *statusSetSuite) TestInvalidStatjs(c *gc.C) {
 	s.init(c, "created", "foo")
 	err := s.cmd.Run(s.cmdCtx)
 
-	c.Check(err, gc.ErrorMatches, `invalid status, .*`)
+	c.Check(err, gc.ErrorMatches, `state .* not valid`)
 }
 
 func (s *statusSetSuite) TestStatusSet(c *gc.C) {

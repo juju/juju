@@ -77,12 +77,5 @@ func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
 }
 
 func (c *StatusSetCmd) validate(ctx *cmd.Context) error {
-	switch c.status {
-	case workload.StateStarting,
-		workload.StateRunning,
-		workload.StateStopping,
-		workload.StateStopped:
-		return nil
-	}
-	return errors.Errorf("invalid status, must be one of the following: starting, running, stopping, stopped")
+	return workload.ValidateState(c.status)
 }

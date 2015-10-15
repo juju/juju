@@ -21,7 +21,6 @@ const (
 )
 
 var okayStates = set.NewStrings(
-	StateDefined,
 	StateStarting,
 	StateRunning,
 	StateStopping,
@@ -187,6 +186,14 @@ func (s Status) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+// ValidateState verifies the state passed in is a valid okayState.
+func ValidateState(state string) error {
+	if !okayStates.Contains(state) {
+		return errors.NotValidf("state (%q)", state)
+	}
 	return nil
 }
 

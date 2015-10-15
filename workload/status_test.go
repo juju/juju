@@ -371,7 +371,7 @@ func (s *statusSuite) TestValidateOkay(c *gc.C) {
 		Message: "nothing wrong",
 	}
 	for _, state := range states {
-		if state == workload.StateUndefined {
+		if state == workload.StateUndefined || state == workload.StateDefined {
 			continue
 		}
 		c.Logf("checking %q", state)

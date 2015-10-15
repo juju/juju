@@ -69,7 +69,7 @@ func (ps UnitWorkloads) Track(info workload.Info) error {
 func (ps UnitWorkloads) SetStatus(status, id string) error {
 	logger.Tracef("setting status for %q", id)
 
-	if err := validateStatus(status); err != nil {
+	if err := workload.ValidateState(status); err != nil {
 		return errors.Trace(err)
 	}
 
