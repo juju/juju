@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/api/base"
 	apiserverclient "github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/commands"
 	cmdstatus "github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	"github.com/juju/juju/state"
@@ -26,24 +28,80 @@ import (
 	"github.com/juju/juju/workload/api/client"
 	"github.com/juju/juju/workload/api/server"
 	"github.com/juju/juju/workload/context"
+	"github.com/juju/juju/workload/persistence"
 	workloadstate "github.com/juju/juju/workload/state"
 	"github.com/juju/juju/workload/status"
 	"github.com/juju/juju/workload/workers"
 )
 
+const workloadsHookContextFacade = workload.ComponentName + "-hook-context"
+
 type workloads struct{}
 
 func (c workloads) registerForServer() error {
 	c.registerState()
+	c.registerPublicFacade()
+
 	addEvents := c.registerUnitWorkers()
 	c.registerHookContext(addEvents)
 	c.registerUnitStatus()
+
 	return nil
 }
 
-func (workloads) registerForClient() error {
+func (c workloads) registerForClient() error {
+	c.registerPublicCommands()
 	cmdstatus.RegisterUnitStatusFormatter(workload.ComponentName, status.Format)
 	return nil
+}
+
+func (workloads) newPublicFacade(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
+	up, err := st.EnvPayloads()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return server.NewPublicAPI(up), nil
+}
+
+func (c workloads) registerPublicFacade() {
+	common.RegisterStandardFacade(
+		workload.ComponentName,
+		0,
+		c.newPublicFacade,
+	)
+}
+
+type facadeCaller struct {
+	base.FacadeCaller
+	closeFunc func() error
+}
+
+func (c facadeCaller) Close() error {
+	return c.closeFunc()
+}
+
+func (workloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error) {
+	apiCaller, err := cmd.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caller := base.NewFacadeCallerForVersion(apiCaller, workload.ComponentName, 0)
+
+	listAPI := client.NewPublicClient(&facadeCaller{
+		FacadeCaller: caller,
+		closeFunc:    apiCaller.Close,
+	})
+	return listAPI, nil
+}
+
+func (c workloads) registerPublicCommands() {
+	if !markRegistered(workload.ComponentName, "public-commands") {
+		return
+	}
+
+	commands.RegisterEnvCommand(func() envcmd.EnvironCommand {
+		return status.NewListCommand(c.newListAPIClient)
+	})
 }
 
 func (c workloads) registerHookContext(addEvents func(...workload.Event) error) {
@@ -67,29 +125,24 @@ func (c workloads) registerHookContext(addEvents func(...workload.Event) error) 
 	c.registerHookContextFacade()
 }
 
-func (c workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
-	facadeCaller := base.NewFacadeCallerForVersion(caller, workload.ComponentName, 0)
+func (workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
+	facadeCaller := base.NewFacadeCallerForVersion(caller, workloadsHookContextFacade, 0)
 	return client.NewHookContextClient(facadeCaller)
 }
 
-func (workloads) registerHookContextFacade() {
-
-	newHookContextApi := func(st *state.State, unit *state.Unit) (interface{}, error) {
-		if st == nil {
-			return nil, errors.NewNotValid(nil, "st is nil")
-		}
-
-		up, err := st.UnitWorkloads(unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return server.NewHookContextAPI(up), nil
+func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+	up, err := st.UnitWorkloads(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	return server.NewHookContextAPI(up), nil
+}
 
+func (c workloads) registerHookContextFacade() {
 	common.RegisterHookContextFacade(
-		workload.ComponentName,
+		workloadsHookContextFacade,
 		0,
-		newHookContextApi,
+		c.newHookContextFacade,
 		reflect.TypeOf(&server.HookContextAPI{}),
 	)
 }
@@ -227,6 +280,43 @@ func (workloads) registerState() {
 		return workloadstate.NewUnitWorkloads(persist, unit), nil
 	}
 	state.SetWorkloadsComponent(newUnitWorkloads)
+
+	newEnvPayloads := func(persist state.Persistence, listMachines func() ([]string, error), listUnits func(string) ([]names.UnitTag, error)) (state.EnvPayloads, error) {
+		unitListFuncs := func() ([]func() ([]workload.Info, string, string, error), error) {
+			machines, err := listMachines()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var funcs []func() ([]workload.Info, string, string, error)
+			for i := range machines {
+				machine := machines[i]
+				units, err := listUnits(machine)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+
+				for i := range units {
+					unit := units[i]
+					machine := machine
+					workloadsPersist := persistence.NewPersistence(persist, unit)
+					funcs = append(funcs, func() ([]workload.Info, string, string, error) {
+						workloads, err := workloadsPersist.ListAll()
+						if err != nil {
+							return nil, "", "", errors.Trace(err)
+						}
+						return workloads, machine, unit.String(), nil
+					})
+				}
+			}
+			return funcs, nil
+		}
+		envPayloads := workloadstate.EnvPayloads{
+			UnitListFuncs: unitListFuncs,
+		}
+		return envPayloads, nil
+	}
+	state.SetPayloadsComponent(newEnvPayloads)
 }
 
 func (workloads) registerUnitStatus() {

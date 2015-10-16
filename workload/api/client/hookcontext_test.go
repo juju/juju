@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -175,11 +176,20 @@ type stubFacade struct {
 func (s *stubFacade) FacadeCall(request string, params, response interface{}) error {
 	s.stub.AddCall("FacadeCall", request, params, response)
 	if err := s.stub.NextErr(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if s.FacadeCallFn != nil {
 		return s.FacadeCallFn(request, params, response)
 	}
+	return nil
+}
+
+func (s *stubFacade) Close() error {
+	s.stub.AddCall("Close")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }

@@ -166,6 +166,7 @@ myworkload0/xyz123:
     state: ""
     blocker: ""
     message: ""
+  tags: []
   details:
     id: xyz123
     status:
@@ -199,6 +200,7 @@ myworkload0/xyz123:
     state: ""
     blocker: ""
     message: ""
+  tags: []
   details:
     id: xyz123
     status:
@@ -218,6 +220,7 @@ myworkload1/xyz456:
     state: ""
     blocker: ""
     message: ""
+  tags: []
   details:
     id: xyz456
     status:
@@ -237,6 +240,7 @@ myworkload2/xyz789:
     state: ""
     blocker: ""
     message: ""
+  tags: []
   details:
     id: xyz789
     status:
@@ -270,6 +274,7 @@ myworkload0/xyz123:
     state: ""
     blocker: ""
     message: ""
+  tags: []
   details:
     id: xyz123
     status:
