@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/client"
+	internalclient "github.com/juju/juju/workload/api/internal/client"
+	internalserver "github.com/juju/juju/workload/api/internal/server"
 	"github.com/juju/juju/workload/api/server"
 	"github.com/juju/juju/workload/context"
 	"github.com/juju/juju/workload/persistence"
@@ -116,7 +118,7 @@ func (c workloads) registerHookContext() {
 
 func (workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
 	facadeCaller := base.NewFacadeCallerForVersion(caller, workloadsHookContextFacade, 0)
-	return client.NewHookContextClient(facadeCaller)
+	return internalclient.NewHookContextClient(facadeCaller)
 }
 
 func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
@@ -124,7 +126,7 @@ func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interf
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return server.NewHookContextAPI(up), nil
+	return internalserver.NewHookContextAPI(up), nil
 }
 
 func (c workloads) registerHookContextFacade() {
@@ -132,7 +134,7 @@ func (c workloads) registerHookContextFacade() {
 		workloadsHookContextFacade,
 		0,
 		c.newHookContextFacade,
-		reflect.TypeOf(&server.HookContextAPI{}),
+		reflect.TypeOf(&internalserver.HookContextAPI{}),
 	)
 }
 

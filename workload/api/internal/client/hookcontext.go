@@ -5,13 +5,10 @@ package client
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api"
+	"github.com/juju/juju/workload/api/internal"
 )
-
-var logger = loggo.GetLogger("juju.workload.api.client")
 
 type facadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
@@ -30,14 +27,14 @@ func NewHookContextClient(caller facadeCaller) HookContextClient {
 
 // Track calls the Track API server method.
 func (c HookContextClient) Track(workloads ...workload.Info) ([]string, error) {
-	workloadArgs := make([]api.Workload, len(workloads))
+	workloadArgs := make([]internal.Workload, len(workloads))
 	for i, wl := range workloads {
-		workloadArgs[i] = api.Workload2api(wl)
+		workloadArgs[i] = internal.Workload2api(wl)
 	}
 
-	var result api.WorkloadResults
+	var result internal.WorkloadResults
 
-	args := api.TrackArgs{Workloads: workloadArgs}
+	args := internal.TrackArgs{Workloads: workloadArgs}
 	if err := c.FacadeCall("Track", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -57,9 +54,9 @@ func (c HookContextClient) Track(workloads ...workload.Info) ([]string, error) {
 
 // List calls the List API server method.
 func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
-	var result api.ListResults
+	var result internal.ListResults
 
-	args := api.ListArgs{IDs: ids}
+	args := internal.ListArgs{IDs: ids}
 	if err := c.FacadeCall("List", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +71,7 @@ func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
 		if presult.Error != nil {
 			return workloads, errors.Errorf(presult.Error.GoString())
 		}
-		pp := api.API2Workload(presult.Info)
+		pp := internal.API2Workload(presult.Info)
 		workloads[i] = pp
 	}
 	if len(notFound) > 0 {
@@ -85,17 +82,17 @@ func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
 
 // SetStatus calls the SetStatus API server method.
 func (c HookContextClient) SetStatus(class, status string, ids ...string) ([]workload.Result, error) {
-	statusArgs := make([]api.SetStatusArg, len(ids))
+	statusArgs := make([]internal.SetStatusArg, len(ids))
 	for i, id := range ids {
-		statusArgs[i] = api.SetStatusArg{
+		statusArgs[i] = internal.SetStatusArg{
 			Class:  class,
 			ID:     id,
 			Status: status,
 		}
 	}
-	args := api.SetStatusArgs{Args: statusArgs}
+	args := internal.SetStatusArgs{Args: statusArgs}
 
-	res := api.WorkloadResults{}
+	res := internal.WorkloadResults{}
 	if err := c.FacadeCall("SetStatus", &args, &res); err != nil {
 		return nil, err
 	}
@@ -121,8 +118,8 @@ func (c HookContextClient) SetStatus(class, status string, ids ...string) ([]wor
 // Untrack calls the Untrack API server method.
 func (c HookContextClient) Untrack(ids []string) ([]workload.Result, error) {
 	logger.Tracef("Calling untrack API: %q", ids)
-	args := api.UntrackArgs{IDs: ids}
-	res := api.WorkloadResults{}
+	args := internal.UntrackArgs{IDs: ids}
+	res := internal.WorkloadResults{}
 	if err := c.FacadeCall("Untrack", &args, &res); err != nil {
 		return nil, err
 	}

@@ -7,14 +7,12 @@ package server
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api"
+	"github.com/juju/juju/workload/api/internal"
 )
-
-var logger = loggo.GetLogger("juju.workload.api.server")
 
 // UnitWorkloads exposes the State functionality for a unit's workloads.
 type UnitWorkloads interface {
@@ -40,14 +38,14 @@ func NewHookContextAPI(st UnitWorkloads) *HookContextAPI {
 }
 
 // Track stores a workload to be tracked in state.
-func (a HookContextAPI) Track(args api.TrackArgs) (api.WorkloadResults, error) {
+func (a HookContextAPI) Track(args internal.TrackArgs) (internal.WorkloadResults, error) {
 	logger.Debugf("tracking %d workloads from API", len(args.Workloads))
 
-	r := api.WorkloadResults{}
+	r := internal.WorkloadResults{}
 	for _, apiWorkload := range args.Workloads {
-		info := api.API2Workload(apiWorkload)
+		info := internal.API2Workload(apiWorkload)
 		logger.Debugf("tracking workload from API: %#v", info)
-		res := api.WorkloadResult{
+		res := internal.WorkloadResult{
 			ID: info.ID(),
 		}
 		if err := a.State.Track(info); err != nil {
@@ -63,8 +61,8 @@ func (a HookContextAPI) Track(args api.TrackArgs) (api.WorkloadResults, error) {
 // List builds the list of workload being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // workloads for the unit are returned.
-func (a HookContextAPI) List(args api.ListArgs) (api.ListResults, error) {
-	var r api.ListResults
+func (a HookContextAPI) List(args internal.ListArgs) (internal.ListResults, error) {
+	var r internal.ListResults
 
 	ids := args.IDs
 	workloads, err := a.State.List(ids...)
@@ -80,7 +78,7 @@ func (a HookContextAPI) List(args api.ListArgs) (api.ListResults, error) {
 	}
 
 	for _, id := range ids {
-		res := api.ListResult{
+		res := internal.ListResult{
 			ID: id,
 		}
 
@@ -91,7 +89,7 @@ func (a HookContextAPI) List(args api.ListArgs) (api.ListResults, error) {
 				workloadID += "/" + wl.Details.ID
 			}
 			if id == wl.ID() {
-				res.Info = api.Workload2api(wl)
+				res.Info = internal.Workload2api(wl)
 				found = true
 				break
 			}
@@ -105,11 +103,11 @@ func (a HookContextAPI) List(args api.ListArgs) (api.ListResults, error) {
 }
 
 // SetStatus sets the raw status of a workload.
-func (a HookContextAPI) SetStatus(args api.SetStatusArgs) (api.WorkloadResults, error) {
-	r := api.WorkloadResults{}
+func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
+	r := internal.WorkloadResults{}
 	for _, arg := range args.Args {
 		ID := workload.BuildID(arg.Class, arg.ID)
-		res := api.WorkloadResult{
+		res := internal.WorkloadResult{
 			ID: ID,
 		}
 		err := a.State.SetStatus(ID, arg.Status)
@@ -123,10 +121,10 @@ func (a HookContextAPI) SetStatus(args api.SetStatusArgs) (api.WorkloadResults, 
 }
 
 // Untrack marks the identified workload as no longer being tracked.
-func (a HookContextAPI) Untrack(args api.UntrackArgs) (api.WorkloadResults, error) {
-	r := api.WorkloadResults{}
+func (a HookContextAPI) Untrack(args internal.UntrackArgs) (internal.WorkloadResults, error) {
+	r := internal.WorkloadResults{}
 	for _, id := range args.IDs {
-		res := api.WorkloadResult{
+		res := internal.WorkloadResult{
 			ID: id,
 		}
 		if err := a.State.Untrack(id); err != nil {

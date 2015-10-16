@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api"
+	"github.com/juju/juju/workload/api/internal"
 )
 
 type suite struct{}
@@ -20,19 +20,19 @@ func (suite) TestTrack(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 
-	args := api.TrackArgs{
-		Workloads: []api.Workload{{
-			Definition: api.WorkloadDefinition{
+	args := internal.TrackArgs{
+		Workloads: []internal.Workload{{
+			Definition: internal.WorkloadDefinition{
 				Name: "foobar",
 				Type: "type",
 			},
-			Status: api.WorkloadStatus{
+			Status: internal.WorkloadStatus{
 				State:   workload.StateRunning,
 				Message: "okay",
 			},
-			Details: api.WorkloadDetails{
+			Details: internal.WorkloadDetails{
 				ID: "idfoo",
-				Status: api.PluginStatus{
+				Status: internal.PluginStatus{
 					State: "running",
 				},
 			},
@@ -42,8 +42,8 @@ func (suite) TestTrack(c *gc.C) {
 	res, err := a.Track(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResults := api.WorkloadResults{
-		Results: []api.WorkloadResult{{
+	expectedResults := internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
 			ID:    "foobar/idfoo",
 			Error: nil,
 		}},
@@ -91,32 +91,32 @@ func (suite) TestListOne(c *gc.C) {
 	}
 	st := &FakeState{workloads: []workload.Info{wl}}
 	a := HookContextAPI{st}
-	args := api.ListArgs{
+	args := internal.ListArgs{
 		IDs: []string{"foobar/idfoo"},
 	}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.Workload{
-		Definition: api.WorkloadDefinition{
+	expected := internal.Workload{
+		Definition: internal.WorkloadDefinition{
 			Name: "foobar",
 			Type: "type",
 		},
-		Status: api.WorkloadStatus{
+		Status: internal.WorkloadStatus{
 			State:   workload.StateRunning,
 			Message: "okay",
 		},
 		Tags: []string{},
-		Details: api.WorkloadDetails{
+		Details: internal.WorkloadDetails{
 			ID: "idfoo",
-			Status: api.PluginStatus{
+			Status: internal.PluginStatus{
 				State: "running",
 			},
 		},
 	}
 
-	expectedResults := api.ListResults{
-		Results: []api.ListResult{{
+	expectedResults := internal.ListResults{
+		Results: []internal.ListResult{{
 			ID:    "foobar/idfoo",
 			Info:  expected,
 			Error: nil,
@@ -145,30 +145,30 @@ func (suite) TestListAll(c *gc.C) {
 	}
 	st := &FakeState{workloads: []workload.Info{wl}}
 	a := HookContextAPI{st}
-	args := api.ListArgs{}
+	args := internal.ListArgs{}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.Workload{
-		Definition: api.WorkloadDefinition{
+	expected := internal.Workload{
+		Definition: internal.WorkloadDefinition{
 			Name: "foobar",
 			Type: "type",
 		},
-		Status: api.WorkloadStatus{
+		Status: internal.WorkloadStatus{
 			State:   workload.StateRunning,
 			Message: "okay",
 		},
 		Tags: []string{},
-		Details: api.WorkloadDetails{
+		Details: internal.WorkloadDetails{
 			ID: "idfoo",
-			Status: api.PluginStatus{
+			Status: internal.PluginStatus{
 				State: "running",
 			},
 		},
 	}
 
-	expectedResults := api.ListResults{
-		Results: []api.ListResult{{
+	expectedResults := internal.ListResults{
+		Results: []internal.ListResult{{
 			ID:    "foobar/idfoo",
 			Info:  expected,
 			Error: nil,
@@ -181,8 +181,8 @@ func (suite) TestListAll(c *gc.C) {
 func (suite) TestSetStatus(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
-	args := api.SetStatusArgs{
-		Args: []api.SetStatusArg{{
+	args := internal.SetStatusArgs{
+		Args: []internal.SetStatusArg{{
 			Class:  "fooID",
 			ID:     "bar",
 			Status: workload.StateRunning,
@@ -194,8 +194,8 @@ func (suite) TestSetStatus(c *gc.C) {
 	c.Check(st.id, gc.Equals, "fooID/bar")
 	c.Assert(st.status, gc.Equals, workload.StateRunning)
 
-	expected := api.WorkloadResults{
-		Results: []api.WorkloadResult{{
+	expected := internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
 			ID:    "fooID/bar",
 			Error: nil,
 		}},
@@ -206,7 +206,7 @@ func (suite) TestSetStatus(c *gc.C) {
 func (suite) TestUntrack(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
-	args := api.UntrackArgs{
+	args := internal.UntrackArgs{
 		IDs: []string{"fooID/bar"},
 	}
 	res, err := a.Untrack(args)
@@ -214,8 +214,8 @@ func (suite) TestUntrack(c *gc.C) {
 
 	c.Assert(st.id, gc.Equals, "fooID/bar")
 
-	expected := api.WorkloadResults{
-		Results: []api.WorkloadResult{{
+	expected := internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
 			ID:    "fooID/bar",
 			Error: nil,
 		}},
@@ -226,7 +226,7 @@ func (suite) TestUntrack(c *gc.C) {
 func (suite) TestUntrackEmptyID(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
-	args := api.UntrackArgs{
+	args := internal.UntrackArgs{
 		IDs: []string{""},
 	}
 	res, err := a.Untrack(args)
@@ -234,7 +234,12 @@ func (suite) TestUntrackEmptyID(c *gc.C) {
 
 	c.Assert(st.id, gc.Equals, "")
 
-	expected := api.WorkloadResults{Results: []api.WorkloadResult{api.WorkloadResult{ID: ""}}}
+	expected := internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
+			ID:    "",
+			Error: nil,
+		}},
+	}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
@@ -242,7 +247,7 @@ func (suite) TestUntrackEmpty(c *gc.C) {
 	st := &FakeState{}
 	st.id = "foo"
 	a := HookContextAPI{st}
-	args := api.UntrackArgs{
+	args := internal.UntrackArgs{
 		IDs: []string{},
 	}
 	res, err := a.Untrack(args)
@@ -250,7 +255,7 @@ func (suite) TestUntrackEmpty(c *gc.C) {
 
 	c.Assert(st.id, gc.Equals, "foo")
 
-	expected := api.WorkloadResults{}
+	expected := internal.WorkloadResults{}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 

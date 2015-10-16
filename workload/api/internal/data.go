@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package internal
 
 // TODO(ericsnow) Eliminate the params import if possible.
 
