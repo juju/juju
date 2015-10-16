@@ -490,8 +490,6 @@ func (s *workersSuite) TestAddOkay(c *gc.C) {
 	for _, newWorker := range funcs {
 		newWorker()
 	}
-	sort.Strings(s.calls)
-	sort.Strings(expected)
 	c.Check(s.calls, jc.DeepEquals, expected)
 }
 
