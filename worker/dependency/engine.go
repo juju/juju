@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker"
@@ -255,6 +256,21 @@ func (engine *engine) gotInstall(name string, manifold Manifold) error {
 	return nil
 }
 
+// uninstall removes the named manifold from the engine's records.
+func (engine *engine) uninstall(name string) {
+	// Note that we *don't* want to remove dependents[name] -- all those other
+	// manifolds do still depend on this, and another manifold with the same
+	// name might be installed in the future -- but we do want to remove the
+	// named manifold from all *values* in the dependents map.
+	for dName, dependents := range engine.dependents {
+		depSet := set.NewStrings(dependents...)
+		depSet.Remove(name)
+		engine.dependents[dName] = depSet.Values()
+	}
+	delete(engine.current, name)
+	delete(engine.manifolds, name)
+}
+
 // checkAcyclic returns an error if the introduction of the supplied manifold
 // would cause the dependency graph to contain cycles.
 func (engine *engine) checkAcyclic(name string, manifold Manifold) error {
@@ -471,6 +487,9 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 			// The task can't even start with the current state. Nothing more
 			// can be done (until the inputs change, in which case we retry
 			// anyway).
+		case ErrUninstall:
+			// The task should never run again, and can be removed completely.
+			engine.uninstall(name)
 		default:
 			// Something went wrong but we don't know what. Try again soon.
 			logger.Errorf("%q manifold worker returned unexpected error: %v", name, err)
