@@ -14,61 +14,60 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
-type InceptionSuite struct {
+type SelfSuite struct {
 	engineFixture
 }
 
-var _ = gc.Suite(&InceptionSuite{})
+var _ = gc.Suite(&SelfSuite{})
 
-func (s *InceptionSuite) TestInputs(c *gc.C) {
-	manifold := dependency.InceptionManifold(s.engine)
+func (s *SelfSuite) TestInputs(c *gc.C) {
+	manifold := dependency.SelfManifold(s.engine)
 	c.Check(manifold.Inputs, gc.HasLen, 0)
 }
 
-func (s *InceptionSuite) TestStart(c *gc.C) {
-	manifold := dependency.InceptionManifold(s.engine)
+func (s *SelfSuite) TestStart(c *gc.C) {
+	manifold := dependency.SelfManifold(s.engine)
 	engine, err := manifold.Start(nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(engine, gc.Equals, s.engine)
 }
 
-func (s *InceptionSuite) TestOutputBadInput(c *gc.C) {
-	manifold := dependency.InceptionManifold(s.engine)
+func (s *SelfSuite) TestOutputBadInput(c *gc.C) {
+	manifold := dependency.SelfManifold(s.engine)
 	var input dependency.Engine
 	err := manifold.Output(input, nil)
 	c.Check(err, gc.ErrorMatches, "unexpected input worker")
 }
 
-func (s *InceptionSuite) TestOutputBadOutput(c *gc.C) {
-	manifold := dependency.InceptionManifold(s.engine)
+func (s *SelfSuite) TestOutputBadOutput(c *gc.C) {
+	manifold := dependency.SelfManifold(s.engine)
 	var unknown interface{}
 	err := manifold.Output(s.engine, &unknown)
 	c.Check(err, gc.ErrorMatches, "out should be a \\*Installer or a \\*Reporter; is .*")
 	c.Check(unknown, gc.IsNil)
 }
 
-func (s *InceptionSuite) TestOutputReporter(c *gc.C) {
-	manifold := dependency.InceptionManifold(s.engine)
+func (s *SelfSuite) TestOutputReporter(c *gc.C) {
+	manifold := dependency.SelfManifold(s.engine)
 	var reporter dependency.Reporter
 	err := manifold.Output(s.engine, &reporter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(reporter, gc.Equals, s.engine)
 }
 
-func (s *InceptionSuite) TestOutputInstaller(c *gc.C) {
-	manifold := dependency.InceptionManifold(s.engine)
+func (s *SelfSuite) TestOutputInstaller(c *gc.C) {
+	manifold := dependency.SelfManifold(s.engine)
 	var installer dependency.Installer
 	err := manifold.Output(s.engine, &installer)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(installer, gc.Equals, s.engine)
 }
 
-func (s *InceptionSuite) TestActuallyWorks(c *gc.C) {
+func (s *SelfSuite) TestActuallyWorks(c *gc.C) {
 
 	// Install an engine inside itself.
-	manifold := dependency.InceptionManifold(s.engine)
-	name := "bwaaawwwwwmmmmmmmmmmm"
-	err := s.engine.Install(name, manifold)
+	manifold := dependency.SelfManifold(s.engine)
+	err := s.engine.Install("self", manifold)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can still stop it (with a timeout -- injudicious

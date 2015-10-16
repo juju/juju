@@ -71,10 +71,11 @@ func (v validator) visit(node string) error {
 	return nil
 }
 
-// InceptionManifold returns a manifold exposing a running dependency engine's
-// Installer and Reporter services. The returned manifold is suitable (indeed,
-// intended) for installation into the engine it wraps.
-func InceptionManifold(engine Engine) Manifold {
+// SelfManifold returns a manifold exposing a running dependency engine's
+// Installer and Reporter services. The returned manifold is intended for
+// installation into the engine it wraps; installing it into other engines
+// may have surprising effects.
+func SelfManifold(engine Engine) Manifold {
 	return Manifold{
 		Start: func(_ GetResourceFunc) (worker.Worker, error) {
 			return engine, nil
