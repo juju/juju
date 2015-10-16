@@ -1345,6 +1345,9 @@ func (st *State) assignStagedUnit(doc assignUnitDoc) error {
 // AssignUnitWithPlacement chooses a machine using the given placement directive
 // and then assigns the unit to it.
 func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement, networks []string) error {
+	// TODO(natefinch) this should be done as a single transaction, not two.
+	// Mark https://launchpad.net/bugs/1506994 fixed when done.
+
 	m, err := st.addMachineWithPlacement(unit, placement, networks)
 	if err != nil {
 		return errors.Trace(err)
@@ -1412,6 +1415,9 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 
 	// Create any new machine marked as dirty so that
 	// nothing else will grab it before we assign the unit to it.
+	// TODO(natefinch) fix this when we put assignment in the same
+	// transaction as adding a machine.  See bug
+	// https://launchpad.net/bugs/1506994
 
 	switch data.placementType() {
 	case containerPlacement:
