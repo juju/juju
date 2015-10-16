@@ -113,13 +113,14 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	}
 }
 
-func (c *stubContextComponent) Get(id string) (*workload.Info, error) {
-	c.stub.AddCall("Get", id)
+func (c *stubContextComponent) Get(class, id string) (*workload.Info, error) {
+	c.stub.AddCall("Get", class, id)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info, ok := c.workloads[id]
+	fullID := workload.BuildID(class, id)
+	info, ok := c.workloads[fullID]
 	if !ok {
 		return nil, errors.NotFoundf(id)
 	}
@@ -132,11 +133,11 @@ func (c *stubContextComponent) List() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var ids []string
+	var fullIDs []string
 	for k := range c.workloads {
-		ids = append(ids, k)
+		fullIDs = append(fullIDs, k)
 	}
-	return ids, nil
+	return fullIDs, nil
 }
 
 func (c *stubContextComponent) Track(info workload.Info) error {
@@ -149,14 +150,15 @@ func (c *stubContextComponent) Track(info workload.Info) error {
 	return nil
 }
 
-func (c *stubContextComponent) Untrack(id string) error {
-	c.stub.AddCall("Untrack", id)
+func (c *stubContextComponent) Untrack(class, id string) error {
+	c.stub.AddCall("Untrack", class, id)
 
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.untracks[id] = struct{}{}
+	fullID := workload.BuildID(class, id)
+	c.untracks[fullID] = struct{}{}
 	return nil
 }
 
@@ -166,8 +168,8 @@ func (c *stubContextComponent) SetStatus(class, id, status string) error {
 		return errors.Trace(err)
 	}
 
-	ID := class + "/" + id
-	workload := c.workloads[ID]
+	fullID := workload.BuildID(class, id)
+	workload := c.workloads[fullID]
 	workload.Status.State = status
 	workload.Details.Status.State = status
 	return nil
@@ -196,9 +198,9 @@ func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 	}
 }
 
-func (c *stubAPIClient) setNew(ids ...string) []workload.Info {
+func (c *stubAPIClient) setNew(fullIDs ...string) []workload.Info {
 	var workloads []workload.Info
-	for _, id := range ids {
+	for _, id := range fullIDs {
 		name, pluginID := workload.ParseID(id)
 		if name == "" {
 			panic("missing name")
@@ -227,19 +229,19 @@ func (c *stubAPIClient) setNew(ids ...string) []workload.Info {
 	return workloads
 }
 
-func (c *stubAPIClient) List(ids ...string) ([]workload.Info, error) {
-	c.stub.AddCall("List", ids)
+func (c *stubAPIClient) List(fullIDs ...string) ([]workload.Info, error) {
+	c.stub.AddCall("List", fullIDs)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var workloads []workload.Info
-	if ids == nil {
+	if fullIDs == nil {
 		for _, wl := range c.workloads {
 			workloads = append(workloads, wl)
 		}
 	} else {
-		for _, id := range ids {
+		for _, id := range fullIDs {
 			wl, ok := c.workloads[id]
 			if !ok {
 				return nil, errors.NotFoundf("wl %q", id)
@@ -256,41 +258,40 @@ func (c *stubAPIClient) Track(workloads ...workload.Info) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var ids []string
+	var fullIDs []string
 	for _, wl := range workloads {
 		c.workloads[wl.Name] = wl
-		ids = append(ids, wl.ID())
+		fullIDs = append(fullIDs, wl.ID())
 	}
-	return ids, nil
+	return fullIDs, nil
 }
 
-func (c *stubAPIClient) Untrack(ids []string) ([]workload.Result, error) {
-	c.stub.AddCall("Untrack", ids)
+func (c *stubAPIClient) Untrack(fullIDs ...string) ([]workload.Result, error) {
+	c.stub.AddCall("Untrack", fullIDs)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	errs := []workload.Result{}
-	for _, id := range ids {
+	for _, id := range fullIDs {
 		delete(c.workloads, id)
 		errs = append(errs, workload.Result{ID: id})
 	}
 	return errs, nil
 }
 
-func (c *stubAPIClient) SetStatus(class, status string, ids ...string) ([]workload.Result, error) {
-	c.stub.AddCall("SetStatus", class, status, ids)
+func (c *stubAPIClient) SetStatus(status string, fullIDs ...string) ([]workload.Result, error) {
+	c.stub.AddCall("SetStatus", status, fullIDs)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	errs := []workload.Result{}
-	for _, id := range ids {
-		ID := class + "/" + id
-		wkl := c.workloads[ID]
+	for _, id := range fullIDs {
+		wkl := c.workloads[id]
 		wkl.Status.State = status
 		wkl.Details.Status.State = status
-		errs = append(errs, workload.Result{ID: ID})
+		errs = append(errs, workload.Result{ID: id})
 	}
 
 	return errs, nil

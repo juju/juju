@@ -53,10 +53,10 @@ func (c HookContextClient) Track(workloads ...workload.Info) ([]string, error) {
 }
 
 // List calls the List API server method.
-func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
+func (c HookContextClient) List(fullIDs ...string) ([]workload.Info, error) {
 	var result internal.ListResults
 
-	args := internal.ListArgs{IDs: ids}
+	args := internal.ListArgs{IDs: fullIDs}
 	if err := c.FacadeCall("List", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -81,9 +81,10 @@ func (c HookContextClient) List(ids ...string) ([]workload.Info, error) {
 }
 
 // SetStatus calls the SetStatus API server method.
-func (c HookContextClient) SetStatus(class, status string, ids ...string) ([]workload.Result, error) {
-	statusArgs := make([]internal.SetStatusArg, len(ids))
-	for i, id := range ids {
+func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]workload.Result, error) {
+	statusArgs := make([]internal.SetStatusArg, len(fullIDs))
+	for i, fullID := range fullIDs {
+		class, id := workload.ParseID(fullID)
 		statusArgs[i] = internal.SetStatusArg{
 			Class:  class,
 			ID:     id,
@@ -116,10 +117,10 @@ func (c HookContextClient) SetStatus(class, status string, ids ...string) ([]wor
 }
 
 // Untrack calls the Untrack API server method.
-func (c HookContextClient) Untrack(ids []string) ([]workload.Result, error) {
-	logger.Tracef("Calling untrack API: %q", ids)
-	args := internal.UntrackArgs{IDs: ids}
-	res := internal.WorkloadResults{}
+func (c HookContextClient) Untrack(fullIDs ...string) ([]workload.Result, error) {
+	logger.Tracef("Calling untrack API: %q", fullIDs)
+	args := internal.UntrackArgs{IDs: fullIDs}
+	var res internal.WorkloadResults
 	if err := c.FacadeCall("Untrack", &args, &res); err != nil {
 		return nil, err
 	}

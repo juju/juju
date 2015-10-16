@@ -73,7 +73,8 @@ func (s *unregisterSuite) TestRunOkay(c *gc.C) {
 	}, {
 		FuncName: "Untrack",
 		Args: []interface{}{
-			"spam/eggs",
+			"spam",
+			"eggs",
 		},
 	}, {
 		FuncName: "Flush",
@@ -85,8 +86,8 @@ type stubUnregisterContext struct {
 	stub *testing.Stub
 }
 
-func (s stubUnregisterContext) Untrack(id string) error {
-	s.stub.AddCall("Untrack", id)
+func (s stubUnregisterContext) Untrack(class, id string) error {
+	s.stub.AddCall("Untrack", class, id)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

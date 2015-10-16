@@ -17,13 +17,13 @@ var logger = loggo.GetLogger("juju.workload.context")
 // APIClient represents the API needs of a Context.
 type APIClient interface {
 	// List requests the workload info for the given IDs.
-	List(ids ...string) ([]workload.Info, error)
+	List(fullIDs ...string) ([]workload.Info, error)
 	// Register sends a request to update state with the provided workloads.
 	Track(workloads ...workload.Info) ([]string, error)
 	// Untrack removes the workloads from our list track.
-	Untrack(ids []string) ([]workload.Result, error)
+	Untrack(fullIDs ...string) ([]workload.Result, error)
 	// SetStatus sets the status for the given IDs.
-	SetStatus(class, status string, ids ...string) ([]workload.Result, error)
+	SetStatus(status string, fullIDs ...string) ([]workload.Result, error)
 }
 
 // TODO(ericsnow) Rename Get and Set to more specifically describe what
@@ -32,11 +32,11 @@ type APIClient interface {
 // Component provides the hook context data specific to workloads.
 type Component interface {
 	// Get returns the workload info corresponding to the given ID.
-	Get(id string) (*workload.Info, error)
+	Get(class, id string) (*workload.Info, error)
 	// Track records the workload info in the hook context.
 	Track(info workload.Info) error
 	// Untrack removes the workload from our list of workloads to track.
-	Untrack(id string) error
+	Untrack(class, id string) error
 	// SetStatus sets the status of the payload.
 	SetStatus(class, id, status string) error
 	// List returns the list of registered workload IDs.
@@ -128,14 +128,15 @@ func mergeWorkloadMaps(workloads, updates map[string]workload.Info) map[string]w
 }
 
 // Get returns the workload info corresponding to the given ID.
-func (c *Context) Get(id string) (*workload.Info, error) {
-	logger.Tracef("getting %q from hook context", id)
+func (c *Context) Get(class, id string) (*workload.Info, error) {
+	fullID := workload.BuildID(class, id)
+	logger.Tracef("getting %q from hook context", fullID)
 
-	actual, ok := c.updates[id]
+	actual, ok := c.updates[fullID]
 	if !ok {
-		actual, ok = c.workloads[id]
+		actual, ok = c.workloads[fullID]
 		if !ok {
-			return nil, errors.NotFoundf("%s", id)
+			return nil, errors.NotFoundf("%s", fullID)
 		}
 	}
 	return &actual, nil
@@ -174,10 +175,11 @@ func (c *Context) Track(info workload.Info) error {
 }
 
 // Untrack tells juju to stop tracking this workload.
-func (c *Context) Untrack(id string) error {
-	logger.Tracef("Calling untrack on workload context %q", id)
+func (c *Context) Untrack(class, id string) error {
+	fullID := workload.BuildID(class, id)
+	logger.Tracef("Calling untrack on workload context %q", fullID)
 
-	res, err := c.api.Untrack([]string{id})
+	res, err := c.api.Untrack(fullID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -190,9 +192,10 @@ func (c *Context) Untrack(id string) error {
 }
 
 func (c *Context) SetStatus(class, id, status string) error {
-	logger.Tracef("Calling status-set on payload context %q", id)
+	fullID := workload.BuildID(class, id)
+	logger.Tracef("Calling status-set on payload context %q", fullID)
 
-	res, err := c.api.SetStatus(class, status, id)
+	res, err := c.api.SetStatus(status, fullID)
 	if err != nil {
 		return errors.Trace(err)
 	}
