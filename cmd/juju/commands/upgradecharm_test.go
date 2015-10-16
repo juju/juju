@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
@@ -41,11 +42,10 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func() (*csClient, error) {
-		csclient, err := original()
-		c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
+		csclient := original(httpClient)
 		csclient.params.URL = s.srv.URL
-		return csclient, nil
+		return csclient
 	})
 }
 
