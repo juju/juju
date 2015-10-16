@@ -6,6 +6,8 @@ package commands
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -215,7 +217,7 @@ func (c *deployCommand) Run(ctx *cmd.Context) error {
 		}
 		ctx.Infof("deployment of bundle %q completed", f.Name())
 		return nil
-	} else if !os.IsNotExist(err) {
+	} else if !isPathNotFound(err) {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
@@ -337,6 +339,24 @@ func (c *deployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return block.ProcessBlockedError(err, block.BlockChange)
+}
+
+func isPathNotFound(err error) bool {
+	if os.IsNotExist(err) {
+		return true
+	}
+	if runtime.GOOS == "windows" {
+		if pathErr, ok := err.(*os.PathError); ok {
+			// Windows platforms will parse a charm URL with schema specified as an
+			// invalid volume name. If that is the case, regard this as "not found"
+			// for consistency with other platforms.
+			ref, refErr := charm.ParseReference(pathErr.Path)
+			if refErr == nil && strings.HasPrefix(pathErr.Path, ref.Schema+":") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type metricCredentialsAPI interface {
