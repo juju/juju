@@ -26,6 +26,7 @@ func (s *commandsSuite) SetUpTest(c *gc.C) {
 
 func (s *commandsSuite) TearDownTest(c *gc.C) {
 	registeredCommands = nil
+	registeredEnvCommands = nil
 }
 
 func (s *commandsSuite) TestRegisterCommand(c *gc.C) {
