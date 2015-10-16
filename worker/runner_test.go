@@ -5,6 +5,7 @@ package worker_test
 
 import (
 	"fmt"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -489,6 +490,8 @@ func (s *workersSuite) TestAddOkay(c *gc.C) {
 	for _, newWorker := range funcs {
 		newWorker()
 	}
+	sort.Strings(s.calls)
+	sort.Strings(expected)
 	c.Check(s.calls, jc.DeepEquals, expected)
 }
 
@@ -518,6 +521,8 @@ func (s *workersSuite) TestStartOkay(c *gc.C) {
 
 	// We would use s.stub.CheckCalls if functions could be compared...
 	runner.CheckCallIDs(c, "StartWorker", expected...)
+	sort.Strings(s.calls)
+	sort.Strings(expected)
 	c.Check(s.calls, jc.DeepEquals, expected)
 }
 
