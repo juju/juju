@@ -6,6 +6,7 @@ package client
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -173,24 +174,24 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		if err != nil {
 			return results, err
 		}
-		addr := network.SelectPublicAddress(machine.Addresses())
-		if addr == "" {
-			return results, fmt.Errorf("machine %q has no public address", machine)
+		addr, err := machine.PublicAddress()
+		if err != nil {
+			return results, errors.Annotatef(err, "error fetching address for machine %q", machine)
 		}
-		return params.PublicAddressResults{PublicAddress: addr}, nil
+		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 
 	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
 		}
-		addr, ok := unit.PublicAddress()
-		if !ok {
-			return results, fmt.Errorf("unit %q has no public address", unit)
+		addr, err := unit.PublicAddress()
+		if err != nil {
+			return results, errors.Annotatef(err, "error fetching address for unit %q", unit)
 		}
-		return params.PublicAddressResults{PublicAddress: addr}, nil
+		return params.PublicAddressResults{PublicAddress: addr.Value}, nil
 	}
-	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
+	return results, errors.Errorf("unknown unit or machine %q", p.Target)
 }
 
 // PrivateAddress implements the server side of Client.PrivateAddress.
@@ -201,22 +202,22 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		if err != nil {
 			return results, err
 		}
-		addr := network.SelectInternalAddress(machine.Addresses(), false)
-		if addr == "" {
-			return results, fmt.Errorf("machine %q has no internal address", machine)
+		addr, err := machine.PrivateAddress()
+		if err != nil {
+			return results, errors.Annotatef(err, "error fetching address for machine %q", machine)
 		}
-		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
 
 	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
 		}
-		addr, ok := unit.PrivateAddress()
-		if !ok {
-			return results, fmt.Errorf("unit %q has no internal address", unit)
+		addr, err := unit.PrivateAddress()
+		if err != nil {
+			return results, errors.Annotatef(err, "error fetching address for unit %q", unit)
 		}
-		return params.PrivateAddressResults{PrivateAddress: addr}, nil
+		return params.PrivateAddressResults{PrivateAddress: addr.Value}, nil
 	}
 	return results, fmt.Errorf("unknown unit or machine %q", p.Target)
 }
@@ -829,13 +830,22 @@ func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
 	}
 
 	for _, user := range users {
+		var lastConn *time.Time
+		userLastConn, err := user.LastConnection()
+		if err != nil {
+			if !state.IsNeverConnectedError(err) {
+				return results, errors.Trace(err)
+			}
+		} else {
+			lastConn = &userLastConn
+		}
 		results.Results = append(results.Results, params.EnvUserInfoResult{
 			Result: &params.EnvUserInfo{
 				UserName:       user.UserName(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
-				LastConnection: user.LastConnection(),
+				LastConnection: lastConn,
 			},
 		})
 	}

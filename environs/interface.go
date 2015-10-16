@@ -66,6 +66,20 @@ type EnvironProvider interface {
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
 }
 
+// EnvironConfigUpgrader is an interface that an EnvironProvider may
+// implement in order to modify environment configuration on agent upgrade.
+type EnvironConfigUpgrader interface {
+	// UpgradeConfig upgrades an old environment configuration by adding,
+	// updating or removing attributes. UpgradeConfig must be idempotent,
+	// as it may be called multiple times in the event of a partial upgrade.
+	//
+	// NOTE(axw) this is currently only called when upgrading to 1.25.
+	// We should update the upgrade machinery to call this for every
+	// version upgrade, so the upgrades package is not tightly coupled
+	// to provider upgrades.
+	UpgradeConfig(cfg *config.Config) (*config.Config, error)
+}
+
 // EnvironStorage implements storage access for an environment.
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.

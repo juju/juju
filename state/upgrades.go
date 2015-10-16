@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v5"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -669,6 +670,31 @@ func AddNameFieldLowerCaseIdOfUsers(st *State) error {
 		return errors.Trace(err)
 	}
 	return st.runRawTransaction(ops)
+}
+
+func AddPreferredAddressesToMachines(st *State) error {
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, machine := range machines {
+		if machine.Life() == Dead {
+			continue
+		}
+		// Setting the addresses is enough to trigger setting the preferred
+		// addresses.
+		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = machine.SetMachineAddresses(machine.MachineAddresses()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+	}
+	return nil
 }
 
 func LowerCaseEnvUsersID(st *State) error {
@@ -1542,6 +1568,130 @@ func SetHostedEnvironCount(st *State) error {
 	return st.runTransaction([]txn.Op{op})
 }
 
+type oldUserDoc struct {
+	DocID     string     `bson:"_id"`
+	EnvUUID   string     `bson:"env-uuid"`
+	LastLogin *time.Time `bson:"lastlogin"`
+}
+
+type oldEnvUserDoc struct {
+	DocID          string     `bson:"_id"`
+	EnvUUID        string     `bson:"env-uuid"`
+	UserName       string     `bson:"user"`
+	LastConnection *time.Time `bson:"lastconnection"`
+}
+
+// MigrateLastLoginAndLastConnection is an upgrade step that separates out
+// LastLogin from the userDoc into its own collection and removes the
+// lastlogin field from the userDoc. It does the same for LastConnection in
+// the envUserDoc.
+func MigrateLastLoginAndLastConnection(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return err
+	}
+
+	// 0. setup
+	users, closer := st.getRawCollection(usersC)
+	defer closer()
+	envUsers, closer := st.getRawCollection(envUsersC)
+	defer closer()
+	userLastLogins, closer := st.getRawCollection(userLastLoginC)
+	defer closer()
+	envUserLastConnections, closer := st.getRawCollection(envUserLastConnectionC)
+	defer closer()
+
+	var oldUserDocs []oldUserDoc
+	if err = users.Find(bson.D{{
+		"lastlogin", bson.D{{"$exists", true}}}}).All(&oldUserDocs); err != nil {
+		return err
+	}
+
+	var oldEnvUserDocs []oldEnvUserDoc
+	if err = envUsers.Find(bson.D{{
+		"lastconnection", bson.D{{"$exists", true}}}}).All(&oldEnvUserDocs); err != nil {
+		return err
+	}
+
+	// 1. collect data we need to move
+	var lastLoginDocs []interface{}
+	var lastConnectionDocs []interface{}
+
+	for _, oldUser := range oldUserDocs {
+		if oldUser.LastLogin == nil {
+			continue
+		}
+		lastLoginDocs = append(lastLoginDocs, userLastLoginDoc{
+			oldUser.DocID,
+			oldUser.EnvUUID,
+			*oldUser.LastLogin,
+		})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		if oldEnvUser.LastConnection == nil {
+			continue
+		}
+		lastConnectionDocs = append(lastConnectionDocs, envUserLastConnectionDoc{
+			oldEnvUser.DocID,
+			oldEnvUser.EnvUUID,
+			oldEnvUser.UserName,
+			*oldEnvUser.LastConnection,
+		})
+	}
+
+	// 2. raw-write all that data to the new collections, overwriting
+	// everything.
+	//
+	// If a user accesses the API during the upgrade, a lastLoginDoc could
+	// already exist. In this is the case, we hit a duplicate key error, which
+	// we ignore. The insert becomes a no-op, keeping the new lastLoginDoc
+	// which will be more up-to-date than what's read in through the usersC
+	// collection.
+	if len(lastLoginDocs) > 0 {
+		if err := userLastLogins.Insert(lastLoginDocs...); err != nil && !mgo.IsDup(err) {
+			return err
+		}
+	}
+
+	if len(lastConnectionDocs) > 0 {
+		if err := envUserLastConnections.Insert(lastConnectionDocs...); err != nil && !mgo.IsDup(err) {
+			return err
+		}
+	}
+
+	// 3. run txn operations to remove the old unwanted fields
+	ops := []txn.Op{}
+
+	for _, oldUser := range oldUserDocs {
+		upgradesLogger.Debugf("updating lastlogin for user %q", oldUser.DocID)
+		ops = append(ops,
+			txn.Op{
+				C:      usersC,
+				Id:     oldUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastlogin", nil}}},
+				},
+			})
+	}
+
+	for _, oldEnvUser := range oldEnvUserDocs {
+		upgradesLogger.Debugf("updating lastconnection for environment user %q", oldEnvUser.DocID)
+
+		ops = append(ops,
+			txn.Op{
+				C:      envUsersC,
+				Id:     oldEnvUser.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$unset", bson.D{{"lastconnection", nil}}},
+				},
+			})
+	}
+	return st.runRawTransaction(ops)
+}
+
 // AddMissingEnvUUIDOnStatuses populates the env-uuid field where it
 // is missing due to LP #1474606.
 func AddMissingEnvUUIDOnStatuses(st *State) error {
@@ -1838,6 +1988,7 @@ func AddBindingToFilesystems(st *State) error {
 // ChangeStatusHistoryUpdatedType seeks for historicalStatusDoc records
 // whose updated attribute is a time and converts them to int64.
 func ChangeStatusHistoryUpdatedType(st *State) error {
+	// Ensure all ids are using the new form.
 	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
 		return errors.Annotate(err, "cannot update ids of status history")
 	}
@@ -1852,10 +2003,8 @@ func ChangeStatusUpdatedType(st *State) error {
 	return runForAllEnvStates(st, run)
 }
 
-func changeIdsFromSeqToAuto(st *State) (err error) {
-	var (
-		docs []bson.M
-	)
+func changeIdsFromSeqToAuto(st *State) error {
+	var docs []bson.M
 	rawColl, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
@@ -1864,11 +2013,10 @@ func changeIdsFromSeqToAuto(st *State) (err error) {
 
 	// Filtering is done by hand because the ids we are trying to modify
 	// do not have uuid.
-	err = rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs)
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
+	if err := rawColl.Find(bson.M{"env-uuid": st.EnvironUUID()}).All(&docs); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
 		return errors.Annotatef(err, "cannot find all docs for %q", statusesHistoryC)
 	}
 
@@ -1912,11 +2060,6 @@ func changeUpdatedType(st *State, collection string) error {
 
 	wColl := coll.Writeable()
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		updated, ok := doc["updated"].(time.Time)
 		if ok {
@@ -1930,6 +2073,10 @@ func changeUpdatedType(st *State, collection string) error {
 
 // ChangeStatusHistoryEntityId renames entityId field to globalkey.
 func ChangeStatusHistoryEntityId(st *State) error {
+	// Ensure all ids are using the new form.
+	if err := runForAllEnvStates(st, changeIdsFromSeqToAuto); err != nil {
+		return errors.Annotate(err, "cannot update ids of status history")
+	}
 	return runForAllEnvStates(st, changeStatusHistoryEntityId)
 }
 
@@ -1947,11 +2094,6 @@ func changeStatusHistoryEntityId(st *State) error {
 		return errors.Annotate(err, "cannot get entity ids")
 	}
 	for _, doc := range docs {
-		_, okString := doc["_id"].(string)
-		_, okOid := doc["_id"].(bson.ObjectId)
-		if !okString && !okOid {
-			return errors.Errorf("unexpected id: %v", doc["_id"])
-		}
 		id := doc["_id"]
 		entityId, ok := doc["entityid"].(string)
 		if !ok {

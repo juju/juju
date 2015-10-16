@@ -30,7 +30,9 @@ func NewActionSetCommand(ctx Context) (cmd.Command, error) {
 func (c *ActionSetCommand) Info() *cmd.Info {
 	doc := `
 action-set adds the given values to the results map of the Action.  This map
-is returned to the user after the completion of the Action.
+is returned to the user after the completion of the Action.  Keys must start
+and end with lowercase alphanumeric, and contain only lowercase alphanumeric,
+hyphens and periods.
 
 Example usage:
  action-set outfile.size=10G
@@ -73,7 +75,7 @@ func (c *ActionSetCommand) Init(args []string) error {
 		// check each key for validity
 		for _, key := range keySlice {
 			if valid := keyRule.MatchString(key); !valid {
-				return fmt.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
+				return fmt.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric, hyphens and periods", key)
 			}
 		}
 		// [key, key, key, key, value]

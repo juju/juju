@@ -138,11 +138,17 @@ func (st *State) RemoveAllEnvironDocs() error {
 			return errors.Trace(err)
 		}
 		for _, id := range ids {
-			ops = append(ops, txn.Op{
-				C:      name,
-				Id:     id["_id"],
-				Remove: true,
-			})
+			if info.rawAccess {
+				if err := coll.Writeable().RemoveId(id["_id"]); err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				ops = append(ops, txn.Op{
+					C:      name,
+					Id:     id["_id"],
+					Remove: true,
+				})
+			}
 		}
 	}
 
@@ -1089,7 +1095,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(
-	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints,
+	name, owner string, ch *Charm, networks []string, storage map[string]StorageConstraints, settings charm.Settings,
 ) (service *Service, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
 	ownerTag, err := names.ParseUserTag(owner)
@@ -1156,6 +1162,11 @@ func (st *State) AddService(
 		NeverSet: true,
 	}
 
+	// When creating the settings, we ignore nils.  In other circumstances, nil
+	// means to delete the value (reset to default), so creating with nil should
+	// mean to use the default, i.e. don't set the value.
+	removeNils(settings)
+
 	ops := []txn.Op{
 		env.assertAliveOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
@@ -1165,7 +1176,7 @@ func (st *State) AddService(
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(st, svc.settingsKey(), nil),
+		createSettingsOp(st, svc.settingsKey(), map[string]interface{}(settings)),
 		addLeadershipSettingsOp(svc.Tag().Id()),
 		createStatusOp(st, svc.globalKey(), statusDoc),
 		{
@@ -1182,6 +1193,7 @@ func (st *State) AddService(
 			Insert: svcDoc,
 		},
 	}
+
 	// Collect peer relation addition operations.
 	peerOps, err := st.addPeerRelationsOps(name, peers)
 	if err != nil {
@@ -1205,6 +1217,15 @@ func (st *State) AddService(
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
+}
+
+// removeNils removes any keys with nil values from the given map.
+func removeNils(m map[string]interface{}) {
+	for k, v := range m {
+		if v == nil {
+			delete(m, k)
+		}
+	}
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an

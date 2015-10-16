@@ -4,8 +4,8 @@
 package environs
 
 var (
-	Providers       = &providers
-	ProviderAliases = &providerAliases
+	Providers       = &globalProviders.providers
+	ProviderAliases = &globalProviders.aliases
 )
 
 func UpdateEnvironAttrs(envs *Environs, name string, newAttrs map[string]interface{}) {

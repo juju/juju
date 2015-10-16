@@ -3,24 +3,24 @@ package storage
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // formatVolumeListTabular returns a tabular summary of volume instances.
 func formatVolumeListTabular(value interface{}) ([]byte, error) {
-	infos, ok := value.(map[string]map[string]map[string]VolumeInfo)
+	infos, ok := value.(map[string]VolumeInfo)
 	if !ok {
 		return nil, errors.Errorf("expected value of type %T, got %T", infos, value)
 	}
 	return formatVolumeListTabularTyped(infos), nil
 }
 
-func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeInfo) []byte {
+func formatVolumeListTabularTyped(infos map[string]VolumeInfo) []byte {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
@@ -35,49 +35,98 @@ func formatVolumeListTabularTyped(infos map[string]map[string]map[string]VolumeI
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("MACHINE", "UNIT", "STORAGE", "DEVICE", "VOLUME", "ID", "SIZE", "STATE", "MESSAGE")
+	print("MACHINE", "UNIT", "STORAGE", "ID", "PROVIDER-ID", "DEVICE", "SIZE", "STATE", "MESSAGE")
 
-	// 1. sort by machines
-	machines := set.NewStrings()
-	for machine := range infos {
-		if !machines.Contains(machine) {
-			machines.Add(machine)
+	volumeAttachmentInfos := make(volumeAttachmentInfos, 0, len(infos))
+	for volumeId, info := range infos {
+		volumeAttachmentInfo := volumeAttachmentInfo{
+			VolumeId:   volumeId,
+			VolumeInfo: info,
 		}
-	}
-	for _, machine := range machines.SortedValues() {
-		machineUnits := infos[machine]
-
-		// 2. sort by unit
-		units := set.NewStrings()
-		for unit := range machineUnits {
-			if !units.Contains(unit) {
-				units.Add(unit)
-			}
+		if info.Attachments == nil {
+			volumeAttachmentInfos = append(volumeAttachmentInfos, volumeAttachmentInfo)
+			continue
 		}
-		for _, unit := range units.SortedValues() {
-			unitStorages := machineUnits[unit]
-
-			// 3. sort by storage
-			storages := set.NewStrings()
-			for storage := range unitStorages {
-				if !storages.Contains(storage) {
-					storages.Add(storage)
+		// Each unit attachment must have a corresponding volume
+		// attachment. Enumerate each of the volume attachments,
+		// and locate the corresponding unit attachment if any.
+		// Each volume attachment has at most one corresponding
+		// unit attachment.
+		for machineId, machineInfo := range info.Attachments.Machines {
+			volumeAttachmentInfo := volumeAttachmentInfo
+			volumeAttachmentInfo.MachineId = machineId
+			volumeAttachmentInfo.MachineVolumeAttachment = machineInfo
+			for unitId, unitInfo := range info.Attachments.Units {
+				if unitInfo.MachineId == machineId {
+					volumeAttachmentInfo.UnitId = unitId
+					volumeAttachmentInfo.UnitStorageAttachment = unitInfo
+					break
 				}
 			}
-			for _, storage := range storages.SortedValues() {
-				info := unitStorages[storage]
-				var size string
-				if info.Size > 0 {
-					size = humanize.IBytes(info.Size * humanize.MiByte)
-				}
-				print(
-					machine, unit, storage, info.DeviceName,
-					info.Volume, info.VolumeId, size,
-					string(info.Status.Current), info.Status.Message,
-				)
-			}
+			volumeAttachmentInfos = append(volumeAttachmentInfos, volumeAttachmentInfo)
 		}
 	}
+	sort.Sort(volumeAttachmentInfos)
+
+	for _, info := range volumeAttachmentInfos {
+		var size string
+		if info.Size > 0 {
+			size = humanize.IBytes(info.Size * humanize.MiByte)
+		}
+		print(
+			info.MachineId, info.UnitId, info.Storage,
+			info.VolumeId, info.ProviderVolumeId,
+			info.DeviceName, size,
+			string(info.Status.Current), info.Status.Message,
+		)
+	}
+
 	tw.Flush()
 	return out.Bytes()
+}
+
+type volumeAttachmentInfo struct {
+	VolumeId string
+	VolumeInfo
+
+	MachineId string
+	MachineVolumeAttachment
+
+	UnitId string
+	UnitStorageAttachment
+}
+
+type volumeAttachmentInfos []volumeAttachmentInfo
+
+func (v volumeAttachmentInfos) Len() int {
+	return len(v)
+}
+
+func (v volumeAttachmentInfos) Swap(i, j int) {
+	v[i], v[j] = v[j], v[i]
+}
+
+func (v volumeAttachmentInfos) Less(i, j int) bool {
+	switch compareStrings(v[i].MachineId, v[j].MachineId) {
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+
+	switch compareSlashSeparated(v[i].UnitId, v[j].UnitId) {
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+
+	switch compareSlashSeparated(v[i].Storage, v[j].Storage) {
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+
+	return v[i].VolumeId < v[j].VolumeId
 }

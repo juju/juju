@@ -193,13 +193,43 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 	}
 
+	newToolsVersion, err := c.newToolsVersionAvailable()
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
+	}
+
 	return params.FullStatus{
-		EnvironmentName: cfg.Name(),
-		Machines:        processMachines(context.machines),
-		Services:        context.processServices(),
-		Networks:        context.processNetworks(),
-		Relations:       context.processRelations(),
+		EnvironmentName:  cfg.Name(),
+		AvailableVersion: newToolsVersion,
+		Machines:         processMachines(context.machines),
+		Services:         context.processServices(),
+		Networks:         context.processNetworks(),
+		Relations:        context.processRelations(),
 	}, nil
+}
+
+// newToolsVersionAvailable will return a string representing a tools
+// version only if the latest check is newer than current tools.
+func (c *Client) newToolsVersionAvailable() (string, error) {
+	env, err := c.api.state.Environment()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot get environment")
+	}
+
+	latestVersion := env.LatestToolsVersion()
+
+	envConfig, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain current environ config")
+	}
+	oldV, ok := envConfig.AgentVersion()
+	if !ok {
+		return "", nil
+	}
+	if oldV.Compare(latestVersion) < 0 {
+		return latestVersion.String(), nil
+	}
+	return "", nil
 }
 
 // Status is a stub version of FullStatus that was introduced in 1.16
@@ -427,7 +457,14 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 		if err != nil {
 			status.InstanceState = "error"
 		}
-		status.DNSName = network.SelectPublicAddress(machine.Addresses())
+		addr, err := machine.PublicAddress()
+		if err != nil {
+			// Usually this indicates that no addresses have been set on the
+			// machine yet.
+			addr = network.Address{}
+			logger.Warningf("error fetching public address: %q", err)
+		}
+		status.DNSName = addr.Value
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
@@ -632,7 +669,14 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) params.UnitStatus {
 	var result params.UnitStatus
-	result.PublicAddress, _ = unit.PublicAddress()
+	addr, err := unit.PublicAddress()
+	if err != nil {
+		// Usually this indicates that no addresses have been set on the
+		// machine yet.
+		addr = network.Address{}
+		logger.Warningf("error fetching public address: %v", err)
+	}
+	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
 	for _, port := range unitPorts {
 		result.OpenedPorts = append(result.OpenedPorts, port.String())

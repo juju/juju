@@ -1701,6 +1701,19 @@ func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
 }
 
+func (s *ConfigSuite) TestCloudImageBaseURL(c *gc.C) {
+	s.addJujuFiles(c)
+	config := newTestConfig(c, testing.Attrs{})
+	c.Assert(config.CloudImageBaseURL(), gc.Equals, "")
+}
+
+func (s *ConfigSuite) TestCloudImageBaseURLSet(c *gc.C) {
+	s.addJujuFiles(c)
+	config := newTestConfig(c, testing.Attrs{
+		"cloudimg-base-url": "http://local.foo/query"})
+	c.Assert(config.CloudImageBaseURL(), gc.Equals, "http://local.foo/query")
+}
+
 func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	s.addJujuFiles(c)
 

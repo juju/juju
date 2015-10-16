@@ -436,11 +436,11 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 			// GZ 2013-07-10: Hardcoded values from dummy environ
 			//                special cased here, questionable.
 			private, _ := ctx.unit.PrivateAddress()
-			if private != "private.address.example.com" {
+			if private.Value != "private.address.example.com" {
 				continue
 			}
 			public, _ := ctx.unit.PublicAddress()
-			if public != "public.address.example.com" {
+			if public.Value != "public.address.example.com" {
 				continue
 			}
 			return
@@ -1504,15 +1504,19 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer ctx.wg.Done()
 		// make sure the socket exists
 		client, err := sockets.Dial(socketPath)
-		c.Assert(err, jc.ErrorIsNil)
+		// Don't use asserts in go routines.
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
 		defer client.Close()
 
 		var result utilexec.ExecResponse
 		err = client.Call(uniter.JujuRunEndpoint, args, &result)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result.Code, gc.Equals, 0)
-		c.Check(string(result.Stdout), gc.Equals, "")
-		c.Check(string(result.Stderr), gc.Equals, "")
+		if c.Check(err, jc.ErrorIsNil) {
+			c.Check(result.Code, gc.Equals, 0)
+			c.Check(string(result.Stdout), gc.Equals, "")
+			c.Check(string(result.Stderr), gc.Equals, "")
+		}
 	}()
 }
 

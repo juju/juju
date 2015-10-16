@@ -682,27 +682,42 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, attributeParams.APIAddresses)
 
-	// The first cloud-local address for each server is used,
-	// else if there are none then the first public- or unknown-
-	// scope address.
+	// All the best candidate addresses for each server are
+	// used. Cloud-local addresses are preferred.  Otherwise, public
+	// or unknown scope addresses are used.
 	//
 	// If a server has only machine-local addresses, or none
 	// at all, then it will be excluded.
-	server1 := network.NewAddresses("0.1.2.3", "0.1.2.4", "zeroonetwothree")
+	server1 := network.NewAddresses("0.1.0.1", "0.1.0.2", "host.com")
 	server1[0].Scope = network.ScopeCloudLocal
 	server1[1].Scope = network.ScopeCloudLocal
 	server1[2].Scope = network.ScopePublic
-	server2 := network.NewAddresses("127.0.0.1")
-	server2[0].Scope = network.ScopeMachineLocal
-	server3 := network.NewAddresses("0.1.2.5", "zeroonetwofive")
-	server3[0].Scope = network.ScopeUnknown
-	server3[1].Scope = network.ScopeUnknown
+
+	server2 := network.NewAddresses("0.2.0.1", "0.2.0.2")
+	server2[0].Scope = network.ScopePublic
+	server2[1].Scope = network.ScopePublic
+
+	server3 := network.NewAddresses("127.0.0.1")
+	server3[0].Scope = network.ScopeMachineLocal
+
+	server4 := network.NewAddresses("0.4.0.1", "elsewhere.net")
+	server4[0].Scope = network.ScopeUnknown
+	server4[1].Scope = network.ScopeUnknown
+
 	conf.SetAPIHostPorts([][]network.HostPort{
-		network.AddressesWithPort(server1, 123),
-		network.AddressesWithPort(server2, 124),
-		network.AddressesWithPort(server3, 125),
+		network.AddressesWithPort(server1, 1111),
+		network.AddressesWithPort(server2, 2222),
+		network.AddressesWithPort(server3, 3333),
+		network.AddressesWithPort(server4, 4444),
 	})
 	addrs, err = conf.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, gc.DeepEquals, []string{"0.1.2.3:123", "0.1.2.5:125"})
+	c.Assert(addrs, gc.DeepEquals, []string{
+		"0.1.0.1:1111",
+		"0.1.0.2:1111",
+		"0.2.0.1:2222",
+		"0.2.0.2:2222",
+		"0.4.0.1:4444",
+		"elsewhere.net:4444",
+	})
 }
