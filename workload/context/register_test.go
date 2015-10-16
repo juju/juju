@@ -52,7 +52,7 @@ func (registerSuite) TestInitWithTags(c *gc.C) {
 }
 
 func (registerSuite) TestRun(c *gc.C) {
-	f := &fakeComponent{}
+	f := &stubRegisterContext{}
 	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,7 +70,7 @@ func (registerSuite) TestRun(c *gc.C) {
 }
 
 func (registerSuite) TestRunUnknownClass(c *gc.C) {
-	f := &fakeComponent{}
+	f := &stubRegisterContext{}
 	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "badclass", "id"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (registerSuite) TestRunUnknownClass(c *gc.C) {
 }
 
 func (registerSuite) TestRunUnknownType(c *gc.C) {
-	f := &fakeComponent{}
+	f := &stubRegisterContext{}
 	r := RegisterCmd{api: f}
 	err := r.Init([]string{"badtype", "class", "id"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +92,7 @@ func (registerSuite) TestRunUnknownType(c *gc.C) {
 }
 
 func (registerSuite) TestRunTrackErr(c *gc.C) {
-	f := &fakeComponent{trackerr: errors.Errorf("boo")}
+	f := &stubRegisterContext{trackerr: errors.Errorf("boo")}
 	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,7 +103,7 @@ func (registerSuite) TestRunTrackErr(c *gc.C) {
 }
 
 func (registerSuite) TestRunFlushErr(c *gc.C) {
-	f := &fakeComponent{flusherr: errors.Errorf("boo")}
+	f := &stubRegisterContext{flusherr: errors.Errorf("boo")}
 	r := RegisterCmd{api: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,7 +113,7 @@ func (registerSuite) TestRunFlushErr(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boo")
 }
 
-type fakeComponent struct {
+type stubRegisterContext struct {
 	Component
 	info     workload.Info
 	flushed  bool
@@ -121,12 +121,12 @@ type fakeComponent struct {
 	flusherr error
 }
 
-func (f *fakeComponent) Track(info workload.Info) error {
+func (f *stubRegisterContext) Track(info workload.Info) error {
 	f.info = info
 	return f.trackerr
 }
 
-func (f *fakeComponent) Flush() error {
+func (f *stubRegisterContext) Flush() error {
 	f.flushed = true
 	return f.flusherr
 }

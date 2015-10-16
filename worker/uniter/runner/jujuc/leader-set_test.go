@@ -21,26 +21,26 @@ type leaderSetSuite struct {
 var _ = gc.Suite(&leaderSetSuite{})
 
 func (s *leaderSetSuite) TestInitEmpty(c *gc.C) {
-	command := jujuc.NewLeaderSetCommand(nil)
+	command, _ := jujuc.NewLeaderSetCommand(nil)
 	err := command.Init(nil)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *leaderSetSuite) TestInitValues(c *gc.C) {
-	command := jujuc.NewLeaderSetCommand(nil)
+	command, _ := jujuc.NewLeaderSetCommand(nil)
 	err := command.Init([]string{"foo=bar", "baz=qux"})
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *leaderSetSuite) TestInitError(c *gc.C) {
-	command := jujuc.NewLeaderSetCommand(nil)
+	command, _ := jujuc.NewLeaderSetCommand(nil)
 	err := command.Init([]string{"nonsense"})
 	c.Check(err, gc.ErrorMatches, `expected "key=value", got "nonsense"`)
 }
 
 func (s *leaderSetSuite) TestWriteEmpty(c *gc.C) {
 	jujucContext := &leaderSetContext{}
-	command := jujuc.NewLeaderSetCommand(jujucContext)
+	command, _ := jujuc.NewLeaderSetCommand(jujucContext)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 0)
@@ -51,7 +51,7 @@ func (s *leaderSetSuite) TestWriteEmpty(c *gc.C) {
 
 func (s *leaderSetSuite) TestWriteValues(c *gc.C) {
 	jujucContext := &leaderSetContext{}
-	command := jujuc.NewLeaderSetCommand(jujucContext)
+	command, _ := jujuc.NewLeaderSetCommand(jujucContext)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, []string{"foo=bar", "baz=qux"})
 	c.Check(code, gc.Equals, 0)
@@ -65,7 +65,7 @@ func (s *leaderSetSuite) TestWriteValues(c *gc.C) {
 
 func (s *leaderSetSuite) TestWriteError(c *gc.C) {
 	jujucContext := &leaderSetContext{err: errors.New("splat")}
-	command := jujuc.NewLeaderSetCommand(jujucContext)
+	command, _ := jujuc.NewLeaderSetCommand(jujucContext)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, []string{"foo=bar"})
 	c.Check(code, gc.Equals, 1)

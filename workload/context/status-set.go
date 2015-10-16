@@ -69,6 +69,8 @@ func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Is the flush really necessary?
+
 	// We flush to state immedeiately so that status reflects the
 	// workload correctly.
 	if err := c.api.Flush(); err != nil {

@@ -20,8 +20,8 @@ type StatusGetCommand struct {
 	out         cmd.Output
 }
 
-func NewStatusGetCommand(ctx Context) cmd.Command {
-	return &StatusGetCommand{ctx: ctx}
+func NewStatusGetCommand(ctx Context) (cmd.Command, error) {
+	return &StatusGetCommand{ctx: ctx}, nil
 }
 
 func (c *StatusGetCommand) Info() *cmd.Info {

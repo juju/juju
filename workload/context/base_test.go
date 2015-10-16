@@ -102,7 +102,6 @@ type stubContextComponent struct {
 	workloads   map[string]workload.Info
 	definitions map[string]charm.Workload
 	untracks    map[string]struct{}
-	plugin      workload.Plugin
 }
 
 func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
@@ -112,18 +111,6 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 		definitions: make(map[string]charm.Workload),
 		untracks:    make(map[string]struct{}),
 	}
-}
-
-func (c *stubContextComponent) Plugin(info *workload.Info, path string) (workload.Plugin, error) {
-	c.stub.AddCall("Plugin", info, path)
-	if err := c.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if c.plugin == nil {
-		return &stubPlugin{stub: c.stub}, nil
-	}
-	return c.plugin, nil
 }
 
 func (c *stubContextComponent) Get(id string) (*workload.Info, error) {
@@ -307,37 +294,4 @@ func (c *stubAPIClient) SetStatus(class, status string, ids ...string) ([]worklo
 	}
 
 	return errs, nil
-}
-
-type stubPlugin struct {
-	stub    *testing.Stub
-	details workload.Details
-	status  workload.PluginStatus
-}
-
-func (c *stubPlugin) Launch(definition charm.Workload) (workload.Details, error) {
-	c.stub.AddCall("Launch", definition)
-	if err := c.stub.NextErr(); err != nil {
-		return c.details, errors.Trace(err)
-	}
-
-	return c.details, nil
-}
-
-func (c *stubPlugin) Destroy(id string) error {
-	c.stub.AddCall("Destroy", id)
-	if err := c.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (c *stubPlugin) Status(id string) (workload.PluginStatus, error) {
-	c.stub.AddCall("Status", id)
-	if err := c.stub.NextErr(); err != nil {
-		return c.status, errors.Trace(err)
-	}
-
-	return c.status, nil
 }

@@ -8,8 +8,13 @@ package api
 // TODO(ericsnow) Eliminate the params import if possible.
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/params"
 )
+
+// BulkFailure indicates that at least one arg failed.
+var BulkFailure = errors.Errorf("at least one bulk arg has an error")
 
 // EnvListArgs are the arguments for the env-based List endpoint.
 type EnvListArgs struct {

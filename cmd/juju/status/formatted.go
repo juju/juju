@@ -110,12 +110,11 @@ type unitStatus struct {
 	AgentVersion   string        `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Life           string        `json:"life,omitempty" yaml:"life,omitempty"`
 
-	Charm         string                 `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
-	Machine       string                 `json:"machine,omitempty" yaml:"machine,omitempty"`
-	OpenedPorts   []string               `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
-	PublicAddress string                 `json:"public-address,omitempty" yaml:"public-address,omitempty"`
-	Subordinates  map[string]unitStatus  `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
-	Components    map[string]interface{} `json:"components,omitempty" yaml:"components,omitempty"`
+	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
+	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
 type statusInfoContents struct {

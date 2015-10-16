@@ -21,8 +21,8 @@ type StorageGetCommand struct {
 	out        cmd.Output
 }
 
-func NewStorageGetCommand(ctx Context) cmd.Command {
-	return &StorageGetCommand{ctx: ctx}
+func NewStorageGetCommand(ctx Context) (cmd.Command, error) {
+	return &StorageGetCommand{ctx: ctx}, nil
 }
 
 func (c *StorageGetCommand) Info() *cmd.Info {

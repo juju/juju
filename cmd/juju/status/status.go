@@ -71,16 +71,19 @@ func (c *StatusCommand) Info() *cmd.Info {
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 
+	oneLineFormatter := FormatOneline
 	defaultFormat := "yaml"
 	if c.CompatVersion() > 1 {
 		defaultFormat = "tabular"
+		oneLineFormatter = FormatOnelineV2
 	}
+
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"short":   FormatOneline,
-		"oneline": FormatOneline,
-		"line":    FormatOneline,
+		"short":   oneLineFormatter,
+		"oneline": oneLineFormatter,
+		"line":    oneLineFormatter,
 		"tabular": FormatTabular,
 		"summary": FormatSummary,
 	})
@@ -122,7 +125,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
 
