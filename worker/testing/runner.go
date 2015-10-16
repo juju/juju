@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"sort"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -61,6 +63,8 @@ func (r *StubRunner) checkCallIDs(c *gc.C, methName string, skipMismatch bool, e
 		}
 		ids = append(ids, call.Args[0].(string))
 	}
+	sort.Strings(ids)
+	sort.Strings(expected)
 	c.Check(ids, jc.DeepEquals, expected)
 }
 
