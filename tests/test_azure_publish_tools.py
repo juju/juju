@@ -18,7 +18,9 @@ from azure_publish_tools import (
     PUBLISH,
     publish_files,
     RELEASED,
+    SYNC,
     SyncFile,
+    sync_files,
     )
 from utils import (
     temp_dir,
@@ -57,7 +59,7 @@ class TestOptionParser(TestCase):
         args = self.parse_args(['publish', 'mypurpose', 'mypath'])
         self.assertEqual(Namespace(
             command=PUBLISH, purpose='mypurpose', dry_run=False, verbose=False,
-            path=['mypath']), args)
+            path='mypath'), args)
 
     def test_publish_dry_run(self):
         args = self.parse_args(['publish', 'mypurpose', 'mypath', '--dry-run'])
@@ -68,8 +70,8 @@ class TestOptionParser(TestCase):
         self.assertIs(True, args.verbose)
 
     def test_publish_path(self):
-        args = self.parse_args(['publish', 'mypurpose', 'mypath', 'mypath2'])
-        self.assertEqual(['mypath', 'mypath2'], args.path)
+        args = self.parse_args(['publish', 'mypurpose', 'mypath2'])
+        self.assertEqual('mypath2', args.path)
 
     def test_delete(self):
         args = self.parse_args(['delete', 'mypurpose', 'mypath'])
@@ -88,6 +90,24 @@ class TestOptionParser(TestCase):
     def test_delete_path(self):
         args = self.parse_args(['delete', 'mypurpose', 'mypath', 'mypath2'])
         self.assertEqual(['mypath', 'mypath2'], args.path)
+
+    def test_sync(self):
+        args = self.parse_args(['sync', 'mypath', 'myprefix'])
+        self.assertEqual(Namespace(
+            command=SYNC, prefix='myprefix', dry_run=False, verbose=False,
+            local_dir='mypath'), args)
+
+    def test_sync_dry_run(self):
+        args = self.parse_args(['sync', 'mypath', 'myprefix', '--dry-run'])
+        self.assertIs(True, args.dry_run)
+
+    def test_sync_verbose(self):
+        args = self.parse_args(['sync', 'mypath', 'myprefix', '--verbose'])
+        self.assertIs(True, args.verbose)
+
+    def test_sync_path(self):
+        args = self.parse_args(['sync', 'mypath2', 'myprefix'])
+        self.assertEqual('mypath2', args.local_dir)
 
 
 class FakeBlobProperties:
@@ -152,7 +172,7 @@ class FakeBlobService:
         pass
 
 
-class TestGetPublishedFiles(TestCase):
+class TestGetPublishedFiles(QuietTestCase):
 
     def test_none(self):
         self.assertEqual([], get_published_files(RELEASED, FakeBlobService()))
@@ -232,6 +252,23 @@ class TestPublishFiles(QuietTestCase):
         blob = service.containers[JUJU_DIST]['tools/index2.json']
         self.assertEqual({'MA==': '{}\n'}, blob._blocks)
 
+    def test_same_local_remote(self):
+        args = Namespace(verbose=False, dry_run=False)
+        with temp_dir() as local_dir:
+            file_path = os.path.join(local_dir, 'index2.json')
+            write_file(file_path, '{}\n')
+            md5_sum = get_md5content(file_path)
+            expected = SyncFile(
+                'tools/index2.json', 33, md5_sum, 'application/json', '')
+            service = FakeBlobService({
+                'tools/index2.json': FakeBlob.from_sync_file(expected)
+                })
+            publish_files(service, RELEASED, local_dir, args)
+        self.assertEqual(['tools/index2.json'],
+                         service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({}, blob._blocks)
+
     def test_different_local_remote(self):
         args = Namespace(verbose=False, dry_run=False)
         expected = SyncFile(
@@ -247,6 +284,88 @@ class TestPublishFiles(QuietTestCase):
         blob = service.containers[JUJU_DIST]['tools/index2.json']
         self.assertEqual({'MA==': '{}\n'}, blob._blocks)
 
+    def test_different_local_remote_dry_run(self):
+        args = Namespace(verbose=False, dry_run=True)
+        expected = SyncFile(
+            'tools/index2.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index2.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            write_file(os.path.join(local_dir, 'index2.json'), '{}\n')
+            publish_files(service, RELEASED, local_dir, args)
+        self.assertEqual(['tools/index2.json'],
+                         service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({}, blob._blocks)
+
+
+class TestSyncFiles(QuietTestCase):
+
+    def test_no_files(self):
+        args = Namespace(verbose=False, dry_run=False)
+        with temp_dir() as local_dir:
+            sync_files(FakeBlobService(), 'tools', local_dir, args)
+
+    def test_one_remote_file(self):
+        args = Namespace(verbose=False, dry_run=False)
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            sync_files(service, 'tools', local_dir, args)
+        self.assertEqual(['tools/index.json'],
+                         service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index.json']
+        self.assertEqual({}, blob._blocks)
+
+    def test_one_local_file(self):
+        args = Namespace(verbose=False, dry_run=False)
+        expected = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            write_file(os.path.join(local_dir, 'index2.json'), '{}\n')
+            sync_files(service, 'tools', local_dir, args)
+        self.assertEqual(['tools/index.json', 'tools/index2.json'],
+                         service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+
+    def test_different_local_remote(self):
+        args = Namespace(verbose=False, dry_run=False)
+        expected = SyncFile(
+            'tools/index2.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index2.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            write_file(os.path.join(local_dir, 'index2.json'), '{}\n')
+            sync_files(service, 'tools', local_dir, args)
+        self.assertEqual(['tools/index2.json'],
+                         service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+
+    def test_different_local_remote_dry_run(self):
+        args = Namespace(verbose=False, dry_run=True)
+        expected = SyncFile(
+            'tools/index2.json', 33, 'md5-asdf', 'application/json', '')
+        service = FakeBlobService({
+            'tools/index2.json': FakeBlob.from_sync_file(expected)
+            })
+        with temp_dir() as local_dir:
+            write_file(os.path.join(local_dir, 'index2.json'), '{}\n')
+            sync_files(service, 'tools', local_dir, args)
+        self.assertEqual(['tools/index2.json'],
+                         service.containers[JUJU_DIST].keys())
+        blob = service.containers[JUJU_DIST]['tools/index2.json']
+        self.assertEqual({}, blob._blocks)
+
     def test_same_local_remote(self):
         args = Namespace(verbose=False, dry_run=False)
         with temp_dir() as local_dir:
@@ -258,7 +377,7 @@ class TestPublishFiles(QuietTestCase):
             service = FakeBlobService({
                 'tools/index2.json': FakeBlob.from_sync_file(expected)
                 })
-            publish_files(service, RELEASED, local_dir, args)
+            sync_files(service, 'tools', local_dir, args)
         self.assertEqual(['tools/index2.json'],
                          service.containers[JUJU_DIST].keys())
         blob = service.containers[JUJU_DIST]['tools/index2.json']

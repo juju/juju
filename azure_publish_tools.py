@@ -32,7 +32,7 @@ UNKNOWN_PURPOSE = 5
 LIST = 'list'
 PUBLISH = 'publish'
 DELETE = 'delete'
-COMMANDS = (LIST, PUBLISH, DELETE)
+SYNC = 'sync'
 RELEASED = 'released'
 PROPOSED = 'proposed'
 DEVEL = 'devel'
@@ -115,8 +115,8 @@ def get_md5content(local_path):
     return base64_md5
 
 
-def publish_local_file(purpose, blob_service, sync_file):
-    """Published the local file to the location specified by the purpose.
+def publish_local_file(blob_service, sync_file):
+    """Published the local file to the remote location.
 
     The file is broken down into blocks that can be uploaded within
     the azure restrictions. The blocks are then assembled into a blob
@@ -168,11 +168,28 @@ def publish_files(blob_service, purpose, local_dir, args):
         if args.verbose:
             print("No files were found at {}".format(local_dir))
         return NO_LOCAL_FILES
+    return publish_changed(blob_service, local_files, published_files, args)
+
+
+def sync_files(blob_service, prefix, local_dir, args):
+    local_dir = normalized_dir(local_dir)
+    print("Looking for published files in %s" % prefix)
+    sync_files = list_sync_files(prefix, blob_service)
+    print("Looking for local files in %s" % local_dir)
+    local_files = get_local_sync_files(prefix, local_dir)
+    if local_files == []:
+        if args.verbose:
+            print("No files were found at {}".format(local_dir))
+        return NO_LOCAL_FILES
+    return publish_changed(blob_service, local_files, sync_files, args)
+
+
+def publish_changed(blob_service, local_files, remote_files, args):
     if args.verbose:
         for lf in local_files:
             print(lf.path)
     published_dict = dict(
-        (sync_file.path, sync_file) for sync_file in published_files)
+        (sync_file.path, sync_file) for sync_file in remote_files)
     for sync_file in local_files:
         if sync_file.path not in published_dict:
             print('%s is new.' % sync_file.path)
@@ -189,7 +206,7 @@ def publish_files(blob_service, purpose, local_dir, args):
                     sync_file.path, published_dict[sync_file.path].md5content))
             continue
         if not args.dry_run:
-            publish_local_file(purpose, blob_service, sync_file)
+            publish_local_file(blob_service, sync_file)
     return OK
 
 
@@ -208,17 +225,16 @@ def main():
     """Execute the commands from the command line."""
     parser = get_option_parser()
     args = parser.parse_args()
+    blob_service = BlobService()
+    if args.command == SYNC:
+        return sync_files(blob_service, args.prefix, args.local_dir, args)
     if args.purpose not in PURPOSES:
         print('Unknown purpose: {}'.format(args.purpose))
         return UNKNOWN_PURPOSE
-    blob_service = BlobService()
     if args.command == LIST:
         return list_published_files(blob_service, args.purpose)
     elif args.command == PUBLISH:
-        if args.path is None or len(args.path) != 1:
-            parser.print_usage()
-            return BAD_ARGS
-        stream_path = os.path.join(args.path[0], get_prefix(args.purpose))
+        stream_path = os.path.join(args.path, get_prefix(args.purpose))
         return publish_files(blob_service, args.purpose, stream_path, args)
     elif args.command == DELETE:
         if args.path is None:
@@ -227,28 +243,35 @@ def main():
         return delete_files(blob_service, args.purpose, args.path, args)
 
 
+def add_mutation_args(parser, dr_help):
+    parser.add_argument("-d", "--dry-run", action="store_true",
+                        default=False, help=dr_help)
+    parser.add_argument('-v', '--verbose', action="store_true",
+                        default=False, help='Increse verbosity.')
+
+
 def get_option_parser():
     """Return the option parser for this program."""
     parser = ArgumentParser("Manage objects in Azure blob storage")
     subparsers = parser.add_subparsers(help='sub-command help', dest='command')
-    for command in COMMANDS:
+    for command in (LIST, PUBLISH, DELETE):
         subparser = subparsers.add_parser(command, help='Command to run')
         subparser.add_argument(
             'purpose', help="<{}>".format(' | '.join(PURPOSES)))
-        if command in (PUBLISH, DELETE):
-            if command == PUBLISH:
-                path_help = 'The path to publish'
-                dr_help = 'Do not publish'
-            else:
-                path_help = 'The files to delete'
-                dr_help = 'Do not delete'
-            subparser.add_argument('path', nargs="+", help=path_help)
-            subparser.add_argument(
-                "-d", "--dry-run", action="store_true", default=False,
-                help=dr_help)
-            subparser.add_argument(
-                '-v', '--verbose', action="store_true", default=False,
-                help='Increse verbosity.')
+        if command == PUBLISH:
+            subparser.add_argument('path', help='The path to publish')
+            add_mutation_args(subparser, 'Do not publish')
+        elif command == DELETE:
+            subparser.add_argument('path', nargs="+",
+                                   help='The files to delete')
+            add_mutation_args(subparser, 'Do not delete')
+    sync_parser = subparsers.add_parser('sync',
+                                        help='Sync local files to remote.')
+    sync_parser.add_argument('local_dir', metavar='LOCAL-DIR',
+                             help='The local directory to sync')
+    sync_parser.add_argument('prefix', metavar='PREFIX',
+                             help='The remote prefix to sync to')
+    add_mutation_args(sync_parser, 'Do not sync')
     return parser
 
 
