@@ -44,7 +44,10 @@ func (suite) TestTrack(c *gc.C) {
 
 	expectedResults := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    "foobar/idfoo",
+			ID: internal.FullID{
+				Class: "foobar",
+				ID:    "idfoo",
+			},
 			Error: nil,
 		}},
 	}
@@ -92,7 +95,10 @@ func (suite) TestListOne(c *gc.C) {
 	st := &FakeState{workloads: []workload.Info{wl}}
 	a := HookContextAPI{st}
 	args := internal.ListArgs{
-		IDs: []string{"foobar/idfoo"},
+		IDs: []internal.FullID{{
+			Class: "foobar",
+			ID:    "idfoo",
+		}},
 	}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +123,10 @@ func (suite) TestListOne(c *gc.C) {
 
 	expectedResults := internal.ListResults{
 		Results: []internal.ListResult{{
-			ID:    "foobar/idfoo",
+			ID: internal.FullID{
+				Class: "foobar",
+				ID:    "idfoo",
+			},
 			Info:  expected,
 			Error: nil,
 		}},
@@ -169,7 +178,10 @@ func (suite) TestListAll(c *gc.C) {
 
 	expectedResults := internal.ListResults{
 		Results: []internal.ListResult{{
-			ID:    "foobar/idfoo",
+			ID: internal.FullID{
+				Class: "foobar",
+				ID:    "idfoo",
+			},
 			Info:  expected,
 			Error: nil,
 		}},
@@ -183,8 +195,10 @@ func (suite) TestSetStatus(c *gc.C) {
 	a := HookContextAPI{st}
 	args := internal.SetStatusArgs{
 		Args: []internal.SetStatusArg{{
-			Class:  "fooID",
-			ID:     "bar",
+			ID: internal.FullID{
+				Class: "fooID",
+				ID:    "bar",
+			},
 			Status: workload.StateRunning,
 		}},
 	}
@@ -196,7 +210,10 @@ func (suite) TestSetStatus(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    "fooID/bar",
+			ID: internal.FullID{
+				Class: "fooID",
+				ID:    "bar",
+			},
 			Error: nil,
 		}},
 	}
@@ -207,7 +224,10 @@ func (suite) TestUntrack(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 	args := internal.UntrackArgs{
-		IDs: []string{"fooID/bar"},
+		IDs: []internal.FullID{{
+			Class: "fooID",
+			ID:    "bar",
+		}},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,7 +236,10 @@ func (suite) TestUntrack(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    "fooID/bar",
+			ID: internal.FullID{
+				Class: "fooID",
+				ID:    "bar",
+			},
 			Error: nil,
 		}},
 	}
@@ -227,7 +250,9 @@ func (suite) TestUntrackEmptyID(c *gc.C) {
 	st := &FakeState{}
 	a := HookContextAPI{st}
 	args := internal.UntrackArgs{
-		IDs: []string{""},
+		IDs: []internal.FullID{
+			{},
+		},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,7 +261,10 @@ func (suite) TestUntrackEmptyID(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    "",
+			ID: internal.FullID{
+				Class: "",
+				ID:    "",
+			},
 			Error: nil,
 		}},
 	}
@@ -248,7 +276,7 @@ func (suite) TestUntrackEmpty(c *gc.C) {
 	st.id = "foo"
 	a := HookContextAPI{st}
 	args := internal.UntrackArgs{
-		IDs: []string{},
+		IDs: []internal.FullID{},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
