@@ -72,7 +72,10 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 		c.Assert(ok, gc.Equals, true)
 
 		typedResponse.Results = append(typedResponse.Results, internal.WorkloadResult{
-			ID:    "idfoo",
+			ID: internal.FullID{
+				Class: "idfoo",
+				ID:    "bar",
+			},
 			Error: nil,
 		})
 
@@ -87,7 +90,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 
 	c.Check(len(ids), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(ids[0], gc.Equals, "idfoo")
+	c.Check(ids[0], gc.Equals, "idfoo/bar")
 }
 
 func (s *clientSuite) TestList(c *gc.C) {
@@ -100,7 +103,14 @@ func (s *clientSuite) TestList(c *gc.C) {
 		typedResponse, ok := response.(*internal.ListResults)
 		c.Assert(ok, gc.Equals, true)
 
-		result := internal.ListResult{ID: s.workload.Details.ID, Info: s.workload, Error: nil}
+		result := internal.ListResult{
+			ID: internal.FullID{
+				Class: s.workload.Definition.Name,
+				ID:    s.workload.Details.ID,
+			},
+			Info:  s.workload,
+			Error: nil,
+		}
 		typedResponse.Results = append(typedResponse.Results, result)
 
 		return nil
@@ -131,8 +141,10 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 
 		arg := typedParams.Args[0]
 		c.Check(arg, jc.DeepEquals, internal.SetStatusArg{
-			Class:  "idfoo",
-			ID:     "bar",
+			ID: internal.FullID{
+				Class: "idfoo",
+				ID:    "bar",
+			},
 			Status: workload.StateRunning,
 		})
 
@@ -140,7 +152,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	_, err := pclient.SetStatus("idfoo", workload.StateRunning, "bar")
+	_, err := pclient.SetStatus(workload.StateRunning, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
@@ -162,7 +174,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
-	_, err := pclient.Untrack([]string{s.tag})
+	_, err := pclient.Untrack(s.tag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)

@@ -275,7 +275,7 @@ func (c *stubAPIClient) Untrack(fullIDs ...string) ([]workload.Result, error) {
 	errs := []workload.Result{}
 	for _, id := range fullIDs {
 		delete(c.workloads, id)
-		errs = append(errs, workload.Result{ID: id})
+		errs = append(errs, workload.Result{FullID: id})
 	}
 	return errs, nil
 }
@@ -291,7 +291,7 @@ func (c *stubAPIClient) SetStatus(status string, fullIDs ...string) ([]workload.
 		wkl := c.workloads[id]
 		wkl.Status.State = status
 		wkl.Details.Status.State = status
-		errs = append(errs, workload.Result{ID: id})
+		errs = append(errs, workload.Result{FullID: id})
 	}
 
 	return errs, nil

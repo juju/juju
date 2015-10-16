@@ -27,7 +27,7 @@ type WorkloadResults struct {
 // WorkloadResult contains the result for a single call.
 type WorkloadResult struct {
 	// ID is the id of the workload referenced in the call..
-	ID string
+	ID FullID
 	// Error is the error (if any) for the call referring to ID.
 	Error *params.Error
 }
@@ -35,7 +35,7 @@ type WorkloadResult struct {
 // ListArgs are the arguments for the List endpoint.
 type ListArgs struct {
 	// IDs is the list of IDs of the workloads you want information on.
-	IDs []string
+	IDs []FullID
 }
 
 // ListResults contains the results for a call to List.
@@ -49,7 +49,7 @@ type ListResults struct {
 // ListResult contains the results for a single call to List.
 type ListResult struct {
 	// ID is the id of the workload this result applies to.
-	ID string
+	ID FullID
 	// Info holds the details of the workload.
 	Info Workload
 	// NotFound indicates that the workload was not found in state.
@@ -67,18 +67,24 @@ type SetStatusArgs struct {
 // SetStatusArg are the arguments for a single call to the
 // SetStatus endpoint.
 type SetStatusArg struct {
-	// Class is the Class of the workload.
-	Class string
-	// ID is the ID of the workload.
-	ID string
-	// Status is the status of the workload.
+	// ID uniquely identifies the workload.
+	ID FullID
+	// Status is the new status of the workload.
 	Status string
 }
 
 // UntrackArgs are the arguments for the Untrack endpoint.
 type UntrackArgs struct {
 	// IDs is a list of IDs of workloads.
-	IDs []string
+	IDs []FullID
+}
+
+// FullID contains all the information necessary to identify a workload.
+type FullID struct {
+	// Class is the workload name.
+	Class string
+	// ID uniquely identifies the workload for the given name.
+	ID string
 }
 
 // Workload contains information about a workload.
