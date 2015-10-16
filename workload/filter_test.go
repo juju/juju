@@ -197,3 +197,49 @@ func (s *filterSuite) TestBuildPredicatesForMulti(c *gc.C) {
 		true,
 	})
 }
+
+func (s *filterSuite) TestMatch(c *gc.C) {
+	payload := workload.Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: "spam",
+			Type: "docker",
+		},
+		ID:      "idspam",
+		Status:  "running",
+		Tags:    []string{"tagA", "tagB"},
+		Unit:    "unit-a-service-0",
+		Machine: "1",
+	}
+	patterns := []string{
+		// match
+		"spam",
+		"docker",
+		"idspam",
+		"running",
+		"tagA",
+		"tagB",
+		"unit-a-service-0",
+		"1",
+		// no match
+		"tagC",
+		"2",
+	}
+
+	var matches []bool
+	for _, pattern := range patterns {
+		matched := workload.Match(payload, pattern)
+		matches = append(matches, matched)
+	}
+
+	c.Check(matches, jc.DeepEquals, []bool{
+		true,
+		true,
+		true,
+		true,
+		true,
+		true,
+		true,
+		false,
+		false,
+	})
+}
