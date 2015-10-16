@@ -71,7 +71,7 @@ func (pp Persistence) newInsertWorkloadOps(info workload.Info) []txn.Op {
 	return ops
 }
 
-func (pp Persistence) newSetRawStatusOps(status, id string) []txn.Op {
+func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
 	id = pp.workloadID(id)
 	updates := bson.D{
 		{"state", status},
