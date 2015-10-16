@@ -19,11 +19,11 @@ type UnitWorkloads interface {
 	// Track tracks a workload for the unit and info.
 	Track(info workload.Info) error
 	// List returns information on the workload with the id on the unit.
-	List(ids ...string) ([]workload.Info, error)
+	List(fullIDs ...string) ([]workload.Info, error)
 	// Settatus sets the status for the workload with the given id on the unit.
-	SetStatus(docID, status string) error
+	SetStatus(fullID, status string) error
 	// Untrack removes the information for the workload with the given id.
-	Untrack(id string) error
+	Untrack(fullID string) error
 }
 
 // HookContextAPI serves workload-specific API methods.
