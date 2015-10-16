@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/persistent-cookiejar"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -558,23 +557,18 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 
 	// Point the CLI to the charm store testing server.
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func() (*csClient, error) {
-		csclient, err := original()
-		if err != nil {
-			return nil, err
-		}
+	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
+		csclient := original(httpClient)
 		csclient.params.URL = s.srv.URL
 		// Add a cookie so that the discharger can detect whether the
 		// HTTP client is the juju environment or the juju client.
 		lurl, err := url.Parse(s.discharger.Location())
-		if err != nil {
-			panic(err)
-		}
+		c.Assert(err, jc.ErrorIsNil)
 		csclient.params.HTTPClient.Jar.SetCookies(lurl, []*http.Cookie{{
 			Name:  clientUserCookie,
 			Value: clientUserName,
 		}})
-		return csclient, nil
+		return csclient
 	})
 
 	// Point the Juju API server to the charm store testing server.
@@ -766,7 +760,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 
 func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 
-	s.PatchValue(&registerMeteredCharm, func(r string, s api.Connection, j *cookiejar.Jar, c string, sv, e string) error {
+	s.PatchValue(&registerMeteredCharm, func(r string, s api.Connection, client *http.Client, c string, sv, e string) error {
 		return &params.Error{
 			Message: "IsMetered",
 			Code:    params.CodeNotImplemented,

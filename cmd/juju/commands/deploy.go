@@ -188,11 +188,11 @@ func (c *deployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	csClient, err := newCharmStoreClient()
+	httpClient, err := c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer csClient.jar.Save()
+	csClient := newCharmStoreClient(httpClient)
 	repoPath := ctx.AbsPath(c.RepoPath)
 
 	// Handle local bundle paths.
@@ -328,7 +328,7 @@ func (c *deployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	err = registerMeteredCharm(c.RegisterURL, state, csClient.jar, curl.String(), serviceName, client.EnvironmentUUID())
+	err = registerMeteredCharm(c.RegisterURL, state, httpClient, curl.String(), serviceName, client.EnvironmentUUID())
 	if params.IsCodeNotImplemented(err) {
 		// The state server is too old to support metering.  Warn
 		// the user, but don't return an error.

@@ -4,6 +4,7 @@
 package envcmd
 
 import (
+	"net/http"
 	"os"
 	"path"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils"
+	"golang.org/x/net/publicsuffix"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
@@ -87,7 +89,9 @@ func cookieFile() string {
 // newAPIContext returns a new api context, which should be closed
 // when done with.
 func newAPIContext() (*apiContext, error) {
-	jar, err := cookiejar.New(nil)
+	jar, err := cookiejar.New(&cookiejar.Options{
+		PublicSuffixList: publicsuffix.List,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -143,4 +147,13 @@ func (ctx *apiContext) NewAPIClient(name string) (*api.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	return root.Client(), nil
+}
+
+// HTTPClient returns an http.Client that contains the loaded
+// persistent cookie jar.
+func (ctx *apiContext) HTTPClient() (*http.Client, error) {
+	if ctx.client == nil || ctx.client.Client == nil {
+		return nil, errors.New("http client not initialized")
+	}
+	return ctx.client.Client, nil
 }

@@ -133,11 +133,11 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).Reference()
 	}
 
-	csClient, err := newCharmStoreClient()
+	httpClient, err := c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer csClient.jar.Save()
+	csClient := newCharmStoreClient(httpClient)
 	newURL, repo, err := resolveCharmStoreEntityURL(newRef.String(), csClient.params, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
 		return errors.Trace(err)

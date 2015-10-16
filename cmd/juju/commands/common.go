@@ -6,14 +6,10 @@ package commands
 import (
 	"fmt"
 	"net/http"
-	"path"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/persistent-cookiejar"
-	"github.com/juju/utils"
-	"golang.org/x/net/publicsuffix"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/juju/charmrepo.v1/csclient"
@@ -198,7 +194,6 @@ func addCharmViaAPI(client *api.Client, curl *charm.URL, repo charmrepo.Interfac
 // csClient gives access to the charm store server and provides parameters
 // for connecting to the charm store.
 type csClient struct {
-	jar    *cookiejar.Jar
 	params charmrepo.NewCharmStoreParams
 }
 
@@ -207,34 +202,13 @@ type csClient struct {
 // helpers to save the local authorization cookies and to authorize
 // non-public charm deployments. It is defined as a variable so it can
 // be changed for testing purposes.
-var newCharmStoreClient = func() (*csClient, error) {
-	jar, client, err := newHTTPClient()
-	if err != nil {
-		return nil, errors.Mask(err)
-	}
+var newCharmStoreClient = func(client *http.Client) *csClient {
 	return &csClient{
-		jar: jar,
 		params: charmrepo.NewCharmStoreParams{
 			HTTPClient:   client,
 			VisitWebPage: httpbakery.OpenWebBrowser,
 		},
-	}, nil
-}
-
-func newHTTPClient() (*cookiejar.Jar, *http.Client, error) {
-	cookieFile := path.Join(utils.Home(), ".go-cookies")
-	jar, err := cookiejar.New(&cookiejar.Options{
-		PublicSuffixList: publicsuffix.List,
-	})
-	if err != nil {
-		panic(err)
 	}
-	if err := jar.Load(cookieFile); err != nil {
-		return nil, nil, err
-	}
-	client := httpbakery.NewHTTPClient()
-	client.Jar = jar
-	return jar, client, nil
 }
 
 // authorize acquires and return the charm store delegatable macaroon to be
