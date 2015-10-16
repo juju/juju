@@ -88,7 +88,7 @@ func (pp Persistence) SetStatus(id, status string) (bool, error) {
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newSetRawStatusOps(status, id)...)
+	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			found = false
