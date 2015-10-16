@@ -43,17 +43,19 @@ func (s *publicSuite) TestListOkay(c *gc.C) {
 
 	pclient := client.NewPublicClient(s.facade)
 
-	payloads, err := pclient.List("a-tag", "unit-a-service-0")
+	payloads, err := pclient.ListFull("a-tag", "unit-a-service-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := api.API2Payload(s.payload)
-	c.Check(payloads, jc.DeepEquals, []workload.Payload{expected})
+	c.Check(payloads, jc.DeepEquals, []workload.FullPayloadInfo{
+		expected,
+	})
 }
 
 func (s *publicSuite) TestListAPI(c *gc.C) {
 	pclient := client.NewPublicClient(s.facade)
 
-	_, err := pclient.List("a-tag")
+	_, err := pclient.ListFull("a-tag")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCalls(c, []testing.StubCall{{

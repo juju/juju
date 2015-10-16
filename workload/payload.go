@@ -26,9 +26,6 @@ type Payload struct {
 
 	// Unit identifies the Juju unit associated with the payload.
 	Unit string
-
-	// Machine identifies the Juju machine associated with the payload.
-	Machine string
 }
 
 // FullID composes a unique ID for the payload (relative to the unit/charm).
@@ -54,10 +51,6 @@ func (p Payload) Validate() error {
 		return errors.NotValidf("missing Unit")
 	}
 
-	if p.Machine == "" {
-		return errors.NotValidf("missing Machine")
-	}
-
 	return nil
 }
 
@@ -78,4 +71,13 @@ func (p Payload) AsWorkload() Info {
 			ID: p.ID,
 		},
 	}
+}
+
+// FullPayloadInfo completely describes a charm payload, including
+// some information that may be implied from the minimal Payload data.
+type FullPayloadInfo struct {
+	Payload
+
+	// Machine identifies the Juju machine associated with the payload.
+	Machine string
 }
