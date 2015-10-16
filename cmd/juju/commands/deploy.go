@@ -216,7 +216,7 @@ func (c *deployCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("deployment of bundle %q completed", f.Name())
 		return nil
 	} else if !os.IsNotExist(err) {
-		return block.ProcessBlockedError(err, block.BlockChange)
+		logger.Warningf("cannot open %q: %v; falling back to using charm repository", c.CharmOrBundle, err)
 	}
 
 	curl, repo, err := resolveCharmStoreEntityURL(c.CharmOrBundle, csClient.params, repoPath, conf)
