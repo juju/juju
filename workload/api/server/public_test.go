@@ -26,16 +26,18 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 	s.state = &stubState{stub: s.stub}
 }
 
-func (publicSuite) newPayload(name string) (workload.Payload, api.Payload) {
-	payload := workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: name,
-			Type: "docker",
+func (publicSuite) newPayload(name string) (workload.FullPayloadInfo, api.Payload) {
+	payload := workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: name,
+				Type: "docker",
+			},
+			ID:     "id" + name,
+			Status: workload.StateRunning,
+			Tags:   []string{"a-tag"},
+			Unit:   "unit-a-service-0",
 		},
-		ID:      "id" + name,
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
 	apiPayload := api.Payload{
@@ -189,15 +191,17 @@ func (s *publicSuite) TestListPartialMultiMatch(c *gc.C) {
 }
 
 func (s *publicSuite) TestListAllFilters(c *gc.C) {
-	payload := workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
+	payload := workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: workload.StateRunning,
+			Tags:   []string{"a-tag"},
+			Unit:   "unit-a-service-0",
 		},
-		ID:      "idspam",
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
 	apiPayload := api.Payload2api(payload)
@@ -235,10 +239,10 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 type stubState struct {
 	stub *testing.Stub
 
-	payloads []workload.Payload
+	payloads []workload.FullPayloadInfo
 }
 
-func (s *stubState) ListAll() ([]workload.Payload, error) {
+func (s *stubState) ListAll() ([]workload.FullPayloadInfo, error) {
 	s.stub.AddCall("ListAll")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

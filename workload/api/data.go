@@ -29,7 +29,7 @@ type EnvListResults struct {
 	Error *params.Error
 }
 
-// Payload contains information about a payload.
+// Payload contains full information about a payload.
 type Payload struct {
 	// Class is the name of the payload class.
 	Class string

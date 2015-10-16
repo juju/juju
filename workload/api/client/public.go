@@ -34,8 +34,8 @@ func NewPublicClient(raw rawAPI) PublicClient {
 	}
 }
 
-// List calls the List API server method.
-func (c PublicClient) List(patterns ...string) ([]workload.Payload, error) {
+// ListFull calls the List API server method.
+func (c PublicClient) ListFull(patterns ...string) ([]workload.FullPayloadInfo, error) {
 	var result api.EnvListResults
 
 	args := api.EnvListArgs{
@@ -45,7 +45,7 @@ func (c PublicClient) List(patterns ...string) ([]workload.Payload, error) {
 		return nil, errors.Trace(err)
 	}
 
-	payloads := make([]workload.Payload, len(result.Results))
+	payloads := make([]workload.FullPayloadInfo, len(result.Results))
 	for i, apiInfo := range result.Results {
 		payload := api.API2Payload(apiInfo)
 		payloads[i] = payload

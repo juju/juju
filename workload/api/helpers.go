@@ -8,8 +8,9 @@ import (
 	"gopkg.in/juju/charm.v5"
 )
 
-// FullInfo2api converts a workload.FullInfo struct into an api.FullPayload struct.
-func Payload2api(p workload.Payload) Payload {
+// Payload2api converts a workload.FullPayloadInfo struct into
+// a FullPayload struct.
+func Payload2api(p workload.FullPayloadInfo) Payload {
 	tags := make([]string, len(p.Tags))
 	copy(tags, p.Tags)
 	return Payload{
@@ -23,19 +24,22 @@ func Payload2api(p workload.Payload) Payload {
 	}
 }
 
-// API2FullInfo converts an API Payload info struct into a workload.FullInfo struct.
-func API2Payload(apiInfo Payload) workload.Payload {
+// API2Payload converts an API Payload info struct into
+// a workload.FullPayloadInfo struct.
+func API2Payload(apiInfo Payload) workload.FullPayloadInfo {
 	tags := make([]string, len(apiInfo.Tags))
 	copy(tags, apiInfo.Tags)
-	return workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: apiInfo.Class,
-			Type: apiInfo.Type,
+	return workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: apiInfo.Class,
+				Type: apiInfo.Type,
+			},
+			ID:     apiInfo.ID,
+			Status: apiInfo.Status,
+			Tags:   tags,
+			Unit:   apiInfo.Unit,
 		},
-		ID:      apiInfo.ID,
-		Status:  apiInfo.Status,
-		Tags:    tags,
-		Unit:    apiInfo.Unit,
 		Machine: apiInfo.Machine,
 	}
 }

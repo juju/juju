@@ -8,10 +8,10 @@ import (
 )
 
 type listFormatter struct {
-	payloads []workload.Payload
+	payloads []workload.FullPayloadInfo
 }
 
-func newListFormatter(payloads []workload.Payload) *listFormatter {
+func newListFormatter(payloads []workload.FullPayloadInfo) *listFormatter {
 	// Note that unlike the "juju status" code, we don't worry
 	// about "compatVersion".
 	lf := listFormatter{
@@ -33,7 +33,7 @@ func (lf *listFormatter) format() []FormattedPayload {
 }
 
 // FormatPayload converts the Payload into a FormattedPayload.
-func FormatPayload(payload workload.Payload) FormattedPayload {
+func FormatPayload(payload workload.FullPayloadInfo) FormattedPayload {
 	var tags []string
 	if len(payload.Tags) > 0 {
 		tags = make([]string, len(payload.Tags))

@@ -16,15 +16,17 @@ type helpersSuite struct{}
 var _ = gc.Suite(&helpersSuite{})
 
 func (helpersSuite) TestPayload2api(c *gc.C) {
-	apiPayload := Payload2api(workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
+	apiPayload := Payload2api(workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: workload.StateRunning,
+			Tags:   []string{"a-tag"},
+			Unit:   "unit-a-service-0",
 		},
-		ID:      "idspam",
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	})
 
@@ -50,15 +52,17 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 		Machine: "1",
 	})
 
-	c.Check(payload, jc.DeepEquals, workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
+	c.Check(payload, jc.DeepEquals, workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: workload.StateRunning,
+			Tags:   []string{"a-tag"},
+			Unit:   "unit-a-service-0",
 		},
-		ID:      "idspam",
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	})
 }

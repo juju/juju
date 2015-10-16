@@ -14,7 +14,7 @@ import (
 // EnvPayloads exposes the State functionality for payloads in an env.
 type EnvPayloads interface {
 	// ListAll returns information on the workload with the id on the unit.
-	ListAll() ([]workload.Payload, error)
+	ListAll() ([]workload.FullPayloadInfo, error)
 }
 
 // PublicAPI serves payload-specific API methods.
