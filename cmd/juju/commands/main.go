@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -112,7 +111,6 @@ type commandRegistry interface {
 }
 
 // registerCommands registers commands in the specified registry.
-// EnvironCommands must be wrapped with an envCmdWrapper.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Creation commands.
 	r.Register(newBootstrapCommand())
@@ -224,27 +222,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
 		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
 	}
-}
-
-// envCmdWrapper is a struct that wraps an environment command and lets us handle
-// errors returned from Init before they're returned to the main function.
-type envCmdWrapper struct {
-	cmd.Command
-	ctx *cmd.Context
-}
-
-func (w envCmdWrapper) Init(args []string) error {
-	err := w.Command.Init(args)
-	if environs.IsNoEnv(err) {
-		fmt.Fprintln(w.ctx.Stderr, "No juju environment configuration file exists.")
-		fmt.Fprintln(w.ctx.Stderr, err)
-		fmt.Fprintln(w.ctx.Stderr, "Please create a configuration by running:")
-		fmt.Fprintln(w.ctx.Stderr, "    juju init")
-		fmt.Fprintln(w.ctx.Stderr, "then edit the file to configure your juju environment.")
-		fmt.Fprintln(w.ctx.Stderr, "You can then re-run the command.")
-		return cmd.ErrSilent
-	}
-	return err
 }
 
 func main() {
