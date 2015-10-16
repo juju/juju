@@ -12,6 +12,10 @@ import (
 	"github.com/juju/juju/workload/api"
 )
 
+type facadeCaller interface {
+	FacadeCall(request string, params, response interface{}) error
+}
+
 type rawAPI interface {
 	facadeCaller
 	io.Closer

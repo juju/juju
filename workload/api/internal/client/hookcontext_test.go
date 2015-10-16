@@ -7,16 +7,16 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api"
-	"github.com/juju/juju/workload/api/client"
+	"github.com/juju/juju/workload/api/internal"
+	"github.com/juju/juju/workload/api/internal/client"
 )
 
 type clientSuite struct {
 	stub       *testing.Stub
 	facade     *stubFacade
 	tag        string
-	workload   api.Workload
-	definition api.WorkloadDefinition
+	workload   internal.Workload
+	definition internal.WorkloadDefinition
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -25,19 +25,19 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.tag = "machine-tag"
-	s.definition = api.WorkloadDefinition{
+	s.definition = internal.WorkloadDefinition{
 		Name:        "foobar",
 		Description: "desc",
 		Type:        "type",
 		TypeOptions: map[string]string{"foo": "bar"},
 		Command:     "cmd",
 		Image:       "img",
-		Ports: []api.WorkloadPort{{
+		Ports: []internal.WorkloadPort{{
 			External: 8080,
 			Internal: 80,
 			Endpoint: "endpoint",
 		}},
-		Volumes: []api.WorkloadVolume{{
+		Volumes: []internal.WorkloadVolume{{
 			ExternalMount: "/foo/bar",
 			InternalMount: "/baz/bat",
 			Mode:          "ro",
@@ -46,15 +46,15 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		EnvVars: map[string]string{"envfoo": "bar"},
 	}
 
-	s.workload = api.Workload{
+	s.workload = internal.Workload{
 		Definition: s.definition,
-		Status: api.WorkloadStatus{
+		Status: internal.WorkloadStatus{
 			State:   workload.StateRunning,
 			Message: "okay",
 		},
-		Details: api.WorkloadDetails{
+		Details: internal.WorkloadDetails{
 			ID: "idfoo",
-			Status: api.PluginStatus{
+			Status: internal.PluginStatus{
 				State: "workload status",
 			},
 		},
@@ -68,10 +68,10 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 		numStubCalls++
 		c.Check(name, gc.Equals, "Track")
 
-		typedResponse, ok := response.(*api.WorkloadResults)
+		typedResponse, ok := response.(*internal.WorkloadResults)
 		c.Assert(ok, gc.Equals, true)
 
-		typedResponse.Results = append(typedResponse.Results, api.WorkloadResult{
+		typedResponse.Results = append(typedResponse.Results, internal.WorkloadResult{
 			ID:    "idfoo",
 			Error: nil,
 		})
@@ -81,7 +81,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 
 	pclient := client.NewHookContextClient(s.facade)
 
-	workloadInfo := api.API2Workload(s.workload)
+	workloadInfo := internal.API2Workload(s.workload)
 	ids, err := pclient.Track(workloadInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -97,10 +97,10 @@ func (s *clientSuite) TestList(c *gc.C) {
 		numStubCalls++
 		c.Check(name, gc.Equals, "List")
 
-		typedResponse, ok := response.(*api.ListResults)
+		typedResponse, ok := response.(*internal.ListResults)
 		c.Assert(ok, gc.Equals, true)
 
-		result := api.ListResult{ID: s.workload.Details.ID, Info: s.workload, Error: nil}
+		result := internal.ListResult{ID: s.workload.Details.ID, Info: s.workload, Error: nil}
 		typedResponse.Results = append(typedResponse.Results, result)
 
 		return nil
@@ -113,7 +113,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 	c.Check(len(workloads), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
 
-	wl := api.API2Workload(s.workload)
+	wl := internal.API2Workload(s.workload)
 	c.Check(workloads[0], gc.DeepEquals, wl)
 }
 
@@ -124,13 +124,13 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 		numStubCalls++
 		c.Check(name, gc.Equals, "SetStatus")
 
-		typedParams, ok := params.(*api.SetStatusArgs)
+		typedParams, ok := params.(*internal.SetStatusArgs)
 		c.Assert(ok, gc.Equals, true)
 
 		c.Check(len(typedParams.Args), gc.Equals, 1)
 
 		arg := typedParams.Args[0]
-		c.Check(arg, jc.DeepEquals, api.SetStatusArg{
+		c.Check(arg, jc.DeepEquals, internal.SetStatusArg{
 			Class:  "idfoo",
 			ID:     "bar",
 			Status: workload.StateRunning,
@@ -153,7 +153,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 		numStubCalls++
 		c.Check(name, gc.Equals, "Untrack")
 
-		typedParams, ok := params.(*api.UntrackArgs)
+		typedParams, ok := params.(*internal.UntrackArgs)
 		c.Assert(ok, gc.Equals, true)
 
 		c.Check(len(typedParams.IDs), gc.Equals, 1)
