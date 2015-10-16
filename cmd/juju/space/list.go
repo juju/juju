@@ -67,6 +67,9 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		spaces, err := api.ListSpaces()
 		if err != nil {
+			if errors.IsNotSupported(err) {
+				ctx.Infof("cannot list spaces: %v", err)
+			}
 			return errors.Annotate(err, "cannot list spaces")
 		}
 		if len(spaces) == 0 {

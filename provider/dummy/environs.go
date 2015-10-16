@@ -235,10 +235,11 @@ type OpPutFile struct {
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
 type environProvider struct {
-	mu          sync.Mutex
-	ops         chan<- Operation
-	statePolicy state.Policy
-	// We have one state for each environment name
+	mu             sync.Mutex
+	ops            chan<- Operation
+	statePolicy    state.Policy
+	supportsSpaces bool
+	// We have one state for each environment name.
 	state      map[int]*environState
 	maxStateId int
 }
@@ -278,6 +279,7 @@ type environ struct {
 	name         string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
+	spacesMutex  sync.RWMutex
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -323,6 +325,7 @@ func Reset() {
 		gitjujutesting.MgoServer.Reset()
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
+	providerInstance.supportsSpaces = true
 }
 
 func (state *environState) destroy() {
@@ -412,6 +415,16 @@ func SetStatePolicy(policy state.Policy) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.statePolicy = policy
+}
+
+// SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
+func SetSupportsSpaces(supports bool) bool {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	current := p.supportsSpaces
+	p.supportsSpaces = supports
+	return current
 }
 
 // Listen closes the previously registered listener (if any).
@@ -1056,6 +1069,17 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 		return nil, environs.ErrNoInstances
 	}
 	return
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (env *environ) SupportsSpaces() (bool, error) {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.supportsSpaces {
+		return false, errors.NotSupportedf("spaces")
+	}
+	return true, nil
 }
 
 // SupportsAddressAllocation is specified on environs.Networking.

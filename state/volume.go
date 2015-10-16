@@ -130,6 +130,7 @@ type VolumeInfo struct {
 // VolumeAttachmentInfo describes information about a volume attachment.
 type VolumeAttachmentInfo struct {
 	DeviceName string `bson:"devicename,omitempty"`
+	DeviceLink string `bson:"devicelink,omitempty"`
 	BusAddress string `bson:"busaddress,omitempty"`
 	ReadOnly   bool   `bson:"read-only"`
 }

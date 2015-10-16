@@ -68,7 +68,7 @@ func (s *azureVolumeSuite) TestCreateVolumes(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	serviceName := "service"
-	service := makeDeployment(env, prefix+serviceName)
+	service := makeDeployment(c, env, prefix+serviceName)
 
 	roleName := service.Deployments[0].RoleList[0].RoleName
 	inst, err := env.getInstance(service, roleName)
@@ -181,7 +181,7 @@ func (s *azureVolumeSuite) TestCreateVolumesNoLuns(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	serviceName := "service"
-	service := makeDeployment(env, prefix+serviceName)
+	service := makeDeployment(c, env, prefix+serviceName)
 	roleName := service.Deployments[0].RoleList[0].RoleName
 	inst, err := env.getInstance(service, roleName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -226,7 +226,7 @@ func (s *azureVolumeSuite) TestCreateVolumesLegacyInstance(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	serviceName := "service"
-	service := makeLegacyDeployment(env, prefix+serviceName)
+	service := makeLegacyDeployment(c, env, prefix+serviceName)
 	inst, err := env.getInstance(service, "")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -358,7 +358,7 @@ func (s *azureVolumeSuite) TestAttachVolumesAlreadyAttached(c *gc.C) {
 
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	service := makeDeployment(env, prefix+"service")
+	service := makeDeployment(c, env, prefix+"service")
 	roleName0 := service.Deployments[0].RoleList[0].RoleName
 	roleName1 := service.Deployments[0].RoleList[1].RoleName
 	inst0, err := env.getInstance(service, roleName0)
@@ -455,7 +455,7 @@ func (s *azureVolumeSuite) TestAttachVolumesNotAttached(c *gc.C) {
 
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	service := makeDeployment(env, prefix+"service")
+	service := makeDeployment(c, env, prefix+"service")
 	roleName := service.Deployments[0].RoleList[0].RoleName
 	inst, err := env.getInstance(service, roleName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -488,7 +488,7 @@ func (s *azureVolumeSuite) TestAttachVolumesGetRoleError(c *gc.C) {
 
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	service := makeLegacyDeployment(env, prefix+"service")
+	service := makeLegacyDeployment(c, env, prefix+"service")
 	inst, err := env.getInstance(service, "")
 	c.Assert(err, jc.ErrorIsNil)
 

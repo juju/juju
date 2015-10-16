@@ -129,13 +129,18 @@ func VolumeFromState(v state.Volume) (params.Volume, error) {
 	}
 	return params.Volume{
 		v.VolumeTag().String(),
-		params.VolumeInfo{
-			info.VolumeId,
-			info.HardwareId,
-			info.Size,
-			info.Persistent,
-		},
+		VolumeInfoFromState(info),
 	}, nil
+}
+
+// VolumeInfoFromState converts a state.VolumeInfo to params.VolumeInfo.
+func VolumeInfoFromState(info state.VolumeInfo) params.VolumeInfo {
+	return params.VolumeInfo{
+		info.VolumeId,
+		info.HardwareId,
+		info.Size,
+		info.Persistent,
+	}
 }
 
 // VolumeAttachmentFromState converts a state.VolumeAttachment to params.VolumeAttachment.
@@ -147,12 +152,18 @@ func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachmen
 	return params.VolumeAttachment{
 		v.Volume().String(),
 		v.Machine().String(),
-		params.VolumeAttachmentInfo{
-			info.DeviceName,
-			info.BusAddress,
-			info.ReadOnly,
-		},
+		VolumeAttachmentInfoFromState(info),
 	}, nil
+}
+
+// VolumeAttachmentInfoFromState converts a state.VolumeAttachmentInfo to params.VolumeAttachmentInfo.
+func VolumeAttachmentInfoFromState(info state.VolumeAttachmentInfo) params.VolumeAttachmentInfo {
+	return params.VolumeAttachmentInfo{
+		info.DeviceName,
+		info.DeviceLink,
+		info.BusAddress,
+		info.ReadOnly,
+	}
 }
 
 // VolumeAttachmentInfosToState converts a map of volume tags to
@@ -190,6 +201,7 @@ func VolumeAttachmentToState(in params.VolumeAttachment) (names.MachineTag, name
 func VolumeAttachmentInfoToState(in params.VolumeAttachmentInfo) state.VolumeAttachmentInfo {
 	return state.VolumeAttachmentInfo{
 		in.DeviceName,
+		in.DeviceLink,
 		in.BusAddress,
 		in.ReadOnly,
 	}

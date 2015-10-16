@@ -317,15 +317,27 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx runner.Context) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(runner.ContextMachineTag(ctx), jc.DeepEquals, names.NewMachineTag("0"))
 
-	expect, expectOK := s.unit.PrivateAddress()
+	var expectAddressSet bool
+	expect, err := s.unit.PrivateAddress()
+	if err == nil {
+		expectAddressSet = true
+	} else if !network.IsNoAddress(err) {
+		c.Fatalf("unexpected error: %v", err)
+	}
 	actual, actualOK := ctx.PrivateAddress()
-	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	c.Assert(actual, gc.Equals, expect.Value)
+	c.Assert(actualOK, gc.Equals, expectAddressSet)
 
-	expect, expectOK = s.unit.PublicAddress()
+	expectAddressSet = false
+	expect, err = s.unit.PublicAddress()
+	if err == nil {
+		expectAddressSet = true
+	} else if !network.IsNoAddress(err) {
+		c.Fatalf("unexpected error: %v", err)
+	}
 	actual, actualOK = ctx.PublicAddress()
-	c.Assert(actual, gc.Equals, expect)
-	c.Assert(actualOK, gc.Equals, expectOK)
+	c.Assert(actual, gc.Equals, expect.Value)
+	c.Assert(actualOK, gc.Equals, expectAddressSet)
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)

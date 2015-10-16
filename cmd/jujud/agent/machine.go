@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/cmd/jujud/util/password"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
@@ -96,6 +95,7 @@ import (
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -684,6 +684,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
 		return a.postUpgradeAPIWorker(st, agentConfig, entity)
 	})
+
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -844,6 +845,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 				}
 				return worker.NewSimpleWorker(inner), nil
 			})
+			runner.StartWorker("toolsversionchecker", func() (worker.Worker, error) {
+				// 4 times a day seems a decent enough amount of checks.
+				checkerParams := toolsversionchecker.VersionCheckerParams{
+					CheckInterval: time.Hour * 6,
+				}
+				return toolsversionchecker.New(st.Environment(), &checkerParams), nil
+			})
+
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -965,7 +974,17 @@ func (a *MachineAgent) updateSupportedContainers(
 	// use an image URL getter if there's a private key.
 	var imageURLGetter container.ImageURLGetter
 	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
+		cfg, err := pr.EnvironConfig()
+		if err != nil {
+			return errors.Annotate(err, "unable to get environ config")
+		}
+		imageURLGetter = container.NewImageURLGetter(
+			// Explicitly call the non-named constructor so if anyone
+			// adds additional fields, this fails.
+			container.ImageURLGetterConfig{
+				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
+				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+			})
 	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
@@ -1034,6 +1053,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcherWorker(st)
 			})
+
+			// certChangedChan is shared by multiple workers it's up
+			// to the agent to close it rather than any one of the
+			// workers.
+			//
+			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 1)
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
@@ -1049,7 +1074,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter, certChangedChan), nil
+				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
 			})
 
 			if feature.IsDbLogEnabled() {
@@ -1071,7 +1096,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			logger.Warningf("ignoring unknown job %q", job)
 		}
 	}
-	return cmdutil.NewCloseWorker(logger, runner, st), nil
+	return cmdutil.NewCloseWorker(logger, runner, stateWorkerCloser{st}), nil
+}
+
+type stateWorkerCloser struct {
+	stateCloser io.Closer
+}
+
+func (s stateWorkerCloser) Close() error {
+	// This state-dependent data source will be useless once state is closed -
+	// un-register it before closing state.
+	unregisterSimplestreamsDataSource()
+	return s.stateCloser.Close()
 }
 
 // startEnvWorkers starts state server workers that need to run per
@@ -1593,19 +1629,6 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 			}
 		}
 		logger.Debugf("upgrades done, starting worker %q", name)
-
-		// For windows clients we need to make sure we set a random password in a
-		// registry file and use that password for the jujud user and its services
-		// before starting anything else.
-		// Services on windows need to know the user's password to start up. The only
-		// way to store that password securely is if the user running the services
-		// sets the password. This cannot be done during cloud-init so it is done here.
-		// This needs to get ran in between finishing the upgrades and starting
-		// the rest of the workers(in particular the deployer which should use
-		// the new password)
-		if err := password.EnsureJujudPassword(); err != nil {
-			return errors.Annotate(err, "Could not ensure jujud password")
-		}
 
 		// Upgrades are done, start the worker.
 		worker, err := start()

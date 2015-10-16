@@ -13,12 +13,14 @@ const apiName = "Environment"
 // Facade provides access to a machine environment worker's view of the world.
 type Facade struct {
 	*common.EnvironWatcher
+	*ToolsVersionUpdater
 }
 
 // NewFacade returns a new api client facade instance.
 func NewFacade(caller base.APICaller) *Facade {
 	facadeCaller := base.NewFacadeCaller(caller, apiName)
 	return &Facade{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
+		EnvironWatcher:      common.NewEnvironWatcher(facadeCaller),
+		ToolsVersionUpdater: NewToolsVersionUpdater(facadeCaller),
 	}
 }
