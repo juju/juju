@@ -36,39 +36,46 @@ func filterOne(payload Payload, predicates []PayloadPredicate) bool {
 	return false
 }
 
-// TODO(ericsnow) ParseEntityFilters is mostly something that can be generalized...
+// TODO(ericsnow) BuildPredicatesFor is mostly something that can be generalized...
 
 // BuildPredicatesFor converts the provided patterns into predicates
 // that may be passed to Filter.
 func BuildPredicatesFor(patterns []string) ([]PayloadPredicate, error) {
 	var predicates []PayloadPredicate
 	for i := range patterns {
-		pattern := strings.ToLower(patterns[i])
+		pattern := patterns[i]
 
 		predicate := func(payload Payload) bool {
-			switch {
-			case strings.ToLower(payload.Name) == pattern:
-				return true
-			case strings.ToLower(payload.Type) == pattern:
-				return true
-			case strings.ToLower(payload.ID) == pattern:
-				return true
-			case strings.ToLower(payload.Status) == pattern:
-				return true
-			case strings.ToLower(payload.Unit) == pattern:
-				return true
-			case strings.ToLower(payload.Machine) == pattern:
-				return true
-			default:
-				for _, tag := range payload.Tags {
-					if strings.ToLower(tag) == pattern {
-						return true
-					}
-				}
-			}
-			return false
+			return Match(payload, pattern)
 		}
 		predicates = append(predicates, predicate)
 	}
 	return predicates, nil
+}
+
+// Match determines if the given payload matches the pattern.
+func Match(payload Payload, pattern string) bool {
+	pattern = strings.ToLower(pattern)
+
+	switch {
+	case strings.ToLower(payload.Name) == pattern:
+		return true
+	case strings.ToLower(payload.Type) == pattern:
+		return true
+	case strings.ToLower(payload.ID) == pattern:
+		return true
+	case strings.ToLower(payload.Status) == pattern:
+		return true
+	case strings.ToLower(payload.Unit) == pattern:
+		return true
+	case strings.ToLower(payload.Machine) == pattern:
+		return true
+	default:
+		for _, tag := range payload.Tags {
+			if strings.ToLower(tag) == pattern {
+				return true
+			}
+		}
+	}
+	return false
 }
