@@ -47,7 +47,7 @@ func (c HookContextClient) Track(workloads ...workload.Info) ([]string, error) {
 		if r.Error != nil {
 			return nil, errors.Errorf(r.Error.GoString())
 		}
-		ids[i] = r.ID
+		ids[i] = internal.API2FullID(r.ID)
 	}
 	return ids, nil
 }
@@ -56,7 +56,12 @@ func (c HookContextClient) Track(workloads ...workload.Info) ([]string, error) {
 func (c HookContextClient) List(fullIDs ...string) ([]workload.Info, error) {
 	var result internal.ListResults
 
-	args := internal.ListArgs{IDs: fullIDs}
+	var args internal.ListArgs
+	for _, fullID := range fullIDs {
+		arg := internal.FullID2api(fullID)
+		args.IDs = append(args.IDs, arg)
+	}
+
 	if err := c.FacadeCall("List", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,7 +70,8 @@ func (c HookContextClient) List(fullIDs ...string) ([]workload.Info, error) {
 	workloads := make([]workload.Info, len(result.Results))
 	for i, presult := range result.Results {
 		if presult.NotFound {
-			notFound = append(notFound, presult.ID)
+			id := internal.API2FullID(presult.ID)
+			notFound = append(notFound, id)
 			continue
 		}
 		if presult.Error != nil {
@@ -84,10 +90,8 @@ func (c HookContextClient) List(fullIDs ...string) ([]workload.Info, error) {
 func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]workload.Result, error) {
 	statusArgs := make([]internal.SetStatusArg, len(fullIDs))
 	for i, fullID := range fullIDs {
-		class, id := workload.ParseID(fullID)
 		statusArgs[i] = internal.SetStatusArg{
-			Class:  class,
-			ID:     id,
+			ID:     internal.FullID2api(fullID),
 			Status: status,
 		}
 	}
@@ -105,7 +109,8 @@ func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]worklo
 	if len(res.Results) > 0 {
 		errs = make([]workload.Result, len(res.Results))
 		for i, r := range res.Results {
-			p := workload.Result{ID: r.ID}
+			fullID := internal.API2FullID(r.ID)
+			p := workload.Result{FullID: fullID}
 			if r.Error != nil {
 				p.Err = r.Error
 			}
@@ -119,7 +124,13 @@ func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]worklo
 // Untrack calls the Untrack API server method.
 func (c HookContextClient) Untrack(fullIDs ...string) ([]workload.Result, error) {
 	logger.Tracef("Calling untrack API: %q", fullIDs)
-	args := internal.UntrackArgs{IDs: fullIDs}
+
+	var args internal.UntrackArgs
+	for _, fullID := range fullIDs {
+		arg := internal.FullID2api(fullID)
+		args.IDs = append(args.IDs, arg)
+	}
+
 	var res internal.WorkloadResults
 	if err := c.FacadeCall("Untrack", &args, &res); err != nil {
 		return nil, err
@@ -131,7 +142,8 @@ func (c HookContextClient) Untrack(fullIDs ...string) ([]workload.Result, error)
 	if len(res.Results) > 0 {
 		errs = make([]workload.Result, len(res.Results))
 		for i, r := range res.Results {
-			p := workload.Result{ID: r.ID}
+			fullID := internal.API2FullID(r.ID)
+			p := workload.Result{FullID: fullID}
 			if r.Error != nil {
 				p.Err = r.Error
 			}

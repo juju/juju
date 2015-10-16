@@ -11,8 +11,8 @@ const ComponentName = "workloads"
 
 // Result is a struct that ties an error to a workload ID.
 type Result struct {
-	// ID is the ID of the workload that this result applies to.
-	ID string
+	// FullID is the ID of the workload that this result applies to.
+	FullID string
 	// Err is the error associated with this result (if any).
 	Err error
 }

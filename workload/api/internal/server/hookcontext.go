@@ -46,7 +46,7 @@ func (a HookContextAPI) Track(args internal.TrackArgs) (internal.WorkloadResults
 		info := internal.API2Workload(apiWorkload)
 		logger.Debugf("tracking workload from API: %#v", info)
 		res := internal.WorkloadResult{
-			ID: info.ID(),
+			ID: internal.FullID2api(info.ID()),
 		}
 		if err := a.State.Track(info); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
@@ -64,7 +64,11 @@ func (a HookContextAPI) Track(args internal.TrackArgs) (internal.WorkloadResults
 func (a HookContextAPI) List(args internal.ListArgs) (internal.ListResults, error) {
 	var r internal.ListResults
 
-	ids := args.IDs
+	var ids []string
+	for _, id := range args.IDs {
+		ids = append(ids, internal.API2FullID(id))
+	}
+
 	workloads, err := a.State.List(ids...)
 	if err != nil {
 		r.Error = common.ServerError(err)
@@ -79,15 +83,11 @@ func (a HookContextAPI) List(args internal.ListArgs) (internal.ListResults, erro
 
 	for _, id := range ids {
 		res := internal.ListResult{
-			ID: id,
+			ID: internal.FullID2api(id),
 		}
 
 		found := false
 		for _, wl := range workloads {
-			workloadID := wl.Name
-			if wl.Details.ID != "" {
-				workloadID += "/" + wl.Details.ID
-			}
 			if id == wl.ID() {
 				res.Info = internal.Workload2api(wl)
 				found = true
@@ -106,11 +106,11 @@ func (a HookContextAPI) List(args internal.ListArgs) (internal.ListResults, erro
 func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
 	r := internal.WorkloadResults{}
 	for _, arg := range args.Args {
-		ID := workload.BuildID(arg.Class, arg.ID)
 		res := internal.WorkloadResult{
-			ID: ID,
+			ID: arg.ID,
 		}
-		err := a.State.SetStatus(ID, arg.Status)
+		fullID := internal.API2FullID(arg.ID)
+		err := a.State.SetStatus(fullID, arg.Status)
 		if err != nil {
 			res.Error = common.ServerError(err)
 			r.Error = common.ServerError(api.BulkFailure)
@@ -127,7 +127,8 @@ func (a HookContextAPI) Untrack(args internal.UntrackArgs) (internal.WorkloadRes
 		res := internal.WorkloadResult{
 			ID: id,
 		}
-		if err := a.State.Untrack(id); err != nil {
+		fullID := internal.API2FullID(id)
+		if err := a.State.Untrack(fullID); err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}

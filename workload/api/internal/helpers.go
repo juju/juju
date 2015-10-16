@@ -9,8 +9,22 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-// API2Definition converts an API WorkloadDefinition struct into a
-// charm.PayloadClass struct.
+// API2FullID converts the API struct to a full ID string.
+func API2FullID(fullID FullID) string {
+	return workload.BuildID(fullID.Class, fullID.ID)
+}
+
+// FullID2api converts a full ID string to the API struct.
+func FullID2api(fullID string) FullID {
+	class, id := workload.ParseID(fullID)
+	return FullID{
+		Class: class,
+		ID:    id,
+	}
+}
+
+// API2Definition converts an API workload definition struct into
+// a charm.PayloadClass struct.
 func API2Definition(d WorkloadDefinition) charm.PayloadClass {
 	return charm.PayloadClass{
 		Name: d.Name,
