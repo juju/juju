@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/watcher"
@@ -26,7 +25,7 @@ import (
 // runDeployCommand executes the deploy command in order to deploy the given
 // charm or bundle. The deployment output and error are returned.
 func runDeployCommand(c *gc.C, id string) (string, error) {
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), id)
+	ctx, err := coretesting.RunCommand(c, newDeployCommand(), id)
 	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
 }
 
