@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// TODO(ericsnow) Add a "composite" ID type?
+
 // BuildID composes an ID from a class and an ID.
 func BuildID(class, id string) string {
 	if id == "" {
