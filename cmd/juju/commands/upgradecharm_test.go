@@ -296,18 +296,24 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
 func (s *UpgradeCharmSuccessSuite) TestCharmPath(c *gc.C) {
 	myriakPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "riak")
 
-	// Same charm version as already running - should fail.
-	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "local:trusty/riak-7"`)
-
 	// Change the revision to 42 and upgrade to it with explicit revision.
-	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
+	err := ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runUpgradeCharm(c, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, 42, false)
 	c.Assert(curl.String(), gc.Equals, "local:trusty/riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
+}
+
+func (s *UpgradeCharmSuccessSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
+	// Revision 7 is running to start with.
+	myriakPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "riak")
+	s.assertLocalRevision(c, 7, myriakPath)
+	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := s.assertUpgraded(c, 8, false)
+	c.Assert(curl.String(), gc.Equals, "local:trusty/riak-8")
 }
 
 func (s *UpgradeCharmSuccessSuite) TestCharmPathDifferentNameFails(c *gc.C) {

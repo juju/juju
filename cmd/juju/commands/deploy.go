@@ -198,9 +198,9 @@ func (c *DeployCommand) addCharm(ctx *cmd.Context, client *api.Client, csClient 
 	if _, ok := err.(*charmrepo.NotFoundError); ok {
 		return nil, errors.Errorf("no charm found at %q", c.CharmReference)
 	}
-	// If we get a "not exists" error then we attempt to interpret the supplied
-	// charm reference as a URL below, otherwise we return the error.
-	if err != os.ErrNotExist {
+	// If we get a "not exists" or invalid path error then we attempt to
+	// interpret the supplied charm reference as a URL below, otherwise we return the error.
+	if err != os.ErrNotExist && !charmrepo.IsInvalidPathError(err) {
 		return nil, err
 	}
 
