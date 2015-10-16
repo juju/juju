@@ -17,7 +17,7 @@ import (
 
 // ListAPI has the API methods needed by ListCommand.
 type ListAPI interface {
-	List(patterns ...string) ([]workload.Payload, error)
+	ListFull(patterns ...string) ([]workload.FullPayloadInfo, error)
 	io.Closer
 }
 
@@ -93,9 +93,9 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	infos, err := apiclient.List(c.patterns...)
+	payloads, err := apiclient.ListFull(c.patterns...)
 	if err != nil {
-		if infos == nil {
+		if payloads == nil {
 			// List call completely failed; there is nothing to report.
 			return errors.Trace(err)
 		}
@@ -104,7 +104,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Note that we do not worry about c.CompatVersion for list-payloads...
-	formatter := newListFormatter(infos)
+	formatter := newListFormatter(payloads)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)
 }

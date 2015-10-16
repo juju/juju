@@ -218,10 +218,10 @@ func runList(c *gc.C, command *status.ListCommand, args ...string) (int, string,
 
 type stubClient struct {
 	stub     *testing.Stub
-	payloads []workload.Payload
+	payloads []workload.FullPayloadInfo
 }
 
-func (s *stubClient) List(patterns ...string) ([]workload.Payload, error) {
+func (s *stubClient) ListFull(patterns ...string) ([]workload.FullPayloadInfo, error) {
 	s.stub.AddCall("List", patterns)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

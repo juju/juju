@@ -86,15 +86,17 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 
 	payloads, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(payloads, jc.DeepEquals, []workload.Payload{{
-		PayloadClass: charm.PayloadClass{
-			Name: "payloadA",
-			Type: "docker",
+	c.Check(payloads, jc.DeepEquals, []workload.FullPayloadInfo{{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "payloadA",
+				Type: "docker",
+			},
+			ID:     "xyz",
+			Status: workload.StateRunning,
+			Tags:   []string{},
+			Unit:   "unit-a-service-0",
 		},
-		ID:      "xyz",
-		Status:  workload.StateRunning,
-		Tags:    []string{},
-		Unit:    "unit-a-service-0",
 		Machine: "0",
 	}})
 

@@ -30,16 +30,18 @@ func (s *envPayloadsSuite) SetUpTest(c *gc.C) {
 	s.persists = &stubPayloadsPersistence{stub: s.stub}
 }
 
-func (s *envPayloadsSuite) newPayload(name string) workload.Payload {
-	return workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: name,
-			Type: "docker",
+func (s *envPayloadsSuite) newPayload(name string) workload.FullPayloadInfo {
+	return workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: name,
+				Type: "docker",
+			},
+			ID:     "id" + name,
+			Status: workload.StateRunning,
+			Tags:   []string{"a-tag"},
+			Unit:   "unit-a-service-0",
 		},
-		ID:      "id" + name,
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
 }
@@ -56,7 +58,7 @@ func (s *envPayloadsSuite) TestListAllOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListAll", "ListAll")
-	checkPayloads(c, payloads, []workload.Payload{
+	checkPayloads(c, payloads, []workload.FullPayloadInfo{
 		p1,
 		p2,
 	})
@@ -80,7 +82,7 @@ func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ListAll", "ListAll", "ListAll", "ListAll")
-	checkPayloads(c, payloads, []workload.Payload{
+	checkPayloads(c, payloads, []workload.FullPayloadInfo{
 		p1,
 		p2,
 		p3,
@@ -104,10 +106,10 @@ func (s *envPayloadsSuite) TestListAllFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func checkPayloads(c *gc.C, payloads, expectedList []workload.Payload) {
-	remainder := make([]workload.Payload, len(payloads))
+func checkPayloads(c *gc.C, payloads, expectedList []workload.FullPayloadInfo) {
+	remainder := make([]workload.FullPayloadInfo, len(payloads))
 	copy(remainder, payloads)
-	var noMatch []workload.Payload
+	var noMatch []workload.FullPayloadInfo
 	for _, expected := range expectedList {
 		found := false
 		for i, payload := range remainder {
@@ -143,13 +145,13 @@ type stubPayloadsPersistence struct {
 	persists map[string]map[string]*fakeWorkloadsPersistence
 }
 
-func (s *stubPayloadsPersistence) ListAll() ([]workload.Payload, error) {
+func (s *stubPayloadsPersistence) ListAll() ([]workload.FullPayloadInfo, error) {
 	s.stub.AddCall("ListAll")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var payloads []workload.Payload
+	var payloads []workload.FullPayloadInfo
 	for machine, units := range s.persists {
 		for unit, unitWorkloads := range units {
 			workloads, err := unitWorkloads.ListAll()
@@ -157,8 +159,10 @@ func (s *stubPayloadsPersistence) ListAll() ([]workload.Payload, error) {
 				return nil, errors.Trace(err)
 			}
 
-			for _, workload := range workloads {
-				payload := workload.AsPayload()
+			for _, info := range workloads {
+				payload := workload.FullPayloadInfo{
+					Payload: info.AsPayload(),
+				}
 				payload.Machine = machine
 				payload.Unit = unit
 				payloads = append(payloads, payload)
@@ -168,7 +172,7 @@ func (s *stubPayloadsPersistence) ListAll() ([]workload.Payload, error) {
 	return payloads, nil
 }
 
-func (s *stubPayloadsPersistence) checkPayloads(c *gc.C, expectedList []workload.Payload) {
+func (s *stubPayloadsPersistence) checkPayloads(c *gc.C, expectedList []workload.FullPayloadInfo) {
 	collated := make(map[*fakeWorkloadsPersistence][]workload.Info)
 	for _, payload := range expectedList {
 		unitWorkloads := s.persists[payload.Machine][payload.Unit]
@@ -181,7 +185,7 @@ func (s *stubPayloadsPersistence) checkPayloads(c *gc.C, expectedList []workload
 	}
 }
 
-func (s *stubPayloadsPersistence) setPayloads(payloads ...workload.Payload) {
+func (s *stubPayloadsPersistence) setPayloads(payloads ...workload.FullPayloadInfo) {
 	if len(payloads) > 0 && s.persists == nil {
 		s.persists = make(map[string]map[string]*fakeWorkloadsPersistence)
 	}

@@ -16,7 +16,7 @@ import (
 // in an environment.
 type EnvPayloads interface {
 	// ListAll builds the list of registered payloads in the env and returns it.
-	ListAll() ([]workload.Payload, error)
+	ListAll() ([]workload.FullPayloadInfo, error)
 }
 
 // TODO(ericsnow) Use a more generic component registration mechanism?

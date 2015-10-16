@@ -13,7 +13,7 @@ import (
 // Juju environment as a whole.
 type EnvPersistence interface {
 	// ListAll returns the list of all payloads in the environment.
-	ListAll() ([]workload.Payload, error)
+	ListAll() ([]workload.FullPayloadInfo, error)
 }
 
 // EnvPayloads provides the functionality related to an env's
@@ -23,7 +23,7 @@ type EnvPayloads struct {
 }
 
 // ListAll builds the list of payload information that is registered in state.
-func (ps EnvPayloads) ListAll() ([]workload.Payload, error) {
+func (ps EnvPayloads) ListAll() ([]workload.FullPayloadInfo, error) {
 	logger.Tracef("listing all payloads")
 
 	payloads, err := ps.Persist.ListAll()

@@ -33,16 +33,18 @@ func (s *envPersistenceSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *envPersistenceSuite) newPayload(name string) workload.Payload {
-	return workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: name,
-			Type: "docker",
+func (s *envPersistenceSuite) newPayload(name string) workload.FullPayloadInfo {
+	return workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: name,
+				Type: "docker",
+			},
+			ID:     "id" + name,
+			Status: workload.StateRunning,
+			Tags:   []string{"a-tag"},
+			Unit:   "unit-a-service-0",
 		},
-		ID:      "id" + name,
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
 }
@@ -111,10 +113,10 @@ func (s *envPersistenceSuite) TestListAllFailed(c *gc.C) {
 
 // TODO(ericsnow) Factor this out to a testing package.
 
-func checkPayloads(c *gc.C, payloads []workload.Payload, expectedList ...workload.Payload) {
-	remainder := make([]workload.Payload, len(payloads))
+func checkPayloads(c *gc.C, payloads []workload.FullPayloadInfo, expectedList ...workload.FullPayloadInfo) {
+	remainder := make([]workload.FullPayloadInfo, len(payloads))
 	copy(remainder, payloads)
-	var noMatch []workload.Payload
+	var noMatch []workload.FullPayloadInfo
 	for _, expected := range expectedList {
 		found := false
 		for i, payload := range remainder {
@@ -151,7 +153,7 @@ type stubEnvPersistenceBase struct {
 	unitPersists map[string]*stubUnitPersistence
 }
 
-func (s *stubEnvPersistenceBase) setWorkloads(payloads ...workload.Payload) {
+func (s *stubEnvPersistenceBase) setWorkloads(payloads ...workload.FullPayloadInfo) {
 	if s.unitPersists == nil && len(payloads) > 0 {
 		s.unitPersists = make(map[string]*stubUnitPersistence)
 	}

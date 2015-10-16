@@ -109,9 +109,8 @@ func (s *infoSuite) TestAsPayload(c *gc.C) {
 			Name: "a workload",
 			Type: "docker",
 		},
-		ID:      "my-workload",
-		Status:  "running",
-		Unit:    "",
-		Machine: "",
+		ID:     "my-workload",
+		Status: "running",
+		Unit:   "",
 	})
 }

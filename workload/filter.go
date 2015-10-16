@@ -7,14 +7,16 @@ import (
 	"strings"
 )
 
+// TODO(ericsnow) Rename to Predicate.
+
 // A PayloadPredicate determines if the given payload matches
 // the condition the predicate represents.
-type PayloadPredicate func(payload Payload) bool
+type PayloadPredicate func(payload FullPayloadInfo) bool
 
 // Filter applies the provided predicates to the payloads and returns
 // only those that matched.
-func Filter(payloads []Payload, predicates ...PayloadPredicate) []Payload {
-	var results []Payload
+func Filter(payloads []FullPayloadInfo, predicates ...PayloadPredicate) []FullPayloadInfo {
+	var results []FullPayloadInfo
 	for _, payload := range payloads {
 		if matched := filterOne(payload, predicates); matched {
 			results = append(results, payload)
@@ -23,7 +25,7 @@ func Filter(payloads []Payload, predicates ...PayloadPredicate) []Payload {
 	return results
 }
 
-func filterOne(payload Payload, predicates []PayloadPredicate) bool {
+func filterOne(payload FullPayloadInfo, predicates []PayloadPredicate) bool {
 	if len(predicates) == 0 {
 		return true
 	}
@@ -45,7 +47,7 @@ func BuildPredicatesFor(patterns []string) ([]PayloadPredicate, error) {
 	for i := range patterns {
 		pattern := patterns[i]
 
-		predicate := func(payload Payload) bool {
+		predicate := func(payload FullPayloadInfo) bool {
 			return Match(payload, pattern)
 		}
 		predicates = append(predicates, predicate)
@@ -54,7 +56,7 @@ func BuildPredicatesFor(patterns []string) ([]PayloadPredicate, error) {
 }
 
 // Match determines if the given payload matches the pattern.
-func Match(payload Payload, pattern string) bool {
+func Match(payload FullPayloadInfo, pattern string) bool {
 	pattern = strings.ToLower(pattern)
 
 	switch {
