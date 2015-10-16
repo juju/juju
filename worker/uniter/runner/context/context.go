@@ -275,7 +275,7 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 // SetUnitStatus will set the given status for this unit.
 func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
-	logger.Debugf("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
+	logger.Tracef("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
 	return ctx.unit.SetUnitStatus(
 		params.Status(status.Status),
 		status.Info,
@@ -286,7 +286,7 @@ func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
 // SetServiceStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
 func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
-	logger.Debugf("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+	logger.Tracef("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -533,7 +533,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 }
 
 func (ctx *HookContext) handleReboot(err *error) {
-	logger.Infof("handling reboot")
+	logger.Tracef("checking for reboot request")
 	rebootPriority := ctx.GetRebootPriority()
 	switch rebootPriority {
 	case jujuc.RebootSkip:
