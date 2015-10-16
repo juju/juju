@@ -20,7 +20,50 @@ type InceptionSuite struct {
 
 var _ = gc.Suite(&InceptionSuite{})
 
-func (s *InceptionSuite) TestInceptionServices(c *gc.C) {
+func (s *InceptionSuite) TestInputs(c *gc.C) {
+	manifold := dependency.InceptionManifold(s.engine)
+	c.Check(manifold.Inputs, gc.HasLen, 0)
+}
+
+func (s *InceptionSuite) TestStart(c *gc.C) {
+	manifold := dependency.InceptionManifold(s.engine)
+	engine, err := manifold.Start(nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(engine, gc.Equals, s.engine)
+}
+
+func (s *InceptionSuite) TestOutputBadInput(c *gc.C) {
+	manifold := dependency.InceptionManifold(s.engine)
+	var input dependency.Engine
+	err := manifold.Output(input, nil)
+	c.Check(err, gc.ErrorMatches, "unexpected input worker")
+}
+
+func (s *InceptionSuite) TestOutputBadOutput(c *gc.C) {
+	manifold := dependency.InceptionManifold(s.engine)
+	var unknown interface{}
+	err := manifold.Output(s.engine, &unknown)
+	c.Check(err, gc.ErrorMatches, "out should be a \\*Installer or a \\*Reporter; is .*")
+	c.Check(unknown, gc.IsNil)
+}
+
+func (s *InceptionSuite) TestOutputReporter(c *gc.C) {
+	manifold := dependency.InceptionManifold(s.engine)
+	var reporter dependency.Reporter
+	err := manifold.Output(s.engine, &reporter)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(reporter, gc.Equals, s.engine)
+}
+
+func (s *InceptionSuite) TestOutputInstaller(c *gc.C) {
+	manifold := dependency.InceptionManifold(s.engine)
+	var installer dependency.Installer
+	err := manifold.Output(s.engine, &installer)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(installer, gc.Equals, s.engine)
+}
+
+func (s *InceptionSuite) TestActuallyWorks(c *gc.C) {
 
 	// Install an engine inside itself.
 	manifold := dependency.InceptionManifold(s.engine)
@@ -28,42 +71,14 @@ func (s *InceptionSuite) TestInceptionServices(c *gc.C) {
 	err := s.engine.Install(name, manifold)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Start a dependent task that'll run all our tests.
+	// Check we can still stop it (with a timeout -- injudicious
+	// implementation changes could induce deadlocks).
 	done := make(chan struct{})
-	err = s.engine.Install("test-task", dependency.Manifold{
-		Inputs: []string{name},
-		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-
-			// Retry until the inception manifold worker is registered.
-			err := getResource(name, nil)
-			if err == dependency.ErrMissing {
-				return nil, err
-			}
-
-			// Run the tests. Mustn't assert on this goroutine.
-			defer close(done)
-			c.Check(err, jc.ErrorIsNil)
-
-			var reporter dependency.Reporter
-			err = getResource(name, &reporter)
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(reporter, gc.Equals, s.engine)
-
-			var installer dependency.Installer
-			err = getResource(name, &installer)
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(installer, gc.Equals, s.engine)
-
-			var unknown interface{}
-			err = getResource(name, &unknown)
-			c.Check(err, gc.ErrorMatches, "out should be a \\*Installer or a \\*Reporter; is .*")
-			c.Check(unknown, gc.IsNil)
-
-			// Return a real worker so we don't keep restarting and potentially double-closing.
-			return startMinimalWorker(getResource)
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	go func() {
+		err := worker.Stop(s.engine)
+		c.Check(err, jc.ErrorIsNil)
+		close(done)
+	}()
 	select {
 	case <-done:
 	case <-time.After(coretesting.LongWait):
