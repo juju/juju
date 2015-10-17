@@ -18,8 +18,8 @@ type RelationListCommand struct {
 	out        cmd.Output
 }
 
-func NewRelationListCommand(ctx Context) cmd.Command {
-	return &RelationListCommand{ctx: ctx}
+func NewRelationListCommand(ctx Context) (cmd.Command, error) {
+	return &RelationListCommand{ctx: ctx}, nil
 }
 
 func (c *RelationListCommand) Info() *cmd.Info {

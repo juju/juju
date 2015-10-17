@@ -50,6 +50,7 @@ type HookContext interface {
 	ContextLeadership
 	ContextMetrics
 	ContextStorage
+	ContextComponents
 	ContextRelations
 }
 
@@ -196,6 +197,14 @@ type ContextStorage interface {
 	AddUnitStorage(map[string]params.StorageConstraints)
 }
 
+// ContextComponents exposes modular Juju components as they relate to
+// the unit in the context of the hook.
+type ContextComponents interface {
+	// Component returns the ContextComponent with the supplied name if
+	// it was found.
+	Component(name string) (ContextComponent, error)
+}
+
 // ContextRelations exposes the relations associated with the unit.
 type ContextRelations interface {
 	// Relation returns the relation with the supplied id if it was found, and
@@ -205,6 +214,20 @@ type ContextRelations interface {
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
 	RelationIds() []int
+}
+
+// ContextComponent is a single modular Juju component as it relates to
+// the current unit and hook. Components should implement this interfaces
+// in a type-safe way. Ensuring checked type-conversions are preformed on
+// the result and value interfaces. You will use the runner.RegisterComponentFunc
+// to register a your components concrete ContextComponent implementation.
+//
+// See: process/context/context.go for an implementation example.
+//
+type ContextComponent interface {
+	// Flush pushes the component's data to Juju state.
+	// In the Flush implementation, call your components API.
+	Flush() error
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

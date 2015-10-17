@@ -22,8 +22,8 @@ type RelationGetCommand struct {
 	out        cmd.Output
 }
 
-func NewRelationGetCommand(ctx Context) cmd.Command {
-	return &RelationGetCommand{ctx: ctx}
+func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
+	return &RelationGetCommand{ctx: ctx}, nil
 }
 
 func (c *RelationGetCommand) Info() *cmd.Info {

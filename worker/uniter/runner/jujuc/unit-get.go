@@ -19,8 +19,8 @@ type UnitGetCommand struct {
 	out cmd.Output
 }
 
-func NewUnitGetCommand(ctx Context) cmd.Command {
-	return &UnitGetCommand{ctx: ctx}
+func NewUnitGetCommand(ctx Context) (cmd.Command, error) {
+	return &UnitGetCommand{ctx: ctx}, nil
 }
 
 func (c *UnitGetCommand) Info() *cmd.Info {

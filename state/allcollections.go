@@ -291,6 +291,13 @@ func allCollections() collectionSchema {
 
 		// -----
 
+		// TODO(ericsnow) Use a component-oriented registration mechanism...
+
+		// This collection holds information associated with workloads.
+		"workloads": {},
+
+		// -----
+
 		// The remaining non-global collections share the property of being
 		// relevant to multiple other kinds of entities, and are thus generally
 		// indexed by globalKey(). This is unhelpfully named in this context --
@@ -388,4 +395,5 @@ const (
 	envUserLastConnectionC = "envUserLastConnection"
 	volumeAttachmentsC     = "volumeattachments"
 	volumesC               = "volumes"
+	// "workloadprocesses" (see process/persistence/mongo.go)
 )

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -26,6 +27,31 @@ import (
 var logger = loggo.GetLogger("juju.worker.uniter.context")
 var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
+
+// ComponentConfig holds all the information related to a hook context
+// needed by components.
+type ComponentConfig struct {
+	// UnitName is the name of the unit.
+	UnitName string
+	// DataDir is the component's data directory.
+	DataDir string
+	// APICaller is the API caller the component may use.
+	APICaller base.APICaller
+}
+
+// ComponentFunc is a factory function for Context components.
+type ComponentFunc func(ComponentConfig) (jujuc.ContextComponent, error)
+
+var registeredComponentFuncs = map[string]ComponentFunc{}
+
+// Add the named component factory func to the registry.
+func RegisterComponentFunc(name string, f ComponentFunc) error {
+	if _, ok := registeredComponentFuncs[name]; ok {
+		return errors.AlreadyExistsf("%s", name)
+	}
+	registeredComponentFuncs[name] = f
+	return nil
+}
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
@@ -163,6 +189,29 @@ type HookContext struct {
 	// This collection will be added to the unit on successful
 	// hook run, so the actual add will happen in a flush.
 	storageAddConstraints map[string][]params.StorageConstraints
+
+	componentDir   func(string) string
+	componentFuncs map[string]ComponentFunc
+}
+
+// Component implements jujuc.Context.
+func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
+	compCtxFunc, ok := ctx.componentFuncs[name]
+	if !ok {
+		return nil, errors.NotFoundf("context component %q", name)
+	}
+
+	facade := ctx.state.Facade()
+	config := ComponentConfig{
+		UnitName:  ctx.unit.Name(),
+		DataDir:   ctx.componentDir(name),
+		APICaller: facade.RawAPICaller(),
+	}
+	compCtx, err := compCtxFunc(config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return compCtx, nil
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {

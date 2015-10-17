@@ -185,6 +185,8 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 		case "_id":
 			if id, ok := value.(string); ok {
 				value = ensureEnvUUID(c.envUUID, id)
+			} else if subquery, ok := value.(bson.D); ok {
+				value = c.mungeIDSubQuery(subquery)
 			}
 		case "env-uuid":
 			panic("env-uuid is added automatically and should not be provided")
@@ -192,6 +194,34 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 		outq = append(outq, bson.DocElem{name, value})
 	}
 
+	updateQuery(inq, add)
+	return outq
+}
+
+func (c *envStateCollection) mungeIDSubQuery(inq interface{}) bson.D {
+	var outq bson.D
+	var add = func(name string, value interface{}) {
+		switch name {
+		case "$in":
+			ids, ok := value.([]string)
+			if !ok {
+				panic("$in requires []string")
+			}
+			var fullIDs []string
+			for _, id := range ids {
+				fullID := ensureEnvUUID(c.envUUID, id)
+				fullIDs = append(fullIDs, fullID)
+			}
+			value = fullIDs
+		}
+		outq = append(outq, bson.DocElem{name, value})
+	}
+
+	updateQuery(inq, add)
+	return outq
+}
+
+func updateQuery(inq interface{}, add func(name string, value interface{})) {
 	switch inq := inq.(type) {
 	case bson.D:
 		for _, elem := range inq {
@@ -205,7 +235,6 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 	default:
 		panic("query must be bson.D, bson.M, or nil")
 	}
-	return outq
 }
 
 func toBsonD(doc interface{}) (bson.D, error) {

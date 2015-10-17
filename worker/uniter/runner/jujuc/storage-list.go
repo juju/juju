@@ -20,8 +20,8 @@ type StorageListCommand struct {
 	storageName string
 }
 
-func NewStorageListCommand(ctx Context) cmd.Command {
-	return &StorageListCommand{ctx: ctx}
+func NewStorageListCommand(ctx Context) (cmd.Command, error) {
+	return &StorageListCommand{ctx: ctx}, nil
 }
 
 func (c *StorageListCommand) Info() *cmd.Info {

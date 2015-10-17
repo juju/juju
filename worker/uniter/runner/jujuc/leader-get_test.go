@@ -21,31 +21,31 @@ type leaderGetSuite struct {
 var _ = gc.Suite(&leaderGetSuite{})
 
 func (s *leaderGetSuite) TestInitError(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
+	command, _ := jujuc.NewLeaderGetCommand(nil)
 	err := command.Init([]string{"x=x"})
 	c.Assert(err, gc.ErrorMatches, `invalid key "x=x"`)
 }
 
 func (s *leaderGetSuite) TestInitKey(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
+	command, _ := jujuc.NewLeaderGetCommand(nil)
 	err := command.Init([]string{"some-key"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *leaderGetSuite) TestInitAll(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
+	command, _ := jujuc.NewLeaderGetCommand(nil)
 	err := command.Init([]string{"-"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *leaderGetSuite) TestInitEmpty(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
+	command, _ := jujuc.NewLeaderGetCommand(nil)
 	err := command.Init(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *leaderGetSuite) TestFormatError(c *gc.C) {
-	command := jujuc.NewLeaderGetCommand(nil)
+	command, _ := jujuc.NewLeaderGetCommand(nil)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, []string{"--format", "bad"})
 	c.Check(code, gc.Equals, 2)
@@ -55,7 +55,7 @@ func (s *leaderGetSuite) TestFormatError(c *gc.C) {
 
 func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
 	jujucContext := newLeaderGetContext(errors.New("zap"))
-	command := jujuc.NewLeaderGetCommand(jujucContext)
+	command, _ := jujuc.NewLeaderGetCommand(jujucContext)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, nil)
 	c.Check(code, gc.Equals, 1)
@@ -134,7 +134,7 @@ func (s *leaderGetSuite) testOutput(c *gc.C, args []string, expect string) {
 
 func (s *leaderGetSuite) testParseOutput(c *gc.C, args []string, checker gc.Checker, expect interface{}) {
 	jujucContext := newLeaderGetContext(nil)
-	command := jujuc.NewLeaderGetCommand(jujucContext)
+	command, _ := jujuc.NewLeaderGetCommand(jujucContext)
 	runContext := testing.Context(c)
 	code := cmd.Main(command, runContext, args)
 	c.Check(code, gc.Equals, 0)

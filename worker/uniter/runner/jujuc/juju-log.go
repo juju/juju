@@ -23,8 +23,8 @@ type JujuLogCommand struct {
 	formatFlag string // deprecated
 }
 
-func NewJujuLogCommand(ctx Context) cmd.Command {
-	return &JujuLogCommand{ctx: ctx}
+func NewJujuLogCommand(ctx Context) (cmd.Command, error) {
+	return &JujuLogCommand{ctx: ctx}, nil
 }
 
 func (c *JujuLogCommand) Info() *cmd.Info {

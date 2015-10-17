@@ -195,6 +195,11 @@ func (u *Unit) Life() Life {
 	return u.doc.Life
 }
 
+// Workloads returns the UnitWorkloads for this unit.
+func (u *Unit) Workloads() (UnitWorkloads, error) {
+	return u.st.UnitWorkloads(u)
+}
+
 // AgentTools returns the tools that the agent is currently running.
 // It an error that satisfies errors.IsNotFound if the tools have not
 // yet been set.
@@ -1013,6 +1018,26 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		u.doc.CharmURL = curl
 	}
 	return err
+}
+
+func (u *Unit) charm() (*Charm, error) {
+	if u.doc.CharmURL == nil {
+		s, err := u.Service()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
+		}
+		ch, _, err := s.Charm()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
+		}
+		return ch, nil
+	}
+
+	ch, err := u.st.Charm(u.doc.CharmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ch, nil
 }
 
 // AgentPresence returns whether the respective remote agent is alive.
