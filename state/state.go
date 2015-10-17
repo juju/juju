@@ -1294,11 +1294,6 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 		results[i].Unit = doc.Unit
 		results[i].Error = err
 	}
-	for _, id := range ids {
-		if !resContains(results, id) {
-			results = append(results, UnitAssignmentResult{Unit: id, Error: errors.NotFoundf("unit %q", id)})
-		}
-	}
 	return results, nil
 }
 
@@ -1308,15 +1303,6 @@ func removeStagedAssignmentOp(id string) txn.Op {
 		Id:     id,
 		Remove: true,
 	}
-}
-
-func resContains(res []UnitAssignmentResult, id string) bool {
-	for _, r := range res {
-		if r.Unit == id {
-			return true
-		}
-	}
-	return false
 }
 
 func (st *State) assignStagedUnit(doc assignUnitDoc) error {

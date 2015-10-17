@@ -24,11 +24,13 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	res, err := api.AssignUnits(args)
 	c.Assert(f.ids, gc.DeepEquals, args.IDs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Error, gc.IsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[0].Unit, gc.Equals, "foo")
+	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "bar" not found`)
+	c.Assert(res.Results[1].Unit, gc.Equals, "bar")
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
