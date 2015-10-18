@@ -381,6 +381,7 @@ func createStorageOps(
 	}
 
 	ops = make([]txn.Op, 0, len(templates)*2)
+	ops = append(ops, assertEnvAliveAndNormalOp(st.EnvironUUID()))
 	for _, t := range templates {
 		owner := entity.String()
 		var kind StorageKind

@@ -28,6 +28,30 @@ type Environment struct {
 	doc environmentDoc
 }
 
+// EnvironMode represents the different modes an environment can be in. The
+// default is "normal".
+type EnvironMode int8
+
+const (
+	// EnvNormal is the default mode of an environment.
+	EnvNormal EnvironMode = iota
+
+	// EnvFrozen prevents adding and provisioning resources. In the case of the
+	// system environment, it also prevents the addition of new environments.
+	EnvFrozen
+)
+
+// String returns a string representation of the EnvironMode.
+func (e EnvironMode) String() string {
+	switch e {
+	case EnvNormal:
+		return "normal"
+	case EnvFrozen:
+		return "frozen"
+	}
+	return "invalid"
+}
+
 // environmentDoc represents the internal state of the environment in MongoDB.
 type environmentDoc struct {
 	UUID        string `bson:"_id"`
@@ -41,6 +65,8 @@ type environmentDoc struct {
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
+
+	Mode EnvironMode
 }
 
 // StateServerEnvironment returns the environment that was bootstrapped.
@@ -181,6 +207,23 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 	return newEnv, newState, nil
 }
 
+// SetMode sets the mode of the environment.
+func (e *Environment) SetMode(mode EnvironMode) error {
+	ops := []txn.Op{{
+		C:  environmentsC,
+		Id: e.UUID(),
+		Update: bson.D{{"$set", bson.D{
+			{"mode", mode},
+		}}},
+	}}
+
+	err := e.st.runTransaction(ops)
+	if err != nil {
+		return errors.Annotatef(err, "failed to set environment mode to %q", mode)
+	}
+	return nil
+}
+
 // Tag returns a name identifying the environment.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
@@ -213,6 +256,11 @@ func (e *Environment) ServerUUID() string {
 // Name returns the human friendly name of the environment.
 func (e *Environment) Name() string {
 	return e.doc.Name
+}
+
+// Mode returns the mode of the environment.
+func (e *Environment) Mode() EnvironMode {
+	return e.doc.Mode
 }
 
 // Life returns whether the environment is Alive, Dying or Dead.
@@ -386,7 +434,7 @@ func (e *Environment) destroyOps() ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      environmentsC,
 		Id:     uuid,
-		Assert: isEnvAliveDoc,
+		Assert: bson.D{isEnvAliveDocElem},
 		Update: bson.D{{"$set", bson.D{
 			{"life", Dying},
 			{"time-of-dying", nowToTheSecond()},
@@ -471,6 +519,7 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 		Life:       Alive,
 		Owner:      owner.Username(),
 		ServerUUID: server,
+		Mode:       EnvNormal,
 	}
 	return txn.Op{
 		C:      environmentsC,
@@ -548,11 +597,27 @@ func assertEnvAliveOp(envUUID string) txn.Op {
 	return txn.Op{
 		C:      environmentsC,
 		Id:     envUUID,
-		Assert: isEnvAliveDoc,
+		Assert: bson.D{isEnvAliveDocElem},
 	}
 }
 
-// isEnvAlive is an Environment-specific version of isAliveDoc.
+// assertAliveAndNormalOp returns a txn.Op that asserts the environment is alive and in
+// an EnvNormal mode.
+func (e *Environment) assertAliveAndNormalOp() txn.Op {
+	return assertEnvAliveAndNormalOp(e.UUID())
+}
+
+// assertEnvAliveOp returns a txn.Op that asserts the given
+// environment UUID refers to an Alive environment in an EnvNormal mode.
+func assertEnvAliveAndNormalOp(envUUID string) txn.Op {
+	return txn.Op{
+		C:      environmentsC,
+		Id:     envUUID,
+		Assert: bson.D{isEnvAliveDocElem, isEnvNormalDocElem},
+	}
+}
+
+// isEnvAliveDocElem is an Environment-specific version of isAliveDoc.
 //
 // Environment documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should
@@ -560,16 +625,20 @@ func assertEnvAliveOp(envUUID string) txn.Op {
 //
 // TODO(mjs) - this should be removed with existing uses replaced with
 // isAliveDoc. A DB migration should convert nil to Alive.
-var isEnvAliveDoc = bson.D{
-	{"life", bson.D{{"$in", []interface{}{Alive, nil}}}},
-}
+var isEnvAliveDocElem = bson.DocElem{"life", bson.D{{"$in", []interface{}{Alive, nil}}}}
+var isEnvNormalDocElem = bson.DocElem{"mode", EnvNormal}
 
-func checkEnvLife(st *State) error {
+func checkEnvLifeAndMode(st *State) error {
 	env, err := st.Environment()
 	if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
 		return errors.New("environment is no longer alive")
 	} else if err != nil {
 		return errors.Annotate(err, "unable to read environment")
 	}
+
+	if mode := env.Mode(); mode != EnvNormal {
+		return errors.Errorf("environment is in %q mode", mode.String())
+	}
+
 	return nil
 }

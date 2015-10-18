@@ -95,7 +95,9 @@ func insertAnyCharmOps(cdoc *charmDoc) ([]txn.Op, error) {
 		Id:     cdoc.DocID,
 		Assert: txn.DocMissing,
 		Insert: cdoc,
-	}}, nil
+	},
+		assertEnvAliveAndNormalOp(cdoc.EnvUUID),
+	}, nil
 }
 
 // updateCharmOps returns the txn operations necessary to update the charm
@@ -115,12 +117,14 @@ func updateCharmOps(
 		{"pendingupload", false},
 		{"placeholder", false},
 	}}}
-	return []txn.Op{{
-		C:      charmsC,
-		Id:     curl.String(),
-		Assert: assert,
-		Update: updateFields,
-	}}, nil
+	return []txn.Op{
+		assertEnvAliveAndNormalOp(st.EnvironUUID()),
+		{
+			C:      charmsC,
+			Id:     curl.String(),
+			Assert: assert,
+			Update: updateFields,
+		}}, nil
 }
 
 // convertPlaceholderCharmOps returns the txn operations necessary to convert

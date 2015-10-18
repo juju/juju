@@ -1295,14 +1295,18 @@ func (s *upgradesSuite) checkEnvUUIDIdempotent(
 }
 
 func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
-	ops := []txn.Op{{
+	ops := []txn.Op{addLegacyDocOp(c, collName, legacyDoc)}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func addLegacyDocOp(c *gc.C, collName string, legacyDoc bson.M) txn.Op {
+	return txn.Op{
 		C:      collName,
 		Id:     legacyDoc["_id"],
 		Assert: txn.DocMissing,
 		Insert: legacyDoc,
-	}}
-	err := s.state.runRawTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, doc interface{}) {
@@ -4434,4 +4438,44 @@ func (s *upgradesSuite) TestMigrateSettingsSchema(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(docs, jc.DeepEquals, expected)
 	}
+}
+
+func (s *upgradesSuite) TestAddModeFieldToEnvironDocs(c *gc.C) {
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	s.addEnvirons(c)
+	n, err := environments.Find(bson.D{{"mode", bson.D{{"$exists", true}}}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
+	c.Assert(AddEnvironMode(s.state), jc.ErrorIsNil)
+
+	n, err = environments.Find(bson.D{{"mode", EnvNormal}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 3)
+}
+
+func (s *upgradesSuite) TestAddModeFieldToEnvironDocsIdempotent(c *gc.C) {
+	environments, closer := s.state.getRawCollection(environmentsC)
+	defer closer()
+	s.addEnvirons(c)
+	n, err := environments.Find(bson.D{{"mode", bson.D{{"$exists", true}}}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+
+	c.Assert(AddEnvironMode(s.state), jc.ErrorIsNil)
+	c.Assert(AddEnvironMode(s.state), jc.ErrorIsNil)
+
+	n, err = environments.Find(bson.D{{"mode", EnvNormal}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 3)
+}
+
+func (s *upgradesSuite) addEnvirons(c *gc.C) {
+	ops := []txn.Op{
+		addLegacyDocOp(c, environmentsC, bson.M{"_id": utils.MustNewUUID().String()}),
+		addLegacyDocOp(c, environmentsC, bson.M{"_id": utils.MustNewUUID().String()}),
+	}
+	err := s.state.runRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
 }

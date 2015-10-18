@@ -1163,7 +1163,7 @@ func (st *State) AddService(
 	}
 
 	ops := []txn.Op{
-		env.assertAliveOp(),
+		env.assertAliveAndNormalOp(),
 		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
 		// TODO(dimitern) 2014-04-04 bug #1302498
 		// Once we can add networks independently of machine
@@ -1199,7 +1199,7 @@ func (st *State) AddService(
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
 
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if err := checkEnvLife(st); err != nil {
+		if err := checkEnvLifeAndMode(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return nil, errors.Errorf("service already exists")
@@ -1264,7 +1264,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		return nil, err
 	}
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertEnvAliveAndNormalOp(st.EnvironUUID()),
 		{
 			C:      subnetsC,
 			Id:     subnetID,
@@ -1276,7 +1276,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
+		if err := checkEnvLifeAndMode(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Subnet(args.CIDR); err == nil {
@@ -1352,7 +1352,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	}
 	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
+		assertEnvAliveAndNormalOp(st.EnvironUUID()),
 		{
 			C:      networksC,
 			Id:     doc.DocID,
@@ -1363,7 +1363,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
+		if err := checkEnvLifeAndMode(st); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if _, err = st.Network(args.Name); err == nil {
