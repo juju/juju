@@ -206,10 +206,10 @@ func (ni *NetworkInterface) setDisabled(shouldDisable bool) error {
 	if err != nil {
 		return err
 	}
-	ops = append(ops, assertEnvAliveOp(ni.st.EnvironUUID()))
+	ops = append(ops, assertEnvAliveAndNormalOp(ni.st.EnvironUUID()))
 	err = ni.st.runTransaction(ops)
 	if err != nil {
-		if err := checkEnvLife(ni.st); err != nil {
+		if err := checkEnvLifeAndMode(ni.st); err != nil {
 			return errors.Trace(err)
 		}
 		return onAbort(err, errors.NotFoundf("network interface"))

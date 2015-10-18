@@ -26,6 +26,7 @@ func (s *steps126Suite) TestStateStepsFor126(c *gc.C) {
 		"add the version field to all settings docs",
 		"add status to filesystem",
 		"upgrade environment config",
+		"add the mode field to all environment docs",
 	}
 	assertStateSteps(c, version.MustParse("1.26.0"), expected)
 }

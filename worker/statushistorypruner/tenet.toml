@@ -1,0 +1,8 @@
+include = ""
+cascade = false
+
+[[tenet]]
+  name = "lingoreviews/juju_worker_nostate"
+  driver = "binary"
+  tag = ""
+  registry = ""

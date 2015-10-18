@@ -2311,3 +2311,34 @@ func settingsDocNeedsMigration(doc bson.M) bool {
 	}
 	return true
 }
+
+func AddEnvironMode(st *State) error {
+	envs, closer := st.getRawCollection(environmentsC)
+	defer closer()
+
+	var ops []txn.Op
+	var env bson.M
+	iter := envs.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&env) {
+		// if the env already has a mode field, then it has already been
+		// upgraded.
+		if _, ok := env["mode"]; ok {
+			continue
+		}
+
+		ops = append(ops, txn.Op{
+			C:  environmentsC,
+			Id: env["_id"],
+			Update: bson.D{{"$set", bson.D{
+				{"mode", EnvNormal},
+			}}},
+		})
+
+		env = nil
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
