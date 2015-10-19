@@ -2185,6 +2185,37 @@ func (s *shouldWriteProxyFilesSuite) TestAll(c *gc.C) {
 	}
 }
 
+type machineAgentTerminationSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&machineAgentTerminationSuite{})
+
+func (*machineAgentTerminationSuite) TestStartTerminationWorker(c *gc.C) {
+	var stub gitjujutesting.Stub
+	statFile := func(path string) (os.FileInfo, error) {
+		stub.AddCall("Stat", path)
+		return nil, stub.NextErr()
+	}
+	var errorFunction func() error
+	newTerminationWorker := func(f func() error) worker.Worker {
+		errorFunction = f
+		return nil
+	}
+	startTerminationWorker("data-dir", newTerminationWorker, statFile)
+	c.Assert(errorFunction, gc.NotNil)
+
+	stub.SetErrors(os.ErrNotExist, nil)
+	c.Assert(errorFunction(), jc.DeepEquals, &cmdutil.FatalError{
+		`"aborted" signal received`,
+	})
+	stub.CheckCall(c, 0, "Stat", filepath.Join("data-dir", "uninstall-agent"))
+
+	// No error returned from Stat == uninstall-agent exists.
+	c.Assert(errorFunction(), gc.Equals, worker.ErrTerminateAgent)
+	stub.CheckCall(c, 1, "Stat", filepath.Join("data-dir", "uninstall-agent"))
+}
+
 type mockAgentConfig struct {
 	agent.Config
 	providerType string
