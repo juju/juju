@@ -23,6 +23,7 @@ type uniterResolver struct {
 	actionsResolver    resolver.Resolver
 	relationsResolver  resolver.Resolver
 	storageResolver    resolver.Resolver
+	commandsResolver   resolver.Resolver
 }
 
 func newUniterResolver(
@@ -33,6 +34,7 @@ func newUniterResolver(
 	actionsResolver resolver.Resolver,
 	relationsResolver resolver.Resolver,
 	storageResolver resolver.Resolver,
+	commandsResolver resolver.Resolver,
 ) *uniterResolver {
 	return &uniterResolver{
 		clearResolved:      clearResolved,
@@ -42,6 +44,7 @@ func newUniterResolver(
 		actionsResolver:    actionsResolver,
 		relationsResolver:  relationsResolver,
 		storageResolver:    storageResolver,
+		commandsResolver:   commandsResolver,
 	}
 }
 
@@ -82,6 +85,11 @@ func (s *uniterResolver) NextOp(
 	}
 
 	op, err = s.actionsResolver.NextOp(localState, remoteState, opFactory)
+	if errors.Cause(err) != resolver.ErrNoOperation {
+		return op, err
+	}
+
+	op, err = s.commandsResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}

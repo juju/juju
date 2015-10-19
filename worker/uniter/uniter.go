@@ -54,13 +54,15 @@ type UniterExecutionObserver interface {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb      tomb.Tomb
-	st        *uniter.State
-	paths     Paths
-	unit      *uniter.Unit
-	relations relation.Relations
-	cleanups  []cleanup
-	storage   *storage.Attachments
+	tomb           tomb.Tomb
+	st             *uniter.State
+	paths          Paths
+	unit           *uniter.Unit
+	relations      relation.Relations
+	cleanups       []cleanup
+	storage        *storage.Attachments
+	commands       *commands
+	commandChannel chan string
 
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
@@ -78,8 +80,6 @@ type Uniter struct {
 
 	hookLock    *fslock.Lock
 	runListener *RunListener
-
-	ranConfigChanged bool
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
@@ -195,6 +195,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				LeadershipTracker:   u.leadershipTracker,
 				UnitTag:             unitTag,
 				UpdateStatusChannel: u.updateStatusAt,
+				CommandChannel:      u.commandChannel,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -255,6 +256,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			leadershipResolver: uniterleadership.NewResolver(),
 			relationsResolver:  relation.NewRelationsResolver(u.relations),
 			storageResolver:    storage.NewResolver(u.storage),
+			commandsResolver: newCommandsResolver(
+				u.commands, watcher.CommandCompleted,
+			),
 		}
 
 		// We should not do anything until there has been a change
@@ -397,6 +401,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}
 	u.storage = storageAttachments
+	u.commands = newCommands()
+	u.commandChannel = make(chan string)
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -486,14 +492,6 @@ func (u *Uniter) operationState() operation.State {
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
-	// goroutine-safe, but that's not what I'm fixing at the moment. We could
-	// address this by:
-	//  1) implementing an operation to encapsulate the relations.Update call
-	//  2) (quick+dirty) mutex runOperation until we can
-	//  3) (correct) feed RunCommands requests into the mode funcs (or any queue
-	//     that replaces them) such that they're handled and prioritised like
-	//     every other operation.
 	logger.Tracef("run commands: %s", args.Commands)
 
 	type responseInfo struct {
@@ -501,71 +499,38 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		err      error
 	}
 	responseChan := make(chan responseInfo, 1)
-	sendResponse := func(response *exec.ExecResponse, err error) {
+	responseFunc := func(response *exec.ExecResponse, err error) {
 		responseChan <- responseInfo{response, err}
 	}
 
-	commandArgs := operation.CommandArgs{
-		Commands:        args.Commands,
-		RelationId:      args.RelationId,
-		RemoteUnitName:  args.RemoteUnitName,
-		ForceRemoteUnit: args.ForceRemoteUnit,
+	id := u.commands.AddCommand(
+		operation.CommandArgs{
+			Commands:        args.Commands,
+			RelationId:      args.RelationId,
+			RemoteUnitName:  args.RemoteUnitName,
+			ForceRemoteUnit: args.ForceRemoteUnit,
+		},
+		responseFunc,
+	)
+	select {
+	case <-u.tomb.Dying():
+		return nil, tomb.ErrDying
+	case u.commandChannel <- id:
 	}
-	err = u.runOperation(func(f operation.Factory) (operation.Operation, error) {
-		return f.NewCommands(commandArgs, sendResponse)
-	})
-	if err == nil {
-		select {
-		case response := <-responseChan:
-			results, err = response.response, response.err
-		default:
-			err = errors.New("command response never sent")
+
+	select {
+	case <-u.tomb.Dying():
+		return nil, tomb.ErrDying
+	case response := <-responseChan:
+		results, err = response.response, response.err
+		if errors.Cause(err) == operation.ErrNeedsReboot {
+			u.tomb.Kill(worker.ErrRebootMachine)
+			err = nil
+		} else if err != nil {
+			u.tomb.Kill(err)
 		}
+		return results, err
 	}
-	if errors.Cause(err) == operation.ErrNeedsReboot {
-		u.tomb.Kill(worker.ErrRebootMachine)
-		err = nil
-	}
-	if err != nil {
-		u.tomb.Kill(err)
-	}
-	return results, err
-}
-
-// creator exists primarily to make the implementation of the Mode funcs more
-// readable -- the general pattern is to switch to get a creator func (which
-// doesn't allow for the possibility of error) and then to pass the chosen
-// creator down to runOperation (which can then consistently create and run
-// all the operations in the same way).
-type creator func(factory operation.Factory) (operation.Operation, error)
-
-// runOperation uses the uniter's operation factory to run the supplied creation
-// func, and then runs the resulting operation.
-//
-// This has a number of advantages over having mode funcs use the factory and
-// executor directly:
-//   * it cuts down on duplicated code in the mode funcs, making the logic easier
-//     to parse
-//   * it narrows the (conceptual) interface exposed to the mode funcs -- one day
-//     we might even be able to use a (real) interface and maybe even approach a
-//     point where we can run direct unit tests(!) on the modes themselves.
-//   * it opens a path to fixing RunCommands -- all operation creation and
-//     execution is done in a single place, and it's much easier to force those
-//     onto a single thread.
-//       * this can't be done quite yet, though, because relation changes are
-//         not yet encapsulated in operations, and that needs to happen before
-//         RunCommands will *actually* be goroutine-safe.
-func (u *Uniter) runOperation(creator creator) (err error) {
-	errorMessage := "creating operation to run"
-	defer func() {
-		reportAgentError(u, errorMessage, err)
-	}()
-	op, err := creator(u.operationFactory)
-	if err != nil {
-		return errors.Annotatef(err, "cannot create operation")
-	}
-	errorMessage = op.String()
-	return u.operationExecutor.Run(op)
 }
 
 // acquireExecutionLock acquires the machine-level execution lock, and
