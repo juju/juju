@@ -446,26 +446,11 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
-		uninstallFile := filepath.Join(
-			agentConfig.DataDir(), agent.UninstallAgentFile,
-		)
-		terminationError := func() error {
-			// If the uninstall file exists, then the termination
-			// signal should cause the agent to uninstall; otherwise
-			// it should just restart the workers.
-			if _, err := os.Stat(uninstallFile); err == nil {
-				return worker.ErrTerminateAgent
-			}
-			logger.Debugf(
-				"uninstall file %q does not exist",
-				uninstallFile,
-			)
-			return &cmdutil.FatalError{fmt.Sprintf(
-				"%s signal received",
-				terminationworker.TerminationSignal,
-			)}
-		}
-		return terminationworker.NewWorker(terminationError), nil
+		return startTerminationWorker(
+			agentConfig.DataDir(),
+			terminationworker.NewWorker,
+			os.Stat,
+		), nil
 	})
 
 	// At this point, all workers will have been configured to start
@@ -484,6 +469,33 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
 	return err
+}
+
+// startTerminationWorker starts a new termination worker that will cause
+// the machine agent to uninstall if the uninstall-agent file is present.
+func startTerminationWorker(
+	dataDir string,
+	newTerminationWorker func(func() error) worker.Worker,
+	statFile func(string) (os.FileInfo, error),
+) worker.Worker {
+	uninstallFile := filepath.Join(dataDir, agent.UninstallAgentFile)
+	terminationError := func() error {
+		// If the uninstall file exists, then the termination
+		// signal should cause the agent to uninstall; otherwise
+		// it should just restart the workers.
+		if _, err := statFile(uninstallFile); err == nil {
+			return worker.ErrTerminateAgent
+		}
+		logger.Debugf(
+			"uninstall file %q does not exist",
+			uninstallFile,
+		)
+		return &cmdutil.FatalError{fmt.Sprintf(
+			"%q signal received",
+			terminationworker.TerminationSignal,
+		)}
+	}
+	return newTerminationWorker(terminationError)
 }
 
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {

@@ -9,6 +9,8 @@ import (
 	"syscall"
 
 	"launchpad.net/tomb"
+
+	"github.com/juju/juju/worker"
 )
 
 // TerminationSignal is the signal that
@@ -29,7 +31,7 @@ type terminationWorker struct {
 // TerminationSignal signal, and then exits
 // with the result of calling the provided
 // function.
-func NewWorker(f func() error) *terminationWorker {
+func NewWorker(f func() error) worker.Worker {
 	u := &terminationWorker{onSignal: f}
 	go func() {
 		defer u.tomb.Done()
