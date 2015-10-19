@@ -5,7 +5,19 @@ package workload
 
 import (
 	"strings"
+
+	"github.com/juju/errors"
+	"github.com/juju/utils"
 )
+
+// NewID returns a new payload ID.
+func NewID() (string, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", errors.Annotate(err, "could not create new payload ID")
+	}
+	return uuid.String(), nil
+}
 
 // TODO(ericsnow) Add a "composite" ID type?
 
