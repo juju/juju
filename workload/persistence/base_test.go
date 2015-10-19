@@ -38,9 +38,9 @@ func (doc WorkloadDoc) convert() *workloadDoc {
 	return (*workloadDoc)(&doc)
 }
 
-func (s *BaseSuite) NewDoc(wl workload.Info) *workloadDoc {
+func (s *BaseSuite) NewDoc(id string, wl workload.Info) *workloadDoc {
 	return &workloadDoc{
-		DocID:  "workload#" + s.Unit.Id() + "#" + wl.ID(),
+		DocID:  "workload#" + s.Unit.Id() + "#" + id,
 		UnitID: s.Unit.Id(),
 
 		Name: wl.Name,
@@ -53,18 +53,14 @@ func (s *BaseSuite) NewDoc(wl workload.Info) *workloadDoc {
 	}
 }
 
-func (s *BaseSuite) SetDocs(workloads ...workload.Info) []*workloadDoc {
-	var results []*workloadDoc
-	for _, wl := range workloads {
-		workloadDoc := s.NewDoc(wl)
-		results = append(results, workloadDoc)
-		s.State.SetDocs(workloadDoc)
-	}
-	return results
+func (s *BaseSuite) SetDoc(id string, wl workload.Info) *workloadDoc {
+	workloadDoc := s.NewDoc(id, wl)
+	s.State.SetDocs(workloadDoc)
+	return workloadDoc
 }
 
-func (s *BaseSuite) RemoveDoc(wl workload.Info) {
-	docID := "workload#" + s.Unit.Id() + "#" + wl.ID()
+func (s *BaseSuite) RemoveDoc(id string) {
+	docID := "workload#" + s.Unit.Id() + "#" + id
 	delete(s.State.docs, docID)
 }
 
@@ -83,23 +79,28 @@ func (s *BaseSuite) SetUnit(id string) {
 func (s *BaseSuite) NewWorkloads(pType string, ids ...string) []workload.Info {
 	var workloads []workload.Info
 	for _, id := range ids {
-		name, pluginID := workload.ParseID(id)
-		if pluginID == "" {
-			pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
-		}
-
-		workloads = append(workloads, workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: name,
-				Type: pType,
-			},
-			Details: workload.Details{
-				ID: pluginID,
-				Status: workload.PluginStatus{
-					State: "running",
-				},
-			},
-		})
+		wl := s.NewWorkload(pType, id)
+		workloads = append(workloads, wl)
 	}
 	return workloads
+}
+
+func (s *BaseSuite) NewWorkload(pType string, id string) workload.Info {
+	name, pluginID := workload.ParseID(id)
+	if pluginID == "" {
+		pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
+	}
+
+	return workload.Info{
+		PayloadClass: charm.PayloadClass{
+			Name: name,
+			Type: pType,
+		},
+		Details: workload.Details{
+			ID: pluginID,
+			Status: workload.PluginStatus{
+				State: "running",
+			},
+		},
+	}
 }

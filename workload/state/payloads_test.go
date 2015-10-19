@@ -47,9 +47,12 @@ func (s *envPayloadsSuite) newPayload(name string) workload.FullPayloadInfo {
 }
 
 func (s *envPayloadsSuite) TestListAllOkay(c *gc.C) {
+	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
-	s.persists.setPayloads(p1, p2)
+	s.persists.setPayload(id1, p1)
+	s.persists.setPayload(id2, p2)
 
 	ps := state.EnvPayloads{
 		Persist: s.persists,
@@ -65,6 +68,10 @@ func (s *envPayloadsSuite) TestListAllOkay(c *gc.C) {
 }
 
 func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
+	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
+	id3 := "f47ac10b-58cc-4372-a567-0e02b2c3d481"
+	id4 := "f47ac10b-58cc-4372-a567-0e02b2c3d482"
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
 	p2.Unit = "unit-a-service-1"
@@ -73,7 +80,10 @@ func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 	p3.Machine = "2"
 	p4 := s.newPayload("spamspamspam")
 	p4.Unit = "unit-a-service-1"
-	s.persists.setPayloads(p1, p2, p3, p4)
+	s.persists.setPayload(id1, p1)
+	s.persists.setPayload(id2, p2)
+	s.persists.setPayload(id3, p3)
+	s.persists.setPayload(id4, p4)
 
 	ps := state.EnvPayloads{
 		Persist: s.persists,
@@ -91,11 +101,14 @@ func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 }
 
 func (s *envPayloadsSuite) TestListAllFailed(c *gc.C) {
+	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
-	s.persists.setPayloads(p1, p2)
+	s.persists.setPayload(id1, p1)
+	s.persists.setPayload(id2, p2)
 
 	ps := state.EnvPayloads{
 		Persist: s.persists,
@@ -172,38 +185,23 @@ func (s *stubPayloadsPersistence) ListAll() ([]workload.FullPayloadInfo, error) 
 	return payloads, nil
 }
 
-func (s *stubPayloadsPersistence) checkPayloads(c *gc.C, expectedList []workload.FullPayloadInfo) {
-	collated := make(map[*fakeWorkloadsPersistence][]workload.Info)
-	for _, payload := range expectedList {
-		unitWorkloads := s.persists[payload.Machine][payload.Unit]
-		workload := payload.AsWorkload()
-		collated[unitWorkloads] = append(collated[unitWorkloads], workload)
-	}
-
-	for unitWorkloads, workloads := range collated {
-		unitWorkloads.checkWorkloads(c, workloads)
-	}
-}
-
-func (s *stubPayloadsPersistence) setPayloads(payloads ...workload.FullPayloadInfo) {
-	if len(payloads) > 0 && s.persists == nil {
+func (s *stubPayloadsPersistence) setPayload(id string, payload workload.FullPayloadInfo) {
+	if s.persists == nil {
 		s.persists = make(map[string]map[string]*fakeWorkloadsPersistence)
 	}
 
-	for _, payload := range payloads {
-		workload := payload.AsWorkload()
+	workload := payload.AsWorkload()
 
-		units := s.persists[payload.Machine]
-		if units == nil {
-			units = make(map[string]*fakeWorkloadsPersistence)
-			s.persists[payload.Machine] = units
-		}
-		unitWorkloads := units[payload.Unit]
-		if unitWorkloads == nil {
-			unitWorkloads = &fakeWorkloadsPersistence{Stub: s.stub}
-			units[payload.Unit] = unitWorkloads
-		}
-
-		unitWorkloads.setWorkloads(&workload)
+	units := s.persists[payload.Machine]
+	if units == nil {
+		units = make(map[string]*fakeWorkloadsPersistence)
+		s.persists[payload.Machine] = units
 	}
+	unitWorkloads := units[payload.Unit]
+	if unitWorkloads == nil {
+		unitWorkloads = &fakeWorkloadsPersistence{Stub: s.stub}
+		units[payload.Unit] = unitWorkloads
+	}
+
+	unitWorkloads.setWorkload(id, &workload)
 }

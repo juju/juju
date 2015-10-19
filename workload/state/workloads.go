@@ -20,9 +20,9 @@ var logger = loggo.GetLogger("juju.workload.state")
 
 // The persistence methods needed for workloads in state.
 type workloadsPersistence interface {
-	Track(info workload.Info) (bool, error)
+	Track(id string, info workload.Info) (bool, error)
 	// SetStatus updates the status for a payload.
-	SetStatus(docID, status string) (bool, error)
+	SetStatus(id, status string) (bool, error)
 	List(ids ...string) ([]workload.Info, []string, error)
 	ListAll() ([]workload.Info, error)
 	Untrack(id string) (bool, error)
@@ -35,6 +35,8 @@ type UnitWorkloads struct {
 	Persist workloadsPersistence
 	// Unit identifies the unit associated with the workloads.
 	Unit names.UnitTag
+
+	NewID func(workload.Info) (string, error)
 }
 
 // NewUnitWorkloads builds a UnitWorkloads for a unit.
@@ -43,22 +45,36 @@ func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag) *UnitW
 	return &UnitWorkloads{
 		Persist: persist,
 		Unit:    unit,
+		NewID:   newID,
 	}
 }
 
-// Track inserts the provided workload info in state.
+func newID(info workload.Info) (string, error) {
+	// TODO(ericsnow) Switch to workload.NewID().
+	return info.ID(), nil
+}
+
+// TODO(ericsnow) Return the new ID from Track()?
+
+// Track inserts the provided workload info in state. The new Juju ID
+// for the workload is returned.
 func (ps UnitWorkloads) Track(info workload.Info) error {
 	logger.Tracef("tracking %#v", info)
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad workload info")
 	}
 
-	ok, err := ps.Persist.Track(info)
+	id, err := ps.NewID(info)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	ok, err := ps.Persist.Track(id, info)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !ok {
-		return errors.NotValidf("workload %s (already in state)", info.ID())
+		return errors.NotValidf("workload %s (already in state)", id)
 	}
 
 	return nil
@@ -66,19 +82,19 @@ func (ps UnitWorkloads) Track(info workload.Info) error {
 
 // SetStatus updates the raw status for the identified workload to the
 // provided value.
-func (ps UnitWorkloads) SetStatus(docID, status string) error {
-	logger.Tracef("setting payload status for %q to %q", docID, status)
+func (ps UnitWorkloads) SetStatus(id, status string) error {
+	logger.Tracef("setting payload status for %q to %q", id, status)
 
 	if err := workload.ValidateState(status); err != nil {
 		return errors.Trace(err)
 	}
 
-	found, err := ps.Persist.SetStatus(docID, status)
+	found, err := ps.Persist.SetStatus(id, status)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if !found {
-		return errors.NotFoundf(docID)
+		return errors.NotFoundf(id)
 	}
 	return nil
 }
