@@ -493,7 +493,7 @@ func (p *dummyProvider) Dynamic() bool {
 }
 
 func (s *dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	if s.provider.validateVolumeParamsFunc != nil {
+	if s.provider != nil && s.provider.validateVolumeParamsFunc != nil {
 		return s.provider.validateVolumeParamsFunc(params)
 	}
 	return nil
