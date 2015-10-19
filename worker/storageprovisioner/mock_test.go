@@ -452,13 +452,14 @@ type dummyProvider struct {
 	storage.Provider
 	dynamic bool
 
-	volumeSourceFunc      func(*config.Config, *storage.Config) (storage.VolumeSource, error)
-	filesystemSourceFunc  func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
-	createVolumesFunc     func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
-	attachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
-	detachVolumesFunc     func([]storage.VolumeAttachmentParams) ([]error, error)
-	detachFilesystemsFunc func([]storage.FilesystemAttachmentParams) error
-	destroyVolumesFunc    func([]string) ([]error, error)
+	volumeSourceFunc         func(*config.Config, *storage.Config) (storage.VolumeSource, error)
+	filesystemSourceFunc     func(*config.Config, *storage.Config) (storage.FilesystemSource, error)
+	createVolumesFunc        func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
+	attachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
+	detachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]error, error)
+	detachFilesystemsFunc    func([]storage.FilesystemAttachmentParams) error
+	destroyVolumesFunc       func([]string) ([]error, error)
+	validateVolumeParamsFunc func(storage.VolumeParams) error
 }
 
 type dummyVolumeSource struct {
@@ -491,7 +492,10 @@ func (p *dummyProvider) Dynamic() bool {
 	return p.dynamic
 }
 
-func (*dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+func (s *dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
+	if s.provider != nil && s.provider.validateVolumeParamsFunc != nil {
+		return s.provider.validateVolumeParamsFunc(params)
+	}
 	return nil
 }
 
