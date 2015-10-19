@@ -5,6 +5,7 @@ package local
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -519,6 +520,10 @@ func (env *localEnviron) Destroy() error {
 		if err := env.containerManager.DestroyContainer(inst.Id()); err != nil {
 			return err
 		}
+	}
+	uninstallFile := filepath.Join(env.config.rootDir(), agent.UninstallAgentFile)
+	if err := ioutil.WriteFile(uninstallFile, nil, 0644); err != nil {
+		logger.Debugf("could not write uninstall file: %s", err)
 	}
 	cmd := exec.Command(
 		"pkill",
