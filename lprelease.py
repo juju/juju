@@ -12,6 +12,7 @@ from argparse import ArgumentParser
 import datetime
 import os
 import subprocess
+from subprocess import CalledProcessError
 import sys
 import traceback
 
@@ -26,7 +27,11 @@ def run(command, verbose=False, dry_run=False):
     """Run command list and ensure stdout and error are available."""
     if verbose:
         print(command)
-    return subprocess.check_output(command, stderr=subprocess.STDOUT)
+    try:
+        subprocess.check_output(command, stderr=subprocess.STDOUT)
+    except CalledProcessError as e:
+        print('FAIL: {} - Returncode: {}'.format(e.output, e.returncode))
+        raise
 
 
 def sign_file(file_path, gpgcmd, dry_run, verbose):
