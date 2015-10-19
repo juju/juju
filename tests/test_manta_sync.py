@@ -15,10 +15,21 @@ from manta_sync import (
 from tests import QuietTestCase
 
 
+EPOCH_MTIME = '1970-01-01T00:00:00.000Z'
+
+
+class BadMKDir(Exception):
+    """Raised when a bad mkdir is requested."""
+
+
 class FakeClient:
 
-    def __init__(self):
+    def __init__(self, user=None):
         self._files_by_dir = {}
+        if user is not None:
+            self._add_subdir(user)
+            self._add_subdir('{}/public'.format(user))
+            self._add_to_parent(user, 'public')
 
     def ls(self, container_name):
         try:
@@ -26,8 +37,33 @@ class FakeClient:
         except KeyError:
             raise HTTPError('', 404, 'Not Found', None, None)
 
-    def mkdir(self, mdir, parents=False):
+    def _add_subdir(self, mdir):
         self._files_by_dir.setdefault(mdir, {})
+
+    def _add_to_parent(self, parent, base):
+        self._files_by_dir[parent][base] = {
+            'type': 'directory', 'name': base,
+            'mtime': EPOCH_MTIME,
+            }
+
+    def mkdir(self, mdir, parents=False):
+        self._add_subdir(mdir)
+        if mdir.count('/') < 2:
+            raise BadMKDir('All paths must start with user/prefix/')
+        parent, base = mdir.rsplit('/', 1)
+        self._add_to_parent(parent, base)
+
+
+class TestFakeClient(TestCase):
+
+    def test_bad_mkdir(self):
+        client = FakeClient()
+        with self.assertRaises(BadMKDir):
+            client.mkdir('jrandom')
+        with self.assertRaises(BadMKDir):
+            client.mkdir('jrandom/public')
+        client.mkdir('jrandom/public/foo')
+        self.assertEqual({}, client.ls('jrandom/public/foo'))
 
 
 class TestClient(TestCase):
@@ -65,26 +101,61 @@ class TestGetFiles(TestCase):
         self.assertIs(None, get_files('foo', client))
 
     def test_empty_directory(self):
-        client = FakeClient()
-        client.mkdir('foo')
-        self.assertEqual({}, get_files('foo', client))
+        client = FakeClient(user='jrandom')
+        client.mkdir('jrandom/public/foo')
+        self.assertEqual({}, get_files('jrandom/public/foo', client))
 
 
 class TestSync(QuietTestCase):
 
     def test_creates_directory(self):
-        client = FakeClient()
-        sync(Namespace(files=[], verbose=False), 'foo/bar/baz', client)
-        self.assertEqual(client.ls('foo'), {})
-        self.assertEqual(client.ls('foo/bar'), {})
-        self.assertEqual(client.ls('foo/bar/baz'), {})
+        client = FakeClient(user='jrandom')
+        sync(Namespace(files=[], verbose=False),
+             'jrandom/public/foo/bar/baz', client)
+        self.assertEqual(client.ls('jrandom/public/foo'), {
+            'bar': {
+                'name': 'bar',
+                'type': 'directory',
+                'mtime': EPOCH_MTIME,
+                }
+            })
+        self.assertEqual(client.ls('jrandom/public/foo/bar'), {
+            'baz': {
+                'name': 'baz',
+                'type': 'directory',
+                'mtime': EPOCH_MTIME,
+                }
+            })
+        self.assertEqual(client.ls('jrandom/public/foo/bar/baz'), {})
 
 
 class TestMakedirs(TestCase):
 
     def test_makedirs(self):
-        client = FakeClient()
+        client = FakeClient('jrandom')
         makedirs('jrandom/public/foo/bar/baz', client)
-        self.assertEqual(client.ls('jrandom/public/foo'), {})
-        self.assertEqual(client.ls('jrandom/public/foo/bar'), {})
+        self.assertEqual(client.ls('jrandom/public'), {
+            'foo': {
+                'name': 'foo',
+                'type': 'directory',
+                'mtime': EPOCH_MTIME,
+                }})
+        self.assertEqual(client.ls('jrandom/public/foo'), {
+            'bar': {
+                'name': 'bar',
+                'type': 'directory',
+                'mtime': EPOCH_MTIME,
+                }})
+        self.assertEqual(client.ls('jrandom/public/foo'), {
+            'bar': {
+                'name': 'bar',
+                'type': 'directory',
+                'mtime': EPOCH_MTIME,
+                }})
+        self.assertEqual(client.ls('jrandom/public/foo/bar'), {
+            'baz': {
+                'name': 'baz',
+                'type': 'directory',
+                'mtime': EPOCH_MTIME,
+                }})
         self.assertEqual(client.ls('jrandom/public/foo/bar/baz'), {})

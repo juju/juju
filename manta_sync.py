@@ -261,9 +261,8 @@ def makedirs(path, client):
     """
     # Don't use os.path.split, because these are Manta paths, not local paths.
     segments = path.split('/')
-    full_path = segments[0]
-    client.mkdir(full_path)
-    for segment in segments[1:]:
+    full_path = '/'.join(segments[0:2])
+    for segment in segments[2:]:
         full_path = '/'.join([full_path, segment])
         client.mkdir(full_path)
 
