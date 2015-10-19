@@ -54,13 +54,14 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 }
 
 func (pp Persistence) workloadID(id string) string {
+	// TODO(ericsnow) Drop the unit part.
 	return fmt.Sprintf("workload#%s#%s", pp.unit.Id(), id)
 }
 
-func (pp Persistence) newInsertWorkloadOps(info workload.Info) []txn.Op {
+func (pp Persistence) newInsertWorkloadOps(id string, info workload.Info) []txn.Op {
 	var ops []txn.Op
 
-	doc := pp.newWorkloadDoc(info)
+	doc := pp.newWorkloadDoc(id, info)
 	ops = append(ops, txn.Op{
 		C:      workloadsC,
 		Id:     doc.DocID,
@@ -157,10 +158,10 @@ func (d workloadDoc) details() workload.Details {
 	}
 }
 
-func (pp Persistence) newWorkloadDoc(info workload.Info) *workloadDoc {
-	definition := info.PayloadClass
+func (pp Persistence) newWorkloadDoc(id string, info workload.Info) *workloadDoc {
+	id = pp.workloadID(id)
 
-	id := pp.workloadID(info.ID())
+	definition := info.PayloadClass
 
 	tags := make([]string, len(info.Tags))
 	copy(tags, info.Tags)

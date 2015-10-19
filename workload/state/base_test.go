@@ -31,31 +31,27 @@ func (s *baseWorkloadsSuite) SetUpTest(c *gc.C) {
 	s.persist = &fakeWorkloadsPersistence{Stub: s.stub}
 }
 
-func (s *baseWorkloadsSuite) newWorkloads(pType string, ids ...string) []workload.Info {
-	var workloads []workload.Info
-	for _, id := range ids {
-		name, pluginID := workload.ParseID(id)
-		if pluginID == "" {
-			pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
-		}
-
-		workloads = append(workloads, workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: name,
-				Type: pType,
-			},
-			Status: workload.Status{
-				State: workload.StateRunning,
-			},
-			Details: workload.Details{
-				ID: pluginID,
-				Status: workload.PluginStatus{
-					State: "running",
-				},
-			},
-		})
+func (s *baseWorkloadsSuite) newWorkload(pType string, id string) workload.Info {
+	name, pluginID := workload.ParseID(id)
+	if pluginID == "" {
+		pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
 	}
-	return workloads
+
+	return workload.Info{
+		PayloadClass: charm.PayloadClass{
+			Name: name,
+			Type: pType,
+		},
+		Status: workload.Status{
+			State: workload.StateRunning,
+		},
+		Details: workload.Details{
+			ID: pluginID,
+			Status: workload.PluginStatus{
+				State: "running",
+			},
+		},
+	}
 }
 
 type fakeWorkloadsPersistence struct {
@@ -63,37 +59,32 @@ type fakeWorkloadsPersistence struct {
 	workloads map[string]*workload.Info
 }
 
-func (s *fakeWorkloadsPersistence) checkWorkloads(c *gc.C, expectedList []workload.Info) {
-	c.Check(s.workloads, gc.HasLen, len(expectedList))
-	for _, expected := range expectedList {
-		wl, ok := s.workloads[expected.ID()]
-		if !ok {
-			c.Errorf("workload %q not found", expected.ID())
-		} else {
-			c.Check(wl, jc.DeepEquals, &expected)
-		}
+func (s *fakeWorkloadsPersistence) checkWorkload(c *gc.C, id string, expected workload.Info) {
+	wl, ok := s.workloads[id]
+	if !ok {
+		c.Errorf("workload %q not found", id)
+	} else {
+		c.Check(wl, jc.DeepEquals, &expected)
 	}
 }
 
-func (s *fakeWorkloadsPersistence) setWorkloads(workloads ...*workload.Info) {
+func (s *fakeWorkloadsPersistence) setWorkload(id string, wl *workload.Info) {
 	if s.workloads == nil {
 		s.workloads = make(map[string]*workload.Info)
 	}
-	for _, wl := range workloads {
-		s.workloads[wl.ID()] = wl
-	}
+	s.workloads[id] = wl
 }
 
-func (s *fakeWorkloadsPersistence) Track(info workload.Info) (bool, error) {
-	s.AddCall("Track", info)
+func (s *fakeWorkloadsPersistence) Track(id string, info workload.Info) (bool, error) {
+	s.AddCall("Track", id, info)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
 
-	if _, ok := s.workloads[info.ID()]; ok {
+	if _, ok := s.workloads[id]; ok {
 		return false, nil
 	}
-	s.setWorkloads(&info)
+	s.setWorkload(id, &info)
 	return true, nil
 }
 

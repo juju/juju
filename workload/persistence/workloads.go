@@ -57,13 +57,13 @@ func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
 // Track adds records for the workload to persistence. If the workload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(info workload.Info) (bool, error) {
+func (pp Persistence) Track(id string, info workload.Info) (bool, error) {
 	logger.Tracef("insertng %#v", info)
 
 	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newInsertWorkloadOps(info)...)
+	ops = append(ops, pp.newInsertWorkloadOps(id, info)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			okay = false
