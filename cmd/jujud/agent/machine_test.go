@@ -2206,9 +2206,9 @@ func (*machineAgentTerminationSuite) TestStartTerminationWorker(c *gc.C) {
 	c.Assert(errorFunction, gc.NotNil)
 
 	stub.SetErrors(os.ErrNotExist, nil)
-	c.Assert(errorFunction(), jc.DeepEquals, &cmdutil.FatalError{
-		`"aborted" signal received`,
-	})
+	errorResult := errorFunction()
+	c.Assert(errorResult, gc.FitsTypeOf, (*cmdutil.FatalError)(nil))
+	c.Assert(errorResult, gc.ErrorMatches, `"[aA]borted" signal received`)
 	stub.CheckCall(c, 0, "Stat", filepath.Join("data-dir", "uninstall-agent"))
 
 	// No error returned from Stat == uninstall-agent exists.
