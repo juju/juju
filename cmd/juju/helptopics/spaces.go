@@ -3,7 +3,7 @@
 
 package helptopics
 
-const Networking = `
+const Spaces = `
 Juju provides a set of features allowing the users to have better and
 finer-grained control over the networking aspects of the environment
 and service deployments in particular. Not all cloud providers support
@@ -11,10 +11,10 @@ these enhanced networking features yet, in fact they are currently
 supported on AWS only. Support for MaaS and OpenStack is planed and
 will be available in future releases of Juju.
 
-Juju network spaces (or just "spaces") represent sets of disjunct
+Juju network spaces (or just "spaces") represent sets of disjoint
 subnets available for running cloud instances, which may span one
-or more availability zones ("zones"). Subnets can be part of one
-and only one space. All subnets within a space are considered "equal"
+or more availability zones ("zones"). Any given subnet can be part of
+one and only one space. All subnets within a space are considered "equal"
 in terms of access control, firewall rules, and routing. Communication
 between spaces on the other hand (e.g. between instances started in
 subnets part of different spaces) will be subject to access restrictions
@@ -82,11 +82,34 @@ adding:
 --constraints spaces=<allowedspace1>,<allowedspace2>,^<disallowedspace>
 
 The constraint controls which instance is chosen for the new machine or 
-service unit. This instance has to have distinct IP addresses on any subnet
-of each allowed space in the list and none of the subnets associated with one
-of the disallowed spaces which are prefixed with a carret. 
+unit. This instance has to have distinct IP addresses on any subnet of
+each allowed space in the list and none of the subnets associated with one
+of the disallowed spaces which are prefixed with a caret. Later changes
+of the spaces constraint have to be done with care, fixed bindings of
+services are coming son.
 
-For more information, see "juju help constraints".
+For more information regarding constraints in general, see "juju help constraints".
+
+So to create the environment above the first step has to be done at the provider.
+Here you create the subnets distributed over the available zones, e.g.
+
+- For the "dmz" create 10.1.1.0/24 in zone A and 10.1.2.0/24 in zone B.
+- For the "cms" create 10.1.3.0/24 in zone A and 10.1.4.0/24 in zone B.
+- For the "database" create 10.1.5.0/24 in zone A and 10.1.6.0/24 in zone B.
+
+Now the the spaces can be created:
+
+$ juju space create dmz 10.1.1.0/24 10.1.2.0/24
+$ juju space create cms 10.1.3.0/24 10.1.4.0/24
+$ juju space create database 10.1.5.0/24 10.1.6.0/24
+
+This allows to deploy the services to the three new spaces:
+
+$ juju deploy haproxy --constraints spaces=dmz
+$ juju deploy joomla --constraints spaces=cms,^dmz
+$ juju deploy mysql --constraints spaces=database,^dmz
+
+Adding additional units will use these constraints for their placement too.
 
 Please note, Juju supports the described syntax but currently ignores all but
 the first allowed space in the list. This behavior will change in a future release.

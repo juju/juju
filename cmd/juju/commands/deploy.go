@@ -84,8 +84,8 @@ You can override the use of clone by changing the provider configuration:
   lxc-clone: false
 
 In more complex scenarios, Juju's network spaces are used to partition the cloud
-networking layer into sets of subnets. Instances hosting service units inside
-the same space can communicate with each other without any firewalls. Traffic
+networking layer into sets of subnets. Instances hosting units inside the
+same space can communicate with each other without any firewalls. Traffic
 crossing space boundaries could be subject to firewall and access restrictions.
 Using spaces as deployment targets, rather than their individual subnets allows
 Juju to perform automatic distribution of units across availability zones to
@@ -94,7 +94,7 @@ units, both for security purposes and to manage both traffic segregation and
 congestion.
 
 When deploying a service or adding machines, the "spaces" constraint can be
-used to define a comma-delimited list of acceptable and not acceptable (prefixed
+used to define a comma-delimited list of required and forbidden (prefixed
 with "^", similar to the "tags" constraint).
 
 If you have the main container directory mounted on a btrfs partition,
