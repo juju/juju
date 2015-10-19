@@ -4,6 +4,8 @@
 package workload_test
 
 import (
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/workload"
@@ -12,6 +14,13 @@ import (
 var _ = gc.Suite(&idSuite{})
 
 type idSuite struct{}
+
+func (s *idSuite) TestNewID(c *gc.C) {
+	id, err := workload.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(id, jc.Satisfies, utils.IsValidUUIDString)
+}
 
 func (s *idSuite) TestParseIDFull(c *gc.C) {
 	name, id := workload.ParseID("a-workload/my-workload")
