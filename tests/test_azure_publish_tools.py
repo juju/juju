@@ -1,9 +1,6 @@
 from argparse import Namespace
 import os
-from StringIO import StringIO
 from unittest import TestCase
-
-from mock import patch
 
 from azure_publish_tools import (
     DELETE,
@@ -22,6 +19,7 @@ from azure_publish_tools import (
     SyncFile,
     sync_files,
     )
+from tests import QuietTestCase
 from utils import (
     temp_dir,
     write_file,
@@ -32,16 +30,6 @@ md5sum = {
     'qux': '2FsSE0c8L9fCBFAgprnGKw==',
     'bar': 'N7UdGUp1E+RbVvZSTy1R8g==',
 }
-
-
-class QuietTestCase(TestCase):
-
-    def setUp(self):
-        super(QuietTestCase, self).setUp()
-        self.stdout = StringIO()
-        patcher = patch('sys.stdout', self.stdout)
-        patcher.start()
-        self.addCleanup(patcher.stop)
 
 
 class TestOptionParser(TestCase):
