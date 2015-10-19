@@ -27,6 +27,9 @@ echo -n "date:" {0} |
 """
 
 
+PUT = 'PUT'
+
+
 class HeadRequest(urllib2.Request):
 
     def get_method(self):
@@ -36,7 +39,7 @@ class HeadRequest(urllib2.Request):
 class PutRequest(urllib2.Request):
 
     def get_method(self):
-        return "PUT"
+        return PUT
 
 
 class Client:
@@ -79,7 +82,7 @@ class Client:
         container_url = "{}/{}".format(self.manta_url, path)
         if method == 'HEAD':
             request = HeadRequest(container_url, headers=headers)
-        elif method == 'PUT':
+        elif method == PUT:
             request = PutRequest(container_url, data=body, headers=headers)
         else:
             request = urllib2.Request(container_url, headers=headers)
@@ -131,9 +134,15 @@ class Client:
         if self.dry_run:
             return
         response, content = self._request(
-            remote_path, method="PUT", body=content, headers=headers)
+            remote_path, method=PUT, body=content, headers=headers)
         if response["status"] != "204":
             raise Exception(content)
+
+    def mkdir(self, mdir, parents=False):
+        headers = {'Content-Type': 'application/json; type=directory'}
+        if self.dry_run:
+            return
+        response, content = self._request(mdir, PUT, headers=headers)
 
 
 def get_md5content(local_path, content=None):
@@ -147,7 +156,13 @@ def get_md5content(local_path, content=None):
 
 
 def get_files(container_path, client):
-    remote_files = client.ls(container_path)
+    try:
+        remote_files = client.ls(container_path)
+    except urllib2.HTTPError as e:
+        if e.code == 404:
+            return None
+        else:
+            raise
     for file_name in remote_files:
         file_path = "{0}/{1}".format(container_path, file_name)
         for i in range(3):
@@ -162,6 +177,9 @@ def get_files(container_path, client):
 
 def upload_changes(args, remote_files, container_path, client):
     count = 0
+    if remote_files is None:
+        makedirs(container_path, client)
+        remote_files = {}
     if args.verbose:
         print("Thes container has: {}".format(remote_files.keys()))
     for file_name in args.files:
@@ -227,8 +245,27 @@ def main():
         args.account, args.container, args.path).replace('//', '/')
     if args.verbose:
         print(container_path)
+    sync(args, container_path, client)
+
+
+def sync(args, container_path, client):
     remote_files = get_files(container_path, client)
     upload_changes(args, remote_files, container_path, client)
+
+
+def makedirs(path, client):
+    """Ensure a directory and its parents exist.
+
+    On Manta, creating an already-extant directory is not an error, so just
+    create them all.
+    """
+    # Don't use os.path.split, because these are Manta paths, not local paths.
+    segments = path.split('/')
+    full_path = segments[0]
+    client.mkdir(full_path)
+    for segment in segments[1:]:
+        full_path = '/'.join([full_path, segment])
+        client.mkdir(full_path)
 
 
 if __name__ == '__main__':
