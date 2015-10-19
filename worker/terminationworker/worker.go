@@ -9,8 +9,6 @@ import (
 	"syscall"
 
 	"launchpad.net/tomb"
-
-	"github.com/juju/juju/worker"
 )
 
 // TerminationSignal is the signal that
@@ -22,16 +20,17 @@ import (
 // shutdown.
 const TerminationSignal = syscall.SIGABRT
 
-// NewWorker returns a worker that wais for a
-
 type terminationWorker struct {
-	tomb tomb.Tomb
+	tomb     tomb.Tomb
+	onSignal func() error
 }
 
-// TerminationSignal signal and exits with
-// ErrTerminateAgent.
-func NewWorker() worker.Worker {
-	u := &terminationWorker{}
+// NewWorker returns a worker that waits for a
+// TerminationSignal signal, and then exits
+// with the result of calling the provided
+// function.
+func NewWorker(f func() error) *terminationWorker {
+	u := &terminationWorker{onSignal: f}
 	go func() {
 		defer u.tomb.Done()
 		u.tomb.Kill(u.loop())
@@ -53,8 +52,8 @@ func (u *terminationWorker) loop() (err error) {
 	defer signal.Stop(c)
 	select {
 	case <-c:
-		return worker.ErrTerminateAgent
+		return u.onSignal()
 	case <-u.tomb.Dying():
-		return nil
+		return tomb.ErrDying
 	}
 }

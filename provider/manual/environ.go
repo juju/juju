@@ -282,6 +282,7 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout st
 func (e *manualEnviron) Destroy() error {
 	script := `
 set -x
+touch %s
 pkill -%d jujud && exit
 stop %s
 rm -f /etc/init/juju*
@@ -291,6 +292,10 @@ exit 0
 `
 	script = fmt.Sprintf(
 		script,
+		utils.ShQuote(path.Join(
+			agent.DefaultPaths.DataDir,
+			agent.UninstallAgentFile,
+		)),
 		terminationworker.TerminationSignal,
 		mongo.ServiceName(""),
 		utils.ShQuote(agent.DefaultPaths.DataDir),

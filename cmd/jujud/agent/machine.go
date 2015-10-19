@@ -450,7 +450,26 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
-		return terminationworker.NewWorker(), nil
+		uninstallFile := filepath.Join(
+			agentConfig.DataDir(), agent.UninstallAgentFile,
+		)
+		terminationError := func() error {
+			// If the uninstall file exists, then the termination
+			// signal should cause the agent to uninstall; otherwise
+			// it should just restart the workers.
+			if _, err := os.Stat(uninstallFile); err == nil {
+				return worker.ErrTerminateAgent
+			}
+			logger.Debugf(
+				"uninstall file %q does not exist",
+				uninstallFile,
+			)
+			return &cmdutil.FatalError{fmt.Sprintf(
+				"%s signal received",
+				terminationworker.TerminationSignal,
+			)}
+		}
+		return terminationworker.NewWorker(terminationError), nil
 	})
 
 	// At this point, all workers will have been configured to start
