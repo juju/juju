@@ -96,14 +96,18 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 		},
 	}})
 
-	workloads, err = st.List("workloadA/xyz")
+	id, err := st.LookUp("workloadA", "xyz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("using ID %q", id)
+
+	workloads, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, jc.DeepEquals, []workload.Info{info})
 
-	err = st.SetStatus("workloadA/xyz", "running")
+	err = st.SetStatus(id, "running")
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err = st.List("workloadA/xyz")
+	workloads, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, jc.DeepEquals, []workload.Info{{
 		PayloadClass: charm.PayloadClass{
@@ -122,7 +126,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 		},
 	}})
 
-	err = st.Untrack("workloadA/xyz")
+	err = st.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	workloads, err = st.List()

@@ -58,6 +58,11 @@ func (pp Persistence) workloadID(id string) string {
 	return fmt.Sprintf("workload#%s#%s", pp.unit.Id(), id)
 }
 
+func (pp Persistence) extractWorkloadID(docID string) string {
+	parts := strings.Split(docID, "#")
+	return parts[len(parts)-1]
+}
+
 func (pp Persistence) newInsertWorkloadOps(id string, info workload.Info) []txn.Op {
 	var ops []txn.Op
 
@@ -158,6 +163,16 @@ func (d workloadDoc) details() workload.Details {
 	}
 }
 
+func (d workloadDoc) match(name, rawID string) bool {
+	if d.Name != name {
+		return false
+	}
+	if d.PluginID != rawID {
+		return false
+	}
+	return true
+}
+
 func (pp Persistence) newWorkloadDoc(id string, info workload.Info) *workloadDoc {
 	id = pp.workloadID(id)
 
@@ -195,7 +210,7 @@ func (pp Persistence) allWorkloads() (map[string]workloadDoc, error) {
 
 	results := make(map[string]workloadDoc)
 	for _, doc := range docs {
-		id := doc.info().ID()
+		id := pp.extractWorkloadID(doc.DocID)
 		results[id] = doc
 	}
 	return results, nil

@@ -100,7 +100,10 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 		Machine: "0",
 	}})
 
-	err = ust.Untrack("payloadA/xyz")
+	id, err := ust.LookUp("payloadA", "xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ust.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	payloads, err = st.ListAll()

@@ -25,6 +25,7 @@ type workloadsPersistence interface {
 	SetStatus(id, status string) (bool, error)
 	List(ids ...string) ([]workload.Info, []string, error)
 	ListAll() ([]workload.Info, error)
+	LookUp(name, rawID string) (string, error)
 	Untrack(id string) (bool, error)
 }
 
@@ -118,6 +119,17 @@ func (ps UnitWorkloads) List(ids ...string) ([]workload.Info, error) {
 		return nil, errors.Trace(err)
 	}
 	return results, nil
+}
+
+// LookUp returns the payload ID for the given name/rawID pair.
+func (ps UnitWorkloads) LookUp(name, rawID string) (string, error) {
+	logger.Tracef("looking up payload id for %s/%s", name, rawID)
+
+	id, err := ps.Persist.LookUp(name, rawID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id, nil
 }
 
 // Untrack removes the identified workload from state. It does not
