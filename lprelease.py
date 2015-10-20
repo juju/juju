@@ -26,7 +26,11 @@ def run(command, verbose=False, dry_run=False):
     """Run command list and ensure stdout and error are available."""
     if verbose:
         print(command)
-    return subprocess.check_output(command, stderr=subprocess.STDOUT)
+    try:
+        subprocess.check_output(command, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        print('FAIL: {} - Returncode: {}'.format(e.output, e.returncode))
+        raise
 
 
 def sign_file(file_path, gpgcmd, dry_run, verbose):
