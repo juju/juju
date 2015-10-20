@@ -19,11 +19,13 @@ type UnitWorkloads interface {
 	// Track tracks a workload for the unit and info.
 	Track(info workload.Info) error
 	// List returns information on the workload with the id on the unit.
-	List(fullIDs ...string) ([]workload.Info, error)
+	List(ids ...string) ([]workload.Info, error)
 	// Settatus sets the status for the workload with the given id on the unit.
-	SetStatus(fullID, status string) error
+	SetStatus(id, status string) error
+	// LookUp returns the payload ID for the given name/rawID pair.
+	LookUp(name, rawID string) (string, error)
 	// Untrack removes the information for the workload with the given id.
-	Untrack(fullID string) error
+	Untrack(id string) error
 }
 
 // HookContextAPI serves workload-specific API methods.
@@ -64,12 +66,21 @@ func (a HookContextAPI) Track(args internal.TrackArgs) (internal.WorkloadResults
 func (a HookContextAPI) List(args internal.ListArgs) (internal.ListResults, error) {
 	var r internal.ListResults
 
-	var ids []string
+	var ids, stateIDs []string
 	for _, id := range args.IDs {
-		ids = append(ids, internal.API2FullID(id))
+		fullID := internal.API2FullID(id)
+		ids = append(ids, fullID)
+
+		name, rawID := workload.ParseID(fullID)
+		stateID, err := a.State.LookUp(name, rawID)
+		if err != nil {
+			logger.Errorf("could not look up payload ID for %q", fullID)
+			continue
+		}
+		stateIDs = append(stateIDs, stateID)
 	}
 
-	workloads, err := a.State.List(ids...)
+	workloads, err := a.State.List(stateIDs...)
 	if err != nil {
 		r.Error = common.ServerError(err)
 		return r, nil
@@ -110,7 +121,12 @@ func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.Workloa
 			ID: arg.ID,
 		}
 		fullID := internal.API2FullID(arg.ID)
-		err := a.State.SetStatus(fullID, arg.Status)
+
+		name, rawID := workload.ParseID(fullID)
+		stateID, err := a.State.LookUp(name, rawID)
+		if err == nil {
+			err = a.State.SetStatus(stateID, arg.Status)
+		}
 		if err != nil {
 			res.Error = common.ServerError(err)
 			r.Error = common.ServerError(api.BulkFailure)
@@ -128,7 +144,13 @@ func (a HookContextAPI) Untrack(args internal.UntrackArgs) (internal.WorkloadRes
 			ID: id,
 		}
 		fullID := internal.API2FullID(id)
-		if err := a.State.Untrack(fullID); err != nil {
+		name, rawID := workload.ParseID(fullID)
+
+		stateID, err := a.State.LookUp(name, rawID)
+		if err == nil {
+			err = a.State.Untrack(stateID)
+		}
+		if err != nil {
 			res.Error = common.ServerError(errors.Trace(err))
 			r.Error = common.ServerError(api.BulkFailure)
 		}
