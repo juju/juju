@@ -86,6 +86,49 @@ func (c HookContextClient) List(fullIDs ...string) ([]workload.Info, error) {
 	return workloads, nil
 }
 
+// TODO(ericsnow) Return []workload.Result.
+
+// LookUp calls the LookUp API server method.
+func (c HookContextClient) LookUp(fullIDs ...string) ([]string, error) {
+	if len(fullIDs) == 0 {
+		return nil, nil
+	}
+
+	var args internal.LookUpArgs
+	for _, fullID := range fullIDs {
+		name, rawID := workload.ParseID(fullID)
+		args.Args = append(args.Args, internal.LookUpArg{
+			Name: name,
+			ID:   rawID,
+		})
+	}
+
+	var res internal.LookUpResults
+	if err := c.FacadeCall("LookUp", &args, &res); err != nil {
+		return nil, err
+	}
+	if res.Error != nil && len(res.Results) != len(fullIDs) {
+		return nil, errors.Errorf(res.Error.GoString())
+	}
+
+	var ids []string
+	for _, r := range res.Results {
+		if r.Error != nil {
+			// TODO(ericsnow) preserve the error
+			ids = append(ids, "")
+			continue
+		}
+
+		id := r.ID.Id()
+		ids = append(ids, id)
+	}
+
+	if res.Error != nil {
+		return ids, errors.Errorf(res.Error.GoString())
+	}
+	return ids, nil
+}
+
 // SetStatus calls the SetStatus API server method.
 func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]workload.Result, error) {
 	statusArgs := make([]internal.SetStatusArg, len(fullIDs))

@@ -4,21 +4,33 @@
 package server
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 	"github.com/juju/juju/workload/api/internal"
 )
 
-type suite struct{}
-
 var _ = gc.Suite(&suite{})
 
-func (suite) TestTrack(c *gc.C) {
-	st := &FakeState{}
-	a := HookContextAPI{st}
+type suite struct {
+	stub  *testing.Stub
+	state *FakeState
+}
+
+func (s *suite) SetUpTest(c *gc.C) {
+	s.stub = &testing.Stub{}
+	s.state = &FakeState{stub: s.stub}
+}
+
+func (s *suite) TestTrack(c *gc.C) {
+	a := HookContextAPI{s.state}
 
 	args := internal.TrackArgs{
 		Workloads: []internal.Workload{{
@@ -72,10 +84,10 @@ func (suite) TestTrack(c *gc.C) {
 		},
 	}
 
-	c.Assert(st.info, gc.DeepEquals, expected)
+	c.Check(s.state.info, jc.DeepEquals, expected)
 }
 
-func (suite) TestListOne(c *gc.C) {
+func (s *suite) TestListOne(c *gc.C) {
 	wl := workload.Info{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
@@ -92,8 +104,9 @@ func (suite) TestListOne(c *gc.C) {
 			},
 		},
 	}
-	st := &FakeState{workloads: []workload.Info{wl}}
-	a := HookContextAPI{st}
+	s.state.workloads = []workload.Info{wl}
+
+	a := HookContextAPI{s.state}
 	args := internal.ListArgs{
 		IDs: []internal.FullID{{
 			Class: "foobar",
@@ -135,7 +148,7 @@ func (suite) TestListOne(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
-func (suite) TestListAll(c *gc.C) {
+func (s *suite) TestListAll(c *gc.C) {
 	wl := workload.Info{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
@@ -152,8 +165,9 @@ func (suite) TestListAll(c *gc.C) {
 			},
 		},
 	}
-	st := &FakeState{workloads: []workload.Info{wl}}
-	a := HookContextAPI{st}
+	s.state.workloads = []workload.Info{wl}
+
+	a := HookContextAPI{s.state}
 	args := internal.ListArgs{}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -190,11 +204,81 @@ func (suite) TestListAll(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedResults)
 }
 
-func (suite) TestSetStatus(c *gc.C) {
-	st := &FakeState{
-		stateID: "ce5bc2a7-65d8-4800-8199-a7c3356ab309",
+func (s *suite) TestLookUpOkay(c *gc.C) {
+	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
+
+	a := HookContextAPI{s.state}
+	args := internal.LookUpArgs{
+		Args: []internal.LookUpArg{{
+			Name: "fooID",
+			ID:   "bar",
+		}},
 	}
-	a := HookContextAPI{st}
+	res, err := a.LookUp(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "LookUp",
+		Args:     []interface{}{"fooID", "bar"},
+	}})
+
+	c.Check(res, jc.DeepEquals, internal.LookUpResults{
+		Results: []internal.LookUpResult{{
+			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309"),
+			NotFound: false,
+			Error:    nil,
+		}},
+	})
+}
+
+func (s *suite) TestLookUpMixed(c *gc.C) {
+	s.state.stateIDs = []string{
+		"ce5bc2a7-65d8-4800-8199-a7c3356ab309",
+		"",
+		"ce5bc2a7-65d8-4800-8199-a7c3356ab311",
+	}
+	notFound := errors.NotFoundf("workload")
+	s.stub.SetErrors(nil, notFound, nil)
+
+	a := HookContextAPI{s.state}
+	args := internal.LookUpArgs{
+		Args: []internal.LookUpArg{{
+			Name: "fooID",
+			ID:   "bar",
+		}, {
+			Name: "bazID",
+			ID:   "bam",
+		}, {
+			Name: "spam",
+			ID:   "eggs",
+		}},
+	}
+	res, err := a.LookUp(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
+	c.Check(res, jc.DeepEquals, internal.LookUpResults{
+		Results: []internal.LookUpResult{{
+			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309"),
+			NotFound: false,
+			Error:    nil,
+		}, {
+			ID:       names.PayloadTag{},
+			NotFound: true,
+			Error:    common.ServerError(notFound),
+		}, {
+			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab311"),
+			NotFound: false,
+			Error:    nil,
+		}},
+		Error: common.ServerError(api.BulkFailure),
+	})
+}
+
+func (s *suite) TestSetStatus(c *gc.C) {
+	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
+
+	a := HookContextAPI{s.state}
 	args := internal.SetStatusArgs{
 		Args: []internal.SetStatusArg{{
 			ID: internal.FullID{
@@ -207,8 +291,8 @@ func (suite) TestSetStatus(c *gc.C) {
 	res, err := a.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(st.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
-	c.Assert(st.status, gc.Equals, workload.StateRunning)
+	c.Check(s.state.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
+	c.Assert(s.state.status, gc.Equals, workload.StateRunning)
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
@@ -222,11 +306,10 @@ func (suite) TestSetStatus(c *gc.C) {
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
-func (suite) TestUntrack(c *gc.C) {
-	st := &FakeState{
-		stateID: "ce5bc2a7-65d8-4800-8199-a7c3356ab309",
-	}
-	a := HookContextAPI{st}
+func (s *suite) TestUntrack(c *gc.C) {
+	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
+
+	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
 		IDs: []internal.FullID{{
 			Class: "fooID",
@@ -236,7 +319,7 @@ func (suite) TestUntrack(c *gc.C) {
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
+	c.Assert(s.state.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
@@ -250,9 +333,8 @@ func (suite) TestUntrack(c *gc.C) {
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
-func (suite) TestUntrackEmptyID(c *gc.C) {
-	st := &FakeState{}
-	a := HookContextAPI{st}
+func (s *suite) TestUntrackEmptyID(c *gc.C) {
+	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
 		IDs: []internal.FullID{
 			{},
@@ -261,7 +343,7 @@ func (suite) TestUntrackEmptyID(c *gc.C) {
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "")
+	c.Assert(s.state.id, gc.Equals, "")
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
@@ -275,63 +357,90 @@ func (suite) TestUntrackEmptyID(c *gc.C) {
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
-func (suite) TestUntrackEmpty(c *gc.C) {
-	st := &FakeState{}
-	st.id = "foo"
-	a := HookContextAPI{st}
+func (s *suite) TestUntrackNoIDs(c *gc.C) {
+	s.state.id = "foo"
+
+	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
 		IDs: []internal.FullID{},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "foo")
+	c.Assert(s.state.id, gc.Equals, "foo")
 
 	expected := internal.WorkloadResults{}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
 type FakeState struct {
+	stub *testing.Stub
+
 	// inputs
 	id     string
 	ids    []string
 	status string
-	name   string
-	rawID  string
 
 	// info is used as input and output
 	info workload.Info
 
 	//outputs
-	stateID   string
+	stateIDs  []string
 	workloads []workload.Info
-	defs      []charm.PayloadClass
-	err       error
+}
+
+func (f *FakeState) nextID() string {
+	if len(f.stateIDs) == 0 {
+		return ""
+	}
+	id := f.stateIDs[0]
+	f.stateIDs = f.stateIDs[1:]
+	return id
 }
 
 func (f *FakeState) Track(info workload.Info) error {
 	f.info = info
-	return f.err
+	if err := f.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (f *FakeState) List(ids ...string) ([]workload.Info, error) {
 	f.ids = ids
-	return f.workloads, f.err
+	if err := f.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return f.workloads, nil
 }
 
 func (f *FakeState) SetStatus(id, status string) error {
 	f.id = id
 	f.status = status
-	return f.err
+	if err := f.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (f *FakeState) LookUp(name, rawID string) (string, error) {
-	f.name = name
-	f.rawID = rawID
-	return f.stateID, f.err
+	f.stub.AddCall("LookUp", name, rawID)
+	id := f.nextID()
+	if err := f.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return id, nil
 }
 
 func (f *FakeState) Untrack(id string) error {
 	f.id = id
-	return f.err
+	if err := f.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

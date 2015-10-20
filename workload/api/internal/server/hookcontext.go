@@ -7,6 +7,7 @@ package server
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
@@ -130,6 +131,27 @@ func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.Workloa
 		if err != nil {
 			res.Error = common.ServerError(err)
 			r.Error = common.ServerError(api.BulkFailure)
+		}
+		r.Results = append(r.Results, res)
+	}
+	return r, nil
+}
+
+// LookUp identifies the workload with the provided name and raw ID.
+func (a HookContextAPI) LookUp(args internal.LookUpArgs) (internal.LookUpResults, error) {
+	var r internal.LookUpResults
+	for _, arg := range args.Args {
+		var res internal.LookUpResult
+
+		id, err := a.State.LookUp(arg.Name, arg.ID)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				res.NotFound = true
+			}
+			res.Error = common.ServerError(err)
+			r.Error = common.ServerError(api.BulkFailure)
+		} else {
+			res.ID = names.NewPayloadTag(id)
 		}
 		r.Results = append(r.Results, res)
 	}
