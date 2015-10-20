@@ -14,12 +14,7 @@ var (
 // and error as specified for testing purposes.
 // If getterErr != nil then the NewEnvironmentGetter returns the specified error.
 func NewEnvCommandBase(name string, client EnvironmentGetter, getterErr error) *EnvCommandBase {
-	ctx, err := newAPIContext()
-	if err != nil {
-		panic(err.Error())
-	}
 	return &EnvCommandBase{
-		apiContext:      ctx,
 		envName:         name,
 		envGetterClient: client,
 		envGetterErr:    getterErr,

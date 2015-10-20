@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
-	"github.com/juju/juju/cmd/juju/status"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -76,63 +75,6 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 		c.Assert(err, gc.ErrorMatches, errPat)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-type HasEnvironmentName interface {
-	EnvName() string
-}
-
-// assertEnvName asserts that the Command is using
-// the given environment name.
-// Since every command has a different type,
-// we use reflection to look at the value of the
-// Conn field in the value.
-func assertEnvName(c *gc.C, com cmd.Command, name string) {
-	i, ok := com.(HasEnvironmentName)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(i.EnvName(), gc.Equals, name)
-}
-
-// All members of EnvironmentInitTests are tested for the -environment and -e
-// flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []func() (cmd.Command, []string){
-	func() (cmd.Command, []string) {
-		return newBootstrapCommand(), nil
-	},
-	func() (cmd.Command, []string) {
-		return newDeployCommand(), []string{"charm-name", "service-name"}
-	},
-	func() (cmd.Command, []string) {
-		return status.NewStatusCommand(), nil
-	},
-}
-
-// TestEnvironmentInit tests that all commands which accept
-// the --environment variable initialise their
-// environment name correctly.
-func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
-	for i, cmdFunc := range EnvironmentInitTests {
-		c.Logf("test %d", i)
-		com, args := cmdFunc()
-		testInit(c, com, args, "")
-		assertEnvName(c, com, "peckham")
-
-		com, args = cmdFunc()
-		testInit(c, com, append(args, "-e", "walthamstow"), "")
-		assertEnvName(c, com, "walthamstow")
-
-		com, args = cmdFunc()
-		testInit(c, com, append(args, "--environment", "walthamstow"), "")
-		assertEnvName(c, com, "walthamstow")
-
-		// JUJU_ENV is the final place the environment can be overriden
-		com, args = cmdFunc()
-		oldenv := os.Getenv(osenv.JujuEnvEnvKey)
-		os.Setenv(osenv.JujuEnvEnvKey, "walthamstow")
-		testInit(c, com, args, "")
-		os.Setenv(osenv.JujuEnvEnvKey, oldenv)
-		assertEnvName(c, com, "walthamstow")
 	}
 }
 

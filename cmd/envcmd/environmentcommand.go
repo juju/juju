@@ -62,7 +62,7 @@ func GetDefaultEnvironment() (string, error) {
 
 // EnvironCommand extends cmd.Command with a SetEnvName method.
 type EnvironCommand interface {
-	cmd.Command
+	CommandBase
 
 	// SetEnvName is called prior to the wrapped command's Init method
 	// with the active environment name. The environment name is guaranteed
@@ -71,15 +71,12 @@ type EnvironCommand interface {
 
 	// EnvName returns the name of the environment.
 	EnvName() string
-
-	setAPIContext(*apiContext)
 }
 
 // EnvCommandBase is a convenience type for embedding in commands
 // that wish to implement EnvironCommand.
 type EnvCommandBase struct {
-	cmd.CommandBase
-	*apiContext
+	JujuCommandBase
 
 	// EnvName will very soon be package visible only as we want to be able
 	// to specify an environment in multiple ways, and not always referencing
@@ -92,11 +89,6 @@ type EnvCommandBase struct {
 
 	envGetterClient EnvironmentGetter
 	envGetterErr    error
-}
-
-// setAPIContext implements the EvnironCommand interface.
-func (c *EnvCommandBase) setAPIContext(ctx *apiContext) {
-	c.apiContext = ctx
 }
 
 // SetEnvName implements the EnvironCommand interface.
@@ -139,7 +131,7 @@ func (c *EnvCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	return c.apiContext.NewAPIRoot(c.envName)
+	return c.JujuCommandBase.NewAPIRoot(c.envName)
 }
 
 // Config returns the configuration for the environment; obtaining bootstrap
@@ -338,12 +330,11 @@ func Wrap(c EnvironCommand, options ...WrapEnvOption) cmd.Command {
 	for _, option := range options {
 		option(wrapper)
 	}
-	return wrapper
+	return WrapBase(wrapper)
 }
 
 type environCommandWrapper struct {
 	EnvironCommand
-	*apiContext
 
 	skipFlags             bool
 	useDefaultEnvironment bool
@@ -379,18 +370,6 @@ func (w *environCommandWrapper) Init(args []string) error {
 	}
 	w.SetEnvName(w.envName)
 	return w.EnvironCommand.Init(args)
-}
-
-func (w *environCommandWrapper) Run(ctx *cmd.Context) error {
-	apiCtx, err := newAPIContext()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.apiContext = apiCtx
-	w.EnvironCommand.setAPIContext(w.apiContext)
-	defer w.apiContext.Close()
-
-	return w.EnvironCommand.Run(ctx)
 }
 
 type bootstrapContext struct {
