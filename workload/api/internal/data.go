@@ -6,6 +6,8 @@ package internal
 // TODO(ericsnow) Eliminate the params import if possible.
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -55,6 +57,40 @@ type ListResult struct {
 	// NotFound indicates that the workload was not found in state.
 	NotFound bool
 	// Error holds the error retrieving this information (if any).
+	Error *params.Error
+}
+
+// LookUpArgs are the arguments for the LookUp endpoint.
+type LookUpArgs struct {
+	// Args is the list of arguments to pass to this function.
+	Args []LookUpArg
+}
+
+// LookUpArg contains all the information necessary to identify a workload.
+type LookUpArg struct {
+	// Name is the workload name.
+	Name string
+	// ID uniquely identifies the workload for the given name.
+	ID string
+}
+
+// LookUpResults contains the results for the LookUp endpoint.
+type LookUpResults struct {
+	// Results holds the results of the bulk call.
+	Results []LookUpResult
+	// Error is the error (if any) for the call as a whole.
+	Error *params.Error
+}
+
+// TODO(ericsnow) Use WorkloadResult instead.
+
+// LookUpResult contains the result for a single call.
+type LookUpResult struct {
+	// ID identifies the workload to which this result applies.
+	ID names.PayloadTag
+	// NotFound indicates that the workload was not found in state.
+	NotFound bool
+	// Error is the error (if any) for the call referring to ID.
 	Error *params.Error
 }
 
