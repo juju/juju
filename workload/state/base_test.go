@@ -134,6 +134,20 @@ func (s *fakeWorkloadsPersistence) ListAll() ([]workload.Info, error) {
 	return workloads, nil
 }
 
+func (s *fakeWorkloadsPersistence) LookUp(name, rawID string) (string, error) {
+	s.AddCall("LookUp", name, rawID)
+	if err := s.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	for id, wl := range s.workloads {
+		if wl.Name == name && wl.Details.ID == rawID {
+			return id, nil
+		}
+	}
+	return "", errors.NotFoundf("doc ID")
+}
+
 func (s *fakeWorkloadsPersistence) Untrack(id string) (bool, error) {
 	s.AddCall("Untrack", id)
 	if err := s.NextErr(); err != nil {

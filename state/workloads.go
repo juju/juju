@@ -30,6 +30,8 @@ type UnitWorkloads interface {
 	// the found ones are returned. It is up to the caller to
 	// extrapolate the list of missing IDs.
 	List(ids ...string) ([]workload.Info, error)
+	// LookUpReturns the Juju ID for the corresponding workload.
+	LookUp(name, rawID string) (string, error)
 	// Untrack removes the identified workload from state. If the
 	// given ID is not in state then the request will fail.
 	Untrack(id string) error

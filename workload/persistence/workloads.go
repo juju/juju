@@ -145,6 +145,24 @@ func (pp Persistence) ListAll() ([]workload.Info, error) {
 	return results, nil
 }
 
+// LookUp returns the payload ID for the given name/rawID pair.
+func (pp Persistence) LookUp(name, rawID string) (string, error) {
+	// TODO(ericsnow) This could be more efficient.
+
+	workloadDocs, err := pp.allWorkloads()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	for id, doc := range workloadDocs {
+		if doc.match(name, rawID) {
+			return id, nil
+		}
+	}
+
+	return "", errors.NotFoundf("payload for %s/%s", name, rawID)
+}
+
 // TODO(ericsnow) Add workloads to state/cleanup.go.
 
 // TODO(ericsnow) How to ensure they are completely removed from state
