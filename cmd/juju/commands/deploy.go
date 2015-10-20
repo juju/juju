@@ -94,8 +94,8 @@ units, both for security purposes and to manage both traffic segregation and
 congestion.
 
 When deploying a service or adding machines, the "spaces" constraint can be
-used to define a comma-delimited list of required and forbidden (prefixed
-with "^", similar to the "tags" constraint).
+used to define a comma-delimited list of required and forbidden spaces
+(the latter prefixed with "^", similar to the "tags" constraint).
 
 If you have the main container directory mounted on a btrfs partition,
 then the clone will be using btrfs snapshots to create the containers.
@@ -118,7 +118,7 @@ Examples:
     space but not of the cmd and the database space)
 
 See Also:
-   juju help networking
+   juju help spaces
    juju help constraints
    juju help set-constraints
    juju help get-constraints

@@ -58,22 +58,15 @@ Spaces are created like this:
 $ juju space create <name> [ <CIDR1> <CIDR2> ... ] [--private|--public]
 
 They can be listed in various formats using the "list" subcommand. See
-also "juju space help" for more information.
+also "juju space help" for more information. Other space subcommands are
+"list", "rename", and "remove".
 
-$ juju space update <name> <CIDR1> [ <CIDR2> ... ]
-
-Other space subcommands are "list", "rename", and "remove". Subnets
-are created and added to spaces like this:
-
-$ juju subnet create <CIDR> <space> <zone1> [<zone2> ...] [--vlan-tag <integer>]
-[--private|--public]
-
-Additionally existing subnets can be added using
+Existing subnets can be added using:
 
 $ juju subnet add <CIDR>|<subnet-provider-id> <space> [<zone1> <zone2> ...]
 
 Like spaces they can be listed by the subcommand "list". See
-also "juju space help" for more information.
+also "juju subnet help" for more information.
 
 The commands "add-machine" and "deploy" allow the specification of a
 spaces constraint for the selection of a matching instance. It is done by
@@ -81,38 +74,82 @@ adding:
 
 --constraints spaces=<allowedspace1>,<allowedspace2>,^<disallowedspace>
 
-The constraint controls which instance is chosen for the new machine or 
-unit. This instance has to have distinct IP addresses on any subnet of
-each allowed space in the list and none of the subnets associated with one
-of the disallowed spaces which are prefixed with a caret. Later changes
-of the spaces constraint have to be done with care, fixed bindings of
-services are coming son.
+The spaces constraint allows to select an instance for the new machine or unit,
+connected to one or more existing spaces. Both positive and negative entries are
+accepted, the latter prefixed by "^", in a comma-delimited list. For example, 
+given the following:
+
+--constraints spaces=db,^storage,^dmz,internal,
+
+Juju will provision instances connected to (with IP addresses on) one of the subnets
+of both db and internal spaces, and NOT connected to either the storage or dmz spaces.
 
 For more information regarding constraints in general, see "juju help constraints".
 
-So to create the environment above the first step has to be done at the provider.
-Here you create the subnets distributed over the available zones, e.g.
+Let's model the following deployment in Juju on AWS:
 
-- For the "dmz" create 10.1.1.0/24 in zone A and 10.1.2.0/24 in zone B.
-- For the "cms" create 10.1.3.0/24 in zone A and 10.1.4.0/24 in zone B.
-- For the "database" create 10.1.5.0/24 in zone A and 10.1.6.0/24 in zone B.
+- DMZ space (with 2 subnets, one in each zone), hosting 2
+  units of the haproxy service, which is exposed and provides
+  access to the CMS application behind it.
+- CMS space (also with 2 subnets, one per zone), hosting 2
+  units of mediawiki, accessible only via haproxy (not exposed).
+- Database (again, 2 subnets, one per zone), hosting 2 units of
+  mysql, providing the database backend for mediawiki.
+- We also assume the used AWS account has a default VPC for the
+  chosen region (in the example we're using eu-central-1 region).
 
-Now the the spaces can be created:
+First, we need to create additional subnets within the default VPC,
+using the AWS Web Console, and enable the "automatic public IP address"
+attribute on each subnet:
 
-$ juju space create dmz 10.1.1.0/24 10.1.2.0/24
-$ juju space create cms 10.1.3.0/24 10.1.4.0/24
-$ juju space create database 10.1.5.0/24 10.1.6.0/24
+- 172.31.50.0/24, in zone "eu-central-1a" (for space "database")
+- 172.31.51.0/24, in zone "eu-central-1b" (for space "database")
+- 172.31.100.0/24, in zone "eu-central-1a" (for space "cms")
+- 172.31.110.0/24, in zone "eu-central-1b" (for space "cms")
 
-This allows to deploy the services to the three new spaces:
+We also assume the default VPC already has 2 default subnets (one per
+zone), configured like this:
 
-$ juju deploy haproxy --constraints spaces=dmz
-$ juju deploy joomla --constraints spaces=cms,^dmz
-$ juju deploy mysql --constraints spaces=database,^dmz
+- 172.31.0.0/20, in zone "eu-central-1a" (we'll use it for the "dmz" space)
+- 172.31.16.0/20, in zone "eu-central-1b"(also for the "dmz" space)
 
-Adding additional units will use these constraints for their placement too.
+Once the default VPC has those subnets, we can bootstrap as usual:
 
-Please note, Juju supports the described syntax but currently ignores all but
-the first allowed space in the list. This behavior will change in a future release.
-Also, only the EC2 provider supports spaces as described, with support for MaaS
-and OpenStack coming soon.
+$ juju bootstrap
+
+After that, we can create the 3 spaces and add the subnets we
+created to each one. These steps will be automated, and the subnet
+creation will be possible directly from Juju in a future release.
+
+$ juju space create dmz
+$ juju space create cms
+$ juju space create database
+$ juju subnet add 172.31.0.0/20 dmz
+$ juju subnet add 172.31.16.0/20 dmz
+$ juju subnet add 172.31.50.0/24 database
+$ juju subnet add 172.31.51.0/24 database
+$ juju subnet add 172.31.100.0/24 cms
+$ juju subnet add 172.31.110.0/24 cms
+
+Now we can deploy the services into their respective spaces,
+relate them and expose haproxy:
+
+$ juju deploy haproxy -n 2 --constraints spaces=dmz
+$ juju deploy mediawiki -n 2 --constraints spaces=cms
+$ juju deploy mysql -n 2 --constraints spaces=database
+$ juju add-relation haproxy mediawiki
+$ juju add-relation mediawiki mysql
+$ juju expose haproxy
+
+Once all the units are up, you will be able to get the public
+IP address of one of the haproxy units (from $ juju status), and
+open it in a browser, seeing the mediawiki page.
+
+In an upcoming release, Juju will provide much better visibility
+of which services and units run in which spaces/subnets.
+
+Please note, Juju supports the described syntax but currently ignores
+all but the first allowed space in the list. This behavior will change
+in a future release. Also, only the EC2 provider supports spaces as
+described, with support for MaaS and OpenStack coming soon.
 `
