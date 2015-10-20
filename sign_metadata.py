@@ -49,7 +49,7 @@ def get_gpg_options(signing_key, signing_passphrase_file=None):
 
 
 def get_meta_files(meta_dir):
-    meta_files = filter(lambda x: x.endswith(".json"),  listdir(meta_dir))
+    meta_files = [f for f in listdir(meta_dir) if f.endswith('.json')]
     if not meta_files:
         print('Warning! no meta files found in {}'.format(meta_dir))
     return meta_files
@@ -63,7 +63,7 @@ def ensure_no_file(file_path):
 def parse_args(argv=None):
     parser = ArgumentParser("Sign streams' meta files.")
     parser.add_argument('metadata_dir', help='Metadata directory.')
-    parser.add_argument('signing_key', help='Name to sign with.')
+    parser.add_argument('signing_key', help='Key to sign with.')
     parser.add_argument(
         '-p', '--signing-passphrase-file', help='Signing passphrase file path.')
     args = parser.parse_args(argv)

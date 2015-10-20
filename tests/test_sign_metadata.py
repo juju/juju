@@ -79,7 +79,7 @@ class TestSignMetaData(TestCase):
 
     def test_sign_metadata(self):
         with patch('sign_metadata.run', autospec=True,
-                   side_effect=self.my_gpg) as smr:
+                   side_effect=self.fake_gpg) as smr:
             with temp_dir() as meta_dir:
                 meta_file = join(meta_dir, 'index.json')
                 write_file(meta_file, self.content)
@@ -100,7 +100,7 @@ class TestSignMetaData(TestCase):
 
     def test_sign_metadata_signing_passphrase_file(self):
         with patch('sign_metadata.run', autospec=True,
-                   side_effect=self.my_gpg) as smr:
+                   side_effect=self.fake_gpg) as smr:
             with temp_dir() as meta_dir:
                 meta_file = join(meta_dir, 'index.json')
                 write_file(meta_file, self.content)
@@ -138,17 +138,17 @@ class TestSignMetaData(TestCase):
         return ('\n-----BEGIN PGP SIGNATURE-----\nblah blah\n'
                 '-----END PGP SIGNATURE-----')
 
-    def my_gpg(self, args):
+    def fake_gpg(self, args):
         output_file = args[6]
         input_file = args[7]
         if '--passphrase-file' in args:
             output_file = args[9]
             input_file = args[10]
         if '--clearsign' in args:
-            with open(input_file) as i:
-                with open(output_file, 'w') as o:
-                    content = i.read()
-                    o.write('{}{}{}'.format(
+            with open(input_file) as in_file:
+                with open(output_file, 'w') as out_file:
+                    content = in_file.read()
+                    out_file.write('{}{}{}'.format(
                         self.gpg_header(), content, self.gpg_footer()))
         if '--detach-sign' in args:
             open(output_file, 'w').close()
