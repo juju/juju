@@ -191,7 +191,9 @@ func (suite) TestListAll(c *gc.C) {
 }
 
 func (suite) TestSetStatus(c *gc.C) {
-	st := &FakeState{}
+	st := &FakeState{
+		stateID: "ce5bc2a7-65d8-4800-8199-a7c3356ab309",
+	}
 	a := HookContextAPI{st}
 	args := internal.SetStatusArgs{
 		Args: []internal.SetStatusArg{{
@@ -205,7 +207,7 @@ func (suite) TestSetStatus(c *gc.C) {
 	res, err := a.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(st.id, gc.Equals, "fooID/bar")
+	c.Check(st.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
 	c.Assert(st.status, gc.Equals, workload.StateRunning)
 
 	expected := internal.WorkloadResults{
@@ -221,7 +223,9 @@ func (suite) TestSetStatus(c *gc.C) {
 }
 
 func (suite) TestUntrack(c *gc.C) {
-	st := &FakeState{}
+	st := &FakeState{
+		stateID: "ce5bc2a7-65d8-4800-8199-a7c3356ab309",
+	}
 	a := HookContextAPI{st}
 	args := internal.UntrackArgs{
 		IDs: []internal.FullID{{
@@ -232,7 +236,7 @@ func (suite) TestUntrack(c *gc.C) {
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(st.id, gc.Equals, "fooID/bar")
+	c.Assert(st.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
@@ -292,11 +296,14 @@ type FakeState struct {
 	id     string
 	ids    []string
 	status string
+	name   string
+	rawID  string
 
 	// info is used as input and output
 	info workload.Info
 
 	//outputs
+	stateID   string
 	workloads []workload.Info
 	defs      []charm.PayloadClass
 	err       error
@@ -316,6 +323,12 @@ func (f *FakeState) SetStatus(id, status string) error {
 	f.id = id
 	f.status = status
 	return f.err
+}
+
+func (f *FakeState) LookUp(name, rawID string) (string, error) {
+	f.name = name
+	f.rawID = rawID
+	return f.stateID, f.err
 }
 
 func (f *FakeState) Untrack(id string) error {
