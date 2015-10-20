@@ -82,6 +82,11 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicit(c *gc.C) {
 	testEnsureEnvName(c, "explicit", "-e", "explicit")
 }
 
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicitLongForm(c *gc.C) {
+	// Take environment name from command line arg.
+	testEnsureEnvName(c, "explicit", "--environment", "explicit")
+}
+
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigs(c *gc.C) {
 	// Take environment name from the default.
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)

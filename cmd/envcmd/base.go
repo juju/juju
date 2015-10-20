@@ -26,18 +26,67 @@ var errNoNameSpecified = errors.New("no name specified")
 type CommandBase interface {
 	cmd.Command
 
-	setAPIContext(ctx *apiContext)
+	// closeContext closes the commands API context.
+	closeContext()
 }
 
 // JujuCommandBase is a convenience type for embedding that need
 // an API connection.
 type JujuCommandBase struct {
 	cmd.CommandBase
-	*apiContext
+	apiContext *apiContext
 }
 
-func (c *JujuCommandBase) setAPIContext(ctx *apiContext) {
-	c.apiContext = ctx
+// closeContext closes the command's API context
+// if it has actually been created.
+func (c *JujuCommandBase) closeContext() {
+	if c.apiContext != nil {
+		if err := c.apiContext.close(); err != nil {
+			logger.Errorf("%v", err)
+		}
+	}
+}
+
+// NewAPIRoot returns a new connection to the API server for the given
+// environment or system.
+func (c *JujuCommandBase) NewAPIRoot(envOrSystemName string) (api.Connection, error) {
+	if err := c.initAPIContext(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.apiContext.newAPIRoot(envOrSystemName)
+}
+
+// HTTPClient returns an http.Client that contains the loaded
+// persistent cookie jar.
+func (c *JujuCommandBase) HTTPClient() (*http.Client, error) {
+	if err := c.initAPIContext(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.apiContext.httpClient(), nil
+}
+
+// APIOpen establishes a connection to the API server using the
+// the give api.Info and api.DialOpts.
+func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	if err := c.initAPIContext(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c.apiContext.apiOpen(info, opts)
+}
+
+// initAPIContext lazily initializes c.apiContext. Doing this lazily means that
+// we avoid unnecessarily loading and saving the cookies
+// when a command does not actually make an API connection.
+func (c *JujuCommandBase) initAPIContext() error {
+	if c.apiContext != nil {
+		return nil
+	}
+	ctxt, err := newAPIContext()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.apiContext = ctxt
+	return nil
 }
 
 // WrapBase wraps the specified CommandBase, returning a Command
@@ -55,14 +104,7 @@ type baseCommandWrapper struct {
 
 // Run implements Command.Run.
 func (w *baseCommandWrapper) Run(ctx *cmd.Context) error {
-	apiCtx, err := newAPIContext()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.apiContext = apiCtx
-	w.CommandBase.setAPIContext(w.apiContext)
-	defer w.apiContext.Close()
-
+	defer w.closeContext()
 	return w.CommandBase.Run(ctx)
 }
 
@@ -120,40 +162,40 @@ type apiContext struct {
 }
 
 // Close saves the embedded cookie jar.
-func (c *apiContext) Close() error {
-	return c.jar.Save()
+func (c *apiContext) close() error {
+	if err := c.jar.Save(); err != nil {
+		return errors.Annotatef(err, "cannot save cookie jar")
+	}
+	return nil
 }
 
-// APIOpen establishes a connection to the API server using the
+// apiOpen establishes a connection to the API server using the
 // the give api.Info and api.DialOpts.
-func (ctx *apiContext) APIOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+func (ctx *apiContext) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 	return api.Open(info, opts)
 }
 
-// NewAPIRoot establishes a connection to the API server for
-// the named environment.
-func (ctx *apiContext) NewAPIRoot(name string) (api.Connection, error) {
+// newAPIRoot establishes a connection to the API server for
+// the named system or environment.
+func (ctx *apiContext) newAPIRoot(name string) (api.Connection, error) {
 	if name == "" {
 		return nil, errors.Trace(errNoNameSpecified)
 	}
 	return juju.NewAPIFromName(name, ctx.client)
 }
 
-// NewAPIClient returns an api.Client connecte to the API server
-// for the named environment.
-func (ctx *apiContext) NewAPIClient(name string) (*api.Client, error) {
-	root, err := ctx.NewAPIRoot(name)
+// newAPIClient returns an api.Client connecte to the API server
+// for the named system or environment.
+func (ctx *apiContext) newAPIClient(name string) (*api.Client, error) {
+	root, err := ctx.newAPIRoot(name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return root.Client(), nil
 }
 
-// HTTPClient returns an http.Client that contains the loaded
+// httpClient returns an http.Client that contains the loaded
 // persistent cookie jar.
-func (ctx *apiContext) HTTPClient() (*http.Client, error) {
-	if ctx.client == nil || ctx.client.Client == nil {
-		return nil, errors.New("http client not initialized")
-	}
-	return ctx.client.Client, nil
+func (ctx *apiContext) httpClient() *http.Client {
+	return ctx.client.Client
 }

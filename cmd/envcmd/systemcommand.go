@@ -23,7 +23,7 @@ var ErrNoSystemSpecified = errors.New("no system specified")
 // SystemCommand is intended to be a base for all commands
 // that need to operate on systems as opposed to environments.
 type SystemCommand interface {
-	cmd.Command
+	CommandBase
 
 	// SetSystemName is called prior to the wrapped command's Init method with
 	// the active system name. The system name is guaranteed to be non-empty
@@ -34,22 +34,14 @@ type SystemCommand interface {
 	// SystemName returns the name of the system or environment used to
 	// determine that API end point.
 	SystemName() string
-
-	setAPIContext(ctx *apiContext)
 }
 
 // SysCommandBase is a convenience type for embedding in commands
 // that wish to implement SystemCommand.
 type SysCommandBase struct {
-	cmd.CommandBase
-	*apiContext
+	JujuCommandBase
 
 	systemName string
-}
-
-// setAPIContext implements the EvnironCommand interface.
-func (c *SysCommandBase) setAPIContext(ctx *apiContext) {
-	c.apiContext = ctx
 }
 
 // SetSystemName implements the SystemCommand interface.
@@ -169,12 +161,11 @@ func WrapSystem(c SystemCommand, options ...WrapSystemOption) cmd.Command {
 	for _, option := range options {
 		option(wrapper)
 	}
-	return wrapper
+	return WrapBase(wrapper)
 }
 
 type sysCommandWrapper struct {
 	SystemCommand
-	*apiContext
 	setFlags             bool
 	useDefaultSystemName bool
 	systemName           string
@@ -219,16 +210,4 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	}
 	w.SetSystemName(w.systemName)
 	return w.SystemCommand.Init(args)
-}
-
-func (w *sysCommandWrapper) Run(ctx *cmd.Context) error {
-	apiCtx, err := newAPIContext()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.apiContext = apiCtx
-	w.SystemCommand.setAPIContext(w.apiContext)
-	defer w.apiContext.Close()
-
-	return w.SystemCommand.Run(ctx)
 }
