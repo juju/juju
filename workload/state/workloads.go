@@ -50,9 +50,8 @@ func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag) *UnitW
 	}
 }
 
-func newID(info workload.Info) (string, error) {
-	// TODO(ericsnow) Switch to workload.NewID().
-	return info.ID(), nil
+func newID(workload.Info) (string, error) {
+	return workload.NewID()
 }
 
 // TODO(ericsnow) Return the new ID from Track()?
