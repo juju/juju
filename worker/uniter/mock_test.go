@@ -5,7 +5,6 @@ package uniter_test
 
 import (
 	"github.com/juju/names"
-	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/worker/uniter/runner"
-	runnercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/storage"
 )
 
@@ -34,40 +31,8 @@ func (*dummyStorageAccessor) UnitStorageAttachments(_ names.UnitTag) ([]params.S
 	return nil, nil
 }
 
-type dummyRunnerFactory struct {
-	runner.Factory
-	newCommandRunner func(runnercontext.CommandInfo) (runner.Runner, error)
-}
+type nopResolver struct{}
 
-func (f *dummyRunnerFactory) NewCommandRunner(info runnercontext.CommandInfo) (runner.Runner, error) {
-	return f.newCommandRunner(info)
-}
-
-type dummyRunner struct {
-	runner.Runner
-	runCommands func(string) (*exec.ExecResponse, error)
-}
-
-func (r *dummyRunner) Context() runner.Context {
-	return &dummyRunnerContext{}
-}
-
-func (r *dummyRunner) RunCommands(commands string) (*exec.ExecResponse, error) {
-	return r.runCommands(commands)
-}
-
-type dummyRunnerContext struct {
-	runner.Context
-}
-
-func (*dummyRunnerContext) Prepare() error {
-	return nil
-}
-
-type dummyCallbacks struct {
-	operation.Callbacks
-}
-
-func (c *dummyCallbacks) SetExecutingStatus(string) error {
-	return nil
+func (nopResolver) NextOp(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
+	return nil, resolver.ErrNoOperation
 }

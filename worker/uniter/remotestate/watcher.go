@@ -143,6 +143,7 @@ func (w *RemoteStateWatcher) ClearResolvedMode() {
 
 func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 	w.mu.Lock()
+	defer w.mu.Unlock()
 	for i, id := range w.current.Commands {
 		if id != completed {
 			continue
@@ -153,7 +154,6 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 		)
 		break
 	}
-	w.mu.Unlock()
 }
 
 func (w *RemoteStateWatcher) init(unitTag names.UnitTag) (err error) {

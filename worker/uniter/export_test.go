@@ -5,9 +5,3 @@ package uniter
 
 // NewUniterResolver returns a new aggregate uniter resolver.
 var NewUniterResolver = newUniterResolver
-
-func NewCommands() Commands {
-	return newCommands()
-}
-
-var NewCommandsResolver = newCommandsResolver

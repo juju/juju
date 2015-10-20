@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package runcommands
 
 import (
 	"fmt"
@@ -39,7 +39,7 @@ type command struct {
 	response operation.CommandResponseFunc
 }
 
-func newCommands() *commands {
+func NewCommands() Commands {
 	return &commands{
 		nextId:  0,
 		pending: make(map[string]command),
@@ -76,10 +76,20 @@ type commandsResolver struct {
 	commandCompleted func(id string)
 }
 
-func newCommandsResolver(commands Commands, commandCompleted func(string)) *commandsResolver {
+// NewCommandsResolver returns a new Resolver that returns operations to
+// execute "juju run" commands.
+//
+// The returned resolver's NextOp method will return operations to execute
+// run commands whenever the remote state's "Commands" is non-empty, by
+// taking the first ID in the sequence and fetching the command arguments
+// from the Commands interface passed into this function. When the command
+// execution operation is committed, the ID of the command is passed to the
+// "commandCompleted" callback.
+func NewCommandsResolver(commands Commands, commandCompleted func(string)) resolver.Resolver {
 	return &commandsResolver{commands, commandCompleted}
 }
 
+// NextOp is part of the resolver.Resolver interface.
 func (s *commandsResolver) NextOp(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,

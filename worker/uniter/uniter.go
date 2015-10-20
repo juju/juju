@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
+	"github.com/juju/juju/worker/uniter/runcommands"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -54,15 +55,13 @@ type UniterExecutionObserver interface {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb           tomb.Tomb
-	st             *uniter.State
-	paths          Paths
-	unit           *uniter.Unit
-	relations      relation.Relations
-	cleanups       []cleanup
-	storage        *storage.Attachments
-	commands       *commands
-	commandChannel chan string
+	tomb      tomb.Tomb
+	st        *uniter.State
+	paths     Paths
+	unit      *uniter.Unit
+	relations relation.Relations
+	cleanups  []cleanup
+	storage   *storage.Attachments
 
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
@@ -78,8 +77,14 @@ type Uniter struct {
 	leadershipTracker leadership.Tracker
 	charmDirLocker    charmdir.Locker
 
-	hookLock    *fslock.Lock
-	runListener *RunListener
+	hookLock *fslock.Lock
+
+	// TODO(axw) move the runListener and run-command code outside of the
+	// uniter, and introduce a separate worker. Each worker would feed
+	// operations to a single, synchronized runner to execute.
+	runListener    *RunListener
+	commands       runcommands.Commands
+	commandChannel chan string
 
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
@@ -256,7 +261,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			leadershipResolver: uniterleadership.NewResolver(),
 			relationsResolver:  relation.NewRelationsResolver(u.relations),
 			storageResolver:    storage.NewResolver(u.storage),
-			commandsResolver: newCommandsResolver(
+			commandsResolver: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
 		}
@@ -401,7 +406,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create storage hook source")
 	}
 	u.storage = storageAttachments
-	u.commands = newCommands()
+	u.commands = runcommands.NewCommands()
 	u.commandChannel = make(chan string)
 
 	deployer, err := charm.NewDeployer(
