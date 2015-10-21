@@ -5,6 +5,7 @@ package server
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -27,27 +28,33 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 }
 
 func (publicSuite) newPayload(name string) (workload.FullPayloadInfo, api.Payload) {
+	ptype := "docker"
+	id := "id" + name
+	tags := []string{"a-tag"}
+	unit := "a-service/0"
+	machine := "1"
+
 	payload := workload.FullPayloadInfo{
 		Payload: workload.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: name,
-				Type: "docker",
+				Type: ptype,
 			},
-			ID:     "id" + name,
+			ID:     id,
 			Status: workload.StateRunning,
-			Tags:   []string{"a-tag"},
-			Unit:   "a-service/0",
+			Tags:   tags,
+			Unit:   unit,
 		},
-		Machine: "1",
+		Machine: machine,
 	}
 	apiPayload := api.Payload{
 		Class:   name,
-		Type:    "docker",
-		ID:      "id" + name,
+		Type:    ptype,
+		ID:      id,
 		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "a-service/0",
-		Machine: "1",
+		Tags:    tags,
+		Unit:    names.NewUnitTag(unit),
+		Machine: names.NewMachineTag(machine),
 	}
 	return payload, apiPayload
 }
