@@ -28,7 +28,7 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    nil,
-		Unit:    "unit-a-service-0",
+		Unit:    "a-service/0",
 		Machine: "1",
 	}
 }
@@ -43,7 +43,7 @@ func (s *publicSuite) TestListOkay(c *gc.C) {
 
 	pclient := client.NewPublicClient(s.facade)
 
-	payloads, err := pclient.ListFull("a-tag", "unit-a-service-0")
+	payloads, err := pclient.ListFull("a-tag", "a-service/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := api.API2Payload(s.payload)

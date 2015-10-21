@@ -23,8 +23,8 @@ func (s *outputTabularSuite) TestFormatTabularOkay(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-UNIT             MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS        
-unit-a-service-0 1       spam          running docker idspam a-tag other 
+UNIT        MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS        
+a-service/0 1       spam          running docker idspam a-tag other 
 `[1:])
 }
 
@@ -36,8 +36,8 @@ func (s *outputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-UNIT             MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS 
-unit-a-service-0 1       spam          running docker idspam      
+UNIT        MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS 
+a-service/0 1       spam          running docker idspam      
 `[1:])
 }
 
@@ -67,13 +67,13 @@ func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID      TAGS        
-unit-a-service-0       1       spam          running docker idspam  a-tag       
-unit-a-service-1       2       spam          stopped docker idspam  a-tag       
-unit-a-service-1       2       spam          running docker idspamB             
-unit-a-service-1       2       eggs          running kvm    ideggs              
-unit-a-service-2       2       spam          running docker idspam              
-unit-another-service-0 1       ham           running docker idham   other extra 
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID      TAGS        
+a-service/0       1       spam          running docker idspam  a-tag       
+a-service/1       2       spam          stopped docker idspam  a-tag       
+a-service/1       2       spam          running docker idspamB             
+a-service/1       2       eggs          running kvm    ideggs              
+a-service/2       2       spam          running docker idspam              
+another-service/0 1       ham           running docker idham   other extra 
 `[1:])
 }
 

@@ -6,15 +6,12 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/persistence"
 )
 
 var logger = loggo.GetLogger("juju.workload.state")
-
-// TODO(ericsnow) Add names.WorkloadTag and use it here?
 
 // TODO(ericsnow) We need a worker to clean up dying workloads.
 
@@ -35,13 +32,13 @@ type UnitWorkloads struct {
 	// Persist is the persistence layer that will be used.
 	Persist workloadsPersistence
 	// Unit identifies the unit associated with the workloads.
-	Unit names.UnitTag
+	Unit string
 
 	NewID func(workload.Info) (string, error)
 }
 
 // NewUnitWorkloads builds a UnitWorkloads for a unit.
-func NewUnitWorkloads(st persistence.PersistenceBase, unit names.UnitTag) *UnitWorkloads {
+func NewUnitWorkloads(st persistence.PersistenceBase, unit string) *UnitWorkloads {
 	persist := persistence.NewPersistence(st, unit)
 	return &UnitWorkloads{
 		Persist: persist,

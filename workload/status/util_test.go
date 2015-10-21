@@ -24,7 +24,7 @@ func NewPayload(name, service string, machine, unit int, tags ...string) workloa
 			ID:     "id" + name,
 			Status: workload.StateRunning,
 			Tags:   tags,
-			Unit:   fmt.Sprintf("unit-%s-%d", service, unit),
+			Unit:   fmt.Sprintf("%s/%d", service, unit),
 		},
 		Machine: fmt.Sprintf("%d", machine),
 	}

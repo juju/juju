@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/workload"
 )
@@ -28,13 +27,13 @@ type PayloadsEnvPersistence interface {
 
 	// TODO(ericsnow) Drop the machine-related API and provide UnitTags()?
 
-	// MachineNames builds the list of the names that identify
+	// Machines builds the list of the names that identify
 	// all machines in State.
-	MachineNames() ([]string, error)
+	Machines() ([]string, error)
 
-	// MachineUnits builds the list of tags that identify all units
+	// Machines builds the list of names that identify all units
 	// for a given machine.
-	MachineUnits(machineName string) ([]names.UnitTag, error)
+	MachineUnits(machineName string) ([]string, error)
 }
 
 type newEnvPayloadsFunc func(PayloadsEnvPersistence) (EnvPayloads, error)
@@ -74,8 +73,8 @@ type payloadsEnvPersistence struct {
 	st *State
 }
 
-// MachineNames implements PayloadsEnvPersistence.
-func (ep *payloadsEnvPersistence) MachineNames() ([]string, error) {
+// Machines implements PayloadsEnvPersistence.
+func (ep *payloadsEnvPersistence) Machines() ([]string, error) {
 	ms, err := ep.st.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -88,14 +87,14 @@ func (ep *payloadsEnvPersistence) MachineNames() ([]string, error) {
 }
 
 // MachineUnits implements PayloadsEnvPersistence.
-func (ep *payloadsEnvPersistence) MachineUnits(machine string) ([]names.UnitTag, error) {
+func (ep *payloadsEnvPersistence) MachineUnits(machine string) ([]string, error) {
 	us, err := ep.st.UnitsFor(machine)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var tags []names.UnitTag
+	var names []string
 	for _, u := range us {
-		tags = append(tags, u.UnitTag())
+		names = append(names, u.UnitTag().Id())
 	}
-	return tags, nil
+	return names, nil
 }

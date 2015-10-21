@@ -25,7 +25,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 			ID:     "idspam",
 			Status: workload.StateRunning,
 			Tags:   []string{"a-tag"},
-			Unit:   "unit-a-service-0",
+			Unit:   "a-service/0",
 		},
 		Machine: "1",
 	})
@@ -36,7 +36,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
+		Unit:    "a-service/0",
 		Machine: "1",
 	})
 }
@@ -48,7 +48,7 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
+		Unit:    "a-service/0",
 		Machine: "1",
 	})
 
@@ -61,7 +61,7 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 			ID:     "idspam",
 			Status: workload.StateRunning,
 			Tags:   []string{"a-tag"},
-			Unit:   "unit-a-service-0",
+			Unit:   "a-service/0",
 		},
 		Machine: "1",
 	})
