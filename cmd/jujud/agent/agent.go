@@ -187,7 +187,10 @@ type configChanger func(c *agent.Config)
 // password is changed if the fallback password was used to connect to
 // the API.
 func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.Entity, outErr error) {
-	info := agentConfig.APIInfo()
+	info, ok := agentConfig.APIInfo()
+	if !ok {
+		return nil, nil, errors.New("API info not available")
+	}
 	st, usedOldPassword, err := openAPIStateUsingInfo(info, a, agentConfig.OldPassword())
 	if err != nil {
 		return nil, nil, err

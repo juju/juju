@@ -922,7 +922,9 @@ func (s *MachineSuite) assertAgentOpensState(
 
 func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
-		st, err := api.Open(conf.APIInfo(), fastDialOpts)
+		apiInfo, ok := conf.APIInfo()
+		c.Assert(ok, jc.IsTrue)
+		st, err := api.Open(apiInfo, fastDialOpts)
 		c.Assert(err, jc.ErrorIsNil)
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))

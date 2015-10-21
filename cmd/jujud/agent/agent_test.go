@@ -268,6 +268,6 @@ func writeStateAgentConfig(
 
 type fakeAPIOpenConfig struct{ agent.Config }
 
-func (fakeAPIOpenConfig) APIInfo() *api.Info              { return &api.Info{} }
+func (fakeAPIOpenConfig) APIInfo() (*api.Info, bool)      { return &api.Info{}, true }
 func (fakeAPIOpenConfig) OldPassword() string             { return "old" }
 func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob { return []multiwatcher.MachineJob{} }

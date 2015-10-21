@@ -125,7 +125,7 @@ type Config interface {
 	StateServingInfo() (params.StateServingInfo, bool)
 
 	// APIInfo returns details for connecting to the API server.
-	APIInfo() *api.Info
+	APIInfo() (*api.Info, bool)
 
 	// MongoInfo returns details for connecting to the state server's mongo
 	// database and reports whether those details are available
@@ -671,7 +671,10 @@ func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error
 	return commands, nil
 }
 
-func (c *configInternal) APIInfo() *api.Info {
+func (c *configInternal) APIInfo() (*api.Info, bool) {
+	if c.apiDetails == nil || c.apiDetails.addresses == nil {
+		return nil, false
+	}
 	servingInfo, isStateServer := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
 	if isStateServer {
@@ -698,7 +701,7 @@ func (c *configInternal) APIInfo() *api.Info {
 		Tag:        c.tag,
 		Nonce:      c.nonce,
 		EnvironTag: c.environment,
-	}
+	}, true
 }
 
 func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
