@@ -17,7 +17,6 @@ import (
 type clientSuite struct {
 	stub       *testing.Stub
 	facade     *stubFacade
-	tag        string
 	workload   internal.Workload
 	definition internal.WorkloadDefinition
 }
@@ -28,7 +27,6 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.facade.methods = &unitMethods{}
-	s.tag = "machine-tag"
 	s.definition = internal.WorkloadDefinition{
 		Name:        "foobar",
 		Description: "desc",
