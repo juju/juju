@@ -7,11 +7,9 @@ package state
 // information created during srevice creation until the unitassigner worker can
 // come along and use it.
 type assignUnitDoc struct {
-	// DocId is the unique id of the document.
+	// DocId is the unique id of the document, which is also the unit id of the
+	// unit to be assigned.
 	DocId string `bson:"_id"`
-
-	// Unit is the if of the unit to assign to a machine.
-	Unit string `bson:"unit"`
 
 	// Scope is the placement scope to apply to the unit.
 	Scope string `bson:"scope`

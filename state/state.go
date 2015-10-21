@@ -1258,8 +1258,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 // UnitAssigner worker.
 func assignUnitOps(st *State, unit string, placement instance.Placement) []txn.Op {
 	udoc := assignUnitDoc{
-		DocId:     st.docID(utils.MustNewUUID().String()),
-		Unit:      unit,
+		DocId:     unit,
 		Scope:     placement.Scope,
 		Directive: placement.Directive,
 	}
@@ -1291,7 +1290,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	results := make([]UnitAssignmentResult, len(docs))
 	for i, doc := range docs {
 		err := st.assignStagedUnit(doc)
-		results[i].Unit = doc.Unit
+		results[i].Unit = doc.DocId
 		results[i].Error = err
 	}
 	return results, nil
@@ -1306,7 +1305,7 @@ func removeStagedAssignmentOp(id string) txn.Op {
 }
 
 func (st *State) assignStagedUnit(doc assignUnitDoc) error {
-	u, err := st.Unit(doc.Unit)
+	u, err := st.Unit(st.localID(doc.DocId))
 	if err != nil {
 		return errors.Trace(err)
 	}
