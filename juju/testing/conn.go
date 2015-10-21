@@ -93,6 +93,7 @@ type JujuConnSuite struct {
 	oldJujuHome  string
 	DummyConfig  testing.Attrs
 	Factory      *factory.Factory
+	runner       worker.Runner
 }
 
 const AdminSecret = "dummy-secret"
@@ -117,8 +118,8 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 
 	// we need to manually run the unit assigner so that units which get
 	// deployed will get assigned to machines.
-	runner := worker.NewRunner(func(error) bool { return false }, cmdutil.MoreImportant)
-	runner.StartWorker("unitassigner", func() (worker.Worker, error) {
+	s.runner = worker.NewRunner(func(error) bool { return false }, cmdutil.MoreImportant)
+	s.runner.StartWorker("unitassigner", func() (worker.Worker, error) {
 		c.Assert(s.APIState, gc.NotNil)
 		return unitassigner.New(s.APIState.UnitAssigner()), nil
 	})
@@ -129,6 +130,7 @@ func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+	s.runner.Kill()
 }
 
 // Reset returns environment state to that which existed at the start of
