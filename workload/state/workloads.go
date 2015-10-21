@@ -103,19 +103,53 @@ func (ps UnitWorkloads) SetStatus(id, status string) error {
 // IDs. If none are provided then the list contains the info for all
 // workloads associated with the unit. Missing workloads
 // are ignored.
-func (ps UnitWorkloads) List(ids ...string) ([]workload.Info, error) {
+func (ps UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 	logger.Tracef("listing %v", ids)
+	var err error
+	var workloads []workload.Info
+	missingIDs := make(map[string]bool)
 	if len(ids) == 0 {
-		results, err := ps.Persist.ListAll()
+		workloads, err = ps.Persist.ListAll()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return results, nil
+		for _ = range workloads {
+			ids = append(ids, "")
+		}
+	} else {
+		var missing []string
+		workloads, missing, err = ps.Persist.List(ids...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, id := range missing {
+			missingIDs[id] = true
+		}
 	}
 
-	results, _, err := ps.Persist.List(ids...)
-	if err != nil {
-		return nil, errors.Trace(err)
+	var results []workload.Result
+	i := 0
+	for _, id := range ids {
+		result := workload.Result{
+			ID: id,
+		}
+		if missingIDs[id] {
+			result.NotFound = true
+			result.Error = errors.NotFoundf(id)
+		} else {
+			wl := workloads[i]
+			i += 1
+			if id == "" {
+				// TODO(ericsnow) Do this more efficiently.
+				id, err := ps.LookUp(wl.Name, wl.Details.ID)
+				if err != nil {
+					result.Error = errors.Trace(err)
+				}
+				result.ID = id
+			}
+			result.Workload = &wl
+		}
+		results = append(results, result)
 	}
 	return results, nil
 }

@@ -11,8 +11,12 @@ const ComponentName = "workloads"
 
 // Result is a struct that ties an error to a workload ID.
 type Result struct {
-	// FullID is the ID of the workload that this result applies to.
-	FullID string
-	// Err is the error associated with this result (if any).
-	Err error
+	// ID is the ID of the workload that this result applies to.
+	ID string
+	// Workload holds the info about the workload, if available.
+	Workload *Info
+	// NotFound indicates that the workload was not found in Juju.
+	NotFound bool
+	// Error is the error associated with this result (if any).
+	Error error
 }
