@@ -26,10 +26,16 @@ func NewWorkloadResult(id string, err error) WorkloadResult {
 }
 
 // API2Result converts the API result to a workload.Result.
-func API2Result(r WorkloadResult) workload.Result {
+func API2Result(r WorkloadResult) (workload.Result, error) {
 	result := workload.Result{
-		ID:       r.ID.Id(),
 		NotFound: r.NotFound,
+	}
+	if r.ID != "" {
+		tag, err := names.ParsePayloadTag(r.ID)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		result.ID = tag.Id()
 	}
 	if r.Workload != nil {
 		info := API2Workload(*r.Workload)
@@ -38,7 +44,7 @@ func API2Result(r WorkloadResult) workload.Result {
 	if r.Error != nil {
 		result.Error, _ = common.RestoreError(r.Error)
 	}
-	return result
+	return result, nil
 }
 
 // Result2api converts the workload.Result into a WorkloadResult.
@@ -47,7 +53,7 @@ func Result2api(result workload.Result) WorkloadResult {
 		NotFound: result.NotFound,
 	}
 	if result.ID != "" {
-		res.ID = names.NewPayloadTag(result.ID)
+		res.ID = names.NewPayloadTag(result.ID).String()
 	}
 	if result.Workload != nil {
 		wl := Workload2api(*result.Workload)
@@ -57,6 +63,18 @@ func Result2api(result workload.Result) WorkloadResult {
 		res.Error = common.ServerError(result.Error)
 	}
 	return res
+}
+
+// API2ID converts the given tag string into a payload ID.
+func API2ID(tagStr string) (string, error) {
+	if tagStr == "" {
+		return tagStr, nil
+	}
+	tag, err := names.ParsePayloadTag(tagStr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return tag.Id(), nil
 }
 
 // API2Definition converts an API workload definition struct into

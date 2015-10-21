@@ -58,7 +58,7 @@ func (s *suite) TestTrack(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id),
+			ID:       names.NewPayloadTag(id).String(),
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -109,8 +109,8 @@ func (s *suite) TestListOne(c *gc.C) {
 
 	a := HookContextAPI{s.state}
 	args := internal.ListArgs{
-		IDs: []names.PayloadTag{
-			names.NewPayloadTag(id),
+		IDs: []string{
+			names.NewPayloadTag(id).String(),
 		},
 	}
 	results, err := a.List(args)
@@ -136,7 +136,7 @@ func (s *suite) TestListOne(c *gc.C) {
 
 	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id),
+			ID:       names.NewPayloadTag(id).String(),
 			Workload: &expected,
 			NotFound: false,
 			Error:    nil,
@@ -192,7 +192,7 @@ func (s *suite) TestListAll(c *gc.C) {
 	}
 	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id),
+			ID:       names.NewPayloadTag(id).String(),
 			Workload: &expected,
 			NotFound: false,
 			Error:    nil,
@@ -221,7 +221,7 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id),
+			ID:       names.NewPayloadTag(id).String(),
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -256,15 +256,15 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
 	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309"),
+			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309").String(),
 			NotFound: false,
 			Error:    nil,
 		}, {
-			ID:       names.PayloadTag{},
+			ID:       "",
 			NotFound: true,
 			Error:    common.ServerError(notFound),
 		}, {
-			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab311"),
+			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab311").String(),
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -279,7 +279,7 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	a := HookContextAPI{s.state}
 	args := internal.SetStatusArgs{
 		Args: []internal.SetStatusArg{{
-			ID:     names.NewPayloadTag(id),
+			ID:     names.NewPayloadTag(id).String(),
 			Status: workload.StateRunning,
 		}},
 	}
@@ -291,7 +291,7 @@ func (s *suite) TestSetStatus(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    names.NewPayloadTag(id),
+			ID:    names.NewPayloadTag(id).String(),
 			Error: nil,
 		}},
 	}
@@ -304,8 +304,8 @@ func (s *suite) TestUntrack(c *gc.C) {
 
 	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
-		IDs: []names.PayloadTag{
-			names.NewPayloadTag(id),
+		IDs: []string{
+			names.NewPayloadTag(id).String(),
 		},
 	}
 	res, err := a.Untrack(args)
@@ -315,7 +315,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    names.NewPayloadTag(id),
+			ID:    names.NewPayloadTag(id).String(),
 			Error: nil,
 		}},
 	}
@@ -325,8 +325,8 @@ func (s *suite) TestUntrack(c *gc.C) {
 func (s *suite) TestUntrackEmptyID(c *gc.C) {
 	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
-		IDs: []names.PayloadTag{
-			{},
+		IDs: []string{
+			"",
 		},
 	}
 	res, err := a.Untrack(args)
@@ -336,7 +336,7 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    names.PayloadTag{},
+			ID:    "",
 			Error: nil,
 		}},
 	}
@@ -349,7 +349,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 
 	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
-		IDs: []names.PayloadTag{},
+		IDs: []string{},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)

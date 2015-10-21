@@ -23,7 +23,7 @@ func (internalHelpersSuite) TestNewWorkloadResultOkay(c *gc.C) {
 	result := NewWorkloadResult(id, nil)
 
 	c.Check(result, jc.DeepEquals, WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
 		Error:    nil,
@@ -36,7 +36,7 @@ func (internalHelpersSuite) TestNewWorkloadResultError(c *gc.C) {
 	result := NewWorkloadResult(id, err)
 
 	c.Check(result, jc.DeepEquals, WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
 		Error:    common.ServerError(err),
@@ -49,7 +49,7 @@ func (internalHelpersSuite) TestNewWorkloadResultNotFound(c *gc.C) {
 	result := NewWorkloadResult(id, err)
 
 	c.Check(result, jc.DeepEquals, WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: true,
 		Error:    common.ServerError(err),
@@ -58,12 +58,13 @@ func (internalHelpersSuite) TestNewWorkloadResultNotFound(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result := API2Result(WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+	result, err := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
 		Error:    nil,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, workload.Result{
 		ID:       id,
@@ -75,8 +76,8 @@ func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	result := API2Result(WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+	result, err := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id).String(),
 		NotFound: false,
 		Error:    nil,
 		Workload: &Workload{
@@ -92,6 +93,7 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 			},
 		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, workload.Result{
 		ID:       id,
@@ -114,37 +116,39 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	err := errors.New("<failure>")
-	result := API2Result(WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+	failure := errors.New("<failure>")
+	result, err := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
-		Error:    common.ServerError(err),
+		Error:    common.ServerError(failure),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, workload.Result{
 		ID:       id,
 		Workload: nil,
 		NotFound: false,
-		Error:    err,
+		Error:    failure,
 	})
 }
 
 func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	err := errors.NotFoundf("workload %q", id)
-	result := API2Result(WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+	notFound := errors.NotFoundf("workload %q", id)
+	result, err := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
-		Error:    common.ServerError(err),
+		Error:    common.ServerError(notFound),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, workload.Result{
 		ID:       id,
 		Workload: nil,
 		NotFound: false,
-		Error:    err,
+		Error:    notFound,
 	})
 }
 
@@ -158,7 +162,7 @@ func (internalHelpersSuite) TestResult2apiOkay(c *gc.C) {
 	})
 
 	c.Check(result, jc.DeepEquals, WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
 		Error:    nil,
@@ -186,7 +190,7 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 	})
 
 	c.Check(result, jc.DeepEquals, WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+		ID:       names.NewPayloadTag(id).String(),
 		NotFound: false,
 		Error:    nil,
 		Workload: &Workload{
@@ -215,7 +219,7 @@ func (internalHelpersSuite) TestResult2apiError(c *gc.C) {
 	})
 
 	c.Check(result, jc.DeepEquals, WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
 		Error:    common.ServerError(err),
@@ -233,7 +237,7 @@ func (internalHelpersSuite) TestResult2apiNotFound(c *gc.C) {
 	})
 
 	c.Check(result, jc.DeepEquals, WorkloadResult{
-		ID:       names.NewPayloadTag(id),
+		ID:       names.NewPayloadTag(id).String(),
 		Workload: nil,
 		NotFound: false,
 		Error:    common.ServerError(err),

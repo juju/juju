@@ -53,8 +53,8 @@ func (publicSuite) newPayload(name string) (workload.FullPayloadInfo, api.Payloa
 		ID:      id,
 		Status:  workload.StateRunning,
 		Tags:    tags,
-		Unit:    names.NewUnitTag(unit),
-		Machine: names.NewMachineTag(machine),
+		Unit:    names.NewUnitTag(unit).String(),
+		Machine: names.NewMachineTag(machine).String(),
 	}
 	return payload, apiPayload
 }

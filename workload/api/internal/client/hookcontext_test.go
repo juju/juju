@@ -73,7 +73,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 		typedResponse, ok := response.(*internal.WorkloadResults)
 		c.Assert(ok, gc.Equals, true)
 		typedResponse.Results = []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id),
+			ID:       names.NewPayloadTag(id).String(),
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -101,7 +101,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 	responses := []interface{}{
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id),
+				ID:       names.NewPayloadTag(id).String(),
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -109,7 +109,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id),
+				ID:       names.NewPayloadTag(id).String(),
 				Workload: &s.workload,
 				NotFound: false,
 				Error:    nil,
@@ -147,8 +147,8 @@ func (s *clientSuite) TestList(c *gc.C) {
 		Args: []interface{}{
 			"List",
 			&internal.ListArgs{
-				IDs: []names.PayloadTag{
-					names.NewPayloadTag(id),
+				IDs: []string{
+					names.NewPayloadTag(id).String(),
 				},
 			},
 			responses[1],
@@ -160,7 +160,7 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	response := &internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id),
+			ID:       names.NewPayloadTag(id).String(),
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -198,17 +198,17 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	id2 := "ce5bc2a7-65d8-4800-8199-a7c3356ab311"
 	response := &internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id1),
+			ID:       names.NewPayloadTag(id1).String(),
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
 		}, {
-			ID:       names.PayloadTag{},
+			ID:       "",
 			Workload: nil,
 			NotFound: true,
 			Error:    common.ServerError(errors.NotFoundf("workload")),
 		}, {
-			ID:       names.NewPayloadTag(id2),
+			ID:       names.NewPayloadTag(id2).String(),
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -265,7 +265,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	responses := []interface{}{
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id),
+				ID:       names.NewPayloadTag(id).String(),
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -273,7 +273,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id),
+				ID:       names.NewPayloadTag(id).String(),
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -310,7 +310,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 			"SetStatus",
 			&internal.SetStatusArgs{
 				Args: []internal.SetStatusArg{{
-					ID:     names.NewPayloadTag(id),
+					ID:     names.NewPayloadTag(id).String(),
 					Status: "running",
 				}},
 			},
@@ -324,7 +324,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	responses := []interface{}{
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id),
+				ID:       names.NewPayloadTag(id).String(),
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -332,7 +332,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id),
+				ID:       names.NewPayloadTag(id).String(),
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -368,8 +368,8 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 		Args: []interface{}{
 			"Untrack",
 			&internal.UntrackArgs{
-				IDs: []names.PayloadTag{
-					names.NewPayloadTag(id),
+				IDs: []string{
+					names.NewPayloadTag(id).String(),
 				},
 			},
 			responses[1],
