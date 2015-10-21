@@ -59,7 +59,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	c.Check(workloads, gc.HasLen, 0)
 
 	info := workload.Info{
-		Workload: charm.PayloadClass{
+		PayloadClass: charm.PayloadClass{
 			Name: "workloadA",
 			Type: "docker",
 		},
@@ -80,7 +80,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	workloads, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		Workload: workload.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: "workloadA",
 			Type: "docker",
 		},
@@ -106,7 +106,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	workloads, err = st.List("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		Workload: workload.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: "workloadA",
 			Type: "docker",
 		},

@@ -103,15 +103,8 @@ type workloadDoc struct {
 
 	UnitID string `bson:"unitid"`
 
-	Name        string            `bson:"name"`
-	Description string            `bson:"description"`
-	Type        string            `bson:"type"`
-	TypeOptions map[string]string `bson:"typeoptions"`
-	Command     string            `bson:"command"`
-	Image       string            `bson:"image"`
-	Ports       []string          `bson:"ports"`
-	Volumes     []string          `bson:"volumes"`
-	EnvVars     map[string]string `bson:"envvars"`
+	Name string `bson:"name"`
+	Type string `bson:"type"`
 
 	State   string `bson:"state"`
 	Blocker string `bson:"blocker"`

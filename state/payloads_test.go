@@ -64,7 +64,7 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	c.Check(payloads, gc.HasLen, 0)
 
 	err = ust.Track(workload.Info{
-		Workload: charm.PayloadClass{
+		PayloadClass: charm.PayloadClass{
 			Name: "payloadA",
 			Type: "docker",
 		},
