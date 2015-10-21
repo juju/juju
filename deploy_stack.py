@@ -70,6 +70,10 @@ def destroy_environment(client, instance_tag):
 def deploy_dummy_stack(client, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
+    # Centos requires specific machine configuration (i.e. network device
+    # order).
+    if charm_prefix.startswith("local:centos") and client.env.maas:
+        client.juju('set-constraints', ('tags=MAAS_NIC_1',))
     client.deploy(charm_prefix + 'dummy-source')
     token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
@@ -339,9 +343,9 @@ def deploy_job():
     if series is None:
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
-    # Don't need windows state server to test windows charms, trusty is faster.
-    if series.startswith("win"):
-        logging.info('Setting default series to trusty for windows deploy.')
+    # Don't need windows or centos state servers.
+    if series.startswith("win") or series.startswith("centos"):
+        logging.info('Setting default series to trusty for win and centos.')
         series = 'trusty'
     return _deploy_job(args.temp_env_name, args.env, args.upgrade,
                        charm_prefix, args.bootstrap_host, args.machine,
@@ -544,12 +548,12 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
             manager = nested()
         with manager:
             deploy_dummy_stack(client, charm_prefix)
-        is_windows_charm = charm_prefix.startswith("local:win")
-        if not is_windows_charm:
+        skip_juju_run = charm_prefix.startswith(("local:centos", "local:win"))
+        if not skip_juju_run:
             assess_juju_run(client)
         if upgrade:
             client.juju('status', ())
-            assess_upgrade(client, juju_path, skip_juju_run=is_windows_charm)
+            assess_upgrade(client, juju_path, skip_juju_run)
 
 
 def safe_print_status(client):

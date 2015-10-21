@@ -25,6 +25,7 @@ from deploy_stack import (
     copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
+    deploy_job,
     _deploy_job,
     deploy_job_parse_args,
     destroy_environment,
@@ -519,6 +520,20 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
 
 class TestDeployDummyStack(FakeHomeTestCase):
 
+    @patch('deploy_stack.check_token')
+    def test_deploy_dummy_stack_sets_centos_constraints(self, ct_mock):
+        env = SimpleEnvironment('foo', {'type': 'maas'})
+        client = EnvJujuClient(env, None, '/foo/juju')
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            with patch.object(EnvJujuClient, 'wait_for_started'):
+                with patch('deploy_stack.get_random_string',
+                           return_value='fake-token', autospec=True):
+                    deploy_dummy_stack(client, 'local:centos/foo')
+        assert_juju_call(self, cc_mock, client,
+                         ('juju', '--show-log', 'set-constraints', '-e', 'foo',
+                          'tags=MAAS_NIC_1'), 0)
+        self.assertEqual(ct_mock.call_count, 1)
+
     def test_deploy_dummy_stack(self):
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, '/foo/juju')
@@ -631,6 +646,36 @@ class TestDeployJob(FakeHomeTestCase):
         bc_mock.assert_called_once_with(
             'foo', client, None, None, None, None, None, None, None, None,
             permanent=False, region='region-foo')
+
+    def test_deploy_job_changes_series_with_win(self):
+        args = Namespace(
+            series='windows', temp_env_name=None, env=None, upgrade=None,
+            charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
+            debug=None, juju_bin=None, agent_url=None, agent_stream=None,
+            keep_env=None, upload_tools=None, with_chaos=None, jes=None,
+            pre_destroy=None, region=None, verbose=None)
+        with patch('deploy_stack.deploy_job_parse_args', return_value=args,
+                   autospec=True):
+            with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
+                deploy_job()
+        call_args = ds_mock.call_args[0]
+        self.assertEqual(call_args[3], 'local:windows/')
+        self.assertEqual(call_args[6], 'trusty')
+
+    def test_deploy_job_changes_series_with_centos(self):
+        args = Namespace(
+            series='centos', temp_env_name=None, env=None, upgrade=None,
+            charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
+            debug=None, juju_bin=None, agent_url=None, agent_stream=None,
+            keep_env=None, upload_tools=None, with_chaos=None, jes=None,
+            pre_destroy=None, region=None, verbose=None)
+        with patch('deploy_stack.deploy_job_parse_args', return_value=args,
+                   autospec=True):
+            with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
+                deploy_job()
+        call_args = ds_mock.call_args[0]
+        self.assertEqual(call_args[3], 'local:centos/')
+        self.assertEqual(call_args[6], 'trusty')
 
 
 class TestTestUpgrade(FakeHomeTestCase):
