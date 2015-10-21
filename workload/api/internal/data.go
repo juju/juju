@@ -6,8 +6,6 @@ package internal
 // TODO(ericsnow) Eliminate the params import if possible.
 
 import (
-	"github.com/juju/names"
-
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -19,8 +17,8 @@ type TrackArgs struct {
 
 // ListArgs are the arguments for the List endpoint.
 type ListArgs struct {
-	// IDs is the list of IDs of the workloads you want information on.
-	IDs []names.PayloadTag
+	// IDs is the list of tags for the workloads you want information on.
+	IDs []string
 }
 
 // LookUpArgs are the arguments for the LookUp endpoint.
@@ -46,16 +44,16 @@ type SetStatusArgs struct {
 // SetStatusArg are the arguments for a single call to the
 // SetStatus endpoint.
 type SetStatusArg struct {
-	// ID uniquely identifies the workload.
-	ID names.PayloadTag
+	// ID is the tag that uniquely identifies the workload.
+	ID string
 	// Status is the new status of the workload.
 	Status string
 }
 
 // UntrackArgs are the arguments for the Untrack endpoint.
 type UntrackArgs struct {
-	// IDs is a list of IDs of workloads.
-	IDs []names.PayloadTag
+	// IDs is a list of tags for workloads.
+	IDs []string
 }
 
 // WorkloadResults is the result for a call that makes one or more requests
@@ -68,8 +66,8 @@ type WorkloadResults struct {
 
 // WorkloadResult contains the result for a single call.
 type WorkloadResult struct {
-	// ID is the id of the workload referenced in the call..
-	ID names.PayloadTag
+	// ID is the tag for the workload referenced in the call..
+	ID string
 	// Workload holds the details of the workload, if any.
 	Workload *Workload
 	// NotFound indicates that the workload was not found in state.

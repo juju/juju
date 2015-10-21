@@ -29,8 +29,8 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    nil,
-		Unit:    names.NewUnitTag("a-service/0"),
-		Machine: names.NewMachineTag("1"),
+		Unit:    names.NewUnitTag("a-service/0").String(),
+		Machine: names.NewMachineTag("1").String(),
 	}
 }
 
@@ -47,7 +47,7 @@ func (s *publicSuite) TestListOkay(c *gc.C) {
 	payloads, err := pclient.ListFull("a-tag", "a-service/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := api.API2Payload(s.payload)
+	expected, _ := api.API2Payload(s.payload)
 	c.Check(payloads, jc.DeepEquals, []workload.FullPayloadInfo{
 		expected,
 	})

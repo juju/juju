@@ -72,17 +72,22 @@ func (a HookContextAPI) List(args internal.ListArgs) (internal.WorkloadResults, 
 
 	var ids []string
 	for _, id := range args.IDs {
-		ids = append(ids, id.Id())
+		id, err := internal.API2ID(id)
+		if err != nil {
+			return internal.WorkloadResults{}, errors.Trace(err)
+		}
+		ids = append(ids, id)
 	}
 
 	results, err := a.State.List(ids...)
 	if err != nil {
-		return internal.WorkloadResults{}, errors.Cause(err)
+		return internal.WorkloadResults{}, errors.Trace(err)
 	}
 
 	var r internal.WorkloadResults
 	for _, result := range results {
-		r.Results = append(r.Results, internal.Result2api(result))
+		res := internal.Result2api(result)
+		r.Results = append(r.Results, res)
 	}
 	return r, nil
 }
@@ -126,8 +131,12 @@ func (a HookContextAPI) LookUp(args internal.LookUpArgs) (internal.WorkloadResul
 func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
-		id := arg.ID.Id()
-		err := a.State.SetStatus(id, arg.Status)
+		id, err := internal.API2ID(arg.ID)
+		if err != nil {
+			return r, errors.Trace(err)
+		}
+
+		err = a.State.SetStatus(id, arg.Status)
 		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
@@ -138,8 +147,12 @@ func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.Workloa
 func (a HookContextAPI) Untrack(args internal.UntrackArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, tag := range args.IDs {
-		id := tag.Id()
-		err := a.State.Untrack(id)
+		id, err := internal.API2ID(tag)
+		if err != nil {
+			return r, errors.Trace(err)
+		}
+
+		err = a.State.Untrack(id)
 		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
