@@ -216,8 +216,9 @@ func (s *filterSuite) TestMatch(c *gc.C) {
 		},
 		Machine: "1",
 	}
-	patterns := []string{
-		// match
+
+	// match
+	for _, pattern := range []string{
 		"spam",
 		"docker",
 		"idspam",
@@ -226,27 +227,19 @@ func (s *filterSuite) TestMatch(c *gc.C) {
 		"tagB",
 		"a-service/0",
 		"1",
-		// no match
+	} {
+		c.Logf("check %q", pattern)
+		matched := workload.Match(payload, pattern)
+		c.Check(matched, jc.IsTrue)
+	}
+
+	// no match
+	for _, pattern := range []string{
 		"tagC",
 		"2",
-	}
-
-	var matches []bool
-	for _, pattern := range patterns {
+	} {
+		c.Logf("check %q", pattern)
 		matched := workload.Match(payload, pattern)
-		matches = append(matches, matched)
+		c.Check(matched, jc.IsFalse)
 	}
-
-	c.Check(matches, jc.DeepEquals, []bool{
-		true,
-		true,
-		true,
-		true,
-		true,
-		true,
-		true,
-		true,
-		false,
-		false,
-	})
 }
