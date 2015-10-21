@@ -54,9 +54,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	st, err := s.State.UnitWorkloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err := st.List()
+	results, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(results, gc.HasLen, 0)
 
 	info := workload.Info{
 		PayloadClass: charm.PayloadClass{
@@ -77,51 +77,66 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	err = st.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err = st.List()
+	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		PayloadClass: charm.PayloadClass{
-			Name: "workloadA",
-			Type: "docker",
-		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Details: workload.Details{
-			ID: "xyz",
-			Status: workload.PluginStatus{
-				State: "running",
+
+	// TODO(ericsnow) Once Track returns the new ID we can drop
+	// the following two lines.
+	c.Assert(results, gc.HasLen, 1)
+	id := results[0].ID
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID: id,
+		Workload: &workload.Info{
+			PayloadClass: charm.PayloadClass{
+				Name: "workloadA",
+				Type: "docker",
+			},
+			Status: workload.Status{
+				State:   workload.StateRunning,
+				Message: "okay",
+			},
+			Details: workload.Details{
+				ID: "xyz",
+				Status: workload.PluginStatus{
+					State: "running",
+				},
 			},
 		},
 	}})
 
-	id, err := st.LookUp("workloadA", "xyz")
+	lookedUpID, err := st.LookUp("workloadA", "xyz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("using ID %q", id)
+	c.Check(lookedUpID, gc.Equals, id)
 
-	workloads, err = st.List(id)
+	c.Logf("using ID %q", id)
+	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{info})
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: &info,
+	}})
 
 	err = st.SetStatus(id, "running")
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err = st.List(id)
+	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		PayloadClass: charm.PayloadClass{
-			Name: "workloadA",
-			Type: "docker",
-		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "running",
-		},
-		Details: workload.Details{
-			ID: "xyz",
-			Status: workload.PluginStatus{
-				State: "running",
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID: id,
+		Workload: &workload.Info{
+			PayloadClass: charm.PayloadClass{
+				Name: "workloadA",
+				Type: "docker",
+			},
+			Status: workload.Status{
+				State:   workload.StateRunning,
+				Message: "running",
+			},
+			Details: workload.Details{
+				ID: "xyz",
+				Status: workload.PluginStatus{
+					State: "running",
+				},
 			},
 		},
 	}})
@@ -129,7 +144,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	err = st.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err = st.List()
+	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(results, gc.HasLen, 0)
 }

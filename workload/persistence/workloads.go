@@ -8,7 +8,6 @@ package persistence
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
@@ -43,11 +42,11 @@ type PersistenceBase interface {
 // related to workloads in Juju.
 type Persistence struct {
 	st   PersistenceBase
-	unit names.UnitTag
+	unit string
 }
 
 // NewPersistence builds a new Persistence based on the provided info.
-func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
+func NewPersistence(st PersistenceBase, unit string) *Persistence {
 	return &Persistence{
 		st:   st,
 		unit: unit,

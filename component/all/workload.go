@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
@@ -192,7 +191,7 @@ func (workloads) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
-	newUnitWorkloads := func(persist state.Persistence, unit names.UnitTag) (state.UnitWorkloads, error) {
+	newUnitWorkloads := func(persist state.Persistence, unit string) (state.UnitWorkloads, error) {
 		return workloadstate.NewUnitWorkloads(persist, unit), nil
 	}
 	state.SetWorkloadsComponent(newUnitWorkloads)
