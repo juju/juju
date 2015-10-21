@@ -325,6 +325,7 @@ var topicNames = []string{
 	"openstack-provider",
 	"placement",
 	"plugins",
+	"spaces",
 	"topics",
 	"users",
 }

@@ -85,15 +85,15 @@ tags
    currently only supported by the MaaS environment.
 
 spaces
-   Spaces allows to specify list of spaces which are allowed or disallowed to add
-   a machine or deploy a service to. Additionally it can contain a list of spaces
-   which are not allowed. Multiple space names should be separated by commas. If
-   you want to prevent a space from being chosen prefix the name with "^" (a caret).
-   The constraint controls which instance is chosen for the new machine or service
-   unit. It has to have distinct IP addresses on any subnet of each allowed space
-   in the list and none of the subnets associated with one of the disallowed spaces.
-   EC2 is the only provider supported today, support for other providers is planned
-   for future releases.
+   Spaces constraint allows specifying a list of Juju network space names a unit
+   or machine needs access to. Both positive and negative (prefixed with "^")
+   spaces can be in the list, separated by commas.
+
+   Example: spaces=storage,db,^logging,^public (meaning, select machines connected
+   to the storage and db spaces, but NOT to logging or public spaces).
+
+   EC2 is the only provider supporting for spaces constraints. Support for other
+   provides is planned for future releases.
 
 instance-type
    Instance-type is the provider-specific name of a type of machine to deploy,
@@ -101,7 +101,7 @@ instance-type
    conflict with other constraints depending on the provider (since the instance
    type my determine things like memory size etc.)
 
-Example:
+   Example:
 
    juju add-machine --constraints "arch=amd64 mem=8G tags=foo,^bar"
 

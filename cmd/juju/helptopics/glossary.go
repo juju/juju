@@ -127,8 +127,9 @@ Space
   cloud provider.
 
 Zone
-  Zones, also known as Availability Zones, are isolated parts of a network. Deploying
-  services across multiple availability zones makes them resilient against unexpected
-  outages. So if there is an outage in a particular availability zone the service
-  is still accessible in other zones.
+  Zones, also known as Availability Zones, are running on own physically
+  distinct, independent infrastructure. They are engineered to be highly reliable.
+  Common points of failures like generators and cooling equipment are not shared
+  across Zones. Additionally, they are physically separate, such that even extremely
+  uncommon disasters would only affect a single Zone.
 `
