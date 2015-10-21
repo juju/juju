@@ -706,7 +706,7 @@ func writeTempFiles(c *gc.C, metadataDir string, expected []struct{ path, conten
 	}
 }
 
-func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
+func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata, []struct{ path, content string }) {
 	// setup data for this test
 	metadata := cloudimagemetadata.Metadata{
 		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
@@ -732,7 +732,7 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 		content: "ghi",
 	}}
 	writeTempFiles(c, metadataDir, expected)
-	return metadataDir, metadata
+	return metadataDir, metadata, expected
 }
 
 func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
@@ -755,7 +755,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
-	dir, m := createImageMetadata(c)
+	dir, m, _ := createImageMetadata(c)
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
 		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
@@ -770,7 +770,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	dir, _ := createImageMetadata(c)
+	dir, _, _ := createImageMetadata(c)
 
 	msg := "my test error"
 	s.PatchValue(&seriesFromVersion, func(string) (string, error) {
@@ -787,27 +787,8 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 }
 
-// TODO (anastasiamac 2015-09-26) This test will become obsolete when store
-// functionality will be removed.
 func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
-	metadataDir := c.MkDir()
-	expected := []struct{ path, content string }{{
-		path:    "images/streams/v1/index.json",
-		content: "abc",
-	}, {
-		path:    "images/streams/v1/products.json",
-		content: "def",
-	}, {
-		path:    "wayward/file.txt",
-		content: "ghi",
-	}}
-	for _, pair := range expected {
-		path := filepath.Join(metadataDir, pair.path)
-		err := os.MkdirAll(filepath.Dir(path), 0755)
-		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	metadataDir, _, expected := createImageMetadata(c)
 
 	var stor statetesting.MapStorage
 	s.PatchValue(&newStateStorage, func(string, *mgo.Session) statestorage.Storage {
