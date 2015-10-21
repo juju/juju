@@ -3,6 +3,8 @@
 
 package internal
 
+// TODO(ericsnow) Eliminate the apiserver/common import if possible.
+
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -10,25 +12,23 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api"
 )
 
-// API2Results converts the API results to []workload.Result.
-func API2Results(rs WorkloadResults, size int) ([]workload.Result, error) {
-	if rs.Error != nil && len(rs.Results) != size {
-		// It wasn't a bulk error.
-		return nil, errors.Trace(rs.Error)
+// NewWorkloadResult builds a new WorkloadResult from the provided ID
+// and error. NotFound is also set based on the error.
+func NewWorkloadResult(id string, err error) WorkloadResult {
+	result := workload.Result{
+		ID:       id,
+		NotFound: errors.IsNotFound(err),
+		Error:    err,
 	}
-
-	var results []workload.Result
-	for _, r := range rs.Results {
-		results = append(results, api2result(r))
-	}
-	// We ignore rs.Error because it could only be a bulk error.
-	return results, nil
+	return Result2api(result)
 }
 
-func api2result(r WorkloadResult) workload.Result {
+// TODO(ericsnow) Properly convert WorkloadResult.Error.
+
+// API2Result converts the API result to a workload.Result.
+func API2Result(r WorkloadResult) workload.Result {
 	result := workload.Result{
 		ID:       r.ID.Id(),
 		NotFound: r.NotFound,
@@ -43,25 +43,22 @@ func api2result(r WorkloadResult) workload.Result {
 	return result
 }
 
-// Results2api converts the []workload.Result into WorkloadResults.
-func Results2api(results []workload.Result) WorkloadResults {
-	var r WorkloadResults
-	for _, result := range results {
-		res := WorkloadResult{
-			ID:       names.NewPayloadTag(result.ID),
-			NotFound: result.NotFound,
-		}
-		if result.Workload != nil {
-			wl := Workload2api(*result.Workload)
-			res.Workload = &wl
-		}
-		if result.Error != nil {
-			res.Error = common.ServerError(result.Error)
-			r.Error = common.ServerError(api.BulkFailure)
-		}
-		r.Results = append(r.Results, res)
+// Result2api converts the workload.Result into a WorkloadResult.
+func Result2api(result workload.Result) WorkloadResult {
+	res := WorkloadResult{
+		NotFound: result.NotFound,
 	}
-	return r
+	if result.ID != "" {
+		res.ID = names.NewPayloadTag(result.ID)
+	}
+	if result.Workload != nil {
+		wl := Workload2api(*result.Workload)
+		res.Workload = &wl
+	}
+	if result.Error != nil {
+		res.Error = common.ServerError(result.Error)
+	}
+	return res
 }
 
 // API2Definition converts an API workload definition struct into
