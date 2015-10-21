@@ -1016,7 +1016,9 @@ func (s *MachineSuite) assertAgentOpensState(
 
 func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
-		st, err := api.Open(conf.APIInfo(), fastDialOpts)
+		apiInfo, ok := conf.APIInfo()
+		c.Assert(ok, jc.IsTrue)
+		st, err := api.Open(apiInfo, fastDialOpts)
 		c.Assert(err, jc.ErrorIsNil)
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
@@ -1265,7 +1267,9 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 	// Read the configuration and check that we can connect with it.
 	confR, err := agent.ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
-	newPassword := confR.APIInfo().Password
+	apiInfo, ok := confR.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	newPassword := apiInfo.Password
 	assertPassword(newPassword, true)
 
 	// Double-check that we can open a fresh connection with the stored

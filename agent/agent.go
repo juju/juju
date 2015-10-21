@@ -173,8 +173,9 @@ type Config interface {
 	// are available
 	StateServingInfo() (params.StateServingInfo, bool)
 
-	// APIInfo returns details for connecting to the API server.
-	APIInfo() *api.Info
+	// APIInfo returns details for connecting to the API server and
+	// reports whether the details are available.
+	APIInfo() (*api.Info, bool)
 
 	// MongoInfo returns details for connecting to the state server's mongo
 	// database and reports whether those details are available
@@ -708,6 +709,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// WriteCommands is defined on Config interface.
 func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
 	data, err := c.fileContents()
 	if err != nil {
@@ -720,7 +722,11 @@ func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error
 	return commands, nil
 }
 
-func (c *configInternal) APIInfo() *api.Info {
+// APIInfo is defined on Config interface.
+func (c *configInternal) APIInfo() (*api.Info, bool) {
+	if c.apiDetails == nil || c.apiDetails.addresses == nil {
+		return nil, false
+	}
 	servingInfo, isStateServer := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
 	if isStateServer {
@@ -747,9 +753,10 @@ func (c *configInternal) APIInfo() *api.Info {
 		Tag:        c.tag,
 		Nonce:      c.nonce,
 		EnvironTag: c.environment,
-	}
+	}, true
 }
 
+// MongoInfo is defined on Config interface.
 func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	ssi, ok := c.StateServingInfo()
 	if !ok {

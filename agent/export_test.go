@@ -55,3 +55,7 @@ var (
 	MachineJobFromParams = machineJobFromParams
 	IsLocalEnv           = &isLocalEnv
 )
+
+func EmptyConfig() Config {
+	return &configInternal{}
+}
