@@ -15,8 +15,10 @@ import (
 
 // The LXD-specific config keys.
 const (
-	cfgNamespace = "namespace"
-	cfgRemote    = "remote"
+	cfgNamespace  = "namespace"
+	cfgRemote     = "remote"
+	cfgClientCert = "client_cert"
+	cfgClientKey  = "client_key"
 )
 
 // TODO(ericsnow) Use configSchema.ExampleYAML (once it is implemented)
@@ -33,6 +35,9 @@ lxd:
     # By default the environment's name is used as the namespace.
     #
     # namespace: lxd
+	#
+	# client_cert:
+	# client_key:
 
     # remote Identifies the LXD API server to use for managing
     # containers, if any.
@@ -54,6 +59,14 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
+	cfgClientKey: {
+		Description: `The client key used for connecting to a LXD host machine.`,
+		Immutable:   false,
+	},
+	cfgClientCert: {
+		Description: `The client cert used for connecting to a LXD host machine.`,
+		Immutable:   false,
+	},
 }
 
 var (
@@ -61,8 +74,10 @@ var (
 	// (or if) environschema.Attr supports defaults.
 
 	configBaseDefaults = schema.Defaults{
-		cfgNamespace: "",
-		cfgRemote:    "",
+		cfgNamespace:  "",
+		cfgRemote:     "",
+		cfgClientCert: "",
+		cfgClientKey:  "",
 	}
 
 	configFields, configDefaults = func() (schema.Fields, schema.Defaults) {
@@ -204,12 +219,24 @@ func (c *environConfig) remote() string {
 	return raw.(string)
 }
 
+func (c *environConfig) clientCert() string {
+	raw := c.attrs[cfgClientCert]
+	return raw.(string)
+}
+
+func (c *environConfig) clientKey() string {
+	raw := c.attrs[cfgClientKey]
+	return raw.(string)
+}
+
 // clientConfig builds a LXD Config based on the env config and returns it.
 func (c *environConfig) clientConfig() lxdclient.Config {
 	return lxdclient.Config{
 		Namespace: c.namespace(),
 		Remote:    c.remote(),
 		// TODO(ericsnow) Also set certs...
+		ClientCert: c.clientCert(),
+		ClientKey:  c.clientKey(),
 	}
 }
 

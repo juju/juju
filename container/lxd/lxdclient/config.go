@@ -10,6 +10,9 @@ type Config struct {
 	// blank.
 	Namespace string
 
+	ClientKey  string
+	ClientCert string
+
 	// Remote identifies the host to which the client should connect.
 	// An empty string is interpreted as:
 	//   "localhost over a unix socket (unencrypted)".
