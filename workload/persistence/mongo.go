@@ -129,54 +129,19 @@ func (d workloadDoc) info() workload.Info {
 	tags := make([]string, len(d.Tags))
 	copy(tags, d.Tags)
 	info := workload.Info{
-		Workload: d.definition(),
-		Status:   d.status(),
-		Tags:     tags,
-		Details:  d.details(),
+		PayloadClass: d.definition(),
+		Status:       d.status(),
+		Tags:         tags,
+		Details:      d.details(),
 	}
 	info.Details.Status.State = d.PluginStatus
 	return info
 }
 
-func (d workloadDoc) definition() charm.Workload {
-	definition := charm.Workload{
-		Name:        d.Name,
-		Description: d.Description,
-		Type:        d.Type,
-		Command:     d.Command,
-		Image:       d.Image,
-	}
-
-	if len(d.TypeOptions) > 0 {
-		definition.TypeOptions = d.TypeOptions
-	}
-
-	if len(d.EnvVars) > 0 {
-		definition.EnvVars = d.EnvVars
-	}
-
-	if len(d.Ports) > 0 {
-		ports := make([]charm.WorkloadPort, len(d.Ports))
-		for i, raw := range d.Ports {
-			p := &ports[i]
-			fmt.Sscanf(raw, "%d:%d:%s", &p.External, &p.Internal, &p.Endpoint)
-		}
-		definition.Ports = ports
-	}
-
-	if len(d.Volumes) > 0 {
-		volumes := make([]charm.WorkloadVolume, len(d.Volumes))
-		for i, raw := range d.Volumes {
-			parts := strings.Split(raw, ":")
-			// len(parts) will always be 4.
-			volumes[i] = charm.WorkloadVolume{
-				ExternalMount: parts[0],
-				InternalMount: parts[1],
-				Mode:          parts[2],
-				Name:          parts[3],
-			}
-		}
-		definition.Volumes = volumes
+func (d workloadDoc) definition() charm.PayloadClass {
+	definition := charm.PayloadClass{
+		Name: d.Name,
+		Type: d.Type,
 	}
 
 	return definition
@@ -200,17 +165,7 @@ func (d workloadDoc) details() workload.Details {
 }
 
 func (pp Persistence) newWorkloadDoc(info workload.Info) *workloadDoc {
-	definition := info.Workload
-
-	var ports []string
-	for _, p := range definition.Ports {
-		ports = append(ports, fmt.Sprintf("%d:%d:%s", p.External, p.Internal, p.Endpoint))
-	}
-
-	var volumes []string
-	for _, v := range definition.Volumes {
-		volumes = append(volumes, fmt.Sprintf("%s:%s:%s:%s", v.ExternalMount, v.InternalMount, v.Mode, v.Name))
-	}
+	definition := info.PayloadClass
 
 	id := pp.workloadID(info.ID())
 
@@ -221,15 +176,8 @@ func (pp Persistence) newWorkloadDoc(info workload.Info) *workloadDoc {
 		DocID:  id,
 		UnitID: pp.unit.Id(),
 
-		Name:        definition.Name,
-		Description: definition.Description,
-		Type:        definition.Type,
-		TypeOptions: definition.TypeOptions,
-		Command:     definition.Command,
-		Image:       definition.Image,
-		Ports:       ports,
-		Volumes:     volumes,
-		EnvVars:     definition.EnvVars,
+		Name: definition.Name,
+		Type: definition.Type,
 
 		State:   info.Status.State,
 		Blocker: info.Status.Blocker,

@@ -89,7 +89,7 @@ func (s *BaseSuite) NewWorkloads(pType string, ids ...string) []workload.Info {
 		}
 
 		workloads = append(workloads, workload.Info{
-			Workload: charm.Workload{
+			PayloadClass: charm.PayloadClass{
 				Name: name,
 				Type: pType,
 			},

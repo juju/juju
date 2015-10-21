@@ -59,25 +59,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	c.Check(workloads, gc.HasLen, 0)
 
 	info := workload.Info{
-		Workload: charm.Workload{
-			Name:    "workloadA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			Volumes: []charm.WorkloadVolume{{
-				ExternalMount: "/var/nginx/html",
-				InternalMount: "/usr/share/nginx/html",
-				Mode:          "ro",
-				Name:          "",
-			}},
-			Ports: []charm.WorkloadPort{{
-				External: 8080,
-				Internal: 80,
-				Endpoint: "website",
-			}},
-			EnvVars: map[string]string{
-				"IMPORTANT": "true",
-			},
+		Workload: charm.PayloadClass{
+			Name: "workloadA",
+			Type: "docker",
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,
@@ -96,25 +80,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	workloads, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		Workload: charm.Workload{
-			Name:    "workloadA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			Volumes: []charm.WorkloadVolume{{
-				ExternalMount: "/var/nginx/html",
-				InternalMount: "/usr/share/nginx/html",
-				Mode:          "ro",
-				Name:          "",
-			}},
-			Ports: []charm.WorkloadPort{{
-				External: 8080,
-				Internal: 80,
-				Endpoint: "website",
-			}},
-			EnvVars: map[string]string{
-				"IMPORTANT": "true",
-			},
+		Workload: workload.Workload{
+			Name: "workloadA",
+			Type: "docker",
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,
@@ -138,25 +106,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	workloads, err = st.List("workloadA/xyz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		Workload: charm.Workload{
-			Name:    "workloadA",
-			Type:    "docker",
-			Command: "do-something cool",
-			Image:   "spam/eggs",
-			Volumes: []charm.WorkloadVolume{{
-				ExternalMount: "/var/nginx/html",
-				InternalMount: "/usr/share/nginx/html",
-				Mode:          "ro",
-				Name:          "",
-			}},
-			Ports: []charm.WorkloadPort{{
-				External: 8080,
-				Internal: 80,
-				Endpoint: "website",
-			}},
-			EnvVars: map[string]string{
-				"IMPORTANT": "true",
-			},
+		Workload: workload.Workload{
+			Name: "workloadA",
+			Type: "docker",
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,

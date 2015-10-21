@@ -4,11 +4,11 @@
 package context
 
 import (
+	"github.com/juju/juju/workload"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v5"
-
-	"github.com/juju/juju/workload"
 )
 
 // RegisterCmdName is the name of the payload register command.
@@ -71,7 +71,7 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	info := workload.Info{
-		Workload: charm.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: c.class,
 			Type: c.typ,
 		},
