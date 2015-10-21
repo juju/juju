@@ -67,6 +67,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *clientSuite) TestTrack(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	numStubCalls := 0
 	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
 		numStubCalls++
@@ -74,82 +75,66 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 
 		typedResponse, ok := response.(*internal.WorkloadResults)
 		c.Assert(ok, gc.Equals, true)
-
-		typedResponse.Results = append(typedResponse.Results, internal.WorkloadResult{
-			ID: internal.FullID{
-				Class: "idfoo",
-				ID:    "bar",
-			},
-			Error: nil,
-		})
-
+		typedResponse.Results = []internal.WorkloadResult{{
+			ID:       names.NewPayloadTag(id),
+			Workload: nil,
+			NotFound: false,
+			Error:    nil,
+		}}
 		return nil
 	}
 
 	pclient := client.NewHookContextClient(s.facade)
 
 	workloadInfo := internal.API2Workload(s.workload)
-	ids, err := pclient.Track(workloadInfo)
+	results, err := pclient.Track(workloadInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(len(ids), gc.Equals, 1)
 	c.Check(numStubCalls, gc.Equals, 1)
-	c.Check(ids[0], gc.Equals, "idfoo/bar")
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	}})
 }
 
 func (s *clientSuite) TestList(c *gc.C) {
-	numStubCalls := 0
-
-	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
-		numStubCalls++
-		c.Check(name, gc.Equals, "List")
-
-		typedResponse, ok := response.(*internal.ListResults)
-		c.Assert(ok, gc.Equals, true)
-
-		result := internal.ListResult{
-			ID: internal.FullID{
-				Class: s.workload.Definition.Name,
-				ID:    s.workload.Details.ID,
-			},
-			Info:  s.workload,
-			Error: nil,
-		}
-		typedResponse.Results = append(typedResponse.Results, result)
-
-		return nil
-	}
-	pclient := client.NewHookContextClient(s.facade)
-
-	workloads, err := pclient.List(s.tag)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(len(workloads), gc.Equals, 1)
-	c.Check(numStubCalls, gc.Equals, 1)
-
-	wl := internal.API2Workload(s.workload)
-	c.Check(workloads[0], gc.DeepEquals, wl)
-}
-
-func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	results := &internal.LookUpResults{
-		Results: []internal.LookUpResult{{
-			ID:       names.NewPayloadTag(id),
-			NotFound: false,
-			Error:    nil,
-		}},
-		Error: nil,
+	responses := []interface{}{
+		&internal.WorkloadResults{
+			Results: []internal.WorkloadResult{{
+				ID:       names.NewPayloadTag(id),
+				Workload: nil,
+				NotFound: false,
+				Error:    nil,
+			}},
+			Error: nil,
+		},
+		&internal.WorkloadResults{
+			Results: []internal.WorkloadResult{{
+				ID:       names.NewPayloadTag(id),
+				Workload: &s.workload,
+				NotFound: false,
+				Error:    nil,
+			}},
+			Error: nil,
+		},
 	}
-	s.facade.responses = append(s.facade.responses, results)
+	s.facade.responses = append(s.facade.responses, responses...)
 
 	pclient := client.NewHookContextClient(s.facade)
-	ids, err := pclient.LookUp("idfoo/bar")
+
+	results, err := pclient.List("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(ids, jc.DeepEquals, []string{
-		id,
-	})
+	expected := internal.API2Workload(s.workload)
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: &expected,
+		NotFound: false,
+		Error:    nil,
+	}})
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "FacadeCall",
 		Args: []interface{}{
@@ -160,7 +145,56 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 					ID:   "bar",
 				}},
 			},
-			results,
+			responses[0],
+		},
+	}, {
+		FuncName: "FacadeCall",
+		Args: []interface{}{
+			"List",
+			&internal.ListArgs{
+				IDs: []names.PayloadTag{
+					names.NewPayloadTag(id),
+				},
+			},
+			responses[1],
+		},
+	}})
+}
+
+func (s *clientSuite) TestLookUpOkay(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	response := &internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
+			ID:       names.NewPayloadTag(id),
+			Workload: nil,
+			NotFound: false,
+			Error:    nil,
+		}},
+		Error: nil,
+	}
+	s.facade.responses = append(s.facade.responses, response)
+
+	pclient := client.NewHookContextClient(s.facade)
+	results, err := pclient.LookUp("idfoo/bar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	}})
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "FacadeCall",
+		Args: []interface{}{
+			"LookUp",
+			&internal.LookUpArgs{
+				Args: []internal.LookUpArg{{
+					Name: "idfoo",
+					ID:   "bar",
+				}},
+			},
+			response,
 		},
 	}})
 }
@@ -168,33 +202,50 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	id1 := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	id2 := "ce5bc2a7-65d8-4800-8199-a7c3356ab311"
-	results := &internal.LookUpResults{
-		Results: []internal.LookUpResult{{
+	response := &internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
 			ID:       names.NewPayloadTag(id1),
+			Workload: nil,
 			NotFound: false,
 			Error:    nil,
 		}, {
 			ID:       names.PayloadTag{},
+			Workload: nil,
 			NotFound: true,
 			Error:    common.ServerError(errors.NotFoundf("workload")),
 		}, {
 			ID:       names.NewPayloadTag(id2),
+			Workload: nil,
 			NotFound: false,
 			Error:    nil,
 		}},
 		Error: common.ServerError(api.BulkFailure),
 	}
-	s.facade.responses = append(s.facade.responses, results)
+	s.facade.responses = append(s.facade.responses, response)
 
 	pclient := client.NewHookContextClient(s.facade)
-	ids, err := pclient.LookUp("idfoo/bar", "idbaz/bam", "spam/eggs")
+	results, err := pclient.LookUp("idfoo/bar", "idbaz/bam", "spam/eggs")
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(err, gc.ErrorMatches, `.*at least one bulk arg has an error.*`)
-	c.Check(ids, jc.DeepEquals, []string{
-		id1,
-		"",
-		id2,
-	})
+	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results[1].Error, gc.NotNil)
+	results[1].Error = nil
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id1,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	}, {
+		ID:       "",
+		Workload: nil,
+		NotFound: true,
+		Error:    nil,
+	}, {
+		ID:       id2,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	}})
 	s.stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "FacadeCall",
 		Args: []interface{}{
@@ -211,62 +262,130 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 					ID:   "eggs",
 				}},
 			},
-			results,
+			response,
 		},
 	}})
 }
 
 func (s *clientSuite) TestSetStatus(c *gc.C) {
-	numStubCalls := 0
-
-	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
-		numStubCalls++
-		c.Check(name, gc.Equals, "SetStatus")
-
-		typedParams, ok := params.(*internal.SetStatusArgs)
-		c.Assert(ok, gc.Equals, true)
-
-		c.Check(len(typedParams.Args), gc.Equals, 1)
-
-		arg := typedParams.Args[0]
-		c.Check(arg, jc.DeepEquals, internal.SetStatusArg{
-			ID: internal.FullID{
-				Class: "idfoo",
-				ID:    "bar",
-			},
-			Status: workload.StateRunning,
-		})
-
-		return nil
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	responses := []interface{}{
+		&internal.WorkloadResults{
+			Results: []internal.WorkloadResult{{
+				ID:       names.NewPayloadTag(id),
+				Workload: nil,
+				NotFound: false,
+				Error:    nil,
+			}},
+			Error: nil,
+		},
+		&internal.WorkloadResults{
+			Results: []internal.WorkloadResult{{
+				ID:       names.NewPayloadTag(id),
+				Workload: nil,
+				NotFound: false,
+				Error:    nil,
+			}},
+			Error: nil,
+		},
 	}
+	s.facade.responses = append(s.facade.responses, responses...)
 
 	pclient := client.NewHookContextClient(s.facade)
-	_, err := pclient.SetStatus(workload.StateRunning, "idfoo/bar")
+	results, err := pclient.SetStatus(workload.StateRunning, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	}})
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "FacadeCall",
+		Args: []interface{}{
+			"LookUp",
+			&internal.LookUpArgs{
+				Args: []internal.LookUpArg{{
+					Name: "idfoo",
+					ID:   "bar",
+				}},
+			},
+			responses[0],
+		},
+	}, {
+		FuncName: "FacadeCall",
+		Args: []interface{}{
+			"SetStatus",
+			&internal.SetStatusArgs{
+				Args: []internal.SetStatusArg{{
+					ID:     names.NewPayloadTag(id),
+					Status: "running",
+				}},
+			},
+			responses[1],
+		},
+	}})
 }
 
 func (s *clientSuite) TestUntrack(c *gc.C) {
-	numStubCalls := 0
-
-	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
-		numStubCalls++
-		c.Check(name, gc.Equals, "Untrack")
-
-		typedParams, ok := params.(*internal.UntrackArgs)
-		c.Assert(ok, gc.Equals, true)
-
-		c.Check(len(typedParams.IDs), gc.Equals, 1)
-
-		return nil
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	responses := []interface{}{
+		&internal.WorkloadResults{
+			Results: []internal.WorkloadResult{{
+				ID:       names.NewPayloadTag(id),
+				Workload: nil,
+				NotFound: false,
+				Error:    nil,
+			}},
+			Error: nil,
+		},
+		&internal.WorkloadResults{
+			Results: []internal.WorkloadResult{{
+				ID:       names.NewPayloadTag(id),
+				Workload: nil,
+				NotFound: false,
+				Error:    nil,
+			}},
+			Error: nil,
+		},
 	}
+	s.facade.responses = append(s.facade.responses, responses...)
 
 	pclient := client.NewHookContextClient(s.facade)
-	_, err := pclient.Untrack(s.tag)
+	results, err := pclient.Untrack("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	}})
+	s.stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "FacadeCall",
+		Args: []interface{}{
+			"LookUp",
+			&internal.LookUpArgs{
+				Args: []internal.LookUpArg{{
+					Name: "idfoo",
+					ID:   "bar",
+				}},
+			},
+			responses[0],
+		},
+	}, {
+		FuncName: "FacadeCall",
+		Args: []interface{}{
+			"Untrack",
+			&internal.UntrackArgs{
+				IDs: []names.PayloadTag{
+					names.NewPayloadTag(id),
+				},
+			},
+			responses[1],
+		},
+	}})
 }
 
 type apiMethods interface {
@@ -327,15 +446,15 @@ type unitMethods struct{}
 
 func (m unitMethods) Handler(name string) (func(target, response interface{}), bool) {
 	switch name {
-	case "LookUp":
-		return m.LookUp, true
+	case "List", "LookUp", "SetStatus", "Untrack":
+		return m.generic, true
 	default:
 		return nil, false
 	}
 }
 
-func (unitMethods) LookUp(target, response interface{}) {
-	typedTarget := target.(*internal.LookUpResults)
-	typedResponse := response.(*internal.LookUpResults)
+func (unitMethods) generic(target, response interface{}) {
+	typedTarget := target.(*internal.WorkloadResults)
+	typedResponse := response.(*internal.WorkloadResults)
 	*typedTarget = *typedResponse
 }

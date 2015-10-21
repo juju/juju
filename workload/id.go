@@ -19,6 +19,8 @@ func NewID() (string, error) {
 	return uuid.String(), nil
 }
 
+// TODO(ericsnow) Add ValidateID()?
+
 // TODO(ericsnow) Add a "composite" ID type?
 
 // BuildID composes an ID from a class and an ID.

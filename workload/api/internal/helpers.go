@@ -4,23 +4,64 @@
 package internal
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
-// API2FullID converts the API struct to a full ID string.
-func API2FullID(fullID FullID) string {
-	return workload.BuildID(fullID.Class, fullID.ID)
+// API2Results converts the API results to []workload.Result.
+func API2Results(rs WorkloadResults, size int) ([]workload.Result, error) {
+	if rs.Error != nil && len(rs.Results) != size {
+		// It wasn't a bulk error.
+		return nil, errors.Trace(rs.Error)
+	}
+
+	var results []workload.Result
+	for _, r := range rs.Results {
+		results = append(results, api2result(r))
+	}
+	// We ignore rs.Error because it could only be a bulk error.
+	return results, nil
 }
 
-// FullID2api converts a full ID string to the API struct.
-func FullID2api(fullID string) FullID {
-	class, id := workload.ParseID(fullID)
-	return FullID{
-		Class: class,
-		ID:    id,
+func api2result(r WorkloadResult) workload.Result {
+	result := workload.Result{
+		ID:       r.ID.Id(),
+		NotFound: r.NotFound,
 	}
+	if r.Workload != nil {
+		info := API2Workload(*r.Workload)
+		result.Workload = &info
+	}
+	if r.Error != nil {
+		result.Error = r.Error
+	}
+	return result
+}
+
+// Results2api converts the []workload.Result into WorkloadResults.
+func Results2api(results []workload.Result) WorkloadResults {
+	var r WorkloadResults
+	for _, result := range results {
+		res := WorkloadResult{
+			ID:       names.NewPayloadTag(result.ID),
+			NotFound: result.NotFound,
+		}
+		if result.Workload != nil {
+			wl := Workload2api(*result.Workload)
+			res.Workload = &wl
+		}
+		if result.Error != nil {
+			res.Error = common.ServerError(result.Error)
+			r.Error = common.ServerError(api.BulkFailure)
+		}
+		r.Results = append(r.Results, res)
+	}
+	return r
 }
 
 // API2Definition converts an API workload definition struct into

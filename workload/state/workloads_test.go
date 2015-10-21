@@ -147,11 +147,14 @@ func (s *unitWorkloadsSuite) TestListOkay(c *gc.C) {
 	s.persist.setWorkload(otherID, &other)
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	workloads, err := ps.List(id)
+	results, err := ps.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "List")
-	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: &wl,
+	}})
 }
 
 func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
@@ -163,17 +166,17 @@ func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
 	s.persist.setWorkload(id2, &wl2)
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	workloads, err := ps.List()
+	results, err := ps.List()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListAll")
-	c.Check(workloads, gc.HasLen, 2)
-	if workloads[0].Name == "workloadA" {
-		c.Check(workloads[0], jc.DeepEquals, wl1)
-		c.Check(workloads[1], jc.DeepEquals, wl2)
+	s.stub.CheckCallNames(c, "ListAll", "LookUp", "LookUp")
+	c.Assert(results, gc.HasLen, 2)
+	if results[0].Workload.Name == "workloadA" {
+		c.Check(results[0].Workload, jc.DeepEquals, &wl1)
+		c.Check(results[1].Workload, jc.DeepEquals, &wl2)
 	} else {
-		c.Check(workloads[0], jc.DeepEquals, wl2)
-		c.Check(workloads[1], jc.DeepEquals, wl1)
+		c.Check(results[0].Workload, jc.DeepEquals, &wl2)
+		c.Check(results[1].Workload, jc.DeepEquals, &wl1)
 	}
 }
 
@@ -195,10 +198,19 @@ func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
 	s.persist.setWorkload(id, &wl)
 
 	ps := state.UnitWorkloads{Persist: s.persist}
-	workloads, err := ps.List(id, missingID)
+	results, err := ps.List(id, missingID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
+	c.Assert(results, gc.HasLen, 2)
+	c.Check(results[1].Error, gc.NotNil)
+	results[1].Error = nil
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: &wl,
+	}, {
+		ID:       missingID,
+		NotFound: true,
+	}})
 }
 
 func (s *unitWorkloadsSuite) TestUntrackOkay(c *gc.C) {

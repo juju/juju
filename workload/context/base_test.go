@@ -185,7 +185,8 @@ func (c *stubContextComponent) Flush() error {
 }
 
 type stubAPIClient struct {
-	stub        *testing.Stub
+	stub *testing.Stub
+	// TODO(ericsnow) Use id for the key rather than Info.ID().
 	workloads   map[string]workload.Info
 	definitions map[string]charm.PayloadClass
 }
@@ -229,16 +230,19 @@ func (c *stubAPIClient) setNew(fullIDs ...string) []workload.Info {
 	return workloads
 }
 
-func (c *stubAPIClient) List(fullIDs ...string) ([]workload.Info, error) {
+func (c *stubAPIClient) List(fullIDs ...string) ([]workload.Result, error) {
 	c.stub.AddCall("List", fullIDs)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var workloads []workload.Info
+	var results []workload.Result
 	if fullIDs == nil {
-		for _, wl := range c.workloads {
-			workloads = append(workloads, wl)
+		for id, wl := range c.workloads {
+			results = append(results, workload.Result{
+				ID:       id,
+				Workload: &wl,
+			})
 		}
 	} else {
 		for _, id := range fullIDs {
@@ -246,24 +250,31 @@ func (c *stubAPIClient) List(fullIDs ...string) ([]workload.Info, error) {
 			if !ok {
 				return nil, errors.NotFoundf("wl %q", id)
 			}
-			workloads = append(workloads, wl)
+			results = append(results, workload.Result{
+				ID:       id,
+				Workload: &wl,
+			})
 		}
 	}
-	return workloads, nil
+	return results, nil
 }
 
-func (c *stubAPIClient) Track(workloads ...workload.Info) ([]string, error) {
+func (c *stubAPIClient) Track(workloads ...workload.Info) ([]workload.Result, error) {
 	c.stub.AddCall("Track", workloads)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var fullIDs []string
+	var results []workload.Result
 	for _, wl := range workloads {
-		c.workloads[wl.Name] = wl
-		fullIDs = append(fullIDs, wl.ID())
+		id := wl.ID()
+		c.workloads[id] = wl
+		results = append(results, workload.Result{
+			ID:       id,
+			Workload: &wl,
+		})
 	}
-	return fullIDs, nil
+	return results, nil
 }
 
 func (c *stubAPIClient) Untrack(fullIDs ...string) ([]workload.Result, error) {
@@ -275,7 +286,7 @@ func (c *stubAPIClient) Untrack(fullIDs ...string) ([]workload.Result, error) {
 	errs := []workload.Result{}
 	for _, id := range fullIDs {
 		delete(c.workloads, id)
-		errs = append(errs, workload.Result{FullID: id})
+		errs = append(errs, workload.Result{ID: id})
 	}
 	return errs, nil
 }
@@ -291,7 +302,7 @@ func (c *stubAPIClient) SetStatus(status string, fullIDs ...string) ([]workload.
 		wkl := c.workloads[id]
 		wkl.Status.State = status
 		wkl.Details.Status.State = status
-		errs = append(errs, workload.Result{FullID: id})
+		errs = append(errs, workload.Result{ID: id})
 	}
 
 	return errs, nil

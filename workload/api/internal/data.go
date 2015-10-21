@@ -29,7 +29,11 @@ type WorkloadResults struct {
 // WorkloadResult contains the result for a single call.
 type WorkloadResult struct {
 	// ID is the id of the workload referenced in the call..
-	ID FullID
+	ID names.PayloadTag
+	// Workload holds the details of the workload, if any.
+	Workload *Workload
+	// NotFound indicates that the workload was not found in state.
+	NotFound bool
 	// Error is the error (if any) for the call referring to ID.
 	Error *params.Error
 }
@@ -37,27 +41,7 @@ type WorkloadResult struct {
 // ListArgs are the arguments for the List endpoint.
 type ListArgs struct {
 	// IDs is the list of IDs of the workloads you want information on.
-	IDs []FullID
-}
-
-// ListResults contains the results for a call to List.
-type ListResults struct {
-	// Results is the list of workload results.
-	Results []ListResult
-	// Error is the error (if any) for the call as a whole.
-	Error *params.Error
-}
-
-// ListResult contains the results for a single call to List.
-type ListResult struct {
-	// ID is the id of the workload this result applies to.
-	ID FullID
-	// Info holds the details of the workload.
-	Info Workload
-	// NotFound indicates that the workload was not found in state.
-	NotFound bool
-	// Error holds the error retrieving this information (if any).
-	Error *params.Error
+	IDs []names.PayloadTag
 }
 
 // LookUpArgs are the arguments for the LookUp endpoint.
@@ -74,26 +58,6 @@ type LookUpArg struct {
 	ID string
 }
 
-// LookUpResults contains the results for the LookUp endpoint.
-type LookUpResults struct {
-	// Results holds the results of the bulk call.
-	Results []LookUpResult
-	// Error is the error (if any) for the call as a whole.
-	Error *params.Error
-}
-
-// TODO(ericsnow) Use WorkloadResult instead.
-
-// LookUpResult contains the result for a single call.
-type LookUpResult struct {
-	// ID identifies the workload to which this result applies.
-	ID names.PayloadTag
-	// NotFound indicates that the workload was not found in state.
-	NotFound bool
-	// Error is the error (if any) for the call referring to ID.
-	Error *params.Error
-}
-
 // SetStatusArgs are the arguments for the SetStatus endpoint.
 type SetStatusArgs struct {
 	// Args is the list of arguments to pass to this function.
@@ -104,7 +68,7 @@ type SetStatusArgs struct {
 // SetStatus endpoint.
 type SetStatusArg struct {
 	// ID uniquely identifies the workload.
-	ID FullID
+	ID names.PayloadTag
 	// Status is the new status of the workload.
 	Status string
 }
@@ -112,15 +76,7 @@ type SetStatusArg struct {
 // UntrackArgs are the arguments for the Untrack endpoint.
 type UntrackArgs struct {
 	// IDs is a list of IDs of workloads.
-	IDs []FullID
-}
-
-// FullID contains all the information necessary to identify a workload.
-type FullID struct {
-	// Class is the workload name.
-	Class string
-	// ID uniquely identifies the workload for the given name.
-	ID string
+	IDs []names.PayloadTag
 }
 
 // Workload contains information about a workload.
