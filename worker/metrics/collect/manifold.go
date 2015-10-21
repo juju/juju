@@ -176,7 +176,7 @@ func (w *collect) do() error {
 	if !ok {
 		return errors.Errorf("expected a unit tag, got %v", tag)
 	}
-	paths := uniter.NewPaths(config.DataDir(), unitTag)
+	paths := uniter.NewWorkerPaths(config.DataDir(), unitTag, "metrics-collect")
 
 	recorder, err := newRecorder(unitTag, paths, w.unitCharmLookup, w.metricFactory)
 	if errors.Cause(err) == errMetricsNotDefined {

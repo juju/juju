@@ -97,6 +97,22 @@ var instanceTypes = []InstanceType{
 		Mem:      61952,
 		Cost:     2400,
 		VirtType: &hvm,
+	}, {
+		Name:       "dep.small",
+		Arches:     []string{"amd64"},
+		CpuCores:   1,
+		CpuPower:   CpuPower(100),
+		Mem:        1740,
+		Cost:       60,
+		Deprecated: true,
+	}, {
+		Name:       "dep.medium",
+		Arches:     []string{"amd64"},
+		CpuCores:   2,
+		CpuPower:   CpuPower(200),
+		Mem:        4096,
+		Cost:       80,
+		Deprecated: true,
 	},
 }
 
@@ -200,6 +216,14 @@ var getInstanceTypesTest = []struct {
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4, Cost: 100},
 		},
 		expectedItypes: []string{"it-2"},
+	}, {
+		about:          "deprecated image type requested by name",
+		cons:           "instance-type=dep.small",
+		expectedItypes: []string{"dep.small"},
+	}, {
+		about:          "deprecated image type requested by name with constraints",
+		cons:           "instance-type=dep.small cpu-power=100",
+		expectedItypes: []string{"dep.small"},
 	},
 }
 
@@ -237,6 +261,9 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("mem=90000M"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "mem=90000M"`)
+
+	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("instance-type=dep.medium mem=8G"))
+	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "instance-type=dep.medium mem=8192M"`)
 }
 
 var instanceTypeMatchTests = []struct {

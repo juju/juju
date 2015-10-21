@@ -82,7 +82,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	inst, md := jujutesting.AssertStartInstance(c, s.Environ, id)
 	err = machine.SetProvisioned(inst.Id(), agent.BootstrapNonce, md)
 	c.Assert(err, jc.ErrorIsNil)
-	conf, tools := s.PrimeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
+	conf, tools := s.PrimeAgent(c, unit.Tag(), initialUnitPassword)
 	return machine, unit, conf, tools
 }
 
@@ -296,8 +296,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
-
+	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password")
 	_, _, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }

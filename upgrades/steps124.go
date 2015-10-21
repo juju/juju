@@ -76,6 +76,13 @@ func stateStepsFor124() []Step {
 				return state.ChangeStatusUpdatedType(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "add preferred addresses to machines",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddPreferredAddressesToMachines(context.State())
+			},
+		},
 	}
 }
 

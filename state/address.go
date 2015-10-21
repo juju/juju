@@ -50,9 +50,9 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
 		naddrs := networkAddresses(addrs.Addresses)
-		addr := network.SelectInternalAddress(naddrs, false)
-		if addr != "" {
-			apiAddrs = append(apiAddrs, addr)
+		addr, ok := network.SelectInternalAddress(naddrs, false)
+		if ok {
+			apiAddrs = append(apiAddrs, addr.Value)
 		}
 	}
 	if len(apiAddrs) == 0 {

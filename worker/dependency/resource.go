@@ -40,7 +40,7 @@ func (rg *resourceGetter) expire() {
 // getResource is intended for use as the GetResourceFunc passed into the Start
 // func of the client manifold.
 func (rg *resourceGetter) getResource(resourceName string, out interface{}) error {
-	logger.Debugf("%q manifold requested %q resource", rg.clientName, resourceName)
+	logger.Tracef("%q manifold requested %q resource", rg.clientName, resourceName)
 	select {
 	case <-rg.expired:
 		return errors.New("expired resourceGetter: cannot be used outside Start func")
@@ -62,15 +62,14 @@ func (rg *resourceGetter) rawAccess(resourceName string, out interface{}) error 
 		// No worker running (or not declared).
 		return ErrMissing
 	}
+	if out == nil {
+		// No conversion necessary.
+		return nil
+	}
 	convert := rg.outputs[resourceName]
 	if convert == nil {
-		// No conversion func available...
-		if out != nil {
-			// ...and the caller wants a resource.
-			return ErrMissing
-		}
-		// ...but it's ok, because the caller depends on existence only.
-		return nil
+		// Conversion required, no func available.
+		return ErrMissing
 	}
 	return convert(input, out)
 }

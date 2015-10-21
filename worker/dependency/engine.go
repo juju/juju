@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/worker"
@@ -147,7 +148,7 @@ func (engine *engine) loop() error {
 			engine.gotStopped(ticket.name, ticket.error, ticket.resourceLog)
 		}
 		if engine.isDying() {
-			if engine.allStopped() {
+			if engine.allOthersStopped() {
 				return tomb.ErrDying
 			}
 		}
@@ -239,7 +240,7 @@ func (engine *engine) Install(name string, manifold Manifold) error {
 // gotInstall handles the params originally supplied to Install. It must only be
 // called from the loop goroutine.
 func (engine *engine) gotInstall(name string, manifold Manifold) error {
-	logger.Debugf("installing %q manifold...", name)
+	logger.Tracef("installing %q manifold...", name)
 	if _, found := engine.manifolds[name]; found {
 		return errors.Errorf("%q manifold already installed", name)
 	}
@@ -253,6 +254,21 @@ func (engine *engine) gotInstall(name string, manifold Manifold) error {
 	engine.current[name] = workerInfo{}
 	engine.requestStart(name, 0)
 	return nil
+}
+
+// uninstall removes the named manifold from the engine's records.
+func (engine *engine) uninstall(name string) {
+	// Note that we *don't* want to remove dependents[name] -- all those other
+	// manifolds do still depend on this, and another manifold with the same
+	// name might be installed in the future -- but we do want to remove the
+	// named manifold from all *values* in the dependents map.
+	for dName, dependents := range engine.dependents {
+		depSet := set.NewStrings(dependents...)
+		depSet.Remove(name)
+		engine.dependents[dName] = depSet.Values()
+	}
+	delete(engine.current, name)
+	delete(engine.manifolds, name)
 }
 
 // checkAcyclic returns an error if the introduction of the supplied manifold
@@ -283,7 +299,7 @@ func (engine *engine) requestStart(name string, delay time.Duration) {
 
 	// Final check that we're not shutting down yet...
 	if engine.isDying() {
-		logger.Debugf("not starting %q manifold worker (shutting down)", name)
+		logger.Tracef("not starting %q manifold worker (shutting down)", name)
 		return
 	}
 
@@ -371,33 +387,33 @@ func (engine *engine) runWorker(name string, delay time.Duration, start StartFun
 		//  3) it's not worth complicating the interface for every client just
 		//     to eliminate the possibility of one harmlessly dumb interaction.
 		defer resourceGetter.expire()
-		logger.Debugf("starting %q manifold worker in %s...", name, delay)
+		logger.Tracef("starting %q manifold worker in %s...", name, delay)
 		select {
 		case <-time.After(delay):
 		case <-engine.tomb.Dying():
 			return nil, errAborted
 		}
-		logger.Debugf("starting %q manifold worker", name)
+		logger.Tracef("starting %q manifold worker", name)
 		return start(resourceGetter.getResource)
 	}
 
 	startWorkerAndWait := func() error {
 		worker, err := startAfterDelay()
-		switch err {
+		switch errors.Cause(err) {
 		case errAborted:
 			return nil
 		case nil:
-			logger.Debugf("running %q manifold worker", name)
+			logger.Tracef("running %q manifold worker", name)
 		default:
-			logger.Warningf("failed to start %q manifold worker: %v", name, err)
+			logger.Tracef("failed to start %q manifold worker: %v", name, err)
 			return err
 		}
 		select {
 		case <-engine.tomb.Dying():
-			logger.Debugf("stopping %q manifold worker (shutting down)", name)
+			logger.Tracef("stopping %q manifold worker (shutting down)", name)
 			worker.Kill()
 		case engine.started <- startedTicket{name, worker, resourceGetter.accessLog}:
-			logger.Debugf("registered %q manifold worker", name)
+			logger.Tracef("registered %q manifold worker", name)
 		}
 		return worker.Wait()
 	}
@@ -417,11 +433,11 @@ func (engine *engine) gotStarted(name string, worker worker.Worker, resourceLog 
 		engine.tomb.Kill(errors.Errorf("fatal: unexpected %q manifold worker start", name))
 		fallthrough
 	case info.stopping, engine.isDying():
-		logger.Debugf("%q manifold worker no longer required", name)
+		logger.Tracef("%q manifold worker no longer required", name)
 		worker.Kill()
 	default:
 		// It's fine to use this worker; update info and copy back.
-		logger.Debugf("%q manifold worker started", name)
+		logger.Tracef("%q manifold worker started", name)
 		engine.current[name] = workerInfo{
 			worker:      worker,
 			resourceLog: resourceLog,
@@ -435,7 +451,7 @@ func (engine *engine) gotStarted(name string, worker worker.Worker, resourceLog 
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
 func (engine *engine) gotStopped(name string, err error, resourceLog []resourceAccess) {
-	logger.Debugf("%q manifold worker stopped: %v", name, err)
+	logger.Tracef("%q manifold worker stopped: %v", name, err)
 
 	// Copy current info and check for reasons to stop the engine.
 	info := engine.current[name]
@@ -452,7 +468,7 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 		resourceLog: resourceLog,
 	}
 	if engine.isDying() {
-		logger.Debugf("permanently stopped %q manifold worker (shutting down)", name)
+		logger.Tracef("permanently stopped %q manifold worker (shutting down)", name)
 		return
 	}
 
@@ -462,7 +478,7 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 		engine.requestStart(name, engine.config.BounceDelay)
 	} else {
 		// If we didn't stop it ourselves, we need to interpret the error.
-		switch err {
+		switch errors.Cause(err) {
 		case nil:
 			// Nothing went wrong; the task completed successfully. Nothing
 			// needs to be done (unless the inputs change, in which case it
@@ -471,9 +487,12 @@ func (engine *engine) gotStopped(name string, err error, resourceLog []resourceA
 			// The task can't even start with the current state. Nothing more
 			// can be done (until the inputs change, in which case we retry
 			// anyway).
+		case ErrUninstall:
+			// The task should never run again, and can be removed completely.
+			engine.uninstall(name)
 		default:
 			// Something went wrong but we don't know what. Try again soon.
-			logger.Debugf("%q manifold worker returned unexpected error: %v", name, err)
+			logger.Errorf("%q manifold worker returned unexpected error: %v", name, err)
 			engine.requestStart(name, engine.config.ErrorDelay)
 		}
 	}
@@ -514,11 +533,12 @@ func (engine *engine) isDying() bool {
 	}
 }
 
-// allStopped returns true if no workers are running or starting. It must only
+// allOthersStopped returns true if no workers (other than the engine itself,
+// if it happens to have been injected) are running or starting. It must only
 // be called from the loop goroutine.
-func (engine *engine) allStopped() bool {
+func (engine *engine) allOthersStopped() bool {
 	for _, info := range engine.current {
-		if !info.stopped() {
+		if !info.stopped() && info.worker != engine {
 			return false
 		}
 	}
@@ -529,7 +549,7 @@ func (engine *engine) allStopped() bool {
 // stops every started one (and trusts the rest of the engine to restart them).
 // It must only be called from the loop goroutine.
 func (engine *engine) bounceDependents(name string) {
-	logger.Debugf("restarting dependents of %q manifold", name)
+	logger.Tracef("restarting dependents of %q manifold", name)
 	for _, dependentName := range engine.dependents[name] {
 		if engine.current[dependentName].stopped() {
 			engine.requestStart(dependentName, engine.config.BounceDelay)

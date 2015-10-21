@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/juju/utils/arch"
-	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -41,7 +40,6 @@ var Current = Binary{
 	Number: MustParse(version),
 	Series: series.HostSeries(),
 	Arch:   arch.HostArch(),
-	OS:     series.MustOSFromSeries(series.HostSeries()),
 }
 
 var Compiler = runtime.Compiler
@@ -84,7 +82,6 @@ type Binary struct {
 	Number
 	Series string
 	Arch   string
-	OS     jujuos.OSType
 }
 
 func (v Binary) String() string {
@@ -130,23 +127,24 @@ func (vp *Binary) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetYAML implements goyaml.Getter
-func (v Binary) GetYAML() (tag string, value interface{}) {
-	return "", v.String()
+// MarshalYAML implements yaml.v2.Marshaller interface
+func (v Binary) MarshalYAML() (interface{}, error) {
+	return v.String(), nil
 }
 
-// SetYAML implements goyaml.Setter
-func (vp *Binary) SetYAML(tag string, value interface{}) bool {
-	vstr := fmt.Sprintf("%v", value)
-	if vstr == "" {
-		return false
+// UnmarshalYAML implements the yaml.Unmarshaller interface
+func (vp *Binary) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var vstr string
+	err := unmarshal(&vstr)
+	if err != nil {
+		return err
 	}
 	v, err := ParseBinary(vstr)
 	if err != nil {
-		return false
+		return err
 	}
 	*vp = v
-	return true
+	return nil
 }
 
 var (
@@ -190,8 +188,7 @@ func ParseBinary(s string) (Binary, error) {
 	}
 	v.Series = m[7]
 	v.Arch = m[8]
-	var err error
-	v.OS, err = series.GetOSFromSeries(v.Series)
+	_, err := series.GetOSFromSeries(v.Series)
 	return v, err
 }
 
@@ -308,23 +305,24 @@ func (vp *Number) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetYAML implements goyaml.Getter
-func (v Number) GetYAML() (tag string, value interface{}) {
-	return "", v.String()
+// MarshalYAML implements yaml.v2.Marshaller interface
+func (v Number) MarshalYAML() (interface{}, error) {
+	return v.String(), nil
 }
 
-// SetYAML implements goyaml.Setter
-func (vp *Number) SetYAML(tag string, value interface{}) bool {
-	vstr := fmt.Sprintf("%v", value)
-	if vstr == "" {
-		return false
+// UnmarshalYAML implements the yaml.Unmarshaller interface
+func (vp *Number) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var vstr string
+	err := unmarshal(&vstr)
+	if err != nil {
+		return err
 	}
 	v, err := Parse(vstr)
 	if err != nil {
-		return false
+		return err
 	}
 	*vp = v
-	return true
+	return nil
 }
 
 func isOdd(x int) bool {

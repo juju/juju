@@ -13,6 +13,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -177,8 +178,12 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	environ, err := local.Provider.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	availableTools := coretools.List{&coretools.Tools{
-		Version: version.Current,
-		URL:     "http://testing.invalid/tools.tar.gz",
+		Version: version.Binary{
+			Number: version.Current.Number,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		},
+		URL: "http://testing.invalid/tools.tar.gz",
 	}}
 	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		AvailableTools: availableTools,

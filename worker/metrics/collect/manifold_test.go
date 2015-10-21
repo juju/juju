@@ -4,6 +4,8 @@
 package collect_test
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/names"
@@ -48,6 +50,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
+
+	// create unit agent base dir so that hooks can run.
+	err := os.MkdirAll(filepath.Join(s.dataDir, "agents", "unit-u-0"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.dummyResources = dt.StubResources{
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
 		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
