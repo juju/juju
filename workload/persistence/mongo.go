@@ -112,9 +112,13 @@ type workloadDoc struct {
 	Name string `bson:"name"`
 	Type string `bson:"type"`
 
+	// TODO(ericsnow) Store status in the "statuses" collection?
+
 	State   string `bson:"state"`
 	Blocker string `bson:"blocker"`
 	Status  string `bson:"status"`
+
+	// TODO(ericsnow) Store tags in the "annotations" collection?
 
 	Tags []string `bson:"tags"`
 
