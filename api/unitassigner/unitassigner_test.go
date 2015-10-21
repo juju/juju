@@ -36,7 +36,10 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
-	f := &fakeWatchCaller{c: c}
+	f := &fakeWatchCaller{
+		c:        c,
+		response: params.StringsWatchResult{},
+	}
 	api := New(f)
 	w, err := api.WatchUnitAssignments()
 	c.Assert(f.request, gc.Equals, "WatchUnitAssignments")
