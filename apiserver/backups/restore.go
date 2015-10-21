@@ -4,11 +4,14 @@
 package backups
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -29,10 +32,13 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	addr, err := machine.PrivateAddress()
 	if err != nil {
 		return errors.Annotatef(err, "error fetching internal address for machine %q", machine)
+
 	}
+
 	publicAddress, err := machine.PublicAddress()
 	if err != nil {
 		return errors.Annotatef(err, "error fetching public address for machine %q", machine)
+
 	}
 
 	info, err := a.st.RestoreInfoSetter()
@@ -62,8 +68,24 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		NewInstTag:     machine.Tag(),
 		NewInstSeries:  machine.Series(),
 	}
-	if err := backup.Restore(p.BackupId, restoreArgs); err != nil {
+
+	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
+
+	if err != nil {
 		return errors.Annotate(err, "restore failed")
+	}
+
+	if oldTagString != "machine-0" && oldTagString != "" {
+		srvName := fmt.Sprintf("jujud-%s", oldTagString)
+		srv, err := service.DiscoverService(srvName, common.Conf{})
+		if err != nil {
+			return errors.Annotatef(err, "cannot find %q service", srvName)
+		}
+		if err := srv.Start(); err != nil {
+			return errors.Annotatef(err, "cannot start %q service", srvName)
+		}
+		// We dont want machine-0 to restart since the new one has a different tag.
+		os.Exit(0)
 	}
 
 	// After restoring, the api server needs a forced restart, tomb will not work

@@ -6,6 +6,7 @@ package backups
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 
@@ -129,7 +130,8 @@ func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 	for _, replaceable := range []string{
 		filepath.Join(dataDir, "db"),
 		dataDir,
-		logsDir,
+		//logsDir,
+		path.Join(logsDir, "all-machines.log"),
 	} {
 		dirStat, err := os.Stat(replaceable)
 		if err != nil {
@@ -164,6 +166,9 @@ func PrepareMachineForRestore() error {
 		_, err := os.Stat(toBeRecreated)
 		if err != nil && !os.IsNotExist(err) {
 			return errors.Trace(err)
+		}
+		if !fmode.IsDir() {
+			continue
 		}
 		if err := os.RemoveAll(toBeRecreated); err != nil {
 			return errors.Trace(err)

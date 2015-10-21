@@ -237,6 +237,22 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 var restorePath = paths.MongorestorePath
 var restoreArgsForVersion = mongoRestoreArgsForVersion
 
+// placeNewMongoService wraps placeNewMongo with the proper service stopping
+// and starting before dumping the new mongo db, it is mainly to easy testing
+// of placeNewMongo.
+func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
+	err := mongo.StopService("")
+	if err != nil {
+		return errors.Annotate(err, "failed to stop mongo")
+	}
+
+	if err := placeNewMongo(newMongoDumpPath, ver); err != nil {
+		return errors.Annotate(err, "cannot place new mongo")
+	}
+	err = mongo.StartService("")
+	return errors.Annotate(err, "failed to start mongo")
+}
+
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
 func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
@@ -249,20 +265,11 @@ func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}
-	err = runCommand("initctl", "stop", mongo.ServiceName(""))
-	if err != nil {
-		return errors.Annotate(err, "failed to stop mongo")
-	}
 
 	err = runCommand(mongoRestore, mgoRestoreArgs...)
 
 	if err != nil {
 		return errors.Annotate(err, "failed to restore database dump")
-	}
-
-	err = runCommand("initctl", "start", mongo.ServiceName(""))
-	if err != nil {
-		return errors.Annotate(err, "failed to start mongo")
 	}
 
 	return nil
