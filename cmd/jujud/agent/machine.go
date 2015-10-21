@@ -1085,7 +1085,10 @@ func (a *MachineAgent) startEnvWorkers(
 
 	// Establish API connection for this environment.
 	agentConfig := a.CurrentConfig()
-	apiInfo := agentConfig.APIInfo()
+	apiInfo, ok := agentConfig.APIInfo()
+	if !ok {
+		return nil, errors.New("API info not available")
+	}
 	apiInfo.EnvironTag = st.EnvironTag()
 	apiSt, err := OpenAPIStateUsingInfo(apiInfo, a, agentConfig.OldPassword())
 	if err != nil {
