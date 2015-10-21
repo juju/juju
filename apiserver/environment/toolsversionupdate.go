@@ -49,9 +49,9 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 	// We'll try the released stream first, then fall back to the current configured stream
 	// if no released tools are found.
 	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, tools.ReleasedStream, coretools.Filter{})
-	stream := cfg.AgentStream()
-	if stream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
-		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, stream, coretools.Filter{})
+	preferredStream := tools.PreferredStream(&currentVersion, cfg.Development(), cfg.AgentStream())
+	if preferredStream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
+		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, preferredStream, coretools.Filter{})
 	}
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "cannot find available tools")
