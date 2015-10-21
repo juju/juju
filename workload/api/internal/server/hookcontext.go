@@ -3,15 +3,10 @@
 
 package server
 
-// TODO(ericsnow) Eliminate the apiserver/common import if possible.
-
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api"
 	"github.com/juju/juju/workload/api/internal"
 )
 
@@ -48,48 +43,23 @@ func (a HookContextAPI) Track(args internal.TrackArgs) (internal.WorkloadResults
 	for _, apiWorkload := range args.Workloads {
 		info := internal.API2Workload(apiWorkload)
 		logger.Debugf("tracking workload from API: %#v", info)
-		var res internal.WorkloadResult
-		err := a.State.Track(info)
-		id := ""
-		if err == nil {
-			id, err = a.State.LookUp(info.Name, info.Details.ID)
-		}
-		res.ID = names.NewPayloadTag(id)
-		if err != nil {
-			res.Error = common.ServerError(errors.Trace(err))
-			r.Error = common.ServerError(api.BulkFailure)
-		}
 
+		id, err := a.track(info)
+		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
 }
 
-func (a HookContextAPI) listAll() (internal.WorkloadResults, error) {
-	var r internal.WorkloadResults
-
-	results, err := a.State.List()
+func (a HookContextAPI) track(info workload.Info) (string, error) {
+	if err := a.State.Track(info); err != nil {
+		return "", errors.Trace(err)
+	}
+	id, err := a.State.LookUp(info.Name, info.Details.ID)
 	if err != nil {
-		r.Error = common.ServerError(err)
-		return r, nil
+		return "", errors.Trace(err)
 	}
-
-	for _, result := range results {
-		wl := *result.Workload
-		id, err := a.State.LookUp(wl.Name, wl.Details.ID)
-		if err != nil {
-			logger.Errorf("failed to look up ID for %q: %v", wl.ID(), err)
-			id = ""
-		}
-
-		apiwl := internal.Workload2api(wl)
-		res := internal.WorkloadResult{
-			ID:       names.NewPayloadTag(id),
-			Workload: &apiwl,
-		}
-		r.Results = append(r.Results, res)
-	}
-	return r, nil
+	return id, nil
 }
 
 // List builds the list of workload being tracked for
@@ -107,12 +77,37 @@ func (a HookContextAPI) List(args internal.ListArgs) (internal.WorkloadResults, 
 
 	results, err := a.State.List(ids...)
 	if err != nil {
-		var r internal.WorkloadResults
-		r.Error = common.ServerError(err)
-		return r, nil
+		return internal.WorkloadResults{}, errors.Cause(err)
 	}
 
-	r := internal.Results2api(results)
+	var r internal.WorkloadResults
+	for _, result := range results {
+		r.Results = append(r.Results, internal.Result2api(result))
+	}
+	return r, nil
+}
+
+func (a HookContextAPI) listAll() (internal.WorkloadResults, error) {
+	var r internal.WorkloadResults
+
+	results, err := a.State.List()
+	if err != nil {
+		return r, errors.Trace(err)
+	}
+
+	for _, result := range results {
+		wl := *result.Workload
+		id, err := a.State.LookUp(wl.Name, wl.Details.ID)
+		if err != nil {
+			logger.Errorf("failed to look up ID for %q: %v", wl.ID(), err)
+			id = ""
+		}
+		apiwl := internal.Workload2api(wl)
+
+		res := internal.NewWorkloadResult(id, nil)
+		res.Workload = &apiwl
+		r.Results = append(r.Results, res)
+	}
 	return r, nil
 }
 
@@ -120,18 +115,8 @@ func (a HookContextAPI) List(args internal.ListArgs) (internal.WorkloadResults, 
 func (a HookContextAPI) LookUp(args internal.LookUpArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
-		var res internal.WorkloadResult
-
 		id, err := a.State.LookUp(arg.Name, arg.ID)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				res.NotFound = true
-			}
-			res.Error = common.ServerError(err)
-			r.Error = common.ServerError(api.BulkFailure)
-		} else {
-			res.ID = names.NewPayloadTag(id)
-		}
+		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
@@ -141,18 +126,9 @@ func (a HookContextAPI) LookUp(args internal.LookUpArgs) (internal.WorkloadResul
 func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
-		res := internal.WorkloadResult{
-			ID: arg.ID,
-		}
 		id := arg.ID.Id()
-
-		if err := a.State.SetStatus(id, arg.Status); err != nil {
-			if errors.IsNotFound(err) {
-				res.NotFound = true
-			}
-			res.Error = common.ServerError(err)
-			r.Error = common.ServerError(api.BulkFailure)
-		}
+		err := a.State.SetStatus(id, arg.Status)
+		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
@@ -161,18 +137,10 @@ func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.Workloa
 // Untrack marks the identified workload as no longer being tracked.
 func (a HookContextAPI) Untrack(args internal.UntrackArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
-	for _, id := range args.IDs {
-		res := internal.WorkloadResult{
-			ID: id,
-		}
-
-		if err := a.State.Untrack(id.Id()); err != nil {
-			if errors.IsNotFound(err) {
-				res.NotFound = true
-			}
-			res.Error = common.ServerError(errors.Trace(err))
-			r.Error = common.ServerError(api.BulkFailure)
-		}
+	for _, tag := range args.IDs {
+		id := tag.Id()
+		err := a.State.Untrack(id)
+		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil

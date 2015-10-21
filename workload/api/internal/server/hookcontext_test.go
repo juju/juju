@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api"
 	"github.com/juju/juju/workload/api/internal"
 )
 
@@ -64,7 +63,6 @@ func (s *suite) TestTrack(c *gc.C) {
 			NotFound: false,
 			Error:    nil,
 		}},
-		Error: nil,
 	})
 
 	c.Check(s.state.info, jc.DeepEquals, workload.Info{
@@ -270,7 +268,6 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 			NotFound: false,
 			Error:    nil,
 		}},
-		Error: common.ServerError(api.BulkFailure),
 	})
 }
 

@@ -5,17 +5,9 @@ package api
 
 // TODO(ericsnow) Move this file to the top-level "payload" package?
 
-// TODO(ericsnow) Eliminate the params import if possible.
-
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
-
-	"github.com/juju/juju/apiserver/params"
 )
-
-// BulkFailure indicates that at least one arg failed.
-var BulkFailure = errors.Errorf("at least one bulk arg has an error")
 
 // EnvListArgs are the arguments for the env-based List endpoint.
 type EnvListArgs struct {
@@ -26,8 +18,6 @@ type EnvListArgs struct {
 type EnvListResults struct {
 	// Results is the list of payload results.
 	Results []Payload
-	// Error is the error (if any) for the call as a whole.
-	Error *params.Error
 }
 
 // Payload contains full information about a payload.
