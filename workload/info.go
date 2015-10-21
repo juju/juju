@@ -18,7 +18,7 @@ import (
 // charm metadata) and subsequently was launched by Juju (e.g. in a
 // unit hook context).
 type Info struct {
-	charm.Workload
+	charm.PayloadClass
 
 	// Status is the Juju-level status of the workload.
 	Status Status
@@ -32,12 +32,12 @@ type Info struct {
 
 // ID returns a uniqueID for a workload (relative to the unit/charm).
 func (info Info) ID() string {
-	return BuildID(info.Workload.Name, info.Details.ID)
+	return BuildID(info.PayloadClass.Name, info.Details.ID)
 }
 
 // Validate checks the workload info to ensure it is correct.
 func (info Info) Validate() error {
-	if err := info.Workload.Validate(); err != nil {
+	if err := info.PayloadClass.Validate(); err != nil {
 		return errors.NewNotValid(err, "")
 	}
 
@@ -59,7 +59,7 @@ func (info Info) IsTracked() bool {
 	// fields set (they will be zero values). Thus a trackeded
 	// workload can be identified by non-zero values in those fields.
 	// We use that fact here.
-	return !reflect.DeepEqual(info, Info{Workload: info.Workload})
+	return !reflect.DeepEqual(info, Info{PayloadClass: info.PayloadClass})
 }
 
 // AsPayload converts the Info into a Payload.
