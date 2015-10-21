@@ -9,6 +9,7 @@ package api
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -45,7 +46,7 @@ type Payload struct {
 	Tags []string
 
 	// Unit identifies the unit associated with the payload.
-	Unit string
+	Unit names.UnitTag
 	// Machine identifies the machine associated with the payload.
-	Machine string
+	Machine names.MachineTag
 }

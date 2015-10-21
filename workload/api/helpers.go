@@ -4,8 +4,10 @@
 package api
 
 import (
-	"github.com/juju/juju/workload"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
+
+	"github.com/juju/juju/workload"
 )
 
 // Payload2api converts a workload.FullPayloadInfo struct into
@@ -19,8 +21,8 @@ func Payload2api(p workload.FullPayloadInfo) Payload {
 		ID:      p.ID,
 		Status:  p.Status,
 		Tags:    tags,
-		Unit:    p.Unit,
-		Machine: p.Machine,
+		Unit:    names.NewUnitTag(p.Unit),
+		Machine: names.NewMachineTag(p.Machine),
 	}
 }
 
@@ -38,8 +40,8 @@ func API2Payload(apiInfo Payload) workload.FullPayloadInfo {
 			ID:     apiInfo.ID,
 			Status: apiInfo.Status,
 			Tags:   tags,
-			Unit:   apiInfo.Unit,
+			Unit:   apiInfo.Unit.Id(),
 		},
-		Machine: apiInfo.Machine,
+		Machine: apiInfo.Machine.Id(),
 	}
 }

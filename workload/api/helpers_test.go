@@ -4,6 +4,7 @@
 package api
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -36,8 +37,8 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    []string{"a-tag"},
-		Unit:    "a-service/0",
-		Machine: "1",
+		Unit:    names.NewUnitTag("a-service/0"),
+		Machine: names.NewMachineTag("1"),
 	})
 }
 
@@ -48,8 +49,8 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    []string{"a-tag"},
-		Unit:    "a-service/0",
-		Machine: "1",
+		Unit:    names.NewUnitTag("a-service/0"),
+		Machine: names.NewMachineTag("1"),
 	})
 
 	c.Check(payload, jc.DeepEquals, workload.FullPayloadInfo{

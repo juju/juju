@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,8 +29,8 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    nil,
-		Unit:    "a-service/0",
-		Machine: "1",
+		Unit:    names.NewUnitTag("a-service/0"),
+		Machine: names.NewMachineTag("1"),
 	}
 }
 
