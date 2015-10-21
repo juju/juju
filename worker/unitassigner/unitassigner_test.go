@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 )
 
 var _ = gc.Suite(testsuite{})
@@ -48,9 +47,9 @@ type fakeAPI struct {
 	err         error
 }
 
-func (f *fakeAPI) AssignUnits(ids []string) (params.AssignUnitsResults, error) {
+func (f *fakeAPI) AssignUnits(ids []string) ([]error, error) {
 	f.assignIds = ids
-	return params.AssignUnitsResults{}, f.err
+	return nil, f.err
 }
 
 func (f *fakeAPI) WatchUnitAssignments() (watcher.StringsWatcher, error) {

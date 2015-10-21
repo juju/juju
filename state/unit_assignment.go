@@ -10,9 +10,6 @@ type assignUnitDoc struct {
 	// DocId is the unique id of the document.
 	DocId string `bson:"_id"`
 
-	// EnvUUID is the environment identifier.
-	EnvUUID string `bson:"env-uuid"`
-
 	// Unit is the if of the unit to assign to a machine.
 	Unit string `bson:"unit"`
 

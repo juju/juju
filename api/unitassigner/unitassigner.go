@@ -4,9 +4,12 @@
 package unitassigner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+
+	"github.com/juju/names"
 )
 
 const uaFacade = "UnitAssigner"
@@ -23,13 +26,26 @@ func New(caller base.APICaller) API {
 }
 
 // AssignUnits tells the state server to run whatever unit assignments it has.
-func (a API) AssignUnits(ids []string) (params.AssignUnitsResults, error) {
-	args := params.AssignUnitsParams{IDs: ids}
-	var result params.AssignUnitsResults
-	if err := a.facade.FacadeCall("AssignUnits", args, &result); err != nil {
-		return result, err
+func (a API) AssignUnits(ids []string) ([]error, error) {
+	entities := make([]params.Entity, len(ids))
+	for i, id := range ids {
+		if !names.IsValidUnit(id) {
+			return nil, errors.Errorf("%q is not a valid unit id", id)
+		}
+		entities[i] = params.Entity{Tag: names.NewUnitTag(id).String()}
 	}
-	return result, nil
+	args := params.Entities{Entities: entities}
+	var result params.ErrorResults
+	if err := a.facade.FacadeCall("AssignUnits", args, &result); err != nil {
+		return nil, err
+	}
+	errs := make([]error, len(result.Results))
+	for i, e := range result.Results {
+		if e.Error != nil {
+			errs[i] = errors.Errorf(e.Error.Error())
+		}
+	}
+	return errs, nil
 }
 
 // WatchUnitAssignments watches the server for new unit assignments to be

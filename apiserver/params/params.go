@@ -759,7 +759,6 @@ type RebootActionResult struct {
 	Result RebootAction `json:"result,omitempty"`
 	Error  *Error       `json:"error,omitempty"`
 }
-
 // LogRecord is used to transmit log messages to the logsink API
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
@@ -801,19 +800,3 @@ type BundleChangesChange struct {
 	Requires []string `json:"requires"`
 }
 
-// AssignUnitsParams holds the list of staged unit assignments to run.
-type AssignUnitsParams struct {
-	IDs []string
-}
-
-// AssignUnitsResult holds the results of a call to UnitAssigner.Assign.
-type AssignUnitsResults struct {
-	Results []AssignUnitsResult
-	Error   *Error
-}
-
-// AssignUnitsResult is a single result of assigning a single unut.
-type AssignUnitsResult struct {
-	Unit  string
-	Error *Error
-}

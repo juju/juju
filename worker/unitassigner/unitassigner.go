@@ -5,7 +5,6 @@ package unitassigner
 
 import (
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 )
@@ -13,7 +12,7 @@ import (
 var logger = loggo.GetLogger("juju.worker.unitassigner")
 
 type UnitAssigner interface {
-	AssignUnits(ids []string) (params.AssignUnitsResults, error)
+	AssignUnits(ids []string) ([]error, error)
 	WatchUnitAssignments() (watcher.StringsWatcher, error)
 }
 
@@ -34,10 +33,19 @@ func (u unitAssigner) Handle(changes []string) error {
 	if len(changes) == 0 {
 		return nil
 	}
+
 	// ignore the actual results for now, they'll have been logged on the server
 	// side.
-	res, err := u.api.AssignUnits(changes)
-	logger.Tracef("Unit assignment results: %q", res.Results)
+	errs, err := u.api.AssignUnits(changes)
+	if err != nil {
+		return err
+	}
+	logger.Tracef("Unit assignment results: %q", errs)
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
 
 	return err
 }

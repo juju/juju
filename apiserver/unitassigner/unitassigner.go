@@ -2,6 +2,8 @@ package unitassigner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -30,39 +32,47 @@ func New(st *state.State, res *common.Resources, _ common.Authorizer) (*API, err
 	return &API{st: st, res: res}, nil
 }
 
-//  AssignUnits assigns the units with the given ids to the correct machine.
-func (a *API) AssignUnits(args params.AssignUnitsParams) (params.AssignUnitsResults, error) {
-	var result params.AssignUnitsResults
-	res, err := a.st.AssignStagedUnits(args.IDs)
-	if err != nil {
-		result.Error = common.ServerError(err)
-	}
-	result.Results = make([]params.AssignUnitsResult, len(res))
-	for i, r := range res {
-		result.Results[i].Unit = r.Unit
-		result.Results[i].Error = common.ServerError(r.Error)
+//  AssignUnits assigns the units with the given ids to the correct machine. The
+//  error results are returned in the same order as the given entities.
+func (a *API) AssignUnits(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{}
+
+	// state uses ids, but the API uses Tags, so we have to convert back and
+	// forth (whee!).  The list of ids is (crucially) in the same order as the
+	// list of tags.  This is the same order as the list of errors we return?
+	ids := make([]string, len(args.Entities))
+	for i, e := range args.Entities {
+		tag, err := names.ParseUnitTag(e.Tag)
+		if err != nil {
+			return result, err
+		}
+		ids[i] = tag.Id()
 	}
 
-	for _, id := range args.IDs {
-		if !resContains(result.Results, id) {
-			result.Results = append(result.Results,
-				params.AssignUnitsResult{
-					Unit:  id,
-					Error: common.ServerError(errors.NotFoundf("unit %q", id)),
-				})
+	res, err := a.st.AssignStagedUnits(ids)
+	if err != nil {
+		return result, common.ServerError(err)
+	}
+
+	// The results come back from state in an undetermined order and do not
+	// include results for units that were not found, so we have to make up for
+	// that here.
+	resultMap := make(map[string]error, len(ids))
+	for _, r := range res {
+		resultMap[r.Unit] = r.Error
+	}
+
+	result.Results = make([]params.ErrorResult, len(args.Entities))
+	for i, id := range ids {
+		if err, ok := resultMap[id]; ok {
+			result.Results[i].Error = common.ServerError(err)
+		} else {
+			result.Results[i].Error =
+				common.ServerError(errors.NotFoundf("unit %q", args.Entities[i].Tag))
 		}
 	}
 
 	return result, nil
-}
-
-func resContains(res []params.AssignUnitsResult, id string) bool {
-	for _, r := range res {
-		if r.Unit == id {
-			return true
-		}
-	}
-	return false
 }
 
 // WatchUnitAssignments returns a strings watcher that is notified when new unit

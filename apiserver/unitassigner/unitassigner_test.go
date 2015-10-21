@@ -18,19 +18,16 @@ type testsuite struct{}
 
 func (testsuite) TestAssignUnits(c *gc.C) {
 	f := &fakeState{}
-	f.results = []state.UnitAssignmentResult{{Unit: "foo"}}
+	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	api := API{st: f, res: common.NewResources()}
-	args := params.AssignUnitsParams{IDs: []string{"foo", "bar"}}
+	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(args)
-	c.Assert(f.ids, gc.DeepEquals, args.IDs)
+	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 2)
-	c.Assert(res.Error, gc.IsNil)
 	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[0].Unit, gc.Equals, "foo")
-	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "bar" not found`)
-	c.Assert(res.Results[1].Unit, gc.Equals, "bar")
+	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {

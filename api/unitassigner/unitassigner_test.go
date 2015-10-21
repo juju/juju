@@ -16,49 +16,81 @@ var _ = gc.Suite(testsuite{})
 type testsuite struct{}
 
 func (testsuite) TestAssignUnits(c *gc.C) {
-	f := &fakeAPICaller{}
+	f := &fakeAssignCaller{c: c, response: params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{},
+		}}}
 	api := New(f)
-	ids := []string{"foo", "bar"}
-	res, err := api.AssignUnits(ids)
+	ids := []string{"mysql/0", "mysql/1"}
+	errs, err := api.AssignUnits(ids)
 	c.Assert(f.request, gc.Equals, "AssignUnits")
-	c.Assert(f.params, gc.DeepEquals, params.AssignUnitsParams{IDs: ids})
+	c.Assert(f.params, gc.DeepEquals,
+		params.Entities{[]params.Entity{
+			{Tag: "unit-mysql-0"},
+			{Tag: "unit-mysql-1"},
+		}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	if r, ok := f.response.(*params.AssignUnitsResults); !ok {
-		c.Errorf("Expected &params.AssignUnitsResults, got %#v", f.response)
-	} else {
-		c.Assert(res, gc.DeepEquals, *r)
-	}
+	c.Assert(errs, gc.DeepEquals, []error{nil, nil})
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
-	f := &fakeAPICaller{}
+	f := &fakeWatchCaller{c: c}
 	api := New(f)
 	w, err := api.WatchUnitAssignments()
 	c.Assert(f.request, gc.Equals, "WatchUnitAssignments")
 	c.Assert(f.params, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
-	if _, ok := f.response.(*params.StringsWatchResult); !ok {
-		c.Errorf("Expected &params.StringsWatchResult, got %#v", f.response)
-	}
 	c.Assert(w, gc.NotNil)
 }
 
-type fakeAPICaller struct {
+type fakeAssignCaller struct {
 	base.APICaller
 	request  string
 	params   interface{}
-	response interface{}
+	response params.ErrorResults
 	err      error
+	c        *gc.C
 }
 
-func (f *fakeAPICaller) APICall(objType string, version int, id, request string, params, response interface{}) error {
+func (f *fakeAssignCaller) APICall(objType string, version int, id, request string, param, response interface{}) error {
 	f.request = request
-	f.params = params
-	f.response = response
+	f.params = param
+	res, ok := response.(*params.ErrorResults)
+	if !ok {
+		f.c.Errorf("Expected *params.ErrorResults as response, but was %#v", response)
+	}
+	*res = f.response
 	return f.err
 
 }
 
-func (fakeAPICaller) BestFacadeVersion(facade string) int {
-	return 0
+func (fakeAssignCaller) BestFacadeVersion(facade string) int {
+	return 1
+}
+
+type fakeWatchCaller struct {
+	base.APICaller
+	request  string
+	params   interface{}
+	response params.StringsWatchResult
+	err      error
+	c        *gc.C
+}
+
+func (f *fakeWatchCaller) APICall(objType string, version int, id, request string, param, response interface{}) error {
+	f.request = request
+	f.params = param
+	res, ok := response.(*params.StringsWatchResult)
+	if !ok {
+		f.c.Errorf("Expected *params.StringsWatchResult as response, but was %#v", response)
+	}
+	*res = f.response
+	return f.err
+
+}
+
+func (fakeWatchCaller) BestFacadeVersion(facade string) int {
+	return 1
 }
