@@ -35,10 +35,10 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func defineNextVersion() string {
+func defineNextVersion() version.Number {
 	ver := version.Current.Number
 	ver.Patch++
-	return ver.String()
+	return ver
 }
 
 var nextVersion = defineNextVersion()
@@ -129,15 +129,6 @@ func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pi
 
 func (s *StatusSuite) newContext(c *gc.C) *context {
 	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
-
-	// We need to have a new version available to test it outputs
-	// correctly.
-	env, err := st.Environment()
-	c.Check(err, jc.ErrorIsNil)
-	ver := version.Current.Number
-	ver.Patch++
-	err = env.UpdateLatestToolsVersion(ver)
-	c.Check(err, jc.ErrorIsNil)
 
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
@@ -274,8 +265,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id":                "pending",
@@ -295,8 +285,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "pending",
@@ -315,8 +304,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -328,8 +316,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"dns-name":                   "dummyenv-0.dns",
@@ -381,8 +368,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate just the two services and a bootstrap node",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -438,8 +424,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "started",
@@ -461,8 +446,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has no dns-name",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state":                "started",
@@ -481,8 +465,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id":                "pending",
@@ -498,8 +481,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-state":             "missing",
@@ -525,8 +507,7 @@ var statusTests = []testCase{
 		expect{
 			"no services exposed yet",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -541,8 +522,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed service",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -564,8 +544,7 @@ var statusTests = []testCase{
 		expect{
 			"two more machines added",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -599,8 +578,7 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one started",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -678,8 +656,7 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -768,8 +745,7 @@ var statusTests = []testCase{
 			"scope status on dummy-service/0 unit",
 			[]string{"dummy-service/0"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -805,8 +781,7 @@ var statusTests = []testCase{
 			"scope status on exposed-service service",
 			[]string{"exposed-service"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"2": machine2,
 				},
@@ -847,8 +822,7 @@ var statusTests = []testCase{
 			"scope status on service pattern",
 			[]string{"d*-service"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -884,8 +858,7 @@ var statusTests = []testCase{
 			"scope status on unit pattern",
 			[]string{"e*posed-service/*"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"2": machine2,
 				},
@@ -926,8 +899,7 @@ var statusTests = []testCase{
 			"scope status on combination of service and unit patterns",
 			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1018,8 +990,7 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1114,8 +1085,7 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error when the agent is down",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1191,8 +1161,7 @@ var statusTests = []testCase{
 		expect{
 			"service shows life==dying",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -1241,8 +1210,7 @@ var statusTests = []testCase{
 		expect{
 			"unit shows that agent is lost",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "started",
@@ -1335,8 +1303,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1493,8 +1460,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1608,8 +1574,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1719,8 +1684,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"logging"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1829,8 +1793,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"wordpress/0"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -1927,8 +1890,7 @@ var statusTests = []testCase{
 		expect{
 			"machines with nested containers",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
@@ -1979,8 +1941,7 @@ var statusTests = []testCase{
 			"machines with nested containers",
 			[]string{"mysql/1"},
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"1": M{
 						"agent-state": "started",
@@ -2044,8 +2005,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2101,8 +2061,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2157,8 +2116,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2214,8 +2172,7 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"environment":       "dummyenv",
-				"available-version": nextVersion,
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2246,6 +2203,21 @@ var statusTests = []testCase{
 						},
 					},
 				},
+			},
+		},
+	),
+	test(
+		"upgrade available",
+		setToolsUpgradeAvailable{},
+		expect{
+			"upgrade availability should be shown in environment-status",
+			M{
+				"environment": "dummyenv",
+				"environment-status": M{
+					"upgrade-available": nextVersion.String(),
+				},
+				"machines": M{},
+				"services": M{},
 			},
 		},
 	),
@@ -2738,6 +2710,15 @@ func (e expect) step(c *gc.C, ctx *context) {
 	scopedExpect{e.what, nil, e.output}.step(c, ctx)
 }
 
+type setToolsUpgradeAvailable struct{}
+
+func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
+	env, err := ctx.st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.UpdateLatestToolsVersion(nextVersion)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
@@ -3023,7 +3004,6 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
   - logging/1: dummyenv-2.dns (error)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	code, stdout, stderr := runStatus(c, "--format", "oneline")
@@ -3046,6 +3026,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	ctx := s.newContext(c)
 	steps := []stepper{
+		setToolsUpgradeAvailable{},
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", network.NewAddresses("dummyenv-0.dns")},
 		startAliveMachine{"0"},
@@ -3104,33 +3085,33 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	code, stdout, stderr := runStatus(c, args...)
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
-	c.Assert(
-		string(stdout),
-		gc.Equals,
-		"[Services] \n"+
-			"NAME       STATUS      EXPOSED CHARM                  \n"+
-			"logging                true    cs:quantal/logging-1   \n"+
-			"mysql      maintenance true    cs:quantal/mysql-1     \n"+
-			"wordpress  active      true    cs:quantal/wordpress-3 \n"+
-			"\n"+
-			"[Units]     \n"+
-			"ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        \n"+
-			"mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      \n"+
-			"  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs \n"+
-			"wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                \n"+
-			"  logging/0 active         idle                              dummyenv-1.dns                                \n"+
-			"\n"+
-			"[Machines] \n"+
-			"ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         \n"+
-			"0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
-			"\n"+
-			"[Juju]            \n"+
-			"UPGRADE-AVAILABLE \n"+
-			nextVersion+"            \n"+
-			"\n",
-	)
+
+	expected := "[Environment]     \n" +
+		"UPGRADE-AVAILABLE \n" +
+		"%s\n" +
+		"\n" +
+		"[Services] \n" +
+		"NAME       STATUS      EXPOSED CHARM                  \n" +
+		"logging                true    cs:quantal/logging-1   \n" +
+		"mysql      maintenance true    cs:quantal/mysql-1     \n" +
+		"wordpress  active      true    cs:quantal/wordpress-3 \n" +
+		"\n" +
+		"[Units]     \n" +
+		"ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        \n" +
+		"mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      \n" +
+		"  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs \n" +
+		"wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                \n" +
+		"  logging/0 active         idle                              dummyenv-1.dns                                \n" +
+		"\n" +
+		"[Machines] \n" +
+		"ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         \n" +
+		"0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n" +
+		"1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n" +
+		"2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n" +
+		"\n"
+	nextVersionStr := nextVersion.String()
+	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersionStr)+1)
+	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected, nextVersionStr+spaces))
 }
 
 func (s *StatusSuite) TestStatusV2(c *gc.C) {
@@ -3311,7 +3292,6 @@ func (s *StatusSuite) TestFilterToStarted(c *gc.C) {
 
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3332,7 +3312,6 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 
 - mysql/0: dummyenv-2.dns (started)
   - logging/1: dummyenv-2.dns (error)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3351,7 +3330,6 @@ func (s *StatusSuite) TestFilterToService(c *gc.C) {
 
 - mysql/0: dummyenv-2.dns (started)
   - logging/1: dummyenv-2.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3376,7 +3354,6 @@ func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
 
 - mysql/0: dummyenv-2.dns (started)
   - logging/1: dummyenv-2.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3396,7 +3373,6 @@ func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
 
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3419,7 +3395,6 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 
 - wordpress/0: localhost (started)
   - logging/0: localhost (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3443,7 +3418,6 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 
 - wordpress/0: localhost (started) 80/tcp
   - logging/0: localhost (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3464,7 +3438,6 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
   - logging/1: dummyenv-2.dns (started)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3485,7 +3458,6 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 
 - mysql/0: dummyenv-2.dns (started)
   - logging/1: dummyenv-2.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3504,7 +3476,6 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
   - logging/1: dummyenv-2.dns (started)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3523,7 +3494,6 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
   - logging/1: dummyenv-2.dns (started)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
-- new available version: "` + nextVersion + `"
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3595,8 +3565,7 @@ var statusTimeTest = test(
 	expect{
 		"add two units, one alive (in error state), one started",
 		M{
-			"environment":       "dummyenv",
-			"available-version": nextVersion,
+			"environment": "dummyenv",
 			"machines": M{
 				"0": machine0,
 				"1": machine1,

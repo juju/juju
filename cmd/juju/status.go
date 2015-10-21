@@ -145,15 +145,19 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 }
 
 type formattedStatus struct {
-	Environment      string                   `json:"environment"`
-	AvailableVersion string                   `json:"available-version,omitempty" yaml:"available-version,omitempty"`
-	Machines         map[string]machineStatus `json:"machines"`
-	Services         map[string]serviceStatus `json:"services"`
-	Networks         map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
+	Environment       string                   `json:"environment"`
+	EnvironmentStatus *environmentStatus       `json:"environment-status,omitempty" yaml:"environment-status,omitempty"`
+	Machines          map[string]machineStatus `json:"machines"`
+	Services          map[string]serviceStatus `json:"services"`
+	Networks          map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
 }
 
 type errorStatus struct {
 	StatusError string `json:"status-error" yaml:"status-error"`
+}
+
+type environmentStatus struct {
+	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 }
 
 type machineStatus struct {
@@ -337,11 +341,16 @@ func (sf *statusFormatter) format() formattedStatus {
 		return formattedStatus{}
 	}
 	out := formattedStatus{
-		Environment:      sf.status.EnvironmentName,
-		AvailableVersion: sf.status.AvailableVersion,
-		Machines:         make(map[string]machineStatus),
-		Services:         make(map[string]serviceStatus),
+		Environment: sf.status.EnvironmentName,
+		Machines:    make(map[string]machineStatus),
+		Services:    make(map[string]serviceStatus),
 	}
+	if sf.status.AvailableVersion != "" {
+		out.EnvironmentStatus = &environmentStatus{
+			AvailableVersion: sf.status.AvailableVersion,
+		}
+	}
+
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
 	}
