@@ -11,7 +11,7 @@ import (
 )
 
 // Payload2api converts a workload.FullPayloadInfo struct into
-// a FullPayload struct.
+// a Payload struct.
 func Payload2api(p workload.FullPayloadInfo) Payload {
 	tags := make([]string, len(p.Tags))
 	copy(tags, p.Tags)
