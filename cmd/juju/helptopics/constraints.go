@@ -92,8 +92,8 @@ spaces
    Example: spaces=storage,db,^logging,^public (meaning, select machines connected
    to the storage and db spaces, but NOT to logging or public spaces).
 
-   EC2 is the only provider supporting for spaces constraints. Support for other
-   provides is planned for future releases.
+   EC2 is the only provider supporting spaces constraints. Support for other
+   providers is planned for future releases.
 
 instance-type
    Instance-type is the provider-specific name of a type of machine to deploy,
