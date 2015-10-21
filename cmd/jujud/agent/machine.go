@@ -37,6 +37,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	"github.com/juju/juju/api/statushistory"
 	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
@@ -449,7 +450,11 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
-		return terminationworker.NewWorker(), nil
+		return startTerminationWorker(
+			agentConfig.DataDir(),
+			terminationworker.NewWorker,
+			os.Stat,
+		), nil
 	})
 
 	// At this point, all workers will have been configured to start
@@ -468,6 +473,33 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
 	return err
+}
+
+// startTerminationWorker starts a new termination worker that will cause
+// the machine agent to uninstall if the uninstall-agent file is present.
+func startTerminationWorker(
+	dataDir string,
+	newTerminationWorker func(func() error) worker.Worker,
+	statFile func(string) (os.FileInfo, error),
+) worker.Worker {
+	uninstallFile := filepath.Join(dataDir, agent.UninstallAgentFile)
+	terminationError := func() error {
+		// If the uninstall file exists, then the termination
+		// signal should cause the agent to uninstall; otherwise
+		// it should just restart the workers.
+		if _, err := statFile(uninstallFile); err == nil {
+			return worker.ErrTerminateAgent
+		}
+		logger.Debugf(
+			"uninstall file %q does not exist",
+			uninstallFile,
+		)
+		return &cmdutil.FatalError{fmt.Sprintf(
+			"%q signal received",
+			terminationworker.TerminationSignal,
+		)}
+	}
+	return newTerminationWorker(terminationError)
 }
 
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
@@ -984,7 +1016,17 @@ func (a *MachineAgent) updateSupportedContainers(
 	// use an image URL getter if there's a private key.
 	var imageURLGetter container.ImageURLGetter
 	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
+		cfg, err := pr.EnvironConfig()
+		if err != nil {
+			return errors.Annotate(err, "unable to get environ config")
+		}
+		imageURLGetter = container.NewImageURLGetter(
+			// Explicitly call the non-named constructor so if anyone
+			// adds additional fields, this fails.
+			container.ImageURLGetterConfig{
+				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
+				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+			})
 	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
@@ -1082,9 +1124,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
 				})
 			}
-			a.startWorkerAfterUpgrade(singularRunner, "statushistorypruner", func() (worker.Worker, error) {
-				return statushistorypruner.New(st, statushistorypruner.NewHistoryPrunerParams()), nil
-			})
 
 			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
 				return txnpruner.New(st, time.Hour*2), nil
@@ -1214,6 +1253,21 @@ func (a *MachineAgent) startEnvWorkers(
 	} else {
 		logger.Debugf("not starting firewaller worker - firewall-mode is %q", fwMode)
 	}
+
+	singularRunner.StartWorker("statushistorypruner", func() (worker.Worker, error) {
+		f := statushistory.NewFacade(apiSt)
+		conf := statushistorypruner.Config{
+			Facade:           f,
+			MaxLogsPerEntity: params.DefaultMaxLogsPerEntity,
+			PruneInterval:    params.DefaultPruneInterval,
+			NewTimer:         worker.NewTimer,
+		}
+		w, err := statushistorypruner.New(conf)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot start \"statushistorypruner\"")
+		}
+		return w, nil
+	})
 
 	return runner, nil
 }

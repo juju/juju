@@ -4,7 +4,6 @@
 package subnet
 
 import (
-	"encoding/json"
 	"net"
 	"strings"
 
@@ -157,38 +156,10 @@ type formattedList struct {
 	Subnets map[string]formattedSubnet `json:"subnets" yaml:"subnets"`
 }
 
-// A goyaml bug means we can't declare these types locally to the
-// GetYAML methods.
-type formattedListNoMethods formattedList
-
-// MarshalJSON is defined on json.Marshaller.
-func (l formattedList) MarshalJSON() ([]byte, error) {
-	return json.Marshal(formattedListNoMethods(l))
-}
-
-// GetYAML is defined on yaml.Getter.
-func (l formattedList) GetYAML() (tag string, value interface{}) {
-	return "", formattedListNoMethods(l)
-}
-
 type formattedSubnet struct {
 	Type       string   `json:"type" yaml:"type"`
 	ProviderId string   `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Status     string   `json:"status,omitempty" yaml:"status,omitempty"`
 	Space      string   `json:"space" yaml:"space"`
 	Zones      []string `json:"zones" yaml:"zones"`
-}
-
-// A goyaml bug means we can't declare these types locally to the
-// GetYAML methods.
-type formattedSubnetNoMethods formattedSubnet
-
-// MarshalJSON is defined on json.Marshaller.
-func (s formattedSubnet) MarshalJSON() ([]byte, error) {
-	return json.Marshal(formattedSubnetNoMethods(s))
-}
-
-// GetYAML is defined on yaml.Getter.
-func (s formattedSubnet) GetYAML() (tag string, value interface{}) {
-	return "", formattedSubnetNoMethods(s)
 }

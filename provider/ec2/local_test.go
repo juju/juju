@@ -15,13 +15,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -193,11 +194,9 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
-	t.PatchValue(&version.Current, version.Binary{
-		Number: coretesting.FakeVersionNumber,
-		Series: coretesting.FakeDefaultSeries,
-		Arch:   arch.AMD64,
-	})
+	t.BaseSuite.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
@@ -265,9 +264,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(1740))
+	c.Check(*hc.Mem, gc.Equals, uint64(3840))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -319,9 +318,9 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(1740))
+	c.Check(*hc.Mem, gc.Equals, uint64(3840))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {

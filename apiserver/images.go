@@ -31,6 +31,7 @@ import (
 type imagesDownloadHandler struct {
 	httpHandler
 	dataDir string
+	state   *state.State
 }
 
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +138,11 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 // fetchAndCacheLxcImage fetches an lxc image tarball from http://cloud-images.ubuntu.com
 // and caches it in the state blobstore.
 func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, envuuid, series, arch string) error {
-	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch)
+	cfg, err := h.state.EnvironConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch, cfg.CloudImageBaseURL())
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}

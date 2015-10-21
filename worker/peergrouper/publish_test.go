@@ -74,3 +74,14 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 	check(true, ipV4First, ipV6First)
 	check(true, ipV6First, ipV6First)
 }
+
+func (s *publishSuite) TestPublisherRejectsNoServers(c *gc.C) {
+	check := func(preferIPv6 bool) {
+		var mock mockAPIHostPortsSetter
+		statePublish := newPublisher(&mock, preferIPv6)
+		err := statePublish.PublishAPIServers(nil, nil)
+		c.Assert(err, gc.ErrorMatches, "no api servers specified")
+	}
+	check(false)
+	check(true)
+}

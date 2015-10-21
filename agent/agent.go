@@ -33,6 +33,13 @@ import (
 
 var logger = loggo.GetLogger("juju.agent")
 
+const (
+	// UninstallAgentFile is the name of the file inside the data
+	// dir that, if it exists, will cause a machine agent to uninstall
+	// when it receives the termination signal.
+	UninstallAgentFile = "uninstall-agent"
+)
+
 // These are base values used for the corresponding defaults.
 var (
 	logDir          = paths.MustSucceed(paths.LogDir(series.HostSeries()))
@@ -580,10 +587,7 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		addr := network.SelectInternalHostPort(serverHostPorts, false)
-		if addr != "" {
-			addrs = append(addrs, addr)
-		}
+		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
 	}
 	c.apiDetails.addresses = addrs
 }
