@@ -679,7 +679,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err == nil {
 		// we verify the service is alive
 		asserts = append(isAliveDoc, asserts...)
-		ops = append(ops, s.incCountOp(asserts))
+		ops = append(ops, s.incUnitCountOp(asserts))
 	}
 	return names, ops, err
 }
@@ -689,7 +689,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 func (s *Service) addServiceUnitOps(principalName string, asserts bson.D, cons constraints.Value) (string, []txn.Op, error) {
 	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
 	if err == nil {
-		ops = append(ops, s.incCountOp(asserts))
+		ops = append(ops, s.incUnitCountOp(asserts))
 	}
 	return names, ops, err
 }
@@ -775,8 +775,8 @@ func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Valu
 	return name, ops, nil
 }
 
-// unitCountOp returns the operation to increment the service's unit count.
-func (s *Service) incCountOp(asserts bson.D) txn.Op {
+// incUnitCountOp returns the operation to increment the service's unit count.
+func (s *Service) incUnitCountOp(asserts bson.D) txn.Op {
 	op := txn.Op{
 		C:      servicesC,
 		Id:     s.doc.DocID,
