@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api"
 	"github.com/juju/juju/workload/api/internal"
 	"github.com/juju/juju/workload/api/internal/client"
 )
@@ -107,7 +106,6 @@ func (s *clientSuite) TestList(c *gc.C) {
 				NotFound: false,
 				Error:    nil,
 			}},
-			Error: nil,
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
@@ -116,7 +114,6 @@ func (s *clientSuite) TestList(c *gc.C) {
 				NotFound: false,
 				Error:    nil,
 			}},
-			Error: nil,
 		},
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
@@ -168,7 +165,6 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 			NotFound: false,
 			Error:    nil,
 		}},
-		Error: nil,
 	}
 	s.facade.responses = append(s.facade.responses, response)
 
@@ -217,7 +213,6 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 			NotFound: false,
 			Error:    nil,
 		}},
-		Error: common.ServerError(api.BulkFailure),
 	}
 	s.facade.responses = append(s.facade.responses, response)
 
@@ -275,7 +270,6 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 				NotFound: false,
 				Error:    nil,
 			}},
-			Error: nil,
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
@@ -284,7 +278,6 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 				NotFound: false,
 				Error:    nil,
 			}},
-			Error: nil,
 		},
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
@@ -336,7 +329,6 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 				NotFound: false,
 				Error:    nil,
 			}},
-			Error: nil,
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
@@ -345,7 +337,6 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 				NotFound: false,
 				Error:    nil,
 			}},
-			Error: nil,
 		},
 	}
 	s.facade.responses = append(s.facade.responses, responses...)

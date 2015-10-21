@@ -17,27 +17,6 @@ type TrackArgs struct {
 	Workloads []Workload
 }
 
-// WorkloadResults is the result for a call that makes one or more requests
-// about workloads.
-type WorkloadResults struct {
-	// Results is the list of results.
-	Results []WorkloadResult
-	// Error is the error (if any) for the call as a whole.
-	Error *params.Error
-}
-
-// WorkloadResult contains the result for a single call.
-type WorkloadResult struct {
-	// ID is the id of the workload referenced in the call..
-	ID names.PayloadTag
-	// Workload holds the details of the workload, if any.
-	Workload *Workload
-	// NotFound indicates that the workload was not found in state.
-	NotFound bool
-	// Error is the error (if any) for the call referring to ID.
-	Error *params.Error
-}
-
 // ListArgs are the arguments for the List endpoint.
 type ListArgs struct {
 	// IDs is the list of IDs of the workloads you want information on.
@@ -77,6 +56,26 @@ type SetStatusArg struct {
 type UntrackArgs struct {
 	// IDs is a list of IDs of workloads.
 	IDs []names.PayloadTag
+}
+
+// WorkloadResults is the result for a call that makes one or more requests
+// about workloads.
+type WorkloadResults struct {
+	Results []WorkloadResult
+}
+
+// TODO(ericsnow) Eliminate the NotFound field?
+
+// WorkloadResult contains the result for a single call.
+type WorkloadResult struct {
+	// ID is the id of the workload referenced in the call..
+	ID names.PayloadTag
+	// Workload holds the details of the workload, if any.
+	Workload *Workload
+	// NotFound indicates that the workload was not found in state.
+	NotFound bool
+	// Error is the error (if any) for the call referring to ID.
+	Error *params.Error
 }
 
 // Workload contains information about a workload.

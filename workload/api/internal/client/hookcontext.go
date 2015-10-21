@@ -41,9 +41,9 @@ func (c HookContextClient) Track(workloads ...workload.Info) ([]workload.Result,
 		return nil, errors.Trace(err)
 	}
 
-	results, err := internal.API2Results(rs, len(workloads))
-	if err != nil {
-		return results, errors.Trace(err)
+	var results []workload.Result
+	for _, r := range rs.Results {
+		results = append(results, internal.API2Result(r))
 	}
 	return results, nil
 }
@@ -70,13 +70,9 @@ func (c HookContextClient) List(fullIDs ...string) ([]workload.Result, error) {
 		return nil, errors.Trace(err)
 	}
 
-	size := len(fullIDs)
-	if size == 0 {
-		size = len(rs.Results)
-	}
-	results, err := internal.API2Results(rs, size)
-	if err != nil {
-		return results, errors.Trace(err)
+	var results []workload.Result
+	for _, r := range rs.Results {
+		results = append(results, internal.API2Result(r))
 	}
 	return results, nil
 }
@@ -102,9 +98,9 @@ func (c HookContextClient) LookUp(fullIDs ...string) ([]workload.Result, error) 
 		return nil, err
 	}
 
-	results, err := internal.API2Results(rs, len(fullIDs))
-	if err != nil {
-		return results, errors.Trace(err)
+	var results []workload.Result
+	for _, r := range rs.Results {
+		results = append(results, internal.API2Result(r))
 	}
 	return results, nil
 }
@@ -130,9 +126,9 @@ func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]worklo
 		return nil, err
 	}
 
-	results, err := internal.API2Results(rs, len(fullIDs))
-	if err != nil {
-		return results, errors.Trace(err)
+	var results []workload.Result
+	for _, r := range rs.Results {
+		results = append(results, internal.API2Result(r))
 	}
 	return results, nil
 }
@@ -157,9 +153,9 @@ func (c HookContextClient) Untrack(fullIDs ...string) ([]workload.Result, error)
 		return nil, err
 	}
 
-	results, err := internal.API2Results(rs, len(fullIDs))
-	if err != nil {
-		return results, errors.Trace(err)
+	var results []workload.Result
+	for _, r := range rs.Results {
+		results = append(results, internal.API2Result(r))
 	}
 	return results, nil
 }

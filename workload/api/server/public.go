@@ -3,10 +3,9 @@
 
 package server
 
-// TODO(ericsnow) Eliminate the apiserver/common import if possible.
-
 import (
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api"
 )
@@ -36,14 +35,12 @@ func (a PublicAPI) List(args api.EnvListArgs) (api.EnvListResults, error) {
 
 	payloads, err := a.State.ListAll()
 	if err != nil {
-		r.Error = common.ServerError(err)
-		return r, nil
+		return r, errors.Trace(err)
 	}
 
 	filters, err := workload.BuildPredicatesFor(args.Patterns)
 	if err != nil {
-		r.Error = common.ServerError(err)
-		return r, nil
+		return r, errors.Trace(err)
 	}
 	payloads = workload.Filter(payloads, filters...)
 
