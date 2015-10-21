@@ -520,18 +520,19 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
 
 class TestDeployDummyStack(FakeHomeTestCase):
 
-    @patch('deploy_stack.get_random_string')
     @patch('deploy_stack.check_token')
-    @patch('sys.stdout')
-    def test_deploy_dummy_stack_sets_centos_constraints(self, *args):
-        env = SimpleEnvironment('foo', {'type': 'nonlocal'})
+    def test_deploy_dummy_stack_sets_centos_constraints(self, ct_mock):
+        env = SimpleEnvironment('foo', {'type': 'maas'})
         client = EnvJujuClient(env, None, '/foo/juju')
         with patch('subprocess.check_call', autospec=True) as cc_mock:
             with patch.object(EnvJujuClient, 'wait_for_started'):
-                deploy_dummy_stack(client, 'local:centos/foo')
+                with patch('deploy_stack.get_random_string',
+                           return_value='fake-token', autospec=True):
+                    deploy_dummy_stack(client, 'local:centos/foo')
         assert_juju_call(self, cc_mock, client,
                          ('juju', '--show-log', 'set-constraints', '-e', 'foo',
-                          'tags=centos'), 0)
+                          'tags=MAAS_NIC_1'), 0)
+        self.assertEqual(ct_mock.call_count, 1)
 
     def test_deploy_dummy_stack(self):
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})

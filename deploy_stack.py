@@ -71,9 +71,9 @@ def deploy_dummy_stack(client, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
     # Centos requires specific machine configuration (i.e. network device
-    # order). Expect MAAS tags of 'centos' on appropriate systems.
-    if charm_prefix.startswith("local:centos"):
-        client.juju('set-constraints', ('tags=centos',))
+    # order).
+    if charm_prefix.startswith("local:centos") and client.env.maas:
+        client.juju('set-constraints', ('tags=MAAS_NIC_1',))
     client.deploy(charm_prefix + 'dummy-source')
     token = get_random_string()
     client.juju('set', ('dummy-source', 'token=%s' % token))
@@ -548,13 +548,12 @@ def _deploy_job(temp_env_name, base_env, upgrade, charm_prefix, bootstrap_host,
             manager = nested()
         with manager:
             deploy_dummy_stack(client, charm_prefix)
-        is_windows_charm = charm_prefix.startswith("local:win")
-        is_centos_charm = charm_prefix.startswith("local:centos")
-        if not is_windows_charm and not is_centos_charm:
+        skip_juju_run = charm_prefix.startswith(("local:centos", "local:win"))
+        if not skip_juju_run:
             assess_juju_run(client)
         if upgrade:
             client.juju('status', ())
-            assess_upgrade(client, juju_path, skip_juju_run=is_windows_charm)
+            assess_upgrade(client, juju_path, skip_juju_run)
 
 
 def safe_print_status(client):
