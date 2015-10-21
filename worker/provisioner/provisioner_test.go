@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -862,16 +861,14 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkNoOperations(c)
 
 	time.Sleep(coretesting.ShortWait)
 
 	stop(c, p)
 	statusInfo, err := m.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-	// check that the status matches the error message
-	c.Assert(statusInfo.Message, gc.Equals, tomb.ErrDying.Error())
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	s.checkNoOperations(c)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
