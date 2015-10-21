@@ -64,8 +64,7 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, _ *apiagent.Entity, err erro
 	tag := agentConfig.Tag()
 	entity, err := st.Agent().Entity(tag)
 	if err == nil && entity.Life() == params.Dead {
-		logger.Errorf("agent terminating - entity %q is dead", tag)
-		return nil, nil, worker.ErrTerminateAgent
+		return st, entity, nil
 	}
 	if params.IsCodeUnauthorized(err) {
 		logger.Errorf("agent terminating due to error returned during entity lookup: %v", err)

@@ -24,13 +24,27 @@ type Machiner struct {
 	tag                    names.MachineTag
 	machine                Machine
 	ignoreAddressesOnStart bool
+	machineDead            func() error
 }
 
 // NewMachiner returns a Worker that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
-func NewMachiner(st MachineAccessor, agentConfig agent.Config, ignoreAddressesOnStart bool) worker.Worker {
-	mr := &Machiner{st: st, tag: agentConfig.Tag().(names.MachineTag), ignoreAddressesOnStart: ignoreAddressesOnStart}
+//
+// The machineDead function will be called immediately after the machine's
+// lifecycle is updated to Dead.
+func NewMachiner(
+	st MachineAccessor,
+	agentConfig agent.Config,
+	ignoreAddressesOnStart bool,
+	machineDead func() error,
+) worker.Worker {
+	mr := &Machiner{
+		st:  st,
+		tag: agentConfig.Tag().(names.MachineTag),
+		ignoreAddressesOnStart: ignoreAddressesOnStart,
+		machineDead:            machineDead,
+	}
 	return worker.NewNotifyWorker(mr)
 }
 
@@ -130,6 +144,13 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			return nil
 		}
 		return errors.Annotatef(err, "%s failed to set machine to dead", mr.tag)
+	}
+	// Report on the machine's death. It is important that we do this after
+	// the machine is Dead, because this is the mechanism we use to clean up
+	// the machine (uninstall). If we were to report before marking the machine
+	// as Dead, then we would risk uninstalling prematurely.
+	if err := mr.machineDead(); err != nil {
+		return errors.Annotate(err, "reporting machine death")
 	}
 	return worker.ErrTerminateAgent
 }

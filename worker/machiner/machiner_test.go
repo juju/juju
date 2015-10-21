@@ -4,6 +4,7 @@
 package machiner_test
 
 import (
+	"errors"
 	"io/ioutil"
 	"net"
 	"path/filepath"
@@ -65,7 +66,10 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 		&params.Error{Code: params.CodeMachineHasAttachedStorage},
 	)
 
-	worker := machiner.NewMachiner(s.accessor, s.agentConfig, false)
+	worker := machiner.NewMachiner(
+		s.accessor, s.agentConfig, false,
+		func() error { return nil },
+	)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	worker.Kill()
 	c.Check(worker.Wait(), jc.ErrorIsNil)
@@ -195,23 +199,44 @@ func (s *MachinerStateSuite) TestNotFoundOrUnauthorized(c *gc.C) {
 		machiner.APIMachineAccessor{s.machinerState},
 		agentConfig(names.NewMachineTag("99")),
 		false,
+		// the "machineDead" callback should not be invoked
+		// because we don't know whether the agent is not
+		// found, or unauthorized; we err on the side of
+		// caution, in case the password got mucked up.
+		func() error { return errors.New("should not be called") },
 	)
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
-func (s *MachinerStateSuite) makeMachiner(ignoreAddresses bool) worker.Worker {
+func (s *MachinerStateSuite) makeMachiner(
+	ignoreAddresses bool,
+	machineDead func() error,
+) worker.Worker {
+	if machineDead == nil {
+		machineDead = func() error { return nil }
+	}
 	return machiner.NewMachiner(
 		machiner.APIMachineAccessor{s.machinerState},
 		agentConfig(s.apiMachine.Tag()),
 		ignoreAddresses,
+		machineDead,
 	)
 }
 
+type machineDeathTracker bool
+
+func (t *machineDeathTracker) machineDead() error {
+	*t = true
+	return nil
+}
+
 func (s *MachinerStateSuite) TestRunStop(c *gc.C) {
-	mr := s.makeMachiner(false)
+	var machineDead machineDeathTracker
+	mr := s.makeMachiner(false, machineDead.machineDead)
 	c.Assert(worker.Stop(mr), gc.IsNil)
 	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
 	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
+	c.Assert(bool(machineDead), jc.IsFalse)
 }
 
 func (s *MachinerStateSuite) TestStartSetsStatus(c *gc.C) {
@@ -220,31 +245,34 @@ func (s *MachinerStateSuite) TestStartSetsStatus(c *gc.C) {
 	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
 	c.Assert(statusInfo.Message, gc.Equals, "")
 
-	mr := s.makeMachiner(false)
+	mr := s.makeMachiner(false, nil)
 	defer worker.Stop(mr)
 
 	s.waitMachineStatus(c, s.machine, state.StatusStarted)
 }
 
 func (s *MachinerStateSuite) TestSetsStatusWhenDying(c *gc.C) {
-	mr := s.makeMachiner(false)
+	mr := s.makeMachiner(false, nil)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.waitMachineStatus(c, s.machine, state.StatusStopped)
 }
 
 func (s *MachinerStateSuite) TestSetDead(c *gc.C) {
-	mr := s.makeMachiner(false)
+	var machineDead machineDeathTracker
+	mr := s.makeMachiner(false, machineDead.machineDead)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
+	c.Assert(bool(machineDead), jc.IsTrue)
 }
 
 func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
-	mr := s.makeMachiner(false)
+	var machineDead machineDeathTracker
+	mr := s.makeMachiner(false, machineDead.machineDead)
 	defer worker.Stop(mr)
 
 	// Add a service, assign to machine.
@@ -266,12 +294,14 @@ func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
 	s.State.StartSync()
 	c.Assert(s.machine.Refresh(), gc.IsNil)
 	c.Assert(s.machine.Life(), gc.Equals, state.Dying)
+	c.Assert(bool(machineDead), jc.IsFalse)
 
 	// When the unit is ultimately destroyed, the machine becomes dead.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(bool(machineDead), jc.IsTrue)
 
 }
 
@@ -309,7 +339,7 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
-	mr := s.makeMachiner(ignore)
+	mr := s.makeMachiner(ignore, nil)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()

@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -446,11 +447,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
-		return startTerminationWorker(
-			agentConfig.DataDir(),
-			terminationworker.NewWorker,
-			os.Stat,
-		), nil
+		return terminationworker.NewWorker(), nil
 	})
 
 	// At this point, all workers will have been configured to start
@@ -471,44 +468,22 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	return err
 }
 
-// startTerminationWorker starts a new termination worker that will cause
-// the machine agent to uninstall if the uninstall-agent file is present.
-func startTerminationWorker(
-	dataDir string,
-	newTerminationWorker func(func() error) worker.Worker,
-	statFile func(string) (os.FileInfo, error),
-) worker.Worker {
-	uninstallFile := filepath.Join(dataDir, agent.UninstallAgentFile)
-	terminationError := func() error {
-		// If the uninstall file exists, then the termination
-		// signal should cause the agent to uninstall; otherwise
-		// it should just restart the workers.
-		if _, err := statFile(uninstallFile); err == nil {
-			return worker.ErrTerminateAgent
-		}
-		logger.Debugf(
-			"uninstall file %q does not exist",
-			uninstallFile,
-		)
-		return &cmdutil.FatalError{fmt.Sprintf(
-			"%q signal received",
-			terminationworker.TerminationSignal,
-		)}
-	}
-	return newTerminationWorker(terminationError)
-}
-
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
 	agentCfg := a.CurrentConfig()
 	// At this stage, all API connections would have been closed
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := apicaller.OpenAPIState(a)
+	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
 	}
+	if entity.Life() == params.Dead {
+		logger.Errorf("agent terminating - entity %q is dead", entity.Tag())
+		return worker.ErrTerminateAgent
+	}
+
 	// block until all units/containers are ready, and reboot/shutdown
 	finalize, err := reboot.NewRebootWaiter(st, agentCfg)
 	if err != nil {
@@ -686,6 +661,14 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	}()
 
 	agentConfig := a.CurrentConfig()
+	if entity.Life() == params.Dead {
+		logger.Errorf("agent terminating - entity %q is dead", entity.Tag())
+		if err := writeUninstallAgentFile(agentConfig.DataDir()); err != nil {
+			return nil, errors.Annotate(err, "writing uninstall agent file")
+		}
+		return nil, worker.ErrTerminateAgent
+	}
+
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
@@ -769,7 +752,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		accessor := machiner.APIMachineAccessor{st.Machiner()}
-		return newMachiner(accessor, agentConfig, ignoreMachineAddresses), nil
+		return newMachiner(
+			accessor, agentConfig, ignoreMachineAddresses,
+			func() error {
+				return writeUninstallAgentFile(agentConfig.DataDir())
+			},
+		), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -1718,7 +1706,23 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	return symlink.New(jujud, JujuRun)
 }
 
+// writeUninstallAgentFile creates the uninstall-agent file on disk,
+// which will cause the agent to uninstall itself when it encounters
+// the ErrTerminateAgent error.
+func writeUninstallAgentFile(dataDir string) error {
+	uninstallFile := filepath.Join(dataDir, agent.UninstallAgentFile)
+	return ioutil.WriteFile(uninstallFile, nil, 0644)
+}
+
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
+	// We should only uninstall if the uninstall file is present.
+	uninstallFile := filepath.Join(agentConfig.DataDir(), agent.UninstallAgentFile)
+	if _, err := os.Stat(uninstallFile); err != nil {
+		logger.Debugf("uninstall file %q does not exist", uninstallFile)
+		return nil
+	}
+	logger.Infof("%q found, uninstalling agent", uninstallFile)
+
 	var errors []error
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
