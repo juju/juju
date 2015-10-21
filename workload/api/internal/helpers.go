@@ -25,8 +25,6 @@ func NewWorkloadResult(id string, err error) WorkloadResult {
 	return Result2api(result)
 }
 
-// TODO(ericsnow) Properly convert WorkloadResult.Error.
-
 // API2Result converts the API result to a workload.Result.
 func API2Result(r WorkloadResult) workload.Result {
 	result := workload.Result{
@@ -38,7 +36,7 @@ func API2Result(r WorkloadResult) workload.Result {
 		result.Workload = &info
 	}
 	if r.Error != nil {
-		result.Error = r.Error
+		result.Error, _ = common.RestoreError(r.Error)
 	}
 	return result
 }
