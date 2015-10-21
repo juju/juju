@@ -37,7 +37,10 @@ func New(logs LogRecordCh, apiInfoGate gate.Waiter, agent agent.Agent) worker.Wo
 		}
 
 		logger.Debugf("dialing log-sender connection")
-		apiInfo := agent.CurrentConfig().APIInfo()
+		apiInfo, ok := agent.CurrentConfig().APIInfo()
+		if !ok {
+			return errors.New("API info not available")
+		}
 		conn, err := dialLogsinkAPI(apiInfo)
 		if err != nil {
 			return errors.Annotate(err, "logsender dial failed")

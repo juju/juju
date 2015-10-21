@@ -43,7 +43,10 @@ func openAPIForAgent(info *api.Info, opts api.DialOpts) (api.Connection, error) 
 // the API.
 func OpenAPIState(a agent.Agent) (_ api.Connection, _ *apiagent.Entity, err error) {
 	agentConfig := a.CurrentConfig()
-	info := agentConfig.APIInfo()
+	info, ok := agentConfig.APIInfo()
+	if !ok {
+		return nil, nil, errors.New("API info not available")
+	}
 	st, usedOldPassword, err := openAPIStateUsingInfo(info, agentConfig.OldPassword())
 	if err != nil {
 		return nil, nil, err
