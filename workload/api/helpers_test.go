@@ -37,21 +37,22 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    []string{"a-tag"},
-		Unit:    names.NewUnitTag("a-service/0"),
-		Machine: names.NewMachineTag("1"),
+		Unit:    names.NewUnitTag("a-service/0").String(),
+		Machine: names.NewMachineTag("1").String(),
 	})
 }
 
 func (helpersSuite) TestAPI2Payload(c *gc.C) {
-	payload := API2Payload(Payload{
+	payload, err := API2Payload(Payload{
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
 		Status:  workload.StateRunning,
 		Tags:    []string{"a-tag"},
-		Unit:    names.NewUnitTag("a-service/0"),
-		Machine: names.NewMachineTag("1"),
+		Unit:    names.NewUnitTag("a-service/0").String(),
+		Machine: names.NewMachineTag("1").String(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(payload, jc.DeepEquals, workload.FullPayloadInfo{
 		Payload: workload.Payload{

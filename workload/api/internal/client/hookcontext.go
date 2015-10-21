@@ -26,8 +26,6 @@ func NewHookContextClient(caller facadeCaller) HookContextClient {
 	return HookContextClient{caller}
 }
 
-// TODO(ericsnow) Move these two to helpers.go.
-
 // Track calls the Track API server method.
 func (c HookContextClient) Track(workloads ...workload.Info) ([]workload.Result, error) {
 	var args internal.TrackArgs
@@ -43,7 +41,7 @@ func (c HookContextClient) Track(workloads ...workload.Info) ([]workload.Result,
 
 	var results []workload.Result
 	for _, r := range rs.Results {
-		results = append(results, internal.API2Result(r))
+		results = append(results, api2result(r))
 	}
 	return results, nil
 }
@@ -61,7 +59,7 @@ func (c HookContextClient) List(fullIDs ...string) ([]workload.Result, error) {
 
 	var args internal.ListArgs
 	for _, id := range ids {
-		arg := names.NewPayloadTag(id)
+		arg := names.NewPayloadTag(id).String()
 		args.IDs = append(args.IDs, arg)
 	}
 
@@ -72,7 +70,7 @@ func (c HookContextClient) List(fullIDs ...string) ([]workload.Result, error) {
 
 	var results []workload.Result
 	for _, r := range rs.Results {
-		results = append(results, internal.API2Result(r))
+		results = append(results, api2result(r))
 	}
 	return results, nil
 }
@@ -100,7 +98,7 @@ func (c HookContextClient) LookUp(fullIDs ...string) ([]workload.Result, error) 
 
 	var results []workload.Result
 	for _, r := range rs.Results {
-		results = append(results, internal.API2Result(r))
+		results = append(results, api2result(r))
 	}
 	return results, nil
 }
@@ -115,7 +113,7 @@ func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]worklo
 	var args internal.SetStatusArgs
 	for _, id := range ids {
 		arg := internal.SetStatusArg{
-			ID:     names.NewPayloadTag(id),
+			ID:     names.NewPayloadTag(id).String(),
 			Status: status,
 		}
 		args.Args = append(args.Args, arg)
@@ -128,7 +126,7 @@ func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]worklo
 
 	var results []workload.Result
 	for _, r := range rs.Results {
-		results = append(results, internal.API2Result(r))
+		results = append(results, api2result(r))
 	}
 	return results, nil
 }
@@ -144,7 +142,7 @@ func (c HookContextClient) Untrack(fullIDs ...string) ([]workload.Result, error)
 
 	var args internal.UntrackArgs
 	for _, id := range ids {
-		arg := names.NewPayloadTag(id)
+		arg := names.NewPayloadTag(id).String()
 		args.IDs = append(args.IDs, arg)
 	}
 
@@ -155,7 +153,7 @@ func (c HookContextClient) Untrack(fullIDs ...string) ([]workload.Result, error)
 
 	var results []workload.Result
 	for _, r := range rs.Results {
-		results = append(results, internal.API2Result(r))
+		results = append(results, api2result(r))
 	}
 	return results, nil
 }
@@ -175,4 +173,10 @@ func (c HookContextClient) lookUp(fullIDs []string) ([]string, error) {
 		ids = append(ids, result.ID)
 	}
 	return ids, nil
+}
+
+func api2result(r internal.WorkloadResult) workload.Result {
+	// We control the result safely so we can ignore the error.
+	result, _ := internal.API2Result(r)
+	return result
 }

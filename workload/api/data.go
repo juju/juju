@@ -5,10 +5,6 @@ package api
 
 // TODO(ericsnow) Move this file to the top-level "payload" package?
 
-import (
-	"github.com/juju/names"
-)
-
 // EnvListArgs are the arguments for the env-based List endpoint.
 type EnvListArgs struct {
 	// Patterns is the list of patterns against which to filter.
@@ -35,8 +31,8 @@ type Payload struct {
 	// Tags are tags associated with the payload.
 	Tags []string
 
-	// Unit identifies the unit associated with the payload.
-	Unit names.UnitTag
-	// Machine identifies the machine associated with the payload.
-	Machine names.MachineTag
+	// Unit identifies the unit tag associated with the payload.
+	Unit string
+	// Machine identifies the machine tag associated with the payload.
+	Machine string
 }

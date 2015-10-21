@@ -4,6 +4,7 @@
 package api
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v5"
 
@@ -15,22 +16,44 @@ import (
 func Payload2api(p workload.FullPayloadInfo) Payload {
 	tags := make([]string, len(p.Tags))
 	copy(tags, p.Tags)
+
+	unitTag := names.NewUnitTag(p.Unit)
+	machineTag := names.NewMachineTag(p.Machine)
+
 	return Payload{
 		Class:   p.Name,
 		Type:    p.Type,
 		ID:      p.ID,
 		Status:  p.Status,
 		Tags:    tags,
-		Unit:    names.NewUnitTag(p.Unit),
-		Machine: names.NewMachineTag(p.Machine),
+		Unit:    unitTag.String(),
+		Machine: machineTag.String(),
 	}
 }
 
 // API2Payload converts an API Payload info struct into
 // a workload.FullPayloadInfo struct.
-func API2Payload(apiInfo Payload) workload.FullPayloadInfo {
+func API2Payload(apiInfo Payload) (workload.FullPayloadInfo, error) {
 	tags := make([]string, len(apiInfo.Tags))
 	copy(tags, apiInfo.Tags)
+
+	var unit, machine string
+	var empty workload.FullPayloadInfo
+	if apiInfo.Unit != "" {
+		tag, err := names.ParseUnitTag(apiInfo.Unit)
+		if err != nil {
+			return empty, errors.Trace(err)
+		}
+		unit = tag.Id()
+	}
+	if apiInfo.Machine != "" {
+		tag, err := names.ParseMachineTag(apiInfo.Machine)
+		if err != nil {
+			return empty, errors.Trace(err)
+		}
+		machine = tag.Id()
+	}
+
 	return workload.FullPayloadInfo{
 		Payload: workload.Payload{
 			PayloadClass: charm.PayloadClass{
@@ -40,8 +63,8 @@ func API2Payload(apiInfo Payload) workload.FullPayloadInfo {
 			ID:     apiInfo.ID,
 			Status: apiInfo.Status,
 			Tags:   tags,
-			Unit:   apiInfo.Unit.Id(),
+			Unit:   unit,
 		},
-		Machine: apiInfo.Machine.Id(),
-	}
+		Machine: machine,
+	}, nil
 }
