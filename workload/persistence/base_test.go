@@ -6,7 +6,6 @@ package persistence
 import (
 	"fmt"
 
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -21,7 +20,7 @@ type BaseSuite struct {
 
 	Stub  *gitjujutesting.Stub
 	State *fakeStatePersistence
-	Unit  names.UnitTag
+	Unit  string
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -29,7 +28,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &gitjujutesting.Stub{}
 	s.State = &fakeStatePersistence{Stub: s.Stub}
-	s.Unit = names.NewUnitTag("a-unit/0")
+	s.Unit = "a-unit/0"
 }
 
 type WorkloadDoc workloadDoc
@@ -40,8 +39,8 @@ func (doc WorkloadDoc) convert() *workloadDoc {
 
 func (s *BaseSuite) NewDoc(id string, wl workload.Info) *workloadDoc {
 	return &workloadDoc{
-		DocID:  "workload#" + s.Unit.Id() + "#" + id,
-		UnitID: s.Unit.Id(),
+		DocID:  "workload#" + s.Unit + "#" + id,
+		UnitID: s.Unit,
 
 		Name: wl.Name,
 		Type: wl.Type,
@@ -60,7 +59,7 @@ func (s *BaseSuite) SetDoc(id string, wl workload.Info) *workloadDoc {
 }
 
 func (s *BaseSuite) RemoveDoc(id string) {
-	docID := "workload#" + s.Unit.Id() + "#" + id
+	docID := "workload#" + s.Unit + "#" + id
 	delete(s.State.docs, docID)
 }
 
@@ -69,11 +68,7 @@ func (s *BaseSuite) NewPersistence() *Persistence {
 }
 
 func (s *BaseSuite) SetUnit(id string) {
-	if id == "" {
-		s.Unit = names.UnitTag{}
-	} else {
-		s.Unit = names.NewUnitTag(id)
-	}
+	s.Unit = id
 }
 
 func (s *BaseSuite) NewWorkloads(pType string, ids ...string) []workload.Info {

@@ -55,7 +55,7 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 
 func (pp Persistence) workloadID(id string) string {
 	// TODO(ericsnow) Drop the unit part.
-	return fmt.Sprintf("workload#%s#%s", pp.unit.Id(), id)
+	return fmt.Sprintf("workload#%s#%s", pp.unit, id)
 }
 
 func (pp Persistence) extractWorkloadID(docID string) string {
@@ -183,7 +183,7 @@ func (pp Persistence) newWorkloadDoc(id string, info workload.Info) *workloadDoc
 
 	return &workloadDoc{
 		DocID:  id,
-		UnitID: pp.unit.Id(),
+		UnitID: pp.unit,
 
 		Name: definition.Name,
 		Type: definition.Type,
@@ -203,7 +203,7 @@ func (pp Persistence) newWorkloadDoc(id string, info workload.Info) *workloadDoc
 
 func (pp Persistence) allWorkloads() (map[string]workloadDoc, error) {
 	var docs []workloadDoc
-	query := bson.D{{"unitid", pp.unit.Id()}}
+	query := bson.D{{"unitid", pp.unit}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}

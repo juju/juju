@@ -40,7 +40,7 @@ func (s *envPayloadsSuite) newPayload(name string) workload.FullPayloadInfo {
 			ID:     "id" + name,
 			Status: workload.StateRunning,
 			Tags:   []string{"a-tag"},
-			Unit:   "unit-a-service-0",
+			Unit:   "a-service/0",
 		},
 		Machine: "1",
 	}
@@ -74,12 +74,12 @@ func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 	id4 := "f47ac10b-58cc-4372-a567-0e02b2c3d482"
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
-	p2.Unit = "unit-a-service-1"
+	p2.Unit = "a-service/1"
 	p3 := s.newPayload("ham")
-	p3.Unit = "unit-a-service-2"
+	p3.Unit = "a-service/2"
 	p3.Machine = "2"
 	p4 := s.newPayload("spamspamspam")
-	p4.Unit = "unit-a-service-1"
+	p4.Unit = "a-service/1"
 	s.persists.setPayload(id1, p1)
 	s.persists.setPayload(id2, p2)
 	s.persists.setPayload(id3, p3)

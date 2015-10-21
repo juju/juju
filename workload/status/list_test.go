@@ -77,9 +77,9 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-unit-a-service-0       1       spam          running docker idspam a-tag 
-unit-another-service-1 2       eggs          running docker ideggs       
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-service/0       1       spam          running docker idspam a-tag 
+another-service/1 2       eggs          running docker ideggs       
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -109,16 +109,16 @@ func (s *listSuite) TestPatternsOkay(c *gc.C) {
 	args := []string{
 		"a-tag",
 		"other",
-		"unit-some-service-1",
+		"some-service/1",
 	}
 	code, stdout, stderr := runList(c, command, args...)
 	c.Assert(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-unit-a-service-0       1       spam          running docker idspam a-tag 
-unit-another-service-1 2       eggs          running docker ideggs a-tag 
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-service/0       1       spam          running docker idspam a-tag 
+another-service/1 2       eggs          running docker ideggs a-tag 
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -133,7 +133,7 @@ unit-another-service-1 2       eggs          running docker ideggs a-tag
 			[]string{
 				"a-tag",
 				"other",
-				"unit-some-service-1",
+				"some-service/1",
 			},
 		},
 	}, {
@@ -153,13 +153,13 @@ func (s *listSuite) TestOutputFormats(c *gc.C) {
 	formats := map[string]string{
 		"tabular": `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-unit-a-service-0       1       spam          running docker idspam a-tag 
-unit-another-service-1 2       eggs          running docker ideggs       
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-service/0       1       spam          running docker idspam a-tag 
+another-service/1 2       eggs          running docker ideggs       
 
 `[1:],
 		"yaml": `
-- unit: unit-a-service-0
+- unit: a-service/0
   machine: "1"
   id: idspam
   type: docker
@@ -167,7 +167,7 @@ unit-another-service-1 2       eggs          running docker ideggs
   tags:
   - a-tag
   status: running
-- unit: unit-another-service-1
+- unit: another-service/1
   machine: "2"
   id: ideggs
   type: docker
@@ -177,7 +177,7 @@ unit-another-service-1 2       eggs          running docker ideggs
 		"json": strings.Replace(""+
 			"["+
 			" {"+
-			`  "unit":"unit-a-service-0",`+
+			`  "unit":"a-service/0",`+
 			`  "machine":"1",`+
 			`  "id":"idspam",`+
 			`  "type":"docker",`+
@@ -185,7 +185,7 @@ unit-another-service-1 2       eggs          running docker ideggs
 			`  "tags":["a-tag"],`+
 			`  "status":"running"`+
 			" },{"+
-			`  "unit":"unit-another-service-1",`+
+			`  "unit":"another-service/1",`+
 			`  "machine":"2",`+
 			`  "id":"ideggs",`+
 			`  "type":"docker",`+

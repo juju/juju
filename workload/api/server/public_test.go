@@ -36,7 +36,7 @@ func (publicSuite) newPayload(name string) (workload.FullPayloadInfo, api.Payloa
 			ID:     "id" + name,
 			Status: workload.StateRunning,
 			Tags:   []string{"a-tag"},
-			Unit:   "unit-a-service-0",
+			Unit:   "a-service/0",
 		},
 		Machine: "1",
 	}
@@ -46,7 +46,7 @@ func (publicSuite) newPayload(name string) (workload.FullPayloadInfo, api.Payloa
 		ID:      "id" + name,
 		Status:  workload.StateRunning,
 		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
+		Unit:    "a-service/0",
 		Machine: "1",
 	}
 	return payload, apiPayload
@@ -80,7 +80,7 @@ func (s *publicSuite) TestListAllMatch(c *gc.C) {
 	facade := PublicAPI{s.state}
 	args := api.EnvListArgs{
 		Patterns: []string{
-			"unit-a-service-0",
+			"a-service/0",
 		},
 	}
 	results, err := facade.List(args)
@@ -102,7 +102,7 @@ func (s *publicSuite) TestListNoMatch(c *gc.C) {
 	facade := PublicAPI{s.state}
 	args := api.EnvListArgs{
 		Patterns: []string{
-			"unit-a-service-1",
+			"a-service/1",
 		},
 	}
 	results, err := facade.List(args)
@@ -200,7 +200,7 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 			ID:     "idspam",
 			Status: workload.StateRunning,
 			Tags:   []string{"a-tag"},
-			Unit:   "unit-a-service-0",
+			Unit:   "a-service/0",
 		},
 		Machine: "1",
 	}
@@ -213,7 +213,7 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 		"docker",              // type
 		"idspam",              // ID
 		workload.StateRunning, // status
-		"unit-a-service-0",    // unit
+		"a-service/0",         // unit
 		"1",                   // machine
 		"a-tag",               // tags
 	}

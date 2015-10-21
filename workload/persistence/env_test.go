@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -43,7 +42,7 @@ func (s *envPersistenceSuite) newPayload(name string) workload.FullPayloadInfo {
 			ID:     "id" + name,
 			Status: workload.StateRunning,
 			Tags:   []string{"a-tag"},
-			Unit:   "unit-a-service-0",
+			Unit:   "a-service/0",
 		},
 		Machine: "1",
 	}
@@ -51,8 +50,8 @@ func (s *envPersistenceSuite) newPayload(name string) workload.FullPayloadInfo {
 
 func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	s.base.setUnits("0")
-	s.base.setUnits("1", "unit-a-service-0", "unit-a-service-1")
-	s.base.setUnits("2", "unit-a-service-2")
+	s.base.setUnits("1", "a-service/0", "a-service/1")
+	s.base.setUnits("2", "a-service/2")
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
 	s.base.setWorkloads(p1, p2)
@@ -65,7 +64,7 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 
 	checkPayloads(c, payloads, p1, p2)
 	s.Stub.CheckCallNames(c,
-		"MachineNames",
+		"Machines",
 		"MachineUnits",
 		"MachineUnits",
 		"newUnitPersistence",
@@ -80,7 +79,7 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 
 func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	s.base.setUnits("0")
-	s.base.setUnits("1", "unit-a-service-0", "unit-a-service-1")
+	s.base.setUnits("1", "a-service/0", "a-service/1")
 	persist := NewEnvPersistence(s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
@@ -89,7 +88,7 @@ func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 
 	c.Check(workloads, gc.HasLen, 0)
 	s.Stub.CheckCallNames(c,
-		"MachineNames",
+		"Machines",
 		"MachineUnits",
 		"MachineUnits",
 		"newUnitPersistence",
@@ -186,23 +185,23 @@ func (s *stubEnvPersistenceBase) setUnits(machine string, units ...string) {
 	}
 }
 
-func (s *stubEnvPersistenceBase) newUnitPersistence(base PersistenceBase, unit names.UnitTag) unitPersistence {
+func (s *stubEnvPersistenceBase) newUnitPersistence(base PersistenceBase, unit string) unitPersistence {
 	s.stub.AddCall("newUnitPersistence", base, unit)
 	s.stub.NextErr() // pop one off
 
-	persist, ok := s.unitPersists[unit.String()]
+	persist, ok := s.unitPersists[unit]
 	if !ok {
 		if s.unitPersists == nil {
 			s.unitPersists = make(map[string]*stubUnitPersistence)
 		}
 		persist = &stubUnitPersistence{stub: s.stub}
-		s.unitPersists[unit.String()] = persist
+		s.unitPersists[unit] = persist
 	}
 	return persist
 }
 
-func (s *stubEnvPersistenceBase) MachineNames() ([]string, error) {
-	s.stub.AddCall("MachineNames")
+func (s *stubEnvPersistenceBase) Machines() ([]string, error) {
+	s.stub.AddCall("Machines")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -214,19 +213,15 @@ func (s *stubEnvPersistenceBase) MachineNames() ([]string, error) {
 	return names, nil
 }
 
-func (s *stubEnvPersistenceBase) MachineUnits(machine string) ([]names.UnitTag, error) {
+func (s *stubEnvPersistenceBase) MachineUnits(machine string) ([]string, error) {
 	s.stub.AddCall("MachineUnits", machine)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var units []names.UnitTag
+	var units []string
 	for unit := range s.units[machine] {
-		tag, err := names.ParseUnitTag(unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		units = append(units, tag)
+		units = append(units, unit)
 	}
 	return units, nil
 }

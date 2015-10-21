@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/workload"
 )
@@ -39,7 +38,7 @@ type UnitWorkloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newUnitWorkloadsFunc func(persist Persistence, unit names.UnitTag) (UnitWorkloads, error)
+type newUnitWorkloadsFunc func(persist Persistence, unit string) (UnitWorkloads, error)
 
 var (
 	newUnitWorkloads newUnitWorkloadsFunc
@@ -59,7 +58,7 @@ func (st *State) UnitWorkloads(unit *Unit) (UnitWorkloads, error) {
 	}
 
 	persist := st.newPersistence()
-	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag())
+	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag().Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

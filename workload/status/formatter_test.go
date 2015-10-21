@@ -20,7 +20,7 @@ func (s *formatterSuite) TestFormatPayloadOkay(c *gc.C) {
 	formatted := status.FormatPayload(payload)
 
 	c.Check(formatted, jc.DeepEquals, status.FormattedPayload{
-		Unit:    "unit-a-service-0",
+		Unit:    "a-service/0",
 		Machine: "1",
 		ID:      "idspam",
 		Type:    "docker",

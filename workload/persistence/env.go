@@ -5,7 +5,6 @@ package persistence
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/workload"
 )
@@ -15,13 +14,13 @@ import (
 type EnvPersistenceBase interface {
 	PersistenceBase
 
-	// MachineNames builds the list of the names that identify
+	// Machines builds the list of the names that identify
 	// all machines in State.
-	MachineNames() ([]string, error)
+	Machines() ([]string, error)
 
-	// MachineUnits builds the list of tags that identify all units
+	// MachineUnits builds the list of names that identify all units
 	// for a given machine.
-	MachineUnits(machineName string) ([]names.UnitTag, error)
+	MachineUnits(machineName string) ([]string, error)
 }
 
 // unitPersistence describes the per-unit functionality needed
@@ -36,7 +35,7 @@ type unitPersistence interface {
 type EnvPersistence struct {
 	base EnvPersistenceBase
 
-	newUnitPersist func(PersistenceBase, names.UnitTag) unitPersistence
+	newUnitPersist func(base PersistenceBase, name string) unitPersistence
 }
 
 // NewEnvPersistence wraps the base in a new EnvPersistence.
@@ -47,7 +46,7 @@ func NewEnvPersistence(base EnvPersistenceBase) *EnvPersistence {
 	}
 }
 
-func newUnitPersistence(base PersistenceBase, unit names.UnitTag) unitPersistence {
+func newUnitPersistence(base PersistenceBase, unit string) unitPersistence {
 	return NewPersistence(base, unit)
 }
 
@@ -55,7 +54,7 @@ func newUnitPersistence(base PersistenceBase, unit names.UnitTag) unitPersistenc
 func (ep *EnvPersistence) ListAll() ([]workload.FullPayloadInfo, error) {
 	logger.Tracef("listing all payloads")
 
-	machines, err := ep.base.MachineNames()
+	machines, err := ep.base.Machines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,7 +68,7 @@ func (ep *EnvPersistence) ListAll() ([]workload.FullPayloadInfo, error) {
 
 		for _, unit := range units {
 			// TODO(ericsnow) Cache these in ep.cache?
-			//  cache map[names.UnitTag]*Persistence)
+			//  cache map[<unit name>]*Persistence)
 			persist := ep.newUnitPersist(ep.base, unit)
 
 			unitPayloads, err := listUnit(persist, unit, machine)
@@ -83,7 +82,7 @@ func (ep *EnvPersistence) ListAll() ([]workload.FullPayloadInfo, error) {
 }
 
 // listUnit returns all the payloads for the given unit.
-func listUnit(persist unitPersistence, unit names.UnitTag, machine string) ([]workload.FullPayloadInfo, error) {
+func listUnit(persist unitPersistence, unit, machine string) ([]workload.FullPayloadInfo, error) {
 	workloads, err := persist.ListAll()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -95,7 +94,7 @@ func listUnit(persist unitPersistence, unit names.UnitTag, machine string) ([]wo
 			Payload: info.AsPayload(),
 		}
 		payload.Machine = machine
-		payload.Unit = unit.String()
+		payload.Unit = unit
 		payloads = append(payloads, payload)
 	}
 	return payloads, nil
