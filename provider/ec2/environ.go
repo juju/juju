@@ -505,7 +505,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(e, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      args.InstanceConfig.Series,
+		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
 		Storage:     []string{ssdStorage, ebsStorage},
