@@ -82,7 +82,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int, stream stri
 		return nil, fmt.Errorf("cannot find tools without a complete cloud configuration")
 	}
 
-	logger.Infof("findng tools in stream %q", stream)
+	logger.Infof("finding tools in stream %q", stream)
 	if minorVersion >= 0 {
 		logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
 	} else {

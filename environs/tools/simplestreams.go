@@ -154,13 +154,17 @@ func (tc *ToolsConstraint) IndexIds() []string {
 func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
 	for _, series := range tc.Series {
-		version, err := version.SeriesVersion(series)
+		vers, err := version.SeriesVersion(series)
 		if err != nil {
+			if version.IsUnknownSeriesVersionError(err) {
+				logger.Debugf("ignoring unknown series %q", series)
+				continue
+			}
 			return nil, err
 		}
 		ids := make([]string, len(tc.Arches))
 		for i, arch := range tc.Arches {
-			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
+			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", vers, arch)
 		}
 		allIds = append(allIds, ids...)
 	}
