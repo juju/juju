@@ -4,15 +4,241 @@
 package internal
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/workload"
 )
 
 type internalHelpersSuite struct{}
 
 var _ = gc.Suite(&internalHelpersSuite{})
+
+func (internalHelpersSuite) TestNewWorkloadResultOkay(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	result := NewWorkloadResult(id, nil)
+
+	c.Check(result, jc.DeepEquals, WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	})
+}
+
+func (internalHelpersSuite) TestNewWorkloadResultError(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	err := errors.New("<failure>")
+	result := NewWorkloadResult(id, err)
+
+	c.Check(result, jc.DeepEquals, WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    common.ServerError(err),
+	})
+}
+
+func (internalHelpersSuite) TestNewWorkloadResultNotFound(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	err := errors.NotFoundf("workload %q", id)
+	result := NewWorkloadResult(id, err)
+
+	c.Check(result, jc.DeepEquals, WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: true,
+		Error:    common.ServerError(err),
+	})
+}
+
+func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	result := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	})
+
+	c.Check(result, jc.DeepEquals, workload.Result{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	})
+}
+
+func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	result := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		NotFound: false,
+		Error:    nil,
+		Workload: &Workload{
+			Definition: WorkloadDefinition{
+				Name: "foobar",
+				Type: "type",
+			},
+			Status: WorkloadStatus{
+				State: workload.StateRunning,
+			},
+			Details: WorkloadDetails{
+				ID: "idfoo",
+			},
+		},
+	})
+
+	c.Check(result, jc.DeepEquals, workload.Result{
+		ID:       id,
+		NotFound: false,
+		Error:    nil,
+		Workload: &workload.Info{
+			Workload: charm.Workload{
+				Name: "foobar",
+				Type: "type",
+			},
+			Status: workload.Status{
+				State: workload.StateRunning,
+			},
+			Details: workload.Details{
+				ID: "idfoo",
+			},
+		},
+	})
+}
+
+func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	err := errors.New("<failure>")
+	result := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    common.ServerError(err),
+	})
+
+	c.Check(result, jc.DeepEquals, workload.Result{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    err,
+	})
+}
+
+func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	err := errors.NotFoundf("workload %q", id)
+	result := API2Result(WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    common.ServerError(err),
+	})
+
+	c.Check(result, jc.DeepEquals, workload.Result{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    err,
+	})
+}
+
+func (internalHelpersSuite) TestResult2apiOkay(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	result := Result2api(workload.Result{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	})
+
+	c.Check(result, jc.DeepEquals, WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    nil,
+	})
+}
+
+func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	result := Result2api(workload.Result{
+		ID:       id,
+		NotFound: false,
+		Error:    nil,
+		Workload: &workload.Info{
+			Workload: charm.Workload{
+				Name: "foobar",
+				Type: "type",
+			},
+			Status: workload.Status{
+				State: workload.StateRunning,
+			},
+			Details: workload.Details{
+				ID: "idfoo",
+			},
+		},
+	})
+
+	c.Check(result, jc.DeepEquals, WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		NotFound: false,
+		Error:    nil,
+		Workload: &Workload{
+			Definition: WorkloadDefinition{
+				Name: "foobar",
+				Type: "type",
+			},
+			Status: WorkloadStatus{
+				State: workload.StateRunning,
+			},
+			Details: WorkloadDetails{
+				ID: "idfoo",
+			},
+		},
+	})
+}
+
+func (internalHelpersSuite) TestResult2apiError(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	err := errors.New("<failure>")
+	result := Result2api(workload.Result{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    err,
+	})
+
+	c.Check(result, jc.DeepEquals, WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    common.ServerError(err),
+	})
+}
+
+func (internalHelpersSuite) TestResult2apiNotFound(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	err := errors.NotFoundf("workload %q", id)
+	result := Result2api(workload.Result{
+		ID:       id,
+		Workload: nil,
+		NotFound: false,
+		Error:    err,
+	})
+
+	c.Check(result, jc.DeepEquals, WorkloadResult{
+		ID:       names.NewPayloadTag(id),
+		Workload: nil,
+		NotFound: false,
+		Error:    common.ServerError(err),
+	})
+}
 
 func (internalHelpersSuite) TestAPI2Workload(c *gc.C) {
 	p := Workload{
