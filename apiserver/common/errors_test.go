@@ -143,7 +143,9 @@ func (err unhashableError) Error() string {
 }
 
 func (s *errorsSuite) TestErrorTransform(c *gc.C) {
-	for _, t := range errorTransformTests {
+	for i, t := range errorTransformTests {
+		c.Logf("running test %d: %T{%q}", i, t.err, t.err)
+
 		err1 := common.ServerError(t.err)
 		if t.err == nil {
 			c.Assert(err1, gc.IsNil)
@@ -153,6 +155,37 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			if t.helperFunc != nil {
 				c.Assert(err1, jc.Satisfies, t.helperFunc)
 			}
+		}
+
+		// TODO(ericsnow) Remove this switch once the other error types are supported.
+		switch t.code {
+		case params.CodeHasAssignedUnits,
+			params.CodeNoAddressSet,
+			params.CodeUpgradeInProgress,
+			params.CodeMachineHasAttachedStorage:
+			continue
+		case params.CodeNotFound:
+			if common.IsUnknownEnviromentError(t.err) {
+				continue
+			}
+		case params.CodeOperationBlocked:
+			// ServerError doesn't actually have a case for this code.
+			continue
+		}
+
+		c.Logf("  checking restore (%#v)", err1)
+		restored, ok := common.RestoreError(err1)
+		if t.err == nil {
+			c.Check(ok, jc.IsTrue)
+			c.Check(restored, jc.ErrorIsNil)
+		} else if t.code == "" {
+			c.Check(ok, jc.IsFalse)
+			c.Check(restored.Error(), gc.Equals, t.err.Error())
+		} else {
+			c.Check(ok, jc.IsTrue)
+			// TODO(ericsnow) Use a stricter DeepEquals check.
+			c.Check(errors.Cause(restored), gc.FitsTypeOf, t.err)
+			c.Check(restored.Error(), gc.Equals, t.err.Error())
 		}
 	}
 }
