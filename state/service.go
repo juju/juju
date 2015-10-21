@@ -777,12 +777,15 @@ func (s *Service) addUnitOpsWithCons(principalName string, cons constraints.Valu
 
 // unitCountOp returns the operation to increment the service's unit count.
 func (s *Service) incCountOp(asserts bson.D) txn.Op {
-	return txn.Op{
+	op := txn.Op{
 		C:      servicesC,
 		Id:     s.doc.DocID,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-		Assert: asserts,
 	}
+	if len(asserts) > 0 {
+		op.Assert = asserts
+	}
+	return op
 }
 
 // unitStorageOps returns operations for creating storage
