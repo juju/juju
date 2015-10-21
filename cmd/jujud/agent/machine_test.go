@@ -1267,7 +1267,9 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 	// Read the configuration and check that we can connect with it.
 	confR, err := agent.ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
-	newPassword := confR.APIInfo().Password
+	apiInfo, ok := confR.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	newPassword := apiInfo.Password
 	assertPassword(newPassword, true)
 
 	// Double-check that we can open a fresh connection with the stored
