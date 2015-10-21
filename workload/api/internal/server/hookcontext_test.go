@@ -30,12 +30,15 @@ func (s *suite) SetUpTest(c *gc.C) {
 }
 
 func (s *suite) TestTrack(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	s.state.stateIDs = []string{id}
+
 	a := HookContextAPI{s.state}
 
 	args := internal.TrackArgs{
 		Workloads: []internal.Workload{{
 			Definition: internal.WorkloadDefinition{
-				Name: "foobar",
+				Name: "idfoo",
 				Type: "type",
 			},
 			Status: internal.WorkloadStatus{
@@ -43,7 +46,7 @@ func (s *suite) TestTrack(c *gc.C) {
 				Message: "okay",
 			},
 			Details: internal.WorkloadDetails{
-				ID: "idfoo",
+				ID: "bar",
 				Status: internal.PluginStatus{
 					State: "running",
 				},
@@ -54,21 +57,19 @@ func (s *suite) TestTrack(c *gc.C) {
 	res, err := a.Track(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedResults := internal.WorkloadResults{
+	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID: internal.FullID{
-				Class: "foobar",
-				ID:    "idfoo",
-			},
-			Error: nil,
+			ID:       names.NewPayloadTag(id),
+			Workload: nil,
+			NotFound: false,
+			Error:    nil,
 		}},
-	}
+		Error: nil,
+	})
 
-	c.Assert(res, gc.DeepEquals, expectedResults)
-
-	expected := workload.Info{
+	c.Check(s.state.info, jc.DeepEquals, workload.Info{
 		PayloadClass: charm.PayloadClass{
-			Name: "foobar",
+			Name: "idfoo",
 			Type: "type",
 		},
 		Status: workload.Status{
@@ -77,17 +78,16 @@ func (s *suite) TestTrack(c *gc.C) {
 		},
 		Tags: []string{},
 		Details: workload.Details{
-			ID: "idfoo",
+			ID: "bar",
 			Status: workload.PluginStatus{
 				State: "running",
 			},
 		},
-	}
-
-	c.Check(s.state.info, jc.DeepEquals, expected)
+	})
 }
 
 func (s *suite) TestListOne(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	wl := workload.Info{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
@@ -104,14 +104,16 @@ func (s *suite) TestListOne(c *gc.C) {
 			},
 		},
 	}
-	s.state.workloads = []workload.Info{wl}
+	s.state.workloads = []workload.Result{{
+		ID:       id,
+		Workload: &wl,
+	}}
 
 	a := HookContextAPI{s.state}
 	args := internal.ListArgs{
-		IDs: []internal.FullID{{
-			Class: "foobar",
-			ID:    "idfoo",
-		}},
+		IDs: []names.PayloadTag{
+			names.NewPayloadTag(id),
+		},
 	}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,21 +136,19 @@ func (s *suite) TestListOne(c *gc.C) {
 		},
 	}
 
-	expectedResults := internal.ListResults{
-		Results: []internal.ListResult{{
-			ID: internal.FullID{
-				Class: "foobar",
-				ID:    "idfoo",
-			},
-			Info:  expected,
-			Error: nil,
+	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
+			ID:       names.NewPayloadTag(id),
+			Workload: &expected,
+			NotFound: false,
+			Error:    nil,
 		}},
-	}
-
-	c.Assert(results, gc.DeepEquals, expectedResults)
+	})
 }
 
 func (s *suite) TestListAll(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	s.state.stateIDs = []string{id}
 	wl := workload.Info{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
@@ -165,7 +165,10 @@ func (s *suite) TestListAll(c *gc.C) {
 			},
 		},
 	}
-	s.state.workloads = []workload.Info{wl}
+	s.state.workloads = []workload.Result{{
+		ID:       id,
+		Workload: &wl,
+	}}
 
 	a := HookContextAPI{s.state}
 	args := internal.ListArgs{}
@@ -189,23 +192,19 @@ func (s *suite) TestListAll(c *gc.C) {
 			},
 		},
 	}
-
-	expectedResults := internal.ListResults{
-		Results: []internal.ListResult{{
-			ID: internal.FullID{
-				Class: "foobar",
-				ID:    "idfoo",
-			},
-			Info:  expected,
-			Error: nil,
+	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
+			ID:       names.NewPayloadTag(id),
+			Workload: &expected,
+			NotFound: false,
+			Error:    nil,
 		}},
-	}
-
-	c.Assert(results, gc.DeepEquals, expectedResults)
+	})
 }
 
 func (s *suite) TestLookUpOkay(c *gc.C) {
-	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	s.state.stateIDs = []string{id}
 
 	a := HookContextAPI{s.state}
 	args := internal.LookUpArgs{
@@ -222,9 +221,9 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 		Args:     []interface{}{"fooID", "bar"},
 	}})
 
-	c.Check(res, jc.DeepEquals, internal.LookUpResults{
-		Results: []internal.LookUpResult{{
-			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309"),
+	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
+			ID:       names.NewPayloadTag(id),
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -257,8 +256,8 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
-	c.Check(res, jc.DeepEquals, internal.LookUpResults{
-		Results: []internal.LookUpResult{{
+	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
+		Results: []internal.WorkloadResult{{
 			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309"),
 			NotFound: false,
 			Error:    nil,
@@ -276,30 +275,26 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 }
 
 func (s *suite) TestSetStatus(c *gc.C) {
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	s.state.stateIDs = []string{id}
 	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
 
 	a := HookContextAPI{s.state}
 	args := internal.SetStatusArgs{
 		Args: []internal.SetStatusArg{{
-			ID: internal.FullID{
-				Class: "fooID",
-				ID:    "bar",
-			},
+			ID:     names.NewPayloadTag(id),
 			Status: workload.StateRunning,
 		}},
 	}
 	res, err := a.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.state.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
+	c.Check(s.state.id, gc.Equals, id)
 	c.Assert(s.state.status, gc.Equals, workload.StateRunning)
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID: internal.FullID{
-				Class: "fooID",
-				ID:    "bar",
-			},
+			ID:    names.NewPayloadTag(id),
 			Error: nil,
 		}},
 	}
@@ -307,26 +302,23 @@ func (s *suite) TestSetStatus(c *gc.C) {
 }
 
 func (s *suite) TestUntrack(c *gc.C) {
-	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	s.state.stateIDs = []string{id}
 
 	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
-		IDs: []internal.FullID{{
-			Class: "fooID",
-			ID:    "bar",
-		}},
+		IDs: []names.PayloadTag{
+			names.NewPayloadTag(id),
+		},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.state.id, gc.Equals, "ce5bc2a7-65d8-4800-8199-a7c3356ab309")
+	c.Assert(s.state.id, gc.Equals, id)
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID: internal.FullID{
-				Class: "fooID",
-				ID:    "bar",
-			},
+			ID:    names.NewPayloadTag(id),
 			Error: nil,
 		}},
 	}
@@ -336,7 +328,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 func (s *suite) TestUntrackEmptyID(c *gc.C) {
 	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
-		IDs: []internal.FullID{
+		IDs: []names.PayloadTag{
 			{},
 		},
 	}
@@ -347,10 +339,7 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID: internal.FullID{
-				Class: "",
-				ID:    "",
-			},
+			ID:    names.PayloadTag{},
 			Error: nil,
 		}},
 	}
@@ -358,16 +347,17 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 }
 
 func (s *suite) TestUntrackNoIDs(c *gc.C) {
-	s.state.id = "foo"
+	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
+	s.state.id = id
 
 	a := HookContextAPI{s.state}
 	args := internal.UntrackArgs{
-		IDs: []internal.FullID{},
+		IDs: []names.PayloadTag{},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.state.id, gc.Equals, "foo")
+	c.Assert(s.state.id, gc.Equals, id)
 
 	expected := internal.WorkloadResults{}
 	c.Assert(res, gc.DeepEquals, expected)
@@ -386,7 +376,7 @@ type FakeState struct {
 
 	//outputs
 	stateIDs  []string
-	workloads []workload.Info
+	workloads []workload.Result
 }
 
 func (f *FakeState) nextID() string {
@@ -407,7 +397,7 @@ func (f *FakeState) Track(info workload.Info) error {
 	return nil
 }
 
-func (f *FakeState) List(ids ...string) ([]workload.Info, error) {
+func (f *FakeState) List(ids ...string) ([]workload.Result, error) {
 	f.ids = ids
 	if err := f.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

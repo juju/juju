@@ -17,9 +17,9 @@ var logger = loggo.GetLogger("juju.workload.context")
 // APIClient represents the API needs of a Context.
 type APIClient interface {
 	// List requests the workload info for the given IDs.
-	List(fullIDs ...string) ([]workload.Info, error)
+	List(fullIDs ...string) ([]workload.Result, error)
 	// Register sends a request to update state with the provided workloads.
-	Track(workloads ...workload.Info) ([]string, error)
+	Track(workloads ...workload.Info) ([]workload.Result, error)
 	// Untrack removes the workloads from our list track.
 	Untrack(fullIDs ...string) ([]workload.Result, error)
 	// SetStatus sets the status for the given IDs.
@@ -49,8 +49,9 @@ var _ Component = (*Context)(nil)
 
 // Context is the workload portion of the hook context.
 type Context struct {
-	api       APIClient
-	dataDir   string
+	api     APIClient
+	dataDir string
+	// TODO(ericsnow) Use the Juju ID for the key rather than Info.ID().
 	workloads map[string]workload.Info
 	updates   map[string]workload.Info
 }
@@ -67,13 +68,15 @@ func NewContext(api APIClient, dataDir string) *Context {
 
 // NewContextAPI returns a new jujuc.ContextComponent for workloads.
 func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
-	workloads, err := api.List()
+	results, err := api.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	ctx := NewContext(api, dataDir)
-	for _, wl := range workloads {
+	for _, result := range results {
+		wl := *result.Workload
+		// TODO(ericsnow) Use id instead of wl.ID().
 		ctx.workloads[wl.ID()] = wl
 	}
 	return ctx, nil
@@ -168,6 +171,7 @@ func (c *Context) Track(info workload.Info) error {
 	if err := info.Validate(); err != nil {
 		return errors.Trace(err)
 	}
+
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 	id := info.ID()
 	c.updates[id] = info
@@ -183,8 +187,8 @@ func (c *Context) Untrack(class, id string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(res) > 0 && res[0].Err != nil {
-		return errors.Trace(res[0].Err)
+	if len(res) > 0 && res[0].Error != nil {
+		return errors.Trace(res[0].Error)
 	}
 	delete(c.workloads, id)
 
@@ -199,8 +203,8 @@ func (c *Context) SetStatus(class, id, status string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(res) > 0 && res[0].Err != nil {
-		return errors.Trace(res[0].Err)
+	if len(res) > 0 && res[0].Error != nil {
+		return errors.Trace(res[0].Error)
 	}
 
 	return nil
@@ -220,9 +224,15 @@ func (c *Context) Flush() error {
 		for _, info := range c.updates {
 			updates = append(updates, info)
 		}
-		if _, err := c.api.Track(updates...); err != nil {
+
+		res, err := c.api.Track(updates...)
+		if err != nil {
 			return errors.Trace(err)
 		}
+		if len(res) > 0 && res[0].Error != nil {
+			return errors.Trace(res[0].Error)
+		}
+
 		for k, v := range c.updates {
 			c.workloads[k] = v
 		}
