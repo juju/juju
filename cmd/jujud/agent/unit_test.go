@@ -313,15 +313,6 @@ func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
-func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
-	_, unit, conf, _ := s.primeAgent(c)
-	err := unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, _, err = apicaller.OpenAPIState(fakeConfAgent{conf: conf})
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-}
-
 type fakeConfAgent struct {
 	agent.Agent
 	conf agent.Config
