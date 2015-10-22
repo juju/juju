@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -131,6 +132,13 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 			},
 		},
 	}})
+
+	// Ensure duplicates are not allowed.
+	err = st.Track(info)
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+	results, err = st.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 1)
 
 	err = st.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
