@@ -249,7 +249,6 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-
 		units, err := svc.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.HasLen, 1)
@@ -339,7 +338,6 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-
 		machines, err := s.State.AllMachines()
 		c.Assert(err, jc.ErrorIsNil)
 		if !a.HasNext() {
