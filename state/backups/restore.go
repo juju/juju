@@ -76,8 +76,10 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		dialInfo.Username = conf.Tag().String()
 		// TODO(perrito) we might need an accessor for the actual state pass
 		// just in case it ever changes from the same as api pass.
-		apiInfo := conf.APIInfo()
-		dialInfo.Password = apiInfo.Password
+		apiInfo, ok := conf.APIInfo()
+		if ok {
+			dialInfo.Password = apiInfo.Password
+		}
 	}
 	return dialInfo, nil
 }
