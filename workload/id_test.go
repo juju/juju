@@ -4,6 +4,7 @@
 package workload_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -13,7 +14,9 @@ import (
 
 var _ = gc.Suite(&idSuite{})
 
-type idSuite struct{}
+type idSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *idSuite) TestNewID(c *gc.C) {
 	id, err := workload.NewID()

@@ -4,6 +4,7 @@
 package status_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -12,7 +13,9 @@ import (
 
 var _ = gc.Suite(&formatterSuite{})
 
-type formatterSuite struct{}
+type formatterSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *formatterSuite) TestFormatPayloadOkay(c *gc.C) {
 	payload := status.NewPayload("spam", "a-service", 1, 0)

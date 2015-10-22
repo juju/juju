@@ -6,6 +6,7 @@ package internal
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -15,7 +16,9 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-type internalHelpersSuite struct{}
+type internalHelpersSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&internalHelpersSuite{})
 

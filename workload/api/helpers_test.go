@@ -5,6 +5,7 @@ package api
 
 import (
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -12,7 +13,9 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-type helpersSuite struct{}
+type helpersSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&helpersSuite{})
 

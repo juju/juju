@@ -21,11 +21,15 @@ import (
 var _ = gc.Suite(&listSuite{})
 
 type listSuite struct {
+	testing.IsolationSuite
+
 	stub   *testing.Stub
 	client *stubClient
 }
 
 func (s *listSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.client = &stubClient{stub: s.stub}
 }
