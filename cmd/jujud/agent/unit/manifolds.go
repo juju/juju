@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
@@ -161,10 +161,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName: AgentName,
 		}),
 
-		// The charmdir resource tracks whether the charm directory is available or
-		// not; after 'start' hook and before 'stop' hook executes, and not during
-		// upgrades.
-		CharmDirName: charmdir.Manifold(),
+		// The charmdir resource coordinates whether the charm directory is
+		// available or not; after 'start' hook and before 'stop' hook
+		// executes, and not during upgrades.
+		CharmDirName: fortress.Manifold(),
 
 		// The metric collect worker executes the collect-metrics hook in a
 		// restricted context that can safely run concurrently with other hooks.
