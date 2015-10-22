@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/internal"
 	"github.com/juju/juju/workload/api/internal/client"
@@ -66,14 +67,16 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 func (s *clientSuite) TestTrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	numStubCalls := 0
-	s.facade.FacadeCallFn = func(name string, params, response interface{}) error {
+	s.facade.FacadeCallFn = func(name string, args, response interface{}) error {
 		numStubCalls++
 		c.Check(name, gc.Equals, "Track")
 
 		typedResponse, ok := response.(*internal.WorkloadResults)
 		c.Assert(ok, gc.Equals, true)
 		typedResponse.Results = []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -101,7 +104,9 @@ func (s *clientSuite) TestList(c *gc.C) {
 	responses := []interface{}{
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id).String(),
+				Entity: params.Entity{
+					Tag: names.NewPayloadTag(id).String(),
+				},
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -109,7 +114,9 @@ func (s *clientSuite) TestList(c *gc.C) {
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id).String(),
+				Entity: params.Entity{
+					Tag: names.NewPayloadTag(id).String(),
+				},
 				Workload: &s.workload,
 				NotFound: false,
 				Error:    nil,
@@ -146,10 +153,10 @@ func (s *clientSuite) TestList(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"List",
-			&internal.ListArgs{
-				IDs: []string{
-					names.NewPayloadTag(id).String(),
-				},
+			&params.Entities{
+				Entities: []params.Entity{{
+					Tag: names.NewPayloadTag(id).String(),
+				}},
 			},
 			responses[1],
 		},
@@ -160,7 +167,9 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	response := &internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -198,17 +207,23 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	id2 := "ce5bc2a7-65d8-4800-8199-a7c3356ab311"
 	response := &internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id1).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id1).String(),
+			},
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
 		}, {
-			ID:       "",
+			Entity: params.Entity{
+				Tag: "",
+			},
 			Workload: nil,
 			NotFound: true,
 			Error:    common.ServerError(errors.NotFoundf("workload")),
 		}, {
-			ID:       names.NewPayloadTag(id2).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id2).String(),
+			},
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -265,7 +280,9 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	responses := []interface{}{
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id).String(),
+				Entity: params.Entity{
+					Tag: names.NewPayloadTag(id).String(),
+				},
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -273,7 +290,9 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id).String(),
+				Entity: params.Entity{
+					Tag: names.NewPayloadTag(id).String(),
+				},
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -310,7 +329,9 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 			"SetStatus",
 			&internal.SetStatusArgs{
 				Args: []internal.SetStatusArg{{
-					ID:     names.NewPayloadTag(id).String(),
+					Entity: params.Entity{
+						Tag: names.NewPayloadTag(id).String(),
+					},
 					Status: "running",
 				}},
 			},
@@ -324,7 +345,9 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	responses := []interface{}{
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id).String(),
+				Entity: params.Entity{
+					Tag: names.NewPayloadTag(id).String(),
+				},
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -332,7 +355,9 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 		},
 		&internal.WorkloadResults{
 			Results: []internal.WorkloadResult{{
-				ID:       names.NewPayloadTag(id).String(),
+				Entity: params.Entity{
+					Tag: names.NewPayloadTag(id).String(),
+				},
 				Workload: nil,
 				NotFound: false,
 				Error:    nil,
@@ -367,10 +392,10 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 		FuncName: "FacadeCall",
 		Args: []interface{}{
 			"Untrack",
-			&internal.UntrackArgs{
-				IDs: []string{
-					names.NewPayloadTag(id).String(),
-				},
+			&params.Entities{
+				Entities: []params.Entity{{
+					Tag: names.NewPayloadTag(id).String(),
+				}},
 			},
 			responses[1],
 		},

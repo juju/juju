@@ -3,9 +3,10 @@
 
 package client
 
+// TODO(ericsnow) Eliminate the params import if possible.
+
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/internal"
@@ -28,22 +29,14 @@ func NewHookContextClient(caller facadeCaller) HookContextClient {
 
 // Track calls the Track API server method.
 func (c HookContextClient) Track(workloads ...workload.Info) ([]workload.Result, error) {
-	var args internal.TrackArgs
-	for _, wl := range workloads {
-		arg := internal.Workload2api(wl)
-		args.Workloads = append(args.Workloads, arg)
-	}
+	args := internal.Infos2TrackArgs(workloads)
 
 	var rs internal.WorkloadResults
 	if err := c.FacadeCall("Track", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var results []workload.Result
-	for _, r := range rs.Results {
-		results = append(results, api2result(r))
-	}
-	return results, nil
+	return api2results(rs), nil
 }
 
 // List calls the List API server method.
@@ -56,51 +49,30 @@ func (c HookContextClient) List(fullIDs ...string) ([]workload.Result, error) {
 		}
 		ids = actual
 	}
-
-	var args internal.ListArgs
-	for _, id := range ids {
-		arg := names.NewPayloadTag(id).String()
-		args.IDs = append(args.IDs, arg)
-	}
+	args := internal.IDs2ListArgs(ids)
 
 	var rs internal.WorkloadResults
 	if err := c.FacadeCall("List", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var results []workload.Result
-	for _, r := range rs.Results {
-		results = append(results, api2result(r))
-	}
-	return results, nil
+	return api2results(rs), nil
 }
 
 // LookUp calls the LookUp API server method.
 func (c HookContextClient) LookUp(fullIDs ...string) ([]workload.Result, error) {
-	// Unlike List(), LookUp doesn't fall back to looking up all IDs.
 	if len(fullIDs) == 0 {
+		// Unlike List(), LookUp doesn't fall back to looking up all IDs.
 		return nil, nil
 	}
-
-	var args internal.LookUpArgs
-	for _, fullID := range fullIDs {
-		name, rawID := workload.ParseID(fullID)
-		args.Args = append(args.Args, internal.LookUpArg{
-			Name: name,
-			ID:   rawID,
-		})
-	}
+	args := internal.FullIDs2LookUpArgs(fullIDs)
 
 	var rs internal.WorkloadResults
 	if err := c.FacadeCall("LookUp", &args, &rs); err != nil {
 		return nil, err
 	}
 
-	var results []workload.Result
-	for _, r := range rs.Results {
-		results = append(results, api2result(r))
-	}
-	return results, nil
+	return api2results(rs), nil
 }
 
 // SetStatus calls the SetStatus API server method.
@@ -109,26 +81,14 @@ func (c HookContextClient) SetStatus(status string, fullIDs ...string) ([]worklo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	var args internal.SetStatusArgs
-	for _, id := range ids {
-		arg := internal.SetStatusArg{
-			ID:     names.NewPayloadTag(id).String(),
-			Status: status,
-		}
-		args.Args = append(args.Args, arg)
-	}
+	args := internal.IDs2SetStatusArgs(ids, status)
 
 	var rs internal.WorkloadResults
 	if err := c.FacadeCall("SetStatus", &args, &rs); err != nil {
 		return nil, err
 	}
 
-	var results []workload.Result
-	for _, r := range rs.Results {
-		results = append(results, api2result(r))
-	}
-	return results, nil
+	return api2results(rs), nil
 }
 
 // Untrack calls the Untrack API server method.
@@ -139,23 +99,14 @@ func (c HookContextClient) Untrack(fullIDs ...string) ([]workload.Result, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	var args internal.UntrackArgs
-	for _, id := range ids {
-		arg := names.NewPayloadTag(id).String()
-		args.IDs = append(args.IDs, arg)
-	}
+	args := internal.IDs2UntrackArgs(ids)
 
 	var rs internal.WorkloadResults
 	if err := c.FacadeCall("Untrack", &args, &rs); err != nil {
 		return nil, err
 	}
 
-	var results []workload.Result
-	for _, r := range rs.Results {
-		results = append(results, api2result(r))
-	}
-	return results, nil
+	return api2results(rs), nil
 }
 
 func (c HookContextClient) lookUp(fullIDs []string) ([]string, error) {
@@ -173,6 +124,14 @@ func (c HookContextClient) lookUp(fullIDs []string) ([]string, error) {
 		ids = append(ids, result.ID)
 	}
 	return ids, nil
+}
+
+func api2results(rs internal.WorkloadResults) []workload.Result {
+	var results []workload.Result
+	for _, r := range rs.Results {
+		results = append(results, api2result(r))
+	}
+	return results
 }
 
 func api2result(r internal.WorkloadResult) workload.Result {
