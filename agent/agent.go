@@ -67,13 +67,11 @@ type APIHostPortsSetter struct {
 }
 
 // SetAPIHostPorts is the APIAddressSetter interface.
-func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) ([]string, error) {
-	var addr []string
-	err := s.ChangeConfig(func(c ConfigSetter) error {
-		addr = c.SetAPIHostPorts(servers)
+func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
+	return s.ChangeConfig(func(c ConfigSetter) error {
+		c.SetAPIHostPorts(servers)
 		return nil
 	})
-	return addr, err
 }
 
 // SetStateServingInfo trivially wraps an Agent to implement
@@ -226,10 +224,8 @@ type configSetterOnly interface {
 	// the agent has successfully upgraded to.
 	SetUpgradedToVersion(newVersion version.Number)
 
-	// SetAPIHostPorts sets the API host/port addresses to connect to
-	// based on the supplied server information.
-	// It returns the actual address details written.
-	SetAPIHostPorts(servers [][]network.HostPort) []string
+	// SetAPIHostPorts sets the API host/port addresses to connect to.
+	SetAPIHostPorts(servers [][]network.HostPort)
 
 	// Migrate takes an existing agent config and applies the given
 	// parameters to change it.
@@ -548,16 +544,16 @@ func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
 	c.upgradedToVersion = newVersion
 }
 
-func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) []string {
+func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	if c.apiDetails == nil {
-		return nil
+		return
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
 		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
 	}
 	c.apiDetails.addresses = addrs
-	return addrs
+	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
 }
 
 func (c *configInternal) SetValue(key, value string) {

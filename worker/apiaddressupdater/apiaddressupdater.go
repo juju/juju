@@ -34,7 +34,7 @@ type APIAddresser interface {
 // APIAddressSetter is an interface that is provided to NewAPIAddressUpdater
 // whose SetAPIHostPorts method will be invoked whenever address changes occur.
 type APIAddressSetter interface {
-	SetAPIHostPorts(servers [][]network.HostPort) ([]string, error)
+	SetAPIHostPorts(servers [][]network.HostPort) error
 }
 
 // NewAPIAddressUpdater returns a worker.Worker that watches for changes to
@@ -72,11 +72,9 @@ func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
 			hpsToSet = append(hpsToSet, hps)
 		}
 	}
-	addr, err := c.setter.SetAPIHostPorts(hpsToSet)
-	if err != nil {
+	if err := c.setter.SetAPIHostPorts(hpsToSet); err != nil {
 		return fmt.Errorf("error setting addresses: %v", err)
 	}
-	logger.Infof("API server address details %q written to agent config as %q", hpsToSet, addr)
 	return nil
 }
 

@@ -41,16 +41,9 @@ type apiAddressSetter struct {
 	err     error
 }
 
-func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) ([]string, error) {
+func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
 	s.servers <- servers
-	if s.err != nil {
-		return nil, s.err
-	}
-	var addrs []string
-	for _, serverHostPorts := range servers {
-		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
-	}
-	return addrs, nil
+	return s.err
 }
 
 func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
