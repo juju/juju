@@ -19,7 +19,8 @@ import (
 func FindImageMetadata(env environs.Environ, imageConstraint *imagemetadata.ImageConstraint, signedOnly bool) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
 	stateMetadata, stateInfo, err := imageMetadataFromState(env, imageConstraint, signedOnly)
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, nil, errors.Trace(err)
+		// look into simple stream if for some reason can't get from state server
+		logger.Infof("could not get image metadata from state server: %v", err)
 	}
 
 	// No need to look in data sources if found in state?
