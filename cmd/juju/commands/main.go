@@ -98,6 +98,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",
 		helptopics.MAASProvider, "maas")
 	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopics.Constraints)
+	jcmd.AddHelpTopic("payloads", "How to use Juju's enhanced payload listing", helptopics.Payloads)
 	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopics.Placement)
 	jcmd.AddHelpTopic("networking", "How to use Juju's enhanced networking features", helptopics.Networking)
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)

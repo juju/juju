@@ -323,6 +323,7 @@ var topicNames = []string{
 	"maas-provider",
 	"networking",
 	"openstack-provider",
+	"payloads",
 	"placement",
 	"plugins",
 	"topics",
