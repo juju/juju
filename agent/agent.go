@@ -591,6 +591,7 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
 	}
 	c.apiDetails.addresses = addrs
+	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
 }
 
 func (c *configInternal) SetValue(key, value string) {
