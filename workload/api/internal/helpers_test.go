@@ -278,7 +278,7 @@ func (internalHelpersSuite) TestAPI2Workload(c *gc.C) {
 			Blocker: "",
 			Message: "okay",
 		},
-		Tags: []string{},
+		Labels: []string{},
 		Details: WorkloadDetails{
 			ID: "idfoo",
 			Status: PluginStatus{
@@ -305,7 +305,7 @@ func (internalHelpersSuite) TestWorkload2API(c *gc.C) {
 			Blocker: "",
 			Message: "okay",
 		},
-		Tags: []string{},
+		Labels: []string{},
 		Details: workload.Details{
 			ID: "idfoo",
 			Status: workload.PluginStatus{

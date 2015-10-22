@@ -41,7 +41,7 @@ func (s *envPersistenceSuite) newPayload(name string) workload.FullPayloadInfo {
 			},
 			ID:     "id" + name,
 			Status: workload.StateRunning,
-			Tags:   []string{"a-tag"},
+			Labels: []string{"a-tag"},
 			Unit:   "a-service/0",
 		},
 		Machine: "1",

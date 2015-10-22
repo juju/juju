@@ -72,8 +72,8 @@ type Workload struct {
 	Definition WorkloadDefinition
 	// Status is the Juju-level status for the workload.
 	Status WorkloadStatus
-	// Tags are the tags assigned to a workload.
-	Tags []string
+	// Labels are the labels assigned to a workload.
+	Labels []string
 	// Details are the information returned from starting the workload.
 	Details WorkloadDetails
 }

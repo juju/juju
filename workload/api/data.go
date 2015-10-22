@@ -16,8 +16,6 @@ type EnvListResults struct {
 	Results []Payload
 }
 
-// TODO(ericsnow) Rename Tags to "Labels"?
-
 // Payload contains full information about a payload.
 type Payload struct {
 	// Class is the name of the payload class.
@@ -30,8 +28,8 @@ type Payload struct {
 	ID string
 	// Status is the Juju-level status for the payload.
 	Status string
-	// Tags are tags associated with the payload.
-	Tags []string
+	// Labels are labels associated with the payload.
+	Labels []string
 
 	// Unit identifies the unit tag associated with the payload.
 	Unit string

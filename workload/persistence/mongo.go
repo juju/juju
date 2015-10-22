@@ -118,9 +118,9 @@ type workloadDoc struct {
 	Blocker string `bson:"blocker"`
 	Status  string `bson:"status"`
 
-	// TODO(ericsnow) Store tags in the "annotations" collection?
+	// TODO(ericsnow) Store labels in the "annotations" collection?
 
-	Tags []string `bson:"tags"`
+	Labels []string `bson:"labels"`
 
 	PluginID       string `bson:"pluginid"`
 	OriginalStatus string `bson:"origstatus"`
@@ -129,12 +129,12 @@ type workloadDoc struct {
 }
 
 func (d workloadDoc) info() workload.Info {
-	tags := make([]string, len(d.Tags))
-	copy(tags, d.Tags)
+	labels := make([]string, len(d.Labels))
+	copy(labels, d.Labels)
 	info := workload.Info{
 		PayloadClass: d.definition(),
 		Status:       d.status(),
-		Tags:         tags,
+		Labels:       labels,
 		Details:      d.details(),
 	}
 	info.Details.Status.State = d.PluginStatus
@@ -182,8 +182,8 @@ func (pp Persistence) newWorkloadDoc(id string, info workload.Info) *workloadDoc
 
 	definition := info.PayloadClass
 
-	tags := make([]string, len(info.Tags))
-	copy(tags, info.Tags)
+	labels := make([]string, len(info.Labels))
+	copy(labels, info.Labels)
 
 	return &workloadDoc{
 		DocID:  id,
@@ -196,7 +196,7 @@ func (pp Persistence) newWorkloadDoc(id string, info workload.Info) *workloadDoc
 		Blocker: info.Status.Blocker,
 		Status:  info.Status.Message,
 
-		Tags: tags,
+		Labels: labels,
 
 		PluginID:       info.Details.ID,
 		OriginalStatus: info.Details.Status.State,
