@@ -17,24 +17,8 @@ var _ = gc.Suite(&internalHelpersSuite{})
 func (internalHelpersSuite) TestAPI2Workload(c *gc.C) {
 	p := Workload{
 		Definition: WorkloadDefinition{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []WorkloadPort{{
-				External: 8080,
-				Internal: 80,
-				Endpoint: "endpoint",
-			}},
-			Volumes: []WorkloadVolume{{
-				ExternalMount: "/foo/bar",
-				InternalMount: "/baz/bat",
-				Mode:          "ro",
-				Name:          "volname",
-			}},
-			EnvVars: map[string]string{"envfoo": "bar"},
+			Name: "foobar",
+			Type: "type",
 		},
 		Status: WorkloadStatus{
 			State:   workload.StateRunning,
@@ -59,29 +43,9 @@ func (internalHelpersSuite) TestAPI2Workload(c *gc.C) {
 
 func (internalHelpersSuite) TestWorkload2API(c *gc.C) {
 	wl := workload.Info{
-		Workload: charm.Workload{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []charm.WorkloadPort{
-				{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				},
-			},
-			Volumes: []charm.WorkloadVolume{
-				{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				},
-			},
-			EnvVars: map[string]string{"envfoo": "bar"},
+		PayloadClass: charm.PayloadClass{
+			Name: "foobar",
+			Type: "type",
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,

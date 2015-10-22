@@ -18,7 +18,7 @@ type infoSuite struct{}
 
 func (s *infoSuite) newInfo(name, workloadType string) *workload.Info {
 	return &workload.Info{
-		Workload: charm.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: name,
 			Type: workloadType,
 		},
@@ -62,7 +62,7 @@ func (s *infoSuite) TestValidateBadMetadata(c *gc.C) {
 	err := info.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, ".*type: name is required")
+	c.Check(err, gc.ErrorMatches, "payload class missing type")
 }
 
 func (s *infoSuite) TestValidateBadStatus(c *gc.C) {

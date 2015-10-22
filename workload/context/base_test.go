@@ -25,7 +25,7 @@ func init() {
 type baseSuite struct {
 	jujuctesting.ContextSuite
 	workload    workload.Info
-	definitions map[string]charm.Workload
+	definitions map[string]charm.PayloadClass
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -36,7 +36,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 func (s *baseSuite) newWorkload(name, ptype, id, status string) workload.Info {
 	info := workload.Info{
-		Workload: charm.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: name,
 			Type: ptype,
 		},
@@ -100,7 +100,7 @@ var _ context.Component = (*stubContextComponent)(nil)
 type stubContextComponent struct {
 	stub        *testing.Stub
 	workloads   map[string]workload.Info
-	definitions map[string]charm.Workload
+	definitions map[string]charm.PayloadClass
 	untracks    map[string]struct{}
 }
 
@@ -108,7 +108,7 @@ func newStubContextComponent(stub *testing.Stub) *stubContextComponent {
 	return &stubContextComponent{
 		stub:        stub,
 		workloads:   make(map[string]workload.Info),
-		definitions: make(map[string]charm.Workload),
+		definitions: make(map[string]charm.PayloadClass),
 		untracks:    make(map[string]struct{}),
 	}
 }
@@ -185,14 +185,14 @@ func (c *stubContextComponent) Flush() error {
 type stubAPIClient struct {
 	stub        *testing.Stub
 	workloads   map[string]workload.Info
-	definitions map[string]charm.Workload
+	definitions map[string]charm.PayloadClass
 }
 
 func newStubAPIClient(stub *testing.Stub) *stubAPIClient {
 	return &stubAPIClient{
 		stub:        stub,
 		workloads:   make(map[string]workload.Info),
-		definitions: make(map[string]charm.Workload),
+		definitions: make(map[string]charm.PayloadClass),
 	}
 }
 
@@ -207,7 +207,7 @@ func (c *stubAPIClient) setNew(ids ...string) []workload.Info {
 			panic("missing id")
 		}
 		wl := workload.Info{
-			Workload: charm.Workload{
+			PayloadClass: charm.PayloadClass{
 				Name: name,
 				Type: "myplugin",
 			},
