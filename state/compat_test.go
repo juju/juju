@@ -45,7 +45,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	// the environment is Alive.
 	err = s.state.runTransaction([]txn.Op{s.env.assertAliveOp()})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.Destroy()
+	err = s.env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

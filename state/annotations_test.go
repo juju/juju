@@ -157,7 +157,7 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertAnnotation(c, st, env, key, expected)
 
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)

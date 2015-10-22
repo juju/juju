@@ -99,7 +99,7 @@ func (m *mockEnvironment) UUID() string {
 	return m.uuid
 }
 
-func (m *mockEnvironment) Destroy() error {
+func (m *mockEnvironment) Destroy(_ bool) error {
 	m.life = state.Dying
 	return nil
 }

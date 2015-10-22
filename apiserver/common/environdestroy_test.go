@@ -86,7 +86,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 
 	// If there are any non-manager manual machines in state, DestroyEnvironment will
 	// error. It will not set the Dying flag on the environment.
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to destroy environment: manually provisioned machines must first be destroyed with `juju destroy-machine %s`", nonManager.Id()))
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,7 +98,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = nonManager.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,7 +121,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
@@ -165,7 +165,7 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) {
 	manager, nonManager, container := s.setUpInstances(c)
 
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCleanupCount(c, s.State, 2)
@@ -186,7 +186,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
@@ -195,7 +195,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	// Setup environment
 	s.setUpInstances(c)
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
@@ -205,7 +205,7 @@ func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
 	s.BlockAllChanges(c, "TestBlockChangesDestroyEnvironment")
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	s.AssertBlocked(c, err, "TestBlockChangesDestroyEnvironment")
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
@@ -251,7 +251,7 @@ func (s *destroyTwoEnvironmentsSuite) TestDestroyEnvironmentWithContainer(c *gc.
 	m1 := otherFactory.MakeMachine(c, nil)
 	container := otherFactory.MakeMachineNested(c, m1.Id(), nil)
 
-	err := common.DestroyEnvironment(s.otherState, s.otherState.EnvironTag())
+	err := common.DestroyEnvironment(s.otherState, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	processDyingEnviron(c, s.otherState)
@@ -266,7 +266,7 @@ func (s *destroyTwoEnvironmentsSuite) TestWaitsForResourceRemoval(c *gc.C) {
 	m := otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	err := common.DestroyEnvironment(s.otherState, s.otherState.EnvironTag())
+	err := common.DestroyEnvironment(s.otherState, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.otherState.ProcessDyingEnviron()
@@ -289,7 +289,7 @@ func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
 
 	// NOTE: pass in the main test State instance, which is 'bound'
 	// to the state server environment.
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	processDyingEnviron(c, s.otherState)
@@ -304,13 +304,19 @@ func (s *destroyTwoEnvironmentsSuite) TestDifferentStateEnv(c *gc.C) {
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAfterNonStateServerIsDestroyed(c *gc.C) {
-	err := common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	c.Assert(err, gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
-	err = common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err = common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}, {FuncName: "SendMetrics"}})
+}
+
+func (s *destroyTwoEnvironmentsSuite) TestDestroyStateServerAndNonStateServer(c *gc.C) {
+	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), true)
+	c.Assert(err, jc.ErrorIsNil)
+	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
@@ -319,10 +325,10 @@ func (s *destroyTwoEnvironmentsSuite) TestCanDestroyNonBlockedEnv(c *gc.C) {
 
 	bh.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
 
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = common.DestroyEnvironment(s.State, s.State.EnvironTag())
+	err = common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	bh.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
 
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})

@@ -21,32 +21,23 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	systemTag := systemEnv.EnvironTag()
 
-	if args.DestroyEnvironments {
-
-		// If we are destroying environments, we need to tolerate living
-		// environments but prevent new environments sneaking in while we are
-		// taking the system down. So we freeze the system environment.
-		if err := systemEnv.SetMode(state.EnvFrozen); err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-
-		// If we are not destroying hosted environments, attempt to set the system
-		// to dying. It will fail if any hosted environments are found.
-		if err := systemEnv.Destroy(); err != nil {
-			if err != nil && state.IsHasHostedEnvironsError(err) {
-				err = errors.New("state server environment cannot be destroyed before all other environments are destroyed")
-			}
-			return errors.Trace(err)
-		}
-	}
-
-	if err := s.ensureNotBlocked(args); err != nil {
+	if err = s.ensureNotBlocked(args); err != nil {
 		return errors.Trace(err)
 	}
 
-	systemTag := systemEnv.EnvironTag()
+	// If we are destroying environments, we need to tolerate living
+	// environments but set the system to dying to prevent new environments
+	// sneaking in. If we are not destroying hosted environments, this will
+	// fail if any hosted environments are found.
+	if err = common.DestroyEnvironment(s.state, systemTag, args.DestroyEnvironments); err != nil {
+		if state.IsHasHostedEnvironsError(err) {
+			return errors.New("state server environment cannot be destroyed before all other environments are destroyed")
+		}
+		return errors.Trace(err)
+	}
+
 	destroyer := newEnvironDestroyer(s.state, systemTag)
 
 	// Now we can be sure that no new environments will be added. But any of
@@ -55,7 +46,8 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 	// living environments we've found.
 	destroyer.Watch()
 
-	allEnvs, err := s.state.AllEnvironments()
+	var allEnvs []*state.Environment
+	allEnvs, err = s.state.AllEnvironments()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -67,16 +59,7 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 		}
 	}
 
-	if err := destroyer.Wait(); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Once all hosted environments are dealt with, take down the system.
-	err = common.DestroyEnvironment(s.state, systemTag)
-	if err != nil && state.IsHasHostedEnvironsError(err) {
-		err = errors.New("state server environment cannot be destroyed before all other environments are destroyed")
-	}
-	return errors.Trace(err)
+	return destroyer.Wait()
 }
 
 func areAllHostedEnvsDead(st *state.State) (bool, error) {
@@ -154,7 +137,7 @@ func (w *environDestroyer) loop() error {
 			return tomb.ErrDying
 		case environTag := <-w.livingEnvirons:
 			if environTag != w.systemTag {
-				if err := common.DestroyEnvironment(w.st, environTag); err != nil {
+				if err := common.DestroyEnvironment(w.st, environTag, false); err != nil {
 					logger.Errorf("unable to destroy environment %q: %s", environTag.Id(), err)
 				}
 			}
@@ -191,6 +174,13 @@ func (w *environDestroyer) isDead(uuid string) (bool, error) {
 }
 
 func (s *SystemManagerAPI) ensureNotBlocked(args params.DestroySystemArgs) error {
+	if args.IgnoreBlocks {
+		err := s.state.RemoveAllBlocksForSystem()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// If there are blocks, and we aren't being told to ignore them, let the
 	// user know.
 	blocks, err := s.state.AllBlocksForSystem()
@@ -200,14 +190,9 @@ func (s *SystemManagerAPI) ensureNotBlocked(args params.DestroySystemArgs) error
 			return errors.Trace(err)
 		}
 	}
-	if len(blocks) > 0 {
-		if !args.IgnoreBlocks {
-			return common.ErrOperationBlocked("found blocks in system environments")
-		}
-		err := s.state.RemoveAllBlocksForSystem()
-		if err != nil {
-			return errors.Trace(err)
-		}
+
+	if len(blocks) > 0 && !args.IgnoreBlocks {
+		return common.ErrOperationBlocked("found blocks in system environments")
 	}
 	return nil
 }

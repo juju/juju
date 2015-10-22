@@ -123,17 +123,15 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) {
+func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfIgnoreBlocks(c *gc.C) {
 	s.startMockUndertaker(c)
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
-		IgnoreBlocks: true,
-	})
-	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
+	err := s.systemManager.DestroySystem(params.DestroySystemArgs{})
+	c.Assert(err, gc.ErrorMatches, "found blocks in system environments")
 
 	numBlocks, err := s.State.AllBlocksForSystem()
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,7 +140,7 @@ func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) 
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 	s.startMockUndertaker(c)
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.systemManager.DestroySystem(params.DestroySystemArgs{})
@@ -155,7 +153,7 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
 	s.startMockUndertaker(c)
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
@@ -173,7 +171,7 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
 
 func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
 	s.startMockUndertaker(c)
-	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
+	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")

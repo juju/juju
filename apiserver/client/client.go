@@ -1050,5 +1050,5 @@ func (c *Client) DestroyEnvironment() (err error) {
 	}
 
 	environTag := c.api.stateAccessor.EnvironTag()
-	return errors.Trace(common.DestroyEnvironment(c.api.state(), environTag))
+	return errors.Trace(common.DestroyEnvironment(c.api.state(), environTag, false))
 }

@@ -88,7 +88,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 	// unaffected, but a cleanup for the service has been scheduled.
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	s.assertCleanupRuns(c)
