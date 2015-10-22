@@ -23,17 +23,9 @@ const workloadsMetaYAML = `
 name: a-charm
 summary: a charm...
 description: a charm...
-workloads:
+payloads:
   workloadA:
     type: docker
-    command: do-something cool
-    image: spam/eggs
-    ports:
-      - 8080:80
-    volumes:
-      - /var/nginx/html:/usr/share/nginx/html:ro
-    env:
-      IMPORTANT: YES
 `
 
 func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, *state.Unit) {
@@ -79,7 +71,6 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 
 	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-
 	// TODO(ericsnow) Once Track returns the new ID we can drop
 	// the following two lines.
 	c.Assert(results, gc.HasLen, 1)
