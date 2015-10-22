@@ -161,6 +161,8 @@ class TestGoTest(unittest.TestCase):
             ('print', 'Merging https://git.testing/proposed ref HEAD'),
             ('git', 'fetch', 'https://git.testing/proposed', 'HEAD'),
             ('git', 'merge', '--no-ff', '-m', 'Merged HEAD', 'FETCH_HEAD'),
+            ('print', 'Updating git.testing/project dependencies using go'),
+            ('go', 'get', '-v', '-d', '-t', 'git.testing/project/...'),
             ('go', 'build', 'git.testing/project/...'),
             ('go', 'test', 'git.testing/project/...')
         ])
@@ -177,14 +179,14 @@ class TestGoTest(unittest.TestCase):
              ' https://git.testing/project'),
             ('git', 'clone', 'https://git.testing/project',
              '/tmp/fake/src/git.testing/project'),
-            ('print', 'Getting git.testing/project and dependencies using go'),
-            ('go', 'get', '-v', '-d', '-t', 'git.testing/project/...'),
             ('chdir', '/tmp/fake/src/git.testing/project'),
             ('print', 'Switching repository to v1'),
             ('git', 'checkout', 'v1'),
             ('print', 'Merging https://git.testing/proposed ref feature'),
             ('git', 'fetch', 'https://git.testing/proposed', 'feature'),
             ('git', 'merge', '--no-ff', '-m', 'Merged feature', 'FETCH_HEAD'),
+            ('print', 'Updating git.testing/project dependencies using go'),
+            ('go', 'get', '-v', '-d', '-t', 'git.testing/project/...'),
             ('go', 'build', 'git.testing/project/...'),
             ('go', 'test', 'git.testing/project/...')
         ])

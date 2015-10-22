@@ -12,11 +12,11 @@ old_version="$1"
 candidate_version="$2"
 new_to_old="$3"
 client_os="$4"
-log_dir="$5"
+local_log_dir="$5"
 
 set -x
 
-if [[ "$new_to_old" == "true" ]]; then
+if [[ "$new_to_old" == "true"  && -d $HOME/candidate/$candidate_version ]]; then
     echo "Using weekly streams for unreleased version"
     agent_arg="--agent-url http://juju-dist.s3.amazonaws.com/weekly/tools"
 else
@@ -24,12 +24,19 @@ else
     agent_arg="--agent-stream proposed"
 fi
 
+
 if [[ "$client_os" == "ubuntu" ]]; then
-    server=$(find $HOME/old-juju/$old_version -name juju)
-    client=$(find $HOME/candidate/$candidate_version -name juju)
+    if [[ -d $HOME/old-juju/$candidate_version ]]; then
+        candidate_juju=$(find $HOME/old-juju/$candidate_version -name juju)
+    else
+        candidate_juju=$(find $HOME/candidate/$candidate_version -name juju)
+    fi
+    old_juju=$(find $HOME/old-juju/$old_version -name juju)
+    server=$old_juju
+    client=$candidate_juju
     if [[ "$new_to_old" == "true" ]]; then
-        client=$(find $HOME/old-juju/$old_version -name juju)
-        server=$(find $HOME/candidate/$candidate_version -name juju)
+        server=$candidate_juju
+        client=$old_juju
     fi
     echo "Server: " `$server --version`
     echo "Client: " `$client --version`
@@ -44,20 +51,23 @@ else
     exit 1
 fi
 
+remote_log_dir="logs"
 run_remote_script() {
     cat > temp-config.yaml <<EOT
 install:
     remote:
         - $SCRIPTS/$remote_script
-command: [remote/$remote_script, "$candidate_version", "$old_version", "$new_to_old", "$agent_arg"]
+command: [remote/$remote_script, "$candidate_version", "$old_version", "$new_to_old", "$remote_log_dir", "$agent_arg"]
+download-dir:
+    $remote_log_dir: "$local_log_dir"
 EOT
-    workspace-run temp-config.yaml $user_at_host
+    workspace-run temp-config.yaml $user_at_host -v
 }
 
 set +e
 for i in `seq 1 2`; do
     if [[ "$client_os" == "ubuntu" ]]; then
-        $SCRIPTS/assess_heterogeneous_control.py $server $client test-reliability-aws $JOB_NAME $log_dir $agent_arg
+        $SCRIPTS/assess_heterogeneous_control.py $server $client test-reliability-aws $JOB_NAME $local_log_dir $agent_arg
     else
         run_remote_script
     fi
@@ -67,7 +77,8 @@ for i in `seq 1 2`; do
     fi
     if [[ $i == 1 ]]; then
         # Don't remove the log if it fails on the second try.
-        rm -rf $log_dir/*
+        rm -rf $local_log_dir/*
     fi
 done
 exit $RESULT
+
