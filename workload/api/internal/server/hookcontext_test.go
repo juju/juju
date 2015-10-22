@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/internal"
 )
@@ -58,7 +59,9 @@ func (s *suite) TestTrack(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Workload: nil,
 			NotFound: false,
 			Error:    nil,
@@ -108,10 +111,10 @@ func (s *suite) TestListOne(c *gc.C) {
 	}}
 
 	a := HookContextAPI{s.state}
-	args := internal.ListArgs{
-		IDs: []string{
-			names.NewPayloadTag(id).String(),
-		},
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewPayloadTag(id).String(),
+		}},
 	}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,7 +139,9 @@ func (s *suite) TestListOne(c *gc.C) {
 
 	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Workload: &expected,
 			NotFound: false,
 			Error:    nil,
@@ -169,7 +174,7 @@ func (s *suite) TestListAll(c *gc.C) {
 	}}
 
 	a := HookContextAPI{s.state}
-	args := internal.ListArgs{}
+	args := params.Entities{}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -192,7 +197,9 @@ func (s *suite) TestListAll(c *gc.C) {
 	}
 	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Workload: &expected,
 			NotFound: false,
 			Error:    nil,
@@ -221,7 +228,9 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -256,15 +265,21 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
 	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309").String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309").String(),
+			},
 			NotFound: false,
 			Error:    nil,
 		}, {
-			ID:       "",
+			Entity: params.Entity{
+				Tag: "",
+			},
 			NotFound: true,
 			Error:    common.ServerError(notFound),
 		}, {
-			ID:       names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab311").String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab311").String(),
+			},
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -279,7 +294,9 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	a := HookContextAPI{s.state}
 	args := internal.SetStatusArgs{
 		Args: []internal.SetStatusArg{{
-			ID:     names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Status: workload.StateRunning,
 		}},
 	}
@@ -291,7 +308,9 @@ func (s *suite) TestSetStatus(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Error: nil,
 		}},
 	}
@@ -303,10 +322,10 @@ func (s *suite) TestUntrack(c *gc.C) {
 	s.state.stateIDs = []string{id}
 
 	a := HookContextAPI{s.state}
-	args := internal.UntrackArgs{
-		IDs: []string{
-			names.NewPayloadTag(id).String(),
-		},
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewPayloadTag(id).String(),
+		}},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,7 +334,9 @@ func (s *suite) TestUntrack(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    names.NewPayloadTag(id).String(),
+			Entity: params.Entity{
+				Tag: names.NewPayloadTag(id).String(),
+			},
 			Error: nil,
 		}},
 	}
@@ -324,10 +345,10 @@ func (s *suite) TestUntrack(c *gc.C) {
 
 func (s *suite) TestUntrackEmptyID(c *gc.C) {
 	a := HookContextAPI{s.state}
-	args := internal.UntrackArgs{
-		IDs: []string{
-			"",
-		},
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: "",
+		}},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -336,7 +357,9 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 
 	expected := internal.WorkloadResults{
 		Results: []internal.WorkloadResult{{
-			ID:    "",
+			Entity: params.Entity{
+				Tag: "",
+			},
 			Error: nil,
 		}},
 	}
@@ -348,8 +371,8 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 	s.state.id = id
 
 	a := HookContextAPI{s.state}
-	args := internal.UntrackArgs{
-		IDs: []string{},
+	args := params.Entities{
+		Entities: []params.Entity{},
 	}
 	res, err := a.Untrack(args)
 	c.Assert(err, jc.ErrorIsNil)

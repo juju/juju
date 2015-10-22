@@ -15,11 +15,7 @@ type TrackArgs struct {
 	Workloads []Workload
 }
 
-// ListArgs are the arguments for the List endpoint.
-type ListArgs struct {
-	// IDs is the list of tags for the workloads you want information on.
-	IDs []string
-}
+// List uses params.Entities.
 
 // LookUpArgs are the arguments for the LookUp endpoint.
 type LookUpArgs struct {
@@ -44,17 +40,12 @@ type SetStatusArgs struct {
 // SetStatusArg are the arguments for a single call to the
 // SetStatus endpoint.
 type SetStatusArg struct {
-	// ID is the tag that uniquely identifies the workload.
-	ID string
+	params.Entity
 	// Status is the new status of the workload.
 	Status string
 }
 
-// UntrackArgs are the arguments for the Untrack endpoint.
-type UntrackArgs struct {
-	// IDs is a list of tags for workloads.
-	IDs []string
-}
+// Untrack uses params.Entities.
 
 // WorkloadResults is the result for a call that makes one or more requests
 // about workloads.
@@ -66,8 +57,7 @@ type WorkloadResults struct {
 
 // WorkloadResult contains the result for a single call.
 type WorkloadResult struct {
-	// ID is the tag for the workload referenced in the call..
-	ID string
+	params.Entity
 	// Workload holds the details of the workload, if any.
 	Workload *Workload
 	// NotFound indicates that the workload was not found in state.

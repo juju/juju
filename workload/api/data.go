@@ -16,6 +16,8 @@ type EnvListResults struct {
 	Results []Payload
 }
 
+// TODO(ericsnow) Rename Tags to "Labels"?
+
 // Payload contains full information about a payload.
 type Payload struct {
 	// Class is the name of the payload class.

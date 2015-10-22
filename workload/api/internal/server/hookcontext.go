@@ -3,9 +3,12 @@
 
 package server
 
+// TODO(ericsnow) Eliminate the params import if possible.
+
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/internal"
 )
@@ -65,14 +68,14 @@ func (a HookContextAPI) track(info workload.Info) (string, error) {
 // List builds the list of workload being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // workloads for the unit are returned.
-func (a HookContextAPI) List(args internal.ListArgs) (internal.WorkloadResults, error) {
-	if len(args.IDs) == 0 {
+func (a HookContextAPI) List(args params.Entities) (internal.WorkloadResults, error) {
+	if len(args.Entities) == 0 {
 		return a.listAll()
 	}
 
 	var ids []string
-	for _, id := range args.IDs {
-		id, err := internal.API2ID(id)
+	for _, entity := range args.Entities {
+		id, err := internal.API2ID(entity.Tag)
 		if err != nil {
 			return internal.WorkloadResults{}, errors.Trace(err)
 		}
@@ -131,7 +134,7 @@ func (a HookContextAPI) LookUp(args internal.LookUpArgs) (internal.WorkloadResul
 func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
-		id, err := internal.API2ID(arg.ID)
+		id, err := internal.API2ID(arg.Tag)
 		if err != nil {
 			return r, errors.Trace(err)
 		}
@@ -144,10 +147,10 @@ func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.Workloa
 }
 
 // Untrack marks the identified workload as no longer being tracked.
-func (a HookContextAPI) Untrack(args internal.UntrackArgs) (internal.WorkloadResults, error) {
+func (a HookContextAPI) Untrack(args params.Entities) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
-	for _, tag := range args.IDs {
-		id, err := internal.API2ID(tag)
+	for _, entity := range args.Entities {
+		id, err := internal.API2ID(entity.Tag)
 		if err != nil {
 			return r, errors.Trace(err)
 		}
