@@ -67,8 +67,6 @@ func (ep *EnvPersistence) ListAll() ([]workload.FullPayloadInfo, error) {
 		}
 
 		for _, unit := range units {
-			// TODO(ericsnow) Cache these in ep.cache?
-			//  cache map[<unit name>]*Persistence)
 			persist := ep.newUnitPersist(ep.base, unit)
 
 			unitPayloads, err := listUnit(persist, unit, machine)
