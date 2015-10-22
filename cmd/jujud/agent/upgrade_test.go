@@ -906,7 +906,8 @@ func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 }
 
 func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) error {
-	info := conf.APIInfo()
+	info, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
 	info.Nonce = ""
@@ -925,9 +926,12 @@ func (s *UpgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 }
 
 func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
-	info := fromConf.APIInfo()
-	info.Addrs = toConf.APIInfo().Addrs
-	apiState, err := api.Open(info, upgradeTestDialOpts)
+	fromInfo, ok := fromConf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	toInfo, ok := toConf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	fromInfo.Addrs = toInfo.Addrs
+	apiState, err := api.Open(fromInfo, upgradeTestDialOpts)
 	if apiState != nil {
 		apiState.Close()
 	}
