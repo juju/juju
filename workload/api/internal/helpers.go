@@ -4,6 +4,7 @@
 package internal
 
 // TODO(ericsnow) Eliminate the apiserver/common import if possible.
+// TODO(ericsnow) Eliminate the params import if possible.
 
 import (
 	"github.com/juju/errors"
@@ -11,14 +12,16 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
 )
 
-// NewWorkloadResult builds a new WorkloadResult from the provided ID
+// NewWorkloadResult builds a new WorkloadResult from the provided tag
 // and error. NotFound is also set based on the error.
 func NewWorkloadResult(id string, err error) WorkloadResult {
 	result := workload.Result{
 		ID:       id,
+		Workload: nil,
 		NotFound: errors.IsNotFound(err),
 		Error:    err,
 	}
@@ -30,20 +33,22 @@ func API2Result(r WorkloadResult) (workload.Result, error) {
 	result := workload.Result{
 		NotFound: r.NotFound,
 	}
-	if r.ID != "" {
-		tag, err := names.ParsePayloadTag(r.ID)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		result.ID = tag.Id()
+
+	id, err := API2ID(r.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
+	result.ID = id
+
 	if r.Workload != nil {
 		info := API2Workload(*r.Workload)
 		result.Workload = &info
 	}
+
 	if r.Error != nil {
 		result.Error, _ = common.RestoreError(r.Error)
 	}
+
 	return result, nil
 }
 
@@ -52,16 +57,20 @@ func Result2api(result workload.Result) WorkloadResult {
 	res := WorkloadResult{
 		NotFound: result.NotFound,
 	}
+
 	if result.ID != "" {
-		res.ID = names.NewPayloadTag(result.ID).String()
+		res.Tag = names.NewPayloadTag(result.ID).String()
 	}
+
 	if result.Workload != nil {
 		wl := Workload2api(*result.Workload)
 		res.Workload = &wl
 	}
+
 	if result.Error != nil {
 		res.Error = common.ServerError(result.Error)
 	}
+
 	return res
 }
 
@@ -75,6 +84,68 @@ func API2ID(tagStr string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return tag.Id(), nil
+}
+
+// Infos2TrackArgs converts the provided workload info into arguments
+// for the Track API endpoint.
+func Infos2TrackArgs(workloads []workload.Info) TrackArgs {
+	var args TrackArgs
+	for _, wl := range workloads {
+		arg := Workload2api(wl)
+		args.Workloads = append(args.Workloads, arg)
+	}
+	return args
+}
+
+// IDs2ListArgs converts the provided workload IDs into arguments
+// for the List API endpoint.
+func IDs2ListArgs(ids []string) params.Entities {
+	return ids2args(ids)
+}
+
+// FullIDs2LookUpArgs converts the provided workload "full" IDs into arguments
+// for the LookUp API endpoint.
+func FullIDs2LookUpArgs(fullIDs []string) LookUpArgs {
+	var args LookUpArgs
+	for _, fullID := range fullIDs {
+		name, rawID := workload.ParseID(fullID)
+		args.Args = append(args.Args, LookUpArg{
+			Name: name,
+			ID:   rawID,
+		})
+	}
+	return args
+}
+
+// IDs2SetStatusArgs converts the provided workload IDs into arguments
+// for the SetStatus API endpoint.
+func IDs2SetStatusArgs(ids []string, status string) SetStatusArgs {
+	var args SetStatusArgs
+	for _, id := range ids {
+		arg := SetStatusArg{
+			Status: status,
+		}
+		arg.Tag = names.NewPayloadTag(id).String()
+		args.Args = append(args.Args, arg)
+	}
+	return args
+}
+
+// IDs2UntrackArgs converts the provided workload IDs into arguments
+// for the Untrack API endpoint.
+func IDs2UntrackArgs(ids []string) params.Entities {
+	return ids2args(ids)
+}
+
+func ids2args(ids []string) params.Entities {
+	var args params.Entities
+	for _, id := range ids {
+		tag := names.NewPayloadTag(id).String()
+		args.Entities = append(args.Entities, params.Entity{
+			Tag: tag,
+		})
+	}
+	return args
 }
 
 // API2Definition converts an API workload definition struct into
