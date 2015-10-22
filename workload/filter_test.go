@@ -4,6 +4,7 @@
 package workload_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -13,7 +14,9 @@ import (
 
 var _ = gc.Suite(&filterSuite{})
 
-type filterSuite struct{}
+type filterSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *filterSuite) newPayload(name string) workload.FullPayloadInfo {
 	return workload.FullPayloadInfo{

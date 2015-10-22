@@ -5,6 +5,7 @@ package workload_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -14,7 +15,9 @@ import (
 
 var _ = gc.Suite(&infoSuite{})
 
-type infoSuite struct{}
+type infoSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *infoSuite) newInfo(name, workloadType string) *workload.Info {
 	return &workload.Info{

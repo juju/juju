@@ -18,6 +18,8 @@ import (
 )
 
 type statusSetSuite struct {
+	testing.IsolationSuite
+
 	stub    *testing.Stub
 	compCtx *stubSetStatusContext
 	ctx     *cmd.Context
@@ -29,6 +31,8 @@ type statusSetSuite struct {
 var _ = gc.Suite(&statusSetSuite{})
 
 func (s *statusSetSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.compCtx = &stubSetStatusContext{stub: s.stub}
 	s.ctx = coretesting.Context(c)
