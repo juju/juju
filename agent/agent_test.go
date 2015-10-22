@@ -718,7 +718,7 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	server4[0].Scope = network.ScopeUnknown
 	server4[1].Scope = network.ScopeUnknown
 
-	conf.SetAPIHostPorts([][]network.HostPort{
+	addrSet := conf.SetAPIHostPorts([][]network.HostPort{
 		network.AddressesWithPort(server1, 1111),
 		network.AddressesWithPort(server2, 2222),
 		network.AddressesWithPort(server3, 3333),
@@ -734,4 +734,5 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 		"0.4.0.1:4444",
 		"elsewhere.net:4444",
 	})
+	c.Assert(addrs, gc.DeepEquals, addrSet)
 }
