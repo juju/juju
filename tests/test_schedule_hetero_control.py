@@ -1,7 +1,5 @@
 from __future__ import print_function
 
-__metaclass__ = type
-
 from datetime import timedelta
 import json
 import os
@@ -23,6 +21,9 @@ from schedule_hetero_control import (
     )
 from utility import temp_dir
 from test_utility import write_config
+
+
+__metaclass__ = type
 
 
 class TestScheduleHeteroControl(TestCase):
