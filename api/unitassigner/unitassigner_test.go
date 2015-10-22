@@ -35,6 +35,14 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	c.Assert(errs, gc.DeepEquals, []error{nil, nil})
 }
 
+func (testsuite) TestAssignBadUnit(c *gc.C) {
+	f := &fakeAssignCaller{c: c}
+	api := New(f)
+	ids := []string{"foo", "bar"}
+	_, err := api.AssignUnits(ids)
+	c.Assert(err, gc.ErrorMatches, `"foo" is not a valid unit id`)
+}
+
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
 	f := &fakeWatchCaller{
 		c:        c,

@@ -39,7 +39,7 @@ func (a *API) AssignUnits(args params.Entities) (params.ErrorResults, error) {
 
 	// state uses ids, but the API uses Tags, so we have to convert back and
 	// forth (whee!).  The list of ids is (crucially) in the same order as the
-	// list of tags.  This is the same order as the list of errors we return?
+	// list of tags.  This is the same order as the list of errors we return.
 	ids := make([]string, len(args.Entities))
 	for i, e := range args.Entities {
 		tag, err := names.ParseUnitTag(e.Tag)
