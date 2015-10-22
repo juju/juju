@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
@@ -64,10 +63,6 @@ type localEnviron struct {
 	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
-}
-
-func (e *localEnviron) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.EmptyCloudSpec
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.

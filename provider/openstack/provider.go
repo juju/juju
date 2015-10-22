@@ -748,12 +748,6 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) CloudConfig() simplestreams.CloudSpec {
-	return simplestreams.CloudSpec{
-		Region: e.ecfg().region(),
-	}
-}
-
 func authClient(ecfg *environConfig) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
