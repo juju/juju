@@ -59,6 +59,15 @@ func NewPersistence(st PersistenceBase, unit string) *Persistence {
 func (pp Persistence) Track(id string, info workload.Info) (bool, error) {
 	logger.Tracef("insertng %#v", info)
 
+	_, err := pp.LookUp(info.Name, info.Details.ID)
+	if err == nil {
+		return false, errors.AlreadyExistsf("payload for %q", info.ID())
+	} else if !errors.IsNotFound(err) {
+		return false, errors.Annotate(err, "while checking for collisions")
+	}
+	// TODO(ericsnow) There is a *slight* race here. I haven't found
+	// a simple way to check the secondary key in the transaction.
+
 	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
