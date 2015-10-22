@@ -10,6 +10,13 @@ import (
 	"github.com/juju/juju/version"
 )
 
+func init() {
+	// Ignore any parse errors that the configuration may have.
+	// This is a developer feature, and if it isn't working, then it
+	// is probably due to the configuration being wrong.
+	loggo.ConfigureLoggers(os.Getenv(osenv.JujuStartupLoggingConfigEnvKey))
+}
+
 var logger = loggo.GetLogger("juju.cmd")
 
 // NewSuperCommand is like cmd.NewSuperCommand but
