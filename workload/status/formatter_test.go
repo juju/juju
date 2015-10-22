@@ -16,7 +16,7 @@ type formatterSuite struct{}
 
 func (s *formatterSuite) TestFormatPayloadOkay(c *gc.C) {
 	payload := status.NewPayload("spam", "a-service", 1, 0)
-	payload.Tags = []string{"a-tag"}
+	payload.Labels = []string{"a-tag"}
 	formatted := status.FormatPayload(payload)
 
 	c.Check(formatted, jc.DeepEquals, status.FormattedPayload{
@@ -25,7 +25,7 @@ func (s *formatterSuite) TestFormatPayloadOkay(c *gc.C) {
 		ID:      "idspam",
 		Type:    "docker",
 		Class:   "spam",
-		Tags:    []string{"a-tag"},
+		Labels:  []string{"a-tag"},
 		Status:  "running",
 	})
 }

@@ -23,7 +23,7 @@ func (s *payloadSuite) newPayload(name, pType string) workload.Payload {
 		},
 		ID:     "id" + name,
 		Status: workload.StateRunning,
-		Tags:   []string{"a-tag"},
+		Labels: []string{"a-tag"},
 		Unit:   "a-service/0",
 	}
 }
@@ -106,7 +106,7 @@ func (s *payloadSuite) TestAsWorkload(c *gc.C) {
 		},
 		ID:     "idspam",
 		Status: workload.StateRunning,
-		Tags:   []string{"a-tag"},
+		Labels: []string{"a-tag"},
 		Unit:   "a-service/0",
 	}
 	converted := payload.AsWorkload()
@@ -119,7 +119,7 @@ func (s *payloadSuite) TestAsWorkload(c *gc.C) {
 		Status: workload.Status{
 			State: workload.StateRunning,
 		},
-		Tags: []string{"a-tag"},
+		Labels: []string{"a-tag"},
 		Details: workload.Details{
 			ID: "idspam",
 		},

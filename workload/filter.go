@@ -73,7 +73,7 @@ func Match(payload FullPayloadInfo, pattern string) bool {
 	case strings.ToLower(payload.Machine) == pattern:
 		return true
 	default:
-		for _, tag := range payload.Tags {
+		for _, tag := range payload.Labels {
 			if strings.ToLower(tag) == pattern {
 				return true
 			}

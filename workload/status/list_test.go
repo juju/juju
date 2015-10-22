@@ -67,7 +67,7 @@ will be checked against the following info in Juju:
 
 func (s *listSuite) TestOkay(c *gc.C) {
 	p1 := status.NewPayload("spam", "a-service", 1, 0)
-	p1.Tags = []string{"a-tag"}
+	p1.Labels = []string{"a-tag"}
 	p2 := status.NewPayload("eggs", "another-service", 2, 1)
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
@@ -100,9 +100,9 @@ UNIT MACHINE PAYLOAD-CLASS STATUS TYPE ID TAGS
 
 func (s *listSuite) TestPatternsOkay(c *gc.C) {
 	p1 := status.NewPayload("spam", "a-service", 1, 0)
-	p1.Tags = []string{"a-tag"}
+	p1.Labels = []string{"a-tag"}
 	p2 := status.NewPayload("eggs", "another-service", 2, 1)
-	p2.Tags = []string{"a-tag"}
+	p2.Labels = []string{"a-tag"}
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
 	command := status.NewListCommand(s.newAPIClient)
@@ -143,7 +143,7 @@ another-service/1 2       eggs          running docker ideggs a-tag
 
 func (s *listSuite) TestOutputFormats(c *gc.C) {
 	p1 := status.NewPayload("spam", "a-service", 1, 0)
-	p1.Tags = []string{"a-tag"}
+	p1.Labels = []string{"a-tag"}
 	p2 := status.NewPayload("eggs", "another-service", 2, 1)
 	s.client.payloads = append(s.client.payloads,
 		p1,

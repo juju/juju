@@ -28,7 +28,7 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 		Type:    "docker",
 		ID:      "idspam",
 		Status:  workload.StateRunning,
-		Tags:    nil,
+		Labels:  nil,
 		Unit:    names.NewUnitTag("a-service/0").String(),
 		Machine: names.NewMachineTag("1").String(),
 	}

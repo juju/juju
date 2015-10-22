@@ -14,8 +14,8 @@ import (
 // Payload2api converts a workload.FullPayloadInfo struct into
 // a Payload struct.
 func Payload2api(p workload.FullPayloadInfo) Payload {
-	tags := make([]string, len(p.Tags))
-	copy(tags, p.Tags)
+	labels := make([]string, len(p.Labels))
+	copy(labels, p.Labels)
 
 	unitTag := names.NewUnitTag(p.Unit)
 	machineTag := names.NewMachineTag(p.Machine)
@@ -25,7 +25,7 @@ func Payload2api(p workload.FullPayloadInfo) Payload {
 		Type:    p.Type,
 		ID:      p.ID,
 		Status:  p.Status,
-		Tags:    tags,
+		Labels:  labels,
 		Unit:    unitTag.String(),
 		Machine: machineTag.String(),
 	}
@@ -34,8 +34,8 @@ func Payload2api(p workload.FullPayloadInfo) Payload {
 // API2Payload converts an API Payload info struct into
 // a workload.FullPayloadInfo struct.
 func API2Payload(apiInfo Payload) (workload.FullPayloadInfo, error) {
-	tags := make([]string, len(apiInfo.Tags))
-	copy(tags, apiInfo.Tags)
+	labels := make([]string, len(apiInfo.Labels))
+	copy(labels, apiInfo.Labels)
 
 	var unit, machine string
 	var empty workload.FullPayloadInfo
@@ -62,7 +62,7 @@ func API2Payload(apiInfo Payload) (workload.FullPayloadInfo, error) {
 			},
 			ID:     apiInfo.ID,
 			Status: apiInfo.Status,
-			Tags:   tags,
+			Labels: labels,
 			Unit:   unit,
 		},
 		Machine: machine,
