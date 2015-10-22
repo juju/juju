@@ -14,16 +14,16 @@ func init() {
 	common.RegisterStandardFacade("UnitAssigner", 1, New)
 }
 
-// st defines the state methods this facade needs, so they can be mocked
+// assignerState defines the state methods this facade needs, so they can be mocked
 // for testing.
-type st interface {
+type assignerState interface {
 	WatchForUnitAssignment() state.StringsWatcher
 	AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error)
 }
 
 // API implements the functionality for assigning units to machines.
 type API struct {
-	st  st
+	st  assignerState
 	res *common.Resources
 }
 
