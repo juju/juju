@@ -13,6 +13,8 @@ import (
 )
 
 type publicSuite struct {
+	testing.IsolationSuite
+
 	stub    *testing.Stub
 	facade  *stubFacade
 	payload api.Payload
@@ -21,6 +23,8 @@ type publicSuite struct {
 var _ = gc.Suite(&publicSuite{})
 
 func (s *publicSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.payload = api.Payload{

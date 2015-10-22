@@ -15,6 +15,8 @@ import (
 )
 
 type clientSuite struct {
+	testing.IsolationSuite
+
 	stub       *testing.Stub
 	facade     *stubFacade
 	workload   internal.Workload
@@ -24,6 +26,8 @@ type clientSuite struct {
 var _ = gc.Suite(&clientSuite{})
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.facade = &stubFacade{stub: s.stub}
 	s.facade.methods = &unitMethods{}

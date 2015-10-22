@@ -18,6 +18,8 @@ import (
 )
 
 type unregisterSuite struct {
+	testing.IsolationSuite
+
 	stub    *testing.Stub
 	compCtx *stubUnregisterContext
 	ctx     *cmd.Context
@@ -26,6 +28,8 @@ type unregisterSuite struct {
 var _ = gc.Suite(&unregisterSuite{})
 
 func (s *unregisterSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.compCtx = &stubUnregisterContext{stub: s.stub}
 	s.ctx = coretesting.Context(c)

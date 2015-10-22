@@ -18,11 +18,15 @@ import (
 var _ = gc.Suite(&publicSuite{})
 
 type publicSuite struct {
+	testing.IsolationSuite
+
 	stub  *testing.Stub
 	state *stubState
 }
 
 func (s *publicSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.state = &stubState{stub: s.stub}
 }

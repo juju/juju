@@ -4,12 +4,15 @@
 package workload_test
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/workload"
 )
 
-type workloadSuite struct{}
+type workloadSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&workloadSuite{})
 

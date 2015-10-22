@@ -20,11 +20,15 @@ import (
 var _ = gc.Suite(&suite{})
 
 type suite struct {
+	testing.IsolationSuite
+
 	stub  *testing.Stub
 	state *FakeState
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.state = &FakeState{stub: s.stub}
 }
