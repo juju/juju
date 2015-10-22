@@ -111,7 +111,7 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 		NotFound: false,
 		Error:    nil,
 		Workload: &workload.Info{
-			Workload: charm.Workload{
+			PayloadClass: charm.PayloadClass{
 				Name: "foobar",
 				Type: "type",
 			},
@@ -193,7 +193,7 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 		NotFound: false,
 		Error:    nil,
 		Workload: &workload.Info{
-			Workload: charm.Workload{
+			PayloadClass: charm.PayloadClass{
 				Name: "foobar",
 				Type: "type",
 			},
