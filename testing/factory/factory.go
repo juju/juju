@@ -179,7 +179,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 	}
 	if params.User == "" {
 		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
-		params.User = user.UserTag().Username()
+		params.User = user.UserTag().Canonical()
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
