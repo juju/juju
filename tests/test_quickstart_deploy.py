@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from mock import (
     ANY,
     patch
@@ -13,6 +14,14 @@ from quickstart_deploy import QuickstartTest
 
 class TestQuickstartTest(TestCase):
 
+    @contextmanager
+    def from_args_cxt(self):
+        with patch('jujupy.EnvJujuClient.get_version',
+                   side_effect=lambda x, juju_path=None: ''):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                yield
+
     def test_from_args(self):
         def side_effect(x, y=None, debug=False):
             return x, y
@@ -26,8 +35,7 @@ class TestQuickstartTest(TestCase):
         self.assertIs(type(quickstart), QuickstartTest)
         self.assertEqual(quickstart.client[0].environment, 'temp_env_name')
         self.assertEqual(quickstart.client[0].config, {
-            'agent_url': None,
-            'series': None,
+            'name': 'temp_env_name',
             })
         self.assertIs(quickstart.client[1], '/foo/bin/juju')
         self.assertEqual(quickstart.bundle_path, '/tmp/bundle.yaml')
@@ -44,7 +52,7 @@ class TestQuickstartTest(TestCase):
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '/tmp/bundle.yaml', 2, agent_url='http://agent_url.com'
                 )
-        self.assertEqual(quickstart.client[0].config['agent_url'],
+        self.assertEqual(quickstart.client[0].config['tools-metadata-url'],
                          'http://agent_url.com')
 
     def test_from_args_series(self):
@@ -57,29 +65,39 @@ class TestQuickstartTest(TestCase):
                     'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                     '/tmp/bundle.yaml', 2, series='precise'
                 )
-        self.assertEqual(quickstart.client[0].config['series'],
+        self.assertEqual(quickstart.client[0].config['default-series'],
                          'precise')
 
     def test_from_args_debug(self):
-        with patch('jujupy.EnvJujuClient.get_version',
-                   side_effect=lambda x, juju_path=None: ''):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                quickstart = QuickstartTest.from_args(
-                    'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
-                    '/tmp/bundle.yaml', 2, debug_flag=True
-                )
+        with self.from_args_cxt():
+            quickstart = QuickstartTest.from_args(
+                'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                '/tmp/bundle.yaml', 2, debug_flag=True
+            )
         self.assertEqual(quickstart.client.debug, True)
 
     def test_from_args_region(self):
-        with patch('jujupy.EnvJujuClient.get_version',
-                   side_effect=lambda x, juju_path=None: ''):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                quickstart = QuickstartTest.from_args(
-                    'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
-                    '/tmp/bundle.yaml', 2, region='region-foo')
+        with self.from_args_cxt():
+            quickstart = QuickstartTest.from_args(
+                'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                '/tmp/bundle.yaml', 2, region='region-foo')
         self.assertEqual(quickstart.client.env.config['region'], 'region-foo')
+
+    def test_from_args_agent_stream(self):
+        with self.from_args_cxt():
+            quickstart = QuickstartTest.from_args(
+                'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                '/tmp/bundle.yaml', 2, agent_stream='agent-stream-foo')
+        self.assertEqual(quickstart.client.env.config['agent-stream'],
+                         'agent-stream-foo')
+
+    def test_from_args_bootstrap_host(self):
+        with self.from_args_cxt():
+            quickstart = QuickstartTest.from_args(
+                'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                '/tmp/bundle.yaml', 2, bootstrap_host='host-foo')
+        self.assertEqual(quickstart.client.env.config['bootstrap-host'],
+                         'host-foo')
 
     def test_run_finally(self):
         def fake_iter_steps():
