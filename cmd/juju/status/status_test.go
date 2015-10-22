@@ -34,13 +34,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func defineNextVersion() version.Number {
+func nextVersion() version.Number {
 	ver := version.Current.Number
 	ver.Patch++
 	return ver
 }
-
-var nextVersion = defineNextVersion()
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
@@ -2307,7 +2305,7 @@ var statusTests = []testCase{
 			M{
 				"environment": "dummyenv",
 				"environment-status": M{
-					"upgrade-available": nextVersion.String(),
+					"upgrade-available": nextVersion().String(),
 				},
 				"machines": M{},
 				"services": M{},
@@ -2821,7 +2819,7 @@ type setToolsUpgradeAvailable struct{}
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 	env, err := ctx.st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion)
+	err = env.UpdateLatestToolsVersion(nextVersion())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3205,7 +3203,7 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	const expected = `
 [Environment]     
 UPGRADE-AVAILABLE 
-%s        
+%s            
 
 [Services] 
 NAME       STATUS      EXPOSED CHARM                  
@@ -3227,15 +3225,17 @@ ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE
 2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
 
 `
-	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion))
+	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion()))
 }
 
 func (s *StatusSuite) TestStatusV2(c *gc.C) {
+	s.PatchValue(&version.Current, version.MustParseBinary("1.25.0-trusty-amd64"))
 	s.PatchEnvironment(osenv.JujuCLIVersion, "2")
 	s.testStatusWithFormatTabular(c, true)
 }
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
+	s.PatchValue(&version.Current, version.MustParseBinary("1.25.0-trusty-amd64"))
 	s.testStatusWithFormatTabular(c, false)
 }
 
