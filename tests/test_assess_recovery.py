@@ -1,5 +1,4 @@
 from mock import patch
-from unittest import TestCase
 
 from assess_recovery import (
     main,
@@ -9,8 +8,9 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
 )
-from utility import (
-    setup_test_logging,
+from tests import (
+    FakeHomeTestCase,
+    TestCase,
 )
 
 
@@ -73,10 +73,7 @@ def make_mocked_client(name, status_error=None):
 @patch('subprocess.check_output', autospec=True)
 @patch('subprocess.check_call', autospec=True)
 @patch('sys.stdout', autospec=True)
-class TestMain(TestCase):
-
-    def setUp(self):
-        setup_test_logging(self)
+class TestMain(FakeHomeTestCase):
 
     def test_ha(self, so_mock, cc_mock, co_mock,
                 dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):

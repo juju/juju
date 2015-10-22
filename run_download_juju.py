@@ -7,11 +7,16 @@ import yaml
 from utility import run_command
 
 from schedule_hetero_control import get_candidate_info
-from utility import find_candidates
+from utility import (
+    ensure_dir,
+    find_candidates,
+    get_candidates_path,
+)
 
 
 def get_revisions(root_dir):
     revisions = []
+    ensure_dir(get_candidates_path(root_dir))
     for candidate in find_candidates(root_dir):
         _, rev = get_candidate_info(candidate)
         revisions.append(rev)

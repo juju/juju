@@ -9,7 +9,6 @@ import subprocess
 import sys
 from unittest import (
     skipIf,
-    TestCase
 )
 
 from mock import (
@@ -26,6 +25,7 @@ from deploy_stack import (
     copy_local_logs,
     copy_remote_logs,
     deploy_dummy_stack,
+    deploy_job,
     _deploy_job,
     deploy_job_parse_args,
     destroy_environment,
@@ -50,11 +50,13 @@ from remote import (
     _Remote,
     remote_from_address,
 )
+from tests import (
+    FakeHomeTestCase,
+)
 from test_jujupy import (
     assert_juju_call,
 )
 from utility import (
-    setup_test_logging,
     temp_dir,
 )
 
@@ -68,10 +70,7 @@ def make_logs(log_dir):
     return write_dumped_files
 
 
-class DeployStackTestCase(TestCase):
-
-    def setUp(self):
-        setup_test_logging(self)
+class DeployStackTestCase(FakeHomeTestCase):
 
     def test_destroy_environment(self):
         client = EnvJujuClient(
@@ -85,16 +84,16 @@ class DeployStackTestCase(TestCase):
         self.assertEqual(0, dji_mock.call_count)
 
     def test_destroy_environment_with_manual_type_aws(self):
+        os.environ['AWS_ACCESS_KEY'] = 'fake-juju-ci-testing-key'
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'manual'}), '1.234-76', None)
         with patch.object(client,
                           'destroy_environment', autospec=True) as de_mock:
             with patch('deploy_stack.destroy_job_instances',
                        autospec=True) as dji_mock:
-                with patch.dict(os.environ, {'AWS_ACCESS_KEY': 'bar'}):
-                    destroy_environment(client, 'foo')
+                destroy_environment(client, 'foo')
         self.assertEqual(1, de_mock.call_count)
-        dji_mock.assert_called_with('foo')
+        dji_mock.assert_called_once_with('foo')
 
     def test_destroy_environment_with_manual_type_non_aws(self):
         client = EnvJujuClient(
@@ -104,6 +103,7 @@ class DeployStackTestCase(TestCase):
             with patch('deploy_stack.destroy_job_instances',
                        autospec=True) as dji_mock:
                 destroy_environment(client, 'foo')
+        self.assertEqual(os.environ.get('AWS_ACCESS_KEY'), None)
         self.assertEqual(1, de_mock.call_count)
         self.assertEqual(0, dji_mock.call_count)
 
@@ -179,10 +179,9 @@ class DeployStackTestCase(TestCase):
         self.assertEqual(file_data, expected)
 
 
-class DumpEnvLogsTestCase(TestCase):
+class DumpEnvLogsTestCase(FakeHomeTestCase):
 
-    def setUp(self):
-        setup_test_logging(self, level=logging.DEBUG)
+    log_level = logging.DEBUG
 
     def assert_machines(self, expected, got):
         self.assertEqual(expected, dict((k, got[k].address) for k in got))
@@ -519,10 +518,21 @@ class DumpEnvLogsTestCase(TestCase):
         rj_mock.assert_called_with('src', 'dst')
 
 
-class TestDeployDummyStack(TestCase):
+class TestDeployDummyStack(FakeHomeTestCase):
 
-    def setUp(self):
-        setup_test_logging(self)
+    @patch('deploy_stack.check_token')
+    def test_deploy_dummy_stack_sets_centos_constraints(self, ct_mock):
+        env = SimpleEnvironment('foo', {'type': 'maas'})
+        client = EnvJujuClient(env, None, '/foo/juju')
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            with patch.object(EnvJujuClient, 'wait_for_started'):
+                with patch('deploy_stack.get_random_string',
+                           return_value='fake-token', autospec=True):
+                    deploy_dummy_stack(client, 'local:centos/foo')
+        assert_juju_call(self, cc_mock, client,
+                         ('juju', '--show-log', 'set-constraints', '-e', 'foo',
+                          'tags=MAAS_NIC_1'), 0)
+        self.assertEqual(ct_mock.call_count, 1)
 
     def test_deploy_dummy_stack(self):
         env = SimpleEnvironment('foo', {'type': 'nonlocal'})
@@ -586,7 +596,7 @@ def fake_EnvJujuClient(env, path=None, debug=None):
     return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
 
 
-class TestDeployJob(TestCase):
+class TestDeployJob(FakeHomeTestCase):
 
     @contextmanager
     def ds_cxt(self):
@@ -637,8 +647,38 @@ class TestDeployJob(TestCase):
             'foo', client, None, None, None, None, None, None, None, None,
             permanent=False, region='region-foo')
 
+    def test_deploy_job_changes_series_with_win(self):
+        args = Namespace(
+            series='windows', temp_env_name=None, env=None, upgrade=None,
+            charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
+            debug=None, juju_bin=None, agent_url=None, agent_stream=None,
+            keep_env=None, upload_tools=None, with_chaos=None, jes=None,
+            pre_destroy=None, region=None, verbose=None)
+        with patch('deploy_stack.deploy_job_parse_args', return_value=args,
+                   autospec=True):
+            with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
+                deploy_job()
+        call_args = ds_mock.call_args[0]
+        self.assertEqual(call_args[3], 'local:windows/')
+        self.assertEqual(call_args[6], 'trusty')
 
-class TestTestUpgrade(TestCase):
+    def test_deploy_job_changes_series_with_centos(self):
+        args = Namespace(
+            series='centos', temp_env_name=None, env=None, upgrade=None,
+            charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
+            debug=None, juju_bin=None, agent_url=None, agent_stream=None,
+            keep_env=None, upload_tools=None, with_chaos=None, jes=None,
+            pre_destroy=None, region=None, verbose=None)
+        with patch('deploy_stack.deploy_job_parse_args', return_value=args,
+                   autospec=True):
+            with patch('deploy_stack._deploy_job', autospec=True) as ds_mock:
+                deploy_job()
+        call_args = ds_mock.call_args[0]
+        self.assertEqual(call_args[3], 'local:centos/')
+        self.assertEqual(call_args[6], 'trusty')
+
+
+class TestTestUpgrade(FakeHomeTestCase):
 
     RUN_UNAME = (
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
@@ -647,9 +687,6 @@ class TestTestUpgrade(TestCase):
     STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
     GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
                'tools-metadata-url')
-
-    def setUp(self):
-        setup_test_logging(self)
 
     @classmethod
     def upgrade_output(cls, args, **kwargs):
@@ -718,10 +755,10 @@ class TestTestUpgrade(TestCase):
         wfv_mock.assert_called_once_with('1.38', 1200)
 
 
-class TestBootContext(TestCase):
+class TestBootContext(FakeHomeTestCase):
 
     def setUp(self):
-        self.addContext(patch('subprocess.Popen', side_effect=Exception))
+        super(TestBootContext, self).setUp()
         self.addContext(patch('sys.stdout'))
 
     def addContext(self, cxt):
@@ -884,7 +921,7 @@ class TestBootContext(TestCase):
         self.assertEqual('steve', client.env.config['region'])
 
 
-class TestDeployJobParseArgs(TestCase):
+class TestDeployJobParseArgs(FakeHomeTestCase):
 
     def test_deploy_job_parse_args(self):
         args = deploy_job_parse_args(['foo', 'bar', 'baz', 'qux'])

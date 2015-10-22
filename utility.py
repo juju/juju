@@ -11,14 +11,12 @@ import re
 from shutil import rmtree
 import subprocess
 import socket
-from StringIO import StringIO
 import sys
 from time import (
     sleep,
     time,
     )
 from tempfile import mkdtemp
-from unittest import FunctionTestCase
 import xml.etree.ElementTree as ET
 
 # Export shell quoting function which has moved in newer python versions
@@ -136,19 +134,6 @@ def temp_dir(parent=None, keep=False):
     finally:
         if not keep:
             rmtree(directory)
-
-
-def setup_test_logging(testcase, level=None):
-    log = logging.getLogger()
-    testcase.addCleanup(setattr, log, 'handlers', log.handlers)
-    log.handlers = []
-    testcase.log_stream = StringIO()
-    handler = logging.StreamHandler(testcase.log_stream)
-    handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
-    log.addHandler(handler)
-    if level is not None:
-        testcase.addCleanup(setattr, log, 'level', log.level)
-        log.level = level
 
 
 def get_revision_build(build_info):
@@ -283,6 +268,14 @@ def configure_logging(log_level):
         datefmt='%Y-%m-%d %H:%M:%S')
 
 
+def ensure_dir(path):
+    try:
+        os.mkdir(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+
 def ensure_deleted(path):
     try:
         os.unlink(path)
@@ -295,6 +288,7 @@ def get_candidates_path(root_dir):
     return os.path.join(root_dir, 'candidate')
 
 
+# GZ 2015-10-15: Paths returned in filesystem dependent order, may want sort?
 def find_candidates(root_dir, find_all=False):
     return (path for path, buildvars in _find_candidates(root_dir, find_all))
 
@@ -351,15 +345,3 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
-
-
-def to_unit_test(test_function):
-
-    def unit_testify(*args, **kwargs):
-        tc = FunctionTestCase(test_function)
-        largs = list(args)
-        largs.insert(1, tc)
-        args = tuple(largs)
-        return test_function(*args, **kwargs)
-
-    return unit_testify

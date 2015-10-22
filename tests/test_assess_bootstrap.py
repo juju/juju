@@ -1,6 +1,5 @@
 from argparse import Namespace
 from contextlib import contextmanager
-from unittest import TestCase
 
 from mock import patch
 
@@ -11,6 +10,10 @@ from assess_bootstrap import (
 from jujupy import (
     _temp_env as temp_env,
     )
+from tests import (
+    FakeHomeTestCase,
+    TestCase,
+)
 
 
 class TestParseArgs(TestCase):
@@ -34,7 +37,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.temp_env_name, 'foo')
 
 
-class TestAssessBootstrap(TestCase):
+class TestAssessBootstrap(FakeHomeTestCase):
 
     @contextmanager
     def assess_boostrap_cxt(self):
@@ -53,6 +56,9 @@ class TestAssessBootstrap(TestCase):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 assess_bootstrap('/foo', 'bar', False, None, None)
+        self.assertRegexpMatches(
+            self.log_stream.getvalue(),
+            r"(?m)^INFO Environment successfully bootstrapped.$")
 
     def test_assess_bootstrap_region_temp_env(self):
         def check(myself):
@@ -64,3 +70,6 @@ class TestAssessBootstrap(TestCase):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 assess_bootstrap('/foo', 'bar', False, 'baz', 'qux')
+        self.assertRegexpMatches(
+            self.log_stream.getvalue(),
+            r"(?m)^INFO Environment successfully bootstrapped.$")

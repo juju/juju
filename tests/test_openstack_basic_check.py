@@ -1,9 +1,8 @@
 from argparse import Namespace
-from contextlib import contextmanager
 import os
-from unittest import TestCase
 
 
+from tests import TestCase
 from openstack_basic_check import (
     get_args,
     set_environ,
@@ -61,26 +60,15 @@ class TestGetArgs(TestCase):
                  'foo', '--region', 'bar'])
 
 
-@contextmanager
-def saved_env():
-    old_environ = dict(os.environ)
-    try:
-        yield
-    finally:
-        os.environ.clear()
-        os.environ.update(old_environ)
-
-
 class TestSetEnviron(TestCase):
 
     def test_set_environ(self):
-        with saved_env():
-            set_environ(Namespace(user='admin', password='passwd',
-                        tenant='bar', region='foo',
-                        auth_url='http://a.com:5000/v2.0'))
-            self.assertEqual(os.environ['OS_USERNAME'], 'admin')
-            self.assertEqual(os.environ['OS_PASSWORD'], 'passwd')
-            self.assertEqual(os.environ['OS_TENANT_NAME'], 'bar')
-            self.assertEqual(os.environ['OS_REGION_NAME'], 'foo')
-            self.assertEqual(os.environ['OS_AUTH_URL'],
-                             'http://a.com:5000/v2.0')
+        set_environ(Namespace(user='admin', password='passwd',
+                    tenant='bar', region='foo',
+                    auth_url='http://a.com:5000/v2.0'))
+        self.assertEqual(os.environ['OS_USERNAME'], 'admin')
+        self.assertEqual(os.environ['OS_PASSWORD'], 'passwd')
+        self.assertEqual(os.environ['OS_TENANT_NAME'], 'bar')
+        self.assertEqual(os.environ['OS_REGION_NAME'], 'foo')
+        self.assertEqual(os.environ['OS_AUTH_URL'],
+                         'http://a.com:5000/v2.0')
