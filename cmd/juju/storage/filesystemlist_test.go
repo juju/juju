@@ -13,7 +13,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -29,10 +28,6 @@ func (s *filesystemListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockFilesystemListAPI{}
-	s.PatchValue(storage.GetFilesystemListAPI,
-		func(c *storage.FilesystemListCommand) (storage.FilesystemListAPI, error) {
-			return s.mockAPI, nil
-		})
 }
 
 func (s *filesystemListSuite) TestFilesystemListEmpty(c *gc.C) {
@@ -50,7 +45,7 @@ func (s *filesystemListSuite) TestFilesystemListError(c *gc.C) {
 	s.mockAPI.listFilesystems = func([]string) ([]params.FilesystemDetailsResult, error) {
 		return nil, errors.New("just my luck")
 	}
-	context, err := runFilesystemList(c, "--format", "yaml")
+	context, err := s.runFilesystemList(c, "--format", "yaml")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "just my luck")
 	s.assertUserFacingOutput(c, context, "", "")
 }
@@ -132,7 +127,7 @@ func (s *filesystemListSuite) TestFilesystemListTabular(c *gc.C) {
 }
 
 func (s *filesystemListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
-	context, err := runFilesystemList(c, args...)
+	context, err := s.runFilesystemList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var result struct {
@@ -166,14 +161,14 @@ func (s *filesystemListSuite) expect(c *gc.C, machines []string) map[string]stor
 }
 
 func (s *filesystemListSuite) assertValidList(c *gc.C, args []string, expectedOut string) {
-	context, err := runFilesystemList(c, args...)
+	context, err := s.runFilesystemList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUserFacingOutput(c, context, expectedOut, "")
 }
 
-func runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *filesystemListSuite) runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c,
-		envcmd.Wrap(&storage.FilesystemListCommand{}),
+		storage.NewFilesystemListCommand(s.mockAPI),
 		args...)
 }
 

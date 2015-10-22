@@ -384,10 +384,10 @@ func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 
 	admin, err := s.state.EnvironmentUser(s.owner)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
+	c.Assert(admin.UserTag().Canonical(), gc.DeepEquals, s.owner.Canonical())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
+	c.Assert(bob.UserTag().Canonical(), gc.DeepEquals, bobTag.Canonical())
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
@@ -402,10 +402,10 @@ func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	admin, err := s.state.EnvironmentUser(s.owner)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
+	c.Assert(admin.UserTag().Canonical(), gc.DeepEquals, s.owner.Canonical())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
+	c.Assert(bob.UserTag().Canonical(), gc.DeepEquals, bobTag.Canonical())
 }
 
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {

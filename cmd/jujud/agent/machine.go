@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
+	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
 	apiupgrader "github.com/juju/juju/api/upgrader"
@@ -78,7 +79,6 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -460,7 +460,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
-	switch err {
+	switch errors.Cause(err) {
 	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
 	case worker.ErrRebootMachine:
@@ -671,7 +671,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	reportOpenedAPI(st)
 
@@ -759,7 +759,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, gate.AlreadyUnlocked{}, a), nil
+			return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
 		})
 	}
 
@@ -1742,6 +1742,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
+	logger.Infof("machine agent uninstalling itself")
 	var errors []error
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {

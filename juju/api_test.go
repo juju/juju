@@ -189,7 +189,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	s.bootstrapEnv(c, coretesting.SampleEnvName, defaultConfigStore(c))
 
 	startTime := time.Now()
-	apiclient, err := juju.NewAPIClientFromName("")
+	apiclient, err := juju.NewAPIClientFromName("", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiclient.Close()
 	c.Assert(time.Since(startTime), jc.LessThan, coretesting.LongWait)
@@ -203,7 +203,7 @@ func (s *NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig, envName)
 	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
 	s.bootstrapEnv(c, envName, defaultConfigStore(c))
-	apiclient, err := juju.NewAPIClientFromName(envName)
+	apiclient, err := juju.NewAPIClientFromName(envName, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiclient.Close()
 	assertEnvironmentName(c, apiclient, envName)
@@ -1299,10 +1299,6 @@ type EnvironInfoTest struct {
 
 var _ = gc.Suite(&EnvironInfoTest{})
 
-func (*EnvironInfoTest) TestNullInfo(c *gc.C) {
-	c.Assert(juju.EnvironInfoUserTag(nil), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
-}
-
 type fakeEnvironInfo struct {
 	configstore.EnvironInfo
 	user string
@@ -1310,11 +1306,6 @@ type fakeEnvironInfo struct {
 
 func (fake *fakeEnvironInfo) APICredentials() configstore.APICredentials {
 	return configstore.APICredentials{User: fake.user}
-}
-
-func (*EnvironInfoTest) TestEmptyUser(c *gc.C) {
-	info := &fakeEnvironInfo{}
-	c.Assert(juju.EnvironInfoUserTag(info), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
 }
 
 func (*EnvironInfoTest) TestRealUser(c *gc.C) {

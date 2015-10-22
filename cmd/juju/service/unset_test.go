@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -37,7 +36,7 @@ func (s *UnsetSuite) SetUpTest(c *gc.C) {
 
 func (s *UnsetSuite) TestUnsetCommandInit(c *gc.C) {
 	// missing args
-	err := coretesting.InitCommand(&service.UnsetCommand{}, []string{})
+	err := coretesting.InitCommand(service.NewUnsetCommand(s.fake), []string{})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 }
 
@@ -51,9 +50,9 @@ func (s *UnsetSuite) TestUnsetOptionOneByOneSuccess(c *gc.C) {
 
 func (s *UnsetSuite) TestBlockUnset(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockUnset")
+	s.fake.err = common.OperationBlockedError("TestBlockUnset")
 	ctx := coretesting.ContextForDir(c, s.dir)
-	code := cmd.Main(envcmd.Wrap(service.NewUnsetCommand(s.fake)), ctx, []string{
+	code := cmd.Main(service.NewUnsetCommand(s.fake), ctx, []string{
 		"dummy-service",
 		"username"})
 	c.Check(code, gc.Equals, 1)
@@ -82,7 +81,7 @@ func (s *UnsetSuite) TestUnsetOptionFail(c *gc.C) {
 // assertUnsetSuccess unsets configuration options and checks the expected settings.
 func (s *UnsetSuite) assertUnsetSuccess(c *gc.C, dir string, args []string, expect map[string]interface{}) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(service.NewUnsetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(service.NewUnsetCommand(s.fake), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 	c.Assert(s.fake.values, gc.DeepEquals, expect)
 }
@@ -90,7 +89,7 @@ func (s *UnsetSuite) assertUnsetSuccess(c *gc.C, dir string, args []string, expe
 // assertUnsetFail unsets configuration options and checks the expected error.
 func (s *UnsetSuite) assertUnsetFail(c *gc.C, dir string, args []string, err string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(service.NewUnsetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(service.NewUnsetCommand(s.fake), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
 }

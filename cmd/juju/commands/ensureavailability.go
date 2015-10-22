@@ -21,8 +21,12 @@ import (
 	"github.com/juju/juju/instance"
 )
 
-// EnsureAvailabilityCommand makes the system highly available.
-type EnsureAvailabilityCommand struct {
+func newEnsureAvailabilityCommand() cmd.Command {
+	return envcmd.Wrap(&ensureAvailabilityCommand{})
+}
+
+// ensureAvailabilityCommand makes the system highly available.
+type ensureAvailabilityCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
 	haClient EnsureAvailabilityClient
@@ -120,7 +124,7 @@ func formatSimple(value interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
+func (c *ensureAvailabilityCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ensure-availability",
 		Purpose: "ensure that sufficient state servers exist to provide redundancy",
@@ -128,7 +132,7 @@ func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ensureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumStateServers, "n", 0, "number of state servers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.StringVar(&c.PlacementSpec, "to", "", "the machine(s) to become state servers, bypasses constraints")
@@ -141,7 +145,7 @@ func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 
 }
 
-func (c *EnsureAvailabilityCommand) Init(args []string) error {
+func (c *ensureAvailabilityCommand) Init(args []string) error {
 	if c.NumStateServers < 0 || (c.NumStateServers%2 != 1 && c.NumStateServers != 0) {
 		return fmt.Errorf("must specify a number of state servers odd and non-negative")
 	}
@@ -186,7 +190,7 @@ type EnsureAvailabilityClient interface {
 		placement []string) (params.StateServersChanges, error)
 }
 
-func (c *EnsureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, error) {
+func (c *ensureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, error) {
 	if c.haClient != nil {
 		return c.haClient, nil
 	}
@@ -202,7 +206,7 @@ func (c *EnsureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, err
 
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
-func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
+func (c *ensureAvailabilityCommand) Run(ctx *cmd.Context) error {
 	haClient, err := c.getHAClient()
 	if err != nil {
 		return err

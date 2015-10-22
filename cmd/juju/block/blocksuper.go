@@ -5,8 +5,6 @@ package block
 
 import (
 	"github.com/juju/cmd"
-
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 const superBlockCmdDoc = `
@@ -39,9 +37,9 @@ func NewSuperBlockCommand() cmd.Command {
 				UsagePrefix: "juju",
 				Purpose:     superBlockCmdPurpose,
 			})}
-	blockcmd.Register(envcmd.Wrap(&DestroyCommand{}))
-	blockcmd.Register(envcmd.Wrap(&RemoveCommand{}))
-	blockcmd.Register(envcmd.Wrap(&ChangeCommand{}))
-	blockcmd.Register(envcmd.Wrap(&ListCommand{}))
+	blockcmd.Register(newDestroyCommand())
+	blockcmd.Register(newRemoveCommand())
+	blockcmd.Register(newChangeCommand())
+	blockcmd.Register(newListCommand())
 	return &blockcmd
 }

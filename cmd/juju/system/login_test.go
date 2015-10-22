@@ -28,6 +28,7 @@ type LoginSuite struct {
 	openError     error
 	store         configstore.Storage
 	username      string
+	password      string
 }
 
 var _ = gc.Suite(&LoginSuite{})
@@ -44,6 +45,7 @@ func (s *LoginSuite) SetUpTest(c *gc.C) {
 		addr:      "192.168.2.1:1234",
 	}
 	s.username = "valid-user"
+	s.password = "sekrit"
 }
 
 func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
@@ -51,6 +53,7 @@ func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection,
 		return nil, s.openError
 	}
 	s.apiConnection.info = info
+	s.apiConnection.opts = opts
 	return s.apiConnection, nil
 }
 
@@ -69,7 +72,7 @@ func (s *LoginSuite) runServerFile(c *gc.C, args ...string) (*cmd.Context, error
 addresses: ["192.168.2.1:1234", "192.168.2.2:1234"]
 ca-cert: a-cert
 username: ` + s.username + `
-password: sekrit
+password: ` + s.password + `
 `
 	err := ioutil.WriteFile(serverFilePath, []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,6 +210,7 @@ func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
 type mockAPIConnection struct {
 	api.Connection
 	info         *api.Info
+	opts         api.DialOpts
 	addr         string
 	apiHostPorts [][]network.HostPort
 	serverTag    names.EnvironTag

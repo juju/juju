@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,18 +22,20 @@ import (
 
 type DefinedSuite struct {
 	BaseActionSuite
-	svc        *state.Service
-	subcommand *action.DefinedCommand
+	svc            *state.Service
+	wrappedCommand cmd.Command
+	command        *action.DefinedCommand
 }
 
 var _ = gc.Suite(&DefinedSuite{})
 
 func (s *DefinedSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
+	s.wrappedCommand, s.command = action.NewDefinedCommand()
 }
 
 func (s *DefinedSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.subcommand)
+	s.checkHelp(c, s.wrappedCommand)
 }
 
 func (s *DefinedSuite) TestInit(c *gc.C) {
@@ -68,11 +71,12 @@ func (s *DefinedSuite) TestInit(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d should %s: juju actions defined %s", i,
 			t.should, strings.Join(t.args, " "))
-		s.subcommand = &action.DefinedCommand{}
-		err := testing.InitCommand(s.subcommand, t.args)
+		s.wrappedCommand, s.command = action.NewDefinedCommand()
+		args := append([]string{"-e", "dummyenv"}, t.args...)
+		err := testing.InitCommand(s.wrappedCommand, args)
 		if t.expectedErr == "" {
-			c.Check(s.subcommand.ServiceTag(), gc.Equals, t.expectedSvc)
-			c.Check(s.subcommand.FullSchema(), gc.Equals, t.expectedOutputSchema)
+			c.Check(s.command.ServiceTag(), gc.Equals, t.expectedSvc)
+			c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
 		} else {
 			c.Check(err, gc.ErrorMatches, t.expectedErr)
 		}
@@ -122,8 +126,9 @@ func (s *DefinedSuite) TestRun(c *gc.C) {
 			restore := s.patchAPIClient(fakeClient)
 			defer restore()
 
-			s.subcommand = &action.DefinedCommand{}
-			ctx, err := testing.RunCommand(c, s.subcommand, t.withArgs...)
+			args := append([]string{"-e", "dummyenv"}, t.withArgs...)
+			s.wrappedCommand, s.command = action.NewDefinedCommand()
+			ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
 
 			if t.expectedErr != "" || t.withAPIErr != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)

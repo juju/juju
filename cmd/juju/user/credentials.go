@@ -10,6 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
 const userCredentialsDoc = `
@@ -30,14 +32,18 @@ See Also:
     juju system login
 `
 
-// CredentialsCommand changes the password for a user.
-type CredentialsCommand struct {
+func newCredentialsCommand() cmd.Command {
+	return envcmd.WrapSystem(&credentialsCommand{})
+}
+
+// credentialsCommand changes the password for a user.
+type credentialsCommand struct {
 	UserCommandBase
 	OutPath string
 }
 
 // Info implements Command.Info.
-func (c *CredentialsCommand) Info() *cmd.Info {
+func (c *credentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "credentials",
 		Purpose: "save the credentials and server details to a file",
@@ -46,13 +52,13 @@ func (c *CredentialsCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *CredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *credentialsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated file")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
 // Run implements Command.Run.
-func (c *CredentialsCommand) Run(ctx *cmd.Context) error {
+func (c *credentialsCommand) Run(ctx *cmd.Context) error {
 	creds, err := c.ConnectionCredentials()
 	if err != nil {
 		return errors.Trace(err)

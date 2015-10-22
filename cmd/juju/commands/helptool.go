@@ -85,12 +85,16 @@ func (dummyHookContext) SetStatus(jujuc.StatusInfo) error {
 	return nil
 }
 
-type HelpToolCommand struct {
+func newHelpToolCommand() cmd.Command {
+	return &helpToolCommand{}
+}
+
+type helpToolCommand struct {
 	cmd.CommandBase
 	tool string
 }
 
-func (t *HelpToolCommand) Info() *cmd.Info {
+func (t *helpToolCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "help-tool",
 		Args:    "[tool]",
@@ -98,7 +102,7 @@ func (t *HelpToolCommand) Info() *cmd.Info {
 	}
 }
 
-func (t *HelpToolCommand) Init(args []string) error {
+func (t *helpToolCommand) Init(args []string) error {
 	tool, err := cmd.ZeroOrOneArgs(args)
 	if err == nil {
 		t.tool = tool
@@ -106,7 +110,7 @@ func (t *HelpToolCommand) Init(args []string) error {
 	return err
 }
 
-func (c *HelpToolCommand) Run(ctx *cmd.Context) error {
+func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 	var hookctx dummyHookContext
 	if c.tool == "" {
 		// Ripped from SuperCommand. We could Run() a SuperCommand

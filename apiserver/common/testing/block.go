@@ -66,6 +66,6 @@ func (s BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
 // AssertBlocked checks if given error is
 // related to switched block.
 func (s BlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
 	c.Assert(err, gc.ErrorMatches, msg)
 }

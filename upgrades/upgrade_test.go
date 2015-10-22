@@ -619,7 +619,7 @@ func (s *upgradeSuite) TestApiStepsGetRestrictedContext(c *gc.C) {
 func (s *upgradeSuite) checkContextRestriction(c *gc.C, expectedPanic string) {
 	fromVersion := version.MustParse("1.20.0")
 	type fakeAgentConfigSetter struct{ agent.ConfigSetter }
-	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, new(api.State), new(state.State))
+	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, new(state.State))
 	c.Assert(
 		func() { upgrades.PerformUpgrade(fromVersion, targets(upgrades.StateServer), ctx) },
 		gc.PanicMatches, expectedPanic,

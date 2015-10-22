@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
@@ -356,11 +357,17 @@ type Creds struct {
 }
 
 // LoginRequest holds credentials for identifying an entity to the Login v1
-// facade.
+// facade. AuthTag holds the tag of the user to connect as. If it is empty,
+// then the provided macaroon slices will be used for authentication (if
+// any one is valid, the authentication succeeds). If there are no
+// valid macaroons and macaroon authentication is configured,
+// the LoginResponse will contain a macaroon that when
+// discharged, may allow access.
 type LoginRequest struct {
-	AuthTag     string `json:"auth-tag"`
-	Credentials string `json:"credentials"`
-	Nonce       string `json:"nonce"`
+	AuthTag     string           `json:"auth-tag"`
+	Credentials string           `json:"credentials"`
+	Nonce       string           `json:"nonce"`
+	Macaroons   []macaroon.Slice `json:"macaroons"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1
@@ -609,26 +616,36 @@ type AuthUserInfo struct {
 
 // LoginResultV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
+	// DischargeRequired implies that the login request has failed, and none of
+	// the other fields are populated. It contains a macaroon which, when
+	// discharged, will grant access on a subsequent call to Login.
+	// Note: It is OK to use the Macaroon type here as it is explicitely
+	// designed to provide stable serialisation of macaroons.  It's good
+	// practice to only use primitives in types that will be serialised,
+	// however because of the above it is suitable to use the Macaroon type
+	// here.
+	DischargeRequired *macaroon.Macaroon `json:"discharge-required,omitempty"`
+
+	// DischargeRequiredReason holds the reason that the above discharge was
+	// required.
+	DischargeRequiredReason string `json:"discharge-required-error,omitempty"`
+
 	// Servers is the list of API server addresses.
-	Servers [][]HostPort `json:"servers"`
+	Servers [][]HostPort `json:"servers,omitempty"`
 
 	// EnvironTag is the tag for the environment that is being connected to.
-	EnvironTag string `json:"environ-tag"`
+	EnvironTag string `json:"environ-tag,omitempty"`
 
 	// ServerTag is the tag for the environment that holds the API servers.
 	// This is the initial environment created when bootstrapping juju.
-	ServerTag string `json:"server-tag"`
-
-	// ReauthRequest can be used to relay any further authentication handshaking
-	// required on the part of the client to complete the Login, if any.
-	ReauthRequest *ReauthRequest `json:"reauth-request,omitempty"`
+	ServerTag string `json:"server-tag,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
 	UserInfo *AuthUserInfo `json:"user-info,omitempty"`
 
 	// Facades describes all the available API facade versions to the
 	// authenticated client.
-	Facades []FacadeVersions `json:"facades"`
+	Facades []FacadeVersions `json:"facades,omitempty"`
 
 	// ServerVersion is the string representation of the server version
 	// if the server supports it.
@@ -741,4 +758,45 @@ type RebootActionResults struct {
 type RebootActionResult struct {
 	Result RebootAction `json:"result,omitempty"`
 	Error  *Error       `json:"error,omitempty"`
+}
+
+// LogRecord is used to transmit log messages to the logsink API
+// endpoint.  Single character field names are used for serialisation
+// to keep the size down. These messages are going to be sent a lot.
+type LogRecord struct {
+	Time     time.Time   `json:"t"`
+	Module   string      `json:"m"`
+	Location string      `json:"l"`
+	Level    loggo.Level `json:"v"`
+	Message  string      `json:"x"`
+}
+
+// GetBundleChangesParams holds parameters for making GetBundleChanges calls.
+type GetBundleChangesParams struct {
+	// BundleDataYAML is the YAML-encoded charm bundle data
+	// (see "github.com/juju/charm.BundleData").
+	BundleDataYAML string `json:"yaml"`
+}
+
+// GetBundleChangesResults holds results of the GetBundleChanges call.
+type GetBundleChangesResults struct {
+	// Changes holds the list of changes required to deploy the bundle.
+	// It is omitted if the provided bundle YAML has verification errors.
+	Changes []*BundleChangesChange `json:"changes,omitempty"`
+	// Errors holds possible bundle verification errors.
+	Errors []string `json:"errors,omitempty"`
+}
+
+// BundleChangesChange holds a single change required to deploy a bundle.
+type BundleChangesChange struct {
+	// Id is the unique identifier for this change.
+	Id string `json:"id"`
+	// Method is the action to be performed to apply this change.
+	Method string `json:"method"`
+	// Args holds a list of arguments to pass to the method.
+	Args []interface{} `json:"args"`
+	// Requires holds a list of dependencies for this change. Each dependency
+	// is represented by the corresponding change id, and must be applied
+	// before this change is applied.
+	Requires []string `json:"requires"`
 }
