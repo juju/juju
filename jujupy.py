@@ -16,7 +16,6 @@ from shutil import rmtree
 import subprocess
 import sys
 import time
-import tempfile
 
 import yaml
 
@@ -262,31 +261,27 @@ class EnvJujuClient:
                                timeout=kwargs.get('timeout'),
                                include_e=kwargs.get('include_e', True))
         env = self._shell_environ()
-        with tempfile.TemporaryFile() as stderr:
-            try:
-                logging.debug(args)
-                # Mutate os.environ instead of supplying env parameter so
-                # Windows can search env['PATH']
-                with scoped_environ(env):
-                    proc = subprocess.Popen(
-                        args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                        stderr=stderr)
-                    proc.stdin.close()
-                    sub_output = proc.stdout.read()
-                    if proc.wait():
-                        raise subprocess.CalledProcessError(
-                            proc.returncode, args[0], sub_output)
-                logging.debug(sub_output)
-                return sub_output
-            except subprocess.CalledProcessError as e:
-                stderr.seek(0)
-                e.stderr = stderr.read()
-                if ('Unable to connect to environment' in e.stderr or
-                        'MissingOrIncorrectVersionHeader' in e.stderr or
-                        '307: Temporary Redirect' in e.stderr):
+        logging.debug(args)
+        # Mutate os.environ instead of supplying env parameter so
+        # Windows can search env['PATH']
+        with scoped_environ(env):
+            # When unit testing create a fake Popen object, rather
+            # than using mock (see test_gotesttarfile.py).
+            proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            sub_output, sub_error = proc.communicate()
+            if proc.returncode != 0:
+                e = subprocess.CalledProcessError(
+                    proc.returncode, args[0], sub_error)
+                if (
+                    'Unable to connect to environment' in sub_error or
+                        'MissingOrIncorrectVersionHeader' in sub_error or
+                        '307: Temporary Redirect' in sub_error):
                     raise CannotConnectEnv(e)
-                print('!!! ' + e.stderr)
-                raise
+                raise e
+        logging.debug(sub_output)
+        return sub_output
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""
