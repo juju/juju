@@ -154,18 +154,18 @@ func (tc *ToolsConstraint) IndexIds() []string {
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
-	for _, series := range tc.Series {
-		vers, err := version.SeriesVersion(series)
+	for _, ser := range tc.Series {
+		version, err := series.SeriesVersion(ser)
 		if err != nil {
-			if version.IsUnknownSeriesVersionError(err) {
-				logger.Debugf("ignoring unknown series %q", series)
+			if series.IsUnknownSeriesVersionError(err) {
+				logger.Debugf("ignoring unknown series %q", ser)
 				continue
 			}
 			return nil, err
 		}
 		ids := make([]string, len(tc.Arches))
 		for i, arch := range tc.Arches {
-			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", vers, arch)
+			ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", version, arch)
 		}
 		allIds = append(allIds, ids...)
 	}
