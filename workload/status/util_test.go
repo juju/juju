@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-func NewPayload(name, service string, machine, unit int, tags ...string) workload.FullPayloadInfo {
-	if len(tags) == 0 {
-		tags = nil
+func NewPayload(name, service string, machine, unit int, labels ...string) workload.FullPayloadInfo {
+	if len(labels) == 0 {
+		labels = nil
 	}
 	return workload.FullPayloadInfo{
 		Payload: workload.Payload{
@@ -23,7 +23,7 @@ func NewPayload(name, service string, machine, unit int, tags ...string) workloa
 			},
 			ID:     "id" + name,
 			Status: workload.StateRunning,
-			Tags:   tags,
+			Labels: labels,
 			Unit:   fmt.Sprintf("%s/%d", service, unit),
 		},
 		Machine: fmt.Sprintf("%d", machine),

@@ -168,12 +168,12 @@ func Definition2api(d charm.PayloadClass) WorkloadDefinition {
 
 // API2Workload converts an API Workload info struct into a workload.Info struct.
 func API2Workload(p Workload) workload.Info {
-	tags := make([]string, len(p.Tags))
-	copy(tags, p.Tags)
+	labels := make([]string, len(p.Labels))
+	copy(labels, p.Labels)
 	return workload.Info{
 		PayloadClass: API2Definition(p.Definition),
 		Status:       APIStatus2Status(p.Status),
-		Tags:         tags,
+		Labels:       labels,
 		Details: workload.Details{
 			ID:     p.Details.ID,
 			Status: APIPluginStatus2PluginStatus(p.Details.Status),
@@ -183,12 +183,12 @@ func API2Workload(p Workload) workload.Info {
 
 // Workload2api converts a workload.Info struct into an api.Workload struct.
 func Workload2api(p workload.Info) Workload {
-	tags := make([]string, len(p.Tags))
-	copy(tags, p.Tags)
+	labels := make([]string, len(p.Labels))
+	copy(labels, p.Labels)
 	return Workload{
 		Definition: Definition2api(p.PayloadClass),
 		Status:     Status2apiStatus(p.Status),
-		Tags:       tags,
+		Labels:     labels,
 		Details: WorkloadDetails{
 			ID:     p.Details.ID,
 			Status: PluginStatus2apiPluginStatus(p.Details.Status),

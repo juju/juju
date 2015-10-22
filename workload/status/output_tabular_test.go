@@ -16,7 +16,7 @@ type outputTabularSuite struct{}
 
 func (s *outputTabularSuite) TestFormatTabularOkay(c *gc.C) {
 	payload := status.NewPayload("spam", "a-service", 1, 0)
-	payload.Tags = []string{"a-tag", "other"}
+	payload.Labels = []string{"a-tag", "other"}
 	formatted := status.Formatted(payload)
 	data, err := status.FormatTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
@@ -43,17 +43,17 @@ a-service/0 1       spam          running docker idspam
 
 func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 	p10A := status.NewPayload("spam", "a-service", 1, 0)
-	p10A.Tags = []string{"a-tag"}
+	p10A.Labels = []string{"a-tag"}
 	p21A := status.NewPayload("spam", "a-service", 2, 1)
 	p21A.Status = "stopped"
-	p21A.Tags = []string{"a-tag"}
+	p21A.Labels = []string{"a-tag"}
 	p21B := status.NewPayload("spam", "a-service", 2, 1)
 	p21B.ID += "B"
 	p21x := status.NewPayload("eggs", "a-service", 2, 1)
 	p21x.Type = "kvm"
 	p22A := status.NewPayload("spam", "a-service", 2, 2)
 	p10x := status.NewPayload("ham", "another-service", 1, 0)
-	p10x.Tags = []string{"other", "extra"}
+	p10x.Labels = []string{"other", "extra"}
 	formatted := status.Formatted(
 		p10A,
 		p21A,

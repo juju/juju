@@ -94,7 +94,7 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 			},
 			ID:     "xyz",
 			Status: workload.StateRunning,
-			Tags:   []string{},
+			Labels: []string{},
 			Unit:   "a-service/0",
 		},
 		Machine: "0",

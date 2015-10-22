@@ -39,6 +39,8 @@ func NewListCommand(newAPIClient func(c *ListCommand) (ListAPI, error)) *ListCom
 	return cmd
 }
 
+// TODO(ericsnow) Change "tag" to "label" in the help text?
+
 var listDoc = `
 This command will report on the runtime state of defined payloads.
 
