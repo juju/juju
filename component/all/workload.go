@@ -101,7 +101,7 @@ func (c workloads) registerHookContext() {
 
 	runner.RegisterComponentFunc(workload.ComponentName,
 		func(config runner.ComponentConfig) (jujuc.ContextComponent, error) {
-			hctxClient := c.newHookContextAPIClient(config.APICaller)
+			hctxClient := c.newUnitFacadeClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			component, err := context.NewContextAPI(hctxClient, config.DataDir)
 			if err != nil {
@@ -115,9 +115,9 @@ func (c workloads) registerHookContext() {
 	c.registerHookContextFacade()
 }
 
-func (workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
+func (workloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
 	facadeCaller := base.NewFacadeCallerForVersion(caller, workloadsHookContextFacade, 0)
-	return internalclient.NewHookContextClient(facadeCaller)
+	return internalclient.NewUnitFacadeClient(facadeCaller)
 }
 
 func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
@@ -125,7 +125,7 @@ func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interf
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return internalserver.NewHookContextAPI(up), nil
+	return internalserver.NewUnitFacade(up), nil
 }
 
 func (c workloads) registerHookContextFacade() {
@@ -133,7 +133,7 @@ func (c workloads) registerHookContextFacade() {
 		workloadsHookContextFacade,
 		0,
 		c.newHookContextFacade,
-		reflect.TypeOf(&internalserver.HookContextAPI{}),
+		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
 }
 
