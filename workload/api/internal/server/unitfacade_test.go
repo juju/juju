@@ -33,7 +33,7 @@ func (s *suite) TestTrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 
 	args := internal.TrackArgs{
 		Workloads: []internal.Workload{{
@@ -110,7 +110,7 @@ func (s *suite) TestListOne(c *gc.C) {
 		Workload: &wl,
 	}}
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewPayloadTag(id).String(),
@@ -173,7 +173,7 @@ func (s *suite) TestListAll(c *gc.C) {
 		Workload: &wl,
 	}}
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := params.Entities{}
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,7 +211,7 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := internal.LookUpArgs{
 		Args: []internal.LookUpArg{{
 			Name: "fooID",
@@ -246,7 +246,7 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	notFound := errors.NotFoundf("workload")
 	s.stub.SetErrors(nil, notFound, nil)
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := internal.LookUpArgs{
 		Args: []internal.LookUpArg{{
 			Name: "fooID",
@@ -291,7 +291,7 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	s.state.stateIDs = []string{id}
 	s.state.stateIDs = []string{"ce5bc2a7-65d8-4800-8199-a7c3356ab309"}
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := internal.SetStatusArgs{
 		Args: []internal.SetStatusArg{{
 			Entity: params.Entity{
@@ -321,7 +321,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.NewPayloadTag(id).String(),
@@ -344,7 +344,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 }
 
 func (s *suite) TestUntrackEmptyID(c *gc.C) {
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: "",
@@ -370,7 +370,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.id = id
 
-	a := HookContextAPI{s.state}
+	a := UnitFacade{s.state}
 	args := params.Entities{
 		Entities: []params.Entity{},
 	}

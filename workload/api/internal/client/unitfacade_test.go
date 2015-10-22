@@ -84,7 +84,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 		return nil
 	}
 
-	pclient := client.NewHookContextClient(s.facade)
+	pclient := client.NewUnitFacadeClient(s.facade)
 
 	workloadInfo := internal.API2Workload(s.workload)
 	results, err := pclient.Track(workloadInfo)
@@ -125,7 +125,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
 
-	pclient := client.NewHookContextClient(s.facade)
+	pclient := client.NewUnitFacadeClient(s.facade)
 
 	results, err := pclient.List("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -177,7 +177,7 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, response)
 
-	pclient := client.NewHookContextClient(s.facade)
+	pclient := client.NewUnitFacadeClient(s.facade)
 	results, err := pclient.LookUp("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -231,7 +231,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, response)
 
-	pclient := client.NewHookContextClient(s.facade)
+	pclient := client.NewUnitFacadeClient(s.facade)
 	results, err := pclient.LookUp("idfoo/bar", "idbaz/bam", "spam/eggs")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -301,7 +301,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
 
-	pclient := client.NewHookContextClient(s.facade)
+	pclient := client.NewUnitFacadeClient(s.facade)
 	results, err := pclient.SetStatus(workload.StateRunning, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -366,7 +366,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	}
 	s.facade.responses = append(s.facade.responses, responses...)
 
-	pclient := client.NewHookContextClient(s.facade)
+	pclient := client.NewUnitFacadeClient(s.facade)
 	results, err := pclient.Untrack("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 

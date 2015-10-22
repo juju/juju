@@ -27,19 +27,19 @@ type UnitWorkloads interface {
 	Untrack(id string) error
 }
 
-// HookContextAPI serves workload-specific API methods.
-type HookContextAPI struct {
+// UnitFacade serves workload-specific API methods.
+type UnitFacade struct {
 	// State exposes the workload aspect of Juju's state.
 	State UnitWorkloads
 }
 
-// NewHookContextAPI builds a new facade for the given State.
-func NewHookContextAPI(st UnitWorkloads) *HookContextAPI {
-	return &HookContextAPI{State: st}
+// NewUnitFacade builds a new facade for the given State.
+func NewUnitFacade(st UnitWorkloads) *UnitFacade {
+	return &UnitFacade{State: st}
 }
 
 // Track stores a workload to be tracked in state.
-func (a HookContextAPI) Track(args internal.TrackArgs) (internal.WorkloadResults, error) {
+func (a UnitFacade) Track(args internal.TrackArgs) (internal.WorkloadResults, error) {
 	logger.Debugf("tracking %d workloads from API", len(args.Workloads))
 
 	var r internal.WorkloadResults
@@ -54,7 +54,7 @@ func (a HookContextAPI) Track(args internal.TrackArgs) (internal.WorkloadResults
 	return r, nil
 }
 
-func (a HookContextAPI) track(info workload.Info) (string, error) {
+func (a UnitFacade) track(info workload.Info) (string, error) {
 	if err := a.State.Track(info); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -68,7 +68,7 @@ func (a HookContextAPI) track(info workload.Info) (string, error) {
 // List builds the list of workload being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // workloads for the unit are returned.
-func (a HookContextAPI) List(args params.Entities) (internal.WorkloadResults, error) {
+func (a UnitFacade) List(args params.Entities) (internal.WorkloadResults, error) {
 	if len(args.Entities) == 0 {
 		return a.listAll()
 	}
@@ -95,7 +95,7 @@ func (a HookContextAPI) List(args params.Entities) (internal.WorkloadResults, er
 	return r, nil
 }
 
-func (a HookContextAPI) listAll() (internal.WorkloadResults, error) {
+func (a UnitFacade) listAll() (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 
 	results, err := a.State.List()
@@ -120,7 +120,7 @@ func (a HookContextAPI) listAll() (internal.WorkloadResults, error) {
 }
 
 // LookUp identifies the workload with the provided name and raw ID.
-func (a HookContextAPI) LookUp(args internal.LookUpArgs) (internal.WorkloadResults, error) {
+func (a UnitFacade) LookUp(args internal.LookUpArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
 		id, err := a.State.LookUp(arg.Name, arg.ID)
@@ -131,7 +131,7 @@ func (a HookContextAPI) LookUp(args internal.LookUpArgs) (internal.WorkloadResul
 }
 
 // SetStatus sets the raw status of a workload.
-func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
+func (a UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
 		id, err := internal.API2ID(arg.Tag)
@@ -147,7 +147,7 @@ func (a HookContextAPI) SetStatus(args internal.SetStatusArgs) (internal.Workloa
 }
 
 // Untrack marks the identified workload as no longer being tracked.
-func (a HookContextAPI) Untrack(args params.Entities) (internal.WorkloadResults, error) {
+func (a UnitFacade) Untrack(args params.Entities) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, entity := range args.Entities {
 		id, err := internal.API2ID(entity.Tag)
