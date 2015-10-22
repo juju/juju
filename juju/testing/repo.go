@@ -136,6 +136,8 @@ func (s *RepoSuite) AssertUnitMachines(c *gc.C, units []*state.Unit) {
 			if !a.HasNext() {
 				c.Assert(mUnits, gc.HasLen, 1)
 			} else if len(mUnits) != 1 {
+				// not all units have been assigned to machines yet.
+				// wait a bit longer
 				continue
 			}
 			unitNames = append(unitNames, mUnits[0].Name())

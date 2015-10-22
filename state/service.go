@@ -676,11 +676,12 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		}
 	}
 	names, ops, err := s.addUnitOpsWithCons(principalName, cons)
-	if err == nil {
-		// we verify the service is alive
-		asserts = append(isAliveDoc, asserts...)
-		ops = append(ops, s.incUnitCountOp(asserts))
+	if err != nil {
+		return names, ops, err
 	}
+	// we verify the service is alive
+	asserts = append(isAliveDoc, asserts...)
+	ops = append(ops, s.incUnitCountOp(asserts))
 	return names, ops, err
 }
 
