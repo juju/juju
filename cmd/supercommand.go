@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/juju/cmd"
@@ -11,10 +12,12 @@ import (
 )
 
 func init() {
-	// Ignore any parse errors that the configuration may have.
-	// This is a developer feature, and if it isn't working, then it
-	// is probably due to the configuration being wrong.
-	loggo.ConfigureLoggers(os.Getenv(osenv.JujuStartupLoggingConfigEnvKey))
+	// If the environment key is empty, ConfigureLoggers returns nil and does
+	// nothing.
+	err := loggo.ConfigureLoggers(os.Getenv(osenv.JujuStartupLoggingConfigEnvKey))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR parsing %s: %s\n\n", osenv.JujuStartupLoggingConfigEnvKey, err)
+	}
 }
 
 var logger = loggo.GetLogger("juju.cmd")
