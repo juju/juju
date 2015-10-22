@@ -88,23 +88,14 @@ func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, u
 	c.Assert(ch.URL(), gc.DeepEquals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
 
-	var rels []*state.Relation
-
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		units, err := svc.AllUnits()
-		c.Logf("Service units: %+v", units)
-		c.Assert(err, jc.ErrorIsNil)
-		if !a.HasNext() {
-			c.Assert(units, gc.HasLen, unitCount)
-		} else if len(units) != unitCount {
-			continue
-		}
-		s.AssertUnitMachines(c, units)
-		rels, err = svc.Relations()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(rels, gc.HasLen, relCount)
-		break
-	}
+	units, err := svc.AllUnits()
+	c.Logf("Service units: %+v", units)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, unitCount)
+	s.AssertUnitMachines(c, units)
+	rels, err := svc.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, relCount)
 	return svc, rels
 }
 
