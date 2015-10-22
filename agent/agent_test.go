@@ -584,12 +584,19 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(reread, jc.DeepEquals, conf)
 }
 
+func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
+	conf := agent.EmptyConfig()
+	_, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsFalse)
+}
+
 func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	apiinfo := conf.APIInfo()
+	apiinfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
 	for _, eachApiAddress := range apiinfo.Addrs {
@@ -607,7 +614,8 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *g
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	apiinfo := conf.APIInfo()
+	apiinfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
 	for _, eachApiAddress := range apiinfo.Addrs {
@@ -643,7 +651,8 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6Off(c *gc.
 	attrParams.PreferIPv6 = false
 	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, jc.ErrorIsNil)
-	apiinfo := conf.APIInfo()
+	apiinfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
 }
 
@@ -652,7 +661,8 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6On(c *gc.C
 	attrParams.PreferIPv6 = true
 	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, jc.ErrorIsNil)
-	apiinfo := conf.APIInfo()
+	apiinfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
 }
 
@@ -671,7 +681,9 @@ func (*suite) TestSetPassword(c *gc.C) {
 		Nonce:      attrParams.Nonce,
 		EnvironTag: attrParams.Environment,
 	}
-	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
+	apiInfo, ok := conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(apiInfo, jc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -690,7 +702,9 @@ func (*suite) TestSetPassword(c *gc.C) {
 	expectAPIInfo.Password = "newpassword"
 	expectStateInfo.Password = "newpassword"
 
-	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
+	apiInfo, ok = conf.APIInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(apiInfo, jc.DeepEquals, expectAPIInfo)
 	info, ok = conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, expectStateInfo)

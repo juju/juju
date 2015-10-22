@@ -516,6 +516,17 @@ func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
 		"com.ubuntu.juju:13.04:amd64"})
 }
 
+func (s *productSpecSuite) TestIdIgnoresInvalidSeries(c *gc.C) {
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
+		Series: []string{"precise", "foobar"},
+		Arches: []string{"amd64"},
+		Stream: "released",
+	})
+	ids, err := toolsConstraint.ProductIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:12.04:amd64"})
+}
+
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
 	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, simplestreams.LookupParams{
 		Series: []string{"precise"},
