@@ -106,6 +106,15 @@ class TestCSStagingDeploy(FakeHomeTestCase):
             )
         self.assertEqual(csstaging.client.env.config['region'], 'region-foo')
 
+    def test_from_args_bootstrap_host(self):
+        with self.from_args_cxt2():
+            csstaging = CSStagingTest.from_args(
+                'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                '0.0.0.0', bootstrap_host='host-foo',
+            )
+        self.assertEqual(csstaging.client.env.config['bootstrap-host'],
+                         'host-foo')
+
     def test_run(self):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
