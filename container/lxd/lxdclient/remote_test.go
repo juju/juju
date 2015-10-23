@@ -18,24 +18,13 @@ var (
 
 type remoteInfoSuite struct {
 	lxdclient.BaseSuite
-
-	cert *lxdclient.Certificate
-}
-
-func (s *remoteInfoSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.cert = &lxdclient.Certificate{
-		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
-		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
-	}
 }
 
 func (s *remoteInfoSuite) TestSetDefaultsNoop(c *gc.C) {
 	info := lxdclient.RemoteInfo{
 		Name: "my-remote",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	}
 	updated, err := info.SetDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,7 +38,7 @@ func (s *remoteInfoSuite) TestSetDefaultsMissingName(c *gc.C) {
 	info := lxdclient.RemoteInfo{
 		Name: "",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	}
 	updated, err := info.SetDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,6 +46,7 @@ func (s *remoteInfoSuite) TestSetDefaultsMissingName(c *gc.C) {
 	c.Check(updated, jc.DeepEquals, info) // Name is not updated.
 }
 
+// TODO(ericsnow) Move this test to a functional suite.
 func (s *remoteInfoSuite) TestSetDefaultsMissingCert(c *gc.C) {
 	info := lxdclient.RemoteInfo{
 		Name: "my-remote",
@@ -133,7 +123,7 @@ func (s *remoteInfoSuite) TestValidateOkay(c *gc.C) {
 	info := lxdclient.RemoteInfo{
 		Name: "my-remote",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	}
 	err := info.Validate()
 
@@ -144,7 +134,7 @@ func (s *remoteInfoSuite) TestValidateMissingName(c *gc.C) {
 	info := lxdclient.RemoteInfo{
 		Name: "",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	}
 	err := info.Validate()
 
@@ -208,17 +198,6 @@ func (s *remoteInfoSuite) TestValidateLocalWithCert(c *gc.C) {
 
 type remoteSuite struct {
 	lxdclient.BaseSuite
-
-	cert *lxdclient.Certificate
-}
-
-func (s *remoteSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.cert = &lxdclient.Certificate{
-		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
-		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
-	}
 }
 
 func (s *remoteSuite) TestLocal(c *gc.C) {
@@ -234,7 +213,7 @@ func (s *remoteSuite) TestValidateOkay(c *gc.C) {
 	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
 		Name: "my-remote",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	})
 	err := remote.Validate()
 
@@ -252,7 +231,7 @@ func (s *remoteSuite) TestValidateInvalid(c *gc.C) {
 	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
 		Name: "",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	})
 	err := remote.Validate()
 
@@ -263,7 +242,7 @@ func (s *remoteSuite) TestIDOkay(c *gc.C) {
 	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
 		Name: "my-remote",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	})
 	id := remote.ID()
 
@@ -274,7 +253,7 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
 		Name: "my-remote",
 		Host: "",
-		Cert: s.cert,
+		Cert: s.Cert,
 	})
 	id := remote.ID()
 
@@ -285,11 +264,11 @@ func (s *remoteSuite) TestCertOkay(c *gc.C) {
 	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
 		Name: "my-remote",
 		Host: "some-host",
-		Cert: s.cert,
+		Cert: s.Cert,
 	})
 	cert := remote.Cert()
 
-	c.Check(cert, jc.DeepEquals, *s.cert)
+	c.Check(cert, jc.DeepEquals, *s.Cert)
 }
 
 func (s *remoteSuite) TestCertMissing(c *gc.C) {
