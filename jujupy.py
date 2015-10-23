@@ -276,6 +276,7 @@ class EnvJujuClient:
             if proc.returncode != 0:
                 e = subprocess.CalledProcessError(
                     proc.returncode, args[0], sub_error)
+                e.stderr = sub_error
                 if (
                     'Unable to connect to environment' in sub_error or
                         'MissingOrIncorrectVersionHeader' in sub_error or

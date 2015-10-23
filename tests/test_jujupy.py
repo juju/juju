@@ -8,7 +8,6 @@ import os
 import StringIO
 import subprocess
 import sys
-import tempfile
 from textwrap import dedent
 
 from mock import (
@@ -62,19 +61,12 @@ __metaclass__ = type
 
 
 def assert_juju_call(test_case, mock_method, client, expected_args,
-                     call_index=None, assign_stderr=False):
+                     call_index=None):
     if call_index is None:
         test_case.assertEqual(len(mock_method.mock_calls), 1)
         call_index = 0
     empty, args, kwargs = mock_method.mock_calls[call_index]
     test_case.assertEqual(args, (expected_args,))
-    kwarg_keys = []
-    if assign_stderr:
-        with tempfile.TemporaryFile() as example:
-            # 'example' is a pragmatic way of checking file types in py2 and 3.
-            kwarg_keys = ['stderr'] + kwarg_keys
-            test_case.assertIsInstance(kwargs['stderr'], type(example))
-    test_case.assertItemsEqual(kwargs.keys(), kwarg_keys)
 
 
 class TestErroredUnit(TestCase):
@@ -124,14 +116,14 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        with patch('subprocess.check_output', autospec=True,
-                   return_value='system') as co_mock:
+        fake_popen = FakePopen('system', None, 0)
+        with patch('subprocess.Popen',
+                   return_value=fake_popen) as po_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
         assert_juju_call(
-            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
-            assign_stderr=True)
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'))
 
     def test_enable_jes_unsupported(self):
         client = self.client_class(
@@ -154,17 +146,11 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        with patch('subprocess.check_output', autospec=True,
-                   side_effect=['', 'system']) as co_mock:
+        with patch.object(client, 'get_juju_output',
+                          side_effect=['', 'system']) as gjo_mock:
             client.enable_jes()
         self.assertTrue(client._use_jes)
-        assert_juju_call(
-            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
-            0, assign_stderr=True)
-        assert_juju_call(
-            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
-            1, assign_stderr=True)
-        self.assertEqual(co_mock.call_count, 2)
+        self.assertEqual(gjo_mock.call_count, 2)
 
     def test__shell_environ_jes(self):
         client = self.client_class(
@@ -220,6 +206,18 @@ class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
         client._use_jes = True
         env = client._shell_environ()
         self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
+
+
+class FakePopen(object):
+
+    def __init__(self, out, err, returncode):
+        self._out = out
+        self._err = err
+        self._code = returncode
+
+    def communicate(self):
+        self.returncode = self._code
+        return self._out, self._err
 
 
 class TestEnvJujuClient(ClientTest):
@@ -469,12 +467,9 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_juju_output(self):
         env = SimpleEnvironment('foo')
-
-        def asdf(x, stderr):
-            return 'asdf'
-
         client = EnvJujuClient(env, None, None)
-        with patch('subprocess.check_output', side_effect=asdf) as mock:
+        fake_popen = FakePopen('asdf', None, 0)
+        with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar')
         self.assertEqual('asdf', result)
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
@@ -482,35 +477,31 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_juju_output_accepts_varargs(self):
         env = SimpleEnvironment('foo')
-
-        def asdf(x, stderr):
-            return 'asdf'
-
+        fake_popen = FakePopen('asdf', None, 0)
         client = EnvJujuClient(env, None, None)
-        with patch('subprocess.check_output', side_effect=asdf) as mock:
+        with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_juju_output('bar', 'baz', '--qux')
         self.assertEqual('asdf', result)
         self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
                            '--qux'),), mock.call_args[0])
 
     def test_get_juju_output_stderr(self):
-        def raise_without_stderr(args, stderr):
-            stderr.write('Hello!')
-            raise subprocess.CalledProcessError('a', 'b')
         env = SimpleEnvironment('foo')
+        fake_popen = FakePopen(None, 'Hello!', 1)
         client = EnvJujuClient(env, None, None)
         with self.assertRaises(subprocess.CalledProcessError) as exc:
-            with patch('subprocess.check_output', raise_without_stderr):
+            with patch('subprocess.Popen', return_value=fake_popen):
                 client.get_juju_output('bar')
         self.assertEqual(exc.exception.stderr, 'Hello!')
 
     def test_get_juju_output_accepts_timeout(self):
         env = SimpleEnvironment('foo')
+        fake_popen = FakePopen('asdf', None, 0)
         client = EnvJujuClient(env, None, None)
-        with patch('subprocess.check_output') as sco_mock:
+        with patch('subprocess.Popen', return_value=fake_popen) as po_mock:
             client.get_juju_output('bar', timeout=5)
         self.assertEqual(
-            sco_mock.call_args[0][0],
+            po_mock.call_args[0][0],
             (sys.executable, get_timeout_path(), '5.00', '--', 'juju',
              '--show-log', 'bar', '-e', 'foo'))
 
@@ -527,7 +518,9 @@ class TestEnvJujuClient(ClientTest):
 
         def check_path(*args, **kwargs):
             self.assertRegexpMatches(os.environ['PATH'], r'/foobar\:')
-        with patch('subprocess.check_output', side_effect=check_path):
+            return FakePopen(None, None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   side_effect=check_path):
             client.get_juju_output('cmd', 'baz')
 
     def test_get_status(self):
@@ -960,9 +953,9 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_env_option(self):
         env = SimpleEnvironment('foo', None)
+        fake_popen = FakePopen('https://example.org/juju/tools', None, 0)
         client = EnvJujuClient(env, None, None)
-        with patch('subprocess.check_output') as mock:
-            mock.return_value = 'https://example.org/juju/tools'
+        with patch('subprocess.Popen', return_value=fake_popen) as mock:
             result = client.get_env_option('tools-metadata-url')
         self.assertEqual(
             mock.call_args[0][0],
@@ -1175,13 +1168,15 @@ class TestEnvJujuClient(ClientTest):
     def test_is_jes_enabled(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_output',
-                   return_value=' system') as co_mock:
+        fake_popen = FakePopen(' system', None, 0)
+        with patch('subprocess.Popen',
+                   return_value=fake_popen) as po_mock:
             self.assertFalse(client.is_jes_enabled())
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
-        with patch('subprocess.check_output', autospec=True,
-                   return_value='system') as co_mock:
+        assert_juju_call(self, po_mock, client, (
+            'juju', '--show-log', 'help', 'commands'))
+        fake_popen = FakePopen('system', None, 0)
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=fake_popen):
             self.assertTrue(client.is_jes_enabled())
 
     def test_get_juju_timings(self):
