@@ -18,8 +18,6 @@ type environProvider struct {
 	environs.EnvironProvider
 }
 
-var _ environs.EnvironProvider = (*environProvider)(nil)
-
 var providerInstance environProvider
 
 func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
