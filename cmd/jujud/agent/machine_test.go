@@ -163,7 +163,10 @@ func (s *commonMachineSuite) primeAgent(
 
 	m, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, jc.ErrorIsNil)
+	return s.primeAgentWithMachine(c, m, vers)
+}
 
+func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
 	pinger, err := m.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
@@ -1643,14 +1646,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		err := pinger.Stop()
-		c.Check(err, jc.ErrorIsNil)
-	})
-
-	m, _, _ = s.configureMachine(c, m.Id(), version.Current)
+	s.primeAgentWithMachine(c, m, version.Current)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	doneCh := make(chan error)
