@@ -1,12 +1,15 @@
+from argparse import Namespace
 from mock import patch
 
 from assess_recovery import (
     main,
+    make_client_from_args,
     parse_args,
 )
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
+    _temp_env as temp_env,
 )
 from tests import (
     FakeHomeTestCase,
@@ -24,6 +27,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.charm_prefix, '')
         self.assertEqual(args.strategy, 'backup')
         self.assertEqual(args.debug, False)
+        self.assertIs(args.agent_stream, None)
 
     def test_parse_args_ha(self):
         args = parse_args(['foo', 'bar', 'baz', '--ha'])
@@ -52,6 +56,28 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.temp_env_name, 'qux')
 
 
+class TestMakeClientFromArgs(TestCase):
+
+    def test_make_client_from_args(self):
+        with temp_env({'environments': {'foo': {}}}):
+            with patch('subprocess.check_output', return_value=''):
+                client = make_client_from_args(
+                    Namespace(env_name='foo', juju_path='bar',
+                              temp_env_name='temp-foo', debug=False,
+                              agent_stream=None))
+        self.assertEqual(client.env.config, {'name': 'temp-foo'})
+        self.assertEqual(client.env.environment, 'temp-foo')
+
+    def test_agent_stream(self):
+        with temp_env({'environments': {'foo': {}}}):
+            with patch('subprocess.check_output', return_value=''):
+                client = make_client_from_args(
+                    Namespace(env_name='foo', juju_path='bar',
+                              temp_env_name='temp-foo', debug=False,
+                              agent_stream='stream-foo'))
+        self.assertEqual(client.env.config['agent-stream'], 'stream-foo')
+
+
 def make_mocked_client(name, status_error=None):
     client = EnvJujuClient(SimpleEnvironment(
         name, {'type': 'paas'}), '1.23', 'path')
@@ -78,11 +104,14 @@ class TestMain(FakeHomeTestCase):
     def test_ha(self, so_mock, cc_mock, co_mock,
                 dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         client = make_mocked_client('foo')
-        with patch('assess_recovery.make_client', autospec=True,
+        with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             main(['./', 'foo', 'log_dir',
                   '--ha', '--charm-prefix', 'prefix'])
-        mc_mock.assert_called_once_with('./', False, 'foo', None)
+        mc_mock.assert_called_once_with(Namespace(
+            agent_stream=None, charm_prefix='prefix', debug=False,
+            env_name='foo', juju_path='./', logs='log_dir', strategy='ha',
+            temp_env_name=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
         client.destroy_environment.assert_called_once_with()
@@ -97,12 +126,15 @@ class TestMain(FakeHomeTestCase):
                       dns_mock, ds_mock, di_mock, ws_mock, ns_mock, dl_mock):
         error = Exception()
         client = make_mocked_client('foo', status_error=error)
-        with patch('assess_recovery.make_client', autospec=True,
+        with patch('assess_recovery.make_client_from_args', autospec=True,
                    return_value=client) as mc_mock:
             with self.assertRaises(SystemExit):
                 main(['./', 'foo', 'log_dir',
                       '--ha', '--charm-prefix', 'prefix'])
-        mc_mock.assert_called_once_with('./', False, 'foo', None)
+        mc_mock.assert_called_once_with(Namespace(
+            agent_stream=None, charm_prefix='prefix', debug=False,
+            env_name='foo', juju_path='./', logs='log_dir', strategy='ha',
+            temp_env_name=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
         client.destroy_environment.assert_called_once_with()

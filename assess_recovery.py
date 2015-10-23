@@ -14,6 +14,7 @@ from deploy_stack import (
     dump_env_logs,
     get_machine_dns_name,
     wait_for_state_server_to_shutdown,
+    update_env,
 )
 from jujuconfig import (
     get_jenv_path,
@@ -157,7 +158,16 @@ def parse_args(argv=None):
     parser.add_argument(
         'temp_env_name', nargs='?',
         help='Temporary environment name to use for this test.')
+    parser.add_argument(
+        '--agent-stream', help='Stream for retrieving agent binaries.')
     return parser.parse_args(argv)
+
+
+def make_client_from_args(args):
+    client = make_client(args.juju_path, args.debug, args.env_name,
+                         args.temp_env_name)
+    update_env(client.env, args.temp_env_name, agent_stream=args.agent_stream)
+    return client
 
 
 def main(argv):
@@ -165,9 +175,8 @@ def main(argv):
     log_dir = args.logs
     try:
         setup_juju_path(args.juju_path)
-        client = make_client(args.juju_path, args.debug, args.env_name,
-                             args.temp_env_name)
         juju_home = get_juju_home()
+        client = make_client_from_args(args)
         ensure_deleted(get_jenv_path(juju_home, client.env.environment))
         with temp_bootstrap_env(juju_home, client):
             try:
