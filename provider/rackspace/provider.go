@@ -26,8 +26,6 @@ type environProvider struct {
 >>>>>>> review comments implemented
 }
 
-var _ environs.EnvironProvider = (*environProvider)(nil)
-
 var providerInstance environProvider
 
 <<<<<<< HEAD

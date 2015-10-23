@@ -36,7 +36,7 @@ import (
 )
 
 // OpenstackProviderConfigurator allows custom openstack provider behaviour.
-// This is used in other providers, that embed the openstack provider.
+// This is used in other providers that embed the openstack provider.
 type OpenstackProviderConfigurator interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	OpenPorts(ports []network.PortRange) error

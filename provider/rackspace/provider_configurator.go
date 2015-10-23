@@ -119,12 +119,12 @@ func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstan
 >>>>>>> working version of rackspace provider
 =======
 
-// OpenPorts is not supported on the environment for Rackspace.
+// OpenPorts is not supported.
 func (c *rackspaceProviderConfigurator) OpenPorts(ports []network.PortRange) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
 
-// ClosePorts is not supported on the environment for Rackspace.
+// ClosePorts is not supported.
 func (c *rackspaceProviderConfigurator) ClosePorts(ports []network.PortRange) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
 }
