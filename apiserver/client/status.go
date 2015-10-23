@@ -650,7 +650,7 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 		// Usually this indicates that no addresses have been set on the
 		// machine yet.
 		addr = network.Address{}
-		logger.Warningf("error fetching public address: \"%v\"", err)
+		logger.Warningf("error fetching public address: %q", err)
 	}
 	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
