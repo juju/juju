@@ -35,13 +35,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var nextVersion version.Number
-
-func init() {
+var nextVersion = func() version.Number {
 	ver := version.Current.Number
 	ver.Patch++
-	nextVersion = ver
-}
+	return ver
+}()
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
