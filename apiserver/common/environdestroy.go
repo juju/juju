@@ -19,7 +19,7 @@ var sendMetrics = func(st *state.State) error {
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the specified environment. This function assumes that all
 // necessary authentication checks have been done.
-func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
+func DestroyEnvironment(st *state.State, environTag names.EnvironTag, destroyHostedEnvirons bool) error {
 	var err error
 	if environTag != st.EnvironTag() {
 		if st, err = st.ForEnviron(environTag); err != nil {
@@ -38,7 +38,7 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 		return errors.Trace(err)
 	}
 
-	if err = env.Destroy(); err != nil {
+	if err = env.Destroy(destroyHostedEnvirons); err != nil {
 		return errors.Trace(err)
 	}
 

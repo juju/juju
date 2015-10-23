@@ -48,7 +48,7 @@ func (s *EnvironSuite) TestEnvironmentDestroy(c *gc.C) {
 		return now
 	})
 
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -90,7 +90,7 @@ func (s *EnvironSuite) TestNewEnvironmentSameUserSameNameFails(c *gc.C) {
 	// Remove the first environment.
 	env1, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env1.Destroy()
+	err = env1.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Destroy only sets the environment to dying and RemoveAllEnvironDocs can
 	// only be called on a dead environment. Normally, the environ's lifecycle
@@ -245,7 +245,7 @@ func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
 func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -254,7 +254,7 @@ func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
 	defer st2.Close()
 	env, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -263,7 +263,24 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentFails(c *gc.C) {
 	defer st2.Close()
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+	c.Assert(env.Destroy(false), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+}
+
+func (s *EnvironSuite) TestDestroyStateServerAndHostedEnvironments(c *gc.C) {
+	st2 := s.Factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+
+	// Simulate an environment being added just before the remove txn is
+	// called.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		blocker := s.Factory.MakeEnvironment(c, nil)
+		err := blocker.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}).Check()
+
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Destroy(true), jc.ErrorIsNil)
 }
 
 func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
@@ -277,7 +294,7 @@ func (s *EnvironSuite) TestDestroyStateServerEnvironmentRace(c *gc.C) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
+	c.Assert(env.Destroy(false), gc.ErrorMatches, "failed to destroy environment: hosting 1 other environments")
 }
 
 func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
@@ -287,18 +304,18 @@ func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingRaceNoOp(c *gc.C) {
 	// Simulate an environment being destroyed by another client just before
 	// the remove txn is called.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(env.Destroy(), jc.ErrorIsNil)
+		c.Assert(env.Destroy(false), jc.ErrorIsNil)
 	}).Check()
 
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(env.Destroy(false), jc.ErrorIsNil)
 }
 
 func (s *EnvironSuite) TestDestroyStateServerAlreadyDyingNoOp(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(env.Destroy(false), jc.ErrorIsNil)
+	c.Assert(env.Destroy(false), jc.ErrorIsNil)
 }
 
 func (s *EnvironSuite) TestProcessDyingServerEnvironTransitionDyingToDead(c *gc.C) {
@@ -328,7 +345,7 @@ func (s *EnvironSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *stat
 		c.Assert(env.Life(), gc.Equals, state.Dead)
 	}).Check()
 
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(env.Destroy(false), jc.ErrorIsNil)
 }
 
 func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C) {
@@ -372,7 +389,7 @@ func (s *EnvironSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.
 		assertEnv(state.Dying, 1, 1)
 	}).Check()
 
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(env.Destroy(false), jc.ErrorIsNil)
 }
 
 func (s *EnvironSuite) TestListEnvironmentUsers(c *gc.C) {
@@ -486,11 +503,11 @@ func (s *EnvironSuite) TestHostedEnvironCount(c *gc.C) {
 
 	env1, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env1.Destroy(), jc.ErrorIsNil)
+	c.Assert(env1.Destroy(false), jc.ErrorIsNil)
 	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 1)
 
 	env2, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env2.Destroy(), jc.ErrorIsNil)
+	c.Assert(env2.Destroy(false), jc.ErrorIsNil)
 	c.Assert(state.HostedEnvironCount(c, s.State), gc.Equals, 0)
 }

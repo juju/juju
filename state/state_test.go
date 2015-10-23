@@ -1231,7 +1231,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the environment is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1247,7 +1247,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
-		c.Assert(env.Destroy(), gc.IsNil)
+		c.Assert(env.Destroy(false), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
@@ -1887,7 +1887,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	// Check that services cannot be added if the environment is initially Dying.
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
@@ -1902,7 +1902,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
-		c.Assert(env.Destroy(), gc.IsNil)
+		c.Assert(env.Destroy(false), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
@@ -2260,13 +2260,13 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	defer st1.Close()
 	dying, err := st1.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	dying.Destroy()
+	dying.Destroy(false)
 
 	st2 := s.Factory.MakeEnvironment(c, nil)
 	defer st2.Close()
 	env2, err := st2.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env2.Destroy(), jc.ErrorIsNil)
+	c.Assert(env2.Destroy(false), jc.ErrorIsNil)
 	err = state.RemoveEnvironment(s.State, st2.EnvironUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2279,7 +2279,7 @@ func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
 	// Remove alive and dying and see changes reported.
 	err = state.RemoveEnvironment(s.State, dying.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	err = alive.Destroy()
+	err = alive.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent(alive.UUID(), dying.UUID())
 }
@@ -2301,7 +2301,7 @@ func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Make it Dying: reported.
-	err = env.Destroy()
+	err = env.Destroy(false)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
 	wc.AssertNoChange()

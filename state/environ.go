@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -336,9 +337,24 @@ func (e *Environment) Users() ([]*EnvironmentUser, error) {
 	return envUsers, nil
 }
 
+// HasHostedEnvironsError is used to indicate that a system cannot be
+// destroyed because it is still hosting environments that are alive.
+type HasHostedEnvironsError int
+
+// Error returns the error string for a system with hosted environments.
+func (e HasHostedEnvironsError) Error() string {
+	return fmt.Sprintf("hosting %d other environments", int(e))
+}
+
+// IsHasHostedEnvironsError returns true if err is of type HasHostedEnvironsError.
+func IsHasHostedEnvironsError(err error) bool {
+	_, ok := errors.Cause(err).(HasHostedEnvironsError)
+	return ok
+}
+
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
-func (e *Environment) Destroy() (err error) {
+func (e *Environment) Destroy(destroyHostedEnvirons bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy environment")
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -354,7 +370,7 @@ func (e *Environment) Destroy() (err error) {
 			}
 		}
 
-		ops, err := e.destroyOps()
+		ops, err := e.destroyOps(destroyHostedEnvirons)
 		if err == errEnvironNotAlive {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -372,7 +388,7 @@ var errEnvironNotAlive = errors.New("environment is no longer alive")
 
 // destroyOps returns the txn operations necessary to begin environ
 // destruction, or an error indicating why it can't.
-func (e *Environment) destroyOps() ([]txn.Op, error) {
+func (e *Environment) destroyOps(destroyHostedEnvirons bool) ([]txn.Op, error) {
 	if e.Life() != Alive {
 		return nil, errEnvironNotAlive
 	}
@@ -392,11 +408,11 @@ func (e *Environment) destroyOps() ([]txn.Op, error) {
 			{"time-of-dying", nowToTheSecond()},
 		}}},
 	}}
-	if uuid == e.doc.ServerUUID {
+	if uuid == e.doc.ServerUUID && !destroyHostedEnvirons {
 		if count, err := hostedEnvironCount(e.st); err != nil {
 			return nil, errors.Trace(err)
 		} else if count != 0 {
-			return nil, errors.Errorf("hosting %d other environments", count)
+			return nil, HasHostedEnvironsError(count)
 		}
 		ops = append(ops, assertNoHostedEnvironsOp())
 	} else {
