@@ -1624,6 +1624,63 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
+	ignoreAddressCh := make(chan bool, 1)
+	s.AgentSuite.PatchValue(&newMachiner, func(
+		st *apimachiner.State,
+		conf agent.Config,
+		ignoreMachineAddresses bool,
+	) worker.Worker {
+		select {
+		case ignoreAddressCh <- ignoreMachineAddresses:
+		default:
+		}
+		return machiner.NewMachiner(st, conf, ignoreMachineAddresses)
+	})
+
+	attrs := coretesting.Attrs{"ignore-machine-addresses": true}
+	err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	parent, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.State.AddMachineInsideMachine(
+		state.MachineTemplate{
+			Series: "trusty",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		},
+		parent.Id(),
+		instance.LXC,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	pinger, err := m.SetAgentPresence()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := pinger.Stop()
+		c.Check(err, jc.ErrorIsNil)
+	})
+
+	m, _, _ = s.configureMachine(c, m.Id(), version.Current)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	doneCh := make(chan error)
+	go func() {
+		doneCh <- a.Run(nil)
+	}()
+
+	select {
+	case ignoreMachineAddresses := <-ignoreAddressCh:
+		if ignoreMachineAddresses != false {
+			c.Fatalf("expected ignore-machine-addresses = false, got = true")
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for the machiner to start")
+	}
+	s.waitStopped(c, state.JobHostUnits, a, doneCh)
+
+}
+
 func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	m, agentConfig, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
