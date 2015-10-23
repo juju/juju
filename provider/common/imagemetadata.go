@@ -23,7 +23,7 @@ func FindImageMetadata(env environs.Environ, imageConstraint *imagemetadata.Imag
 		logger.Infof("could not get image metadata from state server: %v", err)
 	}
 
-	logger.Debugf("\n\n GOT FROM STATE %d METADATA \n\n", len(stateMetadata))
+	logger.Warningf("\n\n GOT FROM STATE %d METADATA \n\n", len(stateMetadata))
 	// No need to look in data sources if found in state?
 	if len(stateMetadata) != 0 {
 		return stateMetadata, stateInfo, nil
@@ -40,7 +40,7 @@ func FindImageMetadata(env environs.Environ, imageConstraint *imagemetadata.Imag
 		}
 	}
 
-	logger.Debugf("\n\n GOT FROM DATA SOURCES %d METADATA \n\n", len(dsMetadata))
+	logger.Warningf("\n\n GOT FROM DATA SOURCES %d METADATA \n\n", len(dsMetadata))
 	// If still none found, complain
 	if len(dsMetadata) == 0 {
 		return nil, nil, errors.NotFoundf("image metadata for series %v, arch %v", imageConstraint.Series, imageConstraint.Arches)
