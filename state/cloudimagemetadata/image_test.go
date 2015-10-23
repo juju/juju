@@ -210,11 +210,11 @@ func (s *cloudImageMetadataSuite) TestSaveSameMetadataSameImageDiffSourceConcurr
 		Stream: "stream",
 		Series: "series",
 		Arch:   "arch",
-		Source: cloudimagemetadata.Public,
+		Source: "public",
 	}
 	metadata0 := cloudimagemetadata.Metadata{attrs, "0"}
 
-	attrs.Source = cloudimagemetadata.Custom
+	attrs.Source = "custom"
 	metadata1 := cloudimagemetadata.Metadata{attrs, "0"}
 
 	s.assertConcurrentSave(c,
@@ -243,7 +243,7 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloud
 	metadata, err := s.storage.FindMetadata(buildAttributesFilter(criteria))
 	c.Assert(err, jc.ErrorIsNil)
 
-	groups := make(map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata)
+	groups := make(map[string][]cloudimagemetadata.Metadata)
 	for _, one := range expected {
 		groups[one.Source] = append(groups[one.Source], one)
 	}

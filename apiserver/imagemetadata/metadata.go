@@ -4,7 +4,7 @@
 package imagemetadata
 
 import (
-	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/loggo"
@@ -81,12 +81,19 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 		}
 	}
 
-	// First return metadata for custom images, then public.
-	// No other source for cloud images should exist at the moment.
-	// Once new source is identified, the order of returned metadata
-	// may need to be changed.
-	addAll(found[cloudimagemetadata.Custom])
-	addAll(found[cloudimagemetadata.Public])
+	// Sort source keys in alphabetic order.
+	sources := make([]string, len(found))
+	i := 0
+	for source, _ := range found {
+		sources[i] = source
+		i++
+	}
+	sort.Strings(sources)
+
+	for _, source := range sources {
+		addAll(found[source])
+
+	}
 
 	return params.ListCloudImageMetadataResult{Result: all}, nil
 }
@@ -112,24 +119,12 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		VirtType:        p.VirtType,
 		RootStorageType: p.RootStorageType,
 		RootStorageSize: p.RootStorageSize,
-		Source:          string(p.Source),
+		Source:          p.Source,
 	}
 	return result
 }
 
 func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Metadata {
-
-	parseSource := func(s string) cloudimagemetadata.SourceType {
-		switch cloudimagemetadata.SourceType(strings.ToLower(s)) {
-		case cloudimagemetadata.Public:
-			return cloudimagemetadata.Public
-		case cloudimagemetadata.Custom:
-			return cloudimagemetadata.Custom
-		default:
-			panic(fmt.Sprintf("unknown cloud image metadata source %q", s))
-		}
-	}
-
 	result := cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Stream:          p.Stream,
@@ -139,12 +134,15 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 			VirtType:        p.VirtType,
 			RootStorageType: p.RootStorageType,
 			RootStorageSize: p.RootStorageSize,
-			Source:          parseSource(p.Source),
+			Source:          p.Source,
 		},
 		p.ImageId,
 	}
 	if p.Stream == "" {
 		result.Stream = "released"
+	}
+	if p.Source == "" {
+		result.Source = "custom"
 	}
 	return result
 }
@@ -152,42 +150,42 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 // UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
-	published, err := api.retrievePublished()
+	info, published, err := api.retrievePublished()
 	if err != nil {
 		return errors.Annotatef(err, "getting published images metadata")
 	}
-	err = api.saveAll(published)
+	err = api.saveAll(info, published)
 	return errors.Annotatef(err, "saving published images metadata")
 }
 
-func (api *API) retrievePublished() ([]*envmetadata.ImageMetadata, error) {
+func (api *API) retrievePublished() (*simplestreams.ResolveInfo, []*envmetadata.ImageMetadata, error) {
 	// Get environ
 	envCfg, err := api.metadata.EnvironConfig()
 	env, err := environs.New(envCfg)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Get all images metadata sources for this environ.
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// We want all metadata.
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
-	metadata, _, err := envmetadata.Fetch(sources, cons, false)
+	metadata, info, err := envmetadata.Fetch(sources, cons, false)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return metadata, nil
+	return info, metadata, nil
 }
 
-func (api *API) saveAll(published []*envmetadata.ImageMetadata) error {
+func (api *API) saveAll(info *simplestreams.ResolveInfo, published []*envmetadata.ImageMetadata) error {
 	// Store converted metadata.
 	// Note that whether the metadata actually needs
 	// to be stored will be determined within this call.
-	errs, err := api.Save(convertToParams(published))
+	errs, err := api.Save(convertToParams(info, published))
 	if err != nil {
 		return errors.Annotatef(err, "saving published images metadata")
 	}
@@ -195,11 +193,11 @@ func (api *API) saveAll(published []*envmetadata.ImageMetadata) error {
 }
 
 // convertToParams converts environment-specific images metadata to structured metadata format.
-var convertToParams = func(published []*envmetadata.ImageMetadata) params.MetadataSaveParams {
+var convertToParams = func(info *simplestreams.ResolveInfo, published []*envmetadata.ImageMetadata) params.MetadataSaveParams {
 	metadata := make([]params.CloudImageMetadata, len(published))
 	for i, p := range published {
 		metadata[i] = params.CloudImageMetadata{
-			Source:          "public",
+			Source:          info.Source,
 			ImageId:         p.Id,
 			Stream:          p.Stream,
 			Region:          p.RegionName,

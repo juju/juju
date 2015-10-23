@@ -27,7 +27,7 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 	s.expected = cloudimagemetadata.Metadata{
 		cloudimagemetadata.MetadataAttributes{
 			Stream: "released",
-			Source: cloudimagemetadata.Custom,
+			Source: "custom",
 		},
 		"",
 	}
@@ -35,26 +35,14 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&funcSuite{})
 
-func (s *funcSuite) TestParseMetadataSourcePanic(c *gc.C) {
-	m := func() { imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{}) }
-	c.Assert(m, gc.PanicMatches, `unknown cloud image metadata source ""`)
-}
-
-func (s *funcSuite) TestParseMetadataCustom(c *gc.C) {
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "custom"})
-	c.Assert(m, gc.DeepEquals, s.expected)
-
-	m = imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "CusTOM"})
+func (s *funcSuite) TestParseMetadataNoSource(c *gc.C) {
+	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{})
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
-func (s *funcSuite) TestParseMetadataPublic(c *gc.C) {
-	s.expected.Source = cloudimagemetadata.Public
-
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "public"})
-	c.Assert(m, gc.DeepEquals, s.expected)
-
-	m = imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "PubLic"})
+func (s *funcSuite) TestParseMetadataAnySource(c *gc.C) {
+	s.expected.Source = "any"
+	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{Source: "any"})
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
@@ -63,16 +51,13 @@ func (s *funcSuite) TestParseMetadataAnyStream(c *gc.C) {
 	s.expected.Stream = stream
 
 	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{
-		Source: "custom",
 		Stream: stream,
 	})
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
 func (s *funcSuite) TestParseMetadataDefaultStream(c *gc.C) {
-	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{
-		Source: "custom",
-	})
+	m := imagemetadata.ParseMetadataFromParams(params.CloudImageMetadata{})
 	c.Assert(m, gc.DeepEquals, s.expected)
 }
 
