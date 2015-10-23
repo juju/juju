@@ -269,9 +269,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	if err := savePublishedImageMetadata(st, env); err != nil {
+		return err
+	}
+
 	// Add custom image metadata to environment storage.
 	if c.ImageMetadataDir != "" {
-		if err := c.saveCustomImageMetadata(st); err != nil {
+		if err := c.saveCustomImageMetadata(st, env); err != nil {
 			return err
 		}
 
@@ -282,7 +286,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Populate the storage pools.
-	if err := c.populateDefaultStoragePools(st); err != nil {
+	if err = c.populateDefaultStoragePools(st); err != nil {
 		return err
 	}
 
@@ -437,20 +441,50 @@ var seriesFromVersion = series.VersionSeries
 
 // saveCustomImageMetadata reads the custom image metadata from disk,
 // and saves it in state server.
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
-
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
 	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA)
+	datasource := simplestreams.NewURLDataSource("custom", baseURL, utils.NoVerifySSLHostnames)
+	return storeImageMetadataFromFiles(st, env, []simplestreams.DataSource{datasource})
+}
 
 	// Read user supplied image metadata, as we'll want to upload it to the environment.
+// savePublishedImageMetadata reads the custom image metadata from disk,
+// and saves it in state server.
+func savePublishedImageMetadata(st *state.State, env environs.Environ) error {
+	logger.Debugf("storing published image metadata in state")
+	// Get all images metadata sources for this environ.
+	sources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return err
+	}
+	return storeImageMetadataFromFiles(st, env, sources)
+}
+
+// storeImageMetadataFromFiles puts image metadata found in sources into state.
+func storeImageMetadataFromFiles(st *state.State, env environs.Environ, sources []simplestreams.DataSource) error {
+	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := imagemetadata.Fetch(
-		[]simplestreams.DataSource{datasource}, imageConstraint, false)
+	if inst, ok := env.(simplestreams.HasRegion); ok {
+		// If we can determine current region,
+		// we want only metadata specific to this region.
+		cloud, err := inst.Region()
+		if err != nil {
+			return err
+		}
+		imageConstraint.CloudSpec = cloud
+	}
+
+	existingMetadata, info, err := imagemetadata.Fetch(sources, imageConstraint, false)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot read image metadata")
 	}
+	return storeImageMetadataInState(st, info, existingMetadata)
+}
 
+// storeImageMetadataInState writes image metadata into state store.
+func storeImageMetadataInState(st *state.State, info *simplestreams.ResolveInfo, existingMetadata []*imagemetadata.ImageMetadata) error {
 	if len(existingMetadata) == 0 {
 		return nil
 	}
@@ -463,7 +497,7 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 				Arch:            one.Arch,
 				VirtType:        one.VirtType,
 				RootStorageType: one.Storage,
-				Source:          "custom",
+				Source:          info.Source,
 			},
 			datasource.Priority(),
 			one.Id,
