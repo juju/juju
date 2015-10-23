@@ -29,19 +29,16 @@ func Connect(cfg Config) (*Client, error) {
 	return conn, nil
 }
 
-// TODO(ericsnow) Support passing auth info to newRawClient?
-
-func newRawClient(remote string) (*lxd.Client, error) {
-	// TODO(ericsnow) Yuck! This write the config file to the current
-	// user's home directory...
+func newRawClient(remote Remote) (*lxd.Client, error) {
 	cfg, err := lxd.LoadConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	client, err := lxd.NewClient(cfg, remote)
+	client, err := lxd.NewClient(cfg, remote.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return client, nil
 }
