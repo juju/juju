@@ -41,7 +41,7 @@ func (s *ServiceConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 			args: []string{"mysql", "cpu-power=250"},
 		},
 	} {
-		err := testing.InitCommand(&service.ServiceSetConstraintsCommand{}, test.args)
+		err := testing.InitCommand(service.NewServiceSetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -71,7 +71,7 @@ func (s *ServiceConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 			args: []string{"mysql"},
 		},
 	} {
-		err := testing.InitCommand(&service.ServiceGetConstraintsCommand{}, test.args)
+		err := testing.InitCommand(service.NewServiceGetConstraintsCommand(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

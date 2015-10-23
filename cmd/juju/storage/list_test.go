@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -26,14 +25,10 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockListAPI{}
-	s.PatchValue(storage.GetStorageListAPI, func(c *storage.ListCommand) (storage.StorageListAPI, error) {
-		return s.mockAPI, nil
-	})
-
 }
 
-func runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&storage.ListCommand{}), args...)
+func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
+	return testing.RunCommand(c, storage.NewListCommand(s.mockAPI), args...)
 }
 
 func (s *ListSuite) TestList(c *gc.C) {
@@ -116,7 +111,7 @@ transcode/1  shared-fs/0 here     attached
 }
 
 func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {
-	context, err := runList(c, args)
+	context, err := s.runList(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedErr := testing.Stderr(context)

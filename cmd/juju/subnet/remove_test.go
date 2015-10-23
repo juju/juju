@@ -23,7 +23,7 @@ var _ = gc.Suite(&RemoveSuite{})
 func (s *RemoveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command = subnet.NewRemoveCommand(s.api)
+	s.command, _ = subnet.NewRemoveCommand(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -54,8 +54,8 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// envcmd.Wrap().
-		command := subnet.NewRemoveCommand(s.api)
-		err := coretesting.InitCommand(command, test.args)
+		wrappedCommand, command := subnet.NewRemoveCommand(s.api)
+		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
@@ -113,16 +113,4 @@ func (s *RemoveSuite) TestRunWithSubnetInUseFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "RemoveSubnet", "Close")
 	s.api.CheckCall(c, 0, "RemoveSubnet", names.NewSubnetTag("10.10.0.0/24"))
-}
-
-func (s *RemoveSuite) TestRunAPIConnectFails(c *gc.C) {
-	// TODO(dimitern): Change this once API is implemented.
-	s.command = subnet.NewRemoveCommand(nil)
-	s.AssertRunFails(c,
-		"cannot connect to the API server: no environment specified",
-		"10.10.0.0/24",
-	)
-
-	// No API calls recoreded.
-	s.api.CheckCallNames(c)
 }

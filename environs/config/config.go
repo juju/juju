@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/tags"
@@ -175,6 +177,12 @@ const (
 	// 'ubuntu-cloudimg-query' executable uses to find container images. This
 	// is primarily for enabling Juju to work cleanly in a closed network.
 	CloudImageBaseURL = "cloudimg-base-url"
+
+	// IdentityURL sets the url of the identity manager.
+	IdentityURL = "identity-url"
+
+	// IdentityPublicKey sets the public key of the identity manager.
+	IdentityPublicKey = "identity-public-key"
 
 	//
 	// Deprecated Settings Attributes
@@ -590,6 +598,24 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.defined["logging-config"].(string); ok {
 		if _, err := loggo.ParseConfigurationString(v); err != nil {
 			return err
+		}
+	}
+
+	if v, ok := cfg.defined[IdentityURL].(string); ok {
+		u, err := url.Parse(v)
+		if err != nil {
+			return fmt.Errorf("invalid identity URL: %v", err)
+		}
+		if u.Scheme != "https" {
+			return fmt.Errorf("URL needs to be https")
+		}
+
+	}
+
+	if v, ok := cfg.defined[IdentityPublicKey].(string); ok {
+		var key bakery.PublicKey
+		if err := key.UnmarshalText([]byte(v)); err != nil {
+			return fmt.Errorf("invalid identity public key: %v", err)
 		}
 	}
 
@@ -1239,6 +1265,27 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	return New(NoDefaults, defined)
 }
 
+// IdentityURL returns the url of the identity manager.
+func (c *Config) IdentityURL() string {
+	return c.asString(IdentityURL)
+}
+
+// IdentityPublicKey returns the public key of the identity manager.
+func (c *Config) IdentityPublicKey() *bakery.PublicKey {
+	key := c.asString(IdentityPublicKey)
+	if key == "" {
+		return nil
+	}
+	var pubKey bakery.PublicKey
+	err := pubKey.UnmarshalText([]byte(key))
+	if err != nil {
+		// We check if the key string can be unmarshalled into a PublicKey in the
+		// Validate function, so we really do not expect this to fail.
+		panic(err)
+	}
+	return &pubKey
+}
+
 // fields holds the validation schema fields derived from configSchema.
 var fields = func() schema.Fields {
 	fs, _, err := configSchema.ValidationSchema()
@@ -1283,6 +1330,8 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
+	IdentityURL:                  schema.Omit,
+	IdentityPublicKey:            schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
@@ -1399,6 +1448,8 @@ var immutableAttributes = []string{
 	"lxc-clone-aufs",
 	"syslog-port",
 	"prefer-ipv6",
+	IdentityURL,
+	IdentityPublicKey,
 }
 
 var (
@@ -1860,6 +1911,18 @@ data of the store. (default false)`,
 	},
 	"uuid": {
 		Description: "The UUID of the environment",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
+	IdentityURL: {
+		Description: "IdentityURL specifies the URL of the identity manager",
+		Type:        environschema.Tstring,
+		Group:       environschema.JujuGroup,
+		Immutable:   true,
+	},
+	IdentityPublicKey: {
+		Description: "Public key of the identity manager. If this is omitted, the public key will be fetched from the IdentityURL.",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

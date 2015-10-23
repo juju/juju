@@ -4,10 +4,14 @@
 package api
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -17,7 +21,9 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"golang.org/x/net/websocket"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
@@ -31,12 +37,17 @@ var logger = loggo.GetLogger("juju.api")
 // will run. It's a variable so it can be changed in tests.
 var PingPeriod = 1 * time.Minute
 
-type State struct {
+// state is the internal implementation of the Connection interface.
+type state struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
 
 	// addr is the address used to connect to the API server.
 	addr string
+
+	// cookieURL is the URL that HTTP cookies for the API
+	// will be associated with (specifically macaroon auth cookies).
+	cookieURL *url.URL
 
 	// environTag holds the environment tag once we're connected
 	environTag string
@@ -69,9 +80,14 @@ type State struct {
 	// closed is a channel that gets closed when State.Close is called.
 	closed chan struct{}
 
-	// tag and password hold the cached login credentials.
+	// loggedIn holds whether the client has successfully logged in.
+	loggedIn bool
+
+	// tag and password and nonce hold the cached login credentials.
+	// These are only valid if loggedIn is true.
 	tag      string
 	password string
+	nonce    string
 
 	// serverRootAddress holds the cached API server address and port used
 	// to login.
@@ -80,9 +96,17 @@ type State struct {
 	// serverScheme is the URI scheme of the API Server
 	serverScheme string
 
+	// tlsConfig holds the TLS config appropriate for making SSL
+	// connections to the API endpoints.
+	tlsConfig *tls.Config
+
 	// certPool holds the cert pool that is used to authenticate the tls
 	// connections to the API.
 	certPool *x509.CertPool
+
+	// bakeryClient holds the client that will be used to
+	// authorize macaroon based login requests.
+	bakeryClient *httpbakery.Client
 }
 
 // Open establishes a connection to the API server using the Info
@@ -91,34 +115,65 @@ type State struct {
 //
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (Connection, error) {
-	return open(info, opts, (*State).Login)
+	return open(info, opts, (*state).Login)
 }
 
 // This unexported open method is used both directly above in the Open
 // function, and also the OpenWithVersion function below to explicitly cause
 // the API server to think that the client is older than it really is.
-func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce string) error) (Connection, error) {
-	conn, err := Connect(info, "", nil, opts)
+func open(info *Info, opts DialOpts, loginFunc func(st *state, tag names.Tag, pwd, nonce string) error) (Connection, error) {
+	if info.UseMacaroons {
+		if info.Tag != nil || info.Password != "" {
+			return nil, errors.New("open should specifiy UseMacaroons or a username & password. Not both")
+		}
+	}
+	conn, tlsConfig, err := connectWebsocket(info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
 	client.Start()
-	st := &State{
-		client:            client,
-		conn:              conn,
-		addr:              conn.Config().Location.Host,
+
+	bakeryClient := opts.BakeryClient
+	if bakeryClient == nil {
+		bakeryClient = httpbakery.NewClient()
+	} else {
+		// Make a copy of the bakery client and its
+		// HTTP client
+		c := *opts.BakeryClient
+		bakeryClient = &c
+		httpc := *bakeryClient.Client
+		bakeryClient.Client = &httpc
+	}
+	apiHost := conn.Config().Location.Host
+	bakeryClient.Client.Transport = &hostSwitchingTransport{
+		primaryHost: apiHost,
+		primary:     utils.NewHttpTLSTransport(tlsConfig),
+		fallback:    http.DefaultTransport,
+	}
+
+	st := &state{
+		client: client,
+		conn:   conn,
+		addr:   apiHost,
+		cookieURL: &url.URL{
+			Scheme: "https",
+			Host:   conn.Config().Location.Host,
+			Path:   "/",
+		},
 		serverScheme:      "https",
 		serverRootAddress: conn.Config().Location.Host,
 		// why are the contents of the tag (username and password) written into the
 		// state structure BEFORE login ?!?
-		tag:      toString(info.Tag),
-		password: info.Password,
-		certPool: conn.Config().TlsConfig.RootCAs,
+		tag:          tagToString(info.Tag),
+		password:     info.Password,
+		nonce:        info.Nonce,
+		tlsConfig:    tlsConfig,
+		bakeryClient: bakeryClient,
 	}
-	if info.Tag != nil || info.Password != "" {
-		if err := loginFunc(st, info.Tag.String(), info.Password, info.Nonce); err != nil {
+	if info.Tag != nil || info.Password != "" || info.UseMacaroons {
+		if err := loginFunc(st, info.Tag, info.Password, info.Nonce); err != nil {
 			conn.Close()
 			return nil, err
 		}
@@ -129,56 +184,73 @@ func open(info *Info, opts DialOpts, loginFunc func(st *State, tag, pwd, nonce s
 	return st, nil
 }
 
+// hostSwitchingTransport provides an http.RoundTripper
+// that chooses an actual RoundTripper to use
+// depending on the destination host.
+//
+// This makes it possible to use a different set of root
+// CAs for the API and all other hosts.
+type hostSwitchingTransport struct {
+	primaryHost string
+	primary     http.RoundTripper
+	fallback    http.RoundTripper
+}
+
+// RoundTrip implements http.RoundTripper.RoundTrip.
+func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.URL.Host == t.primaryHost {
+		return t.primary.RoundTrip(req)
+	}
+	return t.fallback.RoundTrip(req)
+}
+
 // OpenWithVersion uses an explicit version of the Admin facade to call Login
 // on. This allows the caller to pretend to be an older client, and is used
 // only in testing.
 func OpenWithVersion(info *Info, opts DialOpts, loginVersion int) (Connection, error) {
-	var loginFunc func(st *State, tag, pwd, nonce string) error
+	var loginFunc func(st *state, tag names.Tag, pwd, nonce string) error
 	switch loginVersion {
 	case 0:
-		loginFunc = (*State).loginV0
+		loginFunc = (*state).loginV0
 	case 1:
-		loginFunc = (*State).loginV1
+		loginFunc = (*state).loginV1
 	case 2:
-		loginFunc = (*State).loginV2
+		loginFunc = (*state).loginV2
 	default:
 		return nil, errors.NotSupportedf("loginVersion %d", loginVersion)
 	}
 	return open(info, opts, loginFunc)
 }
 
-// Connect establishes a websocket connection to the API server using
-// the Info, API path tail and (optional) request headers provided. If
-// multiple API addresses are provided in Info they will be tried
-// concurrently - the first successful connection wins.
+// connectWebsocket establishes a websocket connection to the RPC
+// API websocket on the API server using Info. If multiple API addresses
+// are provided in Info they will be tried concurrently - the first successful
+// connection wins.
 //
-// The path tail may be blank, in which case the default value will be
-// used. Otherwise, it must start with a "/".
-func Connect(info *Info, pathTail string, header http.Header, opts DialOpts) (*websocket.Conn, error) {
+// It also returns the TLS configuration that it has derived from the Info.
+func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, error) {
 	if len(info.Addrs) == 0 {
-		return nil, errors.New("no API addresses to connect to")
+		return nil, nil, errors.New("no API addresses to connect to")
 	}
-	if pathTail != "" && !strings.HasPrefix(pathTail, "/") {
-		return nil, errors.New(`path tail must start with "/"`)
-	}
-
-	pool, err := CreateCertPool(info.CACert)
+	tlsConfig, err := tlsConfigForCACert(info.CACert)
 	if err != nil {
-		return nil, errors.Annotate(err, "cert pool creation failed")
+		return nil, nil, errors.Annotatef(err, "cannot make TLS configuration")
 	}
-
-	path := makeAPIPath(info.EnvironTag.Id(), pathTail)
+	path := "/"
+	if info.EnvironTag.Id() != "" {
+		path = apiPath(info.EnvironTag, "/api")
+	}
 
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 	for _, addr := range info.Addrs {
-		err := dialWebsocket(addr, path, header, opts, pool, try)
+		err := dialWebsocket(addr, path, opts, tlsConfig, try)
 		if err == parallel.ErrStopped {
 			break
 		}
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		select {
 		case <-time.After(opts.DialAddressInterval):
@@ -188,59 +260,198 @@ func Connect(info *Info, pathTail string, header http.Header, opts DialOpts) (*w
 	try.Close()
 	result, err := try.Result()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
+	return conn, tlsConfig, nil
+}
+
+func tlsConfigForCACert(caCert string) (*tls.Config, error) {
+	certPool, err := CreateCertPool(caCert)
+	if err != nil {
+		return nil, errors.Annotate(err, "cert pool creation failed")
+	}
+	return &tls.Config{
+		RootCAs: certPool,
+		// We want to be specific here (rather than just using "anything".
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		ServerName: "juju-apiserver",
+	}, nil
+}
+
+// ConnectStream implements Connection.ConnectStream.
+func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	if !st.loggedIn {
+		return nil, errors.New("cannot use ConnectStream without logging in")
+	}
+	// We use the standard "macaraq" macaroon authentication dance here.
+	// That is, we attach any macaroons we have to the initial request,
+	// and if that succeeds, all's good. If it fails with a DischargeRequired
+	// error, the response will contain a macaroon that, when discharged,
+	// may allow access, so we discharge it (using bakery.Client.HandleError)
+	// and try the request again.
+	conn, err := st.connectStream(path, attrs)
+	if err == nil {
+		return conn, err
+	}
+	if params.ErrCode(err) != params.CodeDischargeRequired {
+		return nil, errors.Trace(err)
+	}
+	if err := st.bakeryClient.HandleError(st.cookieURL, bakeryError(err)); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Try again with the discharged macaroon.
+	conn, err = st.connectStream(path, attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return conn, nil
 }
 
-// makeAPIPath builds the path to connect to based on the tail given
-// and whether the environment UUID is set.
-func makeAPIPath(envUUID, tail string) string {
-	if envUUID == "" {
-		if tail == "" {
-			tail = "/"
+// connectStream is the internal version of ConnectStream. It differs from
+// ConnectStream only in that it will not retry the connection if it encounters
+// discharge-required error.
+func (st *state) connectStream(path string, attrs url.Values) (base.Stream, error) {
+	if !strings.HasPrefix(path, "/") {
+		return nil, errors.New(`path must start with "/"`)
+	}
+	if _, ok := st.ServerVersion(); ok {
+		// If the server version is set, then we know the server is capable of
+		// serving streams at the environment path. We also fully expect
+		// that the server has returned a valid environment tag.
+		envTag, err := st.EnvironTag()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get environment tag, perhaps connected to system not environment")
 		}
-		return tail
+		path = apiPath(envTag, path)
 	}
-	if tail == "" {
-		tail = "/api"
+	target := url.URL{
+		Scheme:   "wss",
+		Host:     st.addr,
+		Path:     path,
+		RawQuery: attrs.Encode(),
 	}
-	return "/environment/" + envUUID + tail
+	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
+	if st.tag != "" {
+		cfg.Header = utils.BasicAuthHeader(st.tag, st.password)
+	}
+	if st.nonce != "" {
+		cfg.Header.Set(params.MachineNonceHeader, st.nonce)
+	}
+	// Add any cookies because they will not be sent to websocket
+	// connections by default.
+	st.addCookiesToHeader(cfg.Header)
+
+	cfg.TlsConfig = st.tlsConfig
+	connection, err := websocketDialConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := readInitialStreamError(connection); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return connection, nil
 }
 
-// toString returns the value of a tag's String method, or "" if the tag is nil.
-func toString(tag names.Tag) string {
+// readInitialStreamError reads the initial error response
+// from a stream connection and returns it.
+func readInitialStreamError(conn io.Reader) error {
+	// We can use bufio here because the websocket guarantees that a
+	// single read will not read more than a single frame; there is
+	// no guarantee that a single read might not read less than the
+	// whole frame though, so using a single Read call is not
+	// correct. By using ReadSlice rather than ReadBytes, we
+	// guarantee that the error can't be too big (>4096 bytes).
+	line, err := bufio.NewReader(conn).ReadSlice('\n')
+	if err != nil {
+		return errors.Annotate(err, "unable to read initial response")
+	}
+	var errResult params.ErrorResult
+	if err := json.Unmarshal(line, &errResult); err != nil {
+		return errors.Annotate(err, "unable to unmarshal initial response")
+	}
+	if errResult.Error != nil {
+		return errResult.Error
+	}
+	return nil
+}
+
+// addCookiesToHeader adds any cookies associated with the
+// API host to the given header. This is necessary because
+// otherwise cookies are not sent to websocket endpoints.
+func (st *state) addCookiesToHeader(h http.Header) {
+	// net/http only allows adding cookies to a request,
+	// but when it sends a request to a non-http endpoint,
+	// it doesn't add the cookies, so make a request, starting
+	// with the given header, add the cookies to use, then
+	// throw away the request but keep the header.
+	req := &http.Request{
+		Header: h,
+	}
+	cookies := st.bakeryClient.Client.Jar.Cookies(st.cookieURL)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+}
+
+// apiEndpoint returns a URL that refers to the given API slash-prefixed
+// endpoint path and query parameters. Note that the caller
+// is responsible for ensuring that the path *is* prefixed with a slash.
+func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
+	if _, err := st.ServerTag(); err == nil {
+		// The server tag is set, so the agent version is >= 1.23,
+		// so we can use the environment endpoint.
+		envTag, err := st.EnvironTag()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get API endpoint address")
+		}
+		path = apiPath(envTag, path)
+	}
+	return &url.URL{
+		Scheme:   st.serverScheme,
+		Host:     st.Addr(),
+		Path:     path,
+		RawQuery: query,
+	}, nil
+}
+
+// apiPath returns the given API endpoint path relative
+// to the given environment tag. The caller is responsible
+// for ensuring that the environment tag is valid and
+// that the path is slash-prefixed.
+func apiPath(envTag names.EnvironTag, path string) string {
+	if !strings.HasPrefix(path, "/") {
+		panic(fmt.Sprintf("apiPath called with non-slash-prefixed path %q", path))
+	}
+	if envTag.Id() == "" {
+		panic("apiPath called with empty environment tag")
+	}
+	if envUUID := envTag.Id(); envUUID != "" {
+		return "/environment/" + envUUID + path
+	}
+	return path
+}
+
+// tagToString returns the value of a tag's String method, or "" if the tag is nil.
+func tagToString(tag names.Tag) string {
 	if tag == nil {
 		return ""
 	}
 	return tag.String()
 }
 
-func dialWebsocket(addr, path string, header http.Header, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
-	cfg, err := setUpWebsocket(addr, path, header, rootCAs)
-	if err != nil {
-		return err
-	}
-	return try.Start(newWebsocketDialer(cfg, opts))
-}
-
-func setUpWebsocket(addr, path string, header http.Header, rootCAs *x509.CertPool) (*websocket.Config, error) {
+func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try *parallel.Try) error {
 	// origin is required by the WebSocket API, used for "origin policy"
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
 	const origin = "http://localhost/"
 	cfg, err := websocket.NewConfig("wss://"+addr+path, origin)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	cfg.TlsConfig = &tls.Config{
-		RootCAs:    rootCAs,
-		ServerName: "juju-apiserver",
-	}
-	cfg.Header = header
-	return cfg, nil
+	cfg.TlsConfig = tlsConfig
+	return try.Start(newWebsocketDialer(cfg, opts))
 }
 
 // newWebsocketDialer returns a function that
@@ -268,14 +479,14 @@ func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan str
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
-				return nil, errors.Errorf("unable to connect to %q", cfg.Location)
+				return nil, errors.Annotatef(err, "unable to connect to API")
 			}
 		}
 		panic("unreachable")
 	}
 }
 
-func (s *State) heartbeatMonitor() {
+func (s *state) heartbeatMonitor() {
 	for {
 		if err := s.Ping(); err != nil {
 			close(s.broken)
@@ -288,7 +499,7 @@ func (s *State) heartbeatMonitor() {
 	}
 }
 
-func (s *State) Ping() error {
+func (s *state) Ping() error {
 	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }
 
@@ -297,7 +508,7 @@ func (s *State) Ping() error {
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
-func (s *State) APICall(facade string, version int, id, method string, args, response interface{}) error {
+func (s *state) APICall(facade string, version int, id, method string, args, response interface{}) error {
 	err := s.client.Call(rpc.Request{
 		Type:    facade,
 		Version: version,
@@ -307,7 +518,7 @@ func (s *State) APICall(facade string, version int, id, method string, args, res
 	return params.ClientError(err)
 }
 
-func (s *State) Close() error {
+func (s *state) Close() error {
 	err := s.client.Close()
 	select {
 	case <-s.closed:
@@ -319,29 +530,29 @@ func (s *State) Close() error {
 }
 
 // Broken returns a channel that's closed when the connection is broken.
-func (s *State) Broken() <-chan struct{} {
+func (s *state) Broken() <-chan struct{} {
 	return s.broken
 }
 
 // RPCClient returns the RPC client for the state, so that testing
 // functions can tickle parts of the API that the conventional entry
 // points don't reach. This is exported for testing purposes only.
-func (s *State) RPCClient() *rpc.Conn {
+func (s *state) RPCClient() *rpc.Conn {
 	return s.client
 }
 
 // Addr returns the address used to connect to the API server.
-func (s *State) Addr() string {
+func (s *state) Addr() string {
 	return s.addr
 }
 
 // EnvironTag returns the tag of the environment we are connected to.
-func (s *State) EnvironTag() (names.EnvironTag, error) {
+func (s *state) EnvironTag() (names.EnvironTag, error) {
 	return names.ParseEnvironTag(s.environTag)
 }
 
 // ServerTag returns the tag of the server we are connected to.
-func (s *State) ServerTag() (names.EnvironTag, error) {
+func (s *state) ServerTag() (names.EnvironTag, error) {
 	return names.ParseEnvironTag(s.serverTag)
 }
 
@@ -353,7 +564,7 @@ func (s *State) ServerTag() (names.EnvironTag, error) {
 // Juju CLI, all addresses must be attempted, as the CLI may
 // be invoked both within and outside the environment (think
 // private clouds).
-func (s *State) APIHostPorts() [][]network.HostPort {
+func (s *state) APIHostPorts() [][]network.HostPort {
 	// NOTE: We're making a copy of s.hostPorts before returning it,
 	// for safety.
 	hostPorts := make([][]network.HostPort, len(s.hostPorts))
@@ -364,7 +575,7 @@ func (s *State) APIHostPorts() [][]network.HostPort {
 }
 
 // AllFacadeVersions returns what versions we know about for all facades
-func (s *State) AllFacadeVersions() map[string][]int {
+func (s *state) AllFacadeVersions() map[string][]int {
 	facades := make(map[string][]int, len(s.facadeVersions))
 	for name, versions := range s.facadeVersions {
 		facades[name] = append([]int{}, versions...)
@@ -378,12 +589,12 @@ func (s *State) AllFacadeVersions() map[string][]int {
 // TODO(jam) this is the eventual implementation of what version of a given
 // Facade we will want to use. It needs to line up the versions that the server
 // reports to us, with the versions that our client knows how to use.
-func (s *State) BestFacadeVersion(facade string) int {
+func (s *state) BestFacadeVersion(facade string) int {
 	return bestVersion(facadeVersions[facade], s.facadeVersions[facade])
 }
 
 // serverRoot returns the cached API server address and port used
 // to login, prefixed with "<URI scheme>://" (usually https).
-func (s *State) serverRoot() string {
+func (s *state) serverRoot() string {
 	return s.serverScheme + "://" + s.serverRootAddress
 }

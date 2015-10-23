@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -987,6 +988,45 @@ var configTests = []configTest{
 		},
 		err: `resource-tags: expected "key=value", got "a"`,
 	},
+	{
+		about:       "Invalid identity URL value",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"identity-url": "%",
+		},
+		err: `invalid identity URL: parse %: invalid URL escape "%"`,
+	}, {
+		about:       "Not using https in identity URL",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"identity-url": "http://test-identity",
+		},
+		err: `URL needs to be https`,
+	},
+	{
+		about:       "Invalid identity public key",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"identity-public-key": "_",
+		},
+		err: `invalid identity public key: cannot decode base64 key: illegal base64 data at input byte 0`,
+	},
+	{
+		about:       "Valid identity URL and public key values",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"identity-url":        "https://test-identity",
+			"identity-public-key": "o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=",
+		},
+	},
 }
 
 func missingAttributeNoDefault(attrName string) configTest {
@@ -1203,6 +1243,15 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		got, exists := cfg.UUID()
 		c.Assert(exists, gc.Equals, ok)
 		c.Assert(got, gc.Equals, expected)
+	}
+	if identityURL, ok := test.attrs["identity-url"]; ok {
+		c.Assert(cfg.IdentityURL(), gc.Equals, identityURL)
+	}
+	if identityPublicKey, ok := test.attrs["identity-public-key"]; ok {
+		var pk bakery.PublicKey
+		err := pk.UnmarshalText([]byte(identityPublicKey.(string)))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cfg.IdentityPublicKey(), gc.DeepEquals, &pk)
 	}
 
 	dev, _ := test.attrs["development"].(bool)

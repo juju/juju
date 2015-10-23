@@ -7,9 +7,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const DeleteCommandDoc = `
+const deleteCommandDoc = `
 Delete cached os images in the Juju environment.
 
 Images are identified by:
@@ -23,23 +25,27 @@ Examples:
   juju cache-images delete --kind lxc --series trusty --arch amd64
 `
 
-// DeleteCommand shows the images in the Juju server.
-type DeleteCommand struct {
+func newDeleteCommand() cmd.Command {
+	return envcmd.Wrap(&deleteCommand{})
+}
+
+// deleteCommand shows the images in the Juju server.
+type deleteCommand struct {
 	CachedImagesCommandBase
 	Kind, Series, Arch string
 }
 
 // Info implements Command.Info.
-func (c *DeleteCommand) Info() *cmd.Info {
+func (c *deleteCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "delete",
 		Purpose: "delete cached os images",
-		Doc:     DeleteCommandDoc,
+		Doc:     deleteCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *DeleteCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *deleteCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CachedImagesCommandBase.SetFlags(f)
 	f.StringVar(&c.Kind, "kind", "", "the image kind to delete eg lxc")
 	f.StringVar(&c.Series, "series", "", "the series of the image to delete eg trusty")
@@ -47,7 +53,7 @@ func (c *DeleteCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements Command.Init.
-func (c *DeleteCommand) Init(args []string) (err error) {
+func (c *deleteCommand) Init(args []string) (err error) {
 	if c.Kind == "" {
 		return errors.New("image kind must be specified")
 	}
@@ -66,13 +72,13 @@ type DeleteImageAPI interface {
 	Close() error
 }
 
-var getDeleteImageAPI = func(p *DeleteCommand) (DeleteImageAPI, error) {
+var getDeleteImageAPI = func(p *CachedImagesCommandBase) (DeleteImageAPI, error) {
 	return p.NewImagesManagerClient()
 }
 
 // Run implements Command.Run.
-func (c *DeleteCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := getDeleteImageAPI(c)
+func (c *deleteCommand) Run(ctx *cmd.Context) (err error) {
+	client, err := getDeleteImageAPI(&c.CachedImagesCommandBase)
 	if err != nil {
 		return err
 	}

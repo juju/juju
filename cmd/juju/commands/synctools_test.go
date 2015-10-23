@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/testing"
@@ -35,7 +34,7 @@ var _ = gc.Suite(&syncToolsSuite{})
 func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.fakeSyncToolsAPI = &fakeSyncToolsAPI{}
-	s.PatchValue(&getSyncToolsAPI, func(c *SyncToolsCommand) (syncToolsAPI, error) {
+	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil
 	})
 }
@@ -46,7 +45,7 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 }
 
 func runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, envcmd.Wrap(&SyncToolsCommand{}), args...)
+	return coretesting.RunCommand(c, newSyncToolsCommand(), args...)
 }
 
 var syncToolsCommandTests = []struct {
@@ -265,7 +264,7 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 	syncTools = func(sctx *sync.SyncContext) error {
 		// Block operation
-		return common.ErrOperationBlocked("TestAPIAdapterBlockUploadTools")
+		return common.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
 	_, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", c.MkDir(), "--stream", "released")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())

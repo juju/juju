@@ -4,6 +4,9 @@
 package system
 
 import (
+	"os"
+	"path"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -19,16 +22,20 @@ import (
 	"github.com/juju/juju/network"
 )
 
+func newLoginCommand() cmd.Command {
+	return envcmd.WrapBase(&loginCommand{})
+}
+
 // GetUserManagerFunc defines a function that takes an api connection
 // and returns the (locally defined) UserManager interface.
 type GetUserManagerFunc func(conn api.Connection) (UserManager, error)
 
-// LoginCommand logs in to a Juju system and caches the connection
+// loginCommand logs in to a Juju system and caches the connection
 // information.
-type LoginCommand struct {
-	cmd.CommandBase
-	apiOpen        api.OpenFunc
-	getUserManager GetUserManagerFunc
+type loginCommand struct {
+	envcmd.JujuCommandBase
+	loginAPIOpen   api.OpenFunc
+	GetUserManager GetUserManagerFunc
 	// TODO (thumper): when we support local cert definitions
 	// allow the use to specify the user and server address.
 	// user      string
@@ -71,7 +78,7 @@ See Also:
 `
 
 // Info implements Command.Info
-func (c *LoginCommand) Info() *cmd.Info {
+func (c *loginCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name: "login",
 		// TODO(thumper): support user and address options
@@ -83,18 +90,15 @@ func (c *LoginCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *LoginCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *loginCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.Server, "server", "path to yaml-formatted server file")
 	f.BoolVar(&c.KeepPassword, "keep-password", false, "do not generate a new random password")
 }
 
 // SetFlags implements Command.Init.
-func (c *LoginCommand) Init(args []string) error {
-	if c.apiOpen == nil {
-		c.apiOpen = apiOpen
-	}
-	if c.getUserManager == nil {
-		c.getUserManager = getUserManager
+func (c *loginCommand) Init(args []string) error {
+	if c.GetUserManager == nil {
+		c.GetUserManager = getUserManager
 	}
 	if len(args) == 0 {
 		return errors.New("no name specified")
@@ -104,8 +108,22 @@ func (c *LoginCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// cookieFile returns the path to the cookie used to store authorization
+// macaroons. The returned value can be overridden by setting the
+// JUJU_COOKIEFILE environment variable.
+func cookieFile() string {
+	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
+		return file
+	}
+	return path.Join(utils.Home(), ".go-cookies")
+}
+
 // Run implements Command.Run
-func (c *LoginCommand) Run(ctx *cmd.Context) error {
+func (c *loginCommand) Run(ctx *cmd.Context) error {
+	if c.loginAPIOpen == nil {
+		c.loginAPIOpen = c.JujuCommandBase.APIOpen
+	}
+
 	// TODO(thumper): as we support the user and address
 	// change this check here.
 	if c.Server.Path == "" {
@@ -122,27 +140,41 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Construct the api.Info struct from the provided values
-	// and attempt to connect to the remote server before we do anything else.
-	if !names.IsValidUser(serverDetails.Username) {
-		return errors.Errorf("%q is not a valid username", serverDetails.Username)
-	}
-
-	userTag := names.NewUserTag(serverDetails.Username)
-	if userTag.Provider() != names.LocalProvider {
-		// Remove users do not have their passwords stored in Juju
-		// so we never attempt to change them.
-		c.KeepPassword = true
-	}
-
 	info := api.Info{
-		Addrs:    serverDetails.Addresses,
-		CACert:   serverDetails.CACert,
-		Tag:      userTag,
-		Password: serverDetails.Password,
+		Addrs:  serverDetails.Addresses,
+		CACert: serverDetails.CACert,
+	}
+	var userTag names.UserTag
+	if serverDetails.Username != "" {
+		// Construct the api.Info struct from the provided values
+		// and attempt to connect to the remote server before we do anything else.
+		if !names.IsValidUser(serverDetails.Username) {
+			return errors.Errorf("%q is not a valid username", serverDetails.Username)
+		}
+
+		userTag = names.NewUserTag(serverDetails.Username)
+		if !userTag.IsLocal() {
+			// Remote users do not have their passwords stored in Juju
+			// so we never attempt to change them.
+			c.KeepPassword = true
+		}
+		info.Tag = userTag
 	}
 
-	apiState, err := c.apiOpen(&info, api.DefaultDialOpts())
+	if serverDetails.Password != "" {
+		info.Password = serverDetails.Password
+	}
+
+	if serverDetails.Password == "" || serverDetails.Username == "" {
+		info.UseMacaroons = true
+	}
+	if c == nil {
+		panic("nil c")
+	}
+	if c.loginAPIOpen == nil {
+		panic("no loginAPIOpen")
+	}
+	apiState, err := c.loginAPIOpen(&info, api.DefaultDialOpts())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -170,7 +202,7 @@ func (c *LoginCommand) Run(ctx *cmd.Context) error {
 	return errors.Trace(envcmd.SetCurrentSystem(ctx, c.Name))
 }
 
-func (c *LoginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState api.Connection) (configstore.EnvironInfo, error) {
+func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState api.Connection) (configstore.EnvironInfo, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -215,13 +247,13 @@ func (c *LoginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiS
 	return serverInfo, nil
 }
 
-func (c *LoginCommand) updatePassword(ctx *cmd.Context, conn api.Connection, userTag names.UserTag, serverInfo configstore.EnvironInfo) error {
+func (c *loginCommand) updatePassword(ctx *cmd.Context, conn api.Connection, userTag names.UserTag, serverInfo configstore.EnvironInfo) error {
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return errors.Annotate(err, "failed to generate random password")
 	}
 
-	userManager, err := c.getUserManager(conn)
+	userManager, err := c.GetUserManager(conn)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -236,10 +268,6 @@ func (c *LoginCommand) updatePassword(ctx *cmd.Context, conn api.Connection, use
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	return api.Open(info, opts)
 }
 
 // UserManager defines the calls that the Login command makes to the user

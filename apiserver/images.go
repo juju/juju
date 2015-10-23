@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,8 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/fslock"
 
-	"github.com/juju/juju/apiserver/common"
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
@@ -29,48 +26,27 @@ import (
 
 // imagesDownloadHandler handles image download through HTTPS in the API server.
 type imagesDownloadHandler struct {
-	httpHandler
+	ctxt    httpContext
 	dataDir string
 	state   *state.State
 }
 
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	stateWrapper, err := h.validateEnvironUUID(r)
+	st, err := h.ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
-		h.sendError(w, http.StatusNotFound, err.Error())
+		sendError(w, err)
 		return
 	}
 	switch r.Method {
 	case "GET":
-		err := h.processGet(r, w, stateWrapper.state)
+		err := h.processGet(r, w, st)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			h.sendError(w, http.StatusInternalServerError, err.Error())
+			sendError(w, err)
 			return
 		}
 	default:
-		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
-	}
-}
-
-// sendJSON sends a JSON-encoded response to the client.
-func (h *imagesDownloadHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.ErrorResult) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	body, err := json.Marshal(response)
-	if err != nil {
-		return err
-	}
-	w.Write(body)
-	return nil
-}
-
-// sendError sends a JSON-encoded error response.
-func (h *imagesDownloadHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
-	logger.Debugf("sending error: %v %v", statusCode, message)
-	err := common.ServerError(errors.New(message))
-	if err := h.sendJSON(w, statusCode, &params.ErrorResult{Error: err}); err != nil {
-		logger.Errorf("failed to send error: %v", err)
+		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
 	}
 }
 
@@ -92,7 +68,7 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	// Stream the image to the caller.
 	logger.Debugf("streaming image from state blobstore: %+v", metadata)
 	resp.Header().Set("Content-Type", "application/x-tar-gz")
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", apihttp.DigestSHA, metadata.SHA256))
+	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA, metadata.SHA256))
 	resp.Header().Set("Content-Length", fmt.Sprint(metadata.Size))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, imageReader); err != nil {

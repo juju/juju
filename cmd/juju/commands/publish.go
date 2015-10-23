@@ -18,7 +18,11 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-type PublishCommand struct {
+func newPublishCommand() cmd.Command {
+	return envcmd.Wrap(&publishCommand{})
+}
+
+type publishCommand struct {
 	envcmd.EnvCommandBase
 	URL       string
 	CharmPath string
@@ -46,7 +50,7 @@ informing a charm URL. If the URL isn't provided, an attempt will be
 made to infer it from the current branch push URL.
 `
 
-func (c *PublishCommand) Info() *cmd.Info {
+func (c *publishCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "publish",
 		Args:    "[<charm url>]",
@@ -55,11 +59,11 @@ func (c *PublishCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *publishCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CharmPath, "from", ".", "path for charm to be published")
 }
 
-func (c *PublishCommand) Init(args []string) error {
+func (c *publishCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
@@ -67,17 +71,17 @@ func (c *PublishCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *PublishCommand) ChangePushLocation(change func(string) string) {
+func (c *publishCommand) ChangePushLocation(change func(string) string) {
 	c.changePushLocation = change
 }
 
-func (c *PublishCommand) SetPollDelay(delay time.Duration) {
+func (c *publishCommand) SetPollDelay(delay time.Duration) {
 	c.pollDelay = delay
 }
 
 // Wording guideline to avoid confusion: charms have *URLs*, branches have *locations*.
 
-func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
+func (c *publishCommand) Run(ctx *cmd.Context) (err error) {
 	branch := bzr.New(ctx.AbsPath(c.CharmPath))
 	if _, err := os.Stat(branch.Join(".bzr")); err != nil {
 		return fmt.Errorf("not a charm branch: %s", branch.Location())
@@ -99,7 +103,11 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 			}
 		}
 	} else {
-		curl, err = charm.InferURL(c.URL, "")
+		ref, err := charm.ParseReference(c.URL)
+		if err != nil {
+			return err
+		}
+		curl, err = ref.URL("")
 		if err != nil {
 			return err
 		}

@@ -10,8 +10,13 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
+
+func newDeleteKeysCommand() cmd.Command {
+	return envcmd.Wrap(&deleteKeysCommand{})
+}
 
 var deleteKeysDoc = `
 Delete existing authorized ssh keys to remove ssh access for the holder of those keys.
@@ -19,14 +24,14 @@ The keys to delete are found by specifying either the "comment" portion of the s
 typically something like "user@host", or the key fingerprint found by using ssh-keygen.
 `
 
-// DeleteKeysCommand is used to delete authorised ssh keys for a user.
-type DeleteKeysCommand struct {
+// deleteKeysCommand is used to delete authorised ssh keys for a user.
+type deleteKeysCommand struct {
 	AuthorizedKeysBase
 	user   string
 	keyIds []string
 }
 
-func (c *DeleteKeysCommand) Info() *cmd.Info {
+func (c *deleteKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "delete",
 		Args:    "<ssh key id> [...]",
@@ -35,7 +40,7 @@ func (c *DeleteKeysCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DeleteKeysCommand) Init(args []string) error {
+func (c *deleteKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")
@@ -45,11 +50,11 @@ func (c *DeleteKeysCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DeleteKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *deleteKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "admin", "the user for which to delete the keys")
 }
 
-func (c *DeleteKeysCommand) Run(context *cmd.Context) error {
+func (c *deleteKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err

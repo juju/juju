@@ -49,9 +49,8 @@ type Server struct {
 	validator         LoginValidator
 	adminApiFactories map[int]adminApiFactory
 	mongoUnavailable  uint32 // non zero if mongoUnavailable
-
-	mu          sync.Mutex // protects the fields that follow
-	environUUID string
+	environUUID       string
+	authCtxt          *authContext
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -157,15 +156,28 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
+//
+// The Server will close the listener when it exits, even if returns an error.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	// Important note:
+	// Do not manipulate the state within NewServer as the API
+	// server needs to run before mongo upgrades have happened and
+	// any state manipulation may be be relying on features of the
+	// database added by upgrades. Here be dragons.
 	l, ok := lis.(*net.TCPListener)
 	if !ok {
 		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
 	}
-	return newServer(s, l, cfg)
+	srv, err := newServer(s, l, cfg)
+	if err != nil {
+		// There is no running server around to close the listener.
+		lis.Close()
+		return nil, errors.Trace(err)
+	}
+	return srv, nil
 }
 
-func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server, error) {
+func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Server, err error) {
 	logger.Infof("listening on %q", lis.Addr())
 	srv := &Server{
 		state:     s,
@@ -182,6 +194,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server,
 			2: newAdminApiV2,
 		},
 	}
+	srv.authCtxt = newAuthContext(srv)
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
 		return nil, err
@@ -326,73 +339,77 @@ func (srv *Server) run(lis net.Listener) {
 	mux := pat.New()
 
 	srvDying := srv.tomb.Dying()
-
+	httpCtxt := httpContext{
+		srv: srv,
+	}
 	if feature.IsDbLogEnabled() {
 		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpHandler{statePool: srv.statePool}, srv.logDir))
+			newLogSinkHandler(httpCtxt, srv.logDir))
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(srv.statePool, srvDying))
+			newDebugLogDBHandler(httpCtxt, srvDying))
 	} else {
 		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
+			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
 	}
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir},
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir},
 	)
 	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
 	// where we only want to support specific request methods. However, our
 	// tests currently assert that errors come back as application/json and
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
-		&toolsUploadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/environment/:envuuid/tools/:version",
-		&toolsDownloadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
 	)
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.stateServerEnvOnly = true
 	handleAll(mux, "/environment/:envuuid/backups",
-		&backupHandler{httpHandler{
-			statePool:          srv.statePool,
-			strictValidation:   true,
-			stateServerEnvOnly: true,
-		}},
+		&backupHandler{
+			ctxt: strictCtxt,
+		},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
 		&imagesDownloadHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir,
-			state:       srv.state},
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
+			state:   srv.state,
+		},
 	)
 	// For backwards compatibility we register all the old paths
 
 	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(srv.statePool, srvDying))
+		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
 	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(srv.statePool, srvDying, srv.logDir))
+		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
 	}
 
 	handleAll(mux, "/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{statePool: srv.statePool},
-			dataDir:     srv.dataDir,
+			ctxt:    httpCtxt,
+			dataDir: srv.dataDir,
 		},
 	)
 	handleAll(mux, "/tools",
-		&toolsUploadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsUploadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/tools/:version",
-		&toolsDownloadHandler{toolsHandler{
-			httpHandler{statePool: srv.statePool},
-		}},
+		&toolsDownloadHandler{
+			ctxt: httpCtxt,
+		},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 
@@ -448,11 +465,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	}
 	conn := rpc.NewConn(codec, notifier)
 
-	var h *apiHandler
-	st, err := validateEnvironUUID(validateArgs{statePool: srv.statePool, envUUID: envUUID})
-	if err == nil {
-		h, err = newApiHandler(srv, st, conn, reqNotifier, envUUID)
-	}
+	h, err := srv.newAPIHandler(conn, reqNotifier, envUUID)
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
@@ -468,6 +481,24 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
+}
+
+func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
+	// Note that we don't overwrite envUUID here because
+	// newAPIHandler treats an empty envUUID as signifying
+	// the API version used.
+	resolvedEnvUUID, err := validateEnvironUUID(validateArgs{
+		statePool: srv.statePool,
+		envUUID:   envUUID,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	st, err := srv.statePool.Get(resolvedEnvUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newApiHandler(srv, st, conn, reqNotifier, envUUID)
 }
 
 func (srv *Server) mongoPinger() error {
@@ -493,5 +524,3 @@ func serverError(err error) error {
 	}
 	return nil
 }
-
-var logRequests = true

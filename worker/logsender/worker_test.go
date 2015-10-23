@@ -8,22 +8,29 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	apilogsender "github.com/juju/juju/api/logsender"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logsender"
 )
 
 type workerSuite struct {
 	jujutesting.JujuConnSuite
-	apiInfo *api.Info
+
+	// machineTag holds the tag of a machine created
+	// for the test.
+	machineTag names.Tag
+
+	// APIState holds an API connection authenticated
+	// as the above machine.
+	APIState api.Connection
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -36,37 +43,23 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	nonce := "some-nonce"
 	machine, password := s.Factory.MakeMachineReturningPassword(c,
 		&factory.MachineParams{Nonce: nonce})
-	s.apiInfo = s.APIInfo(c)
-	s.apiInfo.Tag = machine.Tag()
-	s.apiInfo.Password = password
-	s.apiInfo.Nonce = nonce
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = machine.Tag()
+	apiInfo.Password = password
+	apiInfo.Nonce = nonce
+	st, err := api.Open(apiInfo, api.DefaultDialOpts())
+	c.Assert(err, gc.IsNil)
+	s.APIState = st
+	s.machineTag = machine.Tag()
 }
 
-func (s *workerSuite) agent() agent.Agent {
-	return &mockAgent{apiInfo: s.apiInfo}
+func (s *workerSuite) TearDownTest(c *gc.C) {
+	s.APIState.Close()
+	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *workerSuite) TestLockedGate(c *gc.C) {
-
-	// Set a bad password to induce an error if we connect.
-	s.apiInfo.Password = "lol-borken"
-
-	// Run a logsender worker.
-	logsCh := make(chan *logsender.LogRecord)
-	worker := logsender.New(logsCh, lockedGate{}, s.agent())
-
-	// At the end of the test, make sure we never tried to connect.
-	defer func() {
-		worker.Kill()
-		c.Check(worker.Wait(), jc.ErrorIsNil)
-	}()
-
-	// Give it a chance to ignore the gate and read the log channel.
-	select {
-	case <-time.After(testing.ShortWait):
-	case logsCh <- &logsender.LogRecord{}:
-		c.Fatalf("read log channel without waiting for gate")
-	}
+func (s *workerSuite) logSenderAPI() *apilogsender.API {
+	return apilogsender.NewAPI(s.APIState)
 }
 
 func (s *workerSuite) TestLogSending(c *gc.C) {
@@ -74,7 +67,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 	logsCh := make(chan *logsender.LogRecord, logCount)
 
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, gate.AlreadyUnlocked{}, s.agent())
+	worker := logsender.New(logsCh, s.logSenderAPI())
 	defer func() {
 		worker.Kill()
 		c.Check(worker.Wait(), jc.ErrorIsNil)
@@ -99,7 +92,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 		expectedDocs = append(expectedDocs, bson.M{
 			"t": ts,
 			"e": s.State.EnvironUUID(),
-			"n": s.apiInfo.Tag.String(),
+			"n": s.machineTag.String(),
 			"m": "logsender-test",
 			"l": location,
 			"v": int(loggo.INFO),
@@ -131,7 +124,7 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 	logsCh := make(logsender.LogRecordCh)
 
 	// Start the logsender worker.
-	worker := logsender.New(logsCh, gate.AlreadyUnlocked{}, s.agent())
+	worker := logsender.New(logsCh, s.logSenderAPI())
 	defer func() {
 		worker.Kill()
 		c.Check(worker.Wait(), jc.ErrorIsNil)
@@ -181,31 +174,11 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 	c.Assert(docs[1], gc.DeepEquals, bson.M{
 		"t": ts, // Should share timestamp with previous message.
 		"e": s.State.EnvironUUID(),
-		"n": s.apiInfo.Tag.String(),
+		"n": s.machineTag.String(),
 		"m": "juju.worker.logsender",
 		"l": "",
 		"v": int(loggo.WARNING),
 		"x": "42 log messages dropped due to lack of API connectivity",
 	})
 	c.Assert(docs[2]["x"], gc.Equals, "message1")
-}
-
-type mockAgent struct {
-	agent.Agent
-	agent.Config
-	apiInfo *api.Info
-}
-
-func (a *mockAgent) CurrentConfig() agent.Config {
-	return a
-}
-
-func (a *mockAgent) APIInfo() (*api.Info, bool) {
-	return a.apiInfo, true
-}
-
-type lockedGate struct{}
-
-func (lockedGate) Unlocked() <-chan struct{} {
-	return nil
 }

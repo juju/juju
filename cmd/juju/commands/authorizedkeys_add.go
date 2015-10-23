@@ -10,21 +10,26 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
 )
+
+func newAddKeysCommand() cmd.Command {
+	return envcmd.Wrap(&addKeysCommand{})
+}
 
 var addKeysDoc = `
 Add new authorised ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
 `
 
-// AddKeysCommand is used to add a new authorized ssh key for a user.
-type AddKeysCommand struct {
+// addKeysCommand is used to add a new authorized ssh key for a user.
+type addKeysCommand struct {
 	AuthorizedKeysBase
 	user    string
 	sshKeys []string
 }
 
-func (c *AddKeysCommand) Info() *cmd.Info {
+func (c *addKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add",
 		Args:    "<ssh key> [...]",
@@ -33,7 +38,7 @@ func (c *AddKeysCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *AddKeysCommand) Init(args []string) error {
+func (c *addKeysCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key specified")
@@ -43,11 +48,11 @@ func (c *AddKeysCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *AddKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *addKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.user, "user", "admin", "the user for which to add the keys")
 }
 
-func (c *AddKeysCommand) Run(context *cmd.Context) error {
+func (c *addKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err
