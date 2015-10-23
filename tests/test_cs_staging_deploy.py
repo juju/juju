@@ -64,6 +64,15 @@ class TestCSStagingDeploy(FakeHomeTestCase):
         self.assertEqual(csstaging.client[0].config['tools-metadata-url'],
                          'http://agent_url.com')
 
+    def test_from_args_agent_stream(self):
+        with self.from_args_cxt2():
+            csstaging = CSStagingTest.from_args(
+                'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
+                '0.0.0.0', agent_stream='stream-foo',
+            )
+        self.assertEqual(csstaging.client.env.config['agent-stream'],
+                         'stream-foo')
+
     def test_from_args_series(self):
         with self.from_args_cxt():
             csstaging = CSStagingTest.from_args(
