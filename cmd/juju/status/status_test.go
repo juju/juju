@@ -34,11 +34,13 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func nextVersion() version.Number {
+func defineNextVersion() version.Number {
 	ver := version.Current.Number
 	ver.Patch++
 	return ver
 }
+
+var nextVersion = defineNextVersion()
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
@@ -2305,7 +2307,7 @@ var statusTests = []testCase{
 			M{
 				"environment": "dummyenv",
 				"environment-status": M{
-					"upgrade-available": nextVersion().String(),
+					"upgrade-available": nextVersion.String(),
 				},
 				"machines": M{},
 				"services": M{},
@@ -2819,7 +2821,7 @@ type setToolsUpgradeAvailable struct{}
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 	env, err := ctx.st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion())
+	err = env.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3201,9 +3203,9 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	const expected = `
-[Environment]     
-UPGRADE-AVAILABLE 
-%s            
+[Environment]%s
+UPGRADE-AVAILABLE%s
+%s
 
 [Services] 
 NAME       STATUS      EXPOSED CHARM                  
@@ -3225,7 +3227,23 @@ ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE
 2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
 
 `
-	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion()))
+	environmentSpaces := "     "
+	upgradeSpaces := " "
+	versionSpaces := " "
+
+	nextVersionStr := nextVersion.String()
+	numSpaces := len("UPGRADE-AVAILABLE") - len(nextVersionStr)
+	if numSpaces > 0 {
+		versionSpaces = strings.Repeat(" ", numSpaces+1)
+	} else {
+		// The version was longer than "UPGRADE-AVAILABLE".  Adjust length
+		// of the other lines in this block.
+		numSpaces = len(nextVersionStr) - len("UPGRADE-AVAILABLE")
+		upgradeSpaces = strings.Repeat(" ", numSpaces+1)
+		numSpaces = len(nextVersionStr) - len("[Environment]")
+		environmentSpaces = strings.Repeat(" ", numSpaces+1)
+	}
+	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], environmentSpaces, upgradeSpaces, nextVersionStr+versionSpaces))
 }
 
 func (s *StatusSuite) TestStatusV2(c *gc.C) {
