@@ -48,8 +48,8 @@ var testImagesData = map[string]string{
 		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		   "clouds": [
 			{
-			 "region": "us-east-1",
-			 "endpoint": "https://ec2.us-east-1.amazonaws.com"
+			 "region": "dummy_region",
+			 "endpoint": ""
 			}
 		   ],
 		   "cloudname": "aws",
@@ -70,7 +70,7 @@ var testImagesData = map[string]string{
 {
  "updated": "Wed, 01 May 2013 13:31:26 +0000",
  "content_id": "com.ubuntu.cloud:released:aws",
- "region": "nz-east-1",
+ "region": "dummy_region",
  "endpoint": "https://anywhere",
  "products": {
   "com.ubuntu.cloud:server:14.04:amd64": {
@@ -99,7 +99,7 @@ var testImagesData = map[string]string{
    "endpoint": "https://somewhere",
    "versions": {
     "20121218": {
-     "region": "au-east-2",
+     "region": "dummy_region",
      "endpoint": "https://somewhere-else",
      "items": {
       "usww1pe": {
@@ -156,8 +156,8 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImages(c *gc.C) {
 				VirtType:        "pv",
 				Arch:            "amd64",
 				Series:          "trusty",
-				Region:          "nz-east-1",
-				Source:          "default cloud images",
+				Region:          "dummy_region",
+				Source:          "public",
 				Stream:          "released"},
 			"ami-36745463",
 		},
@@ -167,8 +167,8 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImages(c *gc.C) {
 				VirtType:        "pv",
 				Arch:            "amd64",
 				Series:          "precise",
-				Region:          "au-east-2",
-				Source:          "default cloud images",
+				Region:          "dummy_region",
+				Source:          "public",
 				Stream:          "released"},
 			"ami-26745463",
 		},
