@@ -74,15 +74,24 @@ func (s *metadataSuite) TestMetadataFromState(c *gc.C) {
 }
 
 func (s *metadataSuite) TestMetadataStateError(c *gc.C) {
-	env, ic, _ := s.setupSimpleStreamData(c, []string{"amd64"})
+	arch := "amd64"
+	env, ic, setupInfo := s.setupSimpleStreamData(c, []string{arch})
 
 	msg := "fail"
 	s.patchMetadataAPI(c, msg)
 
 	metadata, info, err := common.FindImageMetadata(env, ic, false)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	c.Assert(info, gc.IsNil)
-	c.Assert(metadata, gc.HasLen, 0)
+	// should have logged it and proceeded to get metadata from prev search path
+	// so not expecting any odd behaviour
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.DeepEquals, setupInfo)
+	c.Assert(metadata, gc.DeepEquals, []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
+		Id:         "image-id",
+		Arch:       arch,
+		RegionName: "Region",
+		Version:    "12.04",
+		Endpoint:   "https://endpoint/",
+	}})
 }
 
 func (s *metadataSuite) patchMetadataAPI(c *gc.C, errMsg string, m ...params.CloudImageMetadata) {
