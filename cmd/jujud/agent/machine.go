@@ -721,7 +721,12 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	if err != nil {
 		return nil, fmt.Errorf("cannot read environment config: %v", err)
 	}
+
 	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
+	// Containers only have machine addresses, so we can't ignore them.
+	if names.IsContainerMachine(agentConfig.Tag().Id()) {
+		ignoreMachineAddresses = false
+	}
 	if ignoreMachineAddresses {
 		logger.Infof("machine addresses not used, only addresses from provider")
 	}
