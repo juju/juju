@@ -71,7 +71,7 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	info := workload.Info{
-		Workload: charm.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: c.class,
 			Type: c.typ,
 		},

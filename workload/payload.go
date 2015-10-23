@@ -66,7 +66,7 @@ func (p Payload) AsWorkload() Info {
 	tags := make([]string, len(p.Tags))
 	copy(tags, p.Tags)
 	return Info{
-		Workload: charm.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: p.Name,
 			Type: p.Type,
 		},

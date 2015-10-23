@@ -23,24 +23,8 @@ func (suite) TestTrack(c *gc.C) {
 	args := api.TrackArgs{
 		Workloads: []api.Workload{{
 			Definition: api.WorkloadDefinition{
-				Name:        "foobar",
-				Description: "desc",
-				Type:        "type",
-				TypeOptions: map[string]string{"foo": "bar"},
-				Command:     "cmd",
-				Image:       "img",
-				Ports: []api.WorkloadPort{{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				}},
-				Volumes: []api.WorkloadVolume{{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				}},
-				EnvVars: map[string]string{"envfoo": "bar"},
+				Name: "foobar",
+				Type: "type",
 			},
 			Status: api.WorkloadStatus{
 				State:   workload.StateRunning,
@@ -68,29 +52,9 @@ func (suite) TestTrack(c *gc.C) {
 	c.Assert(res, gc.DeepEquals, expectedResults)
 
 	expected := workload.Info{
-		Workload: charm.Workload{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []charm.WorkloadPort{
-				{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				},
-			},
-			Volumes: []charm.WorkloadVolume{
-				{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				},
-			},
-			EnvVars: map[string]string{"envfoo": "bar"},
+		PayloadClass: charm.PayloadClass{
+			Name: "foobar",
+			Type: "type",
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,
@@ -110,29 +74,9 @@ func (suite) TestTrack(c *gc.C) {
 
 func (suite) TestListOne(c *gc.C) {
 	wl := workload.Info{
-		Workload: charm.Workload{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []charm.WorkloadPort{
-				{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				},
-			},
-			Volumes: []charm.WorkloadVolume{
-				{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				},
-			},
-			EnvVars: map[string]string{"envfoo": "bar"},
+		PayloadClass: charm.PayloadClass{
+			Name: "foobar",
+			Type: "type",
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,
@@ -155,28 +99,8 @@ func (suite) TestListOne(c *gc.C) {
 
 	expected := api.Workload{
 		Definition: api.WorkloadDefinition{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []api.WorkloadPort{
-				{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				},
-			},
-			Volumes: []api.WorkloadVolume{
-				{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				},
-			},
-			EnvVars: map[string]string{"envfoo": "bar"},
+			Name: "foobar",
+			Type: "type",
 		},
 		Status: api.WorkloadStatus{
 			State:   workload.StateRunning,
@@ -204,29 +128,9 @@ func (suite) TestListOne(c *gc.C) {
 
 func (suite) TestListAll(c *gc.C) {
 	wl := workload.Info{
-		Workload: charm.Workload{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []charm.WorkloadPort{
-				{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				},
-			},
-			Volumes: []charm.WorkloadVolume{
-				{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				},
-			},
-			EnvVars: map[string]string{"envfoo": "bar"},
+		PayloadClass: charm.PayloadClass{
+			Name: "foobar",
+			Type: "type",
 		},
 		Status: workload.Status{
 			State:   workload.StateRunning,
@@ -247,28 +151,8 @@ func (suite) TestListAll(c *gc.C) {
 
 	expected := api.Workload{
 		Definition: api.WorkloadDefinition{
-			Name:        "foobar",
-			Description: "desc",
-			Type:        "type",
-			TypeOptions: map[string]string{"foo": "bar"},
-			Command:     "cmd",
-			Image:       "img",
-			Ports: []api.WorkloadPort{
-				{
-					External: 8080,
-					Internal: 80,
-					Endpoint: "endpoint",
-				},
-			},
-			Volumes: []api.WorkloadVolume{
-				{
-					ExternalMount: "/foo/bar",
-					InternalMount: "/baz/bat",
-					Mode:          "ro",
-					Name:          "volname",
-				},
-			},
-			EnvVars: map[string]string{"envfoo": "bar"},
+			Name: "foobar",
+			Type: "type",
 		},
 		Status: api.WorkloadStatus{
 			State:   workload.StateRunning,
@@ -381,7 +265,7 @@ type FakeState struct {
 
 	//outputs
 	workloads []workload.Info
-	defs      []charm.Workload
+	defs      []charm.PayloadClass
 	err       error
 }
 

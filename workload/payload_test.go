@@ -122,7 +122,7 @@ func (s *payloadSuite) TestAsWorkload(c *gc.C) {
 	converted := payload.AsWorkload()
 
 	c.Check(converted, jc.DeepEquals, workload.Info{
-		Workload: charm.Workload{
+		PayloadClass: charm.PayloadClass{
 			Name: "spam",
 			Type: "docker",
 		},

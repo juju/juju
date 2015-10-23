@@ -61,8 +61,8 @@ func (registerSuite) TestRun(c *gc.C) {
 	err = r.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.flushed, jc.IsTrue)
-	c.Assert(f.info.Workload.Name, gc.Equals, "class")
-	c.Assert(f.info.Workload.Type, gc.Equals, "type")
+	c.Assert(f.info.PayloadClass.Name, gc.Equals, "class")
+	c.Assert(f.info.PayloadClass.Type, gc.Equals, "type")
 	c.Assert(f.info.Status.State, gc.Equals, workload.StateRunning)
 	c.Assert(f.info.Details.ID, gc.Equals, "id")
 
