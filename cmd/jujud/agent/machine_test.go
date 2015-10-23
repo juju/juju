@@ -1656,7 +1656,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 
 	select {
 	case ignoreMachineAddresses := <-ignoreAddressCh:
-		if ignoreMachineAddresses != false {
+		if ignoreMachineAddresses {
 			c.Fatalf("expected ignore-machine-addresses = false, got = true")
 		}
 	case <-time.After(coretesting.LongWait):
