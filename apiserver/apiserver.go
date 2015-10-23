@@ -384,7 +384,7 @@ func (srv *Server) run(lis net.Listener) {
 		&imagesDownloadHandler{
 			ctxt:    httpCtxt,
 			dataDir: srv.dataDir,
-			state: srv.state,
+			state:   srv.state,
 		},
 	)
 	// For backwards compatibility we register all the old paths

@@ -74,9 +74,10 @@ func Main(args []string) {
 
 func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:            "juju",
-		Doc:             jujuDoc,
-		MissingCallback: RunPlugin,
+		Name:                "juju",
+		Doc:                 jujuDoc,
+		MissingCallback:     RunPlugin,
+		UserAliasesFilename: osenv.JujuHomePath("aliases"),
 	})
 	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
 	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
