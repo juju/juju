@@ -1585,24 +1585,28 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
+	ignoreAddressCh := make(chan bool, 1)
+	s.AgentSuite.PatchValue(&newMachiner, func(
+		st *apimachiner.State,
+		conf agent.Config,
+		ignoreMachineAddresses bool,
+	) worker.Worker {
+		select {
+		case ignoreAddressCh <- ignoreMachineAddresses:
+		default:
+		}
+		return machiner.NewMachiner(st, conf, ignoreMachineAddresses)
+	})
+	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
+	err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return ignoreAddressCh
+}
+
 func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	for _, expectedIgnoreValue := range []bool{true, false} {
-		ignoreAddressCh := make(chan bool, 1)
-		s.AgentSuite.PatchValue(&newMachiner, func(
-			st *apimachiner.State,
-			conf agent.Config,
-			ignoreMachineAddresses bool,
-		) worker.Worker {
-			select {
-			case ignoreAddressCh <- ignoreMachineAddresses:
-			default:
-			}
-			return machiner.NewMachiner(st, conf, ignoreMachineAddresses)
-		})
-
-		attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		ignoreAddressCh := s.setupIgnoreAddresses(c, expectedIgnoreValue)
 
 		m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 		a := s.newAgent(c, m)
@@ -1625,22 +1629,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
-	ignoreAddressCh := make(chan bool, 1)
-	s.AgentSuite.PatchValue(&newMachiner, func(
-		st *apimachiner.State,
-		conf agent.Config,
-		ignoreMachineAddresses bool,
-	) worker.Worker {
-		select {
-		case ignoreAddressCh <- ignoreMachineAddresses:
-		default:
-		}
-		return machiner.NewMachiner(st, conf, ignoreMachineAddresses)
-	})
-
-	attrs := coretesting.Attrs{"ignore-machine-addresses": true}
-	err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
 	parent, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1678,7 +1667,6 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 		c.Fatalf("timed out waiting for the machiner to start")
 	}
 	s.waitStopped(c, state.JobHostUnits, a, doneCh)
-
 }
 
 func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
