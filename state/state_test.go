@@ -3672,25 +3672,24 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
+	s.PatchValue(&version.Current, version.MustParseBinary("1.24.7-trusty-amd64"))
 	otherSt := s.Factory.MakeEnvironment(c, nil)
 	defer otherSt.Close()
 
-	higher := version.Current
-	higher.Patch++
-	lower := version.Current
-	lower.Patch--
+	higher := version.MustParseBinary("1.25.0-trusty-amd64")
+	lower := version.MustParseBinary("1.24.6-trusty-amd64")
 
-	// Set other environ version to < server envrion version
+	// Set other environ version to < server environ version
 	err := otherSt.SetEnvironAgentVersion(lower.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
-	// Set other environ version == server envrion version
+	// Set other environ version == server environ version
 	err = otherSt.SetEnvironAgentVersion(version.Current.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, version.Current.Number.String())
 
-	// Set other environ version to > server envrion version
+	// Set other environ version to > server environ version
 	err = otherSt.SetEnvironAgentVersion(higher.Number)
 	expected := fmt.Sprintf("a hosted environment cannot have a higher version than the server environment: %s > %s",
 		higher.Number.String(),
