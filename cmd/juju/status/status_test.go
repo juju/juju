@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -34,10 +35,12 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func nextVersion() version.Number {
+var nextVersion version.Number
+
+func init() {
 	ver := version.Current.Number
 	ver.Patch++
-	return ver
+	nextVersion = ver
 }
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
@@ -2305,7 +2308,7 @@ var statusTests = []testCase{
 			M{
 				"environment": "dummyenv",
 				"environment-status": M{
-					"upgrade-available": nextVersion().String(),
+					"upgrade-available": nextVersion.String(),
 				},
 				"machines": M{},
 				"services": M{},
@@ -2819,7 +2822,7 @@ type setToolsUpgradeAvailable struct{}
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 	env, err := ctx.st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion())
+	err = env.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3197,35 +3200,40 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	if !useFeatureFlag {
 		args = []string{"--format", "tabular"}
 	}
-	code, stdout, stderr := runStatus(c, args...)
+	code, stdoutBytes, stderr := runStatus(c, args...)
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	const expected = `
-[Environment]     
-UPGRADE-AVAILABLE 
-%s            
+[Environment]
+UPGRADE-AVAILABLE
+%s
 
-[Services] 
-NAME       STATUS      EXPOSED CHARM                  
-logging                true    cs:quantal/logging-1   
-mysql      maintenance true    cs:quantal/mysql-1     
-wordpress  active      true    cs:quantal/wordpress-3 
+[Services]
+NAME       STATUS      EXPOSED CHARM
+logging                true    cs:quantal/logging-1
+mysql      maintenance true    cs:quantal/mysql-1
+wordpress  active      true    cs:quantal/wordpress-3
 
-[Units]     
-ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        
-mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things      
-  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs 
-wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns                                
-  logging/0 active         idle                              dummyenv-1.dns                                
+[Units]
+ID          WORKLOAD-STATE AGENT-STATE VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE
+mysql/0     maintenance    idle        1.2.3   2             dummyenv-2.dns installing all the things
+  logging/1 error          idle                              dummyenv-2.dns somehow lost in all those logs
+wordpress/0 active         idle        1.2.3   1             dummyenv-1.dns
+  logging/0 active         idle                              dummyenv-1.dns
 
-[Machines] 
-ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         
-0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
-1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
-2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
+[Machines]
+ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE
+0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M
+1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M
+2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M
 
 `
-	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersion()))
+
+	stdoutLines := strings.Split(string(stdoutBytes), "\n")
+	for i, line := range stdoutLines {
+		stdoutLines[i] = strings.TrimRightFunc(line, unicode.IsSpace)
+	}
+	c.Assert(strings.Join(stdoutLines, "\n"), gc.Equals, fmt.Sprintf(expected[1:], nextVersion))
 }
 
 func (s *StatusSuite) TestStatusV2(c *gc.C) {
