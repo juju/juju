@@ -92,7 +92,12 @@ func NewProvisionerTask(
 	}
 	go func() {
 		defer task.tomb.Done()
-		task.tomb.Kill(task.loop())
+		err := task.loop()
+		switch cause := errors.Cause(err); cause {
+		case tomb.ErrDying:
+			err = cause
+		}
+		task.tomb.Kill(err)
 	}()
 	return task
 }
@@ -713,7 +718,7 @@ func (task *provisionerTask) startMachine(
 			if delay > 0 {
 				select {
 				case <-task.tomb.Dying():
-					return task.setErrorStatus("cannot start instance for machine %q: %v", machine, tomb.ErrDying)
+					return tomb.ErrDying
 				case <-time.After(time.Duration(delay) * time.Second):
 				}
 
