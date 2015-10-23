@@ -19,11 +19,15 @@ Add image metadata to Juju environment.
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
 
+This coomand takes only one positional argument - an image id. 
+
+arguments:
+image-id
+   image identifier
+
 options:
 -e, --environment (= "")
    juju environment to operate in
---image-id
-   image identifier
 --region
    cloud region
 --series (= "trusty")
@@ -38,6 +42,7 @@ options:
    root storage size [provider specific]
 --stream (= "released")
    image stream
+   
 `
 
 // AddImageMetadataCommand stores image metadata in Juju environment.
@@ -56,9 +61,13 @@ type AddImageMetadataCommand struct {
 
 // Init implements Command.Init.
 func (c *AddImageMetadataCommand) Init(args []string) (err error) {
-	if err := checkArgumentSet(c.ImageId, "image id"); err != nil {
-		return err
+	if len(args) == 0 {
+		return errors.New("image id must be supplied when adding an image metadata")
 	}
+	if len(args) > 1 {
+		return errors.New("only one image id can be supplied as an argument to this command")
+	}
+	c.ImageId = args[0]
 	return nil
 }
 
@@ -75,7 +84,6 @@ func (c *AddImageMetadataCommand) Info() *cmd.Info {
 func (c *AddImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CloudImageMetadataCommandBase.SetFlags(f)
 
-	f.StringVar(&c.ImageId, "image-id", "", "metadata image id")
 	f.StringVar(&c.Region, "region", "", "image cloud region")
 	// TODO (anastasiamac 2015-09-30) Ideally default should be latest LTS.
 	// Hard-coding "trusty" for now.

@@ -171,8 +171,6 @@ func getAddImageMetadataCmdFlags(data params.CloudImageMetadata) []string {
 			args = append(args, flag, defaultValue)
 		}
 	}
-
-	addFlag("--image-id", data.ImageId, "")
 	addFlag("--region", data.Region, "")
 	addFlag("--series", data.Series, "trusty")
 	addFlag("--arch", data.Arch, "amd64")
@@ -182,6 +180,11 @@ func getAddImageMetadataCmdFlags(data params.CloudImageMetadata) []string {
 
 	if data.RootStorageSize != nil {
 		args = append(args, "--storage-size", fmt.Sprintf("%d", *data.RootStorageSize))
+	}
+
+	// image id is an argument
+	if data.ImageId != "" {
+		args = append(args, data.ImageId)
 	}
 	return args
 }
