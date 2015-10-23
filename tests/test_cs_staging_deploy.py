@@ -52,8 +52,7 @@ class TestCSStagingDeploy(FakeHomeTestCase):
         self.assertEqual(csstaging.log_dir, '/tmp/tmp')
         self.assertEqual(csstaging.charm_store_ip, '0.0.0.0')
         self.assertEqual(csstaging.client[0].config, {
-            'agent_url': None,
-            'series': None,
+            'name': 'temp_env_name',
             })
 
     def test_from_args_agent_url(self):
@@ -62,7 +61,7 @@ class TestCSStagingDeploy(FakeHomeTestCase):
                 'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                 '0.0.0.0', agent_url='http://agent_url.com'
             )
-        self.assertEqual(csstaging.client[0].config['agent_url'],
+        self.assertEqual(csstaging.client[0].config['tools-metadata-url'],
                          'http://agent_url.com')
 
     def test_from_args_series(self):
@@ -71,7 +70,7 @@ class TestCSStagingDeploy(FakeHomeTestCase):
                 'base_env', 'temp_env_name', '/foo/bin/juju', '/tmp/tmp',
                 '0.0.0.0', series='precise'
             )
-        self.assertEqual(csstaging.client[0].config['series'],
+        self.assertEqual(csstaging.client[0].config['default-series'],
                          'precise')
 
     def test_from_args_charm(self):
