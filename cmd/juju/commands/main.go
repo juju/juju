@@ -76,9 +76,10 @@ func Main(args []string) {
 
 func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:            "juju",
-		Doc:             jujuDoc,
-		MissingCallback: RunPlugin,
+		Name:                "juju",
+		Doc:                 jujuDoc,
+		MissingCallback:     RunPlugin,
+		UserAliasesFilename: osenv.JujuHomePath("aliases"),
 	})
 	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
 	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
@@ -95,6 +96,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		helptopics.MAASProvider, "maas")
 	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopics.Constraints)
 	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopics.Placement)
+	jcmd.AddHelpTopic("spaces", "How to configure more complex networks using spaces", helptopics.Spaces, "networking")
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
 	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)

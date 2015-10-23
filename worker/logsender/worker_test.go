@@ -200,8 +200,8 @@ func (a *mockAgent) CurrentConfig() agent.Config {
 	return a
 }
 
-func (a *mockAgent) APIInfo() *api.Info {
-	return a.apiInfo
+func (a *mockAgent) APIInfo() (*api.Info, bool) {
+	return a.apiInfo, true
 }
 
 type lockedGate struct{}
