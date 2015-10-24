@@ -4,6 +4,7 @@
 package environment
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -160,7 +161,7 @@ func (s *updaterSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 
 	// No new tools available.
 	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ string, _ coretools.Filter) (coretools.List, error) {
-		return nil, coretools.ErrNoMatches
+		return nil, errors.NotFoundf("tools")
 	}
 
 	// Update should never be called.
