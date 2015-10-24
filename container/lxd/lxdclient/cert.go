@@ -4,7 +4,6 @@
 package lxdclient
 
 import (
-	"encoding/pem"
 	"io"
 	"io/ioutil"
 	"os"
@@ -81,42 +80,6 @@ func genCertAndKey() ([]byte, []byte, error) {
 	}
 
 	return certPEM, keyPEM, nil
-}
-
-// ParsePEM creates a new Certificate from the multi-block PEM data.
-func ParsePEM(data []byte) (*Certificate, error) {
-	var certPEM, keyPEM []byte
-	for len(data) > 0 {
-		var block *pem.Block
-		block, data = pem.Decode(data)
-		if block == nil {
-			break
-		}
-		blockData := pem.EncodeToMemory(block)
-		switch block.Type {
-		case pemBlockTypeCert:
-			if certPEM != nil {
-				return nil, errors.Errorf("found multiple %s sections in PEM", block.Type)
-			}
-			certPEM = blockData
-		case pemBlockTypeKey:
-			if keyPEM != nil {
-				return nil, errors.Errorf("found multiple %s sections in PEM", block.Type)
-			}
-			keyPEM = blockData
-		default:
-			return nil, errors.Errorf("found unexpected %s section in PEM", block.Type)
-		}
-	}
-
-	if len(certPEM) == 0 {
-		return nil, errors.New("no certificate found in PEM")
-	}
-	if len(keyPEM) == 0 {
-		return nil, errors.New("no key found in PEM")
-	}
-
-	return NewCertificate(certPEM, keyPEM), nil
 }
 
 // Validate ensures that the cert is valid.
