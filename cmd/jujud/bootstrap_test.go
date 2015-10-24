@@ -264,6 +264,37 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
 }
 
+func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
+	// bootstrap with 1.99.1 but there will be no tools so version will be reset.
+	envcfg, err := s.envcfg.Apply(map[string]interface{}{
+		"agent-version": "1.99.1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
+
+	hw := instance.MustParseHardware("arch=amd64 mem=8G")
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	vers, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(vers.String(), gc.Equals, "1.99.0")
+}
+
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
