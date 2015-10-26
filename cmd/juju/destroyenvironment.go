@@ -169,7 +169,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	if err := c.destroyEnv(apiclient); err != nil {
 		errors.Annotate(err, "cannot destroy environment")
 	}
-	return environs.DestroyInfo(c.envName, store)
+	return environs.DestroyAllEnvironInfo(info.UUID, store)
 }
 
 func getServerEnv(bootstrapCfg map[string]interface{}) (environs.Environ, error) {

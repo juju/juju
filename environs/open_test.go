@@ -310,7 +310,12 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	e, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.ReadInfo(e.Config().Name())
+	info, err := store.ReadInfo(e.Config().Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	bobsEnv := store.CreateInfo("bob")
+	bobsEnv.SetAPIEndpoint(info.APIEndpoint())
+	err = bobsEnv.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = environs.Destroy(e, store)
@@ -321,6 +326,8 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = e.StateServerInstances()
 	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
 	_, err = store.ReadInfo(e.Config().Name())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = store.ReadInfo("bob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
