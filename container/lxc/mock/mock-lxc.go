@@ -33,21 +33,21 @@ var (
 )
 
 // PatchStartTransientErrorInjectionChannel sets the startTransientInjectionError
-// channel which can be used to inject errors into Start function for
+// channel which can be used to inject errors into the Start function for
 // testing purposes.
 func PatchStartTransientErrorInjectionChannel(c chan error) func() {
 	return testing.PatchValue(&startTransientErrorInjection, c)
 }
 
 // PatchCreateTransientErrorInjectionChannel sets the createTransientInjectionError
-// channel which can be used to inject errors into Create function for
+// channel which can be used to inject errors into the Create function for
 // testing purposes.
 func PatchCreateTransientErrorInjectionChannel(c chan error) func() {
 	return testing.PatchValue(&createTransientErrorInjection, c)
 }
 
 // PatchCloneTransientErrorInjectionChannel sets the cloneTransientInjectionError
-// channel which can be used to inject errors into Clone function for
+// channel which can be used to inject errors into the Clone function for
 // testing purposes.
 func PatchCloneTransientErrorInjectionChannel(c chan error) func() {
 	return testing.PatchValue(&cloneTransientErrorInjection, c)
