@@ -4,6 +4,7 @@
 package unitassigner
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,7 +23,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 			{},
 		}}}
 	api := New(f)
-	ids := []string{"mysql/0", "mysql/1"}
+	ids := []names.UnitTag{names.NewUnitTag("mysql/0"), names.NewUnitTag("mysql/1")}
 	errs, err := api.AssignUnits(ids)
 	c.Assert(f.request, gc.Equals, "AssignUnits")
 	c.Assert(f.params, gc.DeepEquals,
@@ -33,14 +34,6 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []error{nil, nil})
-}
-
-func (testsuite) TestAssignBadUnit(c *gc.C) {
-	f := &fakeAssignCaller{c: c}
-	api := New(f)
-	ids := []string{"foo", "bar"}
-	_, err := api.AssignUnits(ids)
-	c.Assert(err, gc.ErrorMatches, `"foo" is not a valid unit id`)
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {

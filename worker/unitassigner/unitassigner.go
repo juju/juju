@@ -4,16 +4,20 @@
 package unitassigner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 )
 
 var logger = loggo.GetLogger("juju.worker.unitassigner")
 
 type UnitAssigner interface {
-	AssignUnits(ids []string) ([]error, error)
+	AssignUnits(tags []names.UnitTag) ([]error, error)
 	WatchUnitAssignments() (watcher.StringsWatcher, error)
+	SetAgentStatus(args params.SetStatus) error
 }
 
 func New(ua UnitAssigner) worker.Worker {
@@ -28,26 +32,57 @@ func (u unitAssigner) SetUp() (watcher.StringsWatcher, error) {
 	return u.api.WatchUnitAssignments()
 }
 
-func (u unitAssigner) Handle(changes []string) error {
-	logger.Tracef("Handling unit assignmewnts: %q", changes)
-	if len(changes) == 0 {
+func (u unitAssigner) Handle(ids []string) error {
+	logger.Tracef("Handling unit assignments: %q", ids)
+	if len(ids) == 0 {
 		return nil
 	}
 
-	// ignore the actual results for now, they'll have been logged on the server
-	// side.
-	errs, err := u.api.AssignUnits(changes)
+	units := make([]names.UnitTag, len(ids))
+	for i, id := range ids {
+		if !names.IsValidUnit(id) {
+			return errors.Errorf("%q is not a valid unit id", id)
+		}
+		units[i] = names.NewUnitTag(id)
+	}
+
+	results, err := u.api.AssignUnits(units)
 	if err != nil {
 		return err
 	}
-	logger.Tracef("Unit assignment results: %q", errs)
-	for _, err := range errs {
-		if err != nil {
-			return err
+
+	failures := map[string]error{}
+
+	logger.Tracef("Unit assignment results: %q", results)
+	// errors are returned in the same order as the ids given. Any errors from
+	// the assign units call must be reported as error statuses on the
+	// respective units (though the assignments will be retried).  Not found
+	// errors indicate that the unit was removed before the assignment was
+	// requested, which can be safely ignored.
+	for i, err := range results {
+		if err != nil && !errors.IsNotFound(err) {
+			failures[units[i].String()] = err
 		}
 	}
 
-	return err
+	if len(failures) > 0 {
+		args := params.SetStatus{
+			Entities: make([]params.EntityStatusArgs, len(failures)),
+		}
+
+		x := 0
+		for unit, err := range failures {
+			args.Entities[x] = params.EntityStatusArgs{
+				Tag:    unit,
+				Status: params.StatusError,
+				Info:   err.Error(),
+			}
+			x++
+		}
+
+		return u.api.SetAgentStatus(args)
+	}
+	return nil
 }
 
 func (unitAssigner) TearDown() error {

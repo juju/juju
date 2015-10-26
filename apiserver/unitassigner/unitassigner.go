@@ -23,13 +23,19 @@ type assignerState interface {
 
 // API implements the functionality for assigning units to machines.
 type API struct {
-	st  assignerState
-	res *common.Resources
+	st           assignerState
+	res          *common.Resources
+	statusSetter *common.StatusSetter
 }
 
 // New returns a new unitAssigner api instance.
 func New(st *state.State, res *common.Resources, _ common.Authorizer) (*API, error) {
-	return &API{st: st, res: res}, nil
+	setter := common.NewStatusSetter(&common.UnitAgentFinder{st}, common.AuthAlways())
+	return &API{
+		st:           st,
+		res:          res,
+		statusSetter: setter,
+	}, nil
 }
 
 //  AssignUnits assigns the units with the given ids to the correct machine. The
@@ -86,4 +92,10 @@ func (a *API) WatchUnitAssignments() (params.StringsWatchResult, error) {
 		}, nil
 	}
 	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
+}
+
+// SetAgentStatus will set status for agents of Units passed in args, if one
+// of the args is not an Unit it will fail.
+func (a *API) SetAgentStatus(args params.SetStatus) (params.ErrorResults, error) {
+	return a.statusSetter.SetStatus(args)
 }

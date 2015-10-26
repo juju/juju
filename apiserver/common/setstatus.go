@@ -227,3 +227,21 @@ func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults,
 	}
 	return result, nil
 }
+
+// UnitAgentFinder is a state.EntityFinder that finds units.
+type UnitAgentFinder struct {
+	state.EntityFinder
+}
+
+// FindEntity implements state.EntityFinder and returns units.
+func (ua *UnitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+	_, ok := tag.(names.UnitTag)
+	if !ok {
+		return nil, errors.Errorf("unsupported tag %T", tag)
+	}
+	entity, err := ua.EntityFinder.FindEntity(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return entity.(*state.Unit).Agent(), nil
+}

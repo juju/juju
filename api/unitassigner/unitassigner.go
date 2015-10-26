@@ -26,26 +26,32 @@ func New(caller base.APICaller) API {
 }
 
 // AssignUnits tells the state server to run whatever unit assignments it has.
-func (a API) AssignUnits(ids []string) ([]error, error) {
-	entities := make([]params.Entity, len(ids))
-	for i, id := range ids {
-		if !names.IsValidUnit(id) {
-			return nil, errors.Errorf("%q is not a valid unit id", id)
-		}
-		entities[i] = params.Entity{Tag: names.NewUnitTag(id).String()}
+func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {
+	entities := make([]params.Entity, len(tags))
+	for i, tag := range tags {
+		entities[i] = params.Entity{Tag: tag.String()}
 	}
 	args := params.Entities{Entities: entities}
 	var result params.ErrorResults
 	if err := a.facade.FacadeCall("AssignUnits", args, &result); err != nil {
 		return nil, err
 	}
+
 	errs := make([]error, len(result.Results))
 	for i, e := range result.Results {
 		if e.Error != nil {
-			errs[i] = errors.Errorf(e.Error.Error())
+			errs[i] = convertNotFound(e.Error)
 		}
 	}
 	return errs, nil
+}
+
+// convertNotFound converts param notfound errors into normal notfound errors.
+func convertNotFound(err error) error {
+	if params.IsCodeNotFound(err) {
+		return errors.NewNotFound(err, "")
+	}
+	return err
 }
 
 // WatchUnitAssignments watches the server for new unit assignments to be
@@ -61,4 +67,14 @@ func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 	}
 	w := watcher.NewStringsWatcher(a.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// SetAgentStatus sets the status of the unit agents.
+func (a API) SetAgentStatus(args params.SetStatus) error {
+	var result params.ErrorResults
+	err := a.facade.FacadeCall("SetAgentStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.Combine()
 }
