@@ -19,6 +19,10 @@ type Client struct {
 // Connect opens an API connection to LXD and returns a high-level
 // Client wrapper around that connection.
 func Connect(cfg Config) (*Client, error) {
+	if err := cfg.Apply(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	raw, err := newRawClient(cfg.Remote)
 	if err != nil {
 		return nil, errors.Trace(err)
