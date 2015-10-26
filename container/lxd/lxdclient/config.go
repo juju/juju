@@ -137,8 +137,18 @@ func updateLXDVars(dirname string) string {
 	return origConfigDir
 }
 
-func initializeConfigDir() error {
-	if _, err := lxd.LoadConfig(); err != nil {
+func initializeConfigDir(cfg Config) error {
+	logger.Debugf("initializing config dir %q", cfg.Dirname)
+
+	if err := os.MkdirAll(cfg.Dirname, 0775); err != nil {
+		return errors.Trace(err)
+	}
+
+	config, err := lxd.LoadConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := lxd.SaveConfig(config); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -150,7 +160,7 @@ func initializeConfigDir() error {
 
 func (cfg Config) write() error {
 	// Ensure the initial config is set up.
-	if err := initializeConfigDir(); err != nil {
+	if err := initializeConfigDir(cfg); err != nil {
 		return errors.Trace(err)
 	}
 
