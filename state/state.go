@@ -793,6 +793,10 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
+	if err := validateCharmVersion(ch); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -812,6 +816,28 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 		return st.Charm(curl)
 	}
 	return nil, errors.Trace(err)
+}
+
+type hasMeta interface {
+	Meta() *charm.Meta
+}
+
+func validateCharmVersion(ch hasMeta) error {
+	logger.Infof("Min juu version of charm: %#v", ch.Meta().MinJujuVersion)
+	if ch.Meta().MinJujuVersion != nil {
+		// TODO(natefinch): move version to juju repo
+		// hackery because version types are different
+		minver, err := version.Parse(ch.Meta().MinJujuVersion.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if minver.Compare(version.Current.Number) > 0 {
+			logger.Infof("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current.Number)
+			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current.Number)
+		}
+		logger.Infof("Charm's min version (%s) is lte than this juju environment's version (%s)", minver, version.Current.Number)
+	}
+	return nil
 }
 
 // AllCharms returns all charms in state.
@@ -1120,6 +1146,10 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
+	if err := validateCharmVersion(ch); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if exists, err := isNotDead(st, servicesC, args.Name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {

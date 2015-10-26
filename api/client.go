@@ -615,6 +615,11 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if err := c.validateCharmVersion(ch); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Package the charm for uploading.
 	var archive *os.File
 	switch ch := ch.(type) {
@@ -656,6 +661,27 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Annotatef(err, "bad charm URL in response")
 	}
 	return curl, nil
+}
+
+func (c *Client) validateCharmVersion(ch charm.Charm) error {
+	if ch.Meta().MinJujuVersion != nil {
+		// TODO(natefinch): move version to juju repo
+		// hackery because version types are different
+		minver, err := version.Parse(ch.Meta().MinJujuVersion.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		agentver, err := c.AgentVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if minver.Compare(agentver) > 0 {
+			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current.Number)
+		}
+	}
+	return nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
