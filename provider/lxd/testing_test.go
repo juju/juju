@@ -68,7 +68,7 @@ var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":        "lxd",
 		"namespace":   "",
-		"remote":      "",
+		"remote-url":  "",
 		"client-cert": "",
 		"client-key":  "",
 		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
