@@ -117,8 +117,6 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	// TODO(ericsnow) Ensure currently not the root user
 	// if remote is local host?
 
-	// TODO(ericsnow) Add the LXC remote and write cert files in the bootstrap finalizer.
-
 	// Using the Bootstrap func from provider/common should be fine.
 	// Local provider does its own thing because it has to deal directly
 	// with localhost rather than using SSH.
