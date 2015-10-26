@@ -14,7 +14,7 @@ const (
 )
 
 func init() {
-	environs.RegisterProvider(providerType, environProvider{})
+	environs.RegisterProvider(providerType, providerInstance)
 
 	logger.Infof("openstack init")
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)

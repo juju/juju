@@ -7,16 +7,20 @@ import (
 	"github.com/juju/errors"
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+	"io/ioutil"
+	"os"
+>>>>>>> Firewaller interface added, Waith ssh method reused
 	"time"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 <<<<<<< HEAD
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/utils/ssh"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 )
@@ -72,8 +76,11 @@ func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
 >>>>>>> working version of rackspace provider
 }
 
+var waitSSH = common.WaitSSH
+
 // StartInstance implements environs.Environ.
 func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -81,10 +88,13 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 =======
 	os, err := series.GetOSFromSeries(args.Tools.OneSeries())
 >>>>>>> fix conflicts after rabasing against master branch
+=======
+	osString, err := series.GetOSFromSeries(args.Tools.OneSeries())
+>>>>>>> Firewaller interface added, Waith ssh method reused
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if os == jujuos.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
+	if osString == jujuos.Windows && args.InstanceConfig.Config.FirewallMode() != config.FwNone {
 		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
 <<<<<<< HEAD
 
@@ -93,56 +103,27 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	r.Instance = environInstance{Instance: r.Instance}
 	if args.InstanceConfig.Config.FirewallMode() != config.FwNone {
-		err = e.connectToSsh(args, r.Instance)
-	}
-	return r, errors.Trace(err)
-}
-
-var newInstanceConfigurator = common.NewSshInstanceConfigurator
-
-// connectToSsh creates new InstanceConfigurator and calls  DropAllPorts method.
-// In order to do this it needs to wait until ip address becomes avaliable.
-// Dropiing all ports is required  to implement firewall functionality: by default all ports should be closed,
-// and only when we  expose some service, we will open all required ports.
-func (e environ) connectToSsh(args environs.StartInstanceParams, inst instance.Instance) error {
-	// trying to connect several times, because instance can be not avaliable yet
-	var lastError error
-	var publicAddr string
-	var apiPort int
-	var client common.InstanceConfigurator
-	for i := 0; i < 10; i++ {
-		logger.Debugf("Trying to connect to new instance.")
-		addresses, err := inst.Addresses()
+		interrupted := make(chan os.Signal, 1)
+		timeout := config.SSHTimeoutOpts{
+			Timeout:        time.Minute * 5,
+			RetryDelay:     time.Second * 5,
+			AddressesDelay: time.Second * 20,
+		}
+		addr, err := waitSSH(ioutil.Discard, interrupted, ssh.DefaultClient, "", &common.RefreshableInstance{r.Instance, e}, timeout)
 		if err != nil {
-			logger.Debugf(err.Error())
-			lastError = err
-			goto Sleep
+			return nil, errors.Trace(err)
 		}
-		publicAddr = ""
-		for _, addr := range addresses {
-			if addr.Scope == network.ScopePublic && addr.Type == network.IPv4Address {
-				publicAddr = addr.Value
-				break
-			}
-		}
-		if publicAddr == "" {
-			goto Sleep
-		}
-		apiPort = 0
+		client := newInstanceConfigurator(addr)
+		apiPort := 0
 		if isStateServer(args.InstanceConfig) {
 			apiPort = args.InstanceConfig.StateServingInfo.APIPort
 		}
-		client = newInstanceConfigurator(publicAddr)
-		err = client.DropAllPorts([]int{apiPort, 22}, publicAddr)
+		err = client.DropAllPorts([]int{apiPort, 22}, addr)
 		if err != nil {
-			logger.Debugf(err.Error())
-			lastError = err
-			goto Sleep
-		} else {
-			return nil
+			return nil, errors.Trace(err)
 		}
+<<<<<<< HEAD
 	Sleep:
 
 		time.Sleep(5 * time.Second)
@@ -360,12 +341,13 @@ func (e environ) OpenPorts(ports []network.PortRange) error {
 // ClosePorts implements environs.Environ.
 func (e environ) ClosePorts(ports []network.PortRange) error {
 	return errors.Trace(errors.NotSupportedf("ClosePorts"))
+=======
+	}
+	return r, errors.Trace(err)
+>>>>>>> Firewaller interface added, Waith ssh method reused
 }
 
-// Ports implements environs.Environ.
-func (e environ) Ports() ([]network.PortRange, error) {
-	return nil, errors.Trace(errors.NotSupportedf("Ports"))
-}
+var newInstanceConfigurator = common.NewSshInstanceConfigurator
 
 // Provider implements environs.Environ.
 func (e environ) Provider() environs.EnvironProvider {

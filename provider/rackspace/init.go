@@ -21,11 +21,12 @@ const (
 )
 
 func init() {
-	openstackProvider, err := environs.Provider("openstack")
+	provider, err := environs.Provider("openstack")
 	if err != nil {
 		logger.Errorf("Can't find openstack provider, error: %s", err)
 		return
 	}
+<<<<<<< HEAD
 	providerInstance = environProvider{
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -48,4 +49,18 @@ func init() {
 
 	registry.RegisterEnvironStorageProviders(providerType, openstack.CinderProviderType)
 >>>>>>> review comments implemented
+=======
+	if osProvider, ok := provider.(*openstack.EnvironProvider); ok {
+		osProvider.Configurator = &rackspaceConfigurator{}
+		providerInstance = environProvider{
+			osProvider,
+		}
+		environs.RegisterProvider(providerType, providerInstance)
+
+		registry.RegisterEnvironStorageProviders(providerType, openstack.CinderProviderType)
+	} else {
+		logger.Errorf("Openstack provider has wrong type.")
+		return
+	}
+>>>>>>> Firewaller interface added, Waith ssh method reused
 }

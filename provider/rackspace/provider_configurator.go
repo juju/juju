@@ -9,10 +9,12 @@ import (
 =======
 >>>>>>> working version of rackspace provider
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -77,12 +79,22 @@ func (c *rackspaceProviderConfigurator) InitialNetworks() []nova.ServerNetworks 
 <<<<<<< HEAD
 // ModifyRunServerOptions implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
+=======
+	"github.com/juju/juju/provider/openstack"
+)
+
+type rackspaceConfigurator struct {
+}
+
+// ModifyRunServerOptions implements ProviderConfigurator interface.
+func (c *rackspaceConfigurator) ModifyRunServerOptions(options *nova.RunServerOpts) {
+>>>>>>> Firewaller interface added, Waith ssh method reused
 	// more on how ConfigDrive option is used on rackspace http://docs.rackspace.com/servers/api/v2/cs-devguide/content/config_drive_ext.html
 	options.ConfigDrive = true
 }
 
-// GetCloudConfig implements OpenstackProviderConfigurator interface.
-func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
+// GetCloudConfig implements ProviderConfigurator interface.
+func (c *rackspaceConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -104,6 +116,7 @@ func (c *rackspaceProviderConfigurator) ModifyRunServerOptions(options *nova.Run
 >>>>>>> modifications to opestack provider applied
 =======
 
+<<<<<<< HEAD
 // GetCloudConfig implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
@@ -149,5 +162,23 @@ func (c *rackspaceProviderConfigurator) GetSecurityGroups(ids ...instance.Id) ([
 // SetUpGroups implements OpenstackProviderConfigurator interface.
 func (c *rackspaceProviderConfigurator) SetUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
 	return nil, nil
+=======
+// GetConfigDefaults implements ProviderConfigurator interface.
+func (c *rackspaceConfigurator) GetConfigDefaults() schema.Defaults {
+	return schema.Defaults{
+		"username":             "",
+		"password":             "",
+		"tenant-name":          "",
+		"auth-url":             "https://identity.api.rackspacecloud.com/v2.0",
+		"auth-mode":            string(openstack.AuthUserPass),
+		"access-key":           "",
+		"secret-key":           "",
+		"region":               "",
+		"control-bucket":       "",
+		"use-floating-ip":      false,
+		"use-default-secgroup": false,
+		"network":              "",
+	}
+>>>>>>> Firewaller interface added, Waith ssh method reused
 }
 >>>>>>> security group related methods moved to provider configurator

@@ -30,9 +30,13 @@ var providerInstance environProvider
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> working version of rackspace provider
 func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
+=======
+func (p environProvider) setFirewaller(env environs.Environ, err error) (environs.Environ, error) {
+>>>>>>> Firewaller interface added, Waith ssh method reused
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -52,11 +56,15 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return environ{env}, errors.Trace(err)
 =======
 	if osEnviron, ok := env.(*openstack.Environ); ok {
+<<<<<<< HEAD
 		osEnviron.SetProviderConfigurator(new(rackspaceProviderConfigurator))
 <<<<<<< HEAD
 		return environ{env}, err
 >>>>>>> review comments implemented
 =======
+=======
+		osEnviron.SetFirewaller(new(rackspaceFirewaller))
+>>>>>>> Firewaller interface added, Waith ssh method reused
 		return environ{env}, errors.Trace(err)
 >>>>>>> More review comments implemented
 	}
@@ -68,7 +76,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 // Open implements environs.EnvironProvider.
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	env, err := p.EnvironProvider.Open(cfg)
-	res, err := p.setConfigurator(env, err)
+	res, err := p.setFirewaller(env, err)
 	return res, errors.Trace(err)
 =======
 =======
@@ -102,7 +110,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 <<<<<<< HEAD
 <<<<<<< HEAD
 	env, err := p.EnvironProvider.PrepareForBootstrap(ctx, cfg)
-	res, err := p.setConfigurator(env, err)
+	res, err := p.setFirewaller(env, err)
 	return res, errors.Trace(err)
 =======
 	return p.openstackProvider.PrepareForBootstrap(ctx, cfg)
@@ -118,6 +126,7 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 >>>>>>> review comments implemented
 }
 
+<<<<<<< HEAD
 // Validate implements environs.EnvironProvider.
 func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 <<<<<<< HEAD
@@ -160,6 +169,8 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 >>>>>>> fix conflicts after rabasing against master branch
 }
 
+=======
+>>>>>>> Firewaller interface added, Waith ssh method reused
 // BoilerplateConfig implements environs.EnvironProvider.
 func (p environProvider) BoilerplateConfig() string {
 	return `

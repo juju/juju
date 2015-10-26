@@ -321,11 +321,11 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 }
 
 func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.SecurityGroup, error) {
-	return e.(*Environ).configurator.(*defaultProviderConfigurator).setUpGlobalGroup(name, apiPort)
+	return e.(*Environ).firewaller.(*defaultFirewaller).setUpGlobalGroup(name, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
-	return e.(*Environ).configurator.(*defaultProviderConfigurator).ensureGroup(name, rules)
+	return e.(*Environ).firewaller.(*defaultFirewaller).ensureGroup(name, rules)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose

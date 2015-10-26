@@ -6,6 +6,8 @@ package rackspace_test
 import (
 	//jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"io"
+	"os"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -17,6 +19,7 @@ import (
 	"github.com/juju/juju/provider/rackspace"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -47,6 +50,13 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	configurator := &fakeConfigurator{}
+	s.PatchValue(rackspace.WaitSSH, func(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst common.Addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
+		addresses, err := inst.Addresses()
+		if err != nil {
+			return "", err
+		}
+		return addresses[0].Value, nil
+	})
 	s.PatchValue(rackspace.NewInstanceConfigurator, func(host string) common.InstanceConfigurator {
 		return configurator
 	})
@@ -154,7 +164,7 @@ func (e *fakeEnviron) SetConfig(cfg *config.Config) error {
 
 func (e *fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	e.Push("Instances", ids)
-	return nil, nil
+	return []instance.Instance{&fakeInstance{}}, nil
 }
 
 func (e *fakeEnviron) StateServerInstances() ([]instance.Id, error) {
