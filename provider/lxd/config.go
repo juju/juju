@@ -70,12 +70,12 @@ var configSchema = environschema.Fields{
 	cfgClientKey: {
 		Description: `The client key used for connecting to a LXD host machine.`,
 		Type:        environschema.Tstring,
-		Immutable:   false,
+		Immutable:   true,
 	},
 	cfgClientCert: {
 		Description: `The client cert used for connecting to a LXD host machine.`,
 		Type:        environschema.Tstring,
-		Immutable:   false,
+		Immutable:   true,
 	},
 }
 
