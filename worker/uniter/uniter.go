@@ -289,8 +289,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	u.addCleanup(func() error {
-		// TODO(fwereade): RunListener returns no error on Close. This seems wrong.
-		u.runListener.Close()
+		err := u.runListener.Close()
+		if err != nil {
+			logger.Warningf("error closing runlistener: %v", err)
+		}
 		return nil
 	})
 	// The socket needs to have permissions 777 in order for other users to use it.
