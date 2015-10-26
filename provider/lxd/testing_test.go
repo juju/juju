@@ -64,10 +64,12 @@ const (
 // These are stub config values for use in tests.
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":      "lxd",
-		"namespace": "",
-		"remote":    "",
-		"uuid":      "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"type":        "lxd",
+		"namespace":   "",
+		"remote":      "",
+		"client-cert": "",
+		"client-key":  "",
+		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 	})
 )
 
