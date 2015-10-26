@@ -117,13 +117,13 @@ var newConfigTests = []configTestSpec{{
 	insert: testing.Attrs{"namespace": ""},
 	expect: testing.Attrs{"namespace": "testenv"},
 }, {
-	info:   "remote is optional",
-	remove: []string{"remote"},
-	expect: testing.Attrs{"remote": ""},
+	info:   "remote-url is optional",
+	remove: []string{"remote-url"},
+	expect: testing.Attrs{"remote-url": ""},
 }, {
-	info:   "remote can be empty",
-	insert: testing.Attrs{"remote": ""},
-	expect: testing.Attrs{"remote": ""},
+	info:   "remote-url can be empty",
+	insert: testing.Attrs{"remote-url": ""},
+	expect: testing.Attrs{"remote-url": ""},
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
@@ -203,9 +203,9 @@ var changeConfigTests = []configTestSpec{{
 	insert: testing.Attrs{"namespace": "spam"},
 	err:    "namespace: cannot change from testenv to spam",
 }, {
-	info:   "cannot change remote",
-	insert: testing.Attrs{"remote": "eggs"},
-	err:    "remote: cannot change from  to eggs",
+	info:   "cannot change remote-url",
+	insert: testing.Attrs{"remote-url": "eggs"},
+	err:    "remote-url: cannot change from  to eggs",
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},

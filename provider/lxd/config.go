@@ -20,7 +20,7 @@ import (
 // The LXD-specific config keys.
 const (
 	cfgNamespace  = "namespace"
-	cfgRemote     = "remote"
+	cfgRemoteURL  = "remote-url"
 	cfgClientCert = "client-cert"
 	cfgClientKey  = "client-key"
 )
@@ -40,11 +40,11 @@ lxd:
     #
     # namespace: lxd
 
-    # remote Identifies the LXD API server to use for managing
+    # remote-url is the URL to the LXD API server to use for managing
     # containers, if any. If not specified then the locally running LXD
     # server is used.
     #
-    # remote:
+    # remote-url:
 
     # The cert and key the client should use to connect to the remote
     # may also be provided. If not then they are auto-generated.
@@ -62,7 +62,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Immutable:   true,
 	},
-	cfgRemote: {
+	cfgRemoteURL: {
 		Description: `Identifies the LXD API server to use for managing containers, if any.`,
 		Type:        environschema.Tstring,
 		Immutable:   true,
@@ -85,7 +85,7 @@ var (
 
 	configBaseDefaults = schema.Defaults{
 		cfgNamespace:  "",
-		cfgRemote:     "",
+		cfgRemoteURL:  "",
 		cfgClientCert: "",
 		cfgClientKey:  "",
 	}
@@ -229,8 +229,8 @@ func (c *environConfig) dirname() string {
 	return ""
 }
 
-func (c *environConfig) remote() string {
-	raw := c.attrs[cfgRemote]
+func (c *environConfig) remoteURL() string {
+	raw := c.attrs[cfgRemoteURL]
 	return raw.(string)
 }
 
@@ -247,8 +247,8 @@ func (c *environConfig) clientKey() string {
 // clientConfig builds a LXD Config based on the env config and returns it.
 func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	remoteInfo := lxdclient.RemoteInfo{
-		Name: "remote",
-		Host: c.remote(),
+		Name: "juju-remote",
+		Host: c.remoteURL(),
 	}
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())

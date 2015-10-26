@@ -92,7 +92,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (*co
 	// on the server config. This is necessary because exposing the API
 	// unix socket doesn't work securely (ownership issues).
 	var envConfig *config.Config
-	if env.ecfg.remote() == "" {
+	if env.ecfg.remoteURL() == "" { // TODO(ericsnow) wrong place!
 		ecfg, err := env.ecfg.setRemoteFromHost()
 		if err != nil {
 			return nil, errors.Trace(err)
