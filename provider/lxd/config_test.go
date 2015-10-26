@@ -9,7 +9,7 @@ import (
 	"os"
 
 	jc "github.com/juju/testing/checkers"
-	//lxdlib "github.com/lxc/lxd"
+	lxdlib "github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/lxd/lxdclient"
@@ -57,7 +57,7 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   os.ExpandEnv("$HOME/.config"), // TODO(ericsnow) Use lxdlib.ConfigDir.
+		Dirname:   os.ExpandEnv(lxdlib.ConfigDir),
 		Filename:  "config.yml",
 		Remote: lxdclient.NewRemote(lxdclient.RemoteInfo{
 			Name: "juju-remote",
@@ -81,7 +81,7 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
 		Namespace: cfg.Name(),
-		Dirname:   os.ExpandEnv("$HOME/.config"), // TODO(ericsnow) Use lxdlib.ConfigDir.
+		Dirname:   os.ExpandEnv(lxdlib.ConfigDir),
 		Filename:  "config.yml",
 		Remote: lxdclient.NewRemote(lxdclient.RemoteInfo{
 			Name: "juju-remote",
