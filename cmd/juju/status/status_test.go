@@ -34,13 +34,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func defineNextVersion() version.Number {
-	ver := version.Current.Number
+func nextVersion() version.Number {
+	ver := version.Current
 	ver.Patch++
 	return ver
 }
-
-var nextVersion = defineNextVersion()
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
@@ -2307,7 +2305,7 @@ var statusTests = []testCase{
 			M{
 				"environment": "dummyenv",
 				"environment-status": M{
-					"upgrade-available": nextVersion.String(),
+					"upgrade-available": nextVersion().String(),
 				},
 				"machines": M{},
 				"services": M{},
@@ -2821,7 +2819,7 @@ type setToolsUpgradeAvailable struct{}
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 	env, err := ctx.st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion)
+	err = env.UpdateLatestToolsVersion(nextVersion())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3227,7 +3225,7 @@ ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE
 2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M 
 
 `
-	nextVersionStr := nextVersion.String()
+	nextVersionStr := nextVersion().String()
 	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersionStr)+1)
 	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersionStr+spaces))
 }

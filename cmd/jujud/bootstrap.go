@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
@@ -142,15 +143,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
 	desiredVersion, ok := envCfg.AgentVersion()
-	if ok && desiredVersion != version.Current.Number {
+	if ok && desiredVersion != version.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, envCfg.Development(), envCfg.AgentStream())
 		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
 		filter := tools.Filter{
 			Number: desiredVersion,
-			Arch:   version.Current.Arch,
-			Series: version.Current.Series,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
 		}
 		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
 		if toolsErr == nil {
@@ -159,8 +160,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		if errors.IsNotFound(toolsErr) {
 			// Newer tools not available, so revert to using the tools
 			// matching the current agent version.
-			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, version.Current.Number)
-			newConfigAttrs["agent-version"] = version.Current.Number.String()
+			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, version.Current)
+			newConfigAttrs["agent-version"] = version.Current.String()
 		} else if toolsErr != nil {
 			logger.Errorf("cannot find newer tools: %v", toolsErr)
 			return toolsErr
@@ -349,13 +350,18 @@ func (c *BootstrapCommand) populateDefaultStoragePools(st *state.State) error {
 func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
-	tools, err := agenttools.ReadTools(dataDir, version.Current)
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	tools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(
-		agenttools.SharedToolsDir(dataDir, version.Current),
+		agenttools.SharedToolsDir(dataDir, current),
 		"tools.tar.gz",
 	))
 	if err != nil {

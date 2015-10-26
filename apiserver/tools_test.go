@@ -16,6 +16,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -291,9 +293,13 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", toolstorage.Metadata{
-		Version: version.Current,
-		Size:    3,
-		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+		Version: version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		},
+		Size:   3,
+		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	s.testDownload(c, tools, s.State.EnvironUUID())
 }
@@ -301,18 +307,26 @@ func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 func (s *toolsSuite) TestDownloadOtherEnvUUIDPath(c *gc.C) {
 	envState := s.setupOtherEnvironment(c)
 	tools := s.storeFakeTools(c, envState, "abc", toolstorage.Metadata{
-		Version: version.Current,
-		Size:    3,
-		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+		Version: version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		},
+		Size:   3,
+		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	s.testDownload(c, tools, envState.EnvironUUID())
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 	tools := s.storeFakeTools(c, s.State, "abc", toolstorage.Metadata{
-		Version: version.Current,
-		Size:    3,
-		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+		Version: version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		},
+		Size:   3,
+		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	s.testDownload(c, tools, "")
 }
@@ -335,10 +349,15 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", version.Current)[0]
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -349,10 +368,15 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", version.Current)[0]
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
 	c.Assert(err, jc.ErrorIsNil)
@@ -409,7 +433,12 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 }
 
 func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
-	resp := s.downloadRequest(c, version.Current, "dead-beef-123456")
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	resp := s.downloadRequest(c, current, "dead-beef-123456")
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
 

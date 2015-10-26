@@ -155,7 +155,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.NoAutoUpgrade {
-		vers := version.Current.Number
+		vers := version.Current
 		c.AgentVersion = &vers
 	} else if c.AgentVersionParam != "" {
 		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {

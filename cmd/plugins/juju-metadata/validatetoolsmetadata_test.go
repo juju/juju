@@ -208,7 +208,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
-	s.makeLocalMetadata(c, "released", version.Current.Number.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", version.Current.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		newValidateToolsMetadataCommand(), ctx, []string{
@@ -222,7 +222,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
-	s.makeLocalMetadata(c, "proposed", version.Current.Number.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "proposed", version.Current.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		newValidateToolsMetadataCommand(), ctx, []string{
@@ -264,7 +264,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
-	s.makeLocalMetadata(c, "released", version.Current.Number.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", version.Current.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		newValidateToolsMetadataCommand(), ctx, []string{"-s", "raring", "-d", s.metadataDir},

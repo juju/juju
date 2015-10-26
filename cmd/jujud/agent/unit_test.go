@@ -14,6 +14,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -191,7 +193,11 @@ func (s *UnitSuite) TestRunStop(c *gc.C) {
 func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	machine, unit, _, currentTools := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
-	newVers := version.Current
+	newVers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)
@@ -223,7 +229,11 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	machine, unit, _, _ := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
-	newVers := version.Current
+	newVers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	newVers.Patch++
 	err := machine.SetAgentVersion(newVers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,8 +365,12 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
-	vers := version.Current
-	vers.Minor = version.Current.Minor + 1
+	vers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	vers.Minor++
 	err := unit.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -377,7 +391,12 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			if agentTools.Version.Minor != version.Current.Minor {
 				continue
 			}
-			c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+			current := version.Binary{
+				Number: version.Current,
+				Arch:   arch.HostArch(),
+				Series: series.HostSeries(),
+			}
+			c.Assert(agentTools.Version, gc.DeepEquals, current)
 			done = true
 		}
 	}

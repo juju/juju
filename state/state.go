@@ -430,10 +430,10 @@ func IsUpgradeInProgressError(err error) bool {
 // running the current version). If this is a hosted environment, newVersion
 // cannot be higher than the state server version.
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(version.Current.Number) > 0 && !st.IsStateServer() {
+	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
 		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
 			newVersion.String(),
-			version.Current.Number,
+			version.Current,
 		)
 	}
 

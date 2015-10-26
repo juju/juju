@@ -168,7 +168,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		ServerTag:     environ.ServerTag().String(),
 		Facades:       DescribeFacades(),
 		UserInfo:      maybeUserInfo,
-		ServerVersion: version.Current.Number.String(),
+		ServerVersion: version.Current.String(),
 	}
 
 	// For sufficiently modern login versions, stop serving the
