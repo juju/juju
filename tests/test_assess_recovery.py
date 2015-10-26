@@ -55,6 +55,10 @@ class TestParseArgs(TestCase):
         args = parse_args(['foo', 'bar', 'baz', 'qux'])
         self.assertEqual(args.temp_env_name, 'qux')
 
+    def test_parse_args_agent_stream(self):
+        args = parse_args(['foo', 'bar', 'baz', '--agent-stream', 'qux'])
+        self.assertEqual(args.agent_stream, 'qux')
+
 
 class TestMakeClientFromArgs(TestCase):
 
