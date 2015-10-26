@@ -9,7 +9,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -17,6 +16,24 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.machiner")
+
+// Config defines the configuration for a machiner worker.
+type Config struct {
+	// MachineAccessor provides a means of observing and updating the
+	// machine's state.
+	MachineAccessor MachineAccessor
+
+	// Tag is the machine's tag.
+	Tag names.MachineTag
+
+	// ClearMachineAddressesOnStart indicates whether or not to clear
+	// the machine's machine addresses when the worker starts.
+	ClearMachineAddressesOnStart bool
+
+	// NotifyMachineDead will, if non-nil, be called after the machine
+	// is transitioned to the Dead lifecycle state.
+	NotifyMachineDead func() error
+}
 
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
@@ -33,17 +50,12 @@ type Machiner struct {
 //
 // The machineDead function will be called immediately after the machine's
 // lifecycle is updated to Dead.
-func NewMachiner(
-	st MachineAccessor,
-	agentConfig agent.Config,
-	ignoreAddressesOnStart bool,
-	machineDead func() error,
-) worker.Worker {
+func NewMachiner(cfg Config) worker.Worker {
 	mr := &Machiner{
-		st:  st,
-		tag: agentConfig.Tag().(names.MachineTag),
-		ignoreAddressesOnStart: ignoreAddressesOnStart,
-		machineDead:            machineDead,
+		st:  cfg.MachineAccessor,
+		tag: cfg.Tag,
+		ignoreAddressesOnStart: cfg.ClearMachineAddressesOnStart,
+		machineDead:            cfg.NotifyMachineDead,
 	}
 	return worker.NewNotifyWorker(mr)
 }
