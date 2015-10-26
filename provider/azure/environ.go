@@ -526,16 +526,14 @@ func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
 	}
 	// Create a filter to get all images from our region and for the correct stream.
 	ecfg := env.getSnapshot().ecfg
-	region := ecfg.location()
-	cloudSpec := simplestreams.CloudSpec{
-		Region:   region,
-		Endpoint: getEndpoint(region),
+	cloudSpec, err := env.Region()
+	if err != nil {
+		return nil, err
 	}
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
 		Stream:    ecfg.ImageStream(),
 	})
-	var err error
 	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
 	return env.supportedArchitectures, err
 }
@@ -1410,7 +1408,7 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 	ecfg := env.getSnapshot().ecfg
 	return simplestreams.CloudSpec{
 		Region:   ecfg.location(),
-		Endpoint: string(gwacl.GetEndpoint(ecfg.location())),
+		Endpoint: getEndpoint(ecfg.location()),
 	}, nil
 }
 
