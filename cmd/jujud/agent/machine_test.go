@@ -1264,11 +1264,10 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 		agent := NewAgentConf(conf.DataDir())
 		err := agent.ReadConfig(tagString)
 		c.Assert(err, jc.ErrorIsNil)
-		st, gotEntity, err := apicaller.OpenAPIState(agent)
+		st, err := apicaller.OpenAPIState(agent)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEntity.Tag(), gc.Equals, tagString)
 	}
 	assertOpen()
 
