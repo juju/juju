@@ -160,13 +160,16 @@ def parse_args(argv=None):
         help='Temporary environment name to use for this test.')
     parser.add_argument(
         '--agent-stream', help='Stream for retrieving agent binaries.')
+    parser.add_argument(
+        '--series', help='Stream for retrieving agent binaries.')
     return parser.parse_args(argv)
 
 
 def make_client_from_args(args):
     client = make_client(args.juju_path, args.debug, args.env_name,
                          args.temp_env_name)
-    update_env(client.env, args.temp_env_name, agent_stream=args.agent_stream)
+    update_env(client.env, args.temp_env_name, agent_stream=args.agent_stream,
+               series=args.series)
     return client
 
 

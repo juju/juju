@@ -28,6 +28,7 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.strategy, 'backup')
         self.assertEqual(args.debug, False)
         self.assertIs(args.agent_stream, None)
+        self.assertIs(args.series, None)
 
     def test_parse_args_ha(self):
         args = parse_args(['foo', 'bar', 'baz', '--ha'])
@@ -59,6 +60,10 @@ class TestParseArgs(TestCase):
         args = parse_args(['foo', 'bar', 'baz', '--agent-stream', 'qux'])
         self.assertEqual(args.agent_stream, 'qux')
 
+    def test_parse_args_series(self):
+        args = parse_args(['foo', 'bar', 'baz', '--series', 'qux'])
+        self.assertEqual(args.series, 'qux')
+
 
 class TestMakeClientFromArgs(TestCase):
 
@@ -68,7 +73,7 @@ class TestMakeClientFromArgs(TestCase):
                 client = make_client_from_args(
                     Namespace(env_name='foo', juju_path='bar',
                               temp_env_name='temp-foo', debug=False,
-                              agent_stream=None))
+                              agent_stream=None, series=None))
         self.assertEqual(client.env.config, {'name': 'temp-foo'})
         self.assertEqual(client.env.environment, 'temp-foo')
 
@@ -78,8 +83,17 @@ class TestMakeClientFromArgs(TestCase):
                 client = make_client_from_args(
                     Namespace(env_name='foo', juju_path='bar',
                               temp_env_name='temp-foo', debug=False,
-                              agent_stream='stream-foo'))
+                              agent_stream='stream-foo', series=None))
         self.assertEqual(client.env.config['agent-stream'], 'stream-foo')
+
+    def test_series(self):
+        with temp_env({'environments': {'foo': {}}}):
+            with patch.object(EnvJujuClient, 'get_version', return_value=''):
+                client = make_client_from_args(
+                    Namespace(env_name='foo', juju_path='bar',
+                              temp_env_name='temp-foo', debug=False,
+                              agent_stream=None, series='series-foo'))
+        self.assertEqual(client.env.config['default-series'], 'series-foo')
 
 
 def make_mocked_client(name, status_error=None):
@@ -115,7 +129,7 @@ class TestMain(FakeHomeTestCase):
         mc_mock.assert_called_once_with(Namespace(
             agent_stream=None, charm_prefix='prefix', debug=False,
             env_name='foo', juju_path='./', logs='log_dir', strategy='ha',
-            temp_env_name=None))
+            temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
         client.destroy_environment.assert_called_once_with()
@@ -138,7 +152,7 @@ class TestMain(FakeHomeTestCase):
         mc_mock.assert_called_once_with(Namespace(
             agent_stream=None, charm_prefix='prefix', debug=False,
             env_name='foo', juju_path='./', logs='log_dir', strategy='ha',
-            temp_env_name=None))
+            temp_env_name=None, series=None))
         client.wait_for_ha.assert_called_once_with()
         client.get_status.assert_called_once_with(600)
         client.destroy_environment.assert_called_once_with()
