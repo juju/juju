@@ -612,7 +612,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
-	// Set the retry delay to 0, and retry count to 1 to keep tests short
+	// Set the retry delay to 0, and retry count to 2 to keep tests short
 	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
 	s.PatchValue(provisioner.RetryStrategyCount, 2)
 
