@@ -664,14 +664,8 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 }
 
 func (c *Client) validateCharmVersion(ch charm.Charm) error {
-	if ch.Meta().MinJujuVersion != nil {
-		// TODO(natefinch): move version to juju repo
-		// hackery because version types are different
-		minver, err := version.Parse(ch.Meta().MinJujuVersion.String())
-		if err != nil {
-			return errors.Trace(err)
-		}
-
+	minver := ch.Meta().MinJujuVersion
+	if minver != nil {
 		agentver, err := c.AgentVersion()
 		if err != nil {
 			return errors.Trace(err)

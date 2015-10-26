@@ -823,14 +823,9 @@ type hasMeta interface {
 }
 
 func validateCharmVersion(ch hasMeta) error {
-	logger.Infof("Min juu version of charm: %#v", ch.Meta().MinJujuVersion)
-	if ch.Meta().MinJujuVersion != nil {
-		// TODO(natefinch): move version to juju repo
-		// hackery because version types are different
-		minver, err := version.Parse(ch.Meta().MinJujuVersion.String())
-		if err != nil {
-			return errors.Trace(err)
-		}
+	logger.Infof("Min juju version of charm: %#v", ch.Meta().MinJujuVersion)
+	minver := ch.Meta().MinJujuVersion
+	if minver != nil {
 		if minver.Compare(version.Current.Number) > 0 {
 			logger.Infof("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current.Number)
 			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current.Number)
