@@ -1,8 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !go1.3
-
 // This package exists solely to avoid circular imports.
 
 package factory
@@ -19,8 +17,7 @@ import (
 
 // NewContainerManager creates the appropriate container.Manager for the
 // specified container type.
-func NewContainerManager(forType instance.ContainerType, conf container.ManagerConfig, imageURLGetter container.ImageURLGetter,
-) (container.Manager, error) {
+func NewContainerManager(forType instance.ContainerType, conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
 	switch forType {
 	case instance.LXC:
 		return lxc.NewContainerManager(conf, imageURLGetter, looputil.NewLoopDeviceManager())

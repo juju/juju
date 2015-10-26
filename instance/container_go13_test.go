@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // +build go1.3
@@ -13,13 +13,13 @@ import (
 )
 
 func (s *InstanceSuite) TestParseContainerTypeLXD(c *gc.C) {
-	ctype, err = instance.ParseContainerType("lxd")
+	ctype, err := instance.ParseContainerType("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXD)
 }
 
 func (s *InstanceSuite) TestParseContainerTypeLXDOrNone(c *gc.C) {
-	ctype, err = instance.ParseContainerTypeOrNone("lxd")
+	ctype, err := instance.ParseContainerTypeOrNone("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXD)
 }
