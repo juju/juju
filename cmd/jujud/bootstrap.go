@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -41,6 +42,7 @@ import (
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -135,6 +137,36 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	newConfigAttrs := make(map[string]interface{})
+
+	// Check to see if a newer agent version has been requested
+	// by the bootstrap client.
+	desiredVersion, ok := envCfg.AgentVersion()
+	if ok && desiredVersion != version.Current.Number {
+		// If we have been asked for a newer version, ensure the newer
+		// tools can actually be found, or else bootstrap won't complete.
+		stream := envtools.PreferredStream(&desiredVersion, envCfg.Development(), envCfg.AgentStream())
+		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
+		filter := tools.Filter{
+			Number: desiredVersion,
+			Arch:   version.Current.Arch,
+			Series: version.Current.Series,
+		}
+		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
+		if toolsErr == nil {
+			logger.Infof("tools are available, upgrade will occur after bootstrap")
+		}
+		if errors.IsNotFound(toolsErr) {
+			// Newer tools not available, so revert to using the tools
+			// matching the current agent version.
+			logger.Warningf("newer tools for %q not available, sticking with version %q", desiredVersion, version.Current.Number)
+			newConfigAttrs["agent-version"] = version.Current.Number.String()
+		} else if toolsErr != nil {
+			logger.Errorf("cannot find newer tools: %v", toolsErr)
+			return toolsErr
+		}
+	}
+
 	instanceId := instance.Id(c.InstanceId)
 	instances, err := env.Instances([]instance.Id{instanceId})
 	if err != nil {
@@ -153,12 +185,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Annotate(err, "failed to generate system key")
 	}
 	authorizedKeys := config.ConcatAuthKeys(envCfg.AuthorizedKeys(), publicKey)
-	envCfg, err = env.Config().Apply(map[string]interface{}{
-		config.AuthKeysConfig: authorizedKeys,
-	})
-	if err != nil {
-		return errors.Annotate(err, "failed to add public key to environment config")
-	}
+	newConfigAttrs[config.AuthKeysConfig] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()
@@ -191,6 +218,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
+	envCfg, err = env.Config().Apply(newConfigAttrs)
+	if err != nil {
+		return errors.Annotate(err, "failed to update environment config")
+	}
 	var st *state.State
 	var m *state.Machine
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
