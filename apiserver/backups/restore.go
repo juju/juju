@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/service"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
+
+var bootstrapNode = names.NewMachineTag("0").String()
 
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
@@ -70,12 +73,19 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 
 	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
-
 	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
-	if oldTagString != "machine-0" && oldTagString != "" {
+	// A backup can be made of any component of an ha array.
+	// The files in a backup dont contain purely relativized paths.
+	// If the backup is made of the bootstrap node (machine 0) the
+	// recently created machine will have the same paths and therefore
+	// the startup scripts will fit the new juju. If the backup belongs
+	// to a different machine, we need to create a new set of startup
+	// scripts and exit with 0 (so that the current script does not try
+	// to restart the old juju, which will no longer be there).
+	if oldTagString != bootstrapNode && oldTagString != "" {
 		srvName := fmt.Sprintf("jujud-%s", oldTagString)
 		srv, err := service.DiscoverService(srvName, common.Conf{})
 		if err != nil {
@@ -85,6 +95,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 			return errors.Annotatef(err, "cannot start %q service", srvName)
 		}
 		// We dont want machine-0 to restart since the new one has a different tag.
+		// We started the new one above.
 		os.Exit(0)
 	}
 

@@ -48,7 +48,7 @@ func ensureMongoService(agentConfig agent.Config) error {
 		si.StatePort,
 		oplogSize,
 		numaCtlPolicy)
-	return errors.Annotate(err, "cannot ensure mongo service")
+	return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
 }
 
 // Restore handles either returning or creating a state server to a backed up status:
@@ -113,7 +113,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (string, error) {
 	}
 	logger.Infof("wrote new agent config")
 
-	if backupMachine.String() != "machine-0" {
+	if backupMachine.Id() != "0" {
 		logger.Infof("extra work needed backup belongs to %q machine", backupMachine.String())
 		serviceName := "jujud-" + agentConfig.Tag().String()
 		aInfo := service.NewMachineAgentInfo(
@@ -152,8 +152,6 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (string, error) {
 	if err != nil {
 		return "", errors.Annotate(err, "cannot produce dial information")
 	}
-
-	logger.Infof("tag user will be ensured")
 
 	logger.Infof("restarting replicaset")
 	memberHostPort := fmt.Sprintf("%s:%d", args.PrivateAddress, ssi.StatePort)

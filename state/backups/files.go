@@ -130,7 +130,7 @@ func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 	for _, replaceable := range []string{
 		filepath.Join(dataDir, "db"),
 		dataDir,
-		//logsDir,
+		logsDir,
 		path.Join(logsDir, "all-machines.log"),
 	} {
 		dirStat, err := os.Stat(replaceable)

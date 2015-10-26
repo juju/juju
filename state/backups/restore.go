@@ -74,11 +74,14 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		dialInfo.Password = conf.OldPassword()
 	} else {
 		dialInfo.Username = conf.Tag().String()
-		// TODO(perrito) we might need an accessor for the actual state pass
-		// just in case it ever changes from the same as api pass.
+		// TODO(perrito) we might need an accessor for the actual state password
+		// just in case it ever changes from the same as api password.
 		apiInfo, ok := conf.APIInfo()
 		if ok {
 			dialInfo.Password = apiInfo.Password
+			logger.Infof("using API password to access state server.")
+		} else {
+			return nil, errors.New("cannot obtain password to access the state server")
 		}
 	}
 	return dialInfo, nil

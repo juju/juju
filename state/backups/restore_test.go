@@ -165,50 +165,74 @@ JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 `
 
 func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
-	machineTag, err := names.ParseTag("machine-0")
-	c.Assert(err, jc.ErrorIsNil)
-
+	cases := []struct {
+		machineTag       string
+		apiPassword      string
+		oldPassword      string
+		expectedPassword string
+		expectedUser     string
+	}{
+		{"machine-0",
+			"",
+			"123456",
+			"123456",
+			"admin",
+		},
+		{"machine-1",
+			"123123",
+			"",
+			"123123",
+			"machine-1",
+		},
+	}
 	dataDir := path.Join(r.cwd, "dataDir")
-	err = os.Mkdir(dataDir, os.FileMode(0755))
+	err := os.Mkdir(dataDir, os.FileMode(0755))
 	c.Assert(err, jc.ErrorIsNil)
 
 	logDir := path.Join(r.cwd, "logDir")
 	err = os.Mkdir(logDir, os.FileMode(0755))
 	c.Assert(err, jc.ErrorIsNil)
 
-	configParams := agent.AgentConfigParams{
-		DataDir:           dataDir,
-		LogDir:            logDir,
-		UpgradedToVersion: version.Current.Number,
-		Tag:               machineTag,
-		Environment:       coretesting.EnvironmentTag,
-		Password:          "dummyPassword",
-		Nonce:             "dummyNonce",
-		StateAddresses:    []string{"fakeStateAddress:1234"},
-		APIAddresses:      []string{"fakeAPIAddress:12345"},
-		CACert:            caCertPEM,
-	}
-	statePort := 12345
-	privateAddress := "dummyPrivateAddress"
-	servingInfo := params.StateServingInfo{
-		APIPort:        1234,
-		StatePort:      statePort,
-		Cert:           caCertPEM,
-		CAPrivateKey:   "a ca key",
-		PrivateKey:     "a key",
-		SharedSecret:   "a secret",
-		SystemIdentity: "an identity",
-	}
+	for _, testCase := range cases {
+		machineTag, err := names.ParseTag(testCase.machineTag)
+		c.Assert(err, jc.ErrorIsNil)
 
-	conf, err := agent.NewStateMachineConfig(configParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
+		configParams := agent.AgentConfigParams{
+			DataDir:           dataDir,
+			LogDir:            logDir,
+			UpgradedToVersion: version.Current.Number,
+			Tag:               machineTag,
+			Environment:       coretesting.EnvironmentTag,
+			Password:          "placeholder",
+			Nonce:             "dummyNonce",
+			StateAddresses:    []string{"fakeStateAddress:1234"},
+			APIAddresses:      []string{"fakeAPIAddress:12345"},
+			CACert:            caCertPEM,
+		}
+		statePort := 12345
+		privateAddress := "dummyPrivateAddress"
+		servingInfo := params.StateServingInfo{
+			APIPort:        1234,
+			StatePort:      statePort,
+			Cert:           caCertPEM,
+			CAPrivateKey:   "a ca key",
+			PrivateKey:     "a key",
+			SharedSecret:   "a secret",
+			SystemIdentity: "an identity",
+		}
 
-	dialInfo, err := newDialInfo(privateAddress, conf)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dialInfo.Username, gc.Equals, "admin")
-	c.Assert(dialInfo.Password, gc.Equals, "dummyPassword")
-	c.Assert(dialInfo.Direct, gc.Equals, true)
-	c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress, statePort)})
+		conf, err := agent.NewStateMachineConfig(configParams, servingInfo)
+		c.Assert(err, jc.ErrorIsNil)
+		conf.SetOldPassword(testCase.oldPassword)
+		conf.SetPassword(testCase.apiPassword)
+
+		dialInfo, err := newDialInfo(privateAddress, conf)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(dialInfo.Username, gc.Equals, testCase.expectedUser)
+		c.Assert(dialInfo.Password, gc.Equals, testCase.expectedPassword)
+		c.Assert(dialInfo.Direct, gc.Equals, true)
+		c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress, statePort)})
+	}
 }
 
 // TestUpdateMongoEntries has all the testing for this function to avoid creating multiple

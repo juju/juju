@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -89,5 +89,8 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err := c.Log.Start(ctx); err != nil {
 		return err
 	}
-	return c.runNewRestore(ctx)
+	if c.supportsNewRestore(ctx) {
+		return c.runRestore(ctx)
+	}
+	return c.runLegacyRestore(ctx)
 }
