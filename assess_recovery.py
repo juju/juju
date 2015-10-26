@@ -161,7 +161,7 @@ def parse_args(argv=None):
     parser.add_argument(
         '--agent-stream', help='Stream for retrieving agent binaries.')
     parser.add_argument(
-        '--series', help='Stream for retrieving agent binaries.')
+        '--series', help='Name of the Ubuntu series to use.')
     return parser.parse_args(argv)
 
 
