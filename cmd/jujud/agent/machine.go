@@ -35,7 +35,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
@@ -478,7 +477,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := apicaller.OpenAPIState(a)
+	st, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -640,7 +639,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
-	st, entity, err := apicaller.OpenAPIState(a)
+	st, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -660,16 +659,21 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 		}
 	}()
 
+	machine, err := st.Agent().Entity(a.Tag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	agentConfig := a.CurrentConfig()
-	if entity.Life() == params.Dead {
-		logger.Errorf("agent terminating - entity %q is dead", entity.Tag())
+	if machine.Life() == params.Dead {
+		logger.Errorf("agent terminating - %s is dead", names.ReadableString(a.Tag()))
 		if err := writeUninstallAgentFile(agentConfig.DataDir()); err != nil {
 			return nil, errors.Annotate(err, "writing uninstall agent file")
 		}
 		return nil, worker.ErrTerminateAgent
 	}
 
-	for _, job := range entity.Jobs() {
+	for _, job := range machine.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
 			if err != nil {
@@ -692,11 +696,11 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	// Run the agent upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
-	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
+	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
-		return a.postUpgradeAPIWorker(st, agentConfig, entity)
+		return a.postUpgradeAPIWorker(st, agentConfig, machine.Jobs())
 	})
 
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
@@ -705,11 +709,11 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 func (a *MachineAgent) postUpgradeAPIWorker(
 	st api.Connection,
 	agentConfig agent.Config,
-	entity *apiagent.Entity,
+	machineJobs []multiwatcher.MachineJob,
 ) (worker.Worker, error) {
 
 	var isEnvironManager bool
-	for _, job := range entity.Jobs() {
+	for _, job := range machineJobs {
 		if job == multiwatcher.JobManageEnviron {
 			isEnvironManager = true
 			break
@@ -829,7 +833,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
-	for _, job := range entity.Jobs() {
+	for _, job := range machineJobs {
 		if job == multiwatcher.JobManageNetworking {
 			intrusiveMode = true
 			break
@@ -850,14 +854,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	// Perform the operations needed to set up hosting for containers.
-	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
+	if err := a.setupContainerSupport(runner, st, agentConfig); err != nil {
 		cause := errors.Cause(err)
 		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
 			return nil, worker.ErrTerminateAgent
 		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
-	for _, job := range entity.Jobs() {
+	for _, job := range machineJobs {
 		switch job {
 		case multiwatcher.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
@@ -933,7 +937,7 @@ var shouldWriteProxyFiles = func(conf agent.Config) bool {
 
 // setupContainerSupport determines what containers can be run on this machine and
 // initialises suitable infrastructure to support such containers.
-func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, entity *apiagent.Entity, agentConfig agent.Config) error {
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
 	// LXC containers are only supported on bare metal and fully virtualized linux systems
 	// Nested LXC containers and Windows machines cannot run LXC containers
@@ -952,7 +956,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
-	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers, agentConfig)
+	return a.updateSupportedContainers(runner, st, supportedContainers, agentConfig)
 }
 
 // updateSupportedContainers records in state that a machine can run the specified containers.
@@ -962,15 +966,11 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 func (a *MachineAgent) updateSupportedContainers(
 	runner worker.Runner,
 	st api.Connection,
-	machineTag string,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
 ) error {
 	pr := st.Provisioner()
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return err
-	}
+	tag := agentConfig.Tag().(names.MachineTag)
 	machine, err := pr.Machine(tag)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return worker.ErrTerminateAgent

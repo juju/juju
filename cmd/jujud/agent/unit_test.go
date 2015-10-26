@@ -277,11 +277,10 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 		agent := NewAgentConf(conf.DataDir())
 		err := agent.ReadConfig(conf.Tag().String())
 		c.Assert(err, jc.ErrorIsNil)
-		st, gotEntity, err := apicaller.OpenAPIState(agent)
+		st, err := apicaller.OpenAPIState(agent)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEntity.Tag(), gc.Equals, unit.Tag().String())
 	}
 	assertOpen()
 
@@ -309,7 +308,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
 	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password")
-	_, _, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
+	_, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
