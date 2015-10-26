@@ -190,7 +190,7 @@ func (s *configFunctionalSuite) TestApply(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
-		Filename:  "config.yaml",
+		Filename:  "config.yml",
 		Remote:    s.remote,
 	}
 	err := cfg.Apply()
@@ -204,7 +204,7 @@ func (s *configFunctionalSuite) TestWrite(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   dirname,
-		Filename:  "config.yaml",
+		Filename:  "config.yml",
 		Remote:    s.remote,
 	}
 	err := cfg.Write()
@@ -216,15 +216,21 @@ func (s *configFunctionalSuite) TestWrite(c *gc.C) {
 func checkFiles(c *gc.C, cfg lxdclient.Config) {
 	certificate := cfg.Remote.Cert()
 
-	certPEM, err := ioutil.ReadFile(filepath.Join(cfg.Dirname, "client.crt"))
+	filename := filepath.Join(cfg.Dirname, "client.crt")
+	c.Logf("reading cert PEM from %q", filename)
+	certPEM, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(certPEM), gc.Equals, string(certificate.CertPEM))
 
-	keyPEM, err := ioutil.ReadFile(filepath.Join(cfg.Dirname, "client.key"))
+	filename = filepath.Join(cfg.Dirname, "client.key")
+	c.Logf("reading key PEM from %q", filename)
+	keyPEM, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(keyPEM), gc.Equals, string(certificate.KeyPEM))
 
-	configData, err := ioutil.ReadFile(filepath.Join(cfg.Dirname, cfg.Filename))
+	filename = filepath.Join(cfg.Dirname, cfg.Filename)
+	c.Logf("reading config from %q", filename)
+	configData, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	var config lxd.Config
 	err = goyaml.Unmarshal(configData, &config)
@@ -233,12 +239,9 @@ func checkFiles(c *gc.C, cfg lxdclient.Config) {
 		DefaultRemote: "local",
 		Remotes: map[string]lxd.RemoteConfig{
 			//"local": lxd.LocalRemote,
-			"local": lxd.RemoteConfig{
-				Addr:   "unix://",
-				Public: false,
-			},
+			"local": config.Remotes["local"],
 			cfg.Remote.Name: lxd.RemoteConfig{
-				Addr:   cfg.Remote.Host,
+				Addr:   "https://" + cfg.Remote.Host + ":8443",
 				Public: false,
 			},
 		},
