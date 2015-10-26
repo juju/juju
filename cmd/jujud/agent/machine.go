@@ -474,14 +474,10 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, entity, err := apicaller.OpenAPIState(a)
+	st, _, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
-	}
-	if entity.Life() == params.Dead {
-		logger.Errorf("agent terminating - entity %q is dead", entity.Tag())
-		return worker.ErrTerminateAgent
 	}
 
 	// block until all units/containers are ready, and reboot/shutdown
@@ -752,12 +748,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		accessor := machiner.APIMachineAccessor{st.Machiner()}
-		return newMachiner(
-			accessor, agentConfig, ignoreMachineAddresses,
-			func() error {
+		return newMachiner(machiner.Config{
+			MachineAccessor: accessor,
+			Tag:             agentConfig.Tag().(names.MachineTag),
+			ClearMachineAddressesOnStart: ignoreMachineAddresses,
+			NotifyMachineDead: func() error {
 				return writeUninstallAgentFile(agentConfig.DataDir())
 			},
-		), nil
+		}), nil
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()

@@ -1777,19 +1777,12 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	for _, expectedIgnoreValue := range []bool{true, false} {
 		ignoreAddressCh := make(chan bool, 1)
-		s.AgentSuite.PatchValue(&newMachiner, func(
-			accessor machiner.MachineAccessor,
-			conf agent.Config,
-			ignoreMachineAddresses bool,
-			machineDead func() error,
-		) worker.Worker {
+		s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) worker.Worker {
 			select {
-			case ignoreAddressCh <- ignoreMachineAddresses:
+			case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 			default:
 			}
-			return machiner.NewMachiner(
-				accessor, conf, ignoreMachineAddresses, func() error { return nil },
-			)
+			return machiner.NewMachiner(cfg)
 		})
 
 		attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}

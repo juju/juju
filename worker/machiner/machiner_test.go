@@ -16,7 +16,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
@@ -30,9 +29,9 @@ import (
 
 type MachinerSuite struct {
 	coretesting.BaseSuite
-	accessor    *mockMachineAccessor
-	agentConfig agent.Config
-	addresses   []net.Addr
+	accessor   *mockMachineAccessor
+	machineTag names.MachineTag
+	addresses  []net.Addr
 }
 
 var _ = gc.Suite(&MachinerSuite{})
@@ -42,7 +41,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.accessor = &mockMachineAccessor{}
 	s.accessor.machine.watcher.changes = make(chan struct{})
 	s.accessor.machine.life = params.Alive
-	s.agentConfig = agentConfig(names.NewMachineTag("123"))
+	s.machineTag = names.NewMachineTag("123")
 	s.addresses = []net.Addr{ // anything will do
 		&net.IPAddr{IP: net.IPv4bcast},
 		&net.IPAddr{IP: net.IPv4zero},
@@ -50,6 +49,117 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
+}
+
+func (s *MachinerSuite) TestMachinerMachineNotFound(c *gc.C) {
+	// Accessing the machine initially yields "not found or unauthorized".
+	// We don't know which, so we don't report that the machine is dead.
+	var machineDead machineDeathTracker
+	w := machiner.NewMachiner(machiner.Config{
+		s.accessor, s.machineTag, false,
+		machineDead.machineDead,
+	})
+	s.accessor.machine.SetErrors(
+		nil, // SetMachineAddresses
+		nil, // SetStatus
+		nil, // Watch
+		&params.Error{Code: params.CodeNotFound}, // Refresh
+	)
+	s.accessor.machine.watcher.changes <- struct{}{}
+	w.Kill()
+	c.Assert(w.Wait(), gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(bool(machineDead), jc.IsFalse)
+}
+
+func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
+	w := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	s.accessor.machine.life = params.Dying
+	s.accessor.machine.SetErrors(
+		nil, // SetMachineAddresses
+		nil, // SetStatus (started)
+		nil, // Watch
+		nil, // Refresh
+		errors.New("cannot set status"), // SetStatus (stopped)
+	)
+	s.accessor.machine.watcher.changes <- struct{}{}
+	w.Kill()
+	c.Assert(
+		w.Wait(),
+		gc.ErrorMatches,
+		"machine-123 failed to set status stopped: cannot set status",
+	)
+	s.accessor.machine.CheckCallNames(c,
+		"SetMachineAddresses",
+		"SetStatus",
+		"Watch",
+		"Refresh",
+		"Life",
+		"SetStatus",
+	)
+	s.accessor.machine.CheckCall(
+		c, 5, "SetStatus",
+		params.StatusStopped,
+		"",
+		map[string]interface{}(nil),
+	)
+}
+
+func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
+	w := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	s.accessor.machine.life = params.Dying
+	s.accessor.machine.SetErrors(
+		nil, // SetMachineAddresses
+		nil, // SetStatus
+		nil, // Watch
+		nil, // Refresh
+		nil, // SetStatus
+		errors.New("cannot ensure machine is dead"), // EnsureDead
+	)
+	s.accessor.machine.watcher.changes <- struct{}{}
+	w.Kill()
+	c.Check(
+		w.Wait(),
+		gc.ErrorMatches,
+		"machine-123 failed to set machine to dead: cannot ensure machine is dead",
+	)
+}
+
+func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
+	w := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	s.accessor.machine.life = params.Dying
+	s.accessor.machine.SetErrors(
+		nil, // SetMachineAddresses
+		nil, // SetStatus
+		nil, // Watch
+		nil, // Refresh
+		nil, // SetStatus
+		&params.Error{Code: params.CodeHasAssignedUnits}, // EnsureDead
+	)
+	s.accessor.machine.watcher.changes <- struct{}{}
+	w.Kill()
+
+	// If EnsureDead fails with "machine has assigned units", then
+	// the worker will not fail, but will wait for more events.
+	c.Check(w.Wait(), jc.ErrorIsNil)
+
+	s.accessor.machine.CheckCallNames(c,
+		"SetMachineAddresses",
+		"SetStatus",
+		"Watch",
+		"Refresh",
+		"Life",
+		"SetStatus",
+		"EnsureDead",
+	)
 }
 
 func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
@@ -66,17 +176,17 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 		&params.Error{Code: params.CodeMachineHasAttachedStorage},
 	)
 
-	worker := machiner.NewMachiner(
-		s.accessor, s.agentConfig, false,
+	worker := machiner.NewMachiner(machiner.Config{
+		s.accessor, s.machineTag, false,
 		func() error { return nil },
-	)
+	})
 	s.accessor.machine.watcher.changes <- struct{}{}
 	worker.Kill()
 	c.Check(worker.Wait(), jc.ErrorIsNil)
 
 	s.accessor.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Machine",
-		Args:     []interface{}{s.agentConfig.Tag()},
+		Args:     []interface{}{s.machineTag},
 	}})
 
 	s.accessor.machine.watcher.CheckCalls(c, []gitjujutesting.StubCall{
@@ -181,30 +291,17 @@ func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expect
 
 var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
-type mockConfig struct {
-	agent.Config
-	tag names.Tag
-}
-
-func (mock *mockConfig) Tag() names.Tag {
-	return mock.tag
-}
-
-func agentConfig(tag names.Tag) agent.Config {
-	return &mockConfig{tag: tag}
-}
-
 func (s *MachinerStateSuite) TestNotFoundOrUnauthorized(c *gc.C) {
-	mr := machiner.NewMachiner(
+	mr := machiner.NewMachiner(machiner.Config{
 		machiner.APIMachineAccessor{s.machinerState},
-		agentConfig(names.NewMachineTag("99")),
+		names.NewMachineTag("99"),
 		false,
 		// the "machineDead" callback should not be invoked
 		// because we don't know whether the agent is not
 		// found, or unauthorized; we err on the side of
 		// caution, in case the password got mucked up.
 		func() error { return errors.New("should not be called") },
-	)
+	})
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -215,12 +312,12 @@ func (s *MachinerStateSuite) makeMachiner(
 	if machineDead == nil {
 		machineDead = func() error { return nil }
 	}
-	return machiner.NewMachiner(
+	return machiner.NewMachiner(machiner.Config{
 		machiner.APIMachineAccessor{s.machinerState},
-		agentConfig(s.apiMachine.Tag()),
+		s.apiMachine.Tag().(names.MachineTag),
 		ignoreAddresses,
 		machineDead,
-	)
+	})
 }
 
 type machineDeathTracker bool
