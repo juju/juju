@@ -60,7 +60,7 @@ class TestMakeClientFromArgs(TestCase):
 
     def test_make_client_from_args(self):
         with temp_env({'environments': {'foo': {}}}):
-            with patch('subprocess.check_output', return_value=''):
+            with patch.object(EnvJujuClient, 'get_version', return_value=''):
                 client = make_client_from_args(
                     Namespace(env_name='foo', juju_path='bar',
                               temp_env_name='temp-foo', debug=False,
@@ -70,7 +70,7 @@ class TestMakeClientFromArgs(TestCase):
 
     def test_agent_stream(self):
         with temp_env({'environments': {'foo': {}}}):
-            with patch('subprocess.check_output', return_value=''):
+            with patch.object(EnvJujuClient, 'get_version', return_value=''):
                 client = make_client_from_args(
                     Namespace(env_name='foo', juju_path='bar',
                               temp_env_name='temp-foo', debug=False,
