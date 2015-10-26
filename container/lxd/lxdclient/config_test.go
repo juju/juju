@@ -166,6 +166,10 @@ func (s *configSuite) TestWriteOkay(c *gc.C) {
 	// TODO(ericsnow) Finish!
 }
 
+func (s *configSuite) TestWriteRemoteAlreadySet(c *gc.C) {
+	// TODO(ericsnow) Finish!
+}
+
 func (s *configSuite) TestWriteInvalid(c *gc.C) {
 	var cfg lxdclient.Config
 	err := cfg.Write()
