@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/lxd/lxdclient"
 )
@@ -222,4 +223,25 @@ func checkFiles(c *gc.C, cfg lxdclient.Config) {
 	keyPEM, err := ioutil.ReadFile(filepath.Join(cfg.Dirname, "client.key"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(keyPEM), gc.Equals, string(certificate.KeyPEM))
+
+	configData, err := ioutil.ReadFile(filepath.Join(cfg.Dirname, cfg.Filename))
+	c.Assert(err, jc.ErrorIsNil)
+	var config lxd.Config
+	err = goyaml.Unmarshal(configData, &config)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, jc.DeepEquals, lxd.Config{
+		DefaultRemote: "local",
+		Remotes: map[string]lxd.RemoteConfig{
+			//"local": lxd.LocalRemote,
+			"local": lxd.RemoteConfig{
+				Addr:   "unix://",
+				Public: false,
+			},
+			cfg.Remote.Name: lxd.RemoteConfig{
+				Addr:   cfg.Remote.Host,
+				Public: false,
+			},
+		},
+		//Aliases: nil,
+	})
 }

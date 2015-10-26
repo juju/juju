@@ -180,8 +180,29 @@ func (cfg Config) writeConfigFile() error {
 	filename := cfg.resolve(cfg.Filename)
 	logger.Debugf("writing config file %q", filename)
 
-	// For the moment we don't have anything to write, so we leave
-	// the config file alone.
+	// TODO(ericsnow) Cache the low-level config in Config?
+	config, err := lxd.LoadConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	changed := false
+
+	// Ensure remote.
+	remote := cfg.Remote.Name
+	if _, ok := config.Remotes[remote]; !ok {
+		addr := cfg.Remote.Host
+		err := addServer(config, remote, addr)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		changed = true
+	}
+
+	if changed {
+		if err := lxd.SaveConfig(config); err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	return nil
 }
