@@ -203,6 +203,16 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	// Build the config.
 	ecfg := newConfig(validCfg)
 
+	// Update to defaults set via client config.
+	clientCfg, err := ecfg.clientConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ecfg, err = ecfg.updateForClientConfig(clientCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Do final (more complex, provider-specific) validation.
 	if err := ecfg.validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -264,6 +274,28 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 		return cfg, errors.Trace(err)
 	}
 	return cfg, nil
+}
+
+func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*environConfig, error) {
+	if clientCfg.Remote.ID() == "" {
+		// TODO(ericsnow) Set up cert and reset clientCfg.
+		//return errors.Errorf("not finished!")
+	}
+
+	c.attrs[cfgNamespace] = clientCfg.Namespace
+
+	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
+
+	cert := clientCfg.Remote.Cert()
+	c.attrs[cfgClientCert] = string(cert.CertPEM)
+	c.attrs[cfgClientKey] = string(cert.KeyPEM)
+
+	// Apply the updates.
+	cfg, err := c.Config.Apply(c.attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newConfig(cfg), nil
 }
 
 // secret gathers the "secret" config values and returns them.
@@ -333,6 +365,7 @@ func (c *environConfig) update(cfg *config.Config) error {
 	}
 
 	// Apply the updates.
+	// TODO(ericsnow) Should updates.Config be set in instead of cfg?
 	c.Config = cfg
 	c.attrs = cfg.UnknownAttrs()
 	return nil
