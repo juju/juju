@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -28,6 +29,11 @@ var logger = loggo.GetLogger("juju.provisioner")
 // Ensure our structs implement the required Provisioner interface.
 var _ Provisioner = (*environProvisioner)(nil)
 var _ Provisioner = (*containerProvisioner)(nil)
+
+var (
+	retryStrategyDelay = 10 * time.Second
+	retryStrategyCount = 3
+)
 
 // Provisioner represents a running provisioner worker.
 type Provisioner interface {
@@ -62,6 +68,22 @@ type provisioner struct {
 	broker      environs.InstanceBroker
 	toolsFinder ToolsFinder
 	tomb        tomb.Tomb
+}
+
+// RetryStrategy defines the retry behavior when encountering a retryable
+// error during provisioning.
+type RetryStrategy struct {
+	retryDelay time.Duration
+	retryCount int
+}
+
+// NewRetryStrategy returns a new retry strategy with the specified delay and
+// count for use with retryable provisioning errors.
+func NewRetryStrategy(delay time.Duration, count int) RetryStrategy {
+	return RetryStrategy{
+		retryDelay: delay,
+		retryCount: count,
+	}
 }
 
 // configObserver is implemented so that tests can see
@@ -151,6 +173,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		auth,
 		envCfg.ImageStream(),
 		secureServerConnection,
+		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 	)
 	return task, nil
 }
