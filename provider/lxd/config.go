@@ -15,12 +15,14 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+// TODO(ericsnow) Support providing cert/key file.
+
 // The LXD-specific config keys.
 const (
 	cfgNamespace  = "namespace"
 	cfgRemote     = "remote"
-	cfgClientCert = "client_cert"
-	cfgClientKey  = "client_key"
+	cfgClientCert = "client-cert"
+	cfgClientKey  = "client-key"
 )
 
 // TODO(ericsnow) Use configSchema.ExampleYAML (once it is implemented)
@@ -37,14 +39,18 @@ lxd:
     # By default the environment's name is used as the namespace.
     #
     # namespace: lxd
-	#
-	# client_cert:
-	# client_key:
 
     # remote Identifies the LXD API server to use for managing
-    # containers, if any.
+    # containers, if any. If not specified then the locally running LXD
+    # server is used.
     #
     # remote:
+
+    # The cert and key the client should use to connect to the remote
+    # may also be provided. If not then they are auto-generated.
+    #
+    # client-cert:
+    # client-key:
 
 `[1:]
 
@@ -63,10 +69,12 @@ var configSchema = environschema.Fields{
 	},
 	cfgClientKey: {
 		Description: `The client key used for connecting to a LXD host machine.`,
+		Type:        environschema.Tstring,
 		Immutable:   false,
 	},
 	cfgClientCert: {
 		Description: `The client cert used for connecting to a LXD host machine.`,
+		Type:        environschema.Tstring,
 		Immutable:   false,
 	},
 }
@@ -216,6 +224,11 @@ func (c *environConfig) namespace() string {
 	return raw.(string)
 }
 
+func (c *environConfig) dirname() string {
+	// TODO(ericsnow) Put it under one of the juju/paths.*() directories.
+	return ""
+}
+
 func (c *environConfig) remote() string {
 	raw := c.attrs[cfgRemote]
 	return raw.(string)
@@ -232,14 +245,27 @@ func (c *environConfig) clientKey() string {
 }
 
 // clientConfig builds a LXD Config based on the env config and returns it.
-func (c *environConfig) clientConfig() lxdclient.Config {
-	return lxdclient.Config{
-		Namespace: c.namespace(),
-		Remote:    c.remote(),
-		// TODO(ericsnow) Also set certs...
-		ClientCert: c.clientCert(),
-		ClientKey:  c.clientKey(),
+func (c *environConfig) clientConfig() (lxdclient.Config, error) {
+	remoteInfo := lxdclient.RemoteInfo{
+		Name: "remote",
+		Host: c.remote(),
 	}
+	if c.clientCert() != "" {
+		certPEM := []byte(c.clientCert())
+		keyPEM := []byte(c.clientKey())
+		remoteInfo.Cert = lxdclient.NewCertificate(certPEM, keyPEM)
+	}
+
+	cfg := lxdclient.Config{
+		Namespace: c.namespace(),
+		Dirname:   c.dirname(),
+		Remote:    lxdclient.NewRemote(remoteInfo),
+	}
+	cfg, err := cfg.SetDefaults()
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+	return cfg, nil
 }
 
 // secret gathers the "secret" config values and returns them.
@@ -268,8 +294,20 @@ func (c environConfig) validate() error {
 		}
 	}
 
+	// If cert is provided then key must be (and vice versa).
+	if c.clientCert() == "" && c.clientKey() != "" {
+		return errors.Errorf("missing %s (got %s value %q)", cfgClientCert, cfgClientKey, c.clientKey())
+	}
+	if c.clientCert() != "" && c.clientKey() == "" {
+		return errors.Errorf("missing %s (got %s value %q)", cfgClientKey, cfgClientCert, c.clientCert())
+	}
+
 	// Check sanity of complex provider-specific fields.
-	if err := c.clientConfig().Validate(); err != nil {
+	cfg, err := c.clientConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := cfg.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
