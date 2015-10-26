@@ -20,12 +20,12 @@ type environProvider struct {
 
 var providerInstance environProvider
 
-func (p environProvider) setConfigurator(env environs.Environ, err error) (environs.Environ, error) {
+func (p environProvider) setFirewaller(env environs.Environ, err error) (environs.Environ, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if osEnviron, ok := env.(*openstack.Environ); ok {
-		osEnviron.SetProviderConfigurator(new(rackspaceProviderConfigurator))
+		osEnviron.SetFirewaller(new(rackspaceFirewaller))
 		return environ{env}, errors.Trace(err)
 	}
 	return nil, errors.Errorf("Expected openstack.Environ, but got: %T", env)
@@ -34,28 +34,15 @@ func (p environProvider) setConfigurator(env environs.Environ, err error) (envir
 // Open implements environs.EnvironProvider.
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	env, err := p.EnvironProvider.Open(cfg)
-	res, err := p.setConfigurator(env, err)
+	res, err := p.setFirewaller(env, err)
 	return res, errors.Trace(err)
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
 func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	env, err := p.EnvironProvider.PrepareForBootstrap(ctx, cfg)
-	res, err := p.setConfigurator(env, err)
+	res, err := p.setFirewaller(env, err)
 	return res, errors.Trace(err)
-}
-
-// Validate implements environs.EnvironProvider.
-func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"use-floating-ip":      false,
-		"use-default-secgroup": false,
-		"auth-url":             "https://identity.api.rackspacecloud.com/v2.0",
-	})
-	if err != nil {
-		return nil, err
-	}
-	return p.EnvironProvider.Validate(cfg, old)
 }
 
 // BoilerplateConfig implements environs.EnvironProvider.

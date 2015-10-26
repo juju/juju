@@ -17,4 +17,6 @@ func NewEnviron(innerEnviron environs.Environ) environs.Environ {
 
 var Bootstrap = &bootstrap
 
+var WaitSSH = &waitSSH
+
 var NewInstanceConfigurator = &newInstanceConfigurator
