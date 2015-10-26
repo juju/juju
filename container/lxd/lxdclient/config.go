@@ -48,14 +48,14 @@ type Config struct {
 func (cfg Config) SetDefaults() (Config, error) {
 	// We leave a blank namespace alone.
 
+	if cfg.Filename == "" {
+		cfg.Filename = configDefaultFile
+	}
+
 	if cfg.Dirname == "" {
 		// TODO(ericsnow) Switch to filepath as soon as LXD does.
 		dirname, _ := path.Split(lxd.ConfigPath(cfg.Filename))
 		cfg.Dirname = path.Clean(dirname)
-	}
-
-	if cfg.Filename == "" {
-		cfg.Filename = configDefaultFile
 	}
 
 	var err error
