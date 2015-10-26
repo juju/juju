@@ -125,6 +125,22 @@ var newConfigTests = []configTestSpec{{
 	insert: testing.Attrs{"remote-url": ""},
 	expect: testing.Attrs{"remote-url": ""},
 }, {
+	info:   "client-cert is optional",
+	remove: []string{"client-cert"},
+	expect: testing.Attrs{"client-cert": ""},
+}, {
+	info:   "client-cert can be empty",
+	insert: testing.Attrs{"client-cert": ""},
+	expect: testing.Attrs{"client-cert": ""},
+}, {
+	info:   "client-key is optional",
+	remove: []string{"client-key"},
+	expect: testing.Attrs{"client-key": ""},
+}, {
+	info:   "client-key can be empty",
+	insert: testing.Attrs{"client-key": ""},
+	expect: testing.Attrs{"client-key": ""},
+}, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
 	expect: testing.Attrs{"unknown-field": 12345},
@@ -194,6 +210,8 @@ func (s *configSuite) TestValidateOldConfig(c *gc.C) {
 		}
 	}
 }
+
+// TODO(ericsnow) Add tests for client-cert and client-key.
 
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
