@@ -35,13 +35,21 @@ type Config struct {
 	NotifyMachineDead func() error
 }
 
+// Validate reports whether or not the configuration is valid.
+func (cfg *Config) Validate() error {
+	if cfg.MachineAccessor == nil {
+		return errors.NotValidf("unspecified MachineAccessor")
+	}
+	if cfg.Tag == (names.MachineTag{}) {
+		return errors.NotValidf("unspecified Tag")
+	}
+	return nil
+}
+
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
-	st                     MachineAccessor
-	tag                    names.MachineTag
-	machine                Machine
-	ignoreAddressesOnStart bool
-	machineDead            func() error
+	config  Config
+	machine Machine
 }
 
 // NewMachiner returns a Worker that will wait for the identified machine
@@ -50,19 +58,17 @@ type Machiner struct {
 //
 // The machineDead function will be called immediately after the machine's
 // lifecycle is updated to Dead.
-func NewMachiner(cfg Config) worker.Worker {
-	mr := &Machiner{
-		st:  cfg.MachineAccessor,
-		tag: cfg.Tag,
-		ignoreAddressesOnStart: cfg.ClearMachineAddressesOnStart,
-		machineDead:            cfg.NotifyMachineDead,
+func NewMachiner(cfg Config) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating config")
 	}
-	return worker.NewNotifyWorker(mr)
+	mr := &Machiner{config: cfg}
+	return worker.NewNotifyWorker(mr), nil
 }
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
-	m, err := mr.st.Machine(mr.tag)
+	m, err := mr.config.MachineAccessor.Machine(mr.config.Tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
@@ -70,23 +76,23 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	mr.machine = m
 
-	if mr.ignoreAddressesOnStart {
+	if mr.config.ClearMachineAddressesOnStart {
 		logger.Debugf("machine addresses ignored on start - resetting machine addresses")
 		if err := m.SetMachineAddresses(nil); err != nil {
 			return nil, errors.Annotate(err, "reseting machine addresses")
 		}
 	} else {
 		// Set the addresses in state to the host's addresses.
-		if err := setMachineAddresses(mr.tag, m); err != nil {
+		if err := setMachineAddresses(mr.config.Tag, m); err != nil {
 			return nil, errors.Annotate(err, "setting machine addresses")
 		}
 	}
 
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.StatusStarted, "", nil); err != nil {
-		return nil, errors.Annotatef(err, "%s failed to set status started", mr.tag)
+		return nil, errors.Annotatef(err, "%s failed to set status started", mr.config.Tag)
 	}
-	logger.Infof("%q started", mr.tag)
+	logger.Infof("%q started", mr.config.Tag)
 
 	return m.Watch()
 }
@@ -129,6 +135,11 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 
 func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
+		// NOTE(axw) we can distinguish between NotFound and CodeUnauthorized,
+		// so we could call NotifyMachineDead here in case the agent failed to
+		// call NotifyMachineDead directly after setting the machine Dead in
+		// the first place. We're not doing that to be cautious: the machine
+		// could be missing from state due to invalid global state.
 		return worker.ErrTerminateAgent
 	} else if err != nil {
 		return err
@@ -137,9 +148,9 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	if life == params.Alive {
 		return nil
 	}
-	logger.Debugf("%q is now %s", mr.tag, life)
+	logger.Debugf("%q is now %s", mr.config.Tag, life)
 	if err := mr.machine.SetStatus(params.StatusStopped, "", nil); err != nil {
-		return errors.Annotatef(err, "%s failed to set status stopped", mr.tag)
+		return errors.Annotatef(err, "%s failed to set status stopped", mr.config.Tag)
 	}
 
 	// Attempt to mark the machine Dead. If the machine still has units
@@ -155,14 +166,16 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			logger.Tracef("machine still has storage attached")
 			return nil
 		}
-		return errors.Annotatef(err, "%s failed to set machine to dead", mr.tag)
+		return errors.Annotatef(err, "%s failed to set machine to dead", mr.config.Tag)
 	}
 	// Report on the machine's death. It is important that we do this after
 	// the machine is Dead, because this is the mechanism we use to clean up
 	// the machine (uninstall). If we were to report before marking the machine
 	// as Dead, then we would risk uninstalling prematurely.
-	if err := mr.machineDead(); err != nil {
-		return errors.Annotate(err, "reporting machine death")
+	if mr.config.NotifyMachineDead != nil {
+		if err := mr.config.NotifyMachineDead(); err != nil {
+			return errors.Annotate(err, "reporting machine death")
+		}
 	}
 	return worker.ErrTerminateAgent
 }

@@ -1856,7 +1856,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	for _, expectedIgnoreValue := range []bool{true, false} {
 		ignoreAddressCh := make(chan bool, 1)
-		s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) worker.Worker {
+		s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 			select {
 			case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 			default:
