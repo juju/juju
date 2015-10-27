@@ -93,6 +93,15 @@ func (s *certSuite) TestWritePEMs(c *gc.C) {
 	c.Check(pemfile.String(), gc.Equals, expected)
 }
 
+func (s *certSuite) TestFingerprint(c *gc.C) {
+	certPEM := []byte(testCertPEM)
+	cert := lxdclient.NewCertificate(certPEM, nil)
+	fingerprint, err := cert.Fingerprint()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(fingerprint, gc.Equals, testCertFingerprint)
+}
+
 func (s *certSuite) TestX509Okay(c *gc.C) {
 	certPEM := []byte(testCertPEM)
 	cert := lxdclient.NewCert(certPEM, nil)
@@ -154,7 +163,8 @@ func checkValidCert(c *gc.C, cert *lxdclient.Cert) {
 }
 
 const (
-	testCertPEM = `
+	testCertFingerprint = "1c5156027fe71cfd0f7db807123e6873879f0f9754e08eab151f224783b2bff0"
+	testCertPEM         = `
 -----BEGIN CERTIFICATE-----
 MIIF0jCCA7qgAwIBAgIQEFjWOkN8qXNbWKtveG5ddTANBgkqhkiG9w0BAQsFADA2
 MRwwGgYDVQQKExNsaW51eGNvbnRhaW5lcnMub3JnMRYwFAYDVQQDDA1lc25vd0Bm
