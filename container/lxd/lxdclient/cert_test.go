@@ -142,14 +142,7 @@ func (s *certFunctionalSuite) TestGenerateCertificate(c *gc.C) {
 	cert, err := lxdclient.GenerateCertificate(lxdclient.GenCertAndKey)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = tls.X509KeyPair(cert.CertPEM, cert.KeyPEM)
-	c.Check(err, jc.ErrorIsNil)
-	block, remainder := pem.Decode(cert.CertPEM)
-	c.Check(block.Type, gc.Equals, "CERTIFICATE")
-	c.Check(remainder, gc.HasLen, 0)
-	block, remainder = pem.Decode(cert.KeyPEM)
-	c.Check(block.Type, gc.Equals, "RSA PRIVATE KEY")
-	c.Check(remainder, gc.HasLen, 0)
+	checkValidCert(c, cert)
 }
 
 func checkCert(c *gc.C, cert *lxdclient.Certificate, certPEM, keyPEM []byte) {
@@ -159,6 +152,19 @@ func checkCert(c *gc.C, cert *lxdclient.Certificate, certPEM, keyPEM []byte) {
 	})
 	c.Check(string(cert.CertPEM), gc.Equals, string(certPEM))
 	c.Check(string(cert.KeyPEM), gc.Equals, string(keyPEM))
+}
+
+func checkValidCert(c *gc.C, cert *lxdclient.Certificate) {
+	_, err := tls.X509KeyPair(cert.CertPEM, cert.KeyPEM)
+	c.Check(err, jc.ErrorIsNil)
+
+	block, remainder := pem.Decode(cert.CertPEM)
+	c.Check(block.Type, gc.Equals, "CERTIFICATE")
+	c.Check(remainder, gc.HasLen, 0)
+
+	block, remainder = pem.Decode(cert.KeyPEM)
+	c.Check(block.Type, gc.Equals, "RSA PRIVATE KEY")
+	c.Check(remainder, gc.HasLen, 0)
 }
 
 const (

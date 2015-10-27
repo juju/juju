@@ -5,6 +5,9 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+
+	"github.com/juju/juju/container/lxc"
 )
 
 const (
@@ -139,6 +142,28 @@ func (r Remote) Cert() Certificate {
 		return Certificate{}
 	}
 	return *r.RemoteInfo.Cert
+}
+
+// AsNonLocal converts the remote into a non-local version. For
+// non-local remotes this is a no-op.
+func (r Remote) AsNonLocal() (*Remote, error) {
+	if r.ID() != remoteIDForLocal {
+		return &r, nil
+	}
+
+	netIF := lxc.DefaultLxcBridge
+	addr, err := utils.GetAddressForInterface(netIF)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	r.RemoteInfo.Host = addr
+
+	r, err = r.setDefaults()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &r, nil
 }
 
 // TODO(ericsnow) Add a "Connect(Config)" method that connects
