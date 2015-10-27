@@ -8,11 +8,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
+	"github.com/lxc/lxd/shared"
 )
 
 type rawClientServerMethods interface {
 	WaitForSuccess(waitURL string) error
+
 	SetServerConfig(key string, value string) (*lxd.Response, error)
+
+	CertificateList() ([]shared.CertInfo, error)
 	CertificateAdd(cert *x509.Certificate, name string) error
 	CertificateRemove(fingerprint string) error
 }
@@ -39,6 +43,20 @@ func (c clientServerMethods) setUpRemote(cert *x509.Certificate, name string) er
 	}
 
 	return nil
+}
+
+// ListCerts returns the list of cert fingerprints from the server.
+func (c clientServerMethods) ListCerts() ([]string, error) {
+	certs, err := c.raw.CertificateList()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var fingerprints []string
+	for _, cert := range certs {
+		fingerprints = append(fingerprints, cert.Fingerprint)
+	}
+	return fingerprints, nil
 }
 
 // RemoveCert removes the cert from the server.
