@@ -620,8 +620,12 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
+	// Set the retry delay to 0, and retry count to 2 to keep tests short
+	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
+	s.PatchValue(provisioner.RetryStrategyCount, 2)
+
 	// create the error injection channel
-	errorInjectionChannel := make(chan error, 2)
+	errorInjectionChannel := make(chan error, 3)
 
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
@@ -632,7 +636,8 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 
 	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
 	destroyError := errors.New("container failed to start and failed to destroy: manual cleanup of containers needed")
-	// send the error message TWICE, because the provisioner will retry only ONCE
+	// send the error message three times, because the provisioner will retry twice as patched above.
+	errorInjectionChannel <- retryableError
 	errorInjectionChannel <- retryableError
 	errorInjectionChannel <- destroyError
 
@@ -652,12 +657,16 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
-		break
+		return
 	}
-
+	c.Fatal("Test took too long to complete")
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetryableCreationError(c *gc.C) {
+	// Set the retry delay to 0, and retry count to 2 to keep tests short
+	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
+	s.PatchValue(provisioner.RetryStrategyCount, 2)
+
 	// create the error injection channel
 	errorInjectionChannel := make(chan error, 1)
 	c.Assert(errorInjectionChannel, gc.NotNil)
@@ -680,6 +689,10 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetrya
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
+	// Set the retry delay to 0, and retry count to 1 to keep tests short
+	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
+	s.PatchValue(provisioner.RetryStrategyCount, 1)
+
 	// create the error injection channel
 	errorInjectionChannel := make(chan error, 1)
 	c.Assert(errorInjectionChannel, gc.NotNil)
@@ -714,7 +727,6 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 	defer cleanup()
 
 	// send the error message once
-	// - instance creation should succeed
 	nonRetryableError := errors.New("some nonretryable error")
 	errorInjectionChannel <- nonRetryableError
 
@@ -734,8 +746,36 @@ func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetrya
 		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, nonRetryableError.Error())
-		break
+		return
 	}
+	c.Fatal("Test took too long to complete")
+}
+
+func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
+	// Create the error injection channel and inject
+	// a retryable error
+	errorInjectionChannel := make(chan error, 1)
+
+	p := s.newEnvironProvisioner(c)
+	// Don't refer the stop.  We will manually stop and verify the result.
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	errorInjectionChannel <- retryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	time.Sleep(coretesting.ShortWait)
+
+	stop(c, p)
+	statusInfo, err := m.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	s.checkNoOperations(c)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
@@ -1304,6 +1344,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, jc.ErrorIsNil)
 
+	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
+
 	return provisioner.NewProvisionerTask(
 		names.NewMachineTag("0"),
 		harvestingMethod,
@@ -1315,6 +1357,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		auth,
 		imagemetadata.ReleasedStream,
 		true,
+		retryStrategy,
 	)
 }
 
