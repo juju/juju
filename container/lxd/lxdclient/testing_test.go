@@ -4,6 +4,7 @@
 package lxdclient
 
 import (
+	"crypto/x509"
 	"os"
 
 	"github.com/juju/errors"
@@ -43,6 +44,24 @@ type stubClient struct {
 
 func (s *stubClient) WaitForSuccess(waitURL string) error {
 	s.stub.AddCall("WaitForSuccess", waitURL)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubClient) SetServerConfig(key string, value string) (*lxd.Response, error) {
+	s.stub.AddCall("SetServerConfig", key, value)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.Response, nil
+}
+
+func (s *stubClient) CertificateAdd(cert *x509.Certificate, name string) error {
+	s.stub.AddCall("CertificateAdd", cert, name)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
