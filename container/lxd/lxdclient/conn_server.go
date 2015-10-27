@@ -71,3 +71,11 @@ func (c clientServerMethods) RemoveCert(cert *Certificate) error {
 	}
 	return nil
 }
+
+// RemoveCertByFingerprint removes the cert from the server.
+func (c clientServerMethods) RemoveCertByFingerprint(fingerprint string) error {
+	if err := c.raw.CertificateRemove(fingerprint); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
