@@ -40,10 +40,7 @@ type command struct {
 }
 
 func NewCommands() Commands {
-	return &commands{
-		nextId:  0,
-		pending: make(map[string]command),
-	}
+	return &commands{pending: make(map[string]command)}
 }
 
 func (c *commands) AddCommand(args operation.CommandArgs, response operation.CommandResponseFunc) string {

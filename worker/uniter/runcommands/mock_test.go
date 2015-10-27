@@ -4,6 +4,7 @@
 package runcommands_test
 
 import (
+	"github.com/juju/testing"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/worker/uniter/operation"
@@ -42,9 +43,11 @@ func (*mockRunnerContext) Prepare() error {
 }
 
 type mockCallbacks struct {
+	testing.Stub
 	operation.Callbacks
 }
 
-func (c *mockCallbacks) SetExecutingStatus(string) error {
-	return nil
+func (c *mockCallbacks) SetExecutingStatus(status string) error {
+	c.MethodCall(c, "SetExecutingStatus", status)
+	return c.NextErr()
 }

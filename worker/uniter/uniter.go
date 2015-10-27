@@ -253,18 +253,18 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			break
 		}
 
-		uniterResolver := &uniterResolver{
-			clearResolved:      clearResolved,
-			reportHookError:    u.reportHookError,
-			fixDeployer:        u.deployer.Fix,
-			actionsResolver:    actions.NewResolver(),
-			leadershipResolver: uniterleadership.NewResolver(),
-			relationsResolver:  relation.NewRelationsResolver(u.relations),
-			storageResolver:    storage.NewResolver(u.storage),
-			commandsResolver: runcommands.NewCommandsResolver(
+		uniterResolver := newUniterResolver(resolverConfig{
+			ClearResolved:      clearResolved,
+			ReportHookError:    u.reportHookError,
+			FixDeployer:        u.deployer.Fix,
+			ActionsResolver:    actions.NewResolver(),
+			LeadershipResolver: uniterleadership.NewResolver(),
+			RelationsResolver:  relation.NewRelationsResolver(u.relations),
+			StorageResolver:    storage.NewResolver(u.storage),
+			CommandsResolver: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-		}
+		})
 
 		// We should not do anything until there has been a change
 		// to the remote state. The watcher will trigger at least
@@ -446,7 +446,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.operationExecutor = operationExecutor
 
 	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
-	u.runListener, err = NewRunListener(u, u.paths.Runtime.JujuRunSocket)
+	commandRunner, err := NewChannelCommandRunner(ChannelCommandRunnerConfig{
+		Abort:          u.tomb.Dying(),
+		Commands:       u.commands,
+		CommandChannel: u.commandChannel,
+	})
+	if err != nil {
+		return errors.Annotate(err, "creating command runner")
+	}
+	u.runListener, err = NewRunListener(RunListenerConfig{
+		SocketPath:    u.paths.Runtime.JujuRunSocket,
+		CommandRunner: commandRunner,
+	})
 	if err != nil {
 		return err
 	}
@@ -497,45 +508,9 @@ func (u *Uniter) operationState() operation.State {
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	logger.Tracef("run commands: %s", args.Commands)
-
-	type responseInfo struct {
-		response *exec.ExecResponse
-		err      error
-	}
-	responseChan := make(chan responseInfo, 1)
-	responseFunc := func(response *exec.ExecResponse, err error) {
-		responseChan <- responseInfo{response, err}
-	}
-
-	id := u.commands.AddCommand(
-		operation.CommandArgs{
-			Commands:        args.Commands,
-			RelationId:      args.RelationId,
-			RemoteUnitName:  args.RemoteUnitName,
-			ForceRemoteUnit: args.ForceRemoteUnit,
-		},
-		responseFunc,
-	)
-	select {
-	case <-u.tomb.Dying():
-		return nil, tomb.ErrDying
-	case u.commandChannel <- id:
-	}
-
-	select {
-	case <-u.tomb.Dying():
-		return nil, tomb.ErrDying
-	case response := <-responseChan:
-		results, err = response.response, response.err
-		if errors.Cause(err) == operation.ErrNeedsReboot {
-			u.tomb.Kill(worker.ErrRebootMachine)
-			err = nil
-		} else if err != nil {
-			u.tomb.Kill(err)
-		}
-		return results, err
-	}
+	// TODO(axw) drop this when we move the run-listener to an independent
+	// worker. This exists purely for the tests.
+	return u.runListener.RunCommands(args)
 }
 
 // acquireExecutionLock acquires the machine-level execution lock, and

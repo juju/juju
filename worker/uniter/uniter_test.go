@@ -1853,7 +1853,7 @@ func (s *UniterSuite) TestRebootDisabledOnHookError(c *gc.C) {
 	})
 }
 
-func (s *UniterSuite) TestJujuRunKeepsHookErrors(c *gc.C) {
+func (s *UniterSuite) TestJujuRunExecutionSerialized(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"hook failed status should stay around after juju run",

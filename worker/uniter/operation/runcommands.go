@@ -71,10 +71,12 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 		logger.Warningf("cannot requeue external commands")
 		fallthrough
 	case context.ErrReboot:
+		rc.sendResponse(response, nil)
 		err = ErrNeedsReboot
+	default:
+		rc.sendResponse(response, err)
 	}
-	rc.sendResponse(response, err)
-	return nil, nil
+	return nil, err
 }
 
 // Commit does nothing.

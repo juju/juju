@@ -14,38 +14,23 @@ import (
 	"github.com/juju/juju/worker/uniter/resolver"
 )
 
-type uniterResolver struct {
-	clearResolved   func() error
-	reportHookError func(hook.Info) error
-	fixDeployer     func() error
-
-	leadershipResolver resolver.Resolver
-	actionsResolver    resolver.Resolver
-	relationsResolver  resolver.Resolver
-	storageResolver    resolver.Resolver
-	commandsResolver   resolver.Resolver
+type resolverConfig struct {
+	ClearResolved      func() error
+	ReportHookError    func(hook.Info) error
+	FixDeployer        func() error
+	LeadershipResolver resolver.Resolver
+	ActionsResolver    resolver.Resolver
+	RelationsResolver  resolver.Resolver
+	StorageResolver    resolver.Resolver
+	CommandsResolver   resolver.Resolver
 }
 
-func newUniterResolver(
-	clearResolved func() error,
-	reportHookError func(hook.Info) error,
-	fixDeployer func() error,
-	leadershipResolver resolver.Resolver,
-	actionsResolver resolver.Resolver,
-	relationsResolver resolver.Resolver,
-	storageResolver resolver.Resolver,
-	commandsResolver resolver.Resolver,
-) *uniterResolver {
-	return &uniterResolver{
-		clearResolved:      clearResolved,
-		reportHookError:    reportHookError,
-		fixDeployer:        fixDeployer,
-		leadershipResolver: leadershipResolver,
-		actionsResolver:    actionsResolver,
-		relationsResolver:  relationsResolver,
-		storageResolver:    storageResolver,
-		commandsResolver:   commandsResolver,
-	}
+type uniterResolver struct {
+	resolverConfig
+}
+
+func newUniterResolver(cfg resolverConfig) *uniterResolver {
+	return &uniterResolver{cfg}
 }
 
 func (s *uniterResolver) NextOp(
@@ -74,27 +59,27 @@ func (s *uniterResolver) NextOp(
 	}
 
 	if localState.Kind == operation.Continue {
-		if err := s.fixDeployer(); err != nil {
+		if err := s.FixDeployer(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	op, err := s.leadershipResolver.NextOp(localState, remoteState, opFactory)
+	op, err := s.LeadershipResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.actionsResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.ActionsResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.commandsResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.CommandsResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
 
-	op, err = s.storageResolver.NextOp(localState, remoteState, opFactory)
+	op, err = s.StorageResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
@@ -141,7 +126,7 @@ func (s *uniterResolver) nextOpConflicted(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	if remoteState.ResolvedMode != params.ResolvedNone {
-		if err := s.clearResolved(); err != nil {
+		if err := s.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewResolvedUpgrade(localState.CharmURL)
@@ -160,7 +145,7 @@ func (s *uniterResolver) nextOpHookError(
 ) (operation.Operation, error) {
 
 	// Report the hook error.
-	if err := s.reportHookError(*localState.Hook); err != nil {
+	if err := s.ReportHookError(*localState.Hook); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -173,12 +158,12 @@ func (s *uniterResolver) nextOpHookError(
 	case params.ResolvedNone:
 		return nil, resolver.ErrNoOperation
 	case params.ResolvedRetryHooks:
-		if err := s.clearResolved(); err != nil {
+		if err := s.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewRunHook(*localState.Hook)
 	case params.ResolvedNoHooks:
-		if err := s.clearResolved(); err != nil {
+		if err := s.ClearResolved(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return opFactory.NewSkipHook(*localState.Hook)
@@ -199,7 +184,7 @@ func (s *uniterResolver) nextOp(
 	case params.Dying:
 		// Normally we handle relations last, but if we're dying we
 		// must ensure that all relations are broken first.
-		op, err := s.relationsResolver.NextOp(localState, remoteState, opFactory)
+		op, err := s.RelationsResolver.NextOp(localState, remoteState, opFactory)
 		if errors.Cause(err) != resolver.ErrNoOperation {
 			return op, err
 		}
@@ -237,7 +222,7 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	op, err := s.relationsResolver.NextOp(localState, remoteState, opFactory)
+	op, err := s.RelationsResolver.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}
