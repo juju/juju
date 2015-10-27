@@ -167,6 +167,11 @@ type HookContext struct {
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
+	// Must set reboot priority first, because killing the hook
+	// process will trigger the completion of the hook. If killing
+	// the hook fails, then we can reset the priority.
+	ctx.SetRebootPriority(priority)
+
 	var err error
 	if priority == jujuc.RebootNow {
 		// At this point, the hook should be running
@@ -176,7 +181,8 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	switch err {
 	case nil, ErrNoProcess:
 		// ErrNoProcess almost certainly means we are running in debug hooks
-		ctx.SetRebootPriority(priority)
+	default:
+		ctx.SetRebootPriority(jujuc.RebootSkip)
 	}
 	return err
 }
