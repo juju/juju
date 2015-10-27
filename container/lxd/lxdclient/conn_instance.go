@@ -15,6 +15,9 @@ import (
 	"github.com/lxc/lxd/shared"
 )
 
+// TODO(ericsnow) Put these methods in their own struct
+// (a la clientServerMethods).
+
 // TODO(ericsnow) We probably need to address some of the things that
 // get handled in container/lxc/clonetemplate.go.
 
