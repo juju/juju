@@ -14,6 +14,7 @@ type rawClientServerMethods interface {
 	WaitForSuccess(waitURL string) error
 	SetServerConfig(key string, value string) (*lxd.Response, error)
 	CertificateAdd(cert *x509.Certificate, name string) error
+	CertificateRemove(fingerprint string) error
 }
 
 type clientServerMethods struct {
@@ -37,5 +38,18 @@ func (c clientServerMethods) setUpRemote(cert *x509.Certificate, name string) er
 		return errors.Trace(err)
 	}
 
+	return nil
+}
+
+// RemoveCert removes the cert from the server.
+func (c clientServerMethods) RemoveCert(cert *Certificate) error {
+	fingerprint, err := cert.Fingerprint()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.raw.CertificateRemove(fingerprint); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
