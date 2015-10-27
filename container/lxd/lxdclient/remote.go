@@ -163,6 +163,8 @@ func (r Remote) AsNonLocal() (*Remote, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Change r.Name if "local"? Prepend "juju-"?
+
 	return &r, nil
 }
 

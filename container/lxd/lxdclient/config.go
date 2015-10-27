@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
+	"github.com/lxc/lxd/shared"
 )
 
 // The LXD repo does not expose any consts for these values.
@@ -113,15 +114,36 @@ func (cfg Config) Write() error {
 	return nil
 }
 
-//type LXDOps interface {
-//    UpdateVars(dirname string) string
-//    InitializeConfDir() error
-//    CreateCertFile(filename string) (io.ReadCloser, error)
-//    CreateFile(filename string) (io.ReadCloser, error)
-//}
-//
-//type lxdOps struct {
-//}
+// AsNonLocal converts the config into a non-local version. For
+// non-local remotes
+func (cfg Config) AsNonLocal() (Config, error) {
+	if cfg.Remote.ID() != remoteIDForLocal {
+		return cfg, nil
+	}
+
+	remote, err := cfg.Remote.AsNonLocal()
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+
+	cert, err := remote.Cert().X509()
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+	name, _ := shared.SplitExt(cfg.Filename)
+
+	// Update the server config and authorized certs.
+	client, err := Connect(cfg)
+	if err != nil {
+		return cfg, errors.Trace(err)
+	}
+	if err := client.setUpRemote(cert, "juju-"+name); err != nil {
+		return cfg, errors.Trace(err)
+	}
+
+	cfg.Remote = *remote
+	return cfg, nil
+}
 
 func updateLXDVars(dirname string) string {
 	// Change the hard-coded config dir that the raw client uses.
@@ -154,9 +176,6 @@ func initializeConfigDir(cfg Config) error {
 
 	return nil
 }
-
-//type ConfigOps struct {
-//}
 
 func (cfg Config) write() error {
 	// Ensure the initial config is set up.
