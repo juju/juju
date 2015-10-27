@@ -271,13 +271,23 @@ func (s *remoteFunctionalSuite) TestAsNonLocal(c *gc.C) {
 	nonlocal, err := remote.AsNonLocal()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(nonlocal.Host, jc.Satisfies, func(v interface{}) bool {
-		return net.ParseIP(v.(string)) != nil
-	})
-	checkValidCert(c, nonlocal.Cert)
+	checkValidRemote(c, nonlocal)
 	c.Check(*nonlocal, jc.DeepEquals, lxdclient.Remote{
 		Name: "my-remote",
 		Host: nonlocal.Host,
 		Cert: nonlocal.Cert,
 	})
+}
+
+func checkValidRemote(c *gc.C, remote *lxdclient.Remote) {
+	c.Check(remote.Host, jc.Satisfies, isValidAddr)
+	checkValidCert(c, remote.Cert)
+}
+
+func isValidAddr(value interface{}) bool {
+	addr, ok := value.(string)
+	if !ok {
+		return false
+	}
+	return net.ParseIP(addr) != nil
 }

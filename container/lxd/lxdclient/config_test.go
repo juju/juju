@@ -168,6 +168,23 @@ func (s *configSuite) TestWriteInvalid(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
+func (s *configSuite) TestAsNonLocalOkay(c *gc.C) {
+	// TODO(ericsnow) Finish!
+}
+
+func (s *configSuite) TestAsNonLocalNoop(c *gc.C) {
+	cfg := lxdclient.Config{
+		Namespace: "my-ns",
+		Dirname:   "some-dir",
+		Filename:  "config.yml",
+		Remote:    s.remote,
+	}
+	nonlocal, err := cfg.AsNonLocal()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(nonlocal, jc.DeepEquals, cfg)
+}
+
 type configFunctionalSuite struct {
 	configBaseSuite
 }
@@ -179,6 +196,7 @@ func (s *configFunctionalSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) {
 		lxd.ConfigDir = origConfigDir
 	})
+	// TODO(ericsnow) Add a cleanup func to remove any added certs.
 }
 
 func (s *configFunctionalSuite) TestWrite(c *gc.C) {
@@ -193,6 +211,49 @@ func (s *configFunctionalSuite) TestWrite(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkFiles(c, cfg)
+}
+
+func (s *configFunctionalSuite) TestAsNonLocal(c *gc.C) {
+	if !lxdRunningLocally() {
+		c.Skip("LXD not running locally")
+	}
+
+	cfg := lxdclient.Config{
+		Namespace: "my-ns",
+		Dirname:   "some-dir",
+		Filename:  "config.yml",
+		Remote:    lxdclient.Local,
+	}
+	nonlocal, err := cfg.AsNonLocal()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkValidRemote(c, &nonlocal.Remote)
+	c.Check(nonlocal, jc.DeepEquals, lxdclient.Config{
+		Namespace: "my-ns",
+		Dirname:   "some-dir",
+		Filename:  "config.yml",
+		Remote: lxdclient.Remote{
+			Name: lxdclient.Local.Name,
+			Host: nonlocal.Remote.Host,
+			Cert: nonlocal.Remote.Cert,
+		},
+	})
+	// TODO(ericsnow) Check that the server has the certs.
+}
+
+func lxdRunningLocally() bool {
+	origConfigDir := lxd.ConfigDir
+	defer func() {
+		lxd.ConfigDir = origConfigDir
+	}()
+
+	_, err := lxdclient.Connect(lxdclient.Config{
+		Namespace: "my-ns",
+		Dirname:   "some-dir",
+		Filename:  "config.yml",
+		Remote:    lxdclient.Local,
+	})
+	return err == nil
 }
 
 func checkFiles(c *gc.C, cfg lxdclient.Config) {
