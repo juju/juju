@@ -25,10 +25,12 @@ func (c clientServerMethods) setUpRemote(cert *x509.Certificate, name string) er
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.raw.WaitForSuccess(resp.Operation); err != nil {
-		// TODO(ericsnow) Handle different failures (from the async
-		// operation) differently?
-		return errors.Trace(err)
+	if resp.Operation != "" {
+		if err := c.raw.WaitForSuccess(resp.Operation); err != nil {
+			// TODO(ericsnow) Handle different failures (from the async
+			// operation) differently?
+			return errors.Trace(err)
+		}
 	}
 
 	if err := c.raw.CertificateAdd(cert, name); err != nil {
