@@ -26,6 +26,8 @@ func New(caller base.APICaller) API {
 }
 
 // AssignUnits tells the state server to run whatever unit assignments it has.
+// Unit assignments for units that no longer exist will return an error that
+// satisfies errors.IsNotFound.
 func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {
 	entities := make([]params.Entity, len(tags))
 	for i, tag := range tags {
@@ -46,7 +48,7 @@ func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {
 	return errs, nil
 }
 
-// convertNotFound converts param notfound errors into normal notfound errors.
+// convertNotFound converts param notfound errors into errors.notfound values.
 func convertNotFound(err error) error {
 	if params.IsCodeNotFound(err) {
 		return errors.NewNotFound(err, "")

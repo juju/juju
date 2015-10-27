@@ -40,6 +40,21 @@ func (testsuite) TestWatchUnitAssignment(c *gc.C) {
 	c.Assert(res.Changes, gc.DeepEquals, f.ids)
 }
 
+func (testsuite) TestSetStatus(c *gc.C) {
+	f := &fakeStatusSetter{
+		res: params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: &params.Error{Message: "boo"}}}}}
+	api := API{statusSetter: f}
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{{Tag: "foo/0"}},
+	}
+	res, err := api.SetAgentStatus(args)
+	c.Assert(args, jc.DeepEquals, f.args)
+	c.Assert(res, jc.DeepEquals, f.res)
+	c.Assert(err, gc.Equals, f.err)
+}
+
 type fakeState struct {
 	watchCalled bool
 	ids         []string
@@ -73,3 +88,14 @@ func (fakeWatcher) Wait() error { return nil }
 func (fakeWatcher) Stop() error { return nil }
 
 func (fakeWatcher) Err() error { return nil }
+
+type fakeStatusSetter struct {
+	args params.SetStatus
+	res  params.ErrorResults
+	err  error
+}
+
+func (f *fakeStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+	f.args = args
+	return f.res, f.err
+}

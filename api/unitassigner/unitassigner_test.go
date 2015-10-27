@@ -4,6 +4,7 @@
 package unitassigner
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -34,6 +35,25 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, []error{nil, nil})
+}
+
+func (testsuite) TestAssignUnitsNotFound(c *gc.C) {
+	f := &fakeAssignCaller{c: c, response: params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Code: params.CodeNotFound}},
+		}}}
+	api := New(f)
+	ids := []names.UnitTag{names.NewUnitTag("mysql/0")}
+	errs, err := api.AssignUnits(ids)
+	c.Assert(f.request, gc.Equals, "AssignUnits")
+	c.Assert(f.params, gc.DeepEquals,
+		params.Entities{[]params.Entity{
+			{Tag: "unit-mysql-0"},
+		}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.Satisfies, errors.IsNotFound)
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {

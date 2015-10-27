@@ -21,11 +21,15 @@ type assignerState interface {
 	AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error)
 }
 
+type statusSetter interface {
+	SetStatus(args params.SetStatus) (params.ErrorResults, error)
+}
+
 // API implements the functionality for assigning units to machines.
 type API struct {
 	st           assignerState
 	res          *common.Resources
-	statusSetter *common.StatusSetter
+	statusSetter statusSetter
 }
 
 // New returns a new unitAssigner api instance.
