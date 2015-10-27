@@ -759,7 +759,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 			NotifyMachineDead: func() error {
 				return writeUninstallAgentFile(agentConfig.DataDir())
 			},
-		}), nil
+		})
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()

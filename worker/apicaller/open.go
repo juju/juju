@@ -45,7 +45,7 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
-		return nil, nil, errors.New("API info not available")
+		return nil, errors.New("API info not available")
 	}
 	st, usedOldPassword, err := openAPIStateUsingInfo(info, agentConfig.OldPassword())
 	if err != nil {
