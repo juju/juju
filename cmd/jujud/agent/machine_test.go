@@ -392,13 +392,29 @@ func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
 	err := m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	a := s.newAgent(c, m)
 	err = runWithTimeout(a)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the machine is removed from state, when
+	// the agent attempts to open the API connection
+	// it will receive an error stating that either
+	// the entity does not exist, or the agent is
+	// not authorised. Since we don't know which, we
+	// do not uninstall unless the uninstall-agent
+	// file is found (which we haven't written in
+	// this test).
+	//
+	// Since the machine agent is responsible for
+	// setting itself to Dead, this could only happen
+	// if it failed to write the uninstall-agent file,
+	// and then bounced.
+	_, err = os.Stat(ac.DataDir())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1270,11 +1286,10 @@ func (s *MachineSuite) runOpenAPISTateTest(c *gc.C, machine *state.Machine, conf
 		agent := NewAgentConf(conf.DataDir())
 		err := agent.ReadConfig(tagString)
 		c.Assert(err, jc.ErrorIsNil)
-		st, gotEntity, err := apicaller.OpenAPIState(agent)
+		st, err := apicaller.OpenAPIState(agent)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEntity.Tag(), gc.Equals, tagString)
 	}
 	assertOpen()
 
@@ -1841,16 +1856,12 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 	for _, expectedIgnoreValue := range []bool{true, false} {
 		ignoreAddressCh := make(chan bool, 1)
-		s.AgentSuite.PatchValue(&newMachiner, func(
-			accessor machiner.MachineAccessor,
-			conf agent.Config,
-			ignoreMachineAddresses bool,
-		) worker.Worker {
+		s.AgentSuite.PatchValue(&newMachiner, func(cfg machiner.Config) (worker.Worker, error) {
 			select {
-			case ignoreAddressCh <- ignoreMachineAddresses:
+			case ignoreAddressCh <- cfg.ClearMachineAddressesOnStart:
 			default:
 			}
-			return machiner.NewMachiner(accessor, conf, ignoreMachineAddresses)
+			return machiner.NewMachiner(cfg)
 		})
 
 		attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
@@ -2267,37 +2278,6 @@ func (s *shouldWriteProxyFilesSuite) TestAll(c *gc.C) {
 		}
 		c.Check(shouldWriteProxyFiles(mockConf), gc.Equals, test.expect)
 	}
-}
-
-type machineAgentTerminationSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&machineAgentTerminationSuite{})
-
-func (*machineAgentTerminationSuite) TestStartTerminationWorker(c *gc.C) {
-	var stub gitjujutesting.Stub
-	statFile := func(path string) (os.FileInfo, error) {
-		stub.AddCall("Stat", path)
-		return nil, stub.NextErr()
-	}
-	var errorFunction func() error
-	newTerminationWorker := func(f func() error) worker.Worker {
-		errorFunction = f
-		return nil
-	}
-	startTerminationWorker("data-dir", newTerminationWorker, statFile)
-	c.Assert(errorFunction, gc.NotNil)
-
-	stub.SetErrors(os.ErrNotExist, nil)
-	errorResult := errorFunction()
-	c.Assert(errorResult, gc.FitsTypeOf, (*cmdutil.FatalError)(nil))
-	c.Assert(errorResult, gc.ErrorMatches, `"[aA]borted" signal received`)
-	stub.CheckCall(c, 0, "Stat", filepath.Join("data-dir", "uninstall-agent"))
-
-	// No error returned from Stat == uninstall-agent exists.
-	c.Assert(errorFunction(), gc.Equals, worker.ErrTerminateAgent)
-	stub.CheckCall(c, 1, "Stat", filepath.Join("data-dir", "uninstall-agent"))
 }
 
 type mockAgentConfig struct {
