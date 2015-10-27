@@ -81,6 +81,11 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 			dialInfo.Password = apiInfo.Password
 			logger.Infof("using API password to access state server.")
 		} else {
+			// There seems to be no way to reach this inconsistence other than making a
+			// backup on a machine where these fields are corrupted and even so I find
+			// no reasonable way to reach this state, yet since APIInfo has it as a
+			// possibility I prefer to handle it, we cannot recover from this since
+			// it would mean that the agent.conf is corrupted.
 			return nil, errors.New("cannot obtain password to access the state server")
 		}
 	}

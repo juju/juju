@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-var bootstrapNode = names.NewMachineTag("0").String()
+var bootstrapNode = names.NewMachineTag("0")
 
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
@@ -85,7 +85,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// to a different machine, we need to create a new set of startup
 	// scripts and exit with 0 (so that the current script does not try
 	// to restart the old juju, which will no longer be there).
-	if oldTagString != bootstrapNode && oldTagString != "" {
+	if oldTagString != nil && oldTagString != bootstrapNode {
 		srvName := fmt.Sprintf("jujud-%s", oldTagString)
 		srv, err := service.DiscoverService(srvName, common.Conf{})
 		if err != nil {

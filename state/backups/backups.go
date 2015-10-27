@@ -41,6 +41,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils/filestorage"
 )
 
@@ -101,7 +102,7 @@ type Backups interface {
 	// Restore updates juju's state to the contents of the backup archive,
 	// it returns the tag string for the machine where the backup originated
 	// or error if the process fails.
-	Restore(backupId string, args RestoreArgs) (string, error)
+	Restore(backupId string, args RestoreArgs) (names.Tag, error)
 }
 
 type backups struct {

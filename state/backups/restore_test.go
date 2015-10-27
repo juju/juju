@@ -171,18 +171,21 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 		oldPassword      string
 		expectedPassword string
 		expectedUser     string
+		expectedError    string
 	}{
 		{"machine-0",
 			"",
 			"123456",
 			"123456",
 			"admin",
+			"",
 		},
 		{"machine-1",
 			"123123",
 			"",
 			"123123",
 			"machine-1",
+			"",
 		},
 	}
 	dataDir := path.Join(r.cwd, "dataDir")
@@ -227,11 +230,15 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 		conf.SetPassword(testCase.apiPassword)
 
 		dialInfo, err := newDialInfo(privateAddress, conf)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(dialInfo.Username, gc.Equals, testCase.expectedUser)
-		c.Assert(dialInfo.Password, gc.Equals, testCase.expectedPassword)
-		c.Assert(dialInfo.Direct, gc.Equals, true)
-		c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress, statePort)})
+		if testCase.expectedError != "" {
+			c.Assert(err, gc.ErrorMatches, testCase.expectedError)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(dialInfo.Username, gc.Equals, testCase.expectedUser)
+			c.Assert(dialInfo.Password, gc.Equals, testCase.expectedPassword)
+			c.Assert(dialInfo.Direct, gc.Equals, true)
+			c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress, statePort)})
+		}
 	}
 }
 
