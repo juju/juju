@@ -4,8 +4,10 @@
 package lxdclient
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -68,6 +70,17 @@ func (cert Cert) WriteKeyPEM(out io.Writer) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Fingerprint returns the cert's LXD fingerprint.
+func (cert Certificate) Fingerprint() (string, error) {
+	// See: https://github.com/lxc/lxd/blob/master/lxd/certificates.go
+	x509Cert, err := cert.X509()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	data := sha256.Sum256(x509Cert.Raw)
+	return fmt.Sprintf("%x", data), nil
 }
 
 // X509 returns the x.509 certificate.
