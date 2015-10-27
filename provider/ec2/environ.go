@@ -539,6 +539,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
+	if spec.InstanceType.Deprecated {
+		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
+	}
+
 	args.InstanceConfig.Tools = tools[0]
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err

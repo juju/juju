@@ -265,9 +265,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(1740))
+	c.Check(*hc.Mem, gc.Equals, uint64(3840))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -319,9 +319,9 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(1740))
+	c.Check(*hc.Mem, gc.Equals, uint64(3840))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {

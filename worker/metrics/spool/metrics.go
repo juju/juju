@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -174,12 +175,32 @@ func (m *JSONMetricRecorder) Close() error {
 
 // AddMetric implements the MetricsRecorder interface.
 func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) error {
-	if !m.IsDeclaredMetric(key) {
-		return errors.Errorf("metric key %q not declared by the charm", key)
+	err := m.validateMetric(key, value)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
+}
+
+func (m *JSONMetricRecorder) validateMetric(key, value string) error {
+	if !m.IsDeclaredMetric(key) {
+		return errors.Errorf("metric key %q not declared by the charm", key)
+	}
+	// The largest number of digits that can be returned by strconv.FormatFloat is 24, so
+	// choose an arbitrary limit somewhat higher than that.
+	if len(value) > 30 {
+		return fmt.Errorf("metric value is too large")
+	}
+	fValue, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return fmt.Errorf("invalid value type: expected float, got %q", value)
+	}
+	if fValue < 0 {
+		return fmt.Errorf("invalid value: value must be greater or equal to zero, got %v", value)
+	}
+	return nil
 }
 
 // IsDeclaredMetric returns true if the metric recorder is permitted to store this metric.
