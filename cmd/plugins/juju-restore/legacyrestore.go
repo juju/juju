@@ -20,7 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	goyaml "gopkg.in/yaml.v2"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
