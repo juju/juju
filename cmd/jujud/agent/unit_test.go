@@ -267,11 +267,10 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 		agent := NewAgentConf(conf.DataDir())
 		err := agent.ReadConfig(conf.Tag().String())
 		c.Assert(err, jc.ErrorIsNil)
-		st, gotEntity, err := apicaller.OpenAPIState(agent)
+		st, err := apicaller.OpenAPIState(agent)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEntity.Tag(), gc.Equals, unit.Tag().String())
 	}
 	assertOpen()
 
@@ -300,16 +299,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
 	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
 
-	_, _, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-}
-
-func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
-	_, unit, conf, _ := s.primeAgent(c)
-	err := unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, _, err = apicaller.OpenAPIState(fakeConfAgent{conf: conf})
+	_, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 

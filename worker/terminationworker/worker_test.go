@@ -4,7 +4,6 @@
 package terminationworker_test
 
 import (
-	"errors"
 	"os"
 	"os/signal"
 	"runtime"
@@ -14,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/terminationworker"
 )
 
@@ -43,9 +43,7 @@ func (s *TerminationWorkerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
-	w := terminationworker.NewWorker(func() error {
-		return errors.New("anything")
-	})
+	w := terminationworker.NewWorker()
 	w.Kill()
 	err := w.Wait()
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,14 +54,12 @@ func (s *TerminationWorkerSuite) TestSignal(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: sending this signal is not supported on windows")
 	}
-	w := terminationworker.NewWorker(func() error {
-		return errors.New("anything")
-	})
+	w := terminationworker.NewWorker()
 	proc, err := os.FindProcess(os.Getpid())
 	c.Assert(err, jc.ErrorIsNil)
 	defer proc.Release()
 	err = proc.Signal(terminationworker.TerminationSignal)
 	c.Assert(err, jc.ErrorIsNil)
 	err = w.Wait()
-	c.Assert(err, gc.ErrorMatches, "anything")
+	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }

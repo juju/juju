@@ -23,16 +23,14 @@ import (
 const TerminationSignal = syscall.SIGABRT
 
 type terminationWorker struct {
-	tomb     tomb.Tomb
-	onSignal func() error
+	tomb tomb.Tomb
 }
 
 // NewWorker returns a worker that waits for a
 // TerminationSignal signal, and then exits
-// with the result of calling the provided
-// function.
-func NewWorker(f func() error) worker.Worker {
-	u := &terminationWorker{onSignal: f}
+// with worker.ErrTerminateAgent.
+func NewWorker() worker.Worker {
+	u := &terminationWorker{}
 	go func() {
 		defer u.tomb.Done()
 		u.tomb.Kill(u.loop())
@@ -54,7 +52,7 @@ func (u *terminationWorker) loop() (err error) {
 	defer signal.Stop(c)
 	select {
 	case <-c:
-		return u.onSignal()
+		return worker.ErrTerminateAgent
 	case <-u.tomb.Dying():
 		return tomb.ErrDying
 	}
