@@ -54,7 +54,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&DeploySuite{})
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), args...)
+	_, err := coretesting.RunCommand(c, newDeployCommand(), args...)
 	return err
 }
 
@@ -86,7 +86,7 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := coretesting.InitCommand(envcmd.Wrap(&deployCommand{}), t.args)
+		err := coretesting.InitCommand(newDeployCommand(), t.args)
 		c.Assert(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -114,7 +114,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), "local:dummy", "-u")
+	ctx, err := coretesting.RunCommand(c, newDeployCommand(), "local:dummy", "-u")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
@@ -488,7 +488,7 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
-		ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), test.deployURL, fmt.Sprintf("wordpress%d", i))
+		ctx, err := coretesting.RunCommand(c, newDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectError)
 			continue
@@ -694,7 +694,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
 	defer server.Close()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
 	s.AssertService(c, "metered", curl, 1, 0)
@@ -747,7 +747,7 @@ func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
 	defer cleanup()
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/metered-1")
 	s.AssertService(c, "metered", curl, 1, 0)
@@ -768,7 +768,7 @@ func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {
 	})
 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&deployCommand{}), "local:dummy")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(c.GetTestLog(), jc.Contains, "current state server version does not support charm metering")
 }
