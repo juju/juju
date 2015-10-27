@@ -1911,7 +1911,12 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.primeAgentWithMachine(c, m, version.Current)
+	vers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	s.primeAgentWithMachine(c, m, vers)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	doneCh := make(chan error)
