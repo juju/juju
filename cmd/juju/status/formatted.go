@@ -58,8 +58,7 @@ func (s machineStatus) MarshalYAML() (interface{}, error) {
 	if s.Err != nil {
 		return errorStatus{s.Err.Error()}, nil
 	}
-	type noMethods machineStatus
-	return noMethods(s), nil
+	return machineStatusNoMarshal(s), nil
 }
 
 type serviceStatus struct {
@@ -81,16 +80,14 @@ func (s serviceStatus) MarshalJSON() ([]byte, error) {
 	if s.Err != nil {
 		return json.Marshal(errorStatus{s.Err.Error()})
 	}
-	type ssNoMethods serviceStatus
-	return json.Marshal(ssNoMethods(s))
+	return json.Marshal(serviceStatusNoMarshal(s))
 }
 
 func (s serviceStatus) MarshalYAML() (interface{}, error) {
 	if s.Err != nil {
 		return errorStatus{s.Err.Error()}, nil
 	}
-	type noMethods serviceStatus
-	return noMethods(s), nil
+	return serviceStatusNoMarshal(s), nil
 }
 
 type meterStatus struct {
@@ -139,8 +136,7 @@ func (s statusInfoContents) MarshalYAML() (interface{}, error) {
 	if s.Err != nil {
 		return errorStatus{s.Err.Error()}, nil
 	}
-	type noMethods statusInfoContents
-	return noMethods(s), nil
+	return statusInfoContentsNoMarshal(s), nil
 }
 
 type unitStatusNoMarshal unitStatus
@@ -156,8 +152,7 @@ func (s unitStatus) MarshalYAML() (interface{}, error) {
 	if s.Err != nil {
 		return errorStatus{s.Err.Error()}, nil
 	}
-	type noMethods unitStatus
-	return noMethods(s), nil
+	return unitStatusNoMarshal(s), nil
 }
 
 type networkStatus struct {
@@ -173,14 +168,12 @@ func (n networkStatus) MarshalJSON() ([]byte, error) {
 	if n.Err != nil {
 		return json.Marshal(errorStatus{n.Err.Error()})
 	}
-	type nNoMethods networkStatus
-	return json.Marshal(nNoMethods(n))
+	return json.Marshal(networkStatusNoMarshal(n))
 }
 
 func (n networkStatus) MarshalYAML() (interface{}, error) {
 	if n.Err != nil {
 		return errorStatus{n.Err.Error()}, nil
 	}
-	type noMethods networkStatus
-	return noMethods(n), nil
+	return networkStatusNoMarshal(n), nil
 }
