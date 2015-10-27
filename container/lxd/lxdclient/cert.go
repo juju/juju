@@ -6,6 +6,8 @@
 package lxdclient
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"io"
 	"io/ioutil"
 	"os"
@@ -68,6 +70,21 @@ func (cert Cert) WriteKeyPEM(out io.Writer) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// X509 returns the x.509 certificate.
+func (cert Cert) X509() (*x509.Certificate, error) {
+	block, _ := pem.Decode(cert.CertPEM)
+	if block == nil {
+		return nil, errors.Errorf("invalid cert PEM (%d bytes)", len(cert.CertPEM))
+	}
+
+	x509Cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return x509Cert, nil
 }
 
 func genCertAndKey() ([]byte, []byte, error) {
