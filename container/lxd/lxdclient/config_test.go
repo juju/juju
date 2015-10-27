@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -189,16 +190,37 @@ func (s *configSuite) TestAsNonLocalNoop(c *gc.C) {
 
 type configFunctionalSuite struct {
 	configBaseSuite
+
+	client *lxdclient.Client
 }
 
 func (s *configFunctionalSuite) SetUpTest(c *gc.C) {
 	s.configBaseSuite.SetUpTest(c)
 
+	s.client = newLocalClient(c)
+
 	origConfigDir := lxd.ConfigDir
 	s.AddCleanup(func(c *gc.C) {
 		lxd.ConfigDir = origConfigDir
 	})
-	// TODO(ericsnow) Add a cleanup func to remove any added certs.
+
+	if s.client != nil {
+		origCerts, err := s.client.ListCerts()
+		c.Assert(err, jc.ErrorIsNil)
+		s.AddCleanup(func(c *gc.C) {
+			certs, err := s.client.ListCerts()
+			c.Assert(err, jc.ErrorIsNil)
+
+			orig := set.NewStrings(origCerts...)
+			added := set.NewStrings(certs...).Difference(orig)
+			for _, fingerprint := range added.Values() {
+				err := s.client.RemoveCertByFingerprint(fingerprint)
+				if err != nil {
+					c.Logf("could not remove cert %q: %v", fingerprint, err)
+				}
+			}
+		})
+	}
 }
 
 func (s *configFunctionalSuite) TestWrite(c *gc.C) {
@@ -216,7 +238,7 @@ func (s *configFunctionalSuite) TestWrite(c *gc.C) {
 }
 
 func (s *configFunctionalSuite) TestAsNonLocal(c *gc.C) {
-	if !lxdRunningLocally() {
+	if s.client == nil {
 		c.Skip("LXD not running locally")
 	}
 
@@ -243,19 +265,22 @@ func (s *configFunctionalSuite) TestAsNonLocal(c *gc.C) {
 	// TODO(ericsnow) Check that the server has the certs.
 }
 
-func lxdRunningLocally() bool {
+func newLocalClient(c *gc.C) *lxdclient.Client {
 	origConfigDir := lxd.ConfigDir
 	defer func() {
 		lxd.ConfigDir = origConfigDir
 	}()
 
-	_, err := lxdclient.Connect(lxdclient.Config{
+	client, err := lxdclient.Connect(lxdclient.Config{
 		Namespace: "my-ns",
-		Dirname:   "some-dir",
+		Dirname:   c.MkDir(),
 		Filename:  "config.yml",
 		Remote:    lxdclient.Local,
 	})
-	return err == nil
+	if err != nil {
+		return nil
+	}
+	return client
 }
 
 func checkFiles(c *gc.C, cfg lxdclient.Config) {
