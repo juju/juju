@@ -19,11 +19,15 @@ import (
 // get handled in container/lxc/clonetemplate.go.
 
 func (client *Client) addInstance(spec InstanceSpec) error {
-	remote := ""
+	// TODO(ericsnow) Default to spec.ImageRemote.
+	imageRemote := ""
 	//remote := client.remote
-	//remote := spec.Remote
+	//remote := spec.ImageRemote
+	if imageRemote == "" {
+		imageRemote = client.remote
+	}
 	imageAlias := "ubuntu" // TODO(ericsnow) Do not hard-code.
-	//image := spec.Image
+	//imageAlias := spec.Image
 	var profiles *[]string
 	if len(spec.Profiles) > 0 {
 		profiles = &spec.Profiles
@@ -31,7 +35,7 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 
 	// TODO(ericsnow) Copy the image first?
 
-	resp, err := client.raw.Init(spec.Name, remote, imageAlias, profiles, spec.Ephemeral)
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
