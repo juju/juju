@@ -1,3 +1,4 @@
+# coding=utf-8
 from argparse import Namespace
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -7,7 +8,6 @@ from tempfile import (
     NamedTemporaryFile,
     )
 from textwrap import dedent
-from unittest import TestCase
 
 from boto.ec2.securitygroup import SecurityGroup
 from mock import (
@@ -44,9 +44,14 @@ from jujupy import (
     EnvJujuClient,
     get_timeout_prefix,
     SimpleEnvironment,
+    Status,
     _temp_env,
     )
 from substrate import AWSAccount
+from tests import (
+    FakeHomeTestCase,
+    TestCase,
+)
 from test_jujupy import assert_juju_call
 from test_substrate import (
     get_aws_env,
@@ -58,6 +63,23 @@ from test_utility import parse_error
 
 
 __metaclass__ = type
+
+
+class JujuPyTestCase(FakeHomeTestCase):
+
+    def setUp(self):
+        super(JujuPyTestCase, self).setUp()
+        patcher = patch('jujupy.pause')
+        self.addCleanup(patcher.stop)
+        patcher.start()
+
+        patcher = patch('jujupy.GroupReporter._write')
+        self.addCleanup(patcher.stop)
+        patcher.start()
+
+        patcher = patch('jujupy.until_timeout', return_value=[2, 1])
+        self.addCleanup(patcher.stop)
+        patcher.start()
 
 
 def iter_steps_validate_info(test, stage, client):
@@ -81,6 +103,29 @@ def iter_steps_validate_info(test, stage, client):
             unexpected = True
     test.assertFalse(
         unexpected, 'Unexpected test_id: {}'.format(result['test_id']))
+
+
+def patch_status(client, *statuses):
+    """
+    Replace calls to EnvJujuClient.get_status with preformed output.
+
+    If client is None, all clients will have the given status for the duration
+    of the patch, otherwise only the given client is modified.
+
+    If more than one status argument is passed, they will be returned in
+    sequence, otherwise every call will return the single given status.
+
+    Triva, the plural of status is Latin is statūs.
+    """
+    kwargs = {}
+    if len(statuses) > 1:
+        kwargs['side_effect'] = (Status.from_text(yaml.safe_dump(s))
+                                 for s in statuses).next
+    else:
+        kwargs['return_value'] = Status.from_text(yaml.safe_dump(statuses[0]))
+    if client is not None:
+        return patch.object(client, 'get_status', autospec=True, **kwargs)
+    return patch('jujupy.EnvJujuClient.get_status', autospec=True, **kwargs)
 
 
 class TestParseArgs(TestCase):
@@ -392,17 +437,21 @@ class TestMultiIndustrialTest(TestCase):
             },
         ]})
 
+    @staticmethod
+    @contextmanager
+    def patch_client(by_version):
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=by_version):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                with patch.object(EnvJujuClient, 'get_full_path',
+                                  side_effect=lambda: 'juju'):
+                    yield
+
     def test_make_industrial_test(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             DestroyEnvironmentAttempt, BootstrapAttempt], 5)
-
-        def side_effect(x, y=None, debug=False):
-            return (x, y)
-
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                industrial = mit.make_industrial_test()
+        with self.patch_client(lambda x, y=None, debug=False: (x, y)):
+            industrial = mit.make_industrial_test()
         self.assertEqual(industrial.old_client,
                          (SimpleEnvironment('foo-env-old', {}), None))
         self.assertEqual(industrial.new_client,
@@ -414,14 +463,8 @@ class TestMultiIndustrialTest(TestCase):
     def test_make_industrial_test_new_agent_url(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [],
                                   new_agent_url='http://example.com')
-
-        def side_effect(x, y=None, debug=False):
-            return (x, y)
-
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                industrial = mit.make_industrial_test()
+        with self.patch_client(lambda x, y=None, debug=False: (x, y)):
+            industrial = mit.make_industrial_test()
         self.assertEqual(
             industrial.new_client, (
                 SimpleEnvironment('foo-env-new', {
@@ -436,16 +479,15 @@ class TestMultiIndustrialTest(TestCase):
         def side_effect(x, y=None, debug=False):
             return debug
 
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                industrial = mit.make_industrial_test()
-                self.assertEqual(industrial.new_client, False)
-                self.assertEqual(industrial.old_client, False)
-                mit.debug = True
-                industrial = mit.make_industrial_test()
-                self.assertEqual(industrial.new_client, True)
-                self.assertEqual(industrial.old_client, True)
+        with self.patch_client(side_effect):
+            industrial = mit.make_industrial_test()
+        self.assertEqual(industrial.new_client, False)
+        self.assertEqual(industrial.old_client, False)
+        mit.debug = True
+        with self.patch_client(side_effect):
+            industrial = mit.make_industrial_test()
+        self.assertEqual(industrial.new_client, True)
+        self.assertEqual(industrial.old_client, True)
 
     def test_update_results(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -502,10 +544,8 @@ class TestMultiIndustrialTest(TestCase):
         def side_effect(x, y=None, debug=False):
             return StubJujuClient()
 
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                results = mit.run_tests()
+        with self.patch_client(side_effect):
+            results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
              'old_failures': 0, 'new_failures': 0, 'report_on': True},
@@ -522,10 +562,8 @@ class TestMultiIndustrialTest(TestCase):
         def side_effect(x, y=None, debug=False):
             return StubJujuClient()
 
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                results = mit.run_tests()
+        with self.patch_client(side_effect):
+            results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
              'old_failures': 0, 'new_failures': 5, 'report_on': True},
@@ -542,10 +580,8 @@ class TestMultiIndustrialTest(TestCase):
         def side_effect(x, y=None, debug=False):
             return StubJujuClient()
 
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                results = mit.run_tests()
+        with self.patch_client(side_effect):
+            results = mit.run_tests()
         self.assertEqual(results, {'results': [
             {'title': 'foo', 'test_id': 'foo-id', 'attempts': 4,
              'old_failures': 0, 'new_failures': 4, 'report_on': True},
@@ -645,7 +681,7 @@ class TestMultiIndustrialTest(TestCase):
             """))
 
 
-class TestIndustrialTest(TestCase):
+class TestIndustrialTest(JujuPyTestCase):
 
     def test_init(self):
         old_client = object()
@@ -803,7 +839,7 @@ class TestIndustrialTest(TestCase):
         self.assertEqual(db_mock.mock_calls, [call(), call()])
 
 
-class TestSteppedStageAttempt(TestCase):
+class TestSteppedStageAttempt(JujuPyTestCase):
 
     def test__iter_for_result_premature_results(self):
         iterator = iter([{'test_id': 'foo-id', 'result': True}])
@@ -981,26 +1017,8 @@ class FakeEnvJujuClient(EnvJujuClient):
         super(FakeEnvJujuClient, self).__init__(
             SimpleEnvironment(name, {'type': 'fake'}), '1.2', '/jbin/juju')
 
-    def wait_for_started(self, start=None):
-        with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).wait_for_started(0.1,
-                                                                   start=start)
 
-    def wait_for_ha(self):
-        with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).wait_for_ha(0.01)
-
-    def status_until(self, *args, **kwargs):
-        yield self.get_status()
-        yield self.get_status()
-
-    def juju(self, *args, **kwargs):
-        # Suppress stdout for juju commands.
-        with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).juju(*args, **kwargs)
-
-
-class TestBootstrapAttempt(TestCase):
+class TestBootstrapAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
@@ -1012,23 +1030,19 @@ class TestBootstrapAttempt(TestCase):
         assert_juju_call(self, popen_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve',
             '--constraints', 'mem=2G'))
-        statuses = (yaml.safe_dump(x) for x in [
+        statuses = [
             {'machines': {'0': {'agent-state': 'pending'}}, 'services': {}},
             {'machines': {'0': {'agent-state': 'started'}}, 'services': {}},
-            ])
+        ]
         popen_mock.return_value.wait.return_value = 0
         self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
-        with patch('subprocess.check_output',
-                   side_effect=lambda x, **y: statuses.next()) as mock_co:
+        with patch_status(client, *statuses) as gs_mock:
             self.assertEqual(boot_iter.next(),
                              {'test_id': 'bootstrap', 'result': True})
-        for num in range(2):
-            assert_juju_call(self, mock_co, client, (
-                'juju', '--show-log', 'status', '-e', 'steve'), num,
-                assign_stderr=True)
+        self.assertEqual(2, gs_mock.call_count)
 
 
-class TestDestroyEnvironmentAttempt(TestCase):
+class TestDestroyEnvironmentAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
@@ -1051,7 +1065,7 @@ class TestDestroyEnvironmentAttempt(TestCase):
     def test_iter_test_results(self):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
-        with patch('subprocess.check_call'):
+        with patch('subprocess.call'):
             output = list(destroy_env.iter_test_results(client, client))
         self.assertEqual(output, [
             ('destroy-env', True, True), ('substrate-clean', True, True)])
@@ -1071,9 +1085,9 @@ class TestDestroyEnvironmentAttempt(TestCase):
     def test_get_security_groups_aws(self):
         client = self.get_aws_client()
         destroy_env = DestroyEnvironmentAttempt()
-        yaml_instances = yaml.safe_dump({'machines': {
+        status = {'machines': {
             'foo': {'instance-id': 'foo-id'},
-            }})
+        }}
         aws_instances = [
             MagicMock(instances=[MagicMock(groups=[
                 SecurityGroup(id='foo', name='bar'),
@@ -1085,7 +1099,7 @@ class TestDestroyEnvironmentAttempt(TestCase):
         ]
         with patch(
                 'substrate.AWSAccount.get_ec2_connection') as gec_mock:
-            with patch('subprocess.check_output', return_value=yaml_instances):
+            with patch_status(client, status):
                 gai_mock = gec_mock.return_value.get_all_instances
                 gai_mock.return_value = aws_instances
                 self.assertEqual(destroy_env.get_security_groups(client), {
@@ -1097,10 +1111,10 @@ class TestDestroyEnvironmentAttempt(TestCase):
     def test_get_security_groups_openstack(self):
         client = self.get_openstack_client()
         destroy_env = DestroyEnvironmentAttempt()
-        yaml_instances = yaml.safe_dump({'machines': {
+        status = {'machines': {
             'foo': {'instance-id': 'bar-id'},
             'bar': {'instance-id': 'baz-qux-id'},
-            }})
+        }}
         os_instances = [
             make_os_security_group_instance(['bar']),
             make_os_security_group_instance(['baz', 'qux']),
@@ -1111,7 +1125,7 @@ class TestDestroyEnvironmentAttempt(TestCase):
             os_client.servers.list.return_value = os_instances
             security_groups = make_os_security_groups(['bar', 'baz', 'qux'])
             os_client.security_groups.list.return_value = security_groups
-            with patch('subprocess.check_output', return_value=yaml_instances):
+            with patch_status(client, status):
                 self.assertEqual(destroy_env.get_security_groups(client), {
                     'baz-id': 'baz', 'bar-id': 'bar', 'qux-id': 'qux'
                     })
@@ -1170,12 +1184,7 @@ class TestDestroyEnvironmentAttempt(TestCase):
         self.assertEqual(co_mock.call_count, 0)
 
 
-class TestEnsureAvailabilityAttempt(TestCase):
-
-    def setUp(self):
-        patcher = patch('jujupy.pause')
-        self.addCleanup(patcher.stop)
-        self.pause_mock = patcher.start()
+class TestEnsureAvailabilityAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
@@ -1189,19 +1198,18 @@ class TestEnsureAvailabilityAttempt(TestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'ensure-availability', '-e', 'steve', '-n',
             '3'))
-        value = yaml.safe_dump({
+        status = {
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
                 '2': {'state-server-member-status': 'has-vote'},
                 },
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=value) as co_mock:
+        }
+        with patch_status(client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'steve'), assign_stderr=True)
+        gs_mock.assert_called_once_with()
 
     def test_iter_steps_failure(self):
         client = FakeEnvJujuClient()
@@ -1210,22 +1218,21 @@ class TestEnsureAvailabilityAttempt(TestCase):
         ensure_iter.next()
         with patch('subprocess.check_call'):
             ensure_iter.next()
-        ensure_av = EnsureAvailabilityAttempt()
-        client = FakeEnvJujuClient()
-        output = yaml.safe_dump({
+        status = {
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
                 },
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=output):
+        }
+        with patch_status(client, status) as gs_mock:
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_iter.next()
+        self.assertEqual(2, gs_mock.call_count)
 
 
-class TestDeployManyAttempt(TestCase):
+class TestDeployManyAttempt(JujuPyTestCase):
 
     def predict_add_machine_calls(self, deploy_many):
         for host in range(1, deploy_many.host_count + 1):
@@ -1246,11 +1253,11 @@ class TestDeployManyAttempt(TestCase):
         deploy_many = DeployManyAttempt(9, 11)
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
-        status = yaml.safe_dump({
+        status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(deploy_iter.next(),
                                  {'test_id': 'add-machine-many'})
@@ -1258,12 +1265,12 @@ class TestDeployManyAttempt(TestCase):
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
 
-        status = yaml.safe_dump({
+        status = {
             'machines': dict((str(x), {'agent-state': 'started'})
                              for x in range(deploy_many.host_count + 1)),
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status):
                 self.assertEqual(
                     deploy_iter.next(),
                     {'test_id': 'add-machine-many', 'result': True})
@@ -1271,7 +1278,7 @@ class TestDeployManyAttempt(TestCase):
                          {'test_id': 'ensure-machines'})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'ensure-machines'})
-        with patch('subprocess.check_output', return_value=status):
+        with patch_status(client, status):
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'ensure-machines', 'result': True})
         self.assertEqual(deploy_iter.next(),
@@ -1292,17 +1299,17 @@ class TestDeployManyAttempt(TestCase):
                 'foo': {'machine': str(num + 100), 'agent-state': 'started'}
                 }})
             for num, service_name in enumerate(service_names))
-        status = yaml.safe_dump({
+        status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': services,
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status):
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'deploy-many', 'result': True})
 
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'remove-machine-many-lxc'})
-        with patch('subprocess.check_output', return_value=status):
+        with patch_status(client, status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(
                     deploy_iter.next(),
@@ -1310,18 +1317,15 @@ class TestDeployManyAttempt(TestCase):
         calls = self.predict_remove_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
-        statuses = (yaml.safe_dump(x) for x in [
+        statuses = [
             {'machines': {'100': {'agent-state': 'started'}}, 'services': {}},
-            {'machines': {}, 'services': {}}])
-        with patch('subprocess.check_output',
-                   side_effect=lambda x, **y: statuses.next()) as mock_co:
+            {'machines': {}, 'services': {}},
+        ]
+        with patch_status(client, *statuses) as status_mock:
             self.assertEqual(
                 deploy_iter.next(),
                 {'test_id': 'remove-machine-many-lxc', 'result': True})
-        for num in range(2):
-            assert_juju_call(self, mock_co, client, (
-                'juju', '--show-log', 'status', '-e', 'steve'), num,
-                assign_stderr=True)
+        self.assertEqual(2, status_mock.call_count)
         self.assertEqual(deploy_iter.next(), {
             'test_id': 'remove-machine-many-instance'})
         with patch('subprocess.check_call') as mock_cc:
@@ -1333,31 +1337,26 @@ class TestDeployManyAttempt(TestCase):
                 'juju', '--show-log', 'remove-machine', '-e', 'steve',
                 str(num + 1)), num)
 
-        statuses = (yaml.safe_dump(x) for x in [
+        statuses = [
             {'machines': {'1': {'agent-state': 'started'}}, 'services': {}},
-            {'machines': {}, 'services': {}}])
-
-        with patch('subprocess.check_output',
-                   side_effect=lambda x, **y: statuses.next()) as mock_co:
+            {'machines': {}, 'services': {}},
+        ]
+        with patch_status(client, *statuses) as status_mock:
             self.assertEqual(
                 deploy_iter.next(),
                 {'test_id': 'remove-machine-many-instance', 'result': True})
-        for num in range(2):
-            assert_juju_call(self, mock_co, client, (
-                'juju', '--show-log', 'status', '-e', 'steve'), num,
-                assign_stderr=True)
+        self.assertEqual(2, status_mock.call_count)
 
-    @patch('logging.error')
-    def test_iter_step_failure(self, le_mock):
+    def test_iter_step_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
-        status = yaml.safe_dump({
+        status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(deploy_iter.next(),
                                  {'test_id': 'add-machine-many'})
@@ -1365,12 +1364,12 @@ class TestDeployManyAttempt(TestCase):
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
 
-        status = yaml.safe_dump({
+        status = {
             'machines': dict((str(x), {'agent-state': 'started'})
                              for x in range(deploy_many.host_count + 1)),
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status):
                 self.assertEqual(
                     deploy_iter.next(),
                     {'test_id': 'add-machine-many', 'result': True})
@@ -1378,7 +1377,7 @@ class TestDeployManyAttempt(TestCase):
                          {'test_id': 'ensure-machines'})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'ensure-machines'})
-        with patch('subprocess.check_output', return_value=status):
+        with patch_status(client, status):
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'ensure-machines', 'result': True})
         self.assertEqual(deploy_iter.next(),
@@ -1386,52 +1385,46 @@ class TestDeployManyAttempt(TestCase):
         with patch('subprocess.check_call') as mock_cc:
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'deploy-many'})
-        output = yaml.safe_dump({
+        status = {
             'machines': {
                 '0': {'agent-state': 'pending'},
                 },
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=output):
+        }
+        with patch_status(client, status):
             with self.assertRaisesRegexp(
                     Exception,
                     'Timed out waiting for agents to start in steve.'):
                 deploy_iter.next()
 
-    @patch('logging.error')
-    def test_iter_step_add_machine_failure(self, le_mock):
+    def test_iter_step_add_machine_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
-        status = yaml.safe_dump({
+        status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status) as gs_mock:
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(deploy_iter.next(),
                                  {'test_id': 'add-machine-many'})
         for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+        gs_mock.assert_called_once_with()
 
-        status = yaml.safe_dump({
+        status = {
             'machines': dict((str(x), {'agent-state': 'pending'})
                              for x in range(deploy_many.host_count + 1)),
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=status):
-                self.assertEqual(
-                    deploy_iter.next(),
-                    {'test_id': 'add-machine-many', 'result': False})
+        }
+        with patch_status(client, status) as gs_mock:
+            self.assertEqual(deploy_iter.next(),
+                             {'test_id': 'add-machine-many', 'result': False})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'ensure-machines'})
-        status = yaml.safe_dump({
-            'machines': dict((str(x), {'agent-state': 'started'})
-                             for x in range(deploy_many.host_count + 1)),
-            'services': {},
-            })
         with patch('subprocess.check_call') as mock_cc:
             self.assertEqual({'test_id': 'ensure-machines'},
                              deploy_iter.next())
@@ -1441,7 +1434,13 @@ class TestDeployManyAttempt(TestCase):
                 '--force', str((x + 1))), x * 2)
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), x * 2 + 1)
-        with patch('subprocess.check_output', return_value=status):
+
+        status = {
+            'machines': dict((str(x), {'agent-state': 'started'})
+                             for x in range(deploy_many.host_count + 1)),
+            'services': {},
+        }
+        with patch_status(client, status) as gs_mock:
             self.assertEqual({'test_id': 'ensure-machines', 'result': True},
                              deploy_iter.next())
         self.assertEqual({'test_id': 'deploy-many'}, deploy_iter.next())
@@ -1452,7 +1451,7 @@ class TestDeployManyAttempt(TestCase):
             assert_juju_call(self, mock_cc, client, args, num)
 
 
-class TestBackupRestoreAttempt(TestCase):
+class TestBackupRestoreAttempt(JujuPyTestCase):
 
     def test_get_test_info(self):
         self.assertEqual(
@@ -1469,33 +1468,34 @@ class TestBackupRestoreAttempt(TestCase):
         def check_output(*args, **kwargs):
             if args == (['juju', 'backup'],):
                 return 'juju-backup-24.tgz'
-            if args == (('juju', '--show-log', 'status', '-e', 'baz'),):
-                return yaml.safe_dump({
-                    'machines': {'0': {
-                        'instance-id': 'asdf',
-                        'dns-name': '128.100.100.128',
-                        }}
-                    })
             self.assertEqual([], args)
+        initial_status = {
+            'machines': {'0': {
+                'instance-id': 'asdf',
+                'dns-name': '128.100.100.128',
+                }}
+        }
         iterator = iter_steps_validate_info(self, br_attempt, client)
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        with patch('subprocess.check_output',
-                   side_effect=check_output) as co_mock:
-            with patch('subprocess.check_call') as cc_mock:
-                with patch('sys.stdout'):
-                    self.assertEqual(
-                        iterator.next(),
-                        {'test_id': 'back-up-restore'})
+        with patch_status(client, initial_status) as gs_mock:
+            with patch('subprocess.check_output',
+                       side_effect=check_output) as co_mock:
+                with patch('subprocess.check_call') as cc_mock:
+                    with patch('sys.stdout'):
+                        self.assertEqual(
+                            iterator.next(),
+                            {'test_id': 'back-up-restore'})
         assert_juju_call(self, co_mock, client, ['juju', 'backup'], 0)
         self.assertEqual(
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
         with patch('deploy_stack.wait_for_port'):
-            self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
+            with patch('deploy_stack.print_now', autospec=True) as pn_mock:
+                self.assertEqual(iterator.next(),
+                                 {'test_id': 'back-up-restore'})
+        pn_mock.assert_called_with('Closed.')
         with patch('subprocess.Popen') as po_mock:
-            with patch('sys.stdout'):
-                    self.assertEqual(iterator.next(),
-                                     {'test_id': 'back-up-restore'})
+            self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         assert_juju_call(
             self, po_mock, client, (
                 'juju', '--show-log', 'restore', '-e', 'baz',
@@ -1505,20 +1505,19 @@ class TestBackupRestoreAttempt(TestCase):
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore'})
         ul_mock.assert_called_once_with(os.path.abspath('juju-backup-24.tgz'))
-        output = yaml.safe_dump({
+        final_status = {
             'machines': {
                 '0': {'agent-state': 'started'},
                 },
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=output) as co_mock:
+        }
+        with patch_status(client, final_status) as gs_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'baz'), assign_stderr=True)
+        gs_mock.assert_called_once_with()
 
 
-class TestUpgradeJujuAttempt(TestCase):
+class TestUpgradeJujuAttempt(JujuPyTestCase):
 
     def test_factory(self):
         uj_attempt = UpgradeJujuAttempt.factory(['a', 'b', 'c'])
@@ -1553,11 +1552,11 @@ class TestUpgradeJujuAttempt(TestCase):
         po_mock.return_value.wait.return_value = 0
         self.assertEqual(uj_iterator.next(),
                          {'test_id': 'prepare-upgrade-juju'})
-        b_status = yaml.safe_dump({
+        b_status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=b_status):
+        }
+        with patch_status(None, b_status):
             self.assertEqual(
                 uj_iterator.next(),
                 {'test_id': 'prepare-upgrade-juju', 'result': True})
@@ -1567,12 +1566,12 @@ class TestUpgradeJujuAttempt(TestCase):
         assert_juju_call(self, cc_mock, future_client, (
             'juju', '--show-log', 'upgrade-juju', '-e', 'steve', '--version',
             future_client.get_matching_agent_version()))
-        version_status = yaml.safe_dump({
+        version_status = {
             'machines': {'0': {
                 'agent-version': future_client.get_matching_agent_version()}},
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=version_status):
+        }
+        with patch_status(None, version_status):
             self.assertEqual({'test_id': 'upgrade-juju', 'result': True},
                              uj_iterator.next())
 
@@ -1586,7 +1585,7 @@ class TestUpgradeJujuAttempt(TestCase):
         self.assertIs(exc_context.exception.client, client)
 
 
-class TestUpgradeCharmAttempt(TestCase):
+class TestUpgradeCharmAttempt(JujuPyTestCase):
 
     def assert_hook(self, hook_path, content):
         with open(hook_path) as hook_file:
@@ -1616,11 +1615,11 @@ class TestUpgradeCharmAttempt(TestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'deploy', '-e', 'steve',
             'local:trusty/mycharm', '--repository', temp_repository))
-        status = yaml.safe_dump({
+        status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status):
             self.assertEqual(uc_iterator.next(),
                              {'test_id': 'prepare-upgrade-charm'})
         hooks_path = os.path.join(temp_repository, 'trusty', 'mycharm',
@@ -1646,13 +1645,13 @@ class TestUpgradeCharmAttempt(TestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'upgrade-charm', '-e', 'steve',
             'mycharm', '--repository', temp_repository))
-        status = yaml.safe_dump({
+        status = {
             'machines': {'0': {'agent-state': 'started'}},
             'services': {'mycharm': {'units': {'mycharm/0': {
                 'open-ports': ['42/tcp', '34/tcp'],
                 }}}},
-            })
-        with patch('subprocess.check_output', return_value=status):
+        }
+        with patch_status(client, status):
             self.assertEqual(
                 uc_iterator.next(),
                 {'test_id': 'upgrade-charm', 'result': True})
@@ -1681,7 +1680,7 @@ class TestMaybeWriteJson(TestCase):
             self.assertEqual(temp_file.read(), expected)
 
 
-class TestMakeSubstrate(TestCase):
+class TestMakeSubstrate(JujuPyTestCase):
 
     def test_make_substrate_manager_no_support(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),

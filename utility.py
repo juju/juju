@@ -245,7 +245,7 @@ def add_basic_testing_arguments(parser, using_jes=False):
     parser.add_argument('--agent-url', action='store', default=None,
                         help='URL for retrieving agent binaries.')
     parser.add_argument('--agent-stream', action='store', default=None,
-                        help='URL for retrieving agent binaries.')
+                        help='Stream for retrieving agent binaries.')
     parser.add_argument('--series', action='store', default=None,
                         help='Name of the Ubuntu series to use.')
     if not using_jes:

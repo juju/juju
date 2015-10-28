@@ -1,13 +1,22 @@
 from argparse import Namespace
+from contextlib import contextmanager
 from unittest import TestCase
+
+from mock import patch
+
 from assess_log_rotation import (
     check_for_extra_backup,
     check_expected_backup,
     check_log0,
     LogRotateError,
+    make_client_from_args,
     parse_args,
 )
-from jujupy import yaml_loads
+from jujupy import (
+    EnvJujuClient,
+    _temp_env as temp_env,
+    yaml_loads,
+    )
 
 good_yaml = \
     """
@@ -145,10 +154,46 @@ class TestParseArgs(TestCase):
         args = parse_args(['machine', 'b', 'c', 'd', 'e'])
         self.assertEqual(args, Namespace(
             agent='machine', juju_path='b', env_name='c', logs='d',
-            temp_env_name='e', debug=False))
+            temp_env_name='e', debug=False, agent_stream=None))
 
     def test_parse_args_debug(self):
         args = parse_args(['--debug', 'unit', 'b', 'c', 'd', 'e'])
         self.assertEqual(args, Namespace(
             agent='unit', juju_path='b', env_name='c', logs='d',
-            temp_env_name='e', debug=True))
+            temp_env_name='e', debug=True, agent_stream=None))
+
+    def test_parse_args_agent_stream(self):
+        args = parse_args(['unit', 'b', 'c', 'd', 'e', '--agent-stream',
+                           'foo'])
+        self.assertEqual(args.agent_stream, 'foo')
+
+
+class TestMakeClientFromArgs(TestCase):
+
+    def setUp(self):
+        super(TestMakeClientFromArgs, self).setUp()
+        patcher = patch('subprocess.Popen', side_effect=Exception)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @contextmanager
+    def make_client_cxt(self):
+        with temp_env({'environments': {'foo': {}}}):
+            with patch('subprocess.check_output', return_value=''):
+                yield
+
+    def test_defaults(self):
+        with self.make_client_cxt():
+            client = make_client_from_args(Namespace(
+                juju_path='', debug=False, env_name='foo', temp_env_name='',
+                agent_stream=None,
+                ))
+        self.assertIsInstance(client, EnvJujuClient)
+
+    def test_agent_stream(self):
+        with self.make_client_cxt():
+            client = make_client_from_args(Namespace(
+                juju_path='', debug=False, env_name='foo', temp_env_name='',
+                agent_stream='bar',
+                ))
+        self.assertEqual('bar', client.env.config['agent-stream'])
