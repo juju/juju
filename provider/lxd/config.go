@@ -276,9 +276,12 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	return cfg, nil
 }
 
+// TODO(ericsnow) Switch to a DI testing approach and eliminiate this var.
+var asNonLocal = lxdclient.Config.AsNonLocal
+
 func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*environConfig, error) {
 	if clientCfg.Remote.ID() == "" {
-		nonlocal, err := clientCfg.AsNonLocal()
+		nonlocal, err := asNonLocal(clientCfg)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
