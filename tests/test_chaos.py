@@ -5,9 +5,12 @@ from tempfile import (
     NamedTemporaryFile,
     mkdtemp,
     )
-from unittest import TestCase
+import unittest
 
-from mock import patch
+from mock import (
+    call,
+    patch,
+)
 import yaml
 
 from chaos import (
@@ -19,6 +22,7 @@ from jujupy import (
     SimpleEnvironment,
     )
 from remote import SSHRemote
+from tests import FakeHomeTestCase
 from test_jujupy import (
     assert_juju_call,
     )
@@ -32,7 +36,7 @@ def fake_SimpleEnvironment_from_config(name):
     return SimpleEnvironment(name, {})
 
 
-class TestBackgroundChaos(TestCase):
+class TestBackgroundChaos(FakeHomeTestCase):
 
     def test_background_chaos(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
@@ -79,10 +83,10 @@ class TestBackgroundChaos(TestCase):
         sm.assert_called_once_with(1)
 
 
-class TestRunChaosMonkey(TestCase):
+class TestRunChaosMonkey(FakeHomeTestCase):
 
     def test_deploy_chaos_monkey(self):
-        def output(args, **kwargs):
+        def output(*args, **kwargs):
             status = yaml.safe_dump({
                 'machines': {
                     '0': {'agent-state': 'started'}
@@ -103,15 +107,15 @@ class TestRunChaosMonkey(TestCase):
                 }
             })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('status',): status,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True) as co_mock:
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 monkey_runner = MonkeyRunner('foo', client, service='ser1')
-                with patch('sys.stdout', autospec=True):
+                with patch('jujupy.GroupReporter._write', autospec=True):
                     monkey_runner.deploy_chaos_monkey()
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'deploy', '-e', 'foo', 'local:chaos-monkey'),
@@ -120,10 +124,10 @@ class TestRunChaosMonkey(TestCase):
             'juju', '--show-log', 'add-relation', '-e', 'foo', 'ser1',
             'chaos-monkey'), 1)
         self.assertEqual(cc_mock.call_count, 2)
-        self.assertEqual(co_mock.call_count, 2)
+        self.assertEqual(gjo_mock.call_count, 2)
 
     def test_iter_chaos_monkey_units(self):
-        def output(args, **kwargs):
+        def output(*args, **kwargs):
             status = yaml.safe_dump({
                 'machines': {
                     '0': {'agent-state': 'started'}
@@ -147,13 +151,13 @@ class TestRunChaosMonkey(TestCase):
                 }
             })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
+                ('status',): status,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         runner = MonkeyRunner('foo', client, service='jenkins')
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True):
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True):
             monkey_units = dict((k, v) for k, v in
                                 runner.iter_chaos_monkey_units())
         expected = {
@@ -163,7 +167,7 @@ class TestRunChaosMonkey(TestCase):
         self.assertEqual(expected, monkey_units)
 
     def test_get_unit_status(self):
-        def output(args, **kwargs):
+        def output(*args, **kwargs):
             status = yaml.safe_dump({
                 'machines': {
                     '0': {'agent-state': 'started'}
@@ -199,9 +203,8 @@ class TestRunChaosMonkey(TestCase):
                 }
             })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'get', '-e', 'foo', 'chaos-monkey'
-                 ): charm_config,
+                ('status',): status,
+                ('get', 'chaos-monkey'): charm_config,
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
@@ -210,32 +213,28 @@ class TestRunChaosMonkey(TestCase):
             'chaos-monkey/0': 'workspace0',
             'chaos-monkey/1': 'workspace1'
         }
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True):
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True):
             with patch('subprocess.call', autospec=True,
                        return_value=0) as call_mock:
                 for unit_name in ['chaos-monkey/1', 'chaos-monkey/0']:
-                    with patch('sys.stdout', autospec=True):
-                        self.assertEqual(
-                            monkey_runner.get_unit_status(unit_name),
-                            'running')
+                    self.assertEqual(monkey_runner.get_unit_status(unit_name),
+                                     'running')
             self.assertEqual(call_mock.call_count, 2)
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True):
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True):
             with patch('subprocess.call', autospec=True,
                        return_value=1) as call_mock:
                 for unit_name in ['chaos-monkey/1', 'chaos-monkey/0']:
-                    with patch('sys.stdout', autospec=True):
-                        self.assertEqual(
-                            monkey_runner.get_unit_status(unit_name),
-                            'done')
+                    self.assertEqual(monkey_runner.get_unit_status(unit_name),
+                                     'done')
             self.assertEqual(call_mock.call_count, 2)
 
 
-class TestUnleashOnce(TestCase):
+class TestUnleashOnce(FakeHomeTestCase):
 
     def test_unleash_once(self):
-        def output(args, **kwargs):
+        def output(*args, **kwargs):
             status = yaml.safe_dump({
                 'machines': {
                     '0': {'agent-state': 'started'}
@@ -271,29 +270,24 @@ class TestUnleashOnce(TestCase):
                 }
             })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'get', '-e', 'foo', 'jenkins'
-                 ): charm_config,
-                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
-                 'chaos-monkey/0', 'start', 'mode=single',
+                ('status',): status,
+                ('get', 'jenkins'): charm_config,
+                ('action do', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): 'Action queued with id: abcd',
-                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
-                 'chaos-monkey/0', 'start', 'mode=single',
+                ('action do', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120', 'monkey-id=abcd'
                  ): 'Action queued with id: efgh',
-                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
-                 'chaos-monkey/1', 'start', 'mode=single',
+                ('action do', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): 'Action queued with id: 1234',
-                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
-                 'chaos-monkey/1', 'start', 'mode=single',
+                ('action do', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120', 'monkey-id=1234'
                  ): 'Action queued with id: 5678',
                 }
             return output[args]
 
-        def output2(args, **kwargs):
+        def output2(*args, **kwargs):
             status = yaml.safe_dump({
                 'machines': {
                     '0': {'agent-state': 'started'}
@@ -311,53 +305,55 @@ class TestUnleashOnce(TestCase):
                 }
             })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
-                 'chaos-monkey/1', 'start', 'mode=single',
+                ('status',): status,
+                ('action do', 'chaos-monkey/1', 'start', 'mode=single',
                  'enablement-timeout=120', 'monkey-id=1234'
                  ): 'Action queued with id: abcd',
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         monkey_runner = MonkeyRunner('foo', client, service='jenkins')
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True) as co_mock:
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True) as gjo_mock:
             returned = monkey_runner.unleash_once()
         expected = ['abcd', '1234']
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/1', 'start', 'mode=single',
-            'enablement-timeout=120'), 1, True)
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/0', 'start', 'mode=single',
-            'enablement-timeout=120'), 2, True)
+        self.assertEqual(
+            [
+                call('status'),
+                call('action do', 'chaos-monkey/1', 'start', 'mode=single',
+                     'enablement-timeout=120'),
+                call('action do', 'chaos-monkey/0', 'start', 'mode=single',
+                     'enablement-timeout=120'),
+            ],
+            gjo_mock.call_args_list)
         self.assertEqual(['chaos-monkey/1', 'chaos-monkey/0'],
                          monkey_runner.monkey_ids.keys())
         self.assertEqual(len(monkey_runner.monkey_ids), 2)
-        self.assertEqual(co_mock.call_count, 3)
         self.assertItemsEqual(returned, expected)
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True) as co_mock:
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True) as gjo_mock:
             monkey_runner.unleash_once()
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/1', 'start', 'mode=single', 'enablement-timeout=120',
-            'monkey-id=1234'), 1, True)
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'action', 'do', '-e', 'foo',
-            'chaos-monkey/0', 'start', 'mode=single', 'enablement-timeout=120',
-            'monkey-id=abcd'), 2, True)
+        self.assertEqual(
+            [
+                call('status'),
+                call('action do',
+                     'chaos-monkey/1', 'start', 'mode=single',
+                     'enablement-timeout=120', 'monkey-id=1234'),
+                call('action do',
+                     'chaos-monkey/0', 'start', 'mode=single',
+                     'enablement-timeout=120', 'monkey-id=abcd'),
+            ],
+            gjo_mock.call_args_list)
         self.assertTrue('1234', monkey_runner.monkey_ids['chaos-monkey/1'])
         # Test monkey_ids.get(unit_name) does not change on second call to
         # unleash_once()
-        with patch('subprocess.check_output', side_effect=output2,
-                   autospec=True):
+        with patch.object(client, 'get_juju_output', side_effect=output2,
+                          autospec=True):
             monkey_runner.unleash_once()
         self.assertEqual('1234', monkey_runner.monkey_ids['chaos-monkey/1'])
 
     def test_unleash_once_raises_for_unexpected_action_output(self):
-        def output(args, **kwargs):
+        def output(*args, **kwargs):
             status = yaml.safe_dump({
                 'machines': {
                     '0': {'agent-state': 'started'}
@@ -375,23 +371,22 @@ class TestUnleashOnce(TestCase):
                 }
             })
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                ('juju', '--show-log', 'action', 'do', '-e', 'foo',
-                 'chaos-monkey/0', 'start', 'mode=single',
+                ('status',): status,
+                ('action do', 'chaos-monkey/0', 'start', 'mode=single',
                  'enablement-timeout=120'
                  ): 'Action fail',
                 }
             return output[args]
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo/juju')
         monkey_runner = MonkeyRunner('foo', client, service='jenkins')
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True):
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True):
             with self.assertRaisesRegexp(
                     Exception, 'Unexpected output from "juju action do":'):
                 monkey_runner.unleash_once()
 
 
-class TestIsHealthy(TestCase):
+class TestIsHealthy(unittest.TestCase):
 
     def test_is_healthy(self):
         SCRIPT = """#!/bin/bash\necho -n 'PASS'\nexit 0"""
@@ -442,7 +437,7 @@ class TestIsHealthy(TestCase):
             r'The health check failed to execute with: \[Errno 13\].*')
 
 
-class TestWaitForChaos(TestCase):
+class TestWaitForChaos(FakeHomeTestCase):
 
     def test_wait_for_chaos_complete(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {}), None, '/foo')
