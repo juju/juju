@@ -127,19 +127,8 @@ type imagesMetadataDoc struct {
 	DateCreated int64 `bson:"date_created"`
 
 	// Source describes where this image is coming from: is it public? custom?
-	Source SourceType `bson:"source"`
+	Source string `bson:"source"`
 }
-
-// SourceType values define source type.
-type SourceType string
-
-const (
-	// Public type identifies image as public.
-	Public SourceType = "public"
-
-	// Custom type identifies image as custom.
-	Custom SourceType = "custom"
-)
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	r := Metadata{
@@ -193,7 +182,7 @@ func buildKey(m Metadata) string {
 
 // FindMetadata implements Storage.FindMetadata.
 // Results are sorted by date created and grouped by source.
-func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metadata, error) {
+func (s *storage) FindMetadata(criteria MetadataFilter) (map[string][]Metadata, error) {
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
@@ -206,7 +195,7 @@ func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metada
 		return nil, errors.NotFoundf("matching cloud image metadata")
 	}
 
-	metadata := make(map[SourceType][]Metadata)
+	metadata := make(map[string][]Metadata)
 	for _, doc := range docs {
 		one := doc.metadata()
 		metadata[one.Source] = append(metadata[one.Source], one)

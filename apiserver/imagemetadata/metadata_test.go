@@ -26,9 +26,9 @@ func (s *metadataSuite) TestFindNil(c *gc.C) {
 }
 
 func (s *metadataSuite) TestFindEmpty(c *gc.C) {
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		s.calls = append(s.calls, findMetadata)
-		return map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{}, nil
+		return map[string][]cloudimagemetadata.Metadata{}, nil
 	}
 
 	found, err := s.api.List(params.ImageMetadataFilter{})
@@ -38,11 +38,11 @@ func (s *metadataSuite) TestFindEmpty(c *gc.C) {
 }
 
 func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		s.calls = append(s.calls, findMetadata)
-		return map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
-			cloudimagemetadata.Public: []cloudimagemetadata.Metadata{},
-			cloudimagemetadata.Custom: []cloudimagemetadata.Metadata{},
+		return map[string][]cloudimagemetadata.Metadata{
+			"public": []cloudimagemetadata.Metadata{},
+			"custom": []cloudimagemetadata.Metadata{},
 		}, nil
 	}
 
@@ -54,7 +54,7 @@ func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 
 func (s *metadataSuite) TestFindError(c *gc.C) {
 	msg := "find error"
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		s.calls = append(s.calls, findMetadata)
 		return nil, errors.New(msg)
 	}
@@ -71,13 +71,13 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	customImageId3 := "custom3"
 	publicImageId := "public1"
 
-	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata, error) {
+	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		s.calls = append(s.calls, findMetadata)
-		return map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
-				cloudimagemetadata.Public: []cloudimagemetadata.Metadata{
+		return map[string][]cloudimagemetadata.Metadata{
+				"public": []cloudimagemetadata.Metadata{
 					cloudimagemetadata.Metadata{ImageId: publicImageId},
 				},
-				cloudimagemetadata.Custom: []cloudimagemetadata.Metadata{
+				"custom": []cloudimagemetadata.Metadata{
 					cloudimagemetadata.Metadata{ImageId: customImageId},
 					cloudimagemetadata.Metadata{ImageId: customImageId2},
 					cloudimagemetadata.Metadata{ImageId: customImageId3},
