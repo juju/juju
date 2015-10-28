@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"fmt"
 	"os"
 
 	jc "github.com/juju/testing/checkers"
@@ -89,6 +90,7 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 			Name: "juju-remote",
 			Host: "10.0.0.1",
 			Cert: &lxdclient.Cert{
+				Name:    fmt.Sprintf("juju cert for env %q", s.config.Name()),
 				CertPEM: []byte("<a valid x.509 cert>"),
 				KeyPEM:  []byte("<a valid x.509 key>"),
 			},
