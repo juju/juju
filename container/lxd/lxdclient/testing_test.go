@@ -4,35 +4,37 @@
 package lxdclient
 
 import (
+	"crypto/x509"
 	"os"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 
-	Stub   *gitjujutesting.Stub
+	Stub   *testing.Stub
 	Client *stubClient
+	Cert   *Certificate
 }
 
-var _ = gc.Suite(&BaseSuite{})
-
 func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
-	s.Stub = &gitjujutesting.Stub{}
+	s.Stub = &testing.Stub{}
 	s.Client = &stubClient{stub: s.Stub}
+	s.Cert = &Certificate{
+		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
+		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
+	}
 }
 
 type stubClient struct {
-	stub *gitjujutesting.Stub
+	stub *testing.Stub
 
 	Instance   *shared.ContainerState
 	Instances  []shared.ContainerInfo
@@ -42,6 +44,24 @@ type stubClient struct {
 
 func (s *stubClient) WaitForSuccess(waitURL string) error {
 	s.stub.AddCall("WaitForSuccess", waitURL)
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *stubClient) SetServerConfig(key string, value string) (*lxd.Response, error) {
+	s.stub.AddCall("SetServerConfig", key, value)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.Response, nil
+}
+
+func (s *stubClient) CertificateAdd(cert *x509.Certificate, name string) error {
+	s.stub.AddCall("CertificateAdd", cert, name)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -110,13 +130,4 @@ func (s *stubClient) SetContainerConfig(name, key, value string) error {
 	}
 
 	return nil
-}
-
-func (s *stubClient) ContainerDeviceAdd(name, devname, devtype string, props []string) (*lxd.Response, error) {
-	s.stub.AddCall("ContainerDeviceAdd", name, devname, devtype, props)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Response, nil
 }

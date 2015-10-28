@@ -4,10 +4,14 @@
 package lxd
 
 import (
+	"crypto/tls"
+	"encoding/pem"
+
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	lxdlib "github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -64,10 +68,12 @@ const (
 // These are stub config values for use in tests.
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":      "lxd",
-		"namespace": "",
-		"remote":    "",
-		"uuid":      "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"type":        "lxd",
+		"namespace":   "",
+		"remote-url":  "",
+		"client-cert": "",
+		"client-key":  "",
+		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 	})
 )
 
@@ -100,6 +106,8 @@ type BaseSuiteUnpatched struct {
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	s.PatchValue(&lxdlib.ConfigDir, c.MkDir())
 
 	s.initEnv(c)
 	s.initInst(c)
@@ -194,6 +202,7 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 }
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
+	//return NewCustomBaseConfig(c, updates)
 	if updates == nil {
 		updates = make(testing.Attrs)
 	}
@@ -248,6 +257,9 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
+	// Do this *before* s.initEnv() gets called.
+	s.PatchValue(&asNonLocal, s.asNonLocal)
+
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
@@ -263,6 +275,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		policyProvider: s.Policy,
 	}
 	s.Env.base = s.Common
+
 	//s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
 	//	return s.StubConn, nil
 	//})
@@ -280,6 +293,130 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 	s.Stub.CheckCalls(c, nil)
+}
+
+func (s *BaseSuite) asNonLocal(clientCfg lxdclient.Config) (lxdclient.Config, error) {
+	if s.Stub == nil {
+		return clientCfg, nil
+	}
+	s.Stub.AddCall("asNonLocal", clientCfg)
+	if err := s.Stub.NextErr(); err != nil {
+		return clientCfg, errors.Trace(err)
+	}
+
+	return clientCfg, nil
+}
+
+func NewBaseConfig(c *gc.C) *config.Config {
+	var err error
+	cfg := testing.EnvironConfig(c)
+
+	cfg, err = cfg.Apply(ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err = cfg.Apply(map[string]interface{}{
+		// Default the namespace to the env name.
+		cfgNamespace: cfg.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return cfg
+}
+
+func NewCustomBaseConfig(c *gc.C, updates map[string]interface{}) *config.Config {
+	if updates == nil {
+		updates = make(testing.Attrs)
+	}
+
+	cfg := NewBaseConfig(c)
+
+	cfg, err := cfg.Apply(updates)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return cfg
+}
+
+type ConfigValues struct {
+	Namespace  string
+	RemoteURL  string
+	ClientCert string
+	ClientKey  string
+}
+
+func (cv ConfigValues) CheckCert(c *gc.C) {
+	certPEM := []byte(cv.ClientCert)
+	keyPEM := []byte(cv.ClientKey)
+
+	_, err := tls.X509KeyPair(certPEM, keyPEM)
+	c.Check(err, jc.ErrorIsNil)
+
+	block, remainder := pem.Decode(certPEM)
+	c.Check(block.Type, gc.Equals, "CERTIFICATE")
+	c.Check(remainder, gc.HasLen, 0)
+
+	block, remainder = pem.Decode(keyPEM)
+	c.Check(block.Type, gc.Equals, "RSA PRIVATE KEY")
+	c.Check(remainder, gc.HasLen, 0)
+}
+
+type Config struct {
+	*environConfig
+}
+
+func NewConfig(cfg *config.Config) *Config {
+	ecfg := newConfig(cfg)
+	return &Config{ecfg}
+}
+
+func NewValidConfig(cfg *config.Config) (*Config, error) {
+	ecfg, err := newValidConfig(cfg, nil)
+	return &Config{ecfg}, err
+}
+
+func NewValidDefaultConfig(cfg *config.Config) (*Config, error) {
+	ecfg, err := newValidConfig(cfg, configDefaults)
+	return &Config{ecfg}, err
+}
+
+func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
+	c.Assert(ecfg.attrs, jc.DeepEquals, ecfg.UnknownAttrs())
+
+	var values ConfigValues
+	extras := make(map[string]interface{})
+	for k, v := range ecfg.attrs {
+		switch k {
+		case cfgNamespace:
+			values.Namespace = v.(string)
+		case cfgRemoteURL:
+			values.RemoteURL = v.(string)
+		case cfgClientCert:
+			values.ClientCert = v.(string)
+		case cfgClientKey:
+			values.ClientKey = v.(string)
+		default:
+			extras[k] = v
+		}
+	}
+	return values, extras
+}
+
+func (ecfg *Config) Apply(c *gc.C, updates map[string]interface{}) *Config {
+	cfg, err := ecfg.Config.Apply(updates)
+	c.Assert(err, jc.ErrorIsNil)
+	return NewConfig(cfg)
+}
+
+func (ecfg *Config) Validate() error {
+	return ecfg.validate()
+}
+
+func (ecfg *Config) ClientConfig() (lxdclient.Config, error) {
+	return ecfg.clientConfig()
+}
+
+func (ecfg *Config) UpdateForClientConfig(clientCfg lxdclient.Config) (*Config, error) {
+	updated, err := ecfg.updateForClientConfig(clientCfg)
+	return &Config{updated}, err
 }
 
 type stubCommon struct {

@@ -33,7 +33,6 @@ type rawClientWrapper interface {
 	ContainerStatus(name string) (*shared.ContainerState, error)
 	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
 	SetContainerConfig(container, key, value string) error
-	ContainerDeviceAdd(container, devname, devtype string, props []string) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error)
 	Delete(name string) (*lxd.Response, error)
@@ -63,11 +62,14 @@ type rawServerMethods interface {
 
 	// auth
 	UserAuthServerCert(name string, acceptCert bool) error
-	CertificateList() ([]shared.CertInfo, error)
+	AmTrusted() bool
+}
+
+type rawCertMethods interface {
 	AddMyCertToServer(pwd string) error
+	CertificateList() ([]shared.CertInfo, error)
 	CertificateAdd(cert *x509.Certificate, name string) error
 	CertificateRemove(fingerprint string) error
-	AmTrusted() bool
 }
 
 type rawImageMethods interface {
