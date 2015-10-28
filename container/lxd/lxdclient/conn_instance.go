@@ -56,12 +56,14 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Only do this if it's a state server...
-	if err := client.exposeHostAPI(spec); err != nil {
-		if err := client.removeInstance(spec.Name); err != nil {
-			logger.Errorf("could not remove container %q after exposing the API sock failed", spec.Name)
+	if client.remote == Local.ID() {
+		// TODO(ericsnow) Only do this if it's a state server...
+		if err := client.exposeHostAPI(spec); err != nil {
+			if err := client.removeInstance(spec.Name); err != nil {
+				logger.Errorf("could not remove container %q after exposing the API sock failed", spec.Name)
+			}
+			return errors.Trace(err)
 		}
-		return errors.Trace(err)
 	}
 
 	return nil
