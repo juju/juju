@@ -54,6 +54,7 @@ func NewCert(certPEM, keyPEM []byte) *Cert {
 // where needed.
 func (cert Cert) SetDefaults() (*Cert, error) {
 	if cert.Name == "" {
+		// TODO(ericsnow) Use x509.Certificate.Subject for the default?
 		cert.Name = certDefaultName
 	}
 
