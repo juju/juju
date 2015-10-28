@@ -19,7 +19,7 @@ Add image metadata to Juju environment.
 Image metadata properties vary between providers. Consequently, some properties
 are optional for this command but they may still be needed by your provider.
 
-This coomand takes only one positional argument - an image id. 
+This command takes only one positional argument - an image id. 
 
 arguments:
 image-id
