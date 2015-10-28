@@ -20,12 +20,16 @@ import (
 )
 
 type configSuite struct {
+	lxd.BaseSuite
+
 	config *config.Config
 }
 
 var _ = gc.Suite(&configSuite{})
 
 func (s *configSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
 	cfg, err := testing.EnvironConfig(c).Apply(lxd.ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
