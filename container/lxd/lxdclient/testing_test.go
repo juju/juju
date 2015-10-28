@@ -30,6 +30,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Stub = &testing.Stub{}
 	s.Client = &stubClient{stub: s.Stub}
 	s.Cert = &Cert{
+		Name:    "a-cert",
 		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
 		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
 	}
