@@ -105,7 +105,7 @@ func (s *addImageSuite) TestAddImageMetadataNoImageId(c *gc.C) {
 	m := constructTestImageMetadata()
 	m.ImageId = ""
 
-	s.assertAddImageMetadataErr(c, m, "image id must be supplied when adding an image metadata")
+	s.assertAddImageMetadataErr(c, m, "image id must be supplied when adding image metadata")
 }
 
 func (s *addImageSuite) TestAddImageMetadataNoSeries(c *gc.C) {
