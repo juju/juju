@@ -27,6 +27,7 @@ type clientServerMethods struct {
 	raw rawServerMethods
 }
 
+// SetConfig sets the given value in the server's config.
 func (c clientServerMethods) SetConfig(key, value string) error {
 	resp, err := c.raw.SetServerConfig(key, value)
 	if err != nil {
