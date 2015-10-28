@@ -53,6 +53,12 @@ func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	//TODO(wwitzel3) make sure we are also cleaning up profiles during destroy
+	if err := env.initProfile(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return env, nil
 }
 
@@ -70,6 +76,28 @@ func newEnvironRaw(ecfg *environConfig, raw *rawProvider) (*environ, error) {
 	}
 	env.base = common.DefaultProvider{Env: env}
 	return env, nil
+}
+
+var defaultProfileConfig = map[string]string{
+	"boot.autostart":   "true",
+	"security.nesting": "true",
+}
+
+func (env *environ) initProfile() error {
+	hasProfile, err := env.raw.HasProfile(env.profileName())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if hasProfile {
+		return nil
+	}
+
+	return env.raw.CreateProfile(env.profileName(), defaultProfileConfig)
+}
+
+func (env *environ) profileName() string {
+	return "juju-" + env.ecfg.Name()
 }
 
 // Name returns the name of the environment.
