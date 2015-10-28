@@ -22,6 +22,9 @@ const (
 
 	pemBlockTypeCert = "CERTIFICATE"
 	pemBlockTypeKey  = "RSA PRIVATE KEY"
+
+	// TODO(ericsnow) Is this the right default?
+	certDefaultName = configCertFile
 )
 
 // Cert holds the information for a single certificate a client
@@ -43,6 +46,18 @@ func NewCert(certPEM, keyPEM []byte) *Cert {
 		CertPEM: certPEM,
 		KeyPEM:  keyPEM,
 	}
+}
+
+// SetDefaults updates a copy of the remote with default values
+// where needed.
+func (cert Cert) SetDefaults() (*Cert, error) {
+	if cert.Name == "" {
+		cert.Name = certDefaultName
+	}
+
+	// TODO(ericsnow) populate cert/key (use genCertAndKey)?
+
+	return &cert, nil
 }
 
 // Validate ensures that the cert is valid.
