@@ -6,7 +6,6 @@ package lxdclient
 import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
 )
 
 // Client is a high-level wrapper around the LXD API client.
@@ -76,9 +75,7 @@ func prepareRemote(cfg Config, newCert Cert) error {
 		return errors.Trace(err)
 	}
 
-	name, _ := shared.SplitExt(cfg.Filename) // TODO(ericsnow) Is this right?
-	name = "juju-" + name
-	if err := client.AddCert(newCert, name); err != nil {
+	if err := client.AddCert(newCert); err != nil {
 		return errors.Trace(err)
 	}
 
