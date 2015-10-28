@@ -12,6 +12,7 @@ import (
 type Client struct {
 	raw       rawClientWrapper
 	namespace string
+	remote    string
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -20,8 +21,9 @@ func Connect(cfg Config) (*Client, error) {
 	if err := cfg.Apply(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	remote := cfg.Remote.ID()
 
-	raw, err := newRawClient(cfg.Remote)
+	raw, err := newRawClient(remote)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -29,17 +31,21 @@ func Connect(cfg Config) (*Client, error) {
 	conn := &Client{
 		raw:       raw,
 		namespace: cfg.Namespace,
+		remote:    remote,
 	}
 	return conn, nil
 }
 
-func newRawClient(remote Remote) (*lxd.Client, error) {
+func newRawClient(remote string) (*lxd.Client, error) {
+	logger.Debugf("loading LXD client config from %q", lxd.ConfigDir)
+
 	cfg, err := lxd.LoadConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	client, err := lxd.NewClient(cfg, remote.ID())
+	logger.Debugf("using LXD remote %q", remote)
+	client, err := lxd.NewClient(cfg, remote)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
