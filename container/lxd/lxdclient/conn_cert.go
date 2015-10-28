@@ -21,13 +21,13 @@ type certClient struct {
 }
 
 // AddCert adds the given certificate to the server.
-func (c certClient) AddCert(cert Cert, name string) error {
+func (c certClient) AddCert(cert Cert) error {
 	x509Cert, err := cert.X509()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.raw.CertificateAdd(x509Cert, name); err != nil {
+	if err := c.raw.CertificateAdd(x509Cert, cert.Name); err != nil {
 		return errors.Trace(err)
 	}
 
