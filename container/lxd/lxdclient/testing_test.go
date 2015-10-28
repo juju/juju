@@ -133,12 +133,3 @@ func (s *stubClient) SetContainerConfig(name, key, value string) error {
 
 	return nil
 }
-
-func (s *stubClient) ContainerDeviceAdd(name, devname, devtype string, props []string) (*lxd.Response, error) {
-	s.stub.AddCall("ContainerDeviceAdd", name, devname, devtype, props)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Response, nil
-}
