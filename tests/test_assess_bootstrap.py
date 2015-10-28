@@ -43,9 +43,12 @@ class TestAssessBootstrap(FakeHomeTestCase):
     def assess_boostrap_cxt(self):
         call_cxt = patch('subprocess.call')
         cc_cxt = patch('subprocess.check_call')
-        co_cxt = patch('subprocess.check_output', return_value='1.25.5')
+        gv_cxt = patch('jujupy.EnvJujuClient.get_version',
+                       side_effect=lambda cls: '1.25.5')
+        gjo_cxt = patch('jujupy.EnvJujuClient.get_juju_output', autospec=True,
+                        return_value='')
         env_cxt = temp_env({'environments': {'bar': {'type': 'foo'}}})
-        with call_cxt, cc_cxt, co_cxt, env_cxt:
+        with call_cxt, cc_cxt, gv_cxt, gjo_cxt, env_cxt:
             yield
 
     def test_assess_bootstrap_defaults(self):
