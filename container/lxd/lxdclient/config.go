@@ -197,7 +197,6 @@ func (cfg Config) writeConfigFile() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	dirty := false
 
 	if cfg.Remote.ID() != Local.ID() {
 		// Ensure the remote is set correctly.
@@ -207,14 +206,11 @@ func (cfg Config) writeConfigFile() error {
 		if err := addServer(config, remote, addr); err != nil {
 			return errors.Trace(err)
 		}
-		dirty = true
 	}
 
-	if dirty {
-		// Write out the updated config.
-		if err := lxd.SaveConfig(config); err != nil {
-			return errors.Trace(err)
-		}
+	// Write out the updated config.
+	if err := lxd.SaveConfig(config); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
