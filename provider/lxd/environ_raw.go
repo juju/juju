@@ -64,6 +64,7 @@ func newClient(ecfg *environConfig) (*lxdclient.Client, error) {
 
 	client, err := lxdclient.Connect(clientCfg)
 	if err != nil {
+
 		return nil, errors.Trace(err)
 	}
 
