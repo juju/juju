@@ -39,7 +39,7 @@ func NewUnitFacade(st UnitWorkloads) *UnitFacade {
 }
 
 // Track stores a workload to be tracked in state.
-func (a UnitFacade) Track(args internal.TrackArgs) (internal.WorkloadResults, error) {
+func (uf UnitFacade) Track(args internal.TrackArgs) (internal.WorkloadResults, error) {
 	logger.Debugf("tracking %d workloads from API", len(args.Workloads))
 
 	var r internal.WorkloadResults
@@ -47,18 +47,18 @@ func (a UnitFacade) Track(args internal.TrackArgs) (internal.WorkloadResults, er
 		info := internal.API2Workload(apiWorkload)
 		logger.Debugf("tracking workload from API: %#v", info)
 
-		id, err := a.track(info)
+		id, err := uf.track(info)
 		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
 }
 
-func (a UnitFacade) track(info workload.Info) (string, error) {
-	if err := a.State.Track(info); err != nil {
+func (uf UnitFacade) track(info workload.Info) (string, error) {
+	if err := uf.State.Track(info); err != nil {
 		return "", errors.Trace(err)
 	}
-	id, err := a.State.LookUp(info.Name, info.Details.ID)
+	id, err := uf.State.LookUp(info.Name, info.Details.ID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -68,9 +68,9 @@ func (a UnitFacade) track(info workload.Info) (string, error) {
 // List builds the list of workload being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // workloads for the unit are returned.
-func (a UnitFacade) List(args params.Entities) (internal.WorkloadResults, error) {
+func (uf UnitFacade) List(args params.Entities) (internal.WorkloadResults, error) {
 	if len(args.Entities) == 0 {
-		return a.listAll()
+		return uf.listAll()
 	}
 
 	var ids []string
@@ -82,7 +82,7 @@ func (a UnitFacade) List(args params.Entities) (internal.WorkloadResults, error)
 		ids = append(ids, id)
 	}
 
-	results, err := a.State.List(ids...)
+	results, err := uf.State.List(ids...)
 	if err != nil {
 		return internal.WorkloadResults{}, errors.Trace(err)
 	}
@@ -95,17 +95,17 @@ func (a UnitFacade) List(args params.Entities) (internal.WorkloadResults, error)
 	return r, nil
 }
 
-func (a UnitFacade) listAll() (internal.WorkloadResults, error) {
+func (uf UnitFacade) listAll() (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 
-	results, err := a.State.List()
+	results, err := uf.State.List()
 	if err != nil {
 		return r, errors.Trace(err)
 	}
 
 	for _, result := range results {
 		wl := *result.Workload
-		id, err := a.State.LookUp(wl.Name, wl.Details.ID)
+		id, err := uf.State.LookUp(wl.Name, wl.Details.ID)
 		if err != nil {
 			logger.Errorf("failed to look up ID for %q: %v", wl.ID(), err)
 			id = ""
@@ -120,10 +120,10 @@ func (a UnitFacade) listAll() (internal.WorkloadResults, error) {
 }
 
 // LookUp identifies the workload with the provided name and raw ID.
-func (a UnitFacade) LookUp(args internal.LookUpArgs) (internal.WorkloadResults, error) {
+func (uf UnitFacade) LookUp(args internal.LookUpArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
-		id, err := a.State.LookUp(arg.Name, arg.ID)
+		id, err := uf.State.LookUp(arg.Name, arg.ID)
 		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
@@ -131,7 +131,7 @@ func (a UnitFacade) LookUp(args internal.LookUpArgs) (internal.WorkloadResults, 
 }
 
 // SetStatus sets the raw status of a workload.
-func (a UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
+func (uf UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, arg := range args.Args {
 		id, err := internal.API2ID(arg.Tag)
@@ -139,7 +139,7 @@ func (a UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.WorkloadRes
 			return r, errors.Trace(err)
 		}
 
-		err = a.State.SetStatus(id, arg.Status)
+		err = uf.State.SetStatus(id, arg.Status)
 		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
@@ -147,7 +147,7 @@ func (a UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.WorkloadRes
 }
 
 // Untrack marks the identified workload as no longer being tracked.
-func (a UnitFacade) Untrack(args params.Entities) (internal.WorkloadResults, error) {
+func (uf UnitFacade) Untrack(args params.Entities) (internal.WorkloadResults, error) {
 	var r internal.WorkloadResults
 	for _, entity := range args.Entities {
 		id, err := internal.API2ID(entity.Tag)
@@ -155,7 +155,7 @@ func (a UnitFacade) Untrack(args params.Entities) (internal.WorkloadResults, err
 			return r, errors.Trace(err)
 		}
 
-		err = a.State.Untrack(id)
+		err = uf.State.Untrack(id)
 		res := internal.NewWorkloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}

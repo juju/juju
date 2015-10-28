@@ -55,18 +55,18 @@ func newID(workload.Info) (string, error) {
 
 // Track inserts the provided workload info in state. The new Juju ID
 // for the workload is returned.
-func (ps UnitWorkloads) Track(info workload.Info) error {
+func (uw UnitWorkloads) Track(info workload.Info) error {
 	logger.Tracef("tracking %#v", info)
 	if err := info.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad workload info")
 	}
 
-	id, err := ps.NewID(info)
+	id, err := uw.NewID(info)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	ok, err := ps.Persist.Track(id, info)
+	ok, err := uw.Persist.Track(id, info)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -79,14 +79,14 @@ func (ps UnitWorkloads) Track(info workload.Info) error {
 
 // SetStatus updates the raw status for the identified workload to the
 // provided value.
-func (ps UnitWorkloads) SetStatus(id, status string) error {
+func (uw UnitWorkloads) SetStatus(id, status string) error {
 	logger.Tracef("setting payload status for %q to %q", id, status)
 
 	if err := workload.ValidateState(status); err != nil {
 		return errors.Trace(err)
 	}
 
-	found, err := ps.Persist.SetStatus(id, status)
+	found, err := uw.Persist.SetStatus(id, status)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -100,13 +100,13 @@ func (ps UnitWorkloads) SetStatus(id, status string) error {
 // IDs. If none are provided then the list contains the info for all
 // workloads associated with the unit. Missing workloads
 // are ignored.
-func (ps UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
+func (uw UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 	logger.Tracef("listing %v", ids)
 	var err error
 	var workloads []workload.Info
 	missingIDs := make(map[string]bool)
 	if len(ids) == 0 {
-		workloads, err = ps.Persist.ListAll()
+		workloads, err = uw.Persist.ListAll()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -115,7 +115,7 @@ func (ps UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 		}
 	} else {
 		var missing []string
-		workloads, missing, err = ps.Persist.List(ids...)
+		workloads, missing, err = uw.Persist.List(ids...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -138,7 +138,7 @@ func (ps UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 			i += 1
 			if id == "" {
 				// TODO(ericsnow) Do this more efficiently.
-				id, err := ps.LookUp(wl.Name, wl.Details.ID)
+				id, err := uw.LookUp(wl.Name, wl.Details.ID)
 				if err != nil {
 					result.Error = errors.Trace(err)
 				}
@@ -152,10 +152,10 @@ func (ps UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 }
 
 // LookUp returns the payload ID for the given name/rawID pair.
-func (ps UnitWorkloads) LookUp(name, rawID string) (string, error) {
+func (uw UnitWorkloads) LookUp(name, rawID string) (string, error) {
 	logger.Tracef("looking up payload id for %s/%s", name, rawID)
 
-	id, err := ps.Persist.LookUp(name, rawID)
+	id, err := uw.Persist.LookUp(name, rawID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -164,10 +164,10 @@ func (ps UnitWorkloads) LookUp(name, rawID string) (string, error) {
 
 // Untrack removes the identified workload from state. It does not
 // trigger the actual destruction of the workload.
-func (ps UnitWorkloads) Untrack(id string) error {
+func (uw UnitWorkloads) Untrack(id string) error {
 	logger.Tracef("untracking %q", id)
 	// If the record wasn't found then we're already done.
-	_, err := ps.Persist.Untrack(id)
+	_, err := uw.Persist.Untrack(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
