@@ -27,11 +27,12 @@ type clientServerMethods struct {
 	raw rawServerMethods
 }
 
-func (c clientServerMethods) setUpRemote(cert *x509.Certificate, name string) error {
-	resp, err := c.raw.SetServerConfig("core.https_address", "[::]")
+func (c clientServerMethods) SetConfig(key, value string) error {
+	resp, err := c.raw.SetServerConfig(key, value)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if resp.Operation != "" {
 		if err := c.raw.WaitForSuccess(resp.Operation); err != nil {
 			// TODO(ericsnow) Handle different failures (from the async
@@ -40,7 +41,17 @@ func (c clientServerMethods) setUpRemote(cert *x509.Certificate, name string) er
 		}
 	}
 
-	if err := c.raw.CertificateAdd(cert, name); err != nil {
+	return nil
+}
+
+// AddCert adds the given certificate to the server.
+func (c clientServerMethods) AddCert(cert Certificate, name string) error {
+	x509Cert, err := cert.X509()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := c.raw.CertificateAdd(x509Cert, name); err != nil {
 		return errors.Trace(err)
 	}
 
