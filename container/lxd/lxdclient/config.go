@@ -18,8 +18,8 @@ const (
 	// see https://github.com/lxc/lxd/blob/master/config.go
 	configDefaultFile = "config.yml"
 	// see https://github.com/lxc/lxd/blob/master/client.go (readMyCert)
-	configCertfile = "client.crt"
-	configKeyfile  = "client.key"
+	configCertFile = "client.crt"
+	configKeyFile  = "client.key"
 )
 
 // Config contains the config values used for a connection to the LXD API.
@@ -219,7 +219,7 @@ func (cfg Config) writeConfigFile() error {
 }
 
 func (cfg Config) writeCertPEM(cert Certificate) error {
-	filename := cfg.resolve(configCertfile)
+	filename := cfg.resolve(configCertFile)
 	logger.Debugf("writing cert PEM file %q", filename)
 
 	file, err := os.Create(filename)
@@ -235,7 +235,7 @@ func (cfg Config) writeCertPEM(cert Certificate) error {
 }
 
 func (cfg Config) writeKeyPEM(cert Certificate) error {
-	filename := cfg.resolve(configKeyfile)
+	filename := cfg.resolve(configKeyFile)
 	logger.Debugf("writing key PEM file %q", filename)
 
 	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)

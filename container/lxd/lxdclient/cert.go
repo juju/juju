@@ -16,11 +16,6 @@ import (
 const (
 	tempPrefix = "juju-lxd-"
 
-	// See readMyCert() in:
-	//  https://github.com/lxc/lxd/blob/master/client.go
-	authCertFile = "client.crt"
-	authKeyFile  = "client.key"
-
 	pemBlockTypeCert = "CERTIFICATE"
 	pemBlockTypeKey  = "RSA PRIVATE KEY"
 )
@@ -63,8 +58,8 @@ func genCertAndKey() ([]byte, []byte, error) {
 		return nil, nil, errors.Trace(err)
 	}
 	defer os.RemoveAll(tempdir)
-	certFile := filepath.Join(tempdir, authCertFile)
-	keyFile := filepath.Join(tempdir, authKeyFile)
+	certFile := filepath.Join(tempdir, configCertFile)
+	keyFile := filepath.Join(tempdir, configKeyFile)
 	if err := shared.GenCert(certFile, keyFile); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
