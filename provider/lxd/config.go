@@ -6,6 +6,8 @@
 package lxd
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -264,6 +266,7 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 		certPEM := []byte(c.clientCert())
 		keyPEM := []byte(c.clientKey())
 		remote.Cert = lxdclient.NewCert(certPEM, keyPEM)
+		remote.Cert.Name = fmt.Sprintf("juju cert for env %q", c.Name())
 	}
 
 	cfg := lxdclient.Config{
