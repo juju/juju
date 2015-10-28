@@ -13,12 +13,16 @@ import (
 	"github.com/lxc/lxd/shared"
 )
 
+// TODO(ericsnow) This file should be removed as soon as possible.
+// It is copied from https://github.com/lxc/lxd/blob/master/lxc/remote.go
+// and the code there should instead be exported so we could use it here.
+
 // TODO(ericsnow) Address licensing.
 
 // addServer adds the given remote info to the provided config.
-// The implementation is copied from:
+// The implementation is derived from:
 //  https://github.com/lxc/lxd/blob/master/lxc/remote.go
-// TODO(ericsnow) Remove this once the lxd code exports it.
+// Note that some validation code was removed (we don't need it).
 func addServer(config *lxd.Config, server string, addr string) error {
 	addr, err := fixAddr(addr)
 	if err != nil {
@@ -35,6 +39,8 @@ func addServer(config *lxd.Config, server string, addr string) error {
 	return nil
 }
 
+// fixAddr is the portion of the original addServer function that fixes
+// up the provided addr to be a fully qualified URL.
 func fixAddr(addr string) (string, error) {
 	var r_scheme string
 	var r_host string
