@@ -21,6 +21,8 @@ type rawClientServerMethods interface {
 	CertificateRemove(fingerprint string) error
 }
 
+// clientServerMethods implements the Client methods related
+// to server operations.
 type clientServerMethods struct {
 	raw rawServerMethods
 }
