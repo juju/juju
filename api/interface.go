@@ -132,11 +132,11 @@ type Connection interface {
 	// This should not be used outside the api/* packages or tests.
 	base.APICaller
 
-	// ServerTag returns the environment tag of the state server
+	// ControllerTag returns the environment tag of the controller
 	// (as opposed to the environment tag of the currently connected
-	// environment inside that state server).
+	// environment inside that controller).
 	// This could be defined on base.APICaller.
-	ServerTag() (names.EnvironTag, error)
+	ControllerTag() (names.EnvironTag, error)
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.

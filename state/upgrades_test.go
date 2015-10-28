@@ -1367,7 +1367,7 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 	// Make sure it is there now
 	env, err = s.state.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.ControllerTag().Id(), gc.Equals, env.UUID())
 	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
 }
 
@@ -1381,7 +1381,7 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironmentIdempotent(c *gc.
 	// Check as expected
 	env, err := s.state.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.ControllerTag().Id(), gc.Equals, env.UUID())
 	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
 }
 

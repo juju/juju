@@ -88,11 +88,11 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	envTag, err = apistate.EnvironTag()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(envTag, gc.Equals, env.EnvironTag())
-	// The server tag is also set, and since the environment is the
-	// state server environment, the uuid is the same.
-	srvTag, err := apistate.ServerTag()
+	// The controller tag is also set, and since the environment is the
+	// controller environment, the uuid is the same.
+	controllerTag, err := apistate.ControllerTag()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(srvTag, gc.Equals, env.EnvironTag())
+	c.Check(controllerTag, gc.Equals, env.EnvironTag())
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {

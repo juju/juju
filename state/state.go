@@ -59,12 +59,12 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	environTag names.EnvironTag
-	serverTag  names.EnvironTag
-	mongoInfo  *mongo.MongoInfo
-	session    *mgo.Session
-	database   Database
-	policy     Policy
+	environTag    names.EnvironTag
+	controllerTag names.EnvironTag
+	mongoInfo     *mongo.MongoInfo
+	session       *mgo.Session
+	database      Database
+	policy        Policy
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
@@ -99,7 +99,7 @@ type StateServingInfo struct {
 // IsStateServer returns true if this state instance has the bootstrap
 // environment UUID.
 func (st *State) IsStateServer() bool {
-	return st.environTag == st.serverTag
+	return st.environTag == st.controllerTag
 }
 
 // RemoveAllEnvironDocs removes all documents from multi-environment
@@ -162,16 +162,16 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newState.start(st.serverTag); err != nil {
+	if err := newState.start(st.controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newState, nil
 }
 
 // start starts the presence watcher, leadership manager and images metadata storage,
-// and fills in the serverTag field with the supplied value.
-func (st *State) start(serverTag names.EnvironTag) error {
-	st.serverTag = serverTag
+// and fills in the controllerTag field with the supplied value.
+func (st *State) start(controllerTag names.EnvironTag) error {
+	st.controllerTag = controllerTag
 
 	var clientId string
 	if identity := st.mongoInfo.Tag; identity != nil {
