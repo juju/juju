@@ -13,7 +13,8 @@ import (
 
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
-	*clientServerMethods
+	*serverConfigClient
+	*certClient
 
 	raw       rawClientWrapper
 	namespace string
@@ -36,7 +37,8 @@ func Connect(cfg Config) (*Client, error) {
 	}
 
 	conn := &Client{
-		clientServerMethods: &clientServerMethods{raw},
+		serverConfigClient: &serverConfigClient{raw},
+		certClient:         &certClient{raw},
 
 		raw:       raw,
 		namespace: cfg.Namespace,
