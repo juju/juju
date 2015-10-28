@@ -280,8 +280,11 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 
 func asNonLocal(cfg lxdclient.Config) (lxdclient.Config, error) {
 	// TODO(ericsnow) If local then set up cert and reset clientCfg.
-	//return errors.Errorf("not finished!")
-	return cfg, nil
+	nonlocal, err := cfg.AsNonLocal()
+	if err != nil {
+		return nonlocal, errors.Trace(err)
+	}
+	return nonlocal, nil
 }
 
 func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*environConfig, error) {
