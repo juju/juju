@@ -112,6 +112,9 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		//Disks:             getDisks(spec, args.Constraints),
 		//NetworkInterfaces: []string{"ExternalNAT"},
 		Metadata: metadata,
+		Profiles: []string{
+			env.profileName(),
+		},
 		//Tags:              tags,
 		// Network is omitted (left empty).
 	}
