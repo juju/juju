@@ -60,7 +60,7 @@ func (c clientServerMethods) ListCerts() ([]string, error) {
 }
 
 // RemoveCert removes the cert from the server.
-func (c clientServerMethods) RemoveCert(cert *Certificate) error {
+func (c clientServerMethods) RemoveCert(cert *Cert) error {
 	fingerprint, err := cert.Fingerprint()
 	if err != nil {
 		return errors.Trace(err)
