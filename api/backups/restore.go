@@ -62,7 +62,7 @@ func prepareRestore(newClient ClientConnection) error {
 }
 
 // RestoreReader restores the contents of backupFile as backup.
-func (c *Client) RestoreReader(r io.Reader, meta *params.BackupsMetadataResult, newClient ClientConnection) error {
+func (c *Client) RestoreReader(r io.ReadSeeker, meta *params.BackupsMetadataResult, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
 		return errors.Trace(err)
 	}

@@ -12,7 +12,9 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -34,15 +36,15 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
+	return cmdtesting.HelpText(newDeployCommand(), "juju deploy")
 }
 
 func setHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&service.SetCommand{}), "juju service set")
+	return cmdtesting.HelpText(service.NewSetCommand(), "juju service set")
 }
 
 func syncToolsHelpText() string {
-	return cmdtesting.HelpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
+	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-tools")
 }
 
 func blockHelpText() string {
@@ -142,10 +144,14 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     syncToolsHelpText(),
 	}, {
-		summary: "check version command registered properly",
+		summary: "check version command returns a fully qualified version string",
 		args:    []string{"version"},
 		code:    0,
-		out:     version.Current.String() + "\n",
+		out: version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		}.String() + "\n",
 	}, {
 		summary: "check block command registered properly",
 		args:    []string{"block", "-h"},
@@ -322,6 +328,7 @@ var topicNames = []string{
 	"openstack-provider",
 	"placement",
 	"plugins",
+	"spaces",
 	"topics",
 	"users",
 }
@@ -402,7 +409,7 @@ func (s *MainSuite) TestEnvironCommands(c *gc.C) {
 	// EnvironCommands must be wrapped using envcmd.Wrap.
 	for _, cmd := range commands {
 		c.Logf("%v", cmd.Info().Name)
-		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&bootstrapCommand{}))
 	}
 }
 
@@ -449,19 +456,19 @@ func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
 	check := twoDotOhDeprecation("the replacement")
 
 	// first check pre-2.0
-	s.PatchValue(&version.Current.Number, version.MustParse("1.26.4"))
+	s.PatchValue(&version.Current, version.MustParse("1.26.4"))
 	deprecated, replacement := check.Deprecated()
 	c.Check(deprecated, jc.IsFalse)
 	c.Check(replacement, gc.Equals, "")
 	c.Check(check.Obsolete(), jc.IsFalse)
 
-	s.PatchValue(&version.Current.Number, version.MustParse("2.0-alpha1"))
+	s.PatchValue(&version.Current, version.MustParse("2.0-alpha1"))
 	deprecated, replacement = check.Deprecated()
 	c.Check(deprecated, jc.IsTrue)
 	c.Check(replacement, gc.Equals, "the replacement")
 	c.Check(check.Obsolete(), jc.IsFalse)
 
-	s.PatchValue(&version.Current.Number, version.MustParse("3.0-alpha1"))
+	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
 	deprecated, replacement = check.Deprecated()
 	c.Check(deprecated, jc.IsTrue)
 	c.Check(replacement, gc.Equals, "the replacement")
@@ -488,7 +495,7 @@ var obsoleteCommandNames = []string{
 
 func (s *MainSuite) TestObsoleteRegistration(c *gc.C) {
 	var commands commands
-	s.PatchValue(&version.Current.Number, version.MustParse("3.0-alpha1"))
+	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
 	registerCommands(&commands, testing.Context(c))
 
 	cmdSet := set.NewStrings(obsoleteCommandNames...)

@@ -11,7 +11,10 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
@@ -29,8 +32,34 @@ var (
 	NewLogTailer          = &newLogTailer
 )
 
+func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
+	auth, err := srv.authCtxt.macaroonAuth()
+	if err != nil {
+		return nil, err
+	}
+	return auth.(*authentication.MacaroonAuthenticator).Macaroon, nil
+}
+
+func ServerBakeryService(srv *Server) (*bakery.Service, error) {
+	auth, err := srv.authCtxt.macaroonAuth()
+	if err != nil {
+		return nil, err
+	}
+	return auth.(*authentication.MacaroonAuthenticator).Service, nil
+}
+
+// ServerAuthenticatorForTag calls the authenticatorForTag method
+// of the server's authContext.
+func ServerAuthenticatorForTag(srv *Server, tag names.Tag) (authentication.EntityAuthenticator, error) {
+	return srv.authCtxt.authenticatorForTag(tag)
+}
+
 func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
+}
+
+func ServerAuthenticator(srv *Server, tag names.Tag) authentication.EntityAuthenticator {
+	return srv.authCtxt
 }
 
 const LoginRateLimit = loginRateLimit
@@ -45,9 +74,9 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool) (state.Entity, *time.Time, error) {
+	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForEnvUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
 		<-nextChan
-		return checkCreds(st, c, lookForEnvUser)
+		return checkCreds(st, c, lookForEnvUser, authenticator)
 	}
 	doCheckCreds = delayedCheckCreds
 	return

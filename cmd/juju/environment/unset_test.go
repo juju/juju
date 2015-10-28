@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/testing"
 )
@@ -22,11 +21,11 @@ var _ = gc.Suite(&UnsetSuite{})
 
 func (s *UnsetSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := environment.NewUnsetCommand(s.fake)
-	return testing.RunCommand(c, envcmd.Wrap(command), args...)
+	return testing.RunCommand(c, command, args...)
 }
 
 func (s *UnsetSuite) TestInit(c *gc.C) {
-	unsetCmd := &environment.UnsetCommand{}
+	unsetCmd := environment.NewUnsetCommand(s.fake)
 	// Only empty is a problem.
 	err := testing.InitCommand(unsetCmd, []string{})
 	c.Assert(err, gc.ErrorMatches, "no keys specified")
@@ -51,7 +50,7 @@ func (s *UnsetSuite) TestUnsettingKnownValue(c *gc.C) {
 }
 
 func (s *UnsetSuite) TestBlockedError(c *gc.C) {
-	s.fake.err = common.ErrOperationBlocked("TestBlockedError")
+	s.fake.err = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "special")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged

@@ -3,15 +3,51 @@
 
 package storage
 
-var (
-	GetStorageShowAPI    = &getStorageShowAPI
-	GetStorageListAPI    = &getStorageListAPI
-	GetPoolListAPI       = &getPoolListAPI
-	GetPoolCreateAPI     = &getPoolCreateAPI
-	GetVolumeListAPI     = &getVolumeListAPI
-	GetFilesystemListAPI = &getFilesystemListAPI
+import (
+	"github.com/juju/cmd"
 
+	"github.com/juju/juju/cmd/envcmd"
+)
+
+var (
 	ConvertToVolumeInfo     = convertToVolumeInfo
 	ConvertToFilesystemInfo = convertToFilesystemInfo
-	GetStorageAddAPI        = &getStorageAddAPI
+
+	NewPoolSuperCommand   = newPoolSuperCommand
+	NewVolumeSuperCommand = newVolumeSuperCommand
 )
+
+func NewPoolListCommand(api PoolListAPI) cmd.Command {
+	cmd := &poolListCommand{api: api}
+	return envcmd.Wrap(cmd)
+}
+
+func NewPoolCreateCommand(api PoolCreateAPI) cmd.Command {
+	cmd := &poolCreateCommand{api: api}
+	return envcmd.Wrap(cmd)
+}
+
+func NewVolumeListCommand(api VolumeListAPI) cmd.Command {
+	cmd := &volumeListCommand{api: api}
+	return envcmd.Wrap(cmd)
+}
+
+func NewShowCommand(api StorageShowAPI) cmd.Command {
+	cmd := &showCommand{api: api}
+	return envcmd.Wrap(cmd)
+}
+
+func NewListCommand(api StorageListAPI) cmd.Command {
+	cmd := &listCommand{api: api}
+	return envcmd.Wrap(cmd)
+}
+
+func NewAddCommand(api StorageAddAPI) cmd.Command {
+	cmd := &addCommand{api: api}
+	return envcmd.Wrap(cmd)
+}
+
+func NewFilesystemListCommand(api FilesystemListAPI) cmd.Command {
+	cmd := &filesystemListCommand{api: api}
+	return envcmd.Wrap(cmd)
+}

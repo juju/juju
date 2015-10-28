@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -29,7 +28,7 @@ func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 }
 
 func runRemoveService(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveServiceCommand{}), args...)
+	_, err := testing.RunCommand(c, newRemoveServiceCommand(), args...)
 	return err
 }
 

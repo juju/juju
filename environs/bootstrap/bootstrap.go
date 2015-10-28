@@ -117,12 +117,12 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
-	agentVersion := version.Current.Number.String()
+	agentVersion := version.Current
 	if args.AgentVersion != nil {
-		agentVersion = args.AgentVersion.String()
+		agentVersion = *args.AgentVersion
 	}
 	if cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": agentVersion,
+		"agent-version": agentVersion.String(),
 	}); err != nil {
 		return err
 	}
@@ -206,12 +206,12 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	// We should only ever bootstrap the exact same version as the client,
 	// or we risk bootstrap incompatibility. We still set agent-version to
 	// the newest version, so the agent will immediately upgrade itself.
-	if !isCompatibleVersion(newVersion, version.Current.Number) {
-		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, version.Current.Number)
+	if !isCompatibleVersion(newVersion, version.Current) {
+		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, version.Current)
 		if len(compatibleTools) == 0 {
 			logger.Warningf(
 				"failed to find %s tools, will attempt to use %s",
-				version.Current.Number, newVersion,
+				version.Current, newVersion,
 			)
 		} else {
 			bootstrapVersion, toolsList = compatibleVersion, compatibleTools

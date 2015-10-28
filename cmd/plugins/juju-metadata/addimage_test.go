@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
 )
 
@@ -39,7 +38,7 @@ func (s *addImageSuite) SetUpTest(c *gc.C) {
 		s.data = append(s.data, metadata...)
 		return make([]params.ErrorResult, len(metadata)), nil
 	}
-	s.PatchValue(&getImageMetadataAddAPI, func(c *AddImageMetadataCommand) (MetadataAddAPI, error) {
+	s.PatchValue(&getImageMetadataAddAPI, func(c *addImageMetadataCommand) (MetadataAddAPI, error) {
 		return s.mockAPI, nil
 	})
 }
@@ -142,7 +141,7 @@ func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, m params.CloudImage
 }
 
 func runAddImageMetadata(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&AddImageMetadataCommand{}), args...)
+	return testing.RunCommand(c, newAddImageMetadataCommand(), args...)
 }
 
 func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMetadata, msg string) {

@@ -169,7 +169,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedTools, gc.Not(gc.HasLen), 0)
 	c.Assert(findToolsCalled, gc.Equals, 0)
-	expectedVersion := version.Current.Number
+	expectedVersion := version.Current
 	expectedVersion.Build++
 	for _, tools := range uploadedTools {
 		c.Assert(tools.Version.Number, gc.Equals, expectedVersion)
@@ -193,10 +193,14 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
-	currentVersion := version.Current
+	currentVersion := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
 	currentVersion.Major = 2
 	currentVersion.Minor = 3
-	s.PatchValue(&version.Current, currentVersion)
+	s.PatchValue(&version.Current, currentVersion.Number)
 	var findToolsCalled int
 	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
@@ -240,7 +244,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
 	var trustyToolsFound int
-	expectedVersion := version.Current.Number
+	expectedVersion := version.Current
 	expectedVersion.Build++
 	for _, tools := range availableTools {
 		if tools == trustyTools {
@@ -260,7 +264,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	var allTools tools.List
 	for _, series := range series.SupportedSeries() {
 		binary := version.Binary{
-			Number: version.Current.Number,
+			Number: version.Current,
 			Series: series,
 			Arch:   arch.HostArch(),
 		}

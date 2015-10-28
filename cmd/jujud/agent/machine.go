@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -34,8 +35,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
+	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
 	apiupgrader "github.com/juju/juju/api/upgrader"
@@ -78,7 +79,6 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
 	"github.com/juju/juju/worker/firewaller"
-	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -456,7 +456,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
-	switch err {
+	switch errors.Cause(err) {
 	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
 	case worker.ErrRebootMachine:
@@ -477,11 +477,12 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := apicaller.OpenAPIState(a)
+	st, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
 	}
+
 	// block until all units/containers are ready, and reboot/shutdown
 	finalize, err := reboot.NewRebootWaiter(st, agentCfg)
 	if err != nil {
@@ -638,9 +639,9 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
-	st, entity, err := apicaller.OpenAPIState(a)
+	st, err := apicaller.OpenAPIState(a)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	reportOpenedAPI(st)
 
@@ -658,8 +659,21 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 		}
 	}()
 
+	machine, err := st.Agent().Entity(a.Tag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	agentConfig := a.CurrentConfig()
-	for _, job := range entity.Jobs() {
+	if machine.Life() == params.Dead {
+		logger.Errorf("agent terminating - %s is dead", names.ReadableString(a.Tag()))
+		if err := writeUninstallAgentFile(agentConfig.DataDir()); err != nil {
+			return nil, errors.Annotate(err, "writing uninstall agent file")
+		}
+		return nil, worker.ErrTerminateAgent
+	}
+
+	for _, job := range machine.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
 			if err != nil {
@@ -682,11 +696,11 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 	// Run the agent upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
-	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
+	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, machine.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete before starting.
 	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
-		return a.postUpgradeAPIWorker(st, agentConfig, entity)
+		return a.postUpgradeAPIWorker(st, agentConfig, machine.Jobs())
 	})
 
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
@@ -695,11 +709,11 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 func (a *MachineAgent) postUpgradeAPIWorker(
 	st api.Connection,
 	agentConfig agent.Config,
-	entity *apiagent.Entity,
+	machineJobs []multiwatcher.MachineJob,
 ) (worker.Worker, error) {
 
 	var isEnvironManager bool
-	for _, job := range entity.Jobs() {
+	for _, job := range machineJobs {
 		if job == multiwatcher.JobManageEnviron {
 			isEnvironManager = true
 			break
@@ -728,7 +742,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	if feature.IsDbLogEnabled() {
 		runner.StartWorker("logsender", func() (worker.Worker, error) {
-			return logsender.New(a.bufferedLogs, gate.AlreadyUnlocked{}, a), nil
+			return logsender.New(a.bufferedLogs, apilogsender.NewAPI(st)), nil
 		})
 	}
 
@@ -742,7 +756,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		accessor := machiner.APIMachineAccessor{st.Machiner()}
-		return newMachiner(accessor, agentConfig, ignoreMachineAddresses), nil
+		return newMachiner(machiner.Config{
+			MachineAccessor: accessor,
+			Tag:             agentConfig.Tag().(names.MachineTag),
+			ClearMachineAddressesOnStart: ignoreMachineAddresses,
+			NotifyMachineDead: func() error {
+				return writeUninstallAgentFile(agentConfig.DataDir())
+			},
+		})
 	})
 	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
@@ -812,7 +833,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
-	for _, job := range entity.Jobs() {
+	for _, job := range machineJobs {
 		if job == multiwatcher.JobManageNetworking {
 			intrusiveMode = true
 			break
@@ -833,14 +854,14 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	// Perform the operations needed to set up hosting for containers.
-	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
+	if err := a.setupContainerSupport(runner, st, agentConfig); err != nil {
 		cause := errors.Cause(err)
 		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
 			return nil, worker.ErrTerminateAgent
 		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
-	for _, job := range entity.Jobs() {
+	for _, job := range machineJobs {
 		switch job {
 		case multiwatcher.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
@@ -916,7 +937,7 @@ var shouldWriteProxyFiles = func(conf agent.Config) bool {
 
 // setupContainerSupport determines what containers can be run on this machine and
 // initialises suitable infrastructure to support such containers.
-func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, entity *apiagent.Entity, agentConfig agent.Config) error {
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connection, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
 	// LXC containers are only supported on bare metal and fully virtualized linux systems
 	// Nested LXC containers and Windows machines cannot run LXC containers
@@ -935,7 +956,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
-	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers, agentConfig)
+	return a.updateSupportedContainers(runner, st, supportedContainers, agentConfig)
 }
 
 // updateSupportedContainers records in state that a machine can run the specified containers.
@@ -945,15 +966,11 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 func (a *MachineAgent) updateSupportedContainers(
 	runner worker.Runner,
 	st api.Connection,
-	machineTag string,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
 ) error {
 	pr := st.Provisioner()
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return err
-	}
+	tag := agentConfig.Tag().(names.MachineTag)
 	machine, err := pr.Machine(tag)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return worker.ErrTerminateAgent
@@ -985,7 +1002,17 @@ func (a *MachineAgent) updateSupportedContainers(
 	// use an image URL getter if there's a private key.
 	var imageURLGetter container.ImageURLGetter
 	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
-		imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
+		cfg, err := pr.EnvironConfig()
+		if err != nil {
+			return errors.Annotate(err, "unable to get environ config")
+		}
+		imageURLGetter = container.NewImageURLGetter(
+			// Explicitly call the non-named constructor so if anyone
+			// adds additional fields, this fails.
+			container.ImageURLGetterConfig{
+				st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()),
+				cfg.CloudImageBaseURL(), container.ImageDownloadURL,
+			})
 	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
@@ -1120,7 +1147,10 @@ func (a *MachineAgent) startEnvWorkers(
 
 	// Establish API connection for this environment.
 	agentConfig := a.CurrentConfig()
-	apiInfo := agentConfig.APIInfo()
+	apiInfo, ok := agentConfig.APIInfo()
+	if !ok {
+		return nil, errors.New("API info not available")
+	}
 	apiInfo.EnvironTag = st.EnvironTag()
 	apiSt, err := apicaller.OpenAPIStateUsingInfo(apiInfo, agentConfig.OldPassword())
 	if err != nil {
@@ -1697,7 +1727,23 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	return symlink.New(jujud, JujuRun)
 }
 
+// writeUninstallAgentFile creates the uninstall-agent file on disk,
+// which will cause the agent to uninstall itself when it encounters
+// the ErrTerminateAgent error.
+func writeUninstallAgentFile(dataDir string) error {
+	uninstallFile := filepath.Join(dataDir, agent.UninstallAgentFile)
+	return ioutil.WriteFile(uninstallFile, nil, 0644)
+}
+
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
+	// We should only uninstall if the uninstall file is present.
+	uninstallFile := filepath.Join(agentConfig.DataDir(), agent.UninstallAgentFile)
+	if _, err := os.Stat(uninstallFile); err != nil {
+		logger.Debugf("uninstall file %q does not exist", uninstallFile)
+		return nil
+	}
+	logger.Infof("%q found, uninstalling agent", uninstallFile)
+
 	var errors []error
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {

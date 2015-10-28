@@ -46,9 +46,15 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 
 	// finder receives major and minor as parameters as it uses them to filter versions and
 	// only return patches for the passed major.minor (from major.minor.patch).
+	// We'll try the released stream first, then fall back to the current configured stream
+	// if no released tools are found.
 	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, tools.ReleasedStream, coretools.Filter{})
+	preferredStream := tools.PreferredStream(&currentVersion, cfg.Development(), cfg.AgentStream())
+	if preferredStream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
+		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, preferredStream, coretools.Filter{})
+	}
 	if err != nil {
-		return version.Zero, errors.Annotatef(err, "canot find available tools")
+		return version.Zero, errors.Annotatef(err, "cannot find available tools")
 	}
 	// Newest also returns a list of the items in this list matching with the
 	// newest version.
@@ -76,6 +82,10 @@ func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVer
 	}
 	ver, err := checkToolsAvailability(cfg, finder)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// No newer tools, so exit silently.
+			return nil
+		}
 		return errors.Annotate(err, "cannot get latest version")
 	}
 	if ver == version.Zero {

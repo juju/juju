@@ -4,9 +4,7 @@
 package backups_test
 
 import (
-	"strings"
-
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,34 +15,23 @@ import (
 
 type infoSuite struct {
 	BaseBackupsSuite
-	subcommand *backups.InfoCommand
+	subcommand cmd.Command
 }
 
 var _ = gc.Suite(&infoSuite{})
 
 func (s *infoSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = &backups.InfoCommand{}
+	s.subcommand = backups.NewInfoCommand()
 }
 
 func (s *infoSuite) TestHelp(c *gc.C) {
-	ctx, err := testing.RunCommand(c, s.command, "info", "--help")
-	c.Assert(err, jc.ErrorIsNil)
-
-	info := s.subcommand.Info()
-	expected := "(?sm)usage: juju backups info [options] " + info.Args + "$.*"
-	expected = strings.Replace(expected, "[", `\[`, -1)
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^purpose: " + info.Purpose + "$.*"
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^" + info.Doc + "$.*"
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+	s.checkHelp(c, s.subcommand)
 }
 
 func (s *infoSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
-	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
+	ctx, err := testing.RunCommand(c, s.subcommand, s.metaresult.ID)
 	c.Check(err, jc.ErrorIsNil)
 
 	out := MetaResultString
@@ -53,8 +40,6 @@ func (s *infoSuite) TestOkay(c *gc.C) {
 
 func (s *infoSuite) TestError(c *gc.C) {
 	s.setFailure("failed!")
-	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
-
+	_, err := testing.RunCommand(c, s.subcommand, s.metaresult.ID)
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

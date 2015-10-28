@@ -146,7 +146,7 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 	return testing.RunCommand(c, cmd, args...)
 }
 
-func (s *DestroySuite) newDestroyCommand() *system.DestroyCommand {
+func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return system.NewDestroyCommand(s.api, s.clientapi, s.apierror)
 }
 
@@ -226,7 +226,7 @@ func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
 }
 
 func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{"DestroyEnvironment", params.CodeNotImplemented}
+	s.api.err = &params.Error{Message: "DestroyEnvironment", Code: params.CodeNotImplemented}
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
@@ -234,7 +234,7 @@ func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
 }
 
 func (s *DestroySuite) TestEnvironmentGetFallsBackToClient(c *gc.C) {
-	s.api.err = &params.Error{"EnvironmentGet", params.CodeNotImplemented}
+	s.api.err = &params.Error{Message: "EnvironmentGet", Code: params.CodeNotImplemented}
 	s.clientapi.env = createBootstrapInfo(c, "test3")
 	_, err := s.runDestroyCommand(c, "test3", "-y")
 	c.Assert(err, jc.ErrorIsNil)

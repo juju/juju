@@ -4,8 +4,7 @@
 package backups_test
 
 import (
-	"strings"
-
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,28 +16,18 @@ import (
 
 type listSuite struct {
 	BaseBackupsSuite
-	subcommand *backups.ListCommand
+	subcommand cmd.Command
 }
 
 var _ = gc.Suite(&listSuite{})
 
 func (s *listSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = &backups.ListCommand{}
+	s.subcommand = backups.NewListCommand()
 }
 
 func (s *listSuite) TestHelp(c *gc.C) {
-	ctx, err := testing.RunCommand(c, s.command, "list", "--help")
-	c.Assert(err, jc.ErrorIsNil)
-
-	info := s.subcommand.Info()
-	expected := "(?sm)usage: juju backups list [options]$.*"
-	expected = strings.Replace(expected, "[", `\[`, -1)
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^purpose: " + info.Purpose + "$.*"
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^" + info.Doc + "$.*"
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+	s.checkHelp(c, s.subcommand)
 }
 
 func (s *listSuite) TestOkay(c *gc.C) {
@@ -53,19 +42,14 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 func (s *listSuite) TestBrief(c *gc.C) {
 	s.setSuccess()
-	s.subcommand.Brief = true
-	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
-	c.Check(err, jc.ErrorIsNil)
-
+	ctx, err := testing.RunCommand(c, s.subcommand, []string{"--brief"}...)
+	c.Assert(err, jc.ErrorIsNil)
 	out := s.metaresult.ID + "\n"
 	s.checkStd(c, ctx, out, "")
 }
 
 func (s *listSuite) TestError(c *gc.C) {
 	s.setFailure("failed!")
-	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
-
+	_, err := testing.RunCommand(c, s.subcommand)
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

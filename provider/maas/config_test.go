@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
@@ -131,4 +132,15 @@ func (*configSuite) TestValidateCannotChangeAgentName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
 	c.Assert(err, gc.ErrorMatches, "cannot change maas-agent-name")
+}
+
+func (*configSuite) TestSchema(c *gc.C) {
+	fields := providerInstance.Schema()
+	// Check that all the fields defined in environs/config
+	// are in the returned schema.
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
+	}
 }

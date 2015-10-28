@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path"
@@ -16,7 +17,6 @@ import (
 	"gopkg.in/juju/charmrepo.v1"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
-	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -42,11 +42,10 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	original := newCharmStoreClient
-	s.PatchValue(&newCharmStoreClient, func() (*csClient, error) {
-		csclient, err := original()
-		c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&newCharmStoreClient, func(httpClient *http.Client) *csClient {
+		csclient := original(httpClient)
 		csclient.params.URL = s.srv.URL
-		return csclient, nil
+		return csclient
 	})
 }
 
@@ -59,7 +58,7 @@ func (s *UpgradeCharmErrorsSuite) TearDownTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&UpgradeCharmCommand{}), args...)
+	_, err := testing.RunCommand(c, newUpgradeCharmCommand(), args...)
 	return err
 }
 

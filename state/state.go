@@ -111,7 +111,7 @@ func (st *State) RemoveAllEnvironDocs() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	id := userEnvNameIndex(env.Owner().Username(), env.Name())
+	id := userEnvNameIndex(env.Owner().Canonical(), env.Name())
 	ops := []txn.Op{{
 		// Cleanup the owner:envName unique key.
 		C:      userenvnameC,
@@ -430,10 +430,10 @@ func IsUpgradeInProgressError(err error) bool {
 // running the current version). If this is a hosted environment, newVersion
 // cannot be higher than the state server version.
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(version.Current.Number) > 0 && !st.IsStateServer() {
+	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
 		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
 			newVersion.String(),
-			version.Current.Number,
+			version.Current,
 		)
 	}
 
@@ -763,7 +763,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.UserTag:
 		coll = usersC
 		if !tag.IsLocal() {
-			return "", nil, fmt.Errorf("%q is not a local user", tag.Username())
+			return "", nil, fmt.Errorf("%q is not a local user", tag.Canonical())
 		}
 		id = tag.Name()
 	case names.RelationTag:

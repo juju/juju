@@ -4,14 +4,14 @@
 package api
 
 import (
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/juju/names"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
 	"github.com/juju/juju/api/deployer"
@@ -56,6 +56,10 @@ type Info struct {
 	// ...but this block of fields is all about the authentication mechanism
 	// to use after connecting -- if any -- and should probably be extracted.
 
+	// UseMacaroons, when true, enables macaroon-based login and ignores
+	// the provided username and password.
+	UseMacaroons bool `yaml:"use-macaroons,omitempty"`
+
 	// Tag holds the name of the entity that is connecting.
 	// If this is nil, and the password is empty, no login attempt will be made.
 	// (this is to allow tests to access the API to check that operations
@@ -84,6 +88,13 @@ type DialOpts struct {
 	// RetryDelay is the amount of time to wait between
 	// unsucssful connection attempts.
 	RetryDelay time.Duration
+
+	// BakeryClient is the httpbakery Client, which
+	// is used to do the macaroon-based authorization.
+	// This and the *http.Client inside it are copied
+	// by Open, and any RoundTripper field
+	// the HTTP client is ignored.
+	BakeryClient *httpbakery.Client
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -102,6 +113,8 @@ type OpenFunc func(*Info, DialOpts) (Connection, error)
 // Connection exists purely to make api-opening funcs mockable. It's just a
 // dumb copy of all the methods on api.Connection; we can and should be extracting
 // smaller and more relevant interfaces (and dropping some of them too).
+
+// Connection represents a connection to a Juju API server.
 type Connection interface {
 
 	// This first block of methods is pretty close to a sane Connection interface.
@@ -112,22 +125,18 @@ type Connection interface {
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
-	Login(name, password, nonce string) error
+	Login(name names.Tag, password, nonce string) error
 	ServerVersion() (version.Number, bool)
 
-	// These are either part of base.APICaller or look like they probably should
-	// be (ServerTag in particular). It's fine and good for Connection to be an
-	// APICaller.
-	APICall(facade string, version int, id, method string, args, response interface{}) error
-	BestFacadeVersion(string) int
-	EnvironTag() (names.EnvironTag, error)
-	ServerTag() (names.EnvironTag, error)
+	// APICaller provides the facility to make API calls directly.
+	// This should not be used outside the api/* packages or tests.
+	base.APICaller
 
-	// These HTTP methods should probably be separated out somehow.
-	NewHTTPClient() *http.Client
-	NewHTTPRequest(method, path string) (*http.Request, error)
-	SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error)
-	SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error)
+	// ServerTag returns the environment tag of the state server
+	// (as opposed to the environment tag of the currently connected
+	// environment inside that state server).
+	// This could be defined on base.APICaller.
+	ServerTag() (names.EnvironTag, error)
 
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.

@@ -26,8 +26,12 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// UpgradeJujuCommand upgrades the agents in a juju installation.
-type UpgradeJujuCommand struct {
+func newUpgradeJujuCommand() cmd.Command {
+	return envcmd.Wrap(&upgradeJujuCommand{})
+}
+
+// upgradeJujuCommand upgrades the agents in a juju installation.
+type upgradeJujuCommand struct {
 	envcmd.EnvCommandBase
 	vers          string
 	Version       version.Number
@@ -77,7 +81,7 @@ availability environment failed to upgrade. If a failed upgrade has
 been resolved, the --reset-previous-upgrade flag can be used to reset
 the environment's upgrade tracking state, allowing further upgrades.`
 
-func (c *UpgradeJujuCommand) Info() *cmd.Info {
+func (c *upgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-juju",
 		Purpose: "upgrade the tools in a juju environment",
@@ -85,7 +89,7 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.BoolVar(&c.DryRun, "dry-run", false, "don't change anything, just report what would change")
@@ -95,7 +99,7 @@ func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list (OBSOLETE)")
 }
 
-func (c *UpgradeJujuCommand) Init(args []string) error {
+func (c *upgradeJujuCommand) Init(args []string) error {
 	if c.vers != "" {
 		vers, err := version.Parse(c.vers)
 		if err != nil {
@@ -140,12 +144,12 @@ type upgradeJujuAPI interface {
 	Close() error
 }
 
-var getUpgradeJujuAPI = func(c *UpgradeJujuCommand) (upgradeJujuAPI, error) {
+var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 	return c.NewAPIClient()
 }
 
 // Run changes the version proposed for the juju envtools.
-func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
+func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if len(c.Series) > 0 {
 		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
@@ -224,7 +228,7 @@ incomplete upgrade where the root cause has been resolved.
 
 Continue [y/N]? `
 
-func (c *UpgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool, error) {
+func (c *upgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool, error) {
 	if c.AssumeYes {
 		return true, nil
 	}
@@ -243,7 +247,7 @@ func (c *UpgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config) (*upgradeContext, error) {
+func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config) (*upgradeContext, error) {
 	agent, ok := cfg.AgentVersion()
 	if !ok {
 		// Can't happen. In theory.
@@ -252,7 +256,7 @@ func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 	if c.Version == agent {
 		return nil, errUpToDate
 	}
-	clientVersion := version.Current.Number
+	clientVersion := version.Current
 	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
 	if err != nil {
 		return nil, err

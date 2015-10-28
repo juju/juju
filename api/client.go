@@ -5,7 +5,6 @@ package api
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -38,7 +36,7 @@ import (
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
-	st     *State
+	st     *state
 }
 
 // Status returns the status of the juju environment.
@@ -444,7 +442,7 @@ func (c *Client) ShareEnvironment(users ...names.UserTag) error {
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
-			logger.Warningf("environment is already shared with %s", users[i].Username())
+			logger.Warningf("environment is already shared with %s", users[i].Canonical())
 			result.Results[i].Error = nil
 		}
 	}
@@ -489,7 +487,7 @@ func (c *Client) UnshareEnvironment(users ...names.UserTag) error {
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeNotFound {
-			logger.Warningf("environment was not previously shared with user %s", users[i].Username())
+			logger.Warningf("environment was not previously shared with user %s", users[i].Canonical())
 			result.Results[i].Error = nil
 		}
 	}
@@ -616,6 +614,10 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
+	httpClient, err := c.st.HTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// Package the charm for uploading.
 	var archive *os.File
 	switch ch := ch.(type) {
@@ -642,102 +644,21 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
-	endPoint, err := c.apiEndpoint("charms", "series="+curl.Series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// wrap archive in a noopCloser to prevent the underlying transport closing
-	// the request body. This is neccessary to prevent a data race on the underlying
-	// *os.File as the http transport _may_ issue Close once the body is sent, or it
-	// may not if there is an error.
-	noop := &noopCloser{archive}
-	req, err := http.NewRequest("POST", endPoint, noop)
+	req, err := http.NewRequest("POST", "/charms?series="+curl.Series, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
-	req.SetBasicAuth(c.st.tag, c.st.password)
 	req.Header.Set("Content-Type", "application/zip")
 
-	// Send the request.
-
-	// BUG(dimitern) 2013-12-17 bug #1261780
-	// Due to issues with go 1.1.2, fixed later, we cannot use a
-	// regular TLS client with the CACert here, because we get "x509:
-	// cannot validate certificate for 127.0.0.1 because it doesn't
-	// contain any IP SANs". Once we use a later go version, this
-	// should be changed to connect to the API server with a regular
-	// HTTP+TLS enabled client, using the CACert (possily cached, like
-	// the tag and password) passed in api.Open()'s info argument.
-	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
+	var resp params.CharmsResponse
+	if err := httpClient.Do(req, archive, &resp); err != nil {
+		return nil, errors.Trace(err)
+	}
+	curl, err = charm.ParseURL(resp.CharmURL)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot upload charm")
+		return nil, errors.Annotatef(err, "bad charm URL in response")
 	}
-	defer resp.Body.Close()
-
-	// Now parse the response & return.
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot read charm upload response")
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("charm upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
-	}
-
-	var jsonResponse params.CharmsResponse
-	if err := json.Unmarshal(body, &jsonResponse); err != nil {
-		return nil, errors.Annotate(err, "cannot unmarshal upload response")
-	}
-	if jsonResponse.Error != "" {
-		return nil, errors.Errorf("error uploading charm: %v", jsonResponse.Error)
-	}
-	return charm.MustParseURL(jsonResponse.CharmURL), nil
-}
-
-// noopCloser implements io.ReadCloser, but does not close the underlying io.ReadCloser.
-// This is necessary to ensure the ownership of io.ReadCloser implementations that are
-// passed to the net/http Transport which may (under some circumstances), call Close on
-// the body passed to a request.
-type noopCloser struct {
-	io.ReadCloser
-}
-
-func (n *noopCloser) Close() error {
-
-	// do not propogate the Close method to the underlying ReadCloser.
-	return nil
-}
-
-func (c *Client) apiEndpoint(destination, query string) (string, error) {
-	root, err := c.apiRoot()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	upURL := url.URL{
-		Scheme:   c.st.serverScheme,
-		Host:     c.st.Addr(),
-		Path:     path.Join(root, destination),
-		RawQuery: query,
-	}
-	return upURL.String(), nil
-}
-
-func (c *Client) apiRoot() (string, error) {
-	var apiRoot string
-	if _, err := c.st.ServerTag(); err == nil {
-		envTag, err := c.st.EnvironTag()
-		if err != nil {
-			return "", errors.Annotate(err, "cannot get API endpoint address")
-		}
-
-		apiRoot = fmt.Sprintf("/environment/%s/", envTag.Id())
-	} else {
-		// If the server tag is not set, then the agent version is < 1.23. We
-		// use the old API endpoint for backwards compatibility.
-		apiRoot = "/"
-	}
-	return apiRoot, nil
+	return curl, nil
 }
 
 // AddCharm adds the given charm URL (which must include revision) to
@@ -798,12 +719,12 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		strings.Join(additionalSeries, ","),
 	)
 
-	endPoint, err := c.apiEndpoint("tools", query)
+	endpoint, err := c.st.apiEndpoint("/tools", query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	req, err := http.NewRequest("POST", endPoint, r)
+	req, err := http.NewRequest("POST", endpoint.String(), r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}
@@ -832,6 +753,7 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		return nil, errors.Annotate(err, "cannot read tools upload response")
 	}
 	if resp.StatusCode != http.StatusOK {
+		// TODO (2015/09/15, bug #1499277) parse as JSON not as text.
 		message := fmt.Sprintf("%s", bytes.TrimSpace(body))
 		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, params.CodeOperationBlocked) {
 			// Operation Blocked errors must contain correct error code and message.
@@ -900,8 +822,24 @@ func (c *Client) AgentVersion() (version.Number, error) {
 
 // websocketDialConfig is called instead of websocket.DialConfig so we can
 // override it in tests.
-var websocketDialConfig = func(config *websocket.Config) (io.ReadCloser, error) {
-	return websocket.DialConfig(config)
+var websocketDialConfig = func(config *websocket.Config) (base.Stream, error) {
+	c, err := websocket.DialConfig(config)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return websocketStream{c}, nil
+}
+
+type websocketStream struct {
+	*websocket.Conn
+}
+
+func (c websocketStream) ReadJSON(v interface{}) error {
+	return websocket.JSON.Receive(c.Conn, v)
+}
+
+func (c websocketStream) WriteJSON(v interface{}) error {
+	return websocket.JSON.Send(c.Conn, v)
 }
 
 // DebugLogParams holds parameters for WatchDebugLog that control the
@@ -954,8 +892,13 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, errors.NotSupportedf("WatchDebugLog")
 	}
-	// Prepare URL.
-	attrs := url.Values{}
+	// Prepare URL query attributes.
+	attrs := url.Values{
+		"includeEntity": args.IncludeEntity,
+		"includeModule": args.IncludeModule,
+		"excludeEntity": args.ExcludeEntity,
+		"excludeModule": args.ExcludeModule,
+	}
 	if args.Replay {
 		attrs.Set("replay", fmt.Sprint(args.Replay))
 	}
@@ -968,54 +911,10 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	if args.Level != loggo.UNSPECIFIED {
 		attrs.Set("level", fmt.Sprint(args.Level))
 	}
-	attrs["includeEntity"] = args.IncludeEntity
-	attrs["includeModule"] = args.IncludeModule
-	attrs["excludeEntity"] = args.ExcludeEntity
-	attrs["excludeModule"] = args.ExcludeModule
 
-	path := "/log"
-	if _, ok := c.st.ServerVersion(); ok {
-		// If the server version is set, then we know the server is capable of
-		// serving debug log at the environment path. We also fully expect
-		// that the server has returned a valid environment tag.
-		envTag, err := c.st.EnvironTag()
-		if err != nil {
-			return nil, errors.Annotate(err, "very unexpected")
-		}
-		path = fmt.Sprintf("/environment/%s/log", envTag.Id())
-	}
-
-	target := url.URL{
-		Scheme:   "wss",
-		Host:     c.st.addr,
-		Path:     path,
-		RawQuery: attrs.Encode(),
-	}
-	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
-	cfg.Header = utils.BasicAuthHeader(c.st.tag, c.st.password)
-	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "juju-apiserver"}
-	connection, err := websocketDialConfig(cfg)
+	connection, err := c.st.ConnectStream("/log", attrs)
 	if err != nil {
-		return nil, err
-	}
-	// Read the initial error and translate to a real error.
-	// Read up to the first new line character. We can't use bufio here as it
-	// reads too much from the reader.
-	line := make([]byte, 4096)
-	n, err := connection.Read(line)
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to read initial response")
-	}
-	line = line[0:n]
-
-	logger.Debugf("initial line: %q", line)
-	var errResult params.ErrorResult
-	err = json.Unmarshal(line, &errResult)
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to unmarshal initial response")
-	}
-	if errResult.Error != nil {
-		return nil, errResult.Error
+		return nil, errors.Trace(err)
 	}
 	return connection, nil
 }

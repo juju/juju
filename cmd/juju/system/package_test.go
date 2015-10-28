@@ -6,9 +6,9 @@ package system_test
 import (
 	"testing"
 
-	gc "gopkg.in/check.v1"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+	coretesting.MgoTestPackage(t)
 }

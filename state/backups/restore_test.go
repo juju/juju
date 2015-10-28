@@ -181,7 +181,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			DataDir: dataDir,
 			LogDir:  logDir,
 		},
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: version.Current,
 		Tag:               machineTag,
 		Environment:       coretesting.EnvironmentTag,
 		Password:          "dummyPassword",

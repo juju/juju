@@ -203,7 +203,7 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 	}
 	if len(blocks) > 0 {
 		if !args.IgnoreBlocks {
-			return common.ErrOperationBlocked("found blocks in system environments")
+			return common.OperationBlockedError("found blocks in system environments")
 		}
 
 		err := s.state.RemoveAllBlocksForSystem()

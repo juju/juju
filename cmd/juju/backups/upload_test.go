@@ -7,9 +7,8 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"os"
-	"strings"
 
-	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,8 +19,8 @@ import (
 
 type uploadSuite struct {
 	BaseBackupsSuite
-	subcommand *backups.UploadCommand
-	filename   string
+	command  cmd.Command
+	filename string
 }
 
 var _ = gc.Suite(&uploadSuite{})
@@ -29,9 +28,8 @@ var _ = gc.Suite(&uploadSuite{})
 func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 
-	s.subcommand = &backups.UploadCommand{}
+	s.command = backups.NewUploadCommand()
 	s.filename = "juju-backup-20140912-130755.abcd-spam-deadbeef-eggs.tar.gz"
-	s.subcommand.Filename = s.filename
 }
 
 func (s *uploadSuite) TearDownTest(c *gc.C) {
@@ -72,24 +70,13 @@ func (s *uploadSuite) createArchive(c *gc.C) {
 }
 
 func (s *uploadSuite) TestHelp(c *gc.C) {
-	ctx, err := testing.RunCommand(c, s.command, "upload", "--help")
-	c.Assert(err, jc.ErrorIsNil)
-
-	info := s.subcommand.Info()
-	expected := "(?sm)usage: juju backups upload [options] " + info.Args + "$.*"
-	expected = strings.Replace(expected, "[", `\[`, -1)
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^purpose: " + info.Purpose + "$.*"
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^" + info.Doc + "$.*"
-	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+	s.checkHelp(c, s.command)
 }
 
 func (s *uploadSuite) TestOkay(c *gc.C) {
 	s.createArchive(c)
 	s.setSuccess()
-	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
+	ctx, err := testing.RunCommand(c, s.command, s.filename)
 	c.Check(err, jc.ErrorIsNil)
 
 	out := MetaResultString
@@ -98,17 +85,13 @@ func (s *uploadSuite) TestOkay(c *gc.C) {
 
 func (s *uploadSuite) TestFileMissing(c *gc.C) {
 	s.setSuccess()
-	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
-
+	_, err := testing.RunCommand(c, s.command, s.filename)
 	c.Check(os.IsNotExist(errors.Cause(err)), jc.IsTrue)
 }
 
 func (s *uploadSuite) TestError(c *gc.C) {
 	s.createArchive(c)
 	s.setFailure("failed!")
-	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
-
+	_, err := testing.RunCommand(c, s.command, s.filename)
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

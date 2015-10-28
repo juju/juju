@@ -143,10 +143,10 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	envUsers, closer := st.getCollection(envUsersC)
 	defer closer()
 
-	username := strings.ToLower(user.Username())
+	username := strings.ToLower(user.Canonical())
 	err := envUsers.FindId(username).One(&envUser.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("environment user %q", user.Username())
+		return nil, errors.NotFoundf("environment user %q", user.Canonical())
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
@@ -178,7 +178,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 	op := createEnvUserOp(envuuid, user, createdBy, displayName)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("environment user %q", user.Username())
+		err = errors.AlreadyExistsf("environment user %q", user.Canonical())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -189,16 +189,16 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 
 // envUserID returns the document id of the environment user
 func envUserID(user names.UserTag) string {
-	username := user.Username()
+	username := user.Canonical()
 	return strings.ToLower(username)
 }
 
 func createEnvUserOp(envuuid string, user, createdBy names.UserTag, displayName string) txn.Op {
-	creatorname := createdBy.Username()
+	creatorname := createdBy.Canonical()
 	doc := &envUserDoc{
 		ID:          envUserID(user),
 		EnvUUID:     envuuid,
-		UserName:    user.Username(),
+		UserName:    user.Canonical(),
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
 		DateCreated: nowToTheSecond(),
@@ -221,7 +221,7 @@ func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	}}
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.NewNotFound(err, fmt.Sprintf("env user %q does not exist", user.Username()))
+		err = errors.NewNotFound(err, fmt.Sprintf("env user %q does not exist", user.Canonical()))
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -243,10 +243,10 @@ func (e *UserEnvironment) LastConnection() (time.Time, error) {
 	defer lastConnCloser()
 
 	lastConnDoc := envUserLastConnectionDoc{}
-	id := ensureEnvUUID(e.EnvironTag().Id(), strings.ToLower(e.User.Username()))
+	id := ensureEnvUUID(e.EnvironTag().Id(), strings.ToLower(e.User.Canonical()))
 	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
 	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
-		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Username()))
+		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Canonical()))
 	}
 
 	return lastConnDoc.LastConnection, nil
@@ -264,7 +264,7 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*UserEnvironment, er
 
 	// TODO: consider adding an index to the envUsers collection on the username.
 	var userSlice []envUserDoc
-	err := envUsers.Find(bson.D{{"user", user.Username()}}).Select(bson.D{{"env-uuid", 1}, {"_id", 1}}).All(&userSlice)
+	err := envUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"env-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func (st *State) IsSystemAdministrator(user names.UserTag) (bool, error) {
 
 	count, err := envUsers.Find(bson.D{
 		{"env-uuid", serverUUID},
-		{"user", user.Username()},
+		{"user", user.Canonical()},
 	}).Count()
 	if err != nil {
 		return false, errors.Trace(err)
