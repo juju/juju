@@ -95,7 +95,7 @@ func (s *certSuite) TestWritePEMs(c *gc.C) {
 
 func (s *certSuite) TestFingerprint(c *gc.C) {
 	certPEM := []byte(testCertPEM)
-	cert := lxdclient.NewCertificate(certPEM, nil)
+	cert := lxdclient.NewCert(certPEM, nil)
 	fingerprint, err := cert.Fingerprint()
 	c.Assert(err, jc.ErrorIsNil)
 

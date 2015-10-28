@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
-	"github.com/lxc/lxd/shared"
 )
 
 // The LXD repo does not expose any consts for these values.
@@ -113,18 +112,8 @@ func (cfg Config) AsNonLocal() (Config, error) {
 		return cfg, errors.Trace(err)
 	}
 
-	cert, err := remote.Cert.X509()
-	if err != nil {
-		return cfg, errors.Trace(err)
-	}
-	name, _ := shared.SplitExt(cfg.Filename)
-
 	// Update the server config and authorized certs.
-	client, err := Connect(cfg)
-	if err != nil {
-		return cfg, errors.Trace(err)
-	}
-	if err := client.setUpRemote(cert, "juju-"+name); err != nil {
+	if err := prepareRemote(cfg, *remote.Cert); err != nil {
 		return cfg, errors.Trace(err)
 	}
 
