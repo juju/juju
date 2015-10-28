@@ -92,7 +92,6 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 
 	for _, source := range sources {
 		addAll(found[source])
-
 	}
 
 	return params.ListCloudImageMetadataResult{Result: all}, nil
