@@ -27,6 +27,9 @@ const (
 // Cert holds the information for a single certificate a client
 // may use to connect to a remote server.
 type Cert struct {
+	// Name is the name that LXD will use for the cert.
+	Name string
+
 	// CertPEM is the PEM-encoded x.509 cert.
 	CertPEM []byte
 
