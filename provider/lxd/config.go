@@ -380,17 +380,3 @@ func (c *environConfig) update(cfg *config.Config) error {
 	c.attrs = cfg.UnknownAttrs()
 	return nil
 }
-
-// setRemoteFromHost sets the "remote" option to the address of the
-// host machine, as reachable by an LXD container. It also ensures that
-// the host's LXD is configured properly.
-func (c *environConfig) setRemoteFromHost() (*environConfig, error) {
-	updated, err := newValidConfig(c.Config, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(ericsnow) Do the work.
-
-	return updated, nil
-}
