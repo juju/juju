@@ -674,7 +674,7 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 			Arch:            "amd64",
 			VirtType:        "virtType",
 			RootStorageType: "rootStore",
-			Source:          cloudimagemetadata.Custom},
+			Source:          "custom"},
 		ImageId: "imageId"}
 
 	// setup files containing test's data
@@ -707,7 +707,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 	// find all image metadata in state
 	all, err := st.CloudImageMetadataStorage.FindMetadata(cloudimagemetadata.MetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, gc.DeepEquals, map[cloudimagemetadata.SourceType][]cloudimagemetadata.Metadata{
+	c.Assert(all, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		metadata.Source: []cloudimagemetadata.Metadata{metadata},
 	})
 }
