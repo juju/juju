@@ -14,6 +14,7 @@ import (
 type Client struct {
 	*serverConfigClient
 	*certClient
+	*profileClient
 
 	raw       rawClientWrapper
 	namespace string
@@ -38,6 +39,7 @@ func Connect(cfg Config) (*Client, error) {
 	conn := &Client{
 		serverConfigClient: &serverConfigClient{raw},
 		certClient:         &certClient{raw},
+		profileClient:      &profileClient{raw},
 
 		raw:       raw,
 		namespace: cfg.Namespace,
