@@ -64,11 +64,14 @@ type rawServerMethods interface {
 
 	// auth
 	UserAuthServerCert(name string, acceptCert bool) error
-	CertificateList() ([]shared.CertInfo, error)
+	AmTrusted() bool
+}
+
+type rawCertMethods interface {
 	AddMyCertToServer(pwd string) error
+	CertificateList() ([]shared.CertInfo, error)
 	CertificateAdd(cert *x509.Certificate, name string) error
 	CertificateRemove(fingerprint string) error
-	AmTrusted() bool
 }
 
 type rawImageMethods interface {
