@@ -41,8 +41,8 @@ func (s *LoginSuite) SetUpTest(c *gc.C) {
 	})
 	s.openError = nil
 	s.apiConnection = &mockAPIConnection{
-		serverTag: testing.EnvironmentTag,
-		addr:      "192.168.2.1:1234",
+		controllerTag: testing.EnvironmentTag,
+		addr:          "192.168.2.1:1234",
 	}
 	s.username = "valid-user"
 	s.password = "sekrit"
@@ -134,7 +134,7 @@ func (s *LoginSuite) TestAPIOpenError(c *gc.C) {
 }
 
 func (s *LoginSuite) TestOldServerNoServerUUID(c *gc.C) {
-	s.apiConnection.serverTag = names.EnvironTag{}
+	s.apiConnection.controllerTag = names.EnvironTag{}
 	_, err := s.runServerFile(c)
 	c.Assert(err, gc.ErrorMatches, `juju system too old to support login`)
 }
@@ -209,13 +209,13 @@ func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
 
 type mockAPIConnection struct {
 	api.Connection
-	info         *api.Info
-	opts         api.DialOpts
-	addr         string
-	apiHostPorts [][]network.HostPort
-	serverTag    names.EnvironTag
-	username     string
-	password     string
+	info          *api.Info
+	opts          api.DialOpts
+	addr          string
+	apiHostPorts  [][]network.HostPort
+	controllerTag names.EnvironTag
+	username      string
+	password      string
 }
 
 func (*mockAPIConnection) Close() error {
@@ -230,11 +230,11 @@ func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
 	return m.apiHostPorts
 }
 
-func (m *mockAPIConnection) ServerTag() (names.EnvironTag, error) {
-	if m.serverTag.Id() == "" {
-		return m.serverTag, errors.New("no server tag")
+func (m *mockAPIConnection) ControllerTag() (names.EnvironTag, error) {
+	if m.controllerTag.Id() == "" {
+		return m.controllerTag, errors.New("no server tag")
 	}
-	return m.serverTag, nil
+	return m.controllerTag, nil
 }
 
 func (m *mockAPIConnection) SetPassword(username, password string) error {

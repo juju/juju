@@ -114,7 +114,7 @@ func (st *state) loginV2(tag names.Tag, password, nonce string) error {
 	}
 
 	servers := params.NetworkHostsPorts(result.Servers)
-	err = st.setLoginResult(tag, result.EnvironTag, result.ServerTag, servers, result.Facades)
+	err = st.setLoginResult(tag, result.EnvironTag, result.ControllerTag, servers, result.Facades)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +154,7 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 	// one should have an environ tag set.
 
 	var environTag string
-	var serverTag string
+	var controllerTag string
 	var servers [][]network.HostPort
 	var facades []params.FacadeVersions
 	// For quite old servers, it is possible that they don't send down
@@ -167,22 +167,22 @@ func (st *state) loginV1(tag names.Tag, password, nonce string) error {
 		facades = result.LoginResult.Facades
 	} else if result.LoginResultV1.EnvironTag != "" {
 		environTag = result.LoginResultV1.EnvironTag
-		serverTag = result.LoginResultV1.ServerTag
+		controllerTag = result.LoginResultV1.ControllerTag
 		servers = params.NetworkHostsPorts(result.LoginResultV1.Servers)
 		facades = result.LoginResultV1.Facades
 	}
 
-	err = st.setLoginResult(tag, environTag, serverTag, servers, facades)
+	err = st.setLoginResult(tag, environTag, controllerTag, servers, facades)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (st *state) setLoginResult(tag names.Tag, environTag, serverTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+func (st *state) setLoginResult(tag names.Tag, environTag, controllerTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	st.authTag = tag
 	st.environTag = environTag
-	st.serverTag = serverTag
+	st.controllerTag = controllerTag
 
 	hostPorts, err := addAddress(servers, st.addr)
 	if err != nil {

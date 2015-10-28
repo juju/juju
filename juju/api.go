@@ -215,8 +215,8 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.Open
 	if envTag, err := st.EnvironTag(); err == nil {
 		environUUID = envTag.Id()
 	}
-	if serverTag, err := st.ServerTag(); err == nil {
-		serverUUID = serverTag.Id()
+	if controllerTag, err := st.ControllerTag(); err == nil {
+		serverUUID = controllerTag.Id()
 	}
 	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, environUUID, serverUUID); localerr != nil {
 		logger.Warningf("cannot cache API addresses: %v", localerr)
