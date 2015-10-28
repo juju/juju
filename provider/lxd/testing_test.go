@@ -256,6 +256,9 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
+	// Do this *before* s.initEnv() gets called.
+	s.PatchValue(&asNonLocal, s.asNonLocal)
+
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
@@ -271,6 +274,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		policyProvider: s.Policy,
 	}
 	s.Env.base = s.Common
+
 	//s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
 	//	return s.StubConn, nil
 	//})
@@ -288,6 +292,18 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 	s.Stub.CheckCalls(c, nil)
+}
+
+func (s *BaseSuite) asNonLocal(clientCfg lxdclient.Config) (lxdclient.Config, error) {
+	if s.Stub == nil {
+		return clientCfg, nil
+	}
+	s.Stub.AddCall("asNonLocal", clientCfg)
+	if err := s.Stub.NextErr(); err != nil {
+		return clientCfg, errors.Trace(err)
+	}
+
+	return clientCfg, nil
 }
 
 func NewBaseConfig(c *gc.C) *config.Config {
