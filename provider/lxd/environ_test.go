@@ -47,7 +47,7 @@ func (s *environSuite) TestSetConfigNoAPI(c *gc.C) {
 	err := s.Env.SetConfig(s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.CheckNoAPI(c)
+	s.Stub.CheckCallNames(c, "asNonLocal")
 }
 
 func (s *environSuite) TestSetConfigMissing(c *gc.C) {
