@@ -88,17 +88,8 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (*co
 
 	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.ecfg.namespace()
 
-	// Set the "remote" option in the config to localhost and enable it
-	// on the server config. This is necessary because exposing the API
-	// unix socket doesn't work securely (ownership issues).
+	// TODO(ericsnow) Drop the Config return so we don't need this.
 	var envConfig *config.Config
-	if env.ecfg.remoteURL() == "" { // TODO(ericsnow) wrong place!
-		ecfg, err := env.ecfg.setRemoteFromHost()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		envConfig = ecfg.Config
-	}
 
 	return envConfig, nil
 }
