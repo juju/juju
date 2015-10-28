@@ -173,12 +173,15 @@ func (api *API) retrievePublished() (*simplestreams.ResolveInfo, []*envmetadata.
 
 	// We want all metadata.
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
-	if inst, ok := env.(simplestreams.HasRegion); ok {
+	if inst, ok := env.(simplestreams.HasRegion); !ok {
+		// All environments that are cloud agnostic, do not rely on simplestreams anyway.
+		return nil, nil, errors.Errorf("environment cloud specification cannot be determined")
+	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.
 		cloud, err := inst.Region()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		cons.CloudSpec = cloud
 	}

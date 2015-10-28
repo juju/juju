@@ -167,52 +167,6 @@ func (s *imageMetadataUpdateSuite) SetUpTest(c *gc.C) {
 func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithNoRegions(c *gc.C) {
 	// This will save all available image metadata.
 	saved := []cloudimagemetadata.Metadata{}
-	expected := []cloudimagemetadata.Metadata{
-		cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
-				RootStorageType: "ebs",
-				VirtType:        "pv",
-				Arch:            "amd64",
-				Series:          "trusty",
-				Region:          "dummy_region",
-				Source:          "public",
-				Stream:          "released"},
-			"ami-36745463",
-		},
-		cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
-				RootStorageType: "ebs",
-				VirtType:        "pv",
-				Arch:            "amd64",
-				Series:          "precise",
-				Region:          "dummy_region",
-				Source:          "public",
-				Stream:          "released"},
-			"ami-26745463",
-		},
-		cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
-				RootStorageType: "ebs",
-				VirtType:        "pv",
-				Arch:            "amd64",
-				Series:          "trusty",
-				Region:          "another_dummy_region",
-				Source:          "public",
-				Stream:          "released"},
-			"ami-1136745463",
-		},
-		cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
-				RootStorageType: "ebs",
-				VirtType:        "pv",
-				Arch:            "amd64",
-				Series:          "precise",
-				Region:          "another_dummy_region",
-				Source:          "public",
-				Stream:          "released"},
-			"ami-1126745463",
-		},
-	}
 
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
@@ -232,10 +186,10 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	}
 
 	err := s.api.UpdateFromPublishedImages()
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertCalls(c, []string{environConfig, saveMetadata, saveMetadata, saveMetadata, saveMetadata})
+	c.Assert(err, gc.ErrorMatches, ".*environment cloud specification cannot be determined.*")
+	s.assertCalls(c, []string{environConfig})
 
-	c.Assert(saved, jc.SameContents, expected)
+	c.Assert(saved, jc.SameContents, []cloudimagemetadata.Metadata{})
 }
 
 // mockConfig returns a configuration for the usage of the
@@ -317,7 +271,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesForProviderWithRegion
 				Arch:            "amd64",
 				Series:          "trusty",
 				Region:          "dummy_region",
-				Source:          "public",
+				Source:          "default cloud images",
 				Stream:          "released"},
 			"ami-36745463",
 		},
@@ -328,7 +282,7 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesForProviderWithRegion
 				Arch:            "amd64",
 				Series:          "precise",
 				Region:          "dummy_region",
-				Source:          "public",
+				Source:          "default cloud images",
 				Stream:          "released"},
 			"ami-26745463",
 		},
