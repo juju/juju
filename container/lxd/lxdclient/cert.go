@@ -75,7 +75,7 @@ func (cert Cert) WriteKeyPEM(out io.Writer) error {
 }
 
 // Fingerprint returns the cert's LXD fingerprint.
-func (cert Certificate) Fingerprint() (string, error) {
+func (cert Cert) Fingerprint() (string, error) {
 	// See: https://github.com/lxc/lxd/blob/master/lxd/certificates.go
 	x509Cert, err := cert.X509()
 	if err != nil {
