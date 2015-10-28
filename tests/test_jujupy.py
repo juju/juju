@@ -116,9 +116,8 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        fake_popen = FakePopen('system', None, 0)
-        with patch('subprocess.Popen',
-                   return_value=fake_popen) as po_mock:
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=FakePopen('system', '', 0)) as po_mock:
             with self.assertRaises(JESByDefault):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
@@ -129,28 +128,35 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        with patch('subprocess.check_output', autospec=True,
-                   return_value='') as co_mock:
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=FakePopen('', '', 0)) as po_mock:
             with self.assertRaises(JESNotSupported):
                 client.enable_jes()
         self.assertFalse(client._use_jes)
         assert_juju_call(
-            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
-            0, assign_stderr=True)
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            0)
         assert_juju_call(
-            self, co_mock, client, ('juju', '--show-log', 'help', 'commands'),
-            1, assign_stderr=True)
-        self.assertEqual(co_mock.call_count, 2)
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1)
+        self.assertEqual(po_mock.call_count, 2)
 
     def test_enable_jes_requires_flag(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        with patch.object(client, 'get_juju_output',
-                          side_effect=['', 'system']) as gjo_mock:
+        with patch('subprocess.Popen', autospec=True, side_effect=[
+                FakePopen('', '', 0), FakePopen('system', '', 0)]) as po_mock:
             client.enable_jes()
         self.assertTrue(client._use_jes)
-        self.assertEqual(gjo_mock.call_count, 2)
+        assert_juju_call(
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            0)
+        # GZ 2015-10-26: Should assert that env has feature flag at call time.
+        assert_juju_call(
+            self, po_mock, client, ('juju', '--show-log', 'help', 'commands'),
+            1)
+        self.assertEqual(po_mock.call_count, 2)
 
     def test__shell_environ_jes(self):
         client = self.client_class(
