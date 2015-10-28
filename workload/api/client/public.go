@@ -47,8 +47,11 @@ func (c PublicClient) ListFull(patterns ...string) ([]workload.FullPayloadInfo, 
 
 	payloads := make([]workload.FullPayloadInfo, len(result.Results))
 	for i, apiInfo := range result.Results {
-		// We ignore the error since we control the input safely.
-		payload, _ := api.API2Payload(apiInfo)
+		payload, err := api.API2Payload(apiInfo)
+		if err != nil {
+			// We should never see this happen; we control the input safely.
+			return nil, errors.Trace(err)
+		}
 		payloads[i] = payload
 	}
 	return payloads, nil

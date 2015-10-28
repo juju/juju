@@ -36,7 +36,7 @@ func (c UnitFacadeClient) Track(workloads ...workload.Info) ([]workload.Result, 
 		return nil, errors.Trace(err)
 	}
 
-	return api2results(rs), nil
+	return api2results(rs)
 }
 
 // List calls the List API server method.
@@ -56,7 +56,7 @@ func (c UnitFacadeClient) List(fullIDs ...string) ([]workload.Result, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return api2results(rs), nil
+	return api2results(rs)
 }
 
 // LookUp calls the LookUp API server method.
@@ -72,7 +72,7 @@ func (c UnitFacadeClient) LookUp(fullIDs ...string) ([]workload.Result, error) {
 		return nil, err
 	}
 
-	return api2results(rs), nil
+	return api2results(rs)
 }
 
 // SetStatus calls the SetStatus API server method.
@@ -88,7 +88,7 @@ func (c UnitFacadeClient) SetStatus(status string, fullIDs ...string) ([]workloa
 		return nil, err
 	}
 
-	return api2results(rs), nil
+	return api2results(rs)
 }
 
 // Untrack calls the Untrack API server method.
@@ -106,7 +106,7 @@ func (c UnitFacadeClient) Untrack(fullIDs ...string) ([]workload.Result, error) 
 		return nil, err
 	}
 
-	return api2results(rs), nil
+	return api2results(rs)
 }
 
 func (c UnitFacadeClient) lookUp(fullIDs []string) ([]string, error) {
@@ -126,16 +126,15 @@ func (c UnitFacadeClient) lookUp(fullIDs []string) ([]string, error) {
 	return ids, nil
 }
 
-func api2results(rs internal.WorkloadResults) []workload.Result {
+func api2results(rs internal.WorkloadResults) ([]workload.Result, error) {
 	var results []workload.Result
 	for _, r := range rs.Results {
-		results = append(results, api2result(r))
+		result, err := internal.API2Result(r)
+		if err != nil {
+			// This should not happen; we safely control the result.
+			return nil, errors.Trace(err)
+		}
+		results = append(results, result)
 	}
-	return results
-}
-
-func api2result(r internal.WorkloadResult) workload.Result {
-	// We control the result safely so we can ignore the error.
-	result, _ := internal.API2Result(r)
-	return result
+	return results, nil
 }
