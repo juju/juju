@@ -11,7 +11,7 @@ import (
 
 // A PayloadPredicate determines if the given payload matches
 // the condition the predicate represents.
-type PayloadPredicate func(payload FullPayloadInfo) bool
+type PayloadPredicate func(FullPayloadInfo) bool
 
 // Filter applies the provided predicates to the payloads and returns
 // only those that matched.
