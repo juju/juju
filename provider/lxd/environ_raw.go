@@ -12,6 +12,7 @@ import (
 
 type rawProvider struct {
 	lxdInstances
+	lxdProfiles
 	common.Firewaller
 	policyProvider
 }
@@ -20,6 +21,11 @@ type lxdInstances interface {
 	Instances(string, ...string) ([]lxdclient.Instance, error)
 	AddInstance(lxdclient.InstanceSpec) (*lxdclient.Instance, error)
 	RemoveInstances(string, ...string) error
+}
+
+type lxdProfiles interface {
+	CreateProfile(string, map[string]string) error
+	HasProfile(string) (bool, error)
 }
 
 func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
@@ -37,6 +43,7 @@ func newRawProvider(ecfg *environConfig) (*rawProvider, error) {
 
 	raw := &rawProvider{
 		lxdInstances:   client,
+		lxdProfiles:    client,
 		Firewaller:     firewaller,
 		policyProvider: policy,
 	}
