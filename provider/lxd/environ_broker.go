@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/container/lxd/lxdclient"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -47,8 +46,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
 
-	envConfig, err := env.finishInstanceConfig(args)
-	if err != nil {
+	if err := env.finishInstanceConfig(args); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -65,20 +63,19 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	hwc := env.getHardwareCharacteristics(args, inst)
 	result := environs.StartInstanceResult{
 		Instance: inst,
-		Config:   envConfig,
 		Hardware: hwc,
 	}
 	return &result, nil
 }
 
-func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (*config.Config, error) {
+func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) error {
 	args.InstanceConfig.Tools = args.Tools[0]
 	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
 
 	args.InstanceConfig.MachineContainerType = env.ecfg.containerType()
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	// TODO: evaluate the impact of setting the constraints on the
@@ -88,10 +85,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (*co
 
 	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.ecfg.namespace()
 
-	// TODO(ericsnow) Drop the Config return so we don't need this.
-	var envConfig *config.Config
-
-	return envConfig, nil
+	return nil
 }
 
 // newRawInstance is where the new physical instance is actually
