@@ -6,6 +6,7 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
@@ -83,6 +84,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmDirLocker:       charmDirLocker,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
+				Clock:                clock.WallClock,
 			}), nil
 		},
 	}
