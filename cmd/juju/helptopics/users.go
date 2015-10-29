@@ -25,7 +25,7 @@ The change-password command can be used by any user to change their own
 password, or, for admins, the command can change another user's password and
 generate a new credentials file for them.
 
-The credentials command gives any use the ability to export the credentails
+The credentials command gives any user the ability to export the credentials
 they are using to access an environment to a file that they can use elsewhere
 to login to the same Juju System.
 
