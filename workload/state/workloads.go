@@ -127,24 +127,29 @@ func (uw UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 	var results []workload.Result
 	i := 0
 	for _, id := range ids {
-		result := workload.Result{
-			ID: id,
-		}
 		if missingIDs[id] {
-			result.NotFound = true
-			result.Error = errors.NotFoundf(id)
-		} else {
-			wl := workloads[i]
-			i += 1
-			if id == "" {
-				// TODO(ericsnow) Do this more efficiently.
-				id, err := uw.LookUp(wl.Name, wl.Details.ID)
-				if err != nil {
-					result.Error = errors.Trace(err)
-				}
-				result.ID = id
+			results = append(results, workload.Result{
+				ID:       id,
+				NotFound: true,
+				Error:    errors.NotFoundf(id),
+			})
+			continue
+		}
+		wl := workloads[i]
+		i += 1
+
+		result := workload.Result{
+			ID:       id,
+			Workload: &wl,
+		}
+		if id == "" {
+			// TODO(ericsnow) Do this more efficiently.
+			id, err := uw.LookUp(wl.Name, wl.Details.ID)
+			if err != nil {
+				id = ""
+				result.Error = errors.Trace(err)
 			}
-			result.Workload = &wl
+			result.ID = id
 		}
 		results = append(results, result)
 	}
