@@ -8,7 +8,6 @@ package persistence
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
@@ -43,11 +42,11 @@ type PersistenceBase interface {
 // related to workloads in Juju.
 type Persistence struct {
 	st   PersistenceBase
-	unit names.UnitTag
+	unit string
 }
 
 // NewPersistence builds a new Persistence based on the provided info.
-func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
+func NewPersistence(st PersistenceBase, unit string) *Persistence {
 	return &Persistence{
 		st:   st,
 		unit: unit,
@@ -57,13 +56,22 @@ func NewPersistence(st PersistenceBase, unit names.UnitTag) *Persistence {
 // Track adds records for the workload to persistence. If the workload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(info workload.Info) (bool, error) {
+func (pp Persistence) Track(id string, info workload.Info) (bool, error) {
 	logger.Tracef("insertng %#v", info)
+
+	_, err := pp.LookUp(info.Name, info.Details.ID)
+	if err == nil {
+		return false, errors.AlreadyExistsf("payload for %q", info.ID())
+	} else if !errors.IsNotFound(err) {
+		return false, errors.Annotate(err, "while checking for collisions")
+	}
+	// TODO(ericsnow) There is a *slight* race here. I haven't found
+	// a simple way to check the secondary key in the transaction.
 
 	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newInsertWorkloadOps(info)...)
+	ops = append(ops, pp.newInsertWorkloadOps(id, info)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			okay = false
@@ -88,7 +96,7 @@ func (pp Persistence) SetStatus(id, status string) (bool, error) {
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newSetRawStatusOps(status, id)...)
+	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			found = false
@@ -143,6 +151,24 @@ func (pp Persistence) ListAll() ([]workload.Info, error) {
 		results = append(results, *w)
 	}
 	return results, nil
+}
+
+// LookUp returns the payload ID for the given name/rawID pair.
+func (pp Persistence) LookUp(name, rawID string) (string, error) {
+	// TODO(ericsnow) This could be more efficient.
+
+	workloadDocs, err := pp.allWorkloads()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	for id, doc := range workloadDocs {
+		if doc.match(name, rawID) {
+			return id, nil
+		}
+	}
+
+	return "", errors.NotFoundf("payload for %s/%s", name, rawID)
 }
 
 // TODO(ericsnow) Add workloads to state/cleanup.go.

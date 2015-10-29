@@ -9,13 +9,16 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/workload"
 )
 
-type registerSuite struct{}
+type registerSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&registerSuite{})
 
@@ -38,17 +41,17 @@ func (registerSuite) TestInit(c *gc.C) {
 	c.Assert(r.typ, gc.Equals, "type")
 	c.Assert(r.class, gc.Equals, "class")
 	c.Assert(r.id, gc.Equals, "id")
-	c.Assert(r.tags, gc.HasLen, 0)
+	c.Assert(r.labels, gc.HasLen, 0)
 }
 
-func (registerSuite) TestInitWithTags(c *gc.C) {
+func (registerSuite) TestInitWithLabels(c *gc.C) {
 	r := RegisterCmd{}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.typ, gc.Equals, "type")
 	c.Assert(r.class, gc.Equals, "class")
 	c.Assert(r.id, gc.Equals, "id")
-	c.Assert(r.tags, gc.DeepEquals, []string{"tag1", "tag 2"})
+	c.Assert(r.labels, gc.DeepEquals, []string{"tag1", "tag 2"})
 }
 
 func (registerSuite) TestRun(c *gc.C) {
@@ -66,7 +69,7 @@ func (registerSuite) TestRun(c *gc.C) {
 	c.Assert(f.info.Status.State, gc.Equals, workload.StateRunning)
 	c.Assert(f.info.Details.ID, gc.Equals, "id")
 
-	// TODO (natefinch): we need to do something with the tags
+	// TODO (natefinch): we need to do something with the labels
 }
 
 func (registerSuite) TestRunUnknownClass(c *gc.C) {

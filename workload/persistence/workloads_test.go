@@ -4,6 +4,7 @@
 package persistence_test
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/juju/errors"
@@ -23,21 +24,22 @@ type workloadsPersistenceSuite struct {
 }
 
 func (s *workloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
-	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
+	wl := s.NewWorkload("docker", "workloadA/workloadA-xyz")
 
 	wp := s.NewPersistence()
-	okay, err := wp.Track(wl)
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	okay, err := wp.Track(id, wl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "Run")
+	s.Stub.CheckCallNames(c, "All", "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloads",
-			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
+			Id:     "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocMissing,
 			Insert: &persistence.WorkloadDoc{
-				DocID:  "workload#a-unit/0#workloadA/workloadA-xyz",
+				DocID:  "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 				UnitID: "a-unit/0",
 
 				Name: "workloadA",
@@ -53,54 +55,41 @@ func (s *workloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 }
 
 func (s *workloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
-	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
-	s.SetDocs(wl)
-	s.Stub.SetErrors(txn.ErrAborted)
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+	wl := s.NewWorkload("docker", "workloadA/workloadA-xyz")
+	s.SetDoc(id, wl)
+	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	wp := s.NewPersistence()
-	okay, err := wp.Track(wl)
-	c.Assert(err, jc.ErrorIsNil)
+	okay, err := wp.Track(id, wl)
 
 	c.Check(okay, jc.IsFalse)
-	s.Stub.CheckCallNames(c, "Run")
-	s.State.CheckOps(c, [][]txn.Op{{
-		{
-			C:      "workloads",
-			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
-			Assert: txn.DocMissing,
-			Insert: &persistence.WorkloadDoc{
-				DocID:  "workload#a-unit/0#workloadA/workloadA-xyz",
-				UnitID: "a-unit/0",
-
-				Name: "workloadA",
-				Type: "docker",
-
-				PluginID:       "workloadA-xyz",
-				OriginalStatus: "running",
-
-				PluginStatus: "running",
-			},
-		},
-	}})
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+	s.Stub.CheckCallNames(c, "All")
+	s.State.CheckOps(c, nil)
 }
 
 func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
-	wl := s.NewWorkloads("docker", "workloadA")[0]
+	s.Stub.SetErrors(nil, failure)
+	wl := s.NewWorkload("docker", "workloadA")
 
 	pp := s.NewPersistence()
-	_, err := pp.Track(wl)
+	_, err := pp.Track(id, wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
+	s.Stub.CheckCallNames(c, "All", "Run")
 }
 
 func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
-	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
-	s.SetDocs(wl)
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	wl := s.NewWorkload("docker", "workloadA/workloadA-xyz")
+	s.SetDoc(id, wl)
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(wl.ID(), workload.StateRunning)
+	okay, err := pp.SetStatus(id, workload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
@@ -108,7 +97,7 @@ func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloads",
-			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
+			Id:     "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{
@@ -122,10 +111,11 @@ func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 }
 
 func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	s.Stub.SetErrors(txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus("workloadA/workloadA-xyz", workload.StateRunning)
+	okay, err := pp.SetStatus(id, workload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
@@ -133,7 +123,7 @@ func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloads",
-			Id:     "workload#a-unit/0#workloadA/workloadA-xyz",
+			Id:     "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{
@@ -147,54 +137,63 @@ func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 }
 
 func (s *workloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
-	wl := s.NewWorkloads("docker", "workloadA/workloadA-xyz")[0]
-	s.SetDocs(wl)
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	wl := s.NewWorkload("docker", "workloadA/workloadA-xyz")
+	s.SetDoc(id, wl)
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus(wl.ID(), workload.StateRunning)
+	_, err := pp.SetStatus(id, workload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *workloadsPersistenceSuite) TestListOkay(c *gc.C) {
-	existing := s.NewWorkloads("docker", "workloadA/xyz", "workloadB/abc")
-	s.SetDocs(existing...)
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	wl := s.NewWorkload("docker", "workloadA/xyz")
+	s.SetDoc(id, wl)
+	other := s.NewWorkload("docker", "workloadB/abc")
+	s.SetDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
 
 	pp := s.NewPersistence()
-	workloads, missing, err := pp.List("workloadA/xyz")
+	workloads, missing, err := pp.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{existing[0]})
+	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
 	c.Check(missing, gc.HasLen, 0)
 }
 
 func (s *workloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
-	existing := s.NewWorkloads("docker", "workloadA/xyz", "workloadB/abc")
-	s.SetDocs(existing...)
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	wl := s.NewWorkload("docker", "workloadB/abc")
+	s.SetDoc(id, wl)
+	other := s.NewWorkload("docker", "workloadA/xyz")
+	s.SetDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
 
+	missingID := "f47ac10b-58cc-4372-a567-0e02b2c3d481"
 	pp := s.NewPersistence()
-	workloads, missing, err := pp.List("workloadB/abc", "workloadC/123")
+	workloads, missing, err := pp.List(id, missingID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{existing[1]})
-	c.Check(missing, jc.DeepEquals, []string{"workloadC/123"})
+	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
+	c.Check(missing, jc.DeepEquals, []string{missingID})
 }
 
 func (s *workloadsPersistenceSuite) TestListEmpty(c *gc.C) {
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pp := s.NewPersistence()
-	workloads, missing, err := pp.List("workloadA/xyz")
+	workloads, missing, err := pp.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
 	c.Check(workloads, gc.HasLen, 0)
-	c.Check(missing, jc.DeepEquals, []string{"workloadA/xyz"})
+	c.Check(missing, jc.DeepEquals, []string{id})
 }
 
 func (s *workloadsPersistenceSuite) TestListFailure(c *gc.C) {
@@ -209,7 +208,9 @@ func (s *workloadsPersistenceSuite) TestListFailure(c *gc.C) {
 
 func (s *workloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
 	existing := s.NewWorkloads("docker", "workloadA/xyz", "workloadB/abc")
-	s.SetDocs(existing...)
+	for i, wl := range existing {
+		s.SetDoc(fmt.Sprintf("%d", i), wl)
+	}
 
 	pp := s.NewPersistence()
 	workloads, err := pp.ListAll()
@@ -249,11 +250,12 @@ func (s *workloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
 }
 
 func (s *workloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
-	wl := s.NewWorkloads("docker", "workloadA/xyz")[0]
-	s.SetDocs(wl)
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	wl := s.NewWorkload("docker", "workloadA/xyz")
+	s.SetDoc(id, wl)
 
 	pp := s.NewPersistence()
-	found, err := pp.Untrack("workloadA/xyz")
+	found, err := pp.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.IsTrue)
@@ -261,7 +263,7 @@ func (s *workloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloads",
-			Id:     "workload#a-unit/0#workloadA/xyz",
+			Id:     "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Remove: true,
 		},
@@ -269,10 +271,11 @@ func (s *workloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 }
 
 func (s *workloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	s.Stub.SetErrors(txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	found, err := pp.Untrack("workloadA/xyz")
+	found, err := pp.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(found, jc.IsFalse)
@@ -280,7 +283,7 @@ func (s *workloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloads",
-			Id:     "workload#a-unit/0#workloadA/xyz",
+			Id:     "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Remove: true,
 		},
@@ -288,11 +291,12 @@ func (s *workloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 }
 
 func (s *workloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.Untrack("workloadA/xyz")
+	_, err := pp.Untrack(id)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }

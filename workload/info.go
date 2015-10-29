@@ -23,8 +23,8 @@ type Info struct {
 	// Status is the Juju-level status of the workload.
 	Status Status
 
-	// Tags is the set of tags associated with the workload.
-	Tags []string
+	// Labels is the set of labels associated with the workload.
+	Labels []string
 
 	// Details is the information about the workload which the plugin provided.
 	Details Details
@@ -64,8 +64,8 @@ func (info Info) IsTracked() bool {
 
 // AsPayload converts the Info into a Payload.
 func (info Info) AsPayload() Payload {
-	tags := make([]string, len(info.Tags))
-	copy(tags, info.Tags)
+	labels := make([]string, len(info.Labels))
+	copy(labels, info.Labels)
 	return Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: info.Name,
@@ -73,6 +73,6 @@ func (info Info) AsPayload() Payload {
 		},
 		ID:     info.Details.ID,
 		Status: info.Status.State,
-		Tags:   tags,
+		Labels: labels,
 	}
 }

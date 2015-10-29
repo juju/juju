@@ -21,14 +21,11 @@ type Payload struct {
 	// Status is the Juju-level status of the workload.
 	Status string
 
-	// Tags are tags associated with the payload.
-	Tags []string
+	// Labels are labels associated with the payload.
+	Labels []string
 
 	// Unit identifies the Juju unit associated with the payload.
 	Unit string
-
-	// Machine identifies the Juju machine associated with the payload.
-	Machine string
 }
 
 // FullID composes a unique ID for the payload (relative to the unit/charm).
@@ -54,17 +51,13 @@ func (p Payload) Validate() error {
 		return errors.NotValidf("missing Unit")
 	}
 
-	if p.Machine == "" {
-		return errors.NotValidf("missing Machine")
-	}
-
 	return nil
 }
 
 // AsWorkload converts the Payload into an Info.
 func (p Payload) AsWorkload() Info {
-	tags := make([]string, len(p.Tags))
-	copy(tags, p.Tags)
+	labels := make([]string, len(p.Labels))
+	copy(labels, p.Labels)
 	return Info{
 		PayloadClass: charm.PayloadClass{
 			Name: p.Name,
@@ -73,9 +66,18 @@ func (p Payload) AsWorkload() Info {
 		Status: Status{
 			State: p.Status,
 		},
-		Tags: tags,
+		Labels: labels,
 		Details: Details{
 			ID: p.ID,
 		},
 	}
+}
+
+// FullPayloadInfo completely describes a charm payload, including
+// some information that may be implied from the minimal Payload data.
+type FullPayloadInfo struct {
+	Payload
+
+	// Machine identifies the Juju machine associated with the payload.
+	Machine string
 }

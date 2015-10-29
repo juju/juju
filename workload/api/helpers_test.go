@@ -4,6 +4,8 @@
 package api
 
 import (
+	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -11,20 +13,24 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-type helpersSuite struct{}
+type helpersSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&helpersSuite{})
 
 func (helpersSuite) TestPayload2api(c *gc.C) {
-	apiPayload := Payload2api(workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
+	apiPayload := Payload2api(workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: workload.StateRunning,
+			Labels: []string{"a-tag"},
+			Unit:   "a-service/0",
 		},
-		ID:      "idspam",
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	})
 
@@ -33,32 +39,35 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		Type:    "docker",
 		ID:      "idspam",
 		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
-		Machine: "1",
+		Labels:  []string{"a-tag"},
+		Unit:    names.NewUnitTag("a-service/0").String(),
+		Machine: names.NewMachineTag("1").String(),
 	})
 }
 
 func (helpersSuite) TestAPI2Payload(c *gc.C) {
-	payload := API2Payload(Payload{
+	payload, err := API2Payload(Payload{
 		Class:   "spam",
 		Type:    "docker",
 		ID:      "idspam",
 		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
-		Machine: "1",
+		Labels:  []string{"a-tag"},
+		Unit:    names.NewUnitTag("a-service/0").String(),
+		Machine: names.NewMachineTag("1").String(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(payload, jc.DeepEquals, workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
+	c.Check(payload, jc.DeepEquals, workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: workload.StateRunning,
+			Labels: []string{"a-tag"},
+			Unit:   "a-service/0",
 		},
-		ID:      "idspam",
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	})
 }

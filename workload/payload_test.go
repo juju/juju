@@ -4,6 +4,7 @@
 package workload_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -13,7 +14,9 @@ import (
 
 var _ = gc.Suite(&payloadSuite{})
 
-type payloadSuite struct{}
+type payloadSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *payloadSuite) newPayload(name, pType string) workload.Payload {
 	return workload.Payload{
@@ -21,11 +24,10 @@ func (s *payloadSuite) newPayload(name, pType string) workload.Payload {
 			Name: name,
 			Type: pType,
 		},
-		ID:      "id" + name,
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
-		Machine: "1",
+		ID:     "id" + name,
+		Status: workload.StateRunning,
+		Labels: []string{"a-tag"},
+		Unit:   "a-service/0",
 	}
 }
 
@@ -99,25 +101,16 @@ func (s *payloadSuite) TestValidateMissingUnit(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `missing Unit .*`)
 }
 
-func (s *payloadSuite) TestValidateMissingMachine(c *gc.C) {
-	payload := s.newPayload("spam", "docker")
-	payload.Machine = ""
-	err := payload.Validate()
-
-	c.Check(err, gc.ErrorMatches, `missing Machine .*`)
-}
-
 func (s *payloadSuite) TestAsWorkload(c *gc.C) {
 	payload := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "spam",
 			Type: "docker",
 		},
-		ID:      "idspam",
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
-		Machine: "1",
+		ID:     "idspam",
+		Status: workload.StateRunning,
+		Labels: []string{"a-tag"},
+		Unit:   "a-service/0",
 	}
 	converted := payload.AsWorkload()
 
@@ -129,7 +122,7 @@ func (s *payloadSuite) TestAsWorkload(c *gc.C) {
 		Status: workload.Status{
 			State: workload.StateRunning,
 		},
-		Tags: []string{"a-tag"},
+		Labels: []string{"a-tag"},
 		Details: workload.Details{
 			ID: "idspam",
 		},

@@ -21,11 +21,15 @@ import (
 var _ = gc.Suite(&listSuite{})
 
 type listSuite struct {
+	testing.IsolationSuite
+
 	stub   *testing.Stub
 	client *stubClient
 }
 
 func (s *listSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.client = &stubClient{stub: s.stub}
 }
@@ -67,7 +71,7 @@ will be checked against the following info in Juju:
 
 func (s *listSuite) TestOkay(c *gc.C) {
 	p1 := status.NewPayload("spam", "a-service", 1, 0)
-	p1.Tags = []string{"a-tag"}
+	p1.Labels = []string{"a-tag"}
 	p2 := status.NewPayload("eggs", "another-service", 2, 1)
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
@@ -77,9 +81,9 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-unit-a-service-0       1       spam          running docker idspam a-tag 
-unit-another-service-1 2       eggs          running docker ideggs       
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-service/0       1       spam          running docker idspam a-tag 
+another-service/1 2       eggs          running docker ideggs       
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -100,25 +104,25 @@ UNIT MACHINE PAYLOAD-CLASS STATUS TYPE ID TAGS
 
 func (s *listSuite) TestPatternsOkay(c *gc.C) {
 	p1 := status.NewPayload("spam", "a-service", 1, 0)
-	p1.Tags = []string{"a-tag"}
+	p1.Labels = []string{"a-tag"}
 	p2 := status.NewPayload("eggs", "another-service", 2, 1)
-	p2.Tags = []string{"a-tag"}
+	p2.Labels = []string{"a-tag"}
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
 	command := status.NewListCommand(s.newAPIClient)
 	args := []string{
 		"a-tag",
 		"other",
-		"unit-some-service-1",
+		"some-service/1",
 	}
 	code, stdout, stderr := runList(c, command, args...)
 	c.Assert(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-unit-a-service-0       1       spam          running docker idspam a-tag 
-unit-another-service-1 2       eggs          running docker ideggs a-tag 
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-service/0       1       spam          running docker idspam a-tag 
+another-service/1 2       eggs          running docker ideggs a-tag 
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -133,7 +137,7 @@ unit-another-service-1 2       eggs          running docker ideggs a-tag
 			[]string{
 				"a-tag",
 				"other",
-				"unit-some-service-1",
+				"some-service/1",
 			},
 		},
 	}, {
@@ -143,7 +147,7 @@ unit-another-service-1 2       eggs          running docker ideggs a-tag
 
 func (s *listSuite) TestOutputFormats(c *gc.C) {
 	p1 := status.NewPayload("spam", "a-service", 1, 0)
-	p1.Tags = []string{"a-tag"}
+	p1.Labels = []string{"a-tag"}
 	p2 := status.NewPayload("eggs", "another-service", 2, 1)
 	s.client.payloads = append(s.client.payloads,
 		p1,
@@ -153,13 +157,13 @@ func (s *listSuite) TestOutputFormats(c *gc.C) {
 	formats := map[string]string{
 		"tabular": `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-unit-a-service-0       1       spam          running docker idspam a-tag 
-unit-another-service-1 2       eggs          running docker ideggs       
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-service/0       1       spam          running docker idspam a-tag 
+another-service/1 2       eggs          running docker ideggs       
 
 `[1:],
 		"yaml": `
-- unit: unit-a-service-0
+- unit: a-service/0
   machine: "1"
   id: idspam
   type: docker
@@ -167,7 +171,7 @@ unit-another-service-1 2       eggs          running docker ideggs
   tags:
   - a-tag
   status: running
-- unit: unit-another-service-1
+- unit: another-service/1
   machine: "2"
   id: ideggs
   type: docker
@@ -177,7 +181,7 @@ unit-another-service-1 2       eggs          running docker ideggs
 		"json": strings.Replace(""+
 			"["+
 			" {"+
-			`  "unit":"unit-a-service-0",`+
+			`  "unit":"a-service/0",`+
 			`  "machine":"1",`+
 			`  "id":"idspam",`+
 			`  "type":"docker",`+
@@ -185,7 +189,7 @@ unit-another-service-1 2       eggs          running docker ideggs
 			`  "tags":["a-tag"],`+
 			`  "status":"running"`+
 			" },{"+
-			`  "unit":"unit-another-service-1",`+
+			`  "unit":"another-service/1",`+
 			`  "machine":"2",`+
 			`  "id":"ideggs",`+
 			`  "type":"docker",`+
@@ -218,10 +222,10 @@ func runList(c *gc.C, command *status.ListCommand, args ...string) (int, string,
 
 type stubClient struct {
 	stub     *testing.Stub
-	payloads []workload.Payload
+	payloads []workload.FullPayloadInfo
 }
 
-func (s *stubClient) List(patterns ...string) ([]workload.Payload, error) {
+func (s *stubClient) ListFull(patterns ...string) ([]workload.FullPayloadInfo, error) {
 	s.stub.AddCall("List", patterns)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
