@@ -36,7 +36,7 @@ type UnitWorkloads struct {
 	// Unit identifies the unit associated with the workloads.
 	Unit string
 
-	NewID func() (string, error)
+	newID func() (string, error)
 }
 
 // NewUnitWorkloads builds a UnitWorkloads for a unit.
@@ -45,7 +45,7 @@ func NewUnitWorkloads(st persistence.PersistenceBase, unit string) *UnitWorkload
 	return &UnitWorkloads{
 		Persist: persist,
 		Unit:    unit,
-		NewID:   newID,
+		newID:   newID,
 	}
 }
 
@@ -67,7 +67,7 @@ func (uw UnitWorkloads) Track(info workload.Info) error {
 		return errors.NewNotValid(err, "bad workload info")
 	}
 
-	id, err := uw.NewID()
+	id, err := uw.newID()
 	if err != nil {
 		return errors.Trace(err)
 	}
