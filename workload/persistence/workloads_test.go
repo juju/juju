@@ -32,7 +32,7 @@ func (s *workloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "Run")
+	s.Stub.CheckCallNames(c, "All", "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "workloads",
@@ -59,45 +59,28 @@ func (s *workloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
 
 	wl := s.NewWorkload("docker", "workloadA/workloadA-xyz")
 	s.SetDoc(id, wl)
-	s.Stub.SetErrors(txn.ErrAborted)
+	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	wp := s.NewPersistence()
 	okay, err := wp.Track(id, wl)
-	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsFalse)
-	s.Stub.CheckCallNames(c, "Run")
-	s.State.CheckOps(c, [][]txn.Op{{
-		{
-			C:      "workloads",
-			Id:     "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
-			Assert: txn.DocMissing,
-			Insert: &persistence.WorkloadDoc{
-				DocID:  "workload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
-				UnitID: "a-unit/0",
-
-				Name: "workloadA",
-				Type: "docker",
-
-				PluginID:       "workloadA-xyz",
-				OriginalStatus: "running",
-
-				PluginStatus: "running",
-			},
-		},
-	}})
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+	s.Stub.CheckCallNames(c, "All")
+	s.State.CheckOps(c, nil)
 }
 
 func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
+	s.Stub.SetErrors(nil, failure)
 	wl := s.NewWorkload("docker", "workloadA")
 
 	pp := s.NewPersistence()
 	_, err := pp.Track(id, wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
+	s.Stub.CheckCallNames(c, "All", "Run")
 }
 
 func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
