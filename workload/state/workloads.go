@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/persistence"
@@ -44,8 +45,16 @@ func NewUnitWorkloads(st persistence.PersistenceBase, unit string) *UnitWorkload
 	return &UnitWorkloads{
 		Persist: persist,
 		Unit:    unit,
-		NewID:   workload.NewID,
+		NewID:   newID,
 	}
+}
+
+func newID() (string, error) {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return "", errors.Annotate(err, "could not create new payload ID")
+	}
+	return uuid.String(), nil
 }
 
 // TODO(ericsnow) Return the new ID from Track()?
