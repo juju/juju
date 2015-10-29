@@ -1180,6 +1180,10 @@ PRIMARY_IFACE=$(ip route list exact 0/0 | egrep -o 'dev [^ ]+' | cut -b5-)
 # If $PRIMARY_IFACE is empty, there's nothing to do.
 [ -z "$PRIMARY_IFACE" ] && exit 0
 
+# Bring down the primary interface while /e/n/i still matches the live config.
+# Will bring it back up within a bridge after updating /e/n/i.
+ifdown -v ${PRIMARY_IFACE}
+
 # Log the contents of /etc/network/interfaces prior to modifying
 echo "Contents of /etc/network/interfaces before changes"
 cat /etc/network/interfaces
@@ -1187,13 +1191,8 @@ cat /etc/network/interfaces
 # Log the contents of /etc/network/interfaces after modifying
 echo "Contents of /etc/network/interfaces after changes"
 cat /etc/network/interfaces
-# Stop $PRIMARY_IFACE and start the bridge instead.
-ifdown -v ${PRIMARY_IFACE} ; ifup -v {{.Bridge}}
 
-# Finally, remove the route using $PRIMARY_IFACE (if any) so it won't
-# clash with the same automatically added route for juju-br0 (except
-# for the device name).
-ip route flush dev $PRIMARY_IFACE scope link proto kernel || true
+ifup -v {{.Bridge}}
 `
 
 // setupJujuNetworking returns a string representing the script to run
