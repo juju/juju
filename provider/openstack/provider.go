@@ -860,7 +860,7 @@ func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if !e.Config().SSLHostnameVerification() {
 		verify = utils.NoVerifySSLHostnames
 	}
-	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify)
+	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify, 30)
 	return *datasource, nil
 }
 

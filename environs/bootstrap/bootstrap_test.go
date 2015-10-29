@@ -299,7 +299,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtools.RegisterToolsDataSourceFunc("local storage", func(environs.Environ) (simplestreams.DataSource, error) {
-		return storage.NewStorageSimpleStreamsDataSource("test datasource", env.storage, "tools"), nil
+		return storage.NewStorageSimpleStreamsDataSource("test datasource", env.storage, "tools", 20), nil
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 

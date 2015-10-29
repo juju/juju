@@ -70,17 +70,17 @@ func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames), nil
+		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames, 10), nil
 	})
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames), nil
+		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames, 20), nil
 	})
 	// overwrite the one previously registered against id1
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
 		return nil, errors.NewNotSupported(nil, "oyvey")
 	})
 	environs.RegisterUserImageDataSourceFunc("id2", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id2", "foobar", utils.NoVerifySSLHostnames), nil
+		return simplestreams.NewURLDataSource("id2", "foobar", utils.NoVerifySSLHostnames, 30), nil
 	})
 	defer environs.UnregisterImageDataSourceFunc("id0")
 	defer environs.UnregisterImageDataSourceFunc("id1")

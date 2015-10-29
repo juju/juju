@@ -41,6 +41,11 @@ type MetadataAttributes struct {
 type Metadata struct {
 	MetadataAttributes
 
+	// Priority is an importance factor for image metadata.
+	// Higher number means higher priority.
+	// This will allow to sort metadata by importance.
+	Priority int
+
 	// ImageId contains image identifier.
 	ImageId string
 }

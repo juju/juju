@@ -128,6 +128,11 @@ type imagesMetadataDoc struct {
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source string `bson:"source"`
+
+	// Priority is an importance factor for image metadata.
+	// Higher number means higher priority.
+	// This will allow to sort metadata by importance.
+	Priority int `bson:"priority"`
 }
 
 func (m imagesMetadataDoc) metadata() Metadata {
@@ -141,6 +146,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			RootStorageType: m.RootStorageType,
 			VirtType:        m.VirtType,
 		},
+		m.Priority,
 		m.ImageId,
 	}
 	if m.RootStorageSize != 0 {
@@ -162,6 +168,7 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		ImageId:         m.ImageId,
 		DateCreated:     time.Now().UnixNano(),
 		Source:          m.Source,
+		Priority:        m.Priority,
 	}
 	if m.RootStorageSize != nil {
 		r.RootStorageSize = *m.RootStorageSize

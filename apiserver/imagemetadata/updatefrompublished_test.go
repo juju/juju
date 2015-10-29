@@ -285,6 +285,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 				Region:          "dummy_region",
 				Source:          "default cloud images",
 				Stream:          "released"},
+			10,
 			"ami-36745463",
 		},
 		cloudimagemetadata.Metadata{
@@ -296,6 +297,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 				Region:          "dummy_region",
 				Source:          "default cloud images",
 				Stream:          "released"},
+			10,
 			"ami-26745463",
 		},
 	}
@@ -393,18 +395,21 @@ func writeTempFiles(c *gc.C, metadataDir string, expected []struct{ path, conten
 	}
 }
 
-func (s *regionMetadataSuite) createTestDataSource(c *gc.C, dsID string, files []struct{ path, content string }) {
+func (s *regionMetadataSuite) createTestDataSource(c *gc.C, dsID string, files []struct{ path, content string }) int {
 	metadataDir := c.MkDir()
 	writeTempFiles(c, metadataDir, files)
+
+	ds := simplestreams.NewURLDataSource(dsID, "file://"+metadataDir, false, 20)
 	environs.RegisterImageDataSourceFunc(dsID, func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource(dsID, "file://"+metadataDir, false), nil
+		return ds, nil
 	})
 	s.AddCleanup(func(*gc.C) {
 		environs.UnregisterImageDataSourceFunc(dsID)
 	})
+	return ds.Priority()
 }
 
-func (s *regionMetadataSuite) setupMetadata(c *gc.C, dsID string, cloudSpec simplestreams.CloudSpec, metadata cloudimagemetadata.Metadata) {
+func (s *regionMetadataSuite) setupMetadata(c *gc.C, dsID string, cloudSpec simplestreams.CloudSpec, metadata cloudimagemetadata.Metadata) int {
 	files := []struct{ path, content string }{{
 		path:    "streams/v1/index.json",
 		content: fmt.Sprintf(indexContent, metadata.Source, metadata.Region, cloudSpec.Endpoint, metadata.Arch),
@@ -415,7 +420,7 @@ func (s *regionMetadataSuite) setupMetadata(c *gc.C, dsID string, cloudSpec simp
 		path:    "wayward/file.txt",
 		content: "ghi",
 	}}
-	s.createTestDataSource(c, dsID, files)
+	return s.createTestDataSource(c, dsID, files)
 }
 
 func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
@@ -427,8 +432,10 @@ func (s *regionMetadataSuite) TestUpdateFromPublishedImagesMultipleDS(c *gc.C) {
 	anotherDS := "second ds"
 
 	m1 := s.expected[0]
-	s.setupMetadata(c, anotherDS, cloudSpec, m1)
+	priority := s.setupMetadata(c, anotherDS, cloudSpec, m1)
 	m1.Source = anotherDS
+	m1.Priority = priority
+
 	s.expected = append(s.expected, m1)
 
 	s.checkStoredPublished(c)

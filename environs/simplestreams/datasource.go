@@ -28,6 +28,9 @@ type DataSource interface {
 	// SetAllowRetry sets the flag which determines if the datasource will retry fetching the metadata
 	// if it is not immediately available.
 	SetAllowRetry(allow bool)
+	// Priority is an importance factor for Data Source. Higher number means higher priority.
+	// This is will allow to sort data sources in order of importance.
+	Priority() int
 }
 
 // A urlDataSource retrieves data from an HTTP URL.
@@ -35,14 +38,16 @@ type urlDataSource struct {
 	description          string
 	baseURL              string
 	hostnameVerification utils.SSLHostnameVerification
+	priority             int
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
-func NewURLDataSource(description, baseURL string, hostnameVerification utils.SSLHostnameVerification) DataSource {
+func NewURLDataSource(description, baseURL string, hostnameVerification utils.SSLHostnameVerification, priority int) DataSource {
 	return &urlDataSource{
 		description:          description,
 		baseURL:              baseURL,
 		hostnameVerification: hostnameVerification,
+		priority:             priority,
 	}
 }
 
@@ -99,4 +104,9 @@ func (h *urlDataSource) URL(path string) (string, error) {
 // SetAllowRetry is defined in simplestreams.DataSource.
 func (h *urlDataSource) SetAllowRetry(allow bool) {
 	// This is a NOOP for url datasources.
+}
+
+// Priority is defined in simplestreams.DataSource.
+func (h *urlDataSource) Priority() int {
+	return h.priority
 }

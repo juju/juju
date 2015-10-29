@@ -178,7 +178,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		}
 
 		stor := storage.NewStorage(c.st.EnvironUUID(), c.st.MongoSession())
-		registerSimplestreamsDataSource(stor)
+		registerSimplestreamsDataSource(stor, 10)
 
 		// This state-dependent data source will be useless
 		// once state is closed in previous defer - un-register it.

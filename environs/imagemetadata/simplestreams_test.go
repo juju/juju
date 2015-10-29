@@ -69,7 +69,7 @@ func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source: simplestreams.NewURLDataSource(
-				"test roundtripper", "test:", utils.VerifySSLHostnames),
+				"test roundtripper", "test:", utils.VerifySSLHostnames, 10),
 			RequireSigned:  false,
 			DataType:       imagemetadata.ImageIds,
 			StreamsVersion: imagemetadata.CurrentStreamsVersion,
@@ -88,7 +88,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames, 10),
 		RequireSigned:   requireSigned,
 		DataType:        imagemetadata.ImageIds,
 		ValidConstraint: validImageConstraint,
@@ -270,7 +270,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			Arches:    t.arches,
 		})
 		// Add invalid datasource and check later that resolveInfo is correct.
-		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames, 10)
 		images, resolveInfo, err := imagemetadata.Fetch(
 			[]simplestreams.DataSource{invalidSource, s.Source}, imageConstraint, s.RequireSigned)
 		if !c.Check(err, jc.ErrorIsNil) {
@@ -377,7 +377,7 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, 10)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
@@ -396,7 +396,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, 10)
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

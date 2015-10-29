@@ -90,7 +90,7 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify))
+		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify, 20))
 	}
 
 	envDataSources, err := environmentDataSources(env)
@@ -106,7 +106,7 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 	}
 	if defaultURL != "" {
 		sources = append(sources,
-			simplestreams.NewURLDataSource("default cloud images", defaultURL, utils.VerifySSLHostnames))
+			simplestreams.NewURLDataSource("default cloud images", defaultURL, utils.VerifySSLHostnames, 10))
 	}
 	for _, ds := range sources {
 		logger.Debugf("using image datasource %q", ds.Description())

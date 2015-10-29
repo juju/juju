@@ -1020,7 +1020,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 
 func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 	src := func(env environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("my datasource", "bar", false), nil
+		return simplestreams.NewURLDataSource("my datasource", "bar", false, 30), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
 	env := s.Open(c)

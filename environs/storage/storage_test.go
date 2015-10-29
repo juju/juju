@@ -45,7 +45,7 @@ func (s *datasourceSuite) SetUpTest(c *gc.C) {
 func (s *datasourceSuite) TestFetch(c *gc.C) {
 	sampleData := "hello world"
 	s.stor.Put("foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
-	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "")
+	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "", 10)
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
@@ -57,7 +57,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	sampleData := "hello world"
 	s.stor.Put("base/foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
-	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base")
+	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base", 10)
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
@@ -68,7 +68,7 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 
 func (s *datasourceSuite) TestFetchWithRetry(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
-	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "base")
+	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "base", 10)
 	ds.SetAllowRetry(true)
 	_, _, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.ErrorMatches, "an error")
@@ -80,7 +80,7 @@ func (s *datasourceSuite) TestFetchWithNoRetry(c *gc.C) {
 	// NB shouldRetry below is true indicating the fake storage is capable of
 	// retrying, not that it will retry.
 	stor := &fakeStorage{shouldRetry: true}
-	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "base")
+	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "base", 10)
 	_, _, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(stor.getName, gc.Equals, "base/foo/bar/data.txt")
@@ -90,7 +90,7 @@ func (s *datasourceSuite) TestFetchWithNoRetry(c *gc.C) {
 func (s *datasourceSuite) TestURL(c *gc.C) {
 	sampleData := "hello world"
 	s.stor.Put("bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
-	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "")
+	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "", 10)
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedURL, _ := s.stor.URL("bar")
@@ -100,7 +100,7 @@ func (s *datasourceSuite) TestURL(c *gc.C) {
 func (s *datasourceSuite) TestURLWithBasePath(c *gc.C) {
 	sampleData := "hello world"
 	s.stor.Put("base/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
-	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base")
+	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base", 10)
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedURL, _ := s.stor.URL("base/bar")

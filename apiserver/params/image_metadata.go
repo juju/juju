@@ -57,6 +57,11 @@ type CloudImageMetadata struct {
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source string `json:"source"`
+
+	// Priority is an importance factor for image metadata.
+	// Higher number means higher priority.
+	// This will allow to sort metadata by importance.
+	Priority int `json:"priority"`
 }
 
 // ListCloudImageMetadataResult holds the results of querying cloud image metadata.

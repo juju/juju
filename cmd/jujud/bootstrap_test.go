@@ -675,7 +675,8 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 			VirtType:        "virtType",
 			RootStorageType: "rootStore",
 			Source:          "custom"},
-		ImageId: "imageId"}
+		Priority: 50,
+		ImageId:  "imageId"}
 
 	// setup files containing test's data
 	metadataDir := c.MkDir()
