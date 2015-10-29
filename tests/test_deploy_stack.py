@@ -55,6 +55,7 @@ from tests import (
 )
 from test_jujupy import (
     assert_juju_call,
+    FakePopen,
 )
 from utility import (
     temp_dir,
@@ -546,17 +547,15 @@ class TestDeployDummyStack(FakeHomeTestCase):
             }
         })
 
-        def output(args, **kwargs):
+        def output(*args, **kwargs):
             output = {
-                ('juju', '--show-log', 'status', '-e', 'foo'): status,
-                get_timeout_prefix(120) + (
-                    'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
-                    GET_TOKEN_SCRIPT): 'fake-token',
+                ('status',): status,
+                ('ssh', 'dummy-sink/0', GET_TOKEN_SCRIPT): 'fake-token',
             }
             return output[args]
 
-        with patch('subprocess.check_output', side_effect=output,
-                   autospec=True) as co_mock:
+        with patch.object(client, 'get_juju_output', side_effect=output,
+                          autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 with patch('deploy_stack.get_random_string',
                            return_value='fake-token', autospec=True):
@@ -576,16 +575,13 @@ class TestDeployDummyStack(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'expose', '-e', 'foo', 'dummy-sink'), 4)
         self.assertEqual(cc_mock.call_count, 5)
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'foo'), 0,
-            assign_stderr=True)
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'foo'), 1,
-            assign_stderr=True)
-        assert_juju_call(self, co_mock, client, get_timeout_prefix(120) + (
-            'juju', '--show-log', 'ssh', '-e', 'foo', 'dummy-sink/0',
-            GET_TOKEN_SCRIPT), 2, assign_stderr=True)
-        self.assertEqual(co_mock.call_count, 3)
+        self.assertEqual(
+            [
+                call('status'),
+                call('status'),
+                call('ssh', 'dummy-sink/0', GET_TOKEN_SCRIPT, timeout=120),
+            ],
+            gjo_mock.call_args_list)
 
 
 def fake_SimpleEnvironment(name):
@@ -683,7 +679,6 @@ class TestTestUpgrade(FakeHomeTestCase):
     RUN_UNAME = (
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
         '--service', 'dummy-source,dummy-sink', 'uname')
-    VERSION = ('/bar/juju', '--version')
     STATUS = ('juju', '--show-log', 'status', '-e', 'foo')
     GET_ENV = ('juju', '--show-log', 'get-env', '-e', 'foo',
                'tools-metadata-url')
@@ -701,20 +696,20 @@ class TestTestUpgrade(FakeHomeTestCase):
         output = {
             cls.STATUS: status,
             cls.RUN_UNAME: juju_run_out,
-            cls.VERSION: '1.38',
             cls.GET_ENV: 'testing'
         }
-        return output[args]
+        return FakePopen(output[args], '', 0)
 
     @contextmanager
     def upgrade_mocks(self):
-        with patch('subprocess.check_output', side_effect=self.upgrade_output,
+        with patch('subprocess.Popen', side_effect=self.upgrade_output,
                    autospec=True) as co_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 with patch('deploy_stack.check_token', autospec=True):
                     with patch('deploy_stack.get_random_string',
                                return_value="FAKETOKEN", autospec=True):
-                        with patch('sys.stdout', autospec=True):
+                        with patch('jujupy.EnvJujuClient.get_version',
+                                   side_effect=lambda cls: '1.38'):
                             yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
@@ -730,16 +725,11 @@ class TestTestUpgrade(FakeHomeTestCase):
             'juju', '--show-log', 'set', '-e', 'foo', 'dummy-source',
             'token=FAKETOKEN'), 1)
         self.assertEqual(cc_mock.call_count, 2)
-        self.assertEqual(co_mock.mock_calls[0], call(self.VERSION))
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1,
-                         assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 2,
-                         assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, self.STATUS, 3,
-                         assign_stderr=True)
-        assert_juju_call(self, co_mock, new_client, self.RUN_UNAME, 4,
-                         assign_stderr=True)
-        self.assertEqual(co_mock.call_count, 5)
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1)
+        assert_juju_call(self, co_mock, new_client, self.STATUS, 2)
+        assert_juju_call(self, co_mock, new_client, self.RUN_UNAME, 3)
+        self.assertEqual(co_mock.call_count, 4)
 
     def test_mass_timeout(self):
         config = {'type': 'foo'}
@@ -777,14 +767,14 @@ class TestBootContext(FakeHomeTestCase):
                               return_value='foo', autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True))
         if jes:
-            co_return = 'system'
+            output = 'system'
         else:
-            co_return = ''
-        with patch('subprocess.check_output', autospec=True,
-                   return_value=co_return) as co_mock:
+            output = ''
+        with patch('subprocess.Popen', autospec=True,
+                   return_value=FakePopen(output, '', 0)) as po_mock:
             yield
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
+        assert_juju_call(self, po_mock, client, (
+            'juju', '--show-log', 'help', 'commands'))
         if jes:
             runtime_config = os.path.join(client.juju_home, 'environments',
                                           'cache.yaml')
@@ -874,8 +864,8 @@ class TestBootContext(FakeHomeTestCase):
                               return_value='foo'))
         self.addContext(patch('subprocess.check_call'))
         call_mock = self.addContext(patch('subprocess.call'))
-        co_mock = self.addContext(patch('subprocess.check_output',
-                                        return_value=''))
+        po_mock = self.addContext(patch('subprocess.Popen', autospec=True,
+                                        return_value=FakePopen('', '', 0)))
         self.addContext(patch('deploy_stack.wait_for_port'))
         self.addContext(patch.object(client, 'bootstrap',
                                      side_effect=FakeException))
@@ -897,8 +887,8 @@ class TestBootContext(FakeHomeTestCase):
             'juju', '--show-log', 'destroy-environment', 'bar', '--force',
             '-y'
             ))
-        assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), assign_stderr=True)
+        assert_juju_call(self, po_mock, client, (
+            'juju', '--show-log', 'help', 'commands'))
 
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))

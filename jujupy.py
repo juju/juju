@@ -16,7 +16,6 @@ from shutil import rmtree
 import subprocess
 import sys
 import time
-import tempfile
 
 import yaml
 
@@ -264,24 +263,27 @@ class EnvJujuClient:
                                timeout=kwargs.get('timeout'),
                                include_e=kwargs.get('include_e', True))
         env = self._shell_environ()
-        with tempfile.TemporaryFile() as stderr:
-            try:
-                log.debug(args)
-                # Mutate os.environ instead of supplying env parameter so
-                # Windows can search env['PATH']
-                with scoped_environ(env):
-                    sub_output = subprocess.check_output(args, stderr=stderr)
-                log.debug(sub_output)
-                return sub_output
-            except subprocess.CalledProcessError as e:
-                stderr.seek(0)
-                e.stderr = stderr.read()
-                if ('Unable to connect to environment' in e.stderr or
-                        'MissingOrIncorrectVersionHeader' in e.stderr or
-                        '307: Temporary Redirect' in e.stderr):
+        log.debug(args)
+        # Mutate os.environ instead of supplying env parameter so
+        # Windows can search env['PATH']
+        with scoped_environ(env):
+            proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            sub_output, sub_error = proc.communicate()
+            log.debug(sub_output)
+            if proc.returncode != 0:
+                log.debug(sub_error)
+                e = subprocess.CalledProcessError(
+                    proc.returncode, args[0], sub_error)
+                e.stderr = sub_error
+                if (
+                    'Unable to connect to environment' in sub_error or
+                        'MissingOrIncorrectVersionHeader' in sub_error or
+                        '307: Temporary Redirect' in sub_error):
                     raise CannotConnectEnv(e)
-                log.debug('!!! ' + e.stderr)
-                raise
+                raise e
+        return sub_output
 
     def get_status(self, timeout=60, raw=False, *args):
         """Get the current status as a dict."""

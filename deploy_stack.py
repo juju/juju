@@ -317,8 +317,7 @@ def assess_upgrade(old_client, juju_path, skip_juju_run=False):
 def upgrade_juju(client):
     client.set_testing_tools_metadata_url()
     tools_metadata_url = client.get_env_option('tools-metadata-url')
-    print(
-        'The tools-metadata-url is %s' % tools_metadata_url)
+    logging.info('The tools-metadata-url is %s', tools_metadata_url)
     client.upgrade_juju()
 
 
