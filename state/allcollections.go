@@ -173,8 +173,9 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with services.
-		charmsC:   {},
-		servicesC: {},
+		charmsC:         {},
+		remoteServicesC: {},
+		servicesC:       {},
 		unitsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"env-uuid", "service"},
@@ -363,6 +364,7 @@ const (
 	rebootC                = "reboot"
 	relationScopesC        = "relationscopes"
 	relationsC             = "relations"
+	remoteServicesC        = "remoteservices"
 	requestedNetworksC     = "requestednetworks"
 	restoreInfoC           = "restoreInfo"
 	sequenceC              = "sequence"

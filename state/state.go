@@ -1483,6 +1483,14 @@ func (st *State) strictLocalID(ID string) (string, error) {
 	return localID, nil
 }
 
+func serviceEndpointsFunc(st *State, name string) (EndpointsEntity, error) {
+	s, err := st.Service(name)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 // InferEndpoints returns the endpoints corresponding to the supplied names.
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
@@ -1493,7 +1501,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	var candidates [][]Endpoint
 	switch len(names) {
 	case 1:
-		eps, err := st.endpoints(names[0], isPeer)
+		eps, err := st.endpoints(names[0], serviceEndpointsFunc, isPeer)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1501,11 +1509,11 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 			candidates = append(candidates, []Endpoint{ep})
 		}
 	case 2:
-		eps1, err := st.endpoints(names[0], notPeer)
+		eps1, err := st.endpoints(names[0], serviceEndpointsFunc, notPeer)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		eps2, err := st.endpoints(names[1], notPeer)
+		eps2, err := st.endpoints(names[1], serviceEndpointsFunc, notPeer)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1573,10 +1581,12 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
 	return subordinateCount >= 1
 }
 
+type serviceByNameFunc func(st *State, name string) (EndpointsEntity, error)
+
 // endpoints returns all endpoints that could be intended by the
 // supplied endpoint name, and which cause the filter param to
 // return true.
-func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
+func (st *State) endpoints(name string, serviceByName serviceByNameFunc, filter func(ep Endpoint) bool) ([]Endpoint, error) {
 	var svcName, relName string
 	if i := strings.Index(name, ":"); i == -1 {
 		svcName = name
@@ -1586,7 +1596,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 	} else {
 		return nil, errors.Errorf("invalid endpoint %q", name)
 	}
-	svc, err := st.Service(svcName)
+	svc, err := serviceByName(st, svcName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

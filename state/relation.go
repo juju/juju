@@ -182,49 +182,100 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 		if ep.ServiceName == ignoreService {
 			continue
 		}
-		var asserts bson.D
-		hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
-		if departingUnit == nil {
-			// We're constructing a destroy operation, either of the relation
-			// or one of its services, and can therefore be assured that both
-			// services are Alive.
-			asserts = append(hasRelation, isAliveDoc...)
-		} else if ep.ServiceName == departingUnit.ServiceName() {
-			// This service must have at least one unit -- the one that's
-			// departing the relation -- so it cannot be ready for removal.
-			cannotDieYet := bson.D{{"unitcount", bson.D{{"$gt", 0}}}}
-			asserts = append(hasRelation, cannotDieYet...)
-		} else {
-			// This service may require immediate removal.
-			services, closer := r.st.getCollection(servicesC)
-			defer closer()
-
-			svc := &Service{st: r.st}
-			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
-			removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
-			if err := services.Find(removable).One(&svc.doc); err == nil {
-				ops = append(ops, svc.removeOps(hasLastRef)...)
-				continue
-			} else if err != mgo.ErrNotFound {
-				return nil, err
+		if ep.IsRemote {
+			epOps, err := r.removeRemoteEndpointOps(ep, departingUnit != nil)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
-			// If not, we must check that this is still the case when the
-			// transaction is applied.
-			asserts = bson.D{{"$or", []bson.D{
-				{{"life", Alive}},
-				{{"unitcount", bson.D{{"$gt", 0}}}},
-				{{"relationcount", bson.D{{"$gt", 1}}}},
-			}}}
+			ops = append(ops, epOps...)
+		} else {
+			epOps, err := r.removeLocalEndpointOps(ep, departingUnit)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, epOps...)
 		}
-		ops = append(ops, txn.Op{
-			C:      servicesC,
-			Id:     r.st.docID(ep.ServiceName),
-			Assert: asserts,
-			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
-		})
 	}
 	cleanupOp := r.st.newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
+}
+
+func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnit *Unit) ([]txn.Op, error) {
+	var asserts bson.D
+	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
+	if departingUnit == nil {
+		// We're constructing a destroy operation, either of the relation
+		// or one of its services, and can therefore be assured that both
+		// services are Alive.
+		asserts = append(hasRelation, isAliveDoc...)
+	} else if ep.ServiceName == departingUnit.ServiceName() {
+		// This service must have at least one unit -- the one that's
+		// departing the relation -- so it cannot be ready for removal.
+		cannotDieYet := bson.D{{"unitcount", bson.D{{"$gt", 0}}}}
+		asserts = append(hasRelation, cannotDieYet...)
+	} else {
+		// This service may require immediate removal.
+		services, closer := r.st.getCollection(servicesC)
+		defer closer()
+
+		svc := &Service{st: r.st}
+		hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
+		removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
+		if err := services.Find(removable).One(&svc.doc); err == nil {
+			return svc.removeOps(hasLastRef), nil
+		} else if err != mgo.ErrNotFound {
+			return nil, err
+		}
+		// If not, we must check that this is still the case when the
+		// transaction is applied.
+		asserts = bson.D{{"$or", []bson.D{
+			{{"life", Alive}},
+			{{"unitcount", bson.D{{"$gt", 0}}}},
+			{{"relationcount", bson.D{{"$gt", 1}}}},
+		}}}
+	}
+	return []txn.Op{{
+		C:      servicesC,
+		Id:     r.st.docID(ep.ServiceName),
+		Assert: asserts,
+		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
+	}}, nil
+}
+
+func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
+	var asserts bson.D
+	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
+	if !unitDying {
+		// We're constructing a destroy operation, either of the relation
+		// or one of its services, and can therefore be assured that both
+		// services are Alive.
+		asserts = append(hasRelation, isAliveDoc...)
+	} else {
+		// The remote service may require immediate removal.
+		services, closer := r.st.getCollection(remoteServicesC)
+		defer closer()
+
+		svc := &RemoteService{st: r.st}
+		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
+		removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
+		if err := services.Find(removable).One(&svc.doc); err == nil {
+			return svc.removeOps(hasLastRef), nil
+		} else if err != mgo.ErrNotFound {
+			return nil, err
+		}
+		// If not, we must check that this is still the case when the
+		// transaction is applied.
+		asserts = bson.D{{"$or", []bson.D{
+			{{"life", Alive}},
+			{{"relationcount", bson.D{{"$gt", 1}}}},
+		}}}
+	}
+	return []txn.Op{{
+		C:      remoteServicesC,
+		Id:     r.st.docID(ep.ServiceName),
+		Assert: asserts,
+		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
+	}}, nil
 }
 
 // Id returns the integer internal relation key. This is exposed

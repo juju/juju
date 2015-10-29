@@ -168,3 +168,12 @@ type GlobalEntity interface {
 	globalKey() string
 	Tag() names.Tag
 }
+
+// EndpointsEntity is an entity (service or remote service) that has endpoints.
+type EndpointsEntity interface {
+	// Endpoints returns the entity's currently available relation endpoints.
+	Endpoints() ([]Endpoint, error)
+
+	// Endpoint returns the relation endpoint with the supplied name, if it exists.
+	Endpoint(relationName string) (Endpoint, error)
+}

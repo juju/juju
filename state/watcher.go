@@ -1391,6 +1391,7 @@ func (m *Machine) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to a service.
+// TODO(wallyworld) - only used in tests, remove and refactor.
 func (s *Service) Watch() NotifyWatcher {
 	return newEntityWatcher(s.st, servicesC, s.doc.DocID)
 }
