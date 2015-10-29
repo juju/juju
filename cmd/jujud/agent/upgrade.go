@@ -178,6 +178,10 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		}
 
 		stor := storage.NewStorage(c.st.EnvironUUID(), c.st.MongoSession())
+		// TODO(anastasiamac 2015-10-30)
+		// We may not need this anymore.
+		// At the very least, there could be an upgrade step to read the data
+		// and add it to structured data.
 		registerSimplestreamsDataSource(stor, 10)
 
 		// This state-dependent data source will be useless
