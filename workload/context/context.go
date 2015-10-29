@@ -75,9 +75,9 @@ func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
 
 	ctx := NewContext(api, dataDir)
 	for _, result := range results {
-		wl := *result.Workload
+		wl := result.Workload
 		// TODO(ericsnow) Use id instead of wl.ID().
-		ctx.workloads[wl.ID()] = wl
+		ctx.workloads[wl.ID()] = *wl
 	}
 	return ctx, nil
 }
