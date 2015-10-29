@@ -29,13 +29,13 @@ var Collections = []string{
 
 // TODO(ericsnow) Move the methods under their own type (workloadcollection?).
 
-func (pp Persistence) extractWorkload(id string, workloadDocs map[string]workloadDoc) (*workload.Info, bool) {
-	workloadDoc, ok := workloadDocs[id]
+func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*workload.Payload, bool) {
+	doc, ok := payloadDocs[id]
 	if !ok {
 		return nil, false
 	}
-	info := workloadDoc.info()
-	return &info, true
+	p := doc.payload(pp.unit)
+	return &p, true
 }
 
 func (pp Persistence) one(id string, doc interface{}) error {
@@ -53,20 +53,20 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.all(query, docs))
 }
 
-func (pp Persistence) workloadID(id string) string {
+func (pp Persistence) payloadID(id string) string {
 	// TODO(ericsnow) Drop the unit part.
-	return fmt.Sprintf("workload#%s#%s", pp.unit, id)
+	return fmt.Sprintf("payload#%s#%s", pp.unit, id)
 }
 
-func (pp Persistence) extractWorkloadID(docID string) string {
+func (pp Persistence) extractPayloadID(docID string) string {
 	parts := strings.Split(docID, "#")
 	return parts[len(parts)-1]
 }
 
-func (pp Persistence) newInsertWorkloadOps(id string, info workload.Info) []txn.Op {
+func (pp Persistence) newInsertPayloadOps(id string, p workload.Payload) []txn.Op {
 	var ops []txn.Op
 
-	doc := pp.newWorkloadDoc(id, info)
+	doc := pp.newPayloadDoc(id, p)
 	ops = append(ops, txn.Op{
 		C:      workloadsC,
 		Id:     doc.DocID,
@@ -78,11 +78,9 @@ func (pp Persistence) newInsertWorkloadOps(id string, info workload.Info) []txn.
 }
 
 func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
-	id = pp.workloadID(id)
+	id = pp.payloadID(id)
 	updates := bson.D{
 		{"state", status},
-		{"status", status},
-		{"pluginstatus", status},
 	}
 	return []txn.Op{{
 		C:      workloadsC,
@@ -92,8 +90,8 @@ func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
 	}}
 }
 
-func (pp Persistence) newRemoveWorkloadOps(id string) []txn.Op {
-	id = pp.workloadID(id)
+func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
+	id = pp.payloadID(id)
 	return []txn.Op{{
 		C:      workloadsC,
 		Id:     id,
@@ -102,8 +100,8 @@ func (pp Persistence) newRemoveWorkloadOps(id string) []txn.Op {
 	}}
 }
 
-// workloadDoc is the top-level document for workloads.
-type workloadDoc struct {
+// payloadDoc is the top-level document for workloads.
+type payloadDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
@@ -114,128 +112,100 @@ type workloadDoc struct {
 
 	// TODO(ericsnow) Store status in the "statuses" collection?
 
-	State   string `bson:"state"`
-	Blocker string `bson:"blocker"`
-	Status  string `bson:"status"`
+	State string `bson:"state"`
 
 	// TODO(ericsnow) Store labels in the "annotations" collection?
 
 	Labels []string `bson:"labels"`
 
-	PluginID       string `bson:"pluginid"`
-	OriginalStatus string `bson:"origstatus"`
-
-	PluginStatus string `bson:"pluginstatus"`
+	RawID string `bson:"rawid"`
 }
 
-func (d workloadDoc) info() workload.Info {
+func (d payloadDoc) payload(unit string) workload.Payload {
 	labels := make([]string, len(d.Labels))
 	copy(labels, d.Labels)
-	info := workload.Info{
+	p := workload.Payload{
 		PayloadClass: d.definition(),
-		Status:       d.status(),
+		ID:           d.RawID,
+		Status:       d.State,
 		Labels:       labels,
-		Details:      d.details(),
+		Unit:         unit,
 	}
-	info.Details.Status.State = d.PluginStatus
-	return info
+	return p
 }
 
-func (d workloadDoc) definition() charm.PayloadClass {
+func (d payloadDoc) definition() charm.PayloadClass {
 	definition := charm.PayloadClass{
 		Name: d.Name,
 		Type: d.Type,
 	}
-
 	return definition
 }
 
-func (d workloadDoc) status() workload.Status {
-	return workload.Status{
-		State:   d.State,
-		Blocker: d.Blocker,
-		Message: d.Status,
-	}
-}
-
-func (d workloadDoc) details() workload.Details {
-	return workload.Details{
-		ID: d.PluginID,
-		Status: workload.PluginStatus{
-			State: d.OriginalStatus,
-		},
-	}
-}
-
-func (d workloadDoc) match(name, rawID string) bool {
+func (d payloadDoc) match(name, rawID string) bool {
 	if d.Name != name {
 		return false
 	}
-	if d.PluginID != rawID {
+	if d.RawID != rawID {
 		return false
 	}
 	return true
 }
 
-func (pp Persistence) newWorkloadDoc(id string, info workload.Info) *workloadDoc {
-	id = pp.workloadID(id)
+func (pp Persistence) newPayloadDoc(id string, p workload.Payload) *payloadDoc {
+	id = pp.payloadID(id)
 
-	definition := info.PayloadClass
+	definition := p.PayloadClass
 
-	labels := make([]string, len(info.Labels))
-	copy(labels, info.Labels)
+	labels := make([]string, len(p.Labels))
+	copy(labels, p.Labels)
 
-	return &workloadDoc{
+	return &payloadDoc{
 		DocID:  id,
 		UnitID: pp.unit,
 
 		Name: definition.Name,
 		Type: definition.Type,
 
-		State:   info.Status.State,
-		Blocker: info.Status.Blocker,
-		Status:  info.Status.Message,
+		State: p.Status,
 
 		Labels: labels,
 
-		PluginID:       info.Details.ID,
-		OriginalStatus: info.Details.Status.State,
-
-		PluginStatus: info.Details.Status.State,
+		RawID: p.ID,
 	}
 }
 
-func (pp Persistence) allWorkloads() (map[string]workloadDoc, error) {
-	var docs []workloadDoc
+func (pp Persistence) allPayloads() (map[string]payloadDoc, error) {
+	var docs []payloadDoc
 	query := bson.D{{"unitid", pp.unit}}
 	if err := pp.all(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]workloadDoc)
+	results := make(map[string]payloadDoc)
 	for _, doc := range docs {
-		id := pp.extractWorkloadID(doc.DocID)
+		id := pp.extractPayloadID(doc.DocID)
 		results[id] = doc
 	}
 	return results, nil
 }
 
-func (pp Persistence) workloads(ids []string) (map[string]workloadDoc, error) {
+func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, error) {
 	fullIDs := make([]string, len(ids))
 	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
-		fullID := pp.workloadID(id)
+		fullID := pp.payloadID(id)
 		fullIDs[i] = fullID
 		idMap[fullID] = id
 	}
 
-	var docs []workloadDoc
+	var docs []payloadDoc
 	query := bson.D{{"$in", fullIDs}}
 	if err := pp.allID(query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make(map[string]workloadDoc)
+	results := make(map[string]payloadDoc)
 	for _, doc := range docs {
 		fullID := dropEnvUUID(doc.DocID)
 		id := idMap[fullID]

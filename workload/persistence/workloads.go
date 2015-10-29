@@ -71,7 +71,8 @@ func (pp Persistence) Track(id string, info workload.Info) (bool, error) {
 	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newInsertWorkloadOps(id, info)...)
+	pl := info.AsPayload()
+	ops = append(ops, pp.newInsertPayloadOps(id, pl)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			okay = false
@@ -117,7 +118,7 @@ func (pp Persistence) SetStatus(id, status string) (bool, error) {
 func (pp Persistence) List(ids ...string) ([]workload.Info, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	workloadDocs, err := pp.workloads(ids)
+	docs, err := pp.payloads(ids)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -125,12 +126,13 @@ func (pp Persistence) List(ids ...string) ([]workload.Info, []string, error) {
 	var results []workload.Info
 	var missing []string
 	for _, id := range ids {
-		w, ok := pp.extractWorkload(id, workloadDocs)
+		p, ok := pp.extractPayload(id, docs)
 		if !ok {
 			missing = append(missing, id)
 			continue
 		}
-		results = append(results, *w)
+		w := p.AsWorkload()
+		results = append(results, w)
 	}
 	return results, missing, nil
 }
@@ -140,15 +142,16 @@ func (pp Persistence) List(ids ...string) ([]workload.Info, []string, error) {
 func (pp Persistence) ListAll() ([]workload.Info, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	workloadDocs, err := pp.allWorkloads()
+	docs, err := pp.allPayloads()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []workload.Info
-	for id := range workloadDocs {
-		w, _ := pp.extractWorkload(id, workloadDocs)
-		results = append(results, *w)
+	for id := range docs {
+		p, _ := pp.extractPayload(id, docs)
+		w := p.AsWorkload()
+		results = append(results, w)
 	}
 	return results, nil
 }
@@ -157,12 +160,12 @@ func (pp Persistence) ListAll() ([]workload.Info, error) {
 func (pp Persistence) LookUp(name, rawID string) (string, error) {
 	// TODO(ericsnow) This could be more efficient.
 
-	workloadDocs, err := pp.allWorkloads()
+	docs, err := pp.allPayloads()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	for id, doc := range workloadDocs {
+	for id, doc := range docs {
 		if doc.match(name, rawID) {
 			return id, nil
 		}
@@ -184,7 +187,7 @@ func (pp Persistence) Untrack(id string) (bool, error) {
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newRemoveWorkloadOps(id)...)
+	ops = append(ops, pp.newRemovePayloadOps(id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			found = false
