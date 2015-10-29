@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/workload"
 )
@@ -29,7 +28,9 @@ type UnitWorkloads interface {
 	// IDs are provided, any that are not in state are ignored and only
 	// the found ones are returned. It is up to the caller to
 	// extrapolate the list of missing IDs.
-	List(ids ...string) ([]workload.Info, error)
+	List(ids ...string) ([]workload.Result, error)
+	// LookUpReturns the Juju ID for the corresponding workload.
+	LookUp(name, rawID string) (string, error)
 	// Untrack removes the identified workload from state. If the
 	// given ID is not in state then the request will fail.
 	Untrack(id string) error
@@ -37,7 +38,7 @@ type UnitWorkloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newUnitWorkloadsFunc func(persist Persistence, unit names.UnitTag) (UnitWorkloads, error)
+type newUnitWorkloadsFunc func(persist Persistence, unit string) (UnitWorkloads, error)
 
 var (
 	newUnitWorkloads newUnitWorkloadsFunc
@@ -57,7 +58,7 @@ func (st *State) UnitWorkloads(unit *Unit) (UnitWorkloads, error) {
 	}
 
 	persist := st.newPersistence()
-	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag())
+	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag().Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

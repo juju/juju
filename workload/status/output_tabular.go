@@ -22,7 +22,7 @@ var (
 		"STATUS",
 		"TYPE",
 		"ID",
-		"TAGS",
+		"TAGS", // TODO(ericsnow) Chane this to "LABELS"?
 	}
 
 	tabularHeader = strings.Join(tabularColumns, "\t") + "\t"
@@ -56,7 +56,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			payload.Status,
 			payload.Type,
 			payload.ID,
-			strings.Join(payload.Tags, " "),
+			strings.Join(payload.Labels, " "),
 		)
 	}
 	tw.Flush()

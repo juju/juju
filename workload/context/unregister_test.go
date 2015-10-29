@@ -18,6 +18,8 @@ import (
 )
 
 type unregisterSuite struct {
+	testing.IsolationSuite
+
 	stub    *testing.Stub
 	compCtx *stubUnregisterContext
 	ctx     *cmd.Context
@@ -26,6 +28,8 @@ type unregisterSuite struct {
 var _ = gc.Suite(&unregisterSuite{})
 
 func (s *unregisterSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.compCtx = &stubUnregisterContext{stub: s.stub}
 	s.ctx = coretesting.Context(c)
@@ -73,7 +77,8 @@ func (s *unregisterSuite) TestRunOkay(c *gc.C) {
 	}, {
 		FuncName: "Untrack",
 		Args: []interface{}{
-			"spam/eggs",
+			"spam",
+			"eggs",
 		},
 	}, {
 		FuncName: "Flush",
@@ -85,8 +90,8 @@ type stubUnregisterContext struct {
 	stub *testing.Stub
 }
 
-func (s stubUnregisterContext) Untrack(id string) error {
-	s.stub.AddCall("Untrack", id)
+func (s stubUnregisterContext) Untrack(class, id string) error {
+	s.stub.AddCall("Untrack", class, id)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

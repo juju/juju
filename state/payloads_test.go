@@ -86,19 +86,24 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 
 	payloads, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(payloads, jc.DeepEquals, []workload.Payload{{
-		PayloadClass: charm.PayloadClass{
-			Name: "payloadA",
-			Type: "docker",
+	c.Check(payloads, jc.DeepEquals, []workload.FullPayloadInfo{{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "payloadA",
+				Type: "docker",
+			},
+			ID:     "xyz",
+			Status: workload.StateRunning,
+			Labels: []string{},
+			Unit:   "a-service/0",
 		},
-		ID:      "xyz",
-		Status:  workload.StateRunning,
-		Tags:    []string{},
-		Unit:    "unit-a-service-0",
 		Machine: "0",
 	}})
 
-	err = ust.Untrack("payloadA/xyz")
+	id, err := ust.LookUp("payloadA", "xyz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ust.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	payloads, err = st.ListAll()

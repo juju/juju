@@ -5,6 +5,7 @@ package server
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,35 +18,47 @@ import (
 var _ = gc.Suite(&publicSuite{})
 
 type publicSuite struct {
+	testing.IsolationSuite
+
 	stub  *testing.Stub
 	state *stubState
 }
 
 func (s *publicSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.stub = &testing.Stub{}
 	s.state = &stubState{stub: s.stub}
 }
 
-func (publicSuite) newPayload(name string) (workload.Payload, api.Payload) {
-	payload := workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: name,
-			Type: "docker",
+func (publicSuite) newPayload(name string) (workload.FullPayloadInfo, api.Payload) {
+	ptype := "docker"
+	id := "id" + name
+	tags := []string{"a-tag"}
+	unit := "a-service/0"
+	machine := "1"
+
+	payload := workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: name,
+				Type: ptype,
+			},
+			ID:     id,
+			Status: workload.StateRunning,
+			Labels: tags,
+			Unit:   unit,
 		},
-		ID:      "id" + name,
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
-		Machine: "1",
+		Machine: machine,
 	}
 	apiPayload := api.Payload{
 		Class:   name,
-		Type:    "docker",
-		ID:      "id" + name,
+		Type:    ptype,
+		ID:      id,
 		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
-		Machine: "1",
+		Labels:  tags,
+		Unit:    names.NewUnitTag(unit).String(),
+		Machine: names.NewMachineTag(machine).String(),
 	}
 	return payload, apiPayload
 }
@@ -78,7 +91,7 @@ func (s *publicSuite) TestListAllMatch(c *gc.C) {
 	facade := PublicAPI{s.state}
 	args := api.EnvListArgs{
 		Patterns: []string{
-			"unit-a-service-0",
+			"a-service/0",
 		},
 	}
 	results, err := facade.List(args)
@@ -100,7 +113,7 @@ func (s *publicSuite) TestListNoMatch(c *gc.C) {
 	facade := PublicAPI{s.state}
 	args := api.EnvListArgs{
 		Patterns: []string{
-			"unit-a-service-1",
+			"a-service/1",
 		},
 	}
 	results, err := facade.List(args)
@@ -189,15 +202,17 @@ func (s *publicSuite) TestListPartialMultiMatch(c *gc.C) {
 }
 
 func (s *publicSuite) TestListAllFilters(c *gc.C) {
-	payload := workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
+	payload := workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: workload.StateRunning,
+			Labels: []string{"a-tag"},
+			Unit:   "a-service/0",
 		},
-		ID:      "idspam",
-		Status:  workload.StateRunning,
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
 	apiPayload := api.Payload2api(payload)
@@ -209,7 +224,7 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 		"docker",              // type
 		"idspam",              // ID
 		workload.StateRunning, // status
-		"unit-a-service-0",    // unit
+		"a-service/0",         // unit
 		"1",                   // machine
 		"a-tag",               // tags
 	}
@@ -235,10 +250,10 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 type stubState struct {
 	stub *testing.Stub
 
-	payloads []workload.Payload
+	payloads []workload.FullPayloadInfo
 }
 
-func (s *stubState) ListAll() ([]workload.Payload, error) {
+func (s *stubState) ListAll() ([]workload.FullPayloadInfo, error) {
 	s.stub.AddCall("ListAll")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

@@ -76,14 +76,14 @@ func (em *EnvironmentManagerAPI) authCheck(user names.UserTag) error {
 		return errors.Trace(err)
 	}
 	if isAdmin {
-		logger.Tracef("%q is a system admin", apiUser.Username())
+		logger.Tracef("%q is a system admin", apiUser.Canonical())
 		return nil
 	}
 
 	// We can't just compare the UserTags themselves as the provider part
 	// may be unset, and gets replaced with 'local'. We must compare against
 	// the Username of the user tag.
-	if apiUser.Username() == user.Username() {
+	if apiUser.Canonical() == user.Canonical() {
 		return nil
 	}
 	return common.ErrPerm

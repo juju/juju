@@ -237,7 +237,7 @@ func (s *contextSuite) TestGetOkay(c *gc.C) {
 	extra := s.newWorkload("B", "myplugin", "eggs", "okay")
 
 	ctx := s.newContext(c, expected, extra)
-	info, err := ctx.Get("A/spam")
+	info, err := ctx.Get("A", "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(*info, jc.DeepEquals, expected)
@@ -255,7 +255,7 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 	context.AddWorkload(ctx, "A/spam", unexpected)
 	context.AddWorkload(ctx, "A/spam", expected)
 
-	info, err := ctx.Get("A/spam")
+	info, err := ctx.Get("A", "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(*info, jc.DeepEquals, expected)
@@ -264,7 +264,7 @@ func (s *contextSuite) TestGetOverride(c *gc.C) {
 
 func (s *contextSuite) TestGetNotFound(c *gc.C) {
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	_, err := ctx.Get("A/spam")
+	_, err := ctx.Get("A", "spam")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -324,7 +324,7 @@ func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
 	before, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(before, jc.DeepEquals, []workload.Info{info})
-	ctx.Untrack("not gonna match")
+	ctx.Untrack("uh-oh", "not gonna match")
 	after, err := ctx.Workloads()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(after, gc.DeepEquals, before)

@@ -12,6 +12,10 @@ import (
 	"github.com/juju/juju/workload/api"
 )
 
+type facadeCaller interface {
+	FacadeCall(request string, params, response interface{}) error
+}
+
 type rawAPI interface {
 	facadeCaller
 	io.Closer
@@ -30,8 +34,8 @@ func NewPublicClient(raw rawAPI) PublicClient {
 	}
 }
 
-// List calls the List API server method.
-func (c PublicClient) List(patterns ...string) ([]workload.Payload, error) {
+// ListFull calls the List API server method.
+func (c PublicClient) ListFull(patterns ...string) ([]workload.FullPayloadInfo, error) {
 	var result api.EnvListResults
 
 	args := api.EnvListArgs{
@@ -41,9 +45,13 @@ func (c PublicClient) List(patterns ...string) ([]workload.Payload, error) {
 		return nil, errors.Trace(err)
 	}
 
-	payloads := make([]workload.Payload, len(result.Results))
+	payloads := make([]workload.FullPayloadInfo, len(result.Results))
 	for i, apiInfo := range result.Results {
-		payload := api.API2Payload(apiInfo)
+		payload, err := api.API2Payload(apiInfo)
+		if err != nil {
+			// We should never see this happen; we control the input safely.
+			return nil, errors.Trace(err)
+		}
 		payloads[i] = payload
 	}
 	return payloads, nil
