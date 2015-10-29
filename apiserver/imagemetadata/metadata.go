@@ -60,7 +60,7 @@ func NewAPI(
 
 // List returns all found cloud image metadata that satisfy
 // given filter.
-// Returned list contains metadata order by priority.
+// Returned list contains metadata ordered by priority.
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
@@ -84,7 +84,6 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 	for _, ms := range found {
 		addAll(ms)
 	}
-	// Sort source keys in alphabetic order.
 	sort.Sort(metadataList(all))
 
 	return params.ListCloudImageMetadataResult{Result: all}, nil
@@ -241,7 +240,7 @@ func processErrors(errs []params.ErrorResult) error {
 }
 
 // metadataList is a convenience type enabling to sort
-// a collection of Metadata
+// a collection of Metadata in order of priority.
 type metadataList []params.CloudImageMetadata
 
 // Implements sort.Interface
