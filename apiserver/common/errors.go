@@ -194,28 +194,31 @@ func RestoreError(err error) (error, bool) {
 	case params.IsCodeUnauthorized(err):
 		return errors.NewUnauthorized(nil, msg), true
 	case params.IsCodeNotFound(err):
-		//if err := parseUnknownEnvironment(msg); err != nil {
-		//    return err, true
-		//}
+		// TODO(ericsnow) unknownEnvironmentError should be handled here too.
+		// ...by parsing msg?
 		return errors.NewNotFound(nil, msg), true
 	case params.IsCodeAlreadyExists(err):
 		return errors.NewAlreadyExists(nil, msg), true
 	case params.IsCodeNotAssigned(err):
 		return errors.NewNotAssigned(nil, msg), true
 	case params.IsCodeHasAssignedUnits(err):
+		// TODO(ericsnow) Handle state.HasAssignedUnitsError here.
+		// ...by parsing msg?
 		return err, false
-		//return state.ParseHasAssignedUnitsError(msg), true
 	case params.IsCodeNoAddressSet(err):
+		// TODO(ericsnow) Handle isNoAddressSetError here.
+		// ...by parsing msg?
 		return err, false
-		//return parseIsNoAddressSetError(msg), true
 	case params.IsCodeNotProvisioned(err):
 		return errors.NewNotProvisioned(nil, msg), true
 	case params.IsCodeUpgradeInProgress(err):
+		// TODO(ericsnow) Handle state.UpgradeInProgressError here.
+		// ...by parsing msg?
 		return err, false
-		//return state.ParseUpgradeInProgressError(msg), true
 	case params.IsCodeMachineHasAttachedStorage(err):
+		// TODO(ericsnow) Handle state.HasAttachmentsError here.
+		// ...by parsing msg?
 		return err, false
-		//return state.ParseHasAttachmentsError(msg), true
 	case params.IsCodeNotSupported(err):
 		return errors.NewNotSupported(nil, msg), true
 	default:
