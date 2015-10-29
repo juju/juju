@@ -6,13 +6,10 @@ package envcmd
 import (
 	"net/http"
 	"os"
-	"path"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
-	"github.com/juju/utils"
-	"golang.org/x/net/publicsuffix"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
@@ -22,7 +19,8 @@ import (
 
 var errNoNameSpecified = errors.New("no name specified")
 
-// CommandBase extends cmd.Command with a setAPIContext method.
+// CommandBase extends cmd.Command with a closeContext method.
+// It is implicitly implemented by any type that embeds JujuCommandBase.
 type CommandBase interface {
 	cmd.Command
 
@@ -57,7 +55,10 @@ func (c *JujuCommandBase) NewAPIRoot(envOrSystemName string) (api.Connection, er
 }
 
 // HTTPClient returns an http.Client that contains the loaded
-// persistent cookie jar.
+// persistent cookie jar. Note that this client is not good for
+// connecting to the Juju API itself because it does not
+// have the correct TLS setup - use api.Connection.HTTPClient
+// for that.
 func (c *JujuCommandBase) HTTPClient() (*http.Client, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
@@ -120,26 +121,22 @@ func (w *baseCommandWrapper) Init(args []string) error {
 
 // cookieFile returns the path to the cookie used to store authorization
 // macaroons. The returned value can be overridden by setting the
-// JUJU_COOKIEFILE environment variable.
+// JUJU_COOKIEFILE or GO_COOKIEFILE environment variables.
 func cookieFile() string {
 	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
 		return file
 	}
-	return path.Join(utils.Home(), ".go-cookies")
+	return cookiejar.DefaultCookieFile()
 }
 
 // newAPIContext returns a new api context, which should be closed
 // when done with.
 func newAPIContext() (*apiContext, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
-		PublicSuffixList: publicsuffix.List,
+		Filename: cookieFile(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	err = jar.Load(cookieFile())
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to load cookies")
 	}
 	client := httpbakery.NewClient()
 	client.Jar = jar
