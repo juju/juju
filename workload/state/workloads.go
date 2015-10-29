@@ -31,10 +31,11 @@ type workloadsPersistence interface {
 type UnitWorkloads struct {
 	// Persist is the persistence layer that will be used.
 	Persist workloadsPersistence
+
 	// Unit identifies the unit associated with the workloads.
 	Unit string
 
-	NewID func(workload.Info) (string, error)
+	NewID func() (string, error)
 }
 
 // NewUnitWorkloads builds a UnitWorkloads for a unit.
@@ -43,12 +44,8 @@ func NewUnitWorkloads(st persistence.PersistenceBase, unit string) *UnitWorkload
 	return &UnitWorkloads{
 		Persist: persist,
 		Unit:    unit,
-		NewID:   newID,
+		NewID:   workload.NewID,
 	}
-}
-
-func newID(workload.Info) (string, error) {
-	return workload.NewID()
 }
 
 // TODO(ericsnow) Return the new ID from Track()?
@@ -61,7 +58,7 @@ func (uw UnitWorkloads) Track(info workload.Info) error {
 		return errors.NewNotValid(err, "bad workload info")
 	}
 
-	id, err := uw.NewID(info)
+	id, err := uw.NewID()
 	if err != nil {
 		return errors.Trace(err)
 	}
