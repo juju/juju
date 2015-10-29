@@ -1392,14 +1392,14 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		// Create the full list of addresses, to pick preferred
 		// addresses from, by merging the ones we're updating with the
 		// ones that aren't changing.
-		var notChanging []address
+		var allAddresses []address
 		if fieldName == "machineaddresses" {
 			notChanging = machine.doc.Addresses
+			allAddresses = mergedAddresses(notChanging, fromNetworkAddresses(addressesToSet))
 		} else {
 			notChanging = machine.doc.MachineAddresses
+			allAddresses = mergedAddresses(fromNetworkAddresses(addressesToSet), notChanging)
 		}
-		allAddresses := mergedAddresses(notChanging, fromNetworkAddresses(addressesToSet))
-		network.SortAddresses(allAddresses, envConfig.PreferIPv6())
 
 		var setPrivateAddressOps, setPublicAddressOps []txn.Op
 		setPrivateAddressOps, newPrivate, changedPrivate = machine.setPrivateAddressOps(allAddresses)
