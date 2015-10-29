@@ -149,47 +149,50 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 // UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
-	info, published, err := api.retrievePublished()
-	if err != nil {
-		return errors.Annotatef(err, "getting published images metadata")
-	}
-	err = api.saveAll(info, published)
-	return errors.Annotatef(err, "saving published images metadata")
+	return api.retrievePublished()
 }
 
-func (api *API) retrievePublished() (*simplestreams.ResolveInfo, []*envmetadata.ImageMetadata, error) {
-	// Get environ
+func (api *API) retrievePublished() error {
 	envCfg, err := api.metadata.EnvironConfig()
 	env, err := environs.New(envCfg)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return errors.Annotatef(err, "getting environ")
 	}
 
-	// Get all images metadata sources for this environ.
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return nil, nil, err
+		return errors.Annotatef(err, "getting environment image metadata sources")
 	}
 
-	// We want all metadata.
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
-		return nil, nil, errors.Errorf("environment cloud specification cannot be determined")
+		return errors.Errorf("environment cloud specification cannot be determined")
 	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.
 		cloud, err := inst.Region()
 		if err != nil {
-			return nil, nil, err
+			return errors.Annotatef(err, "getting provider region information (cloud spec)")
 		}
 		cons.CloudSpec = cloud
 	}
 
-	metadata, info, err := envmetadata.Fetch(sources, cons, false)
-	if err != nil {
-		return nil, nil, err
+	// We want all relevant metadata from all data sources.
+	for _, source := range sources {
+		logger.Debugf("looking in data source %v", source.Description())
+		metadata, info, err := envmetadata.Fetch([]simplestreams.DataSource{source}, cons, false)
+		if err != nil {
+			// Do not stop looking in other data sources if there is an issue here.
+			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())
+			continue
+		}
+		err = api.saveAll(info, metadata)
+		if err != nil {
+			// Do not stop looking in other data sources if there is an issue here.
+			logger.Errorf("encountered %v while saving published images metadata from %v", err, source.Description())
+		}
 	}
-	return info, metadata, nil
+	return nil
 }
 
 func (api *API) saveAll(info *simplestreams.ResolveInfo, published []*envmetadata.ImageMetadata) error {
