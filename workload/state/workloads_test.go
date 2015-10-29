@@ -6,6 +6,7 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/workload"
@@ -26,6 +27,13 @@ func (s *unitWorkloadsSuite) newID() (string, error) {
 	}
 
 	return s.id, nil
+}
+
+func (s *unitWorkloadsSuite) TestNewID(c *gc.C) {
+	id, err := state.NewID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(id, jc.Satisfies, utils.IsValidUUIDString)
 }
 
 func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
