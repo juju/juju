@@ -42,8 +42,9 @@ func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
 
 	ps := state.UnitWorkloads{
 		Persist: s.persist,
-		NewID:   s.newID,
 	}
+	ps = state.SetNewID(ps, s.newID)
+
 	err := ps.Track(wl)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -58,8 +59,9 @@ func (s *unitWorkloadsSuite) TestTrackInvalid(c *gc.C) {
 
 	ps := state.UnitWorkloads{
 		Persist: s.persist,
-		NewID:   s.newID,
 	}
+	ps = state.SetNewID(ps, s.newID)
+
 	err := ps.Track(wl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -73,8 +75,9 @@ func (s *unitWorkloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 
 	ps := state.UnitWorkloads{
 		Persist: s.persist,
-		NewID:   s.newID,
 	}
+	ps = state.SetNewID(ps, s.newID)
+
 	err := ps.Track(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
@@ -88,8 +91,9 @@ func (s *unitWorkloadsSuite) TestTrackInsertFailed(c *gc.C) {
 
 	ps := state.UnitWorkloads{
 		Persist: s.persist,
-		NewID:   s.newID,
 	}
+	ps = state.SetNewID(ps, s.newID)
+
 	err := ps.Track(wl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
@@ -102,8 +106,9 @@ func (s *unitWorkloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 
 	ps := state.UnitWorkloads{
 		Persist: s.persist,
-		NewID:   s.newID,
 	}
+	ps = state.SetNewID(ps, s.newID)
+
 	err := ps.Track(wl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
