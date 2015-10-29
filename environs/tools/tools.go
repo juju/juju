@@ -83,7 +83,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int, stream stri
 		return nil, fmt.Errorf("cannot find tools without a complete cloud configuration")
 	}
 
-	logger.Infof("findng tools in stream %q", stream)
+	logger.Infof("finding tools in stream %q", stream)
 	if minorVersion >= 0 {
 		logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
 	} else {
@@ -217,7 +217,7 @@ func PreferredStream(vers *version.Number, forceDevel bool, stream string) strin
 	// If we're not upgrading from a known version, we use the
 	// currently running version.
 	if vers == nil {
-		vers = &version.Current.Number
+		vers = &version.Current
 	}
 	// Devel versions are alpha or beta etc as defined by the version tag.
 	// The user can also force the use of devel streams via config.

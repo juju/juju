@@ -10,11 +10,16 @@ import (
 
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/utils/ssh"
 )
 
-// SCPCommand is responsible for launching a scp command to copy files to/from remote machine(s)
-type SCPCommand struct {
+func newSCPCommand() cmd.Command {
+	return envcmd.Wrap(&scpCommand{})
+}
+
+// scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)
+type scpCommand struct {
 	SSHCommon
 }
 
@@ -51,7 +56,7 @@ Copy a local file to the second apache unit of the environment "testing":
     juju scp -e testing foo.txt apache2/1:
 `
 
-func (c *SCPCommand) Info() *cmd.Info {
+func (c *scpCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "scp",
 		Args:    "<file1> ... <file2> [scp-option...]",
@@ -60,7 +65,7 @@ func (c *SCPCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *SCPCommand) Init(args []string) error {
+func (c *scpCommand) Init(args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("at least two arguments required")
 	}
@@ -92,7 +97,7 @@ func expandArgs(args []string, userHostFromTarget func(string) (string, string, 
 
 // Run resolves c.Target to a machine, or host of a unit and
 // forks ssh with c.Args, if provided.
-func (c *SCPCommand) Run(ctx *cmd.Context) error {
+func (c *scpCommand) Run(ctx *cmd.Context) error {
 	var err error
 	c.apiClient, err = c.initAPIClient()
 	if err != nil {

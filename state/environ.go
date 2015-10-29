@@ -155,13 +155,13 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		environments, closer := st.getCollection(environmentsC)
 		defer closer()
 		envCount, countErr := environments.Find(bson.D{
-			{"owner", owner.Username()},
+			{"owner", owner.Canonical()},
 			{"name", cfg.Name()}},
 		).Count()
 		if countErr != nil {
 			err = errors.Trace(countErr)
 		} else if envCount > 0 {
-			err = errors.AlreadyExistsf("environment %q for %s", cfg.Name(), owner.Username())
+			err = errors.AlreadyExistsf("environment %q for %s", cfg.Name(), owner.Canonical())
 		} else {
 			err = errors.New("environment already exists")
 		}
@@ -190,9 +190,9 @@ func (e *Environment) EnvironTag() names.EnvironTag {
 	return names.NewEnvironTag(e.doc.UUID)
 }
 
-// ServerTag is the environ tag for the server that the environment is running
-// within.
-func (e *Environment) ServerTag() names.EnvironTag {
+// ControllerTag is the environ tag for the controller that the environment is
+// running within.
+func (e *Environment) ControllerTag() names.EnvironTag {
 	return names.NewEnvironTag(e.doc.ServerUUID)
 }
 
@@ -454,7 +454,7 @@ func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server stri
 		UUID:       uuid,
 		Name:       name,
 		Life:       Alive,
-		Owner:      owner.Username(),
+		Owner:      owner.Canonical(),
 		ServerUUID: server,
 	}
 	return txn.Op{
@@ -516,7 +516,7 @@ func hostedEnvironCount(st *State) (int, error) {
 func createUniqueOwnerEnvNameOp(owner names.UserTag, envName string) txn.Op {
 	return txn.Op{
 		C:      userenvnameC,
-		Id:     userEnvNameIndex(owner.Username(), envName),
+		Id:     userEnvNameIndex(owner.Canonical(), envName),
 		Assert: txn.DocMissing,
 		Insert: bson.M{},
 	}

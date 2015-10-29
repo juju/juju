@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -35,15 +34,11 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockShowAPI{}
-	s.PatchValue(storage.GetStorageShowAPI, func(c *storage.ShowCommand) (storage.StorageShowAPI, error) {
-		return s.mockAPI, nil
-	})
 	s.PatchValue(&time.Local, time.FixedZone("Australia/Perth", 3600*8))
-
 }
 
-func runShow(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, envcmd.Wrap(&storage.ShowCommand{}), args...)
+func (s *ShowSuite) runShow(c *gc.C, args []string) (*cmd.Context, error) {
+	return testing.RunCommand(c, storage.NewShowCommand(s.mockAPI), args...)
 }
 
 func (s *ShowSuite) TestShowNoMatch(c *gc.C) {
@@ -82,7 +77,7 @@ shared-fs/0:
 }
 
 func (s *ShowSuite) TestShowInvalidId(c *gc.C) {
-	_, err := runShow(c, []string{"foo"})
+	_, err := s.runShow(c, []string{"foo"})
 	c.Assert(err, gc.ErrorMatches, ".*invalid storage id foo.*")
 }
 
@@ -128,7 +123,7 @@ shared-fs/0:
 }
 
 func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
-	context, err := runShow(c, args)
+	context, err := s.runShow(c, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := testing.Stdout(context)

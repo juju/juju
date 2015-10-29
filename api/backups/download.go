@@ -8,30 +8,30 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/juju/httprequest"
 
-	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 )
+
+type downloadParams struct {
+	httprequest.Route `httprequest:"GET /backups"`
+	Body              params.BackupsDownloadArgs `httprequest:",body"`
+}
 
 // Download returns an io.ReadCloser for the given backup id.
 func (c *Client) Download(id string) (io.ReadCloser, error) {
 	// Send the request.
-	args := params.BackupsDownloadArgs{
-		ID: id,
-	}
-	_, resp, err := c.http.SendHTTPRequest("backups", &args)
+	var resp *http.Response
+	err := c.client.Call(
+		&downloadParams{
+			Body: params.BackupsDownloadArgs{
+				ID: id,
+			},
+		},
+		&resp,
+	)
 	if err != nil {
-		return nil, errors.Annotate(err, "while sending HTTP request")
+		return nil, errors.Trace(err)
 	}
-
-	// Handle the response.
-	if resp.StatusCode != http.StatusOK {
-		failure, err := apihttp.ExtractAPIError(resp)
-		if err != nil {
-			return nil, errors.Annotate(err, "while extracting failure")
-		}
-		return nil, errors.Trace(failure)
-	}
-
 	return resp.Body, nil
 }

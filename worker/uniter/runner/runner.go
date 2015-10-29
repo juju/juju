@@ -141,10 +141,6 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	charmDir := runner.paths.GetCharmDir()
 	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
 	if err != nil {
-		if context.IsMissingHookError(err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			logger.Infof("skipped %q hook (not implemented)", hookName)
-		}
 		return err
 	}
 	hookCmd := hookCommand(hook)

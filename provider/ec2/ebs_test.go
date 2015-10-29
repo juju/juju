@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	awsec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
@@ -76,11 +77,9 @@ func (s *ebsVolumeSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current, version.Binary{
-		Number: testing.FakeVersionNumber,
-		Series: testing.FakeDefaultSeries,
-		Arch:   arch.AMD64,
-	})
+	s.BaseSuite.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.BaseSuite.PatchValue(&series.HostSeries, func() string { return testing.FakeDefaultSeries })
 	s.BaseSuite.SetUpTest(c)
 	s.srv.startServer(c)
 	s.Tests.SetUpTest(c)
@@ -669,8 +668,7 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	mapping, err := ec2.GetBlockDeviceMappings(constraints.Value{})
-	c.Assert(err, jc.ErrorIsNil)
+	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty")
 	c.Assert(mapping, gc.DeepEquals, []awsec2.BlockDeviceMapping{{
 		VolumeSize: 8,
 		DeviceName: "/dev/sda1",

@@ -1696,7 +1696,7 @@ func (s *environSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)

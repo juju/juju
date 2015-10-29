@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/juju/cmd"
@@ -55,7 +56,7 @@ type BaseBackupsSuite struct {
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	s.command = backups.NewCommand().(*backups.Command)
+	s.command = backups.NewSuperCommand().(*backups.Command)
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}
@@ -71,6 +72,29 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 	}
 
 	s.FakeJujuHomeSuite.TearDownTest(c)
+}
+
+func (s *BaseBackupsSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
+	ctx, err := jujutesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
+	c.Assert(err, gc.IsNil)
+
+	var expected string
+	if subcmd.Info().Args != "" {
+		expected = "(?sm).*^usage: juju backups " +
+			regexp.QuoteMeta(subcmd.Info().Name) +
+			` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
+	} else {
+		expected = "(?sm).*^usage: juju backups " +
+			regexp.QuoteMeta(subcmd.Info().Name) +
+			` \[options\].+`
+	}
+	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
+
+	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
+	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
+
+	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
+	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
 }
 
 func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
@@ -172,7 +196,7 @@ func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 	return c.archive, nil
 }
 
-func (c *fakeAPIClient) Upload(ar io.Reader, meta params.BackupsMetadataResult) (string, error) {
+func (c *fakeAPIClient) Upload(ar io.ReadSeeker, meta params.BackupsMetadataResult) (string, error) {
 	c.args = append(c.args, "ar", "meta")
 	if c.err != nil {
 		return "", c.err
@@ -194,7 +218,7 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) RestoreReader(io.Reader, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
+func (c *fakeAPIClient) RestoreReader(io.ReadSeeker, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
 	return nil
 }
 

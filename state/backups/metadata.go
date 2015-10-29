@@ -71,7 +71,7 @@ func NewMetadata() *Metadata {
 		FileMetadata: filestorage.NewMetadata(),
 		Started:      time.Now().UTC(),
 		Origin: Origin{
-			Version: version.Current.Number,
+			Version: version.Current,
 		},
 	}
 }

@@ -56,7 +56,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: version.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            coretesting.CACert,
 		Password:          "fake",

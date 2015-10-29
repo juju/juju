@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-type ImageMetadataCommandBase struct {
+type imageMetadataCommandBase struct {
 	envcmd.EnvCommandBase
 }
 
-func (c *ImageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
+func (c *imageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
 	cfg, err := c.Config(store, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get config from store")
@@ -39,9 +39,13 @@ func (c *ImageMetadataCommandBase) prepare(context *cmd.Context, store configsto
 	return environs.Prepare(cfg, ctx, store)
 }
 
-// ImageMetadataCommand is used to write out simplestreams image metadata information.
-type ImageMetadataCommand struct {
-	ImageMetadataCommandBase
+func newImageMetadataCommand() cmd.Command {
+	return envcmd.Wrap(&imageMetadataCommand{})
+}
+
+// imageMetadataCommand is used to write out simplestreams image metadata information.
+type imageMetadataCommand struct {
+	imageMetadataCommandBase
 	Dir            string
 	Series         string
 	Arch           string
@@ -64,7 +68,7 @@ Using command arguments, it is possible to override cloud attributes region, end
 By default, "amd64" is used for the architecture but this may also be changed.
 `
 
-func (c *ImageMetadataCommand) Info() *cmd.Info {
+func (c *imageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "generate-image",
 		Purpose: "generate simplestreams image metadata",
@@ -72,7 +76,7 @@ func (c *ImageMetadataCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "s", "", "the charm series")
 	f.StringVar(&c.Arch, "a", arch.AMD64, "the image achitecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
@@ -86,7 +90,7 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // setParams sets parameters based on the environment configuration
 // for those which have not been explicitly specified.
-func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
+func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
 	var environ environs.Environ
 	if store, err := configstore.Default(); err == nil {
@@ -164,7 +168,7 @@ Configure a http server to serve the contents of
 and set the value of image-metadata-url accordingly.
 `
 
-func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
+func (c *imageMetadataCommand) Run(context *cmd.Context) error {
 	if err := c.setParams(context); err != nil {
 		return err
 	}

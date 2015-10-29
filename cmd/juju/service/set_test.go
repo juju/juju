@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -48,21 +47,21 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	setupConfigFile(c, s.dir)
 }
 
-func (*SetSuite) TestSetCommandInit(c *gc.C) {
+func (s *SetSuite) TestSetCommandInit(c *gc.C) {
 	// missing args
-	err := coretesting.InitCommand(&service.SetCommand{}, []string{})
+	err := coretesting.InitCommand(service.NewSetCommandWithAPI(s.fake), []string{})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 
 	// missing service name
-	err = coretesting.InitCommand(&service.SetCommand{}, []string{"name=foo"})
+	err = coretesting.InitCommand(service.NewSetCommandWithAPI(s.fake), []string{"name=foo"})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 
 	// --config path, but no service
-	err = coretesting.InitCommand(&service.SetCommand{}, []string{"--config", "testconfig.yaml"})
+	err = coretesting.InitCommand(service.NewSetCommandWithAPI(s.fake), []string{"--config", "testconfig.yaml"})
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 
 	// --config and options specified
-	err = coretesting.InitCommand(&service.SetCommand{}, []string{"service", "--config", "testconfig.yaml", "bees="})
+	err = coretesting.InitCommand(service.NewSetCommandWithAPI(s.fake), []string{"service", "--config", "testconfig.yaml", "bees="})
 	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
 }
 
@@ -132,7 +131,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 	}, "error.* "+utils.NoSuchFileErrRegexp+"\n")
 
 	ctx := coretesting.ContextForDir(c, s.dir)
-	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, []string{
+	code := cmd.Main(service.NewSetCommandWithAPI(s.fake), ctx, []string{
 		"dummy-service",
 		"--config",
 		"testconfig.yaml"})
@@ -143,9 +142,9 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 
 func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 	// Block operation
-	s.fake.err = common.ErrOperationBlocked("TestBlockSetConfig")
+	s.fake.err = common.OperationBlockedError("TestBlockSetConfig")
 	ctx := coretesting.ContextForDir(c, s.dir)
-	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, []string{
+	code := cmd.Main(service.NewSetCommandWithAPI(s.fake), ctx, []string{
 		"dummy-service",
 		"--config",
 		"testconfig.yaml"})
@@ -158,7 +157,7 @@ func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
 // assertSetSuccess sets configuration options and checks the expected settings.
 func (s *SetSuite) assertSetSuccess(c *gc.C, dir string, args []string, expect map[string]interface{}) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(service.NewSetCommandWithAPI(s.fake), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 	c.Assert(s.fake.values, gc.DeepEquals, expect)
 }
@@ -166,14 +165,14 @@ func (s *SetSuite) assertSetSuccess(c *gc.C, dir string, args []string, expect m
 // assertSetFail sets configuration options and checks the expected error.
 func (s *SetSuite) assertSetFail(c *gc.C, dir string, args []string, err string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(service.NewSetCommandWithAPI(s.fake), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
 }
 
 func (s *SetSuite) assertSetWarning(c *gc.C, dir string, args []string, w string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(service.NewSetCommand(s.fake)), ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(service.NewSetCommandWithAPI(s.fake), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 
 	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")

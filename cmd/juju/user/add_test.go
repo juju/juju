@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
@@ -43,7 +42,7 @@ func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UserAddCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	addCommand := envcmd.WrapSystem(user.NewAddCommand(s.mockAPI))
+	addCommand, _ := user.NewAddCommand(s.mockAPI)
 	return testing.RunCommand(c, addCommand, args...)
 }
 
@@ -80,12 +79,12 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		addUserCmd := &user.AddCommand{}
-		err := testing.InitCommand(addUserCmd, test.args)
+		wrappedCommand, command := user.NewAddCommand(s.mockAPI)
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
-			c.Check(addUserCmd.User, gc.Equals, test.user)
-			c.Check(addUserCmd.DisplayName, gc.Equals, test.displayname)
-			c.Check(addUserCmd.OutPath, gc.Equals, test.outPath)
+			c.Check(command.User, gc.Equals, test.user)
+			c.Check(command.DisplayName, gc.Equals, test.displayname)
+			c.Check(command.OutPath, gc.Equals, test.outPath)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
 		}
@@ -150,7 +149,7 @@ type mockAddUserAPI struct {
 
 func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, error) {
 	if m.blocked {
-		return names.UserTag{}, common.ErrOperationBlocked("The operation has been blocked.")
+		return names.UserTag{}, common.OperationBlockedError("the operation has been blocked")
 	}
 
 	m.username = username

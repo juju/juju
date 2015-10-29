@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package http_test
+package fortress_test
 
 import (
 	"testing"

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
