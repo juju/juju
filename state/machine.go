@@ -1392,12 +1392,12 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		// Create the full list of addresses, to pick preferred
 		// addresses from, by merging the ones we're updating with the
 		// ones that aren't changing.
-		var allAddresses []address
+		var allAddresses []network.Address
 		if fieldName == "machineaddresses" {
-			notChanging = machine.doc.Addresses
+			notChanging := machine.doc.Addresses
 			allAddresses = mergedAddresses(notChanging, fromNetworkAddresses(addressesToSet))
 		} else {
-			notChanging = machine.doc.MachineAddresses
+			notChanging := machine.doc.MachineAddresses
 			allAddresses = mergedAddresses(fromNetworkAddresses(addressesToSet), notChanging)
 		}
 
