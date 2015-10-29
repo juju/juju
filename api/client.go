@@ -397,9 +397,9 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 }
 
 // EnvironmentInfo returns details about the Juju environment.
-func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
-	info := new(EnvironmentInfo)
-	err := c.facade.FacadeCall("EnvironmentInfo", nil, info)
+func (c *Client) EnvironmentInfo() (params.EnvironmentInfo, error) {
+	var info params.EnvironmentInfo
+	err := c.facade.FacadeCall("EnvironmentInfo", nil, &info)
 	return info, err
 }
 

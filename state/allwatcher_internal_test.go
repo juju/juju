@@ -1123,7 +1123,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 						Name:       env.Name(),
 						Life:       multiwatcher.Life("alive"),
 						Owner:      env.Owner().Id(),
-						ServerUUID: env.ServerUUID(),
+						ServerUUID: env.ControllerUUID(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1137,7 +1137,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 						Name:       "",
 						Life:       multiwatcher.Life("alive"),
 						Owner:      env.Owner().Id(),
-						ServerUUID: env.ServerUUID(),
+						ServerUUID: env.ControllerUUID(),
 					},
 				},
 				change: watcher.Change{
@@ -1150,7 +1150,7 @@ func (s *allEnvWatcherStateSuite) TestChangeEnvironments(c *gc.C) {
 						Name:       env.Name(),
 						Life:       multiwatcher.Life("alive"),
 						Owner:      env.Owner().Id(),
-						ServerUUID: env.ServerUUID(),
+						ServerUUID: env.ControllerUUID(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1224,14 +1224,14 @@ func (s *allEnvWatcherStateSuite) TestGetAll(c *gc.C) {
 			Name:       env.Name(),
 			Life:       multiwatcher.Life("alive"),
 			Owner:      env.Owner().Id(),
-			ServerUUID: env.ServerUUID(),
+			ServerUUID: env.ControllerUUID(),
 		},
 		&multiwatcher.EnvironmentInfo{
 			EnvUUID:    env1.UUID(),
 			Name:       env1.Name(),
 			Life:       multiwatcher.Life("alive"),
 			Owner:      env1.Owner().Id(),
-			ServerUUID: env1.ServerUUID(),
+			ServerUUID: env1.ControllerUUID(),
 		},
 	)
 
@@ -1279,7 +1279,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Name:       env0.Name(),
 			Life:       "alive",
 			Owner:      env0.Owner().Id(),
-			ServerUUID: env0.ServerUUID(),
+			ServerUUID: env0.ControllerUUID(),
 		},
 	}, {
 		Entity: &multiwatcher.EnvironmentInfo{
@@ -1287,7 +1287,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Name:       env1.Name(),
 			Life:       "alive",
 			Owner:      env1.Owner().Id(),
-			ServerUUID: env1.ServerUUID(),
+			ServerUUID: env1.ControllerUUID(),
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1462,7 +1462,7 @@ func (s *allEnvWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Name:       env2.Name(),
 			Life:       "alive",
 			Owner:      env2.Owner().Id(),
-			ServerUUID: env2.ServerUUID(),
+			ServerUUID: env2.ControllerUUID(),
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{

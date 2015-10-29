@@ -772,19 +772,19 @@ func (c *Client) EnvironmentInfo() (params.EnvironmentInfo, error) {
 	state := c.api.stateAccessor
 	conf, err := state.EnvironConfig()
 	if err != nil {
-		return api.EnvironmentInfo{}, err
+		return params.EnvironmentInfo{}, err
 	}
 	env, err := state.Environment()
 	if err != nil {
-		return api.EnvironmentInfo{}, err
+		return params.EnvironmentInfo{}, err
 	}
 
 	info := params.EnvironmentInfo{
-		DefaultSeries: config.PreferredSeries(conf),
-		ProviderType:  conf.Type(),
-		Name:          conf.Name(),
-		UUID:          env.UUID(),
-		ServerUUID:    env.ServerUUID(),
+		DefaultSeries:  config.PreferredSeries(conf),
+		ProviderType:   conf.Type(),
+		Name:           conf.Name(),
+		UUID:           env.UUID(),
+		ControllerUUID: env.ControllerUUID(),
 	}
 	return info, nil
 }
