@@ -19,7 +19,7 @@ type unitWorkloadsSuite struct {
 	id string
 }
 
-func (s *unitWorkloadsSuite) newID(workload.Info) (string, error) {
+func (s *unitWorkloadsSuite) newID() (string, error) {
 	s.stub.AddCall("newID")
 	if err := s.stub.NextErr(); err != nil {
 		return "", errors.Trace(err)
