@@ -267,13 +267,13 @@ class EnvJujuClient:
         # Mutate os.environ instead of supplying env parameter so
         # Windows can search env['PATH']
         with scoped_environ(env):
-            # When unit testing create a fake Popen object, rather
-            # than using mock (see test_gotesttarfile.py).
             proc = subprocess.Popen(
                 args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
                 stderr=subprocess.PIPE)
             sub_output, sub_error = proc.communicate()
+            log.debug(sub_output)
             if proc.returncode != 0:
+                log.debug(sub_error)
                 e = subprocess.CalledProcessError(
                     proc.returncode, args[0], sub_error)
                 e.stderr = sub_error
@@ -283,7 +283,6 @@ class EnvJujuClient:
                         '307: Temporary Redirect' in sub_error):
                     raise CannotConnectEnv(e)
                 raise e
-        log.debug(sub_output)
         return sub_output
 
     def get_status(self, timeout=60, raw=False, *args):
