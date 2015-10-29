@@ -768,7 +768,7 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
-func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
+func (c *Client) EnvironmentInfo() (params.EnvironmentInfo, error) {
 	state := c.api.stateAccessor
 	conf, err := state.EnvironConfig()
 	if err != nil {
@@ -779,7 +779,7 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 		return api.EnvironmentInfo{}, err
 	}
 
-	info := api.EnvironmentInfo{
+	info := params.EnvironmentInfo{
 		DefaultSeries: config.PreferredSeries(conf),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),

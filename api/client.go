@@ -396,15 +396,6 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
-// EnvironmentInfo holds information about the Juju environment.
-type EnvironmentInfo struct {
-	DefaultSeries string
-	ProviderType  string
-	Name          string
-	UUID          string
-	ServerUUID    string
-}
-
 // EnvironmentInfo returns details about the Juju environment.
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
