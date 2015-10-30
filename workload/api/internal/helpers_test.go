@@ -54,7 +54,7 @@ func (internalHelpersSuite) TestNewPayloadResultError(c *gc.C) {
 
 func (internalHelpersSuite) TestNewPayloadResultNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	err := errors.NotFoundf("workload %q", id)
+	err := errors.NotFoundf("payload %q", id)
 	result := NewPayloadResult(id, err)
 
 	c.Check(result, jc.DeepEquals, PayloadResult{
@@ -146,7 +146,7 @@ func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 
 func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	notFound := errors.NotFoundf("workload %q", id)
+	notFound := errors.NotFoundf("payload %q", id)
 	result, err := API2Result(PayloadResult{
 		Entity: params.Entity{
 			Tag: names.NewPayloadTag(id).String(),
@@ -241,7 +241,7 @@ func (internalHelpersSuite) TestResult2apiError(c *gc.C) {
 
 func (internalHelpersSuite) TestResult2apiNotFound(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	err := errors.NotFoundf("workload %q", id)
+	err := errors.NotFoundf("payload %q", id)
 	result := Result2api(workload.Result{
 		ID:       id,
 		Payload:  nil,
