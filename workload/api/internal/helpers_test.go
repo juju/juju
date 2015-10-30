@@ -81,7 +81,7 @@ func (internalHelpersSuite) TestAPI2ResultOkay(c *gc.C) {
 
 	c.Check(result, jc.DeepEquals, workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	})
@@ -108,17 +108,17 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 		ID:       id,
 		NotFound: false,
 		Error:    nil,
-		Workload: &workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: "foobar",
-				Type: "type",
+		Payload: &workload.FullPayloadInfo{
+			Payload: workload.Payload{
+				PayloadClass: charm.PayloadClass{
+					Name: "foobar",
+					Type: "type",
+				},
+				ID:     "idfoo",
+				Status: workload.StateRunning,
+				Unit:   "a-service/0",
 			},
-			Status: workload.Status{
-				State: workload.StateRunning,
-			},
-			Details: workload.Details{
-				ID: "idfoo",
-			},
+			Machine: "1",
 		},
 	})
 }
@@ -138,7 +138,7 @@ func (internalHelpersSuite) TestAPI2ResultError(c *gc.C) {
 
 	c.Check(result, jc.DeepEquals, workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    failure,
 	})
@@ -159,7 +159,7 @@ func (internalHelpersSuite) TestAPI2ResultNotFound(c *gc.C) {
 
 	c.Check(result, jc.DeepEquals, workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    notFound,
 	})
@@ -169,7 +169,7 @@ func (internalHelpersSuite) TestResult2apiOkay(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	result := Result2api(workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	})
@@ -190,17 +190,17 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 		ID:       id,
 		NotFound: false,
 		Error:    nil,
-		Workload: &workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: "foobar",
-				Type: "type",
+		Payload: &workload.FullPayloadInfo{
+			Payload: workload.Payload{
+				PayloadClass: charm.PayloadClass{
+					Name: "foobar",
+					Type: "type",
+				},
+				ID:     "idfoo",
+				Status: workload.StateRunning,
+				Unit:   "a-service/0",
 			},
-			Status: workload.Status{
-				State: workload.StateRunning,
-			},
-			Details: workload.Details{
-				ID: "idfoo",
-			},
+			Machine: "1",
 		},
 	})
 
@@ -224,7 +224,7 @@ func (internalHelpersSuite) TestResult2apiError(c *gc.C) {
 	err := errors.New("<failure>")
 	result := Result2api(workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    err,
 	})
@@ -244,7 +244,7 @@ func (internalHelpersSuite) TestResult2apiNotFound(c *gc.C) {
 	err := errors.NotFoundf("workload %q", id)
 	result := Result2api(workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    err,
 	})

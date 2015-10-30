@@ -218,10 +218,9 @@ func (c *stubAPIClient) List(fullIDs ...string) ([]workload.Result, error) {
 	var results []workload.Result
 	if fullIDs == nil {
 		for id, pl := range c.payloads {
-			wl := pl.AsWorkload()
 			results = append(results, workload.Result{
-				ID:       id,
-				Workload: &wl,
+				ID:      id,
+				Payload: &workload.FullPayloadInfo{Payload: pl},
 			})
 		}
 	} else {
@@ -230,10 +229,9 @@ func (c *stubAPIClient) List(fullIDs ...string) ([]workload.Result, error) {
 			if !ok {
 				return nil, errors.NotFoundf("pl %q", id)
 			}
-			wl := pl.AsWorkload()
 			results = append(results, workload.Result{
-				ID:       id,
-				Workload: &wl,
+				ID:      id,
+				Payload: &workload.FullPayloadInfo{Payload: pl},
 			})
 		}
 	}
@@ -250,10 +248,9 @@ func (c *stubAPIClient) Track(payloads ...workload.Payload) ([]workload.Result, 
 	for _, pl := range payloads {
 		id := pl.FullID()
 		c.payloads[id] = pl
-		wl := pl.AsWorkload()
 		results = append(results, workload.Result{
-			ID:       id,
-			Workload: &wl,
+			ID:      id,
+			Payload: &workload.FullPayloadInfo{Payload: pl},
 		})
 	}
 	return results, nil

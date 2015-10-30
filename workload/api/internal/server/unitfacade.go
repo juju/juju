@@ -108,15 +108,13 @@ func (uf UnitFacade) listAll() (internal.PayloadResults, error) {
 	}
 
 	for _, result := range results {
-		wl := *result.Workload
-		pl := wl.AsPayload()
+		pl := result.Payload
 		id, err := uf.State.LookUp(pl.Name, pl.ID)
 		if err != nil {
 			logger.Errorf("failed to look up ID for %q: %v", pl.FullID(), err)
 			id = ""
 		}
-		fullPayload := workload.FullPayloadInfo{Payload: pl}
-		apipl := api.Payload2api(fullPayload)
+		apipl := api.Payload2api(*pl)
 
 		res := internal.NewPayloadResult(id, nil)
 		res.Payload = &apipl

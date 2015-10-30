@@ -145,10 +145,9 @@ func (uw UnitPayloads) List(ids ...string) ([]workload.Result, error) {
 		pl := payloads[i]
 		i += 1
 
-		wl := pl.AsWorkload()
 		result := workload.Result{
-			ID:       id,
-			Workload: &wl,
+			ID:      id,
+			Payload: &workload.FullPayloadInfo{Payload: pl},
 		}
 		if id == "" {
 			// TODO(ericsnow) Do this more efficiently.
