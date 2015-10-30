@@ -40,7 +40,7 @@ func volumesChanged(ctx *context, changes []string) error {
 	for _, tag := range dead {
 		volumeTags = append(volumeTags, tag.(names.VolumeTag))
 	}
-	volumeResults, err := ctx.volumeAccessor.Volumes(volumeTags)
+	volumeResults, err := ctx.config.Volumes.Volumes(volumeTags)
 	if err != nil {
 		return errors.Annotatef(err, "getting volume information")
 	}
@@ -73,7 +73,7 @@ func volumeAttachmentsChanged(ctx *context, ids []params.MachineStorageId) error
 	// Get volume information for alive and dying volume attachments, so
 	// we can attach/detach.
 	ids = append(alive, dying...)
-	volumeAttachmentResults, err := ctx.volumeAccessor.VolumeAttachments(ids)
+	volumeAttachmentResults, err := ctx.config.Volumes.VolumeAttachments(ids)
 	if err != nil {
 		return errors.Annotatef(err, "getting volume attachment information")
 	}
@@ -342,7 +342,7 @@ func processAliveVolumeAttachments(
 func volumeAttachmentParams(
 	ctx *context, ids []params.MachineStorageId,
 ) ([]storage.VolumeAttachmentParams, error) {
-	paramsResults, err := ctx.volumeAccessor.VolumeAttachmentParams(ids)
+	paramsResults, err := ctx.config.Volumes.VolumeAttachmentParams(ids)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting volume attachment params")
 	}
@@ -362,7 +362,7 @@ func volumeAttachmentParams(
 
 // volumeParams obtains the specified volumes' parameters.
 func volumeParams(ctx *context, tags []names.VolumeTag) ([]storage.VolumeParams, error) {
-	paramsResults, err := ctx.volumeAccessor.VolumeParams(tags)
+	paramsResults, err := ctx.config.Volumes.VolumeParams(tags)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting volume params")
 	}
