@@ -6,6 +6,7 @@ package common_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -279,4 +280,51 @@ func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(result.Results[1].Error, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(result.Results[2].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+}
+
+type unitAgentFinderSuite struct{}
+
+var _ = gc.Suite(&unitAgentFinderSuite{})
+
+func (unitAgentFinderSuite) TestFindEntity(c *gc.C) {
+	f := fakeEntityFinder{
+		unit: fakeUnit{
+			agent: &state.UnitAgent{},
+		},
+	}
+	ua := &common.UnitAgentFinder{f}
+	entity, err := ua.FindEntity(names.NewUnitTag("unit/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entity, gc.DeepEquals, f.unit.agent)
+}
+
+func (unitAgentFinderSuite) TestFindEntityBadTag(c *gc.C) {
+	ua := &common.UnitAgentFinder{fakeEntityFinder{}}
+	_, err := ua.FindEntity(names.NewServiceTag("foo"))
+	c.Assert(err, gc.ErrorMatches, "unsupported tag.*")
+}
+
+func (unitAgentFinderSuite) TestFindEntityErr(c *gc.C) {
+	f := fakeEntityFinder{err: errors.Errorf("boo")}
+	ua := &common.UnitAgentFinder{f}
+	_, err := ua.FindEntity(names.NewUnitTag("unit/0"))
+	c.Assert(errors.Cause(err), gc.Equals, f.err)
+}
+
+type fakeEntityFinder struct {
+	unit fakeUnit
+	err  error
+}
+
+func (f fakeEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+	return f.unit, f.err
+}
+
+type fakeUnit struct {
+	state.Entity
+	agent *state.UnitAgent
+}
+
+func (f fakeUnit) Agent() *state.UnitAgent {
+	return f.agent
 }

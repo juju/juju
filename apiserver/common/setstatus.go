@@ -228,12 +228,12 @@ func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults,
 	return result, nil
 }
 
-// UnitAgentFinder is a state.EntityFinder that finds units.
+// UnitAgentFinder is a state.EntityFinder that finds unit agents.
 type UnitAgentFinder struct {
 	state.EntityFinder
 }
 
-// FindEntity implements state.EntityFinder and returns units.
+// FindEntity implements state.EntityFinder and returns unit agents.
 func (ua *UnitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	_, ok := tag.(names.UnitTag)
 	if !ok {
@@ -243,5 +243,11 @@ func (ua *UnitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return entity.(*state.Unit).Agent(), nil
+	// this returns a state.Unit, but for testing we just cast to the minimal
+	// interface we need.
+	return entity.(hasAgent).Agent(), nil
+}
+
+type hasAgent interface {
+	Agent() *state.UnitAgent
 }
