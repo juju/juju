@@ -55,25 +55,6 @@ func (p Payload) Validate() error {
 	return nil
 }
 
-// AsWorkload converts the Payload into an Info.
-func (p Payload) AsWorkload() Info {
-	labels := make([]string, len(p.Labels))
-	copy(labels, p.Labels)
-	return Info{
-		PayloadClass: charm.PayloadClass{
-			Name: p.Name,
-			Type: p.Type,
-		},
-		Status: Status{
-			State: p.Status,
-		},
-		Labels: labels,
-		Details: Details{
-			ID: p.ID,
-		},
-	}
-}
-
 // FullPayloadInfo completely describes a charm payload, including
 // some information that may be implied from the minimal Payload data.
 type FullPayloadInfo struct {
