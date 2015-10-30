@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -26,33 +25,13 @@ type envPayloadsSuite struct {
 	ConnSuite
 }
 
-const payloadsMetaYAML = `
-name: a-charm
-summary: a charm...
-description: a charm...
-payloads:
-  payloadA:
-    type: docker
-`
-
-func (s *envPayloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, *state.Unit) {
-	ch := s.AddTestingCharm(c, charmName)
-	ch = s.AddMetaCharm(c, charmName, meta, 2)
-
-	svc := s.AddTestingService(c, serviceName, ch)
-	unit, err := svc.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
-	err = unit.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	charmTag := ch.Tag().(names.CharmTag)
-	return charmTag, unit
-}
-
 func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
-	_, unit := s.addUnit(c, "dummy", "a-service", payloadsMetaYAML)
+	unit := addUnit(c, s.ConnSuite, unitArgs{
+		charm:    "dummy",
+		service:  "a-service",
+		metadata: payloadsMetaYAML,
+	})
+
 	ust, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -74,9 +53,9 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	payloads, err := ust.List()
+	unitPayloads, err := ust.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(payloads, gc.HasLen, 1)
+	c.Assert(unitPayloads, gc.HasLen, 1)
 
 	payloads, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,4 +82,34 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	payloads, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(payloads, gc.HasLen, 0)
+}
+
+const payloadsMetaYAML = `
+name: a-charm
+summary: a charm...
+description: a charm...
+payloads:
+  payloadA:
+    type: docker
+`
+
+type unitArgs struct {
+	charm    string
+	service  string
+	metadata string
+}
+
+func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
+	ch := s.AddTestingCharm(c, args.charm)
+	ch = s.AddMetaCharm(c, args.charm, args.metadata, 2)
+
+	svc := s.AddTestingService(c, args.service, ch)
+	unit, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return unit
 }

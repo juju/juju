@@ -5,12 +5,10 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/workload"
 )
 
@@ -20,33 +18,12 @@ type unitWorkloadsSuite struct {
 	ConnSuite
 }
 
-const payloadsMetaYAML = `
-name: a-charm
-summary: a charm...
-description: a charm...
-payloads:
-  payloadA:
-    type: docker
-`
-
-func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, *state.Unit) {
-	ch := s.AddTestingCharm(c, charmName)
-	ch = s.AddMetaCharm(c, charmName, meta, 2)
-
-	svc := s.AddTestingService(c, serviceName, ch)
-	unit, err := svc.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
-	err = unit.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	charmTag := ch.Tag().(names.CharmTag)
-	return charmTag, unit
-}
-
 func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
-	_, unit := s.addUnit(c, "dummy", "a-service", payloadsMetaYAML)
+	unit := addUnit(c, s.ConnSuite, unitArgs{
+		charm:    "dummy",
+		service:  "a-service",
+		metadata: payloadsMetaYAML,
+	})
 
 	st, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,6 +54,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 		ID: id,
 		Payload: &workload.FullPayloadInfo{
 			Payload: pl,
+			// TODO(ericsnow) Require machine "1"?
 			Machine: "",
 		},
 	}})
