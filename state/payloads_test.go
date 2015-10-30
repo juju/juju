@@ -53,7 +53,7 @@ func (s *envPayloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta string)
 
 func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	_, unit := s.addUnit(c, "dummy", "a-service", payloadsMetaYAML)
-	ust, err := s.State.UnitWorkloads(unit)
+	ust, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, err := s.State.EnvPayloads()
@@ -63,20 +63,14 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(payloads, gc.HasLen, 0)
 
-	err = ust.Track(workload.Info{
+	err = ust.Track(workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "payloadA",
 			Type: "docker",
 		},
-		Status: workload.Status{
-			State: workload.StateRunning,
-		},
-		Details: workload.Details{
-			ID: "xyz",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		Status: workload.StateRunning,
+		ID:     "xyz",
+		Unit:   "a-service/0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

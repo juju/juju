@@ -44,7 +44,7 @@ func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	_, unit := s.addUnit(c, "dummy", "a-service", workloadsMetaYAML)
 
-	st, err := s.State.UnitWorkloads(unit)
+	st, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := st.List()
@@ -57,17 +57,15 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 			Type: "docker",
 		},
 		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
+			State: workload.StateRunning,
 		},
 		Details: workload.Details{
 			ID: "xyz",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
 		},
 	}
-	err = st.Track(info)
+	pl := info.AsPayload()
+	pl.Unit = "a-service/0"
+	err = st.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err = st.List()
@@ -84,14 +82,10 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 				Type: "docker",
 			},
 			Status: workload.Status{
-				State:   workload.StateRunning,
-				Message: "okay",
+				State: workload.StateRunning,
 			},
 			Details: workload.Details{
 				ID: "xyz",
-				Status: workload.PluginStatus{
-					State: "running",
-				},
 			},
 		},
 	}})
@@ -121,20 +115,16 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 				Type: "docker",
 			},
 			Status: workload.Status{
-				State:   workload.StateRunning,
-				Message: "running",
+				State: workload.StateRunning,
 			},
 			Details: workload.Details{
 				ID: "xyz",
-				Status: workload.PluginStatus{
-					State: "running",
-				},
 			},
 		},
 	}})
 
 	// Ensure duplicates are not allowed.
-	err = st.Track(info)
+	err = st.Track(pl)
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)

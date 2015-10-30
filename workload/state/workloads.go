@@ -17,7 +17,7 @@ var logger = loggo.GetLogger("juju.workload.state")
 // TODO(ericsnow) We need a worker to clean up dying workloads.
 
 // The persistence methods needed for workloads in state.
-type workloadsPersistence interface {
+type payloadsPersistence interface {
 	Track(id string, info workload.Payload) (bool, error)
 	// SetStatus updates the status for a payload.
 	SetStatus(id, status string) (bool, error)
@@ -27,11 +27,11 @@ type workloadsPersistence interface {
 	Untrack(id string) (bool, error)
 }
 
-// UnitWorkloads provides the functionality related to a unit's
+// UnitPayloads provides the functionality related to a unit's
 // workloads, as needed by state.
-type UnitWorkloads struct {
+type UnitPayloads struct {
 	// Persist is the persistence layer that will be used.
-	Persist workloadsPersistence
+	Persist payloadsPersistence
 
 	// Unit identifies the unit associated with the workloads.
 	Unit string
@@ -39,10 +39,10 @@ type UnitWorkloads struct {
 	newID func() (string, error)
 }
 
-// NewUnitWorkloads builds a UnitWorkloads for a unit.
-func NewUnitWorkloads(st persistence.PersistenceBase, unit string) *UnitWorkloads {
+// NewUnitPayloads builds a UnitPayloads for a unit.
+func NewUnitPayloads(st persistence.PersistenceBase, unit string) *UnitPayloads {
 	persist := persistence.NewPersistence(st, unit)
-	return &UnitWorkloads{
+	return &UnitPayloads{
 		Persist: persist,
 		Unit:    unit,
 		newID:   newID,
@@ -61,13 +61,11 @@ func newID() (string, error) {
 
 // Track inserts the provided workload info in state. The new Juju ID
 // for the workload is returned.
-func (uw UnitWorkloads) Track(info workload.Info) error {
-	pl := info.AsPayload()
-	pl.Unit = uw.Unit
+func (uw UnitPayloads) Track(pl workload.Payload) error {
 	logger.Tracef("tracking %#v", pl)
 
 	if err := pl.Validate(); err != nil {
-		return errors.NewNotValid(err, "bad workload info")
+		return errors.NewNotValid(err, "bad payload")
 	}
 
 	id, err := uw.newID()
@@ -80,7 +78,7 @@ func (uw UnitWorkloads) Track(info workload.Info) error {
 		return errors.Trace(err)
 	}
 	if !ok {
-		return errors.NotValidf("workload %s (already in state)", id)
+		return errors.NotValidf("payload %s (already in state)", id)
 	}
 
 	return nil
@@ -88,7 +86,7 @@ func (uw UnitWorkloads) Track(info workload.Info) error {
 
 // SetStatus updates the raw status for the identified workload to the
 // provided value.
-func (uw UnitWorkloads) SetStatus(id, status string) error {
+func (uw UnitPayloads) SetStatus(id, status string) error {
 	logger.Tracef("setting payload status for %q to %q", id, status)
 
 	if err := workload.ValidateState(status); err != nil {
@@ -109,7 +107,7 @@ func (uw UnitWorkloads) SetStatus(id, status string) error {
 // IDs. If none are provided then the list contains the info for all
 // workloads associated with the unit. Missing workloads
 // are ignored.
-func (uw UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
+func (uw UnitPayloads) List(ids ...string) ([]workload.Result, error) {
 	logger.Tracef("listing %v", ids)
 	var err error
 	var payloads []workload.Payload
@@ -167,7 +165,7 @@ func (uw UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 }
 
 // LookUp returns the payload ID for the given name/rawID pair.
-func (uw UnitWorkloads) LookUp(name, rawID string) (string, error) {
+func (uw UnitPayloads) LookUp(name, rawID string) (string, error) {
 	logger.Tracef("looking up payload id for %s/%s", name, rawID)
 
 	id, err := uw.Persist.LookUp(name, rawID)
@@ -179,7 +177,7 @@ func (uw UnitWorkloads) LookUp(name, rawID string) (string, error) {
 
 // Untrack removes the identified workload from state. It does not
 // trigger the actual destruction of the workload.
-func (uw UnitWorkloads) Untrack(id string) error {
+func (uw UnitPayloads) Untrack(id string) error {
 	logger.Tracef("untracking %q", id)
 	// If the record wasn't found then we're already done.
 	_, err := uw.Persist.Untrack(id)

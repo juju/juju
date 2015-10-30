@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/workload/api/internal"
 )
 
-// UnitWorkloads exposes the State functionality for a unit's workloads.
-type UnitWorkloads interface {
+// UnitPayloads exposes the State functionality for a unit's workloads.
+type UnitPayloads interface {
 	// Track tracks a workload for the unit and info.
-	Track(info workload.Info) error
+	Track(info workload.Payload) error
 	// List returns information on the workload with the id on the unit.
 	List(ids ...string) ([]workload.Result, error)
 	// Settatus sets the status for the workload with the given id on the unit.
@@ -30,11 +30,11 @@ type UnitWorkloads interface {
 // UnitFacade serves workload-specific API methods.
 type UnitFacade struct {
 	// State exposes the workload aspect of Juju's state.
-	State UnitWorkloads
+	State UnitPayloads
 }
 
 // NewUnitFacade builds a new facade for the given State.
-func NewUnitFacade(st UnitWorkloads) *UnitFacade {
+func NewUnitFacade(st UnitPayloads) *UnitFacade {
 	return &UnitFacade{State: st}
 }
 
@@ -55,7 +55,8 @@ func (uf UnitFacade) Track(args internal.TrackArgs) (internal.WorkloadResults, e
 }
 
 func (uf UnitFacade) track(info workload.Info) (string, error) {
-	if err := uf.State.Track(info); err != nil {
+	pl := info.AsPayload()
+	if err := uf.State.Track(pl); err != nil {
 		return "", errors.Trace(err)
 	}
 	id, err := uf.State.LookUp(info.Name, info.Details.ID)
