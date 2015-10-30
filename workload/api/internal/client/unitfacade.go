@@ -26,8 +26,8 @@ func NewUnitFacadeClient(caller facadeCaller) UnitFacadeClient {
 }
 
 // Track calls the Track API server method.
-func (c UnitFacadeClient) Track(workloads ...workload.Info) ([]workload.Result, error) {
-	args := internal.Infos2TrackArgs(workloads)
+func (c UnitFacadeClient) Track(payloads ...workload.Payload) ([]workload.Result, error) {
+	args := internal.Payloads2TrackArgs(payloads)
 
 	var rs internal.PayloadResults
 	if err := c.FacadeCall("Track", &args, &rs); err != nil {

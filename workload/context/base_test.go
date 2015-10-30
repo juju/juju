@@ -259,14 +259,15 @@ func (c *stubAPIClient) List(fullIDs ...string) ([]workload.Result, error) {
 	return results, nil
 }
 
-func (c *stubAPIClient) Track(workloads ...workload.Info) ([]workload.Result, error) {
-	c.stub.AddCall("Track", workloads)
+func (c *stubAPIClient) Track(payloads ...workload.Payload) ([]workload.Result, error) {
+	c.stub.AddCall("Track", payloads)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []workload.Result
-	for _, wl := range workloads {
+	for _, pl := range payloads {
+		wl := pl.AsWorkload()
 		id := wl.ID()
 		c.workloads[id] = wl
 		results = append(results, workload.Result{

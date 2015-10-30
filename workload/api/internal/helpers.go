@@ -91,12 +91,12 @@ func API2ID(tagStr string) (string, error) {
 	return tag.Id(), nil
 }
 
-// Infos2TrackArgs converts the provided workload info into arguments
+// Payloads2TrackArgs converts the provided workload info into arguments
 // for the Track API endpoint.
-func Infos2TrackArgs(workloads []workload.Info) TrackArgs {
+func Payloads2TrackArgs(payloads []workload.Payload) TrackArgs {
 	var args TrackArgs
-	for _, wl := range workloads {
-		fullPayload := workload.FullPayloadInfo{Payload: wl.AsPayload()}
+	for _, pl := range payloads {
+		fullPayload := workload.FullPayloadInfo{Payload: pl}
 		arg := api.Payload2api(fullPayload)
 		args.Payloads = append(args.Payloads, arg)
 	}
