@@ -16,6 +16,8 @@ import (
 
 var logger = loggo.GetLogger("juju.workload.persistence")
 
+// TODO(ericsnow) Merge Persistence and EnvPersistence.
+
 // TODO(ericsnow) Store status in the status collection?
 
 // TODO(ericsnow) Implement persistence using a TXN abstraction (used
