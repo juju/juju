@@ -17,8 +17,14 @@ func Payload2api(p workload.FullPayloadInfo) Payload {
 	labels := make([]string, len(p.Labels))
 	copy(labels, p.Labels)
 
-	unitTag := names.NewUnitTag(p.Unit)
-	machineTag := names.NewMachineTag(p.Machine)
+	var unitTag string
+	if p.Unit != "" {
+		unitTag = names.NewUnitTag(p.Unit).String()
+	}
+	var machineTag string
+	if p.Machine != "" {
+		machineTag = names.NewMachineTag(p.Machine).String()
+	}
 
 	return Payload{
 		Class:   p.Name,
@@ -26,8 +32,8 @@ func Payload2api(p workload.FullPayloadInfo) Payload {
 		ID:      p.ID,
 		Status:  p.Status,
 		Labels:  labels,
-		Unit:    unitTag.String(),
-		Machine: machineTag.String(),
+		Unit:    unitTag,
+		Machine: machineTag,
 	}
 }
 

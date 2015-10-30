@@ -29,7 +29,7 @@ func NewUnitFacadeClient(caller facadeCaller) UnitFacadeClient {
 func (c UnitFacadeClient) Track(workloads ...workload.Info) ([]workload.Result, error) {
 	args := internal.Infos2TrackArgs(workloads)
 
-	var rs internal.WorkloadResults
+	var rs internal.PayloadResults
 	if err := c.FacadeCall("Track", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -49,7 +49,7 @@ func (c UnitFacadeClient) List(fullIDs ...string) ([]workload.Result, error) {
 	}
 	args := internal.IDs2ListArgs(ids)
 
-	var rs internal.WorkloadResults
+	var rs internal.PayloadResults
 	if err := c.FacadeCall("List", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,7 +65,7 @@ func (c UnitFacadeClient) LookUp(fullIDs ...string) ([]workload.Result, error) {
 	}
 	args := internal.FullIDs2LookUpArgs(fullIDs)
 
-	var rs internal.WorkloadResults
+	var rs internal.PayloadResults
 	if err := c.FacadeCall("LookUp", &args, &rs); err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (c UnitFacadeClient) SetStatus(status string, fullIDs ...string) ([]workloa
 	}
 	args := internal.IDs2SetStatusArgs(ids, status)
 
-	var rs internal.WorkloadResults
+	var rs internal.PayloadResults
 	if err := c.FacadeCall("SetStatus", &args, &rs); err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (c UnitFacadeClient) Untrack(fullIDs ...string) ([]workload.Result, error) 
 	}
 	args := internal.IDs2UntrackArgs(ids)
 
-	var rs internal.WorkloadResults
+	var rs internal.PayloadResults
 	if err := c.FacadeCall("Untrack", &args, &rs); err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (c UnitFacadeClient) lookUp(fullIDs []string) ([]string, error) {
 	return ids, nil
 }
 
-func api2results(rs internal.WorkloadResults) ([]workload.Result, error) {
+func api2results(rs internal.PayloadResults) ([]workload.Result, error) {
 	var results []workload.Result
 	for _, r := range rs.Results {
 		result, err := internal.API2Result(r)
