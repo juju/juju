@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-var logger = loggo.GetLogger("juju.workload.context")
+var logger = loggo.GetLogger("juju.payload.context")
 
 // APIClient represents the API needs of a Context.
 type APIClient interface {

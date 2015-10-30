@@ -7,4 +7,4 @@ import (
 	"github.com/juju/loggo"
 )
 
-var logger = loggo.GetLogger("juju.workload.api.server")
+var logger = loggo.GetLogger("juju.payload.api.server")
