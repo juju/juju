@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/component/all"
+	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/workload"
 )
 
 func init() {
@@ -46,12 +46,12 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(payloads, gc.HasLen, 0)
 
-	err = ust.Track(workload.Payload{
+	err = ust.Track(payload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "payloadA",
 			Type: "docker",
 		},
-		Status: workload.StateRunning,
+		Status: payload.StateRunning,
 		ID:     "xyz",
 		Unit:   "a-service/0",
 	})
@@ -63,14 +63,14 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 
 	payloads, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(payloads, jc.DeepEquals, []workload.FullPayloadInfo{{
-		Payload: workload.Payload{
+	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{{
+		Payload: payload.Payload{
 			PayloadClass: charm.PayloadClass{
 				Name: "payloadA",
 				Type: "docker",
 			},
 			ID:     "xyz",
-			Status: workload.StateRunning,
+			Status: payload.StateRunning,
 			Labels: []string{},
 			Unit:   "a-service/0",
 		},
@@ -106,13 +106,13 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, 0)
 
-	pl := workload.Payload{
+	pl := payload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "payloadA",
 			Type: "docker",
 		},
 		ID:     "xyz",
-		Status: workload.StateRunning,
+		Status: payload.StateRunning,
 		Unit:   "a-service/0",
 	}
 	err = st.Track(pl)
@@ -124,9 +124,9 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 	// the following two lines.
 	c.Assert(results, gc.HasLen, 1)
 	id := results[0].ID
-	c.Check(results, jc.DeepEquals, []workload.Result{{
+	c.Check(results, jc.DeepEquals, []payload.Result{{
 		ID: id,
-		Payload: &workload.FullPayloadInfo{
+		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
 			// TODO(ericsnow) Require machine "1"?
 			Machine: "",
@@ -140,9 +140,9 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 	c.Logf("using ID %q", id)
 	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []workload.Result{{
+	c.Check(results, jc.DeepEquals, []payload.Result{{
 		ID: id,
-		Payload: &workload.FullPayloadInfo{
+		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
 			Machine: "",
 		},
@@ -153,9 +153,9 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 
 	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, jc.DeepEquals, []workload.Result{{
+	c.Check(results, jc.DeepEquals, []payload.Result{{
 		ID: id,
-		Payload: &workload.FullPayloadInfo{
+		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
 			Machine: "",
 		},
