@@ -56,7 +56,7 @@ type fakeWorkloadsPersistence struct {
 func (s *fakeWorkloadsPersistence) checkPayload(c *gc.C, id string, expected workload.Payload) {
 	pl, ok := s.payloads[id]
 	if !ok {
-		c.Errorf("workload %q not found", id)
+		c.Errorf("payload %q not found", id)
 	} else {
 		c.Check(pl, jc.DeepEquals, &expected)
 	}
