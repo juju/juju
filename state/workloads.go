@@ -11,12 +11,12 @@ import (
 
 // TODO(ericsnow) Track juju-level status in the status collection.
 
-// UnitWorkloads exposes high-level interaction with workloads for a unit.
-type UnitWorkloads interface {
+// UnitPayloads exposes high-level interaction with workloads for a unit.
+type UnitPayloads interface {
 	// Track tracks a workload in state. If a workload is
 	// already being tracked for the same (unit, workload name, plugin ID)
 	// then the request will fail. The unit must also be "alive".
-	Track(info workload.Info) error
+	Track(payload workload.Payload) error
 	// SetStatus sets the status of a workload. Only some fields
 	// must be set on the provided info: Name, Status, Details.ID, and
 	// Details.Status. If the workload is not in state then the request
@@ -38,27 +38,27 @@ type UnitWorkloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newUnitWorkloadsFunc func(persist Persistence, unit string) (UnitWorkloads, error)
+type newUnitPayloadsFunc func(persist Persistence, unit string) (UnitPayloads, error)
 
 var (
-	newUnitWorkloads newUnitWorkloadsFunc
+	newUnitPayloads newUnitPayloadsFunc
 )
 
 // SetWorkloadComponent registers the functions that provide the state
 // functionality related to workloads.
-func SetWorkloadsComponent(upFunc newUnitWorkloadsFunc) {
-	newUnitWorkloads = upFunc
+func SetWorkloadsComponent(upFunc newUnitPayloadsFunc) {
+	newUnitPayloads = upFunc
 }
 
-// UnitWorkloads exposes interaction with workloads in state
+// UnitPayloads exposes interaction with workloads in state
 // for a the given unit.
-func (st *State) UnitWorkloads(unit *Unit) (UnitWorkloads, error) {
-	if newUnitWorkloads == nil {
+func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
+	if newUnitPayloads == nil {
 		return nil, errors.Errorf("workloads not supported")
 	}
 
 	persist := st.newPersistence()
-	unitWorkloads, err := newUnitWorkloads(persist, unit.UnitTag().Id())
+	unitWorkloads, err := newUnitPayloads(persist, unit.UnitTag().Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -39,15 +39,14 @@ func (s *unitWorkloadsSuite) TestNewID(c *gc.C) {
 func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
-	wl := pl.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(wl)
+	err := ps.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "newID", "Track")
@@ -58,15 +57,14 @@ func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
 func (s *unitWorkloadsSuite) TestTrackInvalid(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("", "workloadA/workloadA-xyz")
-	wl := pl.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(wl)
+	err := ps.Track(pl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -76,15 +74,14 @@ func (s *unitWorkloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
-	wl := pl.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(wl)
+	err := ps.Track(pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -94,15 +91,14 @@ func (s *unitWorkloadsSuite) TestTrackInsertFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
-	wl := pl.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(wl)
+	err := ps.Track(pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -111,15 +107,14 @@ func (s *unitWorkloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
 	s.persist.setPayload(s.id, &pl)
-	wl := pl.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(wl)
+	err := ps.Track(pl)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -129,7 +124,7 @@ func (s *unitWorkloadsSuite) TestSetStatusOkay(c *gc.C) {
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
 	s.persist.setPayload(id, &pl)
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -149,7 +144,7 @@ func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
 	s.persist.setPayload(id, &pl)
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -160,7 +155,7 @@ func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
 
 func (s *unitWorkloadsSuite) TestSetStatusMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -178,7 +173,7 @@ func (s *unitWorkloadsSuite) TestListOkay(c *gc.C) {
 	s.persist.setPayload(otherID, &other)
 	wl := pl.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -202,7 +197,7 @@ func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
 	wl1 := pl1.AsWorkload()
 	wl2 := pl2.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -224,7 +219,7 @@ func (s *unitWorkloadsSuite) TestListFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -241,7 +236,7 @@ func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
 	s.persist.setPayload(id, &pl)
 	wl := pl.AsWorkload()
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -265,7 +260,7 @@ func (s *unitWorkloadsSuite) TestUntrackOkay(c *gc.C) {
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
 	s.persist.setPayload(id, &pl)
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -278,7 +273,7 @@ func (s *unitWorkloadsSuite) TestUntrackOkay(c *gc.C) {
 
 func (s *unitWorkloadsSuite) TestUntrackMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
@@ -294,7 +289,7 @@ func (s *unitWorkloadsSuite) TestUntrackFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
-	ps := state.UnitWorkloads{
+	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}

@@ -72,22 +72,14 @@ func (s *suite) TestTrack(c *gc.C) {
 		}},
 	})
 
-	c.Check(s.state.info, jc.DeepEquals, workload.Info{
+	c.Check(s.state.payload, jc.DeepEquals, workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "idfoo",
 			Type: "type",
 		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
+		Status: workload.StateRunning,
 		Labels: []string{},
-		Details: workload.Details{
-			ID: "bar",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     "bar",
 	})
 }
 
@@ -391,12 +383,10 @@ type FakeState struct {
 	stub *testing.Stub
 
 	// inputs
-	id     string
-	ids    []string
-	status string
-
-	// info is used as input and output
-	info workload.Info
+	id      string
+	ids     []string
+	status  string
+	payload workload.Payload
 
 	//outputs
 	stateIDs  []string
@@ -412,8 +402,8 @@ func (f *FakeState) nextID() string {
 	return id
 }
 
-func (f *FakeState) Track(info workload.Info) error {
-	f.info = info
+func (f *FakeState) Track(pl workload.Payload) error {
+	f.payload = pl
 	if err := f.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
