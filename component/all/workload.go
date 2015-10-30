@@ -23,15 +23,15 @@ import (
 	"github.com/juju/juju/workload/api/server"
 	"github.com/juju/juju/workload/context"
 	"github.com/juju/juju/workload/persistence"
-	workloadstate "github.com/juju/juju/workload/state"
+	payloadstate "github.com/juju/juju/workload/state"
 	"github.com/juju/juju/workload/status"
 )
 
-const workloadsHookContextFacade = workload.ComponentName + "-hook-context"
+const payloadsHookContextFacade = workload.ComponentName + "-hook-context"
 
-type workloads struct{}
+type payloads struct{}
 
-func (c workloads) registerForServer() error {
+func (c payloads) registerForServer() error {
 	c.registerState()
 	c.registerPublicFacade()
 
@@ -40,12 +40,12 @@ func (c workloads) registerForServer() error {
 	return nil
 }
 
-func (c workloads) registerForClient() error {
+func (c payloads) registerForClient() error {
 	c.registerPublicCommands()
 	return nil
 }
 
-func (workloads) newPublicFacade(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
+func (payloads) newPublicFacade(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
 	up, err := st.EnvPayloads()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -53,7 +53,7 @@ func (workloads) newPublicFacade(st *state.State, resources *common.Resources, a
 	return server.NewPublicAPI(up), nil
 }
 
-func (c workloads) registerPublicFacade() {
+func (c payloads) registerPublicFacade() {
 	common.RegisterStandardFacade(
 		workload.ComponentName,
 		0,
@@ -70,7 +70,7 @@ func (c facadeCaller) Close() error {
 	return c.closeFunc()
 }
 
-func (workloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error) {
+func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error) {
 	apiCaller, err := cmd.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -84,7 +84,7 @@ func (workloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, erro
 	return listAPI, nil
 }
 
-func (c workloads) registerPublicCommands() {
+func (c payloads) registerPublicCommands() {
 	if !markRegistered(workload.ComponentName, "public-commands") {
 		return
 	}
@@ -94,7 +94,7 @@ func (c workloads) registerPublicCommands() {
 	})
 }
 
-func (c workloads) registerHookContext() {
+func (c payloads) registerHookContext() {
 	if !markRegistered(workload.ComponentName, "hook-context") {
 		return
 	}
@@ -115,12 +115,12 @@ func (c workloads) registerHookContext() {
 	c.registerHookContextFacade()
 }
 
-func (workloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
-	facadeCaller := base.NewFacadeCallerForVersion(caller, workloadsHookContextFacade, 0)
+func (payloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
+	facadeCaller := base.NewFacadeCallerForVersion(caller, payloadsHookContextFacade, 0)
 	return internalclient.NewUnitFacadeClient(facadeCaller)
 }
 
-func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
+func (payloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
 	up, err := st.UnitPayloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -128,21 +128,21 @@ func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interf
 	return internalserver.NewUnitFacade(up), nil
 }
 
-func (c workloads) registerHookContextFacade() {
+func (c payloads) registerHookContextFacade() {
 	common.RegisterHookContextFacade(
-		workloadsHookContextFacade,
+		payloadsHookContextFacade,
 		0,
 		c.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
 }
 
-type workloadsHookContext struct {
+type payloadsHookContext struct {
 	jujuc.Context
 }
 
 // Component implements context.HookContext.
-func (c workloadsHookContext) Component(name string) (context.Component, error) {
+func (c payloadsHookContext) Component(name string) (context.Component, error) {
 	found, err := c.Context.Component(name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -154,13 +154,13 @@ func (c workloadsHookContext) Component(name string) (context.Component, error) 
 	return compCtx, nil
 }
 
-func (workloads) registerHookContextCommands() {
+func (payloads) registerHookContextCommands() {
 	if !markRegistered(workload.ComponentName, "hook-context-commands") {
 		return
 	}
 
 	jujuc.RegisterCommand(context.RegisterCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
-		compCtx := workloadsHookContext{ctx}
+		compCtx := payloadsHookContext{ctx}
 		cmd, err := context.NewRegisterCmd(compCtx)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -169,7 +169,7 @@ func (workloads) registerHookContextCommands() {
 	})
 
 	jujuc.RegisterCommand(context.StatusSetCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
-		compCtx := workloadsHookContext{ctx}
+		compCtx := payloadsHookContext{ctx}
 		cmd, err := context.NewStatusSetCmd(compCtx)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -178,7 +178,7 @@ func (workloads) registerHookContextCommands() {
 	})
 
 	jujuc.RegisterCommand(context.UnregisterCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
-		compCtx := workloadsHookContext{ctx}
+		compCtx := payloadsHookContext{ctx}
 		cmd, err := context.NewUnregisterCmd(compCtx)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -187,18 +187,18 @@ func (workloads) registerHookContextCommands() {
 	})
 }
 
-func (workloads) registerState() {
+func (payloads) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
 	newUnitPayloads := func(persist state.Persistence, unit string) (state.UnitPayloads, error) {
-		return workloadstate.NewUnitPayloads(persist, unit), nil
+		return payloadstate.NewUnitPayloads(persist, unit), nil
 	}
 	state.SetWorkloadsComponent(newUnitPayloads)
 
 	newEnvPayloads := func(persist state.PayloadsEnvPersistence) (state.EnvPayloads, error) {
 		envPersist := persistence.NewEnvPersistence(persist)
-		envPayloads := workloadstate.EnvPayloads{
+		envPayloads := payloadstate.EnvPayloads{
 			Persist: envPersist,
 		}
 		return envPayloads, nil
