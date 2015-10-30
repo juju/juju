@@ -395,5 +395,5 @@ const (
 	envUserLastConnectionC = "envUserLastConnection"
 	volumeAttachmentsC     = "volumeattachments"
 	volumesC               = "volumes"
-	// "workloadprocesses" (see process/persistence/mongo.go)
+	// "payloads" (see payload/persistence/mongo.go)
 )

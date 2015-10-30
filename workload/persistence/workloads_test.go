@@ -35,7 +35,7 @@ func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	s.Stub.CheckCallNames(c, "All", "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloads",
+			C:      "payloads",
 			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocMissing,
 			Insert: &persistence.PayloadDoc{
@@ -93,7 +93,7 @@ func (s *payloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloads",
+			C:      "payloads",
 			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Update: bson.D{
@@ -117,7 +117,7 @@ func (s *payloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloads",
+			C:      "payloads",
 			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Update: bson.D{
@@ -255,7 +255,7 @@ func (s *payloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloads",
+			C:      "payloads",
 			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Remove: true,
@@ -275,7 +275,7 @@ func (s *payloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	s.Stub.CheckCallNames(c, "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
-			C:      "workloads",
+			C:      "payloads",
 			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 			Assert: txn.DocExists,
 			Remove: true,
