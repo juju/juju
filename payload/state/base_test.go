@@ -17,21 +17,21 @@ import (
 	"github.com/juju/juju/payload"
 )
 
-type baseWorkloadsSuite struct {
+type basePayloadsSuite struct {
 	testing.BaseSuite
 
 	stub    *gitjujutesting.Stub
-	persist *fakeWorkloadsPersistence
+	persist *fakePayloadsPersistence
 }
 
-func (s *baseWorkloadsSuite) SetUpTest(c *gc.C) {
+func (s *basePayloadsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stub = &gitjujutesting.Stub{}
-	s.persist = &fakeWorkloadsPersistence{Stub: s.stub}
+	s.persist = &fakePayloadsPersistence{Stub: s.stub}
 }
 
-func (s *baseWorkloadsSuite) newPayload(pType string, id string) payload.Payload {
+func (s *basePayloadsSuite) newPayload(pType string, id string) payload.Payload {
 	name, rawID := payload.ParseID(id)
 	if rawID == "" {
 		rawID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
@@ -48,12 +48,12 @@ func (s *baseWorkloadsSuite) newPayload(pType string, id string) payload.Payload
 	}
 }
 
-type fakeWorkloadsPersistence struct {
+type fakePayloadsPersistence struct {
 	*gitjujutesting.Stub
 	payloads map[string]*payload.Payload
 }
 
-func (s *fakeWorkloadsPersistence) checkPayload(c *gc.C, id string, expected payload.Payload) {
+func (s *fakePayloadsPersistence) checkPayload(c *gc.C, id string, expected payload.Payload) {
 	pl, ok := s.payloads[id]
 	if !ok {
 		c.Errorf("payload %q not found", id)
@@ -62,14 +62,14 @@ func (s *fakeWorkloadsPersistence) checkPayload(c *gc.C, id string, expected pay
 	}
 }
 
-func (s *fakeWorkloadsPersistence) setPayload(id string, pl *payload.Payload) {
+func (s *fakePayloadsPersistence) setPayload(id string, pl *payload.Payload) {
 	if s.payloads == nil {
 		s.payloads = make(map[string]*payload.Payload)
 	}
 	s.payloads[id] = pl
 }
 
-func (s *fakeWorkloadsPersistence) Track(id string, pl payload.Payload) (bool, error) {
+func (s *fakePayloadsPersistence) Track(id string, pl payload.Payload) (bool, error) {
 	s.AddCall("Track", id, pl)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
@@ -82,7 +82,7 @@ func (s *fakeWorkloadsPersistence) Track(id string, pl payload.Payload) (bool, e
 	return true, nil
 }
 
-func (s *fakeWorkloadsPersistence) SetStatus(id, status string) (bool, error) {
+func (s *fakePayloadsPersistence) SetStatus(id, status string) (bool, error) {
 	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
@@ -96,7 +96,7 @@ func (s *fakeWorkloadsPersistence) SetStatus(id, status string) (bool, error) {
 	return true, nil
 }
 
-func (s *fakeWorkloadsPersistence) List(ids ...string) ([]payload.Payload, []string, error) {
+func (s *fakePayloadsPersistence) List(ids ...string) ([]payload.Payload, []string, error) {
 	s.AddCall("List", ids)
 	if err := s.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
@@ -114,7 +114,7 @@ func (s *fakeWorkloadsPersistence) List(ids ...string) ([]payload.Payload, []str
 	return payloads, missing, nil
 }
 
-func (s *fakeWorkloadsPersistence) ListAll() ([]payload.Payload, error) {
+func (s *fakePayloadsPersistence) ListAll() ([]payload.Payload, error) {
 	s.AddCall("ListAll")
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -127,7 +127,7 @@ func (s *fakeWorkloadsPersistence) ListAll() ([]payload.Payload, error) {
 	return payloads, nil
 }
 
-func (s *fakeWorkloadsPersistence) LookUp(name, rawID string) (string, error) {
+func (s *fakePayloadsPersistence) LookUp(name, rawID string) (string, error) {
 	s.AddCall("LookUp", name, rawID)
 	if err := s.NextErr(); err != nil {
 		return "", errors.Trace(err)
@@ -141,7 +141,7 @@ func (s *fakeWorkloadsPersistence) LookUp(name, rawID string) (string, error) {
 	return "", errors.NotFoundf("doc ID")
 }
 
-func (s *fakeWorkloadsPersistence) Untrack(id string) (bool, error) {
+func (s *fakePayloadsPersistence) Untrack(id string) (bool, error) {
 	s.AddCall("Untrack", id)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)

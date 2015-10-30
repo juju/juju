@@ -12,7 +12,7 @@ import (
 
 // TrackArgs are the arguments for the Track endpoint.
 type TrackArgs struct {
-	// Payloads is the list of Workloads to track
+	// Payloads is the list of Payloads to track
 	Payloads []api.Payload
 }
 

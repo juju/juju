@@ -109,12 +109,12 @@ func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	unitID := unit.UnitTag().Id()
 
 	persist := st.newPersistence()
-	unitWorkloads, err := newUnitPayloads(persist, unitID, machineID)
+	unitPayloads, err := newUnitPayloads(persist, unitID, machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return unitWorkloads, nil
+	return unitPayloads, nil
 }
 
 type payloadsEnvPersistence struct {

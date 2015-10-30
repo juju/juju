@@ -54,7 +54,7 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	s.base.setUnits("2", "a-service/2")
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
-	s.base.setWorkloads(p1, p2)
+	s.base.setPayloads(p1, p2)
 
 	persist := NewEnvPersistence(s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
@@ -152,7 +152,7 @@ type stubEnvPersistenceBase struct {
 	unitPersists map[string]*stubUnitPersistence
 }
 
-func (s *stubEnvPersistenceBase) setWorkloads(payloads ...payload.FullPayloadInfo) {
+func (s *stubEnvPersistenceBase) setPayloads(payloads ...payload.FullPayloadInfo) {
 	if s.unitPersists == nil && len(payloads) > 0 {
 		s.unitPersists = make(map[string]*stubUnitPersistence)
 	}
@@ -166,7 +166,7 @@ func (s *stubEnvPersistenceBase) setWorkloads(payloads ...payload.FullPayloadInf
 			s.unitPersists[pl.Unit] = unitPayloads
 		}
 
-		unitPayloads.setWorkloads(pl.Payload)
+		unitPayloads.setPayloads(pl.Payload)
 	}
 }
 
@@ -230,7 +230,7 @@ type stubUnitPersistence struct {
 	payloads []payload.Payload
 }
 
-func (s *stubUnitPersistence) setWorkloads(payloads ...payload.Payload) {
+func (s *stubUnitPersistence) setPayloads(payloads ...payload.Payload) {
 	s.payloads = append(s.payloads, payloads...)
 }
 

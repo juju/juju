@@ -13,14 +13,14 @@ import (
 	"github.com/juju/juju/payload/state"
 )
 
-var _ = gc.Suite(&unitWorkloadsSuite{})
+var _ = gc.Suite(&unitPayloadsSuite{})
 
-type unitWorkloadsSuite struct {
-	baseWorkloadsSuite
+type unitPayloadsSuite struct {
+	basePayloadsSuite
 	id string
 }
 
-func (s *unitWorkloadsSuite) newID() (string, error) {
+func (s *unitPayloadsSuite) newID() (string, error) {
 	s.stub.AddCall("newID")
 	if err := s.stub.NextErr(); err != nil {
 		return "", errors.Trace(err)
@@ -29,14 +29,14 @@ func (s *unitWorkloadsSuite) newID() (string, error) {
 	return s.id, nil
 }
 
-func (s *unitWorkloadsSuite) TestNewID(c *gc.C) {
+func (s *unitPayloadsSuite) TestNewID(c *gc.C) {
 	id, err := state.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(id, jc.Satisfies, utils.IsValidUUIDString)
 }
 
-func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
+func (s *unitPayloadsSuite) TestTrackOkay(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
 
@@ -54,7 +54,7 @@ func (s *unitWorkloadsSuite) TestTrackOkay(c *gc.C) {
 	s.persist.checkPayload(c, s.id, pl)
 }
 
-func (s *unitWorkloadsSuite) TestTrackInvalid(c *gc.C) {
+func (s *unitPayloadsSuite) TestTrackInvalid(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("", "payloadA/payloadA-xyz")
 
@@ -69,7 +69,7 @@ func (s *unitWorkloadsSuite) TestTrackInvalid(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *unitWorkloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
+func (s *unitPayloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
@@ -86,7 +86,7 @@ func (s *unitWorkloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitWorkloadsSuite) TestTrackInsertFailed(c *gc.C) {
+func (s *unitPayloadsSuite) TestTrackInsertFailed(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
@@ -103,7 +103,7 @@ func (s *unitWorkloadsSuite) TestTrackInsertFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitWorkloadsSuite) TestTrackAlreadyExists(c *gc.C) {
+func (s *unitPayloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
 	s.persist.setPayload(s.id, &pl)
@@ -119,7 +119,7 @@ func (s *unitWorkloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *unitWorkloadsSuite) TestSetStatusOkay(c *gc.C) {
+func (s *unitPayloadsSuite) TestSetStatusOkay(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
 	s.persist.setPayload(id, &pl)
@@ -137,7 +137,7 @@ func (s *unitWorkloadsSuite) TestSetStatusOkay(c *gc.C) {
 	c.Check(current.Status, jc.DeepEquals, payload.StateRunning)
 }
 
-func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
+func (s *unitPayloadsSuite) TestSetStatusFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
@@ -153,7 +153,7 @@ func (s *unitWorkloadsSuite) TestSetStatusFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitWorkloadsSuite) TestSetStatusMissing(c *gc.C) {
+func (s *unitPayloadsSuite) TestSetStatusMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	ps := state.UnitPayloads{
 		Persist: s.persist,
@@ -164,7 +164,7 @@ func (s *unitWorkloadsSuite) TestSetStatusMissing(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *unitWorkloadsSuite) TestListOkay(c *gc.C) {
+func (s *unitPayloadsSuite) TestListOkay(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	otherID := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
@@ -186,7 +186,7 @@ func (s *unitWorkloadsSuite) TestListOkay(c *gc.C) {
 	}})
 }
 
-func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
+func (s *unitPayloadsSuite) TestListAll(c *gc.C) {
 	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	pl1 := s.newPayload("docker", "payloadA/payloadA-xyz")
@@ -214,7 +214,7 @@ func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
 	}
 }
 
-func (s *unitWorkloadsSuite) TestListFailed(c *gc.C) {
+func (s *unitPayloadsSuite) TestListFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
@@ -228,7 +228,7 @@ func (s *unitWorkloadsSuite) TestListFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
+func (s *unitPayloadsSuite) TestListMissing(c *gc.C) {
 	missingID := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
@@ -253,7 +253,7 @@ func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
 	}})
 }
 
-func (s *unitWorkloadsSuite) TestUntrackOkay(c *gc.C) {
+func (s *unitPayloadsSuite) TestUntrackOkay(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
 	s.persist.setPayload(id, &pl)
@@ -269,7 +269,7 @@ func (s *unitWorkloadsSuite) TestUntrackOkay(c *gc.C) {
 	c.Check(s.persist.payloads, gc.HasLen, 0)
 }
 
-func (s *unitWorkloadsSuite) TestUntrackMissing(c *gc.C) {
+func (s *unitPayloadsSuite) TestUntrackMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	ps := state.UnitPayloads{
 		Persist: s.persist,
@@ -282,7 +282,7 @@ func (s *unitWorkloadsSuite) TestUntrackMissing(c *gc.C) {
 	c.Check(s.persist.payloads, gc.HasLen, 0)
 }
 
-func (s *unitWorkloadsSuite) TestUntrackFailed(c *gc.C) {
+func (s *unitPayloadsSuite) TestUntrackFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)

@@ -57,8 +57,8 @@ func checkPayloads(c *gc.C, payloads, expected []payload.Payload) {
 	}
 	for _, wl := range payloads {
 		matched := false
-		for _, expWorkload := range expected {
-			if reflect.DeepEqual(wl, expWorkload) {
+		for _, expPayload := range expected {
+			if reflect.DeepEqual(wl, expPayload) {
 				matched = true
 				break
 			}
