@@ -36,15 +36,19 @@ type UnitPayloads struct {
 	// Unit identifies the unit associated with the workloads.
 	Unit string
 
+	// Machine identifies the unit's machine.
+	Machine string
+
 	newID func() (string, error)
 }
 
 // NewUnitPayloads builds a UnitPayloads for a unit.
-func NewUnitPayloads(st persistence.PersistenceBase, unit string) *UnitPayloads {
+func NewUnitPayloads(st persistence.PersistenceBase, unit, machine string) *UnitPayloads {
 	persist := persistence.NewPersistence(st, unit)
 	return &UnitPayloads{
 		Persist: persist,
 		Unit:    unit,
+		Machine: machine,
 		newID:   newID,
 	}
 }
@@ -145,9 +149,14 @@ func (uw UnitPayloads) List(ids ...string) ([]workload.Result, error) {
 		pl := payloads[i]
 		i += 1
 
+		// TODO(ericsnow) Ensure that pl.Unit == uw.Unit?
+
 		result := workload.Result{
-			ID:      id,
-			Payload: &workload.FullPayloadInfo{Payload: pl},
+			ID: id,
+			Payload: &workload.FullPayloadInfo{
+				Payload: pl,
+				Machine: uw.Machine,
+			},
 		}
 		if id == "" {
 			// TODO(ericsnow) Do this more efficiently.

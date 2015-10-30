@@ -38,7 +38,7 @@ type UnitPayloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-type newUnitPayloadsFunc func(persist Persistence, unit string) (UnitPayloads, error)
+type newUnitPayloadsFunc func(persist Persistence, unit, machine string) (UnitPayloads, error)
 
 var (
 	newUnitPayloads newUnitPayloadsFunc
@@ -57,8 +57,14 @@ func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 		return nil, errors.Errorf("payloads not supported")
 	}
 
+	machineID, err := unit.AssignedMachineId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitID := unit.UnitTag().Id()
+
 	persist := st.newPersistence()
-	unitWorkloads, err := newUnitPayloads(persist, unit.UnitTag().Id())
+	unitWorkloads, err := newUnitPayloads(persist, unitID, machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
