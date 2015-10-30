@@ -58,7 +58,7 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 	}
 
 	// Search provider storage for tools.
-	datasource := storage.NewStorageSimpleStreamsDataSource("provider storage", stor, storage.BaseToolsPath)
+	datasource := storage.NewStorageSimpleStreamsDataSource("provider storage", stor, storage.BaseToolsPath, simplestreams.SPECIFIC_CLOUD_DATA)
 	toolsList, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{datasource},
 		simplestreams.CloudSpec{},

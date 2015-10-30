@@ -28,21 +28,48 @@ type DataSource interface {
 	// SetAllowRetry sets the flag which determines if the datasource will retry fetching the metadata
 	// if it is not immediately available.
 	SetAllowRetry(allow bool)
+	// Priority is an importance factor for Data Source. Higher number means higher priority.
+	// This is will allow to sort data sources in order of importance.
+	Priority() int
 }
+
+const (
+	// These values used as priority factors for sorting data source data.
+
+	// EXISTING_CLOUD_DATA is the lowest in priority.
+	// It is mostly used in merge functions
+	// where existing data does not need to be ranked.
+	EXISTING_CLOUD_DATA = 0
+
+	// DEFAULT_CLOUD_DATA is used for common cloud data that
+	// is shared an is publically available.
+	DEFAULT_CLOUD_DATA = 10
+
+	// SPECIFIC_CLOUD_DATA is used to rank cloud specific data
+	// above commonly available.
+	// For e.g., openstack's "keystone catalogue".
+	SPECIFIC_CLOUD_DATA = 20
+
+	// CUSTOM_CLOUD_DATA is the highest available ranking and
+	// is given to custom data.
+	CUSTOM_CLOUD_DATA = 50
+)
 
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
 	description          string
 	baseURL              string
 	hostnameVerification utils.SSLHostnameVerification
+	priority             int
 }
 
 // NewURLDataSource returns a new datasource reading from the specified baseURL.
-func NewURLDataSource(description, baseURL string, hostnameVerification utils.SSLHostnameVerification) DataSource {
+func NewURLDataSource(description, baseURL string, hostnameVerification utils.SSLHostnameVerification, priority int) DataSource {
 	return &urlDataSource{
 		description:          description,
 		baseURL:              baseURL,
 		hostnameVerification: hostnameVerification,
+		priority:             priority,
 	}
 }
 
@@ -99,4 +126,9 @@ func (h *urlDataSource) URL(path string) (string, error) {
 // SetAllowRetry is defined in simplestreams.DataSource.
 func (h *urlDataSource) SetAllowRetry(allow bool) {
 	// This is a NOOP for url datasources.
+}
+
+// Priority is defined in simplestreams.DataSource.
+func (h *urlDataSource) Priority() int {
+	return h.priority
 }

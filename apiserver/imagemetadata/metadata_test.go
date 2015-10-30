@@ -75,12 +75,12 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 		s.calls = append(s.calls, findMetadata)
 		return map[string][]cloudimagemetadata.Metadata{
 				"public": []cloudimagemetadata.Metadata{
-					cloudimagemetadata.Metadata{ImageId: publicImageId},
+					cloudimagemetadata.Metadata{ImageId: publicImageId, Priority: 15},
 				},
 				"custom": []cloudimagemetadata.Metadata{
-					cloudimagemetadata.Metadata{ImageId: customImageId},
-					cloudimagemetadata.Metadata{ImageId: customImageId2},
-					cloudimagemetadata.Metadata{ImageId: customImageId3},
+					cloudimagemetadata.Metadata{ImageId: customImageId, Priority: 87},
+					cloudimagemetadata.Metadata{ImageId: customImageId2, Priority: 20},
+					cloudimagemetadata.Metadata{ImageId: customImageId3, Priority: 56},
 				},
 			},
 			nil
@@ -89,11 +89,12 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	found, err := s.api.List(params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 4)
+
 	c.Assert(found.Result, jc.SameContents, []params.CloudImageMetadata{
-		params.CloudImageMetadata{ImageId: customImageId},
-		params.CloudImageMetadata{ImageId: customImageId2},
-		params.CloudImageMetadata{ImageId: customImageId3},
-		params.CloudImageMetadata{ImageId: publicImageId},
+		params.CloudImageMetadata{ImageId: customImageId, Priority: 87},
+		params.CloudImageMetadata{ImageId: customImageId3, Priority: 56},
+		params.CloudImageMetadata{ImageId: customImageId2, Priority: 20},
+		params.CloudImageMetadata{ImageId: publicImageId, Priority: 15},
 	})
 	s.assertCalls(c, []string{findMetadata})
 }

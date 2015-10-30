@@ -29,6 +29,7 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 			Stream: "released",
 			Source: "custom",
 		},
+		0,
 		"",
 	}
 }

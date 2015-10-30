@@ -258,7 +258,7 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 	}
 
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(imageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames)
+	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})

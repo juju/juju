@@ -77,6 +77,7 @@ type storageSimpleStreamsDataSource struct {
 	basePath    string
 	storage     StorageReader
 	allowRetry  bool
+	priority    int
 }
 
 // TestingGetAllowRetry is used in tests which need to see if allowRetry has been
@@ -89,8 +90,8 @@ func TestingGetAllowRetry(s simplestreams.DataSource) (bool, ok bool) {
 }
 
 // NewStorageSimpleStreamsDataSource returns a new datasource reading from the specified storage.
-func NewStorageSimpleStreamsDataSource(description string, storage StorageReader, basePath string) simplestreams.DataSource {
-	return &storageSimpleStreamsDataSource{description, basePath, storage, false}
+func NewStorageSimpleStreamsDataSource(description string, storage StorageReader, basePath string, priority int) simplestreams.DataSource {
+	return &storageSimpleStreamsDataSource{description, basePath, storage, false, priority}
 }
 
 func (s *storageSimpleStreamsDataSource) relpath(storagePath string) string {
@@ -133,4 +134,9 @@ func (s *storageSimpleStreamsDataSource) URL(path string) (string, error) {
 // SetAllowRetry is defined in simplestreams.DataSource.
 func (s *storageSimpleStreamsDataSource) SetAllowRetry(allow bool) {
 	s.allowRetry = allow
+}
+
+// Priority is defined in simplestreams.DataSource.
+func (s *storageSimpleStreamsDataSource) Priority() int {
+	return s.priority
 }

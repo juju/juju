@@ -24,13 +24,14 @@ const (
 // environmentStorageDataSource is a simplestreams.DataSource that
 // retrieves simplestreams metadata from environment storage.
 type environmentStorageDataSource struct {
-	stor storage.Storage
+	stor     storage.Storage
+	priority int
 }
 
 // NewEnvironmentStorageDataSource returns a new datasource that retrieves
 // metadata from environment storage.
-func NewEnvironmentStorageDataSource(stor storage.Storage) simplestreams.DataSource {
-	return environmentStorageDataSource{stor}
+func NewEnvironmentStorageDataSource(stor storage.Storage, priority int) simplestreams.DataSource {
+	return environmentStorageDataSource{stor, priority}
 }
 
 // Description is defined in simplestreams.DataSource.
@@ -65,9 +66,14 @@ func (d environmentStorageDataSource) URL(file string) (string, error) {
 func (d environmentStorageDataSource) SetAllowRetry(allow bool) {
 }
 
+// Priority is defined in simplestreams.DataSource.
+func (d environmentStorageDataSource) Priority() int {
+	return d.priority
+}
+
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
 func registerSimplestreamsDataSource(stor storage.Storage) {
-	ds := NewEnvironmentStorageDataSource(stor)
+	ds := NewEnvironmentStorageDataSource(stor, simplestreams.DEFAULT_CLOUD_DATA)
 	environs.RegisterUserImageDataSourceFunc(storageDataSourceId, func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})

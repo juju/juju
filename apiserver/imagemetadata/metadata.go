@@ -7,10 +7,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
@@ -60,7 +60,7 @@ func NewAPI(
 
 // List returns all found cloud image metadata that satisfy
 // given filter.
-// Returned list contains metadata for custom images first, then public.
+// Returned list contains metadata ordered by priority.
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
@@ -81,18 +81,10 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 		}
 	}
 
-	// Sort source keys in alphabetic order.
-	sources := make([]string, len(found))
-	i := 0
-	for source, _ := range found {
-		sources[i] = source
-		i++
+	for _, ms := range found {
+		addAll(ms)
 	}
-	sort.Strings(sources)
-
-	for _, source := range sources {
-		addAll(found[source])
-	}
+	sort.Sort(metadataList(all))
 
 	return params.ListCloudImageMetadataResult{Result: all}, nil
 }
@@ -119,6 +111,7 @@ func parseMetadataToParams(p cloudimagemetadata.Metadata) params.CloudImageMetad
 		RootStorageType: p.RootStorageType,
 		RootStorageSize: p.RootStorageSize,
 		Source:          p.Source,
+		Priority:        p.Priority,
 	}
 	return result
 }
@@ -135,6 +128,7 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 			RootStorageSize: p.RootStorageSize,
 			Source:          p.Source,
 		},
+		p.Priority,
 		p.ImageId,
 	}
 	if p.Stream == "" {
@@ -149,54 +143,57 @@ func parseMetadataFromParams(p params.CloudImageMetadata) cloudimagemetadata.Met
 // UpdateFromPublishedImages retrieves currently published image metadata and
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
-	info, published, err := api.retrievePublished()
-	if err != nil {
-		return errors.Annotatef(err, "getting published images metadata")
-	}
-	err = api.saveAll(info, published)
-	return errors.Annotatef(err, "saving published images metadata")
+	return api.retrievePublished()
 }
 
-func (api *API) retrievePublished() (*simplestreams.ResolveInfo, []*envmetadata.ImageMetadata, error) {
-	// Get environ
+func (api *API) retrievePublished() error {
 	envCfg, err := api.metadata.EnvironConfig()
 	env, err := environs.New(envCfg)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return errors.Annotatef(err, "getting environ")
 	}
 
-	// Get all images metadata sources for this environ.
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
-		return nil, nil, err
+		return errors.Annotatef(err, "getting environment image metadata sources")
 	}
 
-	// We want all metadata.
 	cons := envmetadata.NewImageConstraint(simplestreams.LookupParams{})
 	if inst, ok := env.(simplestreams.HasRegion); !ok {
-		return nil, nil, errors.Errorf("environment cloud specification cannot be determined")
+		return errors.Errorf("environment cloud specification cannot be determined")
 	} else {
 		// If we can determine current region,
 		// we want only metadata specific to this region.
 		cloud, err := inst.Region()
 		if err != nil {
-			return nil, nil, err
+			return errors.Annotatef(err, "getting provider region information (cloud spec)")
 		}
 		cons.CloudSpec = cloud
 	}
 
-	metadata, info, err := envmetadata.Fetch(sources, cons, false)
-	if err != nil {
-		return nil, nil, err
+	// We want all relevant metadata from all data sources.
+	for _, source := range sources {
+		logger.Debugf("looking in data source %v", source.Description())
+		metadata, info, err := envmetadata.Fetch([]simplestreams.DataSource{source}, cons, false)
+		if err != nil {
+			// Do not stop looking in other data sources if there is an issue here.
+			logger.Errorf("encountered %v while getting published images metadata from %v", err, source.Description())
+			continue
+		}
+		err = api.saveAll(info, source.Priority(), metadata)
+		if err != nil {
+			// Do not stop looking in other data sources if there is an issue here.
+			logger.Errorf("encountered %v while saving published images metadata from %v", err, source.Description())
+		}
 	}
-	return info, metadata, nil
+	return nil
 }
 
-func (api *API) saveAll(info *simplestreams.ResolveInfo, published []*envmetadata.ImageMetadata) error {
+func (api *API) saveAll(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) error {
 	// Store converted metadata.
 	// Note that whether the metadata actually needs
 	// to be stored will be determined within this call.
-	errs, err := api.Save(convertToParams(info, published))
+	errs, err := api.Save(convertToParams(info, priority, published))
 	if err != nil {
 		return errors.Annotatef(err, "saving published images metadata")
 	}
@@ -204,7 +201,7 @@ func (api *API) saveAll(info *simplestreams.ResolveInfo, published []*envmetadat
 }
 
 // convertToParams converts environment-specific images metadata to structured metadata format.
-var convertToParams = func(info *simplestreams.ResolveInfo, published []*envmetadata.ImageMetadata) params.MetadataSaveParams {
+var convertToParams = func(info *simplestreams.ResolveInfo, priority int, published []*envmetadata.ImageMetadata) params.MetadataSaveParams {
 	metadata := make([]params.CloudImageMetadata, len(published))
 	for i, p := range published {
 		metadata[i] = params.CloudImageMetadata{
@@ -215,6 +212,7 @@ var convertToParams = func(info *simplestreams.ResolveInfo, published []*envmeta
 			Arch:            p.Arch,
 			VirtType:        p.VirtType,
 			RootStorageType: p.Storage,
+			Priority:        priority,
 		}
 		// Translate version (eg.14.04) to a series (eg. "trusty")
 		s, err := series.VersionSeries(p.Version)
@@ -239,4 +237,23 @@ func processErrors(errs []params.ErrorResult) error {
 		return errors.Errorf("saving some image metadata:\n%v", strings.Join(msgs, "\n"))
 	}
 	return nil
+}
+
+// metadataList is a convenience type enabling to sort
+// a collection of Metadata in order of priority.
+type metadataList []params.CloudImageMetadata
+
+// Implements sort.Interface
+func (m metadataList) Len() int {
+	return len(m)
+}
+
+// Implements sort.Interface and sorts image metadata by priority.
+func (m metadataList) Less(i, j int) bool {
+	return m[i].Priority < m[j].Priority
+}
+
+// Implements sort.Interface
+func (m metadataList) Swap(i, j int) {
+	m[i], m[j] = m[j], m[i]
 }

@@ -164,7 +164,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		}
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA)},
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",
@@ -182,7 +182,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
 
 	source := []simplestreams.DataSource{
-		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
+		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA),
 	}
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
@@ -228,7 +228,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec(
 			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA)},
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",

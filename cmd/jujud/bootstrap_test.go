@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -675,7 +676,8 @@ func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata) {
 			VirtType:        "virtType",
 			RootStorageType: "rootStore",
 			Source:          "custom"},
-		ImageId: "imageId"}
+		Priority: simplestreams.CUSTOM_CLOUD_DATA,
+		ImageId:  "imageId"}
 
 	// setup files containing test's data
 	metadataDir := c.MkDir()
