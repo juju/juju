@@ -197,7 +197,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 			},
 			Payload:  nil,
 			NotFound: true,
-			Error:    common.ServerError(errors.NotFoundf("workload")),
+			Error:    common.ServerError(errors.NotFoundf("payload")),
 		}, {
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id2).String(),

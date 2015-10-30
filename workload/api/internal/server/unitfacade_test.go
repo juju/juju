@@ -85,7 +85,7 @@ func (s *suite) TestListOne(c *gc.C) {
 		Status: workload.StateRunning,
 		Unit:   "a-service/0",
 	}
-	s.state.workloads = []workload.Result{{
+	s.state.payloads = []workload.Result{{
 		ID: id,
 		Payload: &workload.FullPayloadInfo{
 			Payload: pl,
@@ -136,7 +136,7 @@ func (s *suite) TestListAll(c *gc.C) {
 		Status: workload.StateRunning,
 		Unit:   "a-service/0",
 	}
-	s.state.workloads = []workload.Result{{
+	s.state.payloads = []workload.Result{{
 		ID: id,
 		Payload: &workload.FullPayloadInfo{
 			Payload: pl,
@@ -206,7 +206,7 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 		"",
 		"ce5bc2a7-65d8-4800-8199-a7c3356ab311",
 	}
-	notFound := errors.NotFoundf("workload")
+	notFound := errors.NotFoundf("payload")
 	s.stub.SetErrors(nil, notFound, nil)
 
 	a := UnitFacade{s.state}
@@ -356,8 +356,8 @@ type FakeState struct {
 	payload workload.Payload
 
 	//outputs
-	stateIDs  []string
-	workloads []workload.Result
+	stateIDs []string
+	payloads []workload.Result
 }
 
 func (f *FakeState) nextID() string {
@@ -384,7 +384,7 @@ func (f *FakeState) List(ids ...string) ([]workload.Result, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return f.workloads, nil
+	return f.payloads, nil
 }
 
 func (f *FakeState) SetStatus(id, status string) error {

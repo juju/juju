@@ -41,7 +41,7 @@ func NewUnitFacade(st UnitPayloads) *UnitFacade {
 
 // Track stores a workload to be tracked in state.
 func (uf UnitFacade) Track(args internal.TrackArgs) (internal.PayloadResults, error) {
-	logger.Debugf("tracking %d workloads from API", len(args.Payloads))
+	logger.Debugf("tracking %d payloads from API", len(args.Payloads))
 
 	var r internal.PayloadResults
 	for _, apiPayload := range args.Payloads {
