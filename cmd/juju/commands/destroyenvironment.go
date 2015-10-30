@@ -40,7 +40,7 @@ type destroyEnvironmentCommand struct {
 	cmd.CommandBase
 	assumeYes bool
 	force     bool
-	apierr	  error
+	apierr    error
 }
 
 func (c *destroyEnvironmentCommand) Info() *cmd.Info {
@@ -86,7 +86,7 @@ func (c *destroyEnvironmentCommand) getAPIClient() (*api.Client, error) {
 		return nil, c.apierr
 	}
 
-		return c.NewAPIClient()
+	return c.NewAPIClient()
 }
 
 func (c *destroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
