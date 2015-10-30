@@ -171,7 +171,6 @@ func (s *unitWorkloadsSuite) TestListOkay(c *gc.C) {
 	other := s.newPayload("docker", "workloadB/workloadB-abc")
 	s.persist.setPayload(id, &pl)
 	s.persist.setPayload(otherID, &other)
-	wl := pl.AsWorkload()
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
@@ -182,8 +181,8 @@ func (s *unitWorkloadsSuite) TestListOkay(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "List")
 	c.Check(results, jc.DeepEquals, []workload.Result{{
-		ID:       id,
-		Workload: &wl,
+		ID:      id,
+		Payload: &workload.FullPayloadInfo{Payload: pl},
 	}})
 }
 
@@ -194,8 +193,8 @@ func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
 	pl2 := s.newPayload("docker", "workloadB/workloadB-abc")
 	s.persist.setPayload(id1, &pl1)
 	s.persist.setPayload(id2, &pl2)
-	wl1 := pl1.AsWorkload()
-	wl2 := pl2.AsWorkload()
+	fpi1 := workload.FullPayloadInfo{Payload: pl1}
+	fpi2 := workload.FullPayloadInfo{Payload: pl2}
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
@@ -206,12 +205,12 @@ func (s *unitWorkloadsSuite) TestListAll(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "ListAll", "LookUp", "LookUp")
 	c.Assert(results, gc.HasLen, 2)
-	if results[0].Workload.Name == "workloadA" {
-		c.Check(results[0].Workload, jc.DeepEquals, &wl1)
-		c.Check(results[1].Workload, jc.DeepEquals, &wl2)
+	if results[0].Payload.Name == "workloadA" {
+		c.Check(results[0].Payload, jc.DeepEquals, &fpi1)
+		c.Check(results[1].Payload, jc.DeepEquals, &fpi2)
 	} else {
-		c.Check(results[0].Workload, jc.DeepEquals, &wl2)
-		c.Check(results[1].Workload, jc.DeepEquals, &wl1)
+		c.Check(results[0].Payload, jc.DeepEquals, &fpi2)
+		c.Check(results[1].Payload, jc.DeepEquals, &fpi1)
 	}
 }
 
@@ -234,7 +233,6 @@ func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "workloadA/workloadA-xyz")
 	s.persist.setPayload(id, &pl)
-	wl := pl.AsWorkload()
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
@@ -247,8 +245,8 @@ func (s *unitWorkloadsSuite) TestListMissing(c *gc.C) {
 	c.Check(results[1].Error, gc.NotNil)
 	results[1].Error = nil
 	c.Check(results, jc.DeepEquals, []workload.Result{{
-		ID:       id,
-		Workload: &wl,
+		ID:      id,
+		Payload: &workload.FullPayloadInfo{Payload: pl},
 	}, {
 		ID:       missingID,
 		NotFound: true,

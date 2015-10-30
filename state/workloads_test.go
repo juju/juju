@@ -37,6 +37,10 @@ func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
 	charmTag := ch.Tag().(names.CharmTag)
 	return charmTag, unit
 }
@@ -51,20 +55,15 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, 0)
 
-	info := workload.Info{
+	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "workloadA",
 			Type: "docker",
 		},
-		Status: workload.Status{
-			State: workload.StateRunning,
-		},
-		Details: workload.Details{
-			ID: "xyz",
-		},
+		ID:     "xyz",
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
 	}
-	pl := info.AsPayload()
-	pl.Unit = "a-service/0"
 	err = st.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -76,17 +75,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	id := results[0].ID
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID: id,
-		Workload: &workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: "workloadA",
-				Type: "docker",
-			},
-			Status: workload.Status{
-				State: workload.StateRunning,
-			},
-			Details: workload.Details{
-				ID: "xyz",
-			},
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "",
 		},
 	}})
 
@@ -98,8 +89,11 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, []workload.Result{{
-		ID:       id,
-		Workload: &info,
+		ID: id,
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "",
+		},
 	}})
 
 	err = st.SetStatus(id, "running")
@@ -109,17 +103,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID: id,
-		Workload: &workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: "workloadA",
-				Type: "docker",
-			},
-			Status: workload.Status{
-				State: workload.StateRunning,
-			},
-			Details: workload.Details{
-				ID: "xyz",
-			},
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "",
 		},
 	}})
 

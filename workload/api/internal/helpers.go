@@ -21,7 +21,7 @@ import (
 func NewPayloadResult(id string, err error) PayloadResult {
 	result := workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: errors.IsNotFound(err),
 		Error:    err,
 	}
@@ -45,8 +45,7 @@ func API2Result(r PayloadResult) (workload.Result, error) {
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		info := pl.AsWorkload()
-		result.Workload = &info
+		result.Payload = &pl
 	}
 
 	if r.Error != nil {
@@ -66,9 +65,8 @@ func Result2api(result workload.Result) PayloadResult {
 		res.Tag = names.NewPayloadTag(result.ID).String()
 	}
 
-	if result.Workload != nil {
-		fullPayload := workload.FullPayloadInfo{Payload: result.Workload.AsPayload()}
-		pl := api.Payload2api(fullPayload)
+	if result.Payload != nil {
+		pl := api.Payload2api(*result.Payload)
 		res.Payload = &pl
 	}
 

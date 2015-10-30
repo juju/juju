@@ -70,7 +70,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})
@@ -107,12 +107,11 @@ func (s *clientSuite) TestList(c *gc.C) {
 	results, err := pclient.List("idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	pl, err := api.API2Payload(s.payload)
-	expected := pl.AsWorkload()
+	expected, err := api.API2Payload(s.payload)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID:       id,
-		Workload: &expected,
+		Payload:  &expected,
 		NotFound: false,
 		Error:    nil,
 	}})
@@ -162,7 +161,7 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})
@@ -219,17 +218,17 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	results[1].Error = nil
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID:       id1,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}, {
 		ID:       "",
-		Workload: nil,
+		Payload:  nil,
 		NotFound: true,
 		Error:    nil,
 	}, {
 		ID:       id2,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})
@@ -286,7 +285,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})
@@ -351,7 +350,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: false,
 		Error:    nil,
 	}})

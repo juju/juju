@@ -76,25 +76,21 @@ func (s *suite) TestTrack(c *gc.C) {
 
 func (s *suite) TestListOne(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	wl := workload.Info{
+	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
 			Type: "type",
 		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Details: workload.Details{
-			ID: "idfoo",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     "idfoo",
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
 	}
 	s.state.workloads = []workload.Result{{
-		ID:       id,
-		Workload: &wl,
+		ID: id,
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "1",
+		},
 	}}
 
 	a := UnitFacade{s.state}
@@ -107,11 +103,13 @@ func (s *suite) TestListOne(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := api.Payload{
-		Class:  "foobar",
-		Type:   "type",
-		ID:     "idfoo",
-		Status: workload.StateRunning,
-		Labels: []string{},
+		Class:   "foobar",
+		Type:    "type",
+		ID:      "idfoo",
+		Status:  workload.StateRunning,
+		Labels:  []string{},
+		Unit:    "unit-a-service-0",
+		Machine: "machine-1",
 	}
 
 	c.Check(results, jc.DeepEquals, internal.PayloadResults{
@@ -129,25 +127,21 @@ func (s *suite) TestListOne(c *gc.C) {
 func (s *suite) TestListAll(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
-	wl := workload.Info{
+	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
 			Type: "type",
 		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Details: workload.Details{
-			ID: "idfoo",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     "idfoo",
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
 	}
 	s.state.workloads = []workload.Result{{
-		ID:       id,
-		Workload: &wl,
+		ID: id,
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "1",
+		},
 	}}
 
 	a := UnitFacade{s.state}
@@ -156,11 +150,13 @@ func (s *suite) TestListAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := api.Payload{
-		Class:  "foobar",
-		Type:   "type",
-		ID:     "idfoo",
-		Status: workload.StateRunning,
-		Labels: []string{},
+		Class:   "foobar",
+		Type:    "type",
+		ID:      "idfoo",
+		Status:  workload.StateRunning,
+		Labels:  []string{},
+		Unit:    "unit-a-service-0",
+		Machine: "machine-1",
 	}
 	c.Check(results, jc.DeepEquals, internal.PayloadResults{
 		Results: []internal.PayloadResult{{
