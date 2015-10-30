@@ -12,10 +12,14 @@ sstream-query $HOME/new-streams/testing/streams/v1/index2.json \
   "version~($OLD_VERSION|$NEW_VERSION)" content_id=$content_id \
   release='trusty' arch='amd64'\
   | sed "s/$content_id/com.ubuntu.juju:released:tools/" > test-streams.repr
+sstream-query $HOME/new-streams/testing/streams/v1/index2.json \
+  "version~($NEW_VERSION)" content_id=$content_id \
+  release='trusty' arch='amd64'\
+  | sed "s/$content_id/com.ubuntu.juju:devel:tools/" >> test-streams.repr
 ssquery_json.py test-streams.repr test-streams.json
 stanzas_to_streams.py test-streams.json test-streams
 agents=$(sstream-query test-streams/streams/v1/index.json \
-         --output-format="%(path)s")
+         --output-format="%(path)s"|sort|uniq)
 for agent in $agents; do
   parent=$(dirname $agent)
   if [ $parent = 'agent' ]; then
