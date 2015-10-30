@@ -26,9 +26,9 @@ type LookUpArgs struct {
 
 // LookUpArg contains all the information necessary to identify a payload.
 type LookUpArg struct {
-	// Name is the workload name.
+	// Name is the payload name.
 	Name string
-	// ID uniquely identifies the workload for the given name.
+	// ID uniquely identifies the payload for the given name.
 	ID string
 }
 
@@ -49,7 +49,7 @@ type SetStatusArg struct {
 // Untrack uses params.Entities.
 
 // PayloadResults is the result for a call that makes one or more requests
-// about workloads.
+// about payloads.
 type PayloadResults struct {
 	Results []PayloadResult
 }
@@ -59,9 +59,9 @@ type PayloadResults struct {
 // PayloadResult contains the result for a single call.
 type PayloadResult struct {
 	params.Entity
-	// Payload holds the details of the workload, if any.
+	// Payload holds the details of the payload, if any.
 	Payload *api.Payload
-	// NotFound indicates that the workload was not found in state.
+	// NotFound indicates that the payload was not found in state.
 	NotFound bool
 	// Error is the error (if any) for the call referring to ID.
 	Error *params.Error

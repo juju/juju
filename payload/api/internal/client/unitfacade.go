@@ -15,12 +15,12 @@ type facadeCaller interface {
 }
 
 // UnitFacadeClient provides methods for interacting with Juju's internal
-// RPC API, relative to workloads.
+// RPC API, relative to payloads.
 type UnitFacadeClient struct {
 	facadeCaller
 }
 
-// NewUnitFacadeClient builds a new workload API client.
+// NewUnitFacadeClient builds a new payload API client.
 func NewUnitFacadeClient(caller facadeCaller) UnitFacadeClient {
 	return UnitFacadeClient{caller}
 }

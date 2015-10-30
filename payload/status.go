@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// The Juju-recognized states in which a workload might be.
+// The Juju-recognized states in which a payload might be.
 const (
 	StateUndefined = ""
 	//TODO(wwitzel3) remove defined throughout

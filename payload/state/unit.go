@@ -14,9 +14,9 @@ import (
 
 var logger = loggo.GetLogger("juju.payload.state")
 
-// TODO(ericsnow) We need a worker to clean up dying workloads.
+// TODO(ericsnow) We need a worker to clean up dying payloads.
 
-// The persistence methods needed for workloads in state.
+// The persistence methods needed for payloads in state.
 type payloadsPersistence interface {
 	Track(id string, info payload.Payload) (bool, error)
 	// SetStatus updates the status for a payload.
@@ -28,12 +28,12 @@ type payloadsPersistence interface {
 }
 
 // UnitPayloads provides the functionality related to a unit's
-// workloads, as needed by state.
+// payloads, as needed by state.
 type UnitPayloads struct {
 	// Persist is the persistence layer that will be used.
 	Persist payloadsPersistence
 
-	// Unit identifies the unit associated with the workloads.
+	// Unit identifies the unit associated with the payloads.
 	Unit string
 
 	// Machine identifies the unit's machine.
@@ -63,8 +63,8 @@ func newID() (string, error) {
 
 // TODO(ericsnow) Return the new ID from Track()?
 
-// Track inserts the provided workload info in state. The new Juju ID
-// for the workload is returned.
+// Track inserts the provided payload info in state. The new Juju ID
+// for the payload is returned.
 func (uw UnitPayloads) Track(pl payload.Payload) error {
 	logger.Tracef("tracking %#v", pl)
 
@@ -88,7 +88,7 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 	return nil
 }
 
-// SetStatus updates the raw status for the identified workload to the
+// SetStatus updates the raw status for the identified payload to the
 // provided value.
 func (uw UnitPayloads) SetStatus(id, status string) error {
 	logger.Tracef("setting payload status for %q to %q", id, status)
@@ -107,9 +107,9 @@ func (uw UnitPayloads) SetStatus(id, status string) error {
 	return nil
 }
 
-// List builds the list of workload information for the provided workload
+// List builds the list of payload information for the provided payload
 // IDs. If none are provided then the list contains the info for all
-// workloads associated with the unit. Missing workloads
+// payloads associated with the unit. Missing payloads
 // are ignored.
 func (uw UnitPayloads) List(ids ...string) ([]payload.Result, error) {
 	logger.Tracef("listing %v", ids)
@@ -183,7 +183,7 @@ func (uw UnitPayloads) LookUp(name, rawID string) (string, error) {
 	return id, nil
 }
 
-// Untrack removes the identified workload from state. It does not
+// Untrack removes the identified payload from state. It does not
 // trigger the actual destruction of the payload.
 func (uw UnitPayloads) Untrack(id string) error {
 	logger.Tracef("untracking %q", id)

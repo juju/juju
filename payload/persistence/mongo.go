@@ -21,7 +21,7 @@ const (
 )
 
 // Collections is the list of names of the mongo collections where state
-// is stored for workloads.
+// is stored for payloads.
 // TODO(ericsnow) Not needed anymore...modify for a new registration scheme?
 var Collections = []string{
 	payloadsC,
@@ -100,7 +100,7 @@ func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
 	}}
 }
 
-// payloadDoc is the top-level document for workloads.
+// payloadDoc is the top-level document for payloads.
 type payloadDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`

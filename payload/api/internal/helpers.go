@@ -89,7 +89,7 @@ func API2ID(tagStr string) (string, error) {
 	return tag.Id(), nil
 }
 
-// Payloads2TrackArgs converts the provided workload info into arguments
+// Payloads2TrackArgs converts the provided payload info into arguments
 // for the Track API endpoint.
 func Payloads2TrackArgs(payloads []payload.Payload) TrackArgs {
 	var args TrackArgs
@@ -101,13 +101,13 @@ func Payloads2TrackArgs(payloads []payload.Payload) TrackArgs {
 	return args
 }
 
-// IDs2ListArgs converts the provided workload IDs into arguments
+// IDs2ListArgs converts the provided payload IDs into arguments
 // for the List API endpoint.
 func IDs2ListArgs(ids []string) params.Entities {
 	return ids2args(ids)
 }
 
-// FullIDs2LookUpArgs converts the provided workload "full" IDs into arguments
+// FullIDs2LookUpArgs converts the provided payload "full" IDs into arguments
 // for the LookUp API endpoint.
 func FullIDs2LookUpArgs(fullIDs []string) LookUpArgs {
 	var args LookUpArgs
@@ -121,7 +121,7 @@ func FullIDs2LookUpArgs(fullIDs []string) LookUpArgs {
 	return args
 }
 
-// IDs2SetStatusArgs converts the provided workload IDs into arguments
+// IDs2SetStatusArgs converts the provided payload IDs into arguments
 // for the SetStatus API endpoint.
 func IDs2SetStatusArgs(ids []string, status string) SetStatusArgs {
 	var args SetStatusArgs
@@ -135,7 +135,7 @@ func IDs2SetStatusArgs(ids []string, status string) SetStatusArgs {
 	return args
 }
 
-// IDs2UntrackArgs converts the provided workload IDs into arguments
+// IDs2UntrackArgs converts the provided payload IDs into arguments
 // for the Untrack API endpoint.
 func IDs2UntrackArgs(ids []string) params.Entities {
 	return ids2args(ids)

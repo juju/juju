@@ -11,34 +11,34 @@ import (
 
 // TODO(ericsnow) Track juju-level status in the status collection.
 
-// EnvPayloads exposes high-level interaction with all workloads
+// EnvPayloads exposes high-level interaction with all payloads
 // in an environment.
 type EnvPayloads interface {
 	// ListAll builds the list of registered payloads in the env and returns it.
 	ListAll() ([]payload.FullPayloadInfo, error)
 }
 
-// UnitPayloads exposes high-level interaction with workloads for a unit.
+// UnitPayloads exposes high-level interaction with payloads for a unit.
 type UnitPayloads interface {
-	// Track tracks a workload in state. If a workload is
-	// already being tracked for the same (unit, workload name, plugin ID)
+	// Track tracks a payload in state. If a payload is
+	// already being tracked for the same (unit, payload name, plugin ID)
 	// then the request will fail. The unit must also be "alive".
 	Track(payload payload.Payload) error
-	// SetStatus sets the status of a workload. Only some fields
+	// SetStatus sets the status of a payload. Only some fields
 	// must be set on the provided info: Name, Status, Details.ID, and
-	// Details.Status. If the workload is not in state then the request
+	// Details.Status. If the payload is not in state then the request
 	// will fail.
 	SetStatus(docID, status string) error
-	// List builds the list of workloads registered for
+	// List builds the list of payloads registered for
 	// the given unit and IDs. If no IDs are provided then all
-	// registered workloads for the unit are returned. In the case that
+	// registered payloads for the unit are returned. In the case that
 	// IDs are provided, any that are not in state are ignored and only
 	// the found ones are returned. It is up to the caller to
 	// extrapolate the list of missing IDs.
 	List(ids ...string) ([]payload.Result, error)
-	// LookUpReturns the Juju ID for the corresponding workload.
+	// LookUpReturns the Juju ID for the corresponding payload.
 	LookUp(name, rawID string) (string, error)
-	// Untrack removes the identified workload from state. If the
+	// Untrack removes the identified payload from state. If the
 	// given ID is not in state then the request will fail.
 	Untrack(id string) error
 }
@@ -95,7 +95,7 @@ func (st *State) EnvPayloads() (EnvPayloads, error) {
 	return envPayloads, nil
 }
 
-// UnitPayloads exposes interaction with workloads in state
+// UnitPayloads exposes interaction with payloads in state
 // for a the given unit.
 func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	if newUnitPayloads == nil {

@@ -14,23 +14,23 @@ import (
 	"github.com/juju/juju/payload/api/internal"
 )
 
-// UnitPayloads exposes the State functionality for a unit's workloads.
+// UnitPayloads exposes the State functionality for a unit's payloads.
 type UnitPayloads interface {
-	// Track tracks a workload for the unit and info.
+	// Track tracks a payload for the unit and info.
 	Track(info payload.Payload) error
-	// List returns information on the workload with the id on the unit.
+	// List returns information on the payload with the id on the unit.
 	List(ids ...string) ([]payload.Result, error)
-	// Settatus sets the status for the workload with the given id on the unit.
+	// Settatus sets the status for the payload with the given id on the unit.
 	SetStatus(id, status string) error
 	// LookUp returns the payload ID for the given name/rawID pair.
 	LookUp(name, rawID string) (string, error)
-	// Untrack removes the information for the workload with the given id.
+	// Untrack removes the information for the payload with the given id.
 	Untrack(id string) error
 }
 
-// UnitFacade serves workload-specific API methods.
+// UnitFacade serves payload-specific API methods.
 type UnitFacade struct {
-	// State exposes the workload aspect of Juju's state.
+	// State exposes the payload aspect of Juju's state.
 	State UnitPayloads
 }
 
@@ -39,7 +39,7 @@ func NewUnitFacade(st UnitPayloads) *UnitFacade {
 	return &UnitFacade{State: st}
 }
 
-// Track stores a workload to be tracked in state.
+// Track stores a payload to be tracked in state.
 func (uf UnitFacade) Track(args internal.TrackArgs) (internal.PayloadResults, error) {
 	logger.Debugf("tracking %d payloads from API", len(args.Payloads))
 
@@ -69,9 +69,9 @@ func (uf UnitFacade) track(pl payload.Payload) (string, error) {
 	return id, nil
 }
 
-// List builds the list of workload being tracked for
+// List builds the list of payload being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
-// workloads for the unit are returned.
+// payloads for the unit are returned.
 func (uf UnitFacade) List(args params.Entities) (internal.PayloadResults, error) {
 	if len(args.Entities) == 0 {
 		return uf.listAll()
@@ -123,7 +123,7 @@ func (uf UnitFacade) listAll() (internal.PayloadResults, error) {
 	return r, nil
 }
 
-// LookUp identifies the workload with the provided name and raw ID.
+// LookUp identifies the payload with the provided name and raw ID.
 func (uf UnitFacade) LookUp(args internal.LookUpArgs) (internal.PayloadResults, error) {
 	var r internal.PayloadResults
 	for _, arg := range args.Args {
@@ -150,7 +150,7 @@ func (uf UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.PayloadRes
 	return r, nil
 }
 
-// Untrack marks the identified workload as no longer being tracked.
+// Untrack marks the identified payload as no longer being tracked.
 func (uf UnitFacade) Untrack(args params.Entities) (internal.PayloadResults, error) {
 	var r internal.PayloadResults
 	for _, entity := range args.Entities {
