@@ -27,7 +27,7 @@ type EnvPersistenceBase interface {
 // for env persistence.
 type unitPersistence interface {
 	// ListAll returns all workloads associated with the unit.
-	ListAll() ([]workload.Info, error)
+	ListAll() ([]workload.Payload, error)
 }
 
 // EnvPersistence provides the persistence functionality for the
@@ -81,19 +81,17 @@ func (ep *EnvPersistence) ListAll() ([]workload.FullPayloadInfo, error) {
 
 // listUnit returns all the payloads for the given unit.
 func listUnit(persist unitPersistence, unit, machine string) ([]workload.FullPayloadInfo, error) {
-	workloads, err := persist.ListAll()
+	payloads, err := persist.ListAll()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var payloads []workload.FullPayloadInfo
-	for _, info := range workloads {
-		payload := workload.FullPayloadInfo{
-			Payload: info.AsPayload(),
-		}
-		payload.Machine = machine
-		payload.Unit = unit
-		payloads = append(payloads, payload)
+	var fullPayloads []workload.FullPayloadInfo
+	for _, pl := range payloads {
+		fullPayloads = append(fullPayloads, workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: machine,
+		})
 	}
-	return payloads, nil
+	return fullPayloads, nil
 }

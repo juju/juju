@@ -31,60 +31,54 @@ func (s *baseWorkloadsSuite) SetUpTest(c *gc.C) {
 	s.persist = &fakeWorkloadsPersistence{Stub: s.stub}
 }
 
-func (s *baseWorkloadsSuite) newWorkload(pType string, id string) workload.Info {
-	name, pluginID := workload.ParseID(id)
-	if pluginID == "" {
-		pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
+func (s *baseWorkloadsSuite) newPayload(pType string, id string) workload.Payload {
+	name, rawID := workload.ParseID(id)
+	if rawID == "" {
+		rawID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
 	}
 
-	return workload.Info{
+	return workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: name,
 			Type: pType,
 		},
-		Status: workload.Status{
-			State: workload.StateRunning,
-		},
-		Details: workload.Details{
-			ID: pluginID,
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		Status: workload.StateRunning,
+		ID:     rawID,
+		Unit:   "a-service/0",
 	}
 }
 
 type fakeWorkloadsPersistence struct {
 	*gitjujutesting.Stub
-	workloads map[string]*workload.Info
+	payloads map[string]*workload.Payload
 }
 
-func (s *fakeWorkloadsPersistence) checkWorkload(c *gc.C, id string, expected workload.Info) {
-	wl, ok := s.workloads[id]
+func (s *fakeWorkloadsPersistence) checkPayload(c *gc.C, id string, expected workload.Payload) {
+	pl, ok := s.payloads[id]
 	if !ok {
 		c.Errorf("workload %q not found", id)
 	} else {
-		c.Check(wl, jc.DeepEquals, &expected)
+		c.Check(pl, jc.DeepEquals, &expected)
 	}
 }
 
-func (s *fakeWorkloadsPersistence) setWorkload(id string, wl *workload.Info) {
-	if s.workloads == nil {
-		s.workloads = make(map[string]*workload.Info)
+func (s *fakeWorkloadsPersistence) setPayload(id string, pl *workload.Payload) {
+	if s.payloads == nil {
+		s.payloads = make(map[string]*workload.Payload)
 	}
-	s.workloads[id] = wl
+	s.payloads[id] = pl
 }
 
-func (s *fakeWorkloadsPersistence) Track(id string, info workload.Info) (bool, error) {
-	s.AddCall("Track", id, info)
+func (s *fakeWorkloadsPersistence) Track(id string, pl workload.Payload) (bool, error) {
+	s.AddCall("Track", id, pl)
 	if err := s.NextErr(); err != nil {
 		return false, errors.Trace(err)
 	}
 
-	if _, ok := s.workloads[id]; ok {
+	if _, ok := s.payloads[id]; ok {
 		return false, nil
 	}
-	s.setWorkload(id, &info)
+	s.setPayload(id, &pl)
 	return true, nil
 }
 
@@ -94,44 +88,43 @@ func (s *fakeWorkloadsPersistence) SetStatus(id, status string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	wl, ok := s.workloads[id]
+	pl, ok := s.payloads[id]
 	if !ok {
 		return false, nil
 	}
-	wl.Status.State = status
-	wl.Details.Status.State = status
+	pl.Status = status
 	return true, nil
 }
 
-func (s *fakeWorkloadsPersistence) List(ids ...string) ([]workload.Info, []string, error) {
+func (s *fakeWorkloadsPersistence) List(ids ...string) ([]workload.Payload, []string, error) {
 	s.AddCall("List", ids)
 	if err := s.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	var workloads []workload.Info
+	var payloads []workload.Payload
 	var missing []string
 	for _, id := range ids {
-		if wl, ok := s.workloads[id]; !ok {
+		if pl, ok := s.payloads[id]; !ok {
 			missing = append(missing, id)
 		} else {
-			workloads = append(workloads, *wl)
+			payloads = append(payloads, *pl)
 		}
 	}
-	return workloads, missing, nil
+	return payloads, missing, nil
 }
 
-func (s *fakeWorkloadsPersistence) ListAll() ([]workload.Info, error) {
+func (s *fakeWorkloadsPersistence) ListAll() ([]workload.Payload, error) {
 	s.AddCall("ListAll")
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var workloads []workload.Info
-	for _, wl := range s.workloads {
-		workloads = append(workloads, *wl)
+	var payloads []workload.Payload
+	for _, pl := range s.payloads {
+		payloads = append(payloads, *pl)
 	}
-	return workloads, nil
+	return payloads, nil
 }
 
 func (s *fakeWorkloadsPersistence) LookUp(name, rawID string) (string, error) {
@@ -140,8 +133,8 @@ func (s *fakeWorkloadsPersistence) LookUp(name, rawID string) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	for id, wl := range s.workloads {
-		if wl.Name == name && wl.Details.ID == rawID {
+	for id, pl := range s.payloads {
+		if pl.Name == name && pl.ID == rawID {
 			return id, nil
 		}
 	}
@@ -154,9 +147,9 @@ func (s *fakeWorkloadsPersistence) Untrack(id string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	if _, ok := s.workloads[id]; !ok {
+	if _, ok := s.payloads[id]; !ok {
 		return false, nil
 	}
-	delete(s.workloads, id)
+	delete(s.payloads, id)
 	return true, nil
 }
