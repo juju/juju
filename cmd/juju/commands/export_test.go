@@ -17,8 +17,8 @@ func (c *DestroyEnvironmentCommand) AssumeYes() bool {
 	return c.assumeYes
 }
 
-func NewDestroyEnvironmentCommand() (cmd.Command, *DestroyEnvironmentCommand) {
-	command := &destroyEnvironmentCommand{}
+func NewDestroyEnvironmentCommand(apierr error) (cmd.Command, *DestroyEnvironmentCommand) {
+	command := &destroyEnvironmentCommand{apierr: apierr}
 	return envcmd.Wrap(
 		command,
 		envcmd.EnvSkipDefault,

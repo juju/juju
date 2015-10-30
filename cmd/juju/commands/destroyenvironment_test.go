@@ -270,15 +270,15 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 }
 
 func (*destroyEnvSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
-	wrappedCom, com := NewDestroyEnvironmentCommand()
+	wrappedCom, com := NewDestroyEnvironmentCommand(nil)
 	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv"}), gc.IsNil)
 	c.Check(com.assumeYes, jc.IsFalse)
 
-	wrappedCom, com = NewDestroyEnvironmentCommand()
+	wrappedCom, com = NewDestroyEnvironmentCommand(nil)
 	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv", "-y"}), gc.IsNil)
 	c.Check(com.assumeYes, jc.IsTrue)
 
-	wrappedCom, com = NewDestroyEnvironmentCommand()
+	wrappedCom, com = NewDestroyEnvironmentCommand(nil)
 	c.Check(coretesting.InitCommand(wrappedCom, []string{"dummyenv", "--yes"}), gc.IsNil)
 	c.Check(com.assumeYes, jc.IsTrue)
 }
@@ -337,6 +337,16 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 		c.Check(stdout.String(), gc.Matches, "WARNING!.*dummyenv.*\\(type: dummy\\)(.|\n)*")
 		assertEnvironDestroyed(c, env, s.ConfigStore)
 	}
+}
+
+func (s *destroyEnvSuite) TestUserFriendlyErrWithAPIError(c *gc.C) {
+	apierr := errors.New("connection timed out")
+	_, cmd := NewDestroyEnvironmentCommand(apierr)
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), cmd, "dummyenv", "--yes")
+	c.Check(<-errc, gc.ErrorMatches, "connection timed out")
+	c.Check(<-opc, gc.IsNil)
+
+	c.Check(c.GetTestLog(), jc.Contains, "If the environment is unusable")
 }
 
 func assertEnvironDestroyed(c *gc.C, env environs.Environ, store configstore.Storage) {
