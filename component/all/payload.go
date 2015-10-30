@@ -13,21 +13,21 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/payload"
+	"github.com/juju/juju/payload/api/client"
+	internalclient "github.com/juju/juju/payload/api/internal/client"
+	internalserver "github.com/juju/juju/payload/api/internal/server"
+	"github.com/juju/juju/payload/api/server"
+	"github.com/juju/juju/payload/context"
+	"github.com/juju/juju/payload/persistence"
+	payloadstate "github.com/juju/juju/payload/state"
+	"github.com/juju/juju/payload/status"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	"github.com/juju/juju/workload"
-	"github.com/juju/juju/workload/api/client"
-	internalclient "github.com/juju/juju/workload/api/internal/client"
-	internalserver "github.com/juju/juju/workload/api/internal/server"
-	"github.com/juju/juju/workload/api/server"
-	"github.com/juju/juju/workload/context"
-	"github.com/juju/juju/workload/persistence"
-	payloadstate "github.com/juju/juju/workload/state"
-	"github.com/juju/juju/workload/status"
 )
 
-const payloadsHookContextFacade = workload.ComponentName + "-hook-context"
+const payloadsHookContextFacade = payload.ComponentName + "-hook-context"
 
 type payloads struct{}
 
@@ -55,7 +55,7 @@ func (payloads) newPublicFacade(st *state.State, resources *common.Resources, au
 
 func (c payloads) registerPublicFacade() {
 	common.RegisterStandardFacade(
-		workload.ComponentName,
+		payload.ComponentName,
 		0,
 		c.newPublicFacade,
 	)
@@ -75,7 +75,7 @@ func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, workload.ComponentName, 0)
+	caller := base.NewFacadeCallerForVersion(apiCaller, payload.ComponentName, 0)
 
 	listAPI := client.NewPublicClient(&facadeCaller{
 		FacadeCaller: caller,
@@ -85,7 +85,7 @@ func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error
 }
 
 func (c payloads) registerPublicCommands() {
-	if !markRegistered(workload.ComponentName, "public-commands") {
+	if !markRegistered(payload.ComponentName, "public-commands") {
 		return
 	}
 
@@ -95,11 +95,11 @@ func (c payloads) registerPublicCommands() {
 }
 
 func (c payloads) registerHookContext() {
-	if !markRegistered(workload.ComponentName, "hook-context") {
+	if !markRegistered(payload.ComponentName, "hook-context") {
 		return
 	}
 
-	runner.RegisterComponentFunc(workload.ComponentName,
+	runner.RegisterComponentFunc(payload.ComponentName,
 		func(config runner.ComponentConfig) (jujuc.ContextComponent, error) {
 			hctxClient := c.newUnitFacadeClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
@@ -155,7 +155,7 @@ func (c payloadsHookContext) Component(name string) (context.Component, error) {
 }
 
 func (payloads) registerHookContextCommands() {
-	if !markRegistered(workload.ComponentName, "hook-context-commands") {
+	if !markRegistered(payload.ComponentName, "hook-context-commands") {
 		return
 	}
 

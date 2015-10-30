@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/workload"
+	"github.com/juju/juju/payload"
 )
 
 // TODO(ericsnow) Track juju-level status in the status collection.
@@ -15,7 +15,7 @@ import (
 // in an environment.
 type EnvPayloads interface {
 	// ListAll builds the list of registered payloads in the env and returns it.
-	ListAll() ([]workload.FullPayloadInfo, error)
+	ListAll() ([]payload.FullPayloadInfo, error)
 }
 
 // UnitPayloads exposes high-level interaction with workloads for a unit.
@@ -23,7 +23,7 @@ type UnitPayloads interface {
 	// Track tracks a workload in state. If a workload is
 	// already being tracked for the same (unit, workload name, plugin ID)
 	// then the request will fail. The unit must also be "alive".
-	Track(payload workload.Payload) error
+	Track(payload payload.Payload) error
 	// SetStatus sets the status of a workload. Only some fields
 	// must be set on the provided info: Name, Status, Details.ID, and
 	// Details.Status. If the workload is not in state then the request
@@ -35,7 +35,7 @@ type UnitPayloads interface {
 	// IDs are provided, any that are not in state are ignored and only
 	// the found ones are returned. It is up to the caller to
 	// extrapolate the list of missing IDs.
-	List(ids ...string) ([]workload.Result, error)
+	List(ids ...string) ([]payload.Result, error)
 	// LookUpReturns the Juju ID for the corresponding workload.
 	LookUp(name, rawID string) (string, error)
 	// Untrack removes the identified workload from state. If the
