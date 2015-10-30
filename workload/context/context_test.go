@@ -31,45 +31,45 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 	s.dataDir = "some-data-dir"
 	s.compCtx = context.NewContext(s.apiClient, s.dataDir)
 
-	context.AddWorkloads(s.compCtx, s.workload)
+	context.AddPayloads(s.compCtx, s.payload)
 }
 
-func (s *contextSuite) newContext(c *gc.C, workloads ...workload.Info) *context.Context {
+func (s *contextSuite) newContext(c *gc.C, payloads ...workload.Payload) *context.Context {
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	for _, wl := range workloads {
-		c.Logf("adding workload: %s", wl.ID())
-		context.AddWorkload(ctx, wl.ID(), wl)
+	for _, pl := range payloads {
+		c.Logf("adding workload: %s", pl.FullID())
+		context.AddPayload(ctx, pl.FullID(), pl)
 	}
 	return ctx
 }
 
 func (s *contextSuite) TestNewContextEmpty(c *gc.C) {
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(payloads, gc.HasLen, 0)
 }
 
 func (s *contextSuite) TestNewContextPrePopulated(c *gc.C) {
-	expected := []workload.Info{
-		s.newWorkload("A", "myplugin", "spam", "okay"),
-		s.newWorkload("B", "myplugin", "eggs", "okay"),
+	expected := []workload.Payload{
+		s.newPayload("A", "myplugin", "spam", "running"),
+		s.newPayload("B", "myplugin", "eggs", "running"),
 	}
 
 	ctx := s.newContext(c, expected...)
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(workloads, gc.HasLen, 2)
+	c.Assert(payloads, gc.HasLen, 2)
 
 	// Map ordering is indeterminate, so this if-else is needed.
-	if workloads[0].Name == "A" {
-		c.Check(workloads[0], jc.DeepEquals, expected[0])
-		c.Check(workloads[1], jc.DeepEquals, expected[1])
+	if payloads[0].Name == "A" {
+		c.Check(payloads[0], jc.DeepEquals, expected[0])
+		c.Check(payloads[1], jc.DeepEquals, expected[1])
 	} else {
-		c.Check(workloads[0], jc.DeepEquals, expected[1])
-		c.Check(workloads[1], jc.DeepEquals, expected[0])
+		c.Check(payloads[0], jc.DeepEquals, expected[1])
+		c.Check(payloads[1], jc.DeepEquals, expected[0])
 	}
 }
 
@@ -79,10 +79,10 @@ func (s *contextSuite) TestNewContextAPIOkay(c *gc.C) {
 	ctx, err := context.NewContextAPI(s.apiClient, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(workloads, jc.DeepEquals, expected)
+	c.Check(payloads, jc.DeepEquals, expected)
 }
 
 func (s *contextSuite) TestNewContextAPICalls(c *gc.C) {
@@ -98,10 +98,10 @@ func (s *contextSuite) TestNewContextAPIEmpty(c *gc.C) {
 	ctx, err := context.NewContextAPI(s.apiClient, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(payloads, gc.HasLen, 0)
 }
 
 func (s *contextSuite) TestNewContextAPIError(c *gc.C) {
@@ -156,109 +156,109 @@ func (s *contextSuite) TestContextComponentDisabled(c *gc.C) {
 	s.Stub.CheckCallNames(c, "Component")
 }
 
-func (s *contextSuite) TestWorkloadsOkay(c *gc.C) {
-	expected := []workload.Info{
-		s.newWorkload("A", "myplugin", "spam", "okay"),
-		s.newWorkload("B", "myplugin", "eggs", "okay"),
-		s.newWorkload("C", "myplugin", "ham", "okay"),
+func (s *contextSuite) TestPayloadsOkay(c *gc.C) {
+	expected := []workload.Payload{
+		s.newPayload("A", "myplugin", "spam", "running"),
+		s.newPayload("B", "myplugin", "eggs", "running"),
+		s.newPayload("C", "myplugin", "ham", "running"),
 	}
 
 	ctx := s.newContext(c, expected...)
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkWorkloads(c, workloads, expected)
+	checkPayloads(c, payloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestWorkloadsAPI(c *gc.C) {
+func (s *contextSuite) TestPayloadsAPI(c *gc.C) {
 	expected := s.apiClient.setNew("A/spam", "B/eggs", "C/ham")
 
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	context.AddWorkload(ctx, "A/spam", s.apiClient.workloads["A/spam"])
-	context.AddWorkload(ctx, "B/eggs", s.apiClient.workloads["B/eggs"])
-	context.AddWorkload(ctx, "C/ham", s.apiClient.workloads["C/ham"])
+	context.AddPayload(ctx, "A/spam", s.apiClient.payloads["A/spam"])
+	context.AddPayload(ctx, "B/eggs", s.apiClient.payloads["B/eggs"])
+	context.AddPayload(ctx, "C/ham", s.apiClient.payloads["C/ham"])
 
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkWorkloads(c, workloads, expected)
+	checkPayloads(c, payloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestWorkloadsEmpty(c *gc.C) {
+func (s *contextSuite) TestPayloadsEmpty(c *gc.C) {
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(payloads, gc.HasLen, 0)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestWorkloadsAdditions(c *gc.C) {
+func (s *contextSuite) TestPayloadsAdditions(c *gc.C) {
 	expected := s.apiClient.setNew("A/spam", "B/eggs")
-	infoC := s.newWorkload("C", "myplugin", "xyz789", "okay")
-	infoD := s.newWorkload("D", "myplugin", "xyzabc", "okay")
-	expected = append(expected, infoC, infoD)
+	plC := s.newPayload("C", "myplugin", "xyz789", "running")
+	plD := s.newPayload("D", "myplugin", "xyzabc", "running")
+	expected = append(expected, plC, plD)
 
 	ctx := s.newContext(c, expected[0])
-	context.AddWorkload(ctx, "B/eggs", s.apiClient.workloads["B/eggs"])
-	ctx.Track(infoC)
-	ctx.Track(infoD)
+	context.AddPayload(ctx, "B/eggs", s.apiClient.payloads["B/eggs"])
+	ctx.Track(plC)
+	ctx.Track(plD)
 
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkWorkloads(c, workloads, expected)
+	checkPayloads(c, payloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
-func (s *contextSuite) TestWorkloadsOverrides(c *gc.C) {
+func (s *contextSuite) TestPayloadsOverrides(c *gc.C) {
 	expected := s.apiClient.setNew("A/xyz123", "B/something-else")
-	infoB := s.newWorkload("B", "myplugin", "xyz456", "okay")
-	infoC := s.newWorkload("C", "myplugin", "xyz789", "okay")
-	expected = append(expected[:1], infoB, infoC)
+	plB := s.newPayload("B", "myplugin", "xyz456", "running")
+	plC := s.newPayload("C", "myplugin", "xyz789", "running")
+	expected = append(expected[:1], plB, plC)
 
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	context.AddWorkload(ctx, "A/xyz123", s.apiClient.workloads["A/xyz123"])
-	context.AddWorkload(ctx, "B/xyz456", infoB)
-	ctx.Track(infoB)
-	ctx.Track(infoC)
+	context.AddPayload(ctx, "A/xyz123", s.apiClient.payloads["A/xyz123"])
+	context.AddPayload(ctx, "B/xyz456", plB)
+	ctx.Track(plB)
+	ctx.Track(plC)
 
-	workloads, err := ctx.Workloads()
+	payloads, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkWorkloads(c, workloads, expected)
+	checkPayloads(c, payloads, expected)
 	s.Stub.CheckCallNames(c)
 }
 
 func (s *contextSuite) TestGetOkay(c *gc.C) {
-	expected := s.newWorkload("A", "myplugin", "spam", "okay")
-	extra := s.newWorkload("B", "myplugin", "eggs", "okay")
+	expected := s.newPayload("A", "myplugin", "spam", "running")
+	extra := s.newPayload("B", "myplugin", "eggs", "running")
 
 	ctx := s.newContext(c, expected, extra)
-	info, err := ctx.Get("A", "spam")
+	pl, err := ctx.Get("A", "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(*info, jc.DeepEquals, expected)
+	c.Check(*pl, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
 func (s *contextSuite) TestGetOverride(c *gc.C) {
-	workloads := s.apiClient.setNew("A/spam", "B/eggs")
-	expected := workloads[0]
+	payloads := s.apiClient.setNew("A/spam", "B/eggs")
+	expected := payloads[0]
 
 	unexpected := expected
-	unexpected.Details.ID = "C"
+	unexpected.ID = "C"
 
-	ctx := s.newContext(c, workloads[1])
-	context.AddWorkload(ctx, "A/spam", unexpected)
-	context.AddWorkload(ctx, "A/spam", expected)
+	ctx := s.newContext(c, payloads[1])
+	context.AddPayload(ctx, "A/spam", unexpected)
+	context.AddPayload(ctx, "A/spam", expected)
 
-	info, err := ctx.Get("A", "spam")
+	pl, err := ctx.Get("A", "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(*info, jc.DeepEquals, expected)
+	c.Check(*pl, jc.DeepEquals, expected)
 	s.Stub.CheckCallNames(c)
 }
 
@@ -270,37 +270,37 @@ func (s *contextSuite) TestGetNotFound(c *gc.C) {
 }
 
 func (s *contextSuite) TestSetOkay(c *gc.C) {
-	info := s.newWorkload("A", "myplugin", "spam", "okay")
+	pl := s.newPayload("A", "myplugin", "spam", "running")
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	before, err := ctx.Workloads()
+	before, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Track(info)
+	err = ctx.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
-	after, err := ctx.Workloads()
+	after, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(before, gc.HasLen, 0)
-	c.Check(after, jc.DeepEquals, []workload.Info{info})
+	c.Check(after, jc.DeepEquals, []workload.Payload{pl})
 }
 
 func (s *contextSuite) TestSetOverwrite(c *gc.C) {
-	info := s.newWorkload("A", "myplugin", "xyz123", "running")
-	other := s.newWorkload("A", "myplugin", "xyz123", "stopped")
+	pl := s.newPayload("A", "myplugin", "xyz123", "running")
+	other := s.newPayload("A", "myplugin", "xyz123", "stopped")
 	ctx := s.newContext(c, other)
-	before, err := ctx.Workloads()
+	before, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Track(info)
+	err = ctx.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
-	after, err := ctx.Workloads()
+	after, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(before, jc.DeepEquals, []workload.Info{other})
-	c.Check(after, jc.DeepEquals, []workload.Info{info})
+	c.Check(before, jc.DeepEquals, []workload.Payload{other})
+	c.Check(after, jc.DeepEquals, []workload.Payload{pl})
 }
 
 func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
-	info := s.newWorkload("flush-not-dirty", "myplugin", "xyz123", "okay")
-	ctx := s.newContext(c, info)
+	pl := s.newPayload("flush-not-dirty", "myplugin", "xyz123", "running")
+	ctx := s.newContext(c, pl)
 
 	err := ctx.Flush()
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,15 +317,15 @@ func (s *contextSuite) TestFlushEmpty(c *gc.C) {
 }
 
 func (s *contextSuite) TestUntrackNoMatch(c *gc.C) {
-	info := s.newWorkload("A", "myplugin", "spam", "okay")
+	pl := s.newPayload("A", "myplugin", "spam", "running")
 	ctx := context.NewContext(s.apiClient, s.dataDir)
-	err := ctx.Track(info)
+	err := ctx.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
-	before, err := ctx.Workloads()
+	before, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(before, jc.DeepEquals, []workload.Info{info})
+	c.Check(before, jc.DeepEquals, []workload.Payload{pl})
 	ctx.Untrack("uh-oh", "not gonna match")
-	after, err := ctx.Workloads()
+	after, err := ctx.Payloads()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(after, gc.DeepEquals, before)
 }

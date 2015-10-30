@@ -47,6 +47,7 @@ func (p Payload) Validate() error {
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Do not require Unit to be set?
 	if p.Unit == "" {
 		return errors.NotValidf("missing Unit")
 	}
