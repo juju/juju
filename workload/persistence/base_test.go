@@ -90,5 +90,6 @@ func (s *BaseSuite) NewPayload(pType string, id string) workload.Payload {
 		},
 		ID:     pluginID,
 		Status: "running",
+		Unit:   s.Unit,
 	}
 }

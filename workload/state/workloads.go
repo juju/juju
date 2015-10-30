@@ -18,11 +18,11 @@ var logger = loggo.GetLogger("juju.workload.state")
 
 // The persistence methods needed for workloads in state.
 type workloadsPersistence interface {
-	Track(id string, info workload.Info) (bool, error)
+	Track(id string, info workload.Payload) (bool, error)
 	// SetStatus updates the status for a payload.
 	SetStatus(id, status string) (bool, error)
-	List(ids ...string) ([]workload.Info, []string, error)
-	ListAll() ([]workload.Info, error)
+	List(ids ...string) ([]workload.Payload, []string, error)
+	ListAll() ([]workload.Payload, error)
 	LookUp(name, rawID string) (string, error)
 	Untrack(id string) (bool, error)
 }
@@ -62,8 +62,11 @@ func newID() (string, error) {
 // Track inserts the provided workload info in state. The new Juju ID
 // for the workload is returned.
 func (uw UnitWorkloads) Track(info workload.Info) error {
-	logger.Tracef("tracking %#v", info)
-	if err := info.Validate(); err != nil {
+	pl := info.AsPayload()
+	pl.Unit = uw.Unit
+	logger.Tracef("tracking %#v", pl)
+
+	if err := pl.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad workload info")
 	}
 
@@ -72,7 +75,7 @@ func (uw UnitWorkloads) Track(info workload.Info) error {
 		return errors.Trace(err)
 	}
 
-	ok, err := uw.Persist.Track(id, info)
+	ok, err := uw.Persist.Track(id, pl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -109,19 +112,19 @@ func (uw UnitWorkloads) SetStatus(id, status string) error {
 func (uw UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 	logger.Tracef("listing %v", ids)
 	var err error
-	var workloads []workload.Info
+	var payloads []workload.Payload
 	missingIDs := make(map[string]bool)
 	if len(ids) == 0 {
-		workloads, err = uw.Persist.ListAll()
+		payloads, err = uw.Persist.ListAll()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _ = range workloads {
+		for _ = range payloads {
 			ids = append(ids, "")
 		}
 	} else {
 		var missing []string
-		workloads, missing, err = uw.Persist.List(ids...)
+		payloads, missing, err = uw.Persist.List(ids...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -141,16 +144,17 @@ func (uw UnitWorkloads) List(ids ...string) ([]workload.Result, error) {
 			})
 			continue
 		}
-		wl := workloads[i]
+		pl := payloads[i]
 		i += 1
 
+		wl := pl.AsWorkload()
 		result := workload.Result{
 			ID:       id,
 			Workload: &wl,
 		}
 		if id == "" {
 			// TODO(ericsnow) Do this more efficiently.
-			id, err := uw.LookUp(wl.Name, wl.Details.ID)
+			id, err := uw.LookUp(pl.Name, pl.ID)
 			if err != nil {
 				id = ""
 				result.Error = errors.Trace(err)

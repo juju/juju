@@ -25,11 +25,10 @@ type workloadsPersistenceSuite struct {
 
 func (s *workloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	pl := s.NewPayload("docker", "workloadA/workloadA-xyz")
-	wl := pl.AsWorkload()
 
 	wp := s.NewPersistence()
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	okay, err := wp.Track(id, wl)
+	okay, err := wp.Track(id, pl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(okay, jc.IsTrue)
@@ -58,10 +57,9 @@ func (s *workloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
 	pl := s.NewPayload("docker", "workloadA/workloadA-xyz")
 	s.SetDoc(id, pl)
 	s.Stub.SetErrors(nil, txn.ErrAborted)
-	wl := pl.AsWorkload()
 
 	wp := s.NewPersistence()
-	okay, err := wp.Track(id, wl)
+	okay, err := wp.Track(id, pl)
 
 	c.Check(okay, jc.IsFalse)
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
@@ -74,10 +72,9 @@ func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(nil, failure)
 	pl := s.NewPayload("docker", "workloadA")
-	wl := pl.AsWorkload()
 
 	pp := s.NewPersistence()
-	_, err := pp.Track(id, wl)
+	_, err := pp.Track(id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.Stub.CheckCallNames(c, "All", "Run")
@@ -151,15 +148,14 @@ func (s *workloadsPersistenceSuite) TestListOkay(c *gc.C) {
 	s.SetDoc(id, pl)
 	other := s.NewPayload("docker", "workloadB/abc")
 	s.SetDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
-	wl := pl.AsWorkload()
 
 	pp := s.NewPersistence()
-	workloads, missing, err := pp.List(id)
+	payloads, missing, err := pp.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
+	c.Check(payloads, jc.DeepEquals, []workload.Payload{pl})
 	c.Check(missing, gc.HasLen, 0)
 }
 
@@ -169,28 +165,27 @@ func (s *workloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
 	s.SetDoc(id, pl)
 	other := s.NewPayload("docker", "workloadA/xyz")
 	s.SetDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
-	wl := pl.AsWorkload()
 
 	missingID := "f47ac10b-58cc-4372-a567-0e02b2c3d481"
 	pp := s.NewPersistence()
-	workloads, missing, err := pp.List(id, missingID)
+	payloads, missing, err := pp.List(id, missingID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{wl})
+	c.Check(payloads, jc.DeepEquals, []workload.Payload{pl})
 	c.Check(missing, jc.DeepEquals, []string{missingID})
 }
 
 func (s *workloadsPersistenceSuite) TestListEmpty(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pp := s.NewPersistence()
-	workloads, missing, err := pp.List(id)
+	payloads, missing, err := pp.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(payloads, gc.HasLen, 0)
 	c.Check(missing, jc.DeepEquals, []string{id})
 }
 
@@ -205,38 +200,36 @@ func (s *workloadsPersistenceSuite) TestListFailure(c *gc.C) {
 }
 
 func (s *workloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
-	existingP := s.NewPayloads("docker", "workloadA/xyz", "workloadB/abc")
-	var existing []workload.Info
-	for i, pl := range existingP {
+	existing := s.NewPayloads("docker", "workloadA/xyz", "workloadB/abc")
+	for i, pl := range existing {
 		s.SetDoc(fmt.Sprintf("%d", i), pl)
-		existing = append(existing, pl.AsWorkload())
 	}
 
 	pp := s.NewPersistence()
-	workloads, err := pp.ListAll()
+	payloads, err := pp.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	sort.Sort(byName(workloads))
+	sort.Sort(byName(payloads))
 	sort.Sort(byName(existing))
-	c.Check(workloads, jc.DeepEquals, existing)
+	c.Check(payloads, jc.DeepEquals, existing)
 }
 
 func (s *workloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	pp := s.NewPersistence()
-	workloads, err := pp.ListAll()
+	payloads, err := pp.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(payloads, gc.HasLen, 0)
 }
 
-type byName []workload.Info
+type byName []workload.Payload
 
 func (b byName) Len() int           { return len(b) }
-func (b byName) Less(i, j int) bool { return b[i].Name < b[j].Name }
+func (b byName) Less(i, j int) bool { return b[i].FullID() < b[j].FullID() }
 func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 
 func (s *workloadsPersistenceSuite) TestListAllFailed(c *gc.C) {

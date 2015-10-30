@@ -56,12 +56,12 @@ func NewPersistence(st PersistenceBase, unit string) *Persistence {
 // Track adds records for the workload to persistence. If the workload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(id string, info workload.Info) (bool, error) {
-	logger.Tracef("insertng %#v", info)
+func (pp Persistence) Track(id string, pl workload.Payload) (bool, error) {
+	logger.Tracef("insertng %#v", pl)
 
-	_, err := pp.LookUp(info.Name, info.Details.ID)
+	_, err := pp.LookUp(pl.Name, pl.ID)
 	if err == nil {
-		return false, errors.AlreadyExistsf("payload for %q", info.ID())
+		return false, errors.AlreadyExistsf("payload for %q", pl.FullID())
 	} else if !errors.IsNotFound(err) {
 		return false, errors.Annotate(err, "while checking for collisions")
 	}
@@ -71,7 +71,6 @@ func (pp Persistence) Track(id string, info workload.Info) (bool, error) {
 	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	pl := info.AsPayload()
 	ops = append(ops, pp.newInsertPayloadOps(id, pl)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -115,7 +114,7 @@ func (pp Persistence) SetStatus(id, status string) (bool, error) {
 // List builds the list of workloads found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
 // returned.
-func (pp Persistence) List(ids ...string) ([]workload.Info, []string, error) {
+func (pp Persistence) List(ids ...string) ([]workload.Payload, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.payloads(ids)
@@ -123,7 +122,7 @@ func (pp Persistence) List(ids ...string) ([]workload.Info, []string, error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	var results []workload.Info
+	var results []workload.Payload
 	var missing []string
 	for _, id := range ids {
 		p, ok := pp.extractPayload(id, docs)
@@ -131,15 +130,14 @@ func (pp Persistence) List(ids ...string) ([]workload.Info, []string, error) {
 			missing = append(missing, id)
 			continue
 		}
-		w := p.AsWorkload()
-		results = append(results, w)
+		results = append(results, *p)
 	}
 	return results, missing, nil
 }
 
 // ListAll builds the list of all workloads found in persistence.
 // Inconsistent records result in errors.NotValid.
-func (pp Persistence) ListAll() ([]workload.Info, error) {
+func (pp Persistence) ListAll() ([]workload.Payload, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.allPayloads()
@@ -147,11 +145,10 @@ func (pp Persistence) ListAll() ([]workload.Info, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var results []workload.Info
+	var results []workload.Payload
 	for id := range docs {
 		p, _ := pp.extractPayload(id, docs)
-		w := p.AsWorkload()
-		results = append(results, w)
+		results = append(results, *p)
 	}
 	return results, nil
 }
