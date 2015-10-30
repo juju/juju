@@ -10,13 +10,13 @@ import (
 	"github.com/juju/juju/payload"
 )
 
-type payloadSuite struct {
+type componentSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&payloadSuite{})
+var _ = gc.Suite(&componentSuite{})
 
-func (*payloadSuite) TestComponentName(c *gc.C) {
+func (*componentSuite) TestComponentName(c *gc.C) {
 	// Are you really sure you want to change the component name?
 	c.Assert(payload.ComponentName, gc.Equals, "payloads")
 }
