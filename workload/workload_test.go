@@ -18,5 +18,5 @@ var _ = gc.Suite(&workloadSuite{})
 
 func (*workloadSuite) TestComponentName(c *gc.C) {
 	// Are you really sure you want to change the component name?
-	c.Assert(workload.ComponentName, gc.Equals, "workloads")
+	c.Assert(workload.ComponentName, gc.Equals, "payloads")
 }

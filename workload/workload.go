@@ -7,7 +7,7 @@
 package workload
 
 // ComponentName is the name of the Juju component for workload management.
-const ComponentName = "workloads"
+const ComponentName = "payloads"
 
 // Result is a struct that ties an error to a workload ID.
 type Result struct {
