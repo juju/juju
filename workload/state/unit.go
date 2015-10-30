@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/workload/persistence"
 )
 
-var logger = loggo.GetLogger("juju.workload.state")
+var logger = loggo.GetLogger("juju.payload.state")
 
 // TODO(ericsnow) We need a worker to clean up dying workloads.
 

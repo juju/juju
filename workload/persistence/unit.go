@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-var logger = loggo.GetLogger("juju.workload.persistence")
+var logger = loggo.GetLogger("juju.payload.persistence")
 
 // TODO(ericsnow) Merge Persistence and EnvPersistence.
 
