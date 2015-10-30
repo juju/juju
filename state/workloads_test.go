@@ -20,12 +20,12 @@ type unitWorkloadsSuite struct {
 	ConnSuite
 }
 
-const workloadsMetaYAML = `
+const payloadsMetaYAML = `
 name: a-charm
 summary: a charm...
 description: a charm...
 payloads:
-  workloadA:
+  payloadA:
     type: docker
 `
 
@@ -46,7 +46,7 @@ func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 }
 
 func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
-	_, unit := s.addUnit(c, "dummy", "a-service", workloadsMetaYAML)
+	_, unit := s.addUnit(c, "dummy", "a-service", payloadsMetaYAML)
 
 	st, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,7 +57,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 
 	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
-			Name: "workloadA",
+			Name: "payloadA",
 			Type: "docker",
 		},
 		ID:     "xyz",
@@ -81,7 +81,7 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 		},
 	}})
 
-	lookedUpID, err := st.LookUp("workloadA", "xyz")
+	lookedUpID, err := st.LookUp("payloadA", "xyz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(lookedUpID, gc.Equals, id)
 

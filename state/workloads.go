@@ -54,7 +54,7 @@ func SetWorkloadsComponent(upFunc newUnitPayloadsFunc) {
 // for a the given unit.
 func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	if newUnitPayloads == nil {
-		return nil, errors.Errorf("workloads not supported")
+		return nil, errors.Errorf("payloads not supported")
 	}
 
 	persist := st.newPersistence()
