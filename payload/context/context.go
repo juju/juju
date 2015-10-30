@@ -16,11 +16,11 @@ var logger = loggo.GetLogger("juju.payload.context")
 
 // APIClient represents the API needs of a Context.
 type APIClient interface {
-	// List requests the workload info for the given IDs.
+	// List requests the payload info for the given IDs.
 	List(fullIDs ...string) ([]payload.Result, error)
-	// Track sends a request to update state with the provided workloads.
+	// Track sends a request to update state with the provided payloads.
 	Track(payloads ...payload.Payload) ([]payload.Result, error)
-	// Untrack removes the workloads from our list track.
+	// Untrack removes the payloads from our list track.
 	Untrack(fullIDs ...string) ([]payload.Result, error)
 	// SetStatus sets the status for the given IDs.
 	SetStatus(status string, fullIDs ...string) ([]payload.Result, error)
@@ -29,17 +29,17 @@ type APIClient interface {
 // TODO(ericsnow) Rename Get and Set to more specifically describe what
 // they are for.
 
-// Component provides the hook context data specific to workloads.
+// Component provides the hook context data specific to payloads.
 type Component interface {
-	// Get returns the workload info corresponding to the given ID.
+	// Get returns the payload info corresponding to the given ID.
 	Get(class, id string) (*payload.Payload, error)
-	// Track records the workload info in the hook context.
+	// Track records the payload info in the hook context.
 	Track(payload payload.Payload) error
-	// Untrack removes the workload from our list of workloads to track.
+	// Untrack removes the payload from our list of payloads to track.
 	Untrack(class, id string) error
 	// SetStatus sets the status of the payload.
 	SetStatus(class, id, status string) error
-	// List returns the list of registered workload IDs.
+	// List returns the list of registered payload IDs.
 	List() ([]string, error)
 	// Flush pushes the hook context data out to state.
 	Flush() error
@@ -47,7 +47,7 @@ type Component interface {
 
 var _ Component = (*Context)(nil)
 
-// Context is the workload portion of the hook context.
+// Context is the payload portion of the hook context.
 type Context struct {
 	api     APIClient
 	dataDir string
@@ -56,7 +56,7 @@ type Context struct {
 	updates  map[string]payload.Payload
 }
 
-// NewContext returns a new jujuc.ContextComponent for workloads.
+// NewContext returns a new jujuc.ContextComponent for payloads.
 func NewContext(api APIClient, dataDir string) *Context {
 	return &Context{
 		api:      api,
@@ -66,7 +66,7 @@ func NewContext(api APIClient, dataDir string) *Context {
 	}
 }
 
-// NewContextAPI returns a new jujuc.ContextComponent for workloads.
+// NewContextAPI returns a new jujuc.ContextComponent for payloads.
 func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
 	results, err := api.List()
 	if err != nil {
@@ -88,8 +88,8 @@ type HookContext interface {
 	Component(string) (Component, error)
 }
 
-// ContextComponent returns the hook context for the workload
-// workload component.
+// ContextComponent returns the hook context for the payload
+// payload component.
 func ContextComponent(ctx HookContext) (Component, error) {
 	compCtx, err := ctx.Component(payload.ComponentName)
 	if errors.IsNotFound(err) {
@@ -106,7 +106,7 @@ func ContextComponent(ctx HookContext) (Component, error) {
 
 // TODO(ericsnow) Should we build in refreshes in all the methods?
 
-// Payloads returns the workloads known to the context.
+// Payloads returns the payloads known to the context.
 func (c *Context) Payloads() ([]payload.Payload, error) {
 	payloads := mergePayloadMaps(c.payloads, c.updates)
 	var newPayloads []payload.Payload
@@ -118,7 +118,7 @@ func (c *Context) Payloads() ([]payload.Payload, error) {
 }
 
 func mergePayloadMaps(payloads, updates map[string]payload.Payload) map[string]payload.Payload {
-	// At this point workloads and updates have already been checked for
+	// At this point payloads and updates have already been checked for
 	// nil values so we won't see any here.
 	result := make(map[string]payload.Payload)
 	for k, v := range payloads {
@@ -130,7 +130,7 @@ func mergePayloadMaps(payloads, updates map[string]payload.Payload) map[string]p
 	return result
 }
 
-// Get returns the workload info corresponding to the given ID.
+// Get returns the payload info corresponding to the given ID.
 func (c *Context) Get(class, id string) (*payload.Payload, error) {
 	fullID := payload.BuildID(class, id)
 	logger.Tracef("getting %q from hook context", fullID)
@@ -145,7 +145,7 @@ func (c *Context) Get(class, id string) (*payload.Payload, error) {
 	return &actual, nil
 }
 
-// List returns the sorted names of all registered workloads.
+// List returns the sorted names of all registered payloads.
 func (c *Context) List() ([]string, error) {
 	logger.Tracef("listing all payloads in hook context")
 
@@ -164,7 +164,7 @@ func (c *Context) List() ([]string, error) {
 	return ids, nil
 }
 
-// Track records the workload info in the hook context.
+// Track records the payload info in the hook context.
 func (c *Context) Track(pl payload.Payload) error {
 	logger.Tracef("adding %q to hook context: %#v", pl.FullID(), pl)
 

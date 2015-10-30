@@ -21,7 +21,7 @@ func BuildID(class, id string) string {
 	return class + "/" + id
 }
 
-// ParseID extracts the workload name and details ID from the provided string.
+// ParseID extracts the payload name and details ID from the provided string.
 // The format is expected to be name/pluginID. If no separator is found, the
 // whole string is assumed to be the name.
 func ParseID(id string) (name, pluginID string) {

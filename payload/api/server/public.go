@@ -12,13 +12,13 @@ import (
 
 // EnvPayloads exposes the State functionality for payloads in an env.
 type EnvPayloads interface {
-	// ListAll returns information on the workload with the id on the unit.
+	// ListAll returns information on the payload with the id on the unit.
 	ListAll() ([]payload.FullPayloadInfo, error)
 }
 
 // PublicAPI serves payload-specific API methods.
 type PublicAPI struct {
-	// State exposes the workload aspect of Juju's state.
+	// State exposes the payload aspect of Juju's state.
 	State EnvPayloads
 }
 
@@ -29,7 +29,7 @@ func NewPublicAPI(st EnvPayloads) *PublicAPI {
 
 // List builds the list of payloads being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
-// workloads for the unit are returned.
+// payloads for the unit are returned.
 func (a PublicAPI) List(args api.EnvListArgs) (api.EnvListResults, error) {
 	var r api.EnvListResults
 

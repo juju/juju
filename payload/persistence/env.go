@@ -26,7 +26,7 @@ type EnvPersistenceBase interface {
 // unitPersistence describes the per-unit functionality needed
 // for env persistence.
 type unitPersistence interface {
-	// ListAll returns all workloads associated with the unit.
+	// ListAll returns all payloads associated with the unit.
 	ListAll() ([]payload.Payload, error)
 }
 

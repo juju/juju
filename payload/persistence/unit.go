@@ -27,7 +27,7 @@ var logger = loggo.GetLogger("juju.payload.persistence")
 // TODO(ericsnow) Move PersistenceBase to the components package?
 
 // PersistenceBase exposes the core persistence functionality needed
-// for workloads.
+// for payloads.
 type PersistenceBase interface {
 	// One populates doc with the document corresponding to the given
 	// ID. Missing documents result in errors.NotFound.
@@ -41,7 +41,7 @@ type PersistenceBase interface {
 }
 
 // Persistence exposes the high-level persistence functionality
-// related to workloads in Juju.
+// related to payloads in Juju.
 type Persistence struct {
 	st   PersistenceBase
 	unit string
@@ -55,7 +55,7 @@ func NewPersistence(st PersistenceBase, unit string) *Persistence {
 	}
 }
 
-// Track adds records for the workload to persistence. If the workload
+// Track adds records for the payload to persistence. If the payload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
 func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
@@ -88,10 +88,10 @@ func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
 	return okay, nil
 }
 
-// SetStatus updates the raw status for the identified workload in
+// SetStatus updates the raw status for the identified payload in
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
-// an error. The workload is not checked for inconsistent records.
+// an error. The payload is not checked for inconsistent records.
 func (pp Persistence) SetStatus(id, status string) (bool, error) {
 	logger.Tracef("setting status for %q", id)
 
@@ -113,7 +113,7 @@ func (pp Persistence) SetStatus(id, status string) (bool, error) {
 	return found, nil
 }
 
-// List builds the list of workloads found in persistence which match
+// List builds the list of payloads found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
 // returned.
 func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
@@ -137,7 +137,7 @@ func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
 	return results, missing, nil
 }
 
-// ListAll builds the list of all workloads found in persistence.
+// ListAll builds the list of all payloads found in persistence.
 // Inconsistent records result in errors.NotValid.
 func (pp Persistence) ListAll() ([]payload.Payload, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
@@ -173,14 +173,14 @@ func (pp Persistence) LookUp(name, rawID string) (string, error) {
 	return "", errors.NotFoundf("payload for %s/%s", name, rawID)
 }
 
-// TODO(ericsnow) Add workloads to state/cleanup.go.
+// TODO(ericsnow) Add payloads to state/cleanup.go.
 
 // TODO(ericsnow) How to ensure they are completely removed from state
 // (when you factor in status stored in a separate collection)?
 
-// Untrack removes all records associated with the identified workload
-// from persistence. Also returned is whether or not the workload was
-// found. If the records for the workload are not consistent then
+// Untrack removes all records associated with the identified payload
+// from persistence. Also returned is whether or not the payload was
+// found. If the records for the payload are not consistent then
 // errors.NotValid is returned.
 func (pp Persistence) Untrack(id string) (bool, error) {
 	var found bool

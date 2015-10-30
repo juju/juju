@@ -64,13 +64,13 @@ type FullPayloadInfo struct {
 	Machine string
 }
 
-// Result is a struct that ties an error to a workload ID.
+// Result is a struct that ties an error to a payload ID.
 type Result struct {
-	// ID is the ID of the workload that this result applies to.
+	// ID is the ID of the payload that this result applies to.
 	ID string
-	// Payload holds the info about the workload, if available.
+	// Payload holds the info about the payload, if available.
 	Payload *FullPayloadInfo
-	// NotFound indicates that the workload was not found in Juju.
+	// NotFound indicates that the payload was not found in Juju.
 	NotFound bool
 	// Error is the error associated with this result (if any).
 	Error error
