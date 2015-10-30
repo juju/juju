@@ -672,7 +672,7 @@ func (c *Client) validateCharmVersion(ch charm.Charm) error {
 		}
 
 		if minver.Compare(agentver) > 0 {
-			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current.Number)
+			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current)
 		}
 	}
 	return nil
