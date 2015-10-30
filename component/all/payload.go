@@ -194,7 +194,6 @@ func (payloads) registerState() {
 	newUnitPayloads := func(persist state.Persistence, unit, machine string) (state.UnitPayloads, error) {
 		return payloadstate.NewUnitPayloads(persist, unit, machine), nil
 	}
-	state.SetWorkloadsComponent(newUnitPayloads)
 
 	newEnvPayloads := func(persist state.PayloadsEnvPersistence) (state.EnvPayloads, error) {
 		envPersist := persistence.NewEnvPersistence(persist)
@@ -203,5 +202,6 @@ func (payloads) registerState() {
 		}
 		return envPayloads, nil
 	}
-	state.SetPayloadsComponent(newEnvPayloads)
+
+	state.SetPayloadsComponent(newEnvPayloads, newUnitPayloads)
 }
