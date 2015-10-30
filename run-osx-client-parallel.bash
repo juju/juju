@@ -29,8 +29,8 @@ echo "Downloaded $TARFILE"
 cat > temp-config.yaml <<EOT
 install:
   remote:
-    - $SCRIPTS/run-osx-client-remote.bash
+    - $SCRIPTS/run-osx-client-parallel-remote.bash
     - "$TARFILE"
-command: [remote/run-osx-client-remote.bash, "remote/$(basename $TARFILE)"]
+command: [remote/run-osx-client-parallel-remote.bash, "remote/$(basename $TARFILE)", "$revision_build"]
 EOT
 workspace-run temp-config.yaml $USER_AT_HOST
