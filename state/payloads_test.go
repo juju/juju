@@ -31,7 +31,7 @@ name: a-charm
 summary: a charm...
 description: a charm...
 payloads:
-  workloadA:
+  payloadA:
     type: docker
 `
 
@@ -74,9 +74,9 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err := ust.List()
+	payloads, err := ust.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(workloads, gc.HasLen, 1)
+	c.Assert(payloads, gc.HasLen, 1)
 
 	payloads, err = st.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
