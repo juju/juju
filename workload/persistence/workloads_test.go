@@ -17,14 +17,14 @@ import (
 	"github.com/juju/juju/workload/persistence"
 )
 
-var _ = gc.Suite(&workloadsPersistenceSuite{})
+var _ = gc.Suite(&payloadsPersistenceSuite{})
 
-type workloadsPersistenceSuite struct {
+type payloadsPersistenceSuite struct {
 	persistence.BaseSuite
 }
 
-func (s *workloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
-	pl := s.NewPayload("docker", "workloadA/workloadA-xyz")
+func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
+	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
 
 	wp := s.NewPersistence()
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
@@ -42,19 +42,19 @@ func (s *workloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 				DocID:  "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
 				UnitID: "a-unit/0",
 
-				Name:  "workloadA",
+				Name:  "payloadA",
 				Type:  "docker",
-				RawID: "workloadA-xyz",
+				RawID: "payloadA-xyz",
 				State: "running",
 			},
 		},
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
-	pl := s.NewPayload("docker", "workloadA/workloadA-xyz")
+	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
 	s.SetDoc(id, pl)
 	s.Stub.SetErrors(nil, txn.ErrAborted)
 
@@ -67,11 +67,11 @@ func (s *workloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
 	s.State.CheckOps(c, nil)
 }
 
-func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(nil, failure)
-	pl := s.NewPayload("docker", "workloadA")
+	pl := s.NewPayload("docker", "payloadA")
 
 	pp := s.NewPersistence()
 	_, err := pp.Track(id, pl)
@@ -80,9 +80,9 @@ func (s *workloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
 	s.Stub.CheckCallNames(c, "All", "Run")
 }
 
-func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := s.NewPayload("docker", "workloadA/workloadA-xyz")
+	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
 	s.SetDoc(id, pl)
 
 	pp := s.NewPersistence()
@@ -105,7 +105,7 @@ func (s *workloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	s.Stub.SetErrors(txn.ErrAborted)
 
@@ -129,9 +129,9 @@ func (s *workloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := s.NewPayload("docker", "workloadA/workloadA-xyz")
+	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
 	s.SetDoc(id, pl)
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
@@ -142,11 +142,11 @@ func (s *workloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *workloadsPersistenceSuite) TestListOkay(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListOkay(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := s.NewPayload("docker", "workloadA/xyz")
+	pl := s.NewPayload("docker", "payloadA/xyz")
 	s.SetDoc(id, pl)
-	other := s.NewPayload("docker", "workloadB/abc")
+	other := s.NewPayload("docker", "payloadB/abc")
 	s.SetDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
 
 	pp := s.NewPersistence()
@@ -159,11 +159,11 @@ func (s *workloadsPersistenceSuite) TestListOkay(c *gc.C) {
 	c.Check(missing, gc.HasLen, 0)
 }
 
-func (s *workloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := s.NewPayload("docker", "workloadB/abc")
+	pl := s.NewPayload("docker", "payloadB/abc")
 	s.SetDoc(id, pl)
-	other := s.NewPayload("docker", "workloadA/xyz")
+	other := s.NewPayload("docker", "payloadA/xyz")
 	s.SetDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
 
 	missingID := "f47ac10b-58cc-4372-a567-0e02b2c3d481"
@@ -177,7 +177,7 @@ func (s *workloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
 	c.Check(missing, jc.DeepEquals, []string{missingID})
 }
 
-func (s *workloadsPersistenceSuite) TestListEmpty(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListEmpty(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pp := s.NewPersistence()
 	payloads, missing, err := pp.List(id)
@@ -189,7 +189,7 @@ func (s *workloadsPersistenceSuite) TestListEmpty(c *gc.C) {
 	c.Check(missing, jc.DeepEquals, []string{id})
 }
 
-func (s *workloadsPersistenceSuite) TestListFailure(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListFailure(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
@@ -199,8 +199,8 @@ func (s *workloadsPersistenceSuite) TestListFailure(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *workloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
-	existing := s.NewPayloads("docker", "workloadA/xyz", "workloadB/abc")
+func (s *payloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
+	existing := s.NewPayloads("docker", "payloadA/xyz", "payloadB/abc")
 	for i, pl := range existing {
 		s.SetDoc(fmt.Sprintf("%d", i), pl)
 	}
@@ -216,7 +216,7 @@ func (s *workloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
 	c.Check(payloads, jc.DeepEquals, existing)
 }
 
-func (s *workloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	pp := s.NewPersistence()
 	payloads, err := pp.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
@@ -232,7 +232,7 @@ func (b byName) Len() int           { return len(b) }
 func (b byName) Less(i, j int) bool { return b[i].FullID() < b[j].FullID() }
 func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 
-func (s *workloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
@@ -242,9 +242,9 @@ func (s *workloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *workloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := s.NewPayload("docker", "workloadA/xyz")
+	pl := s.NewPayload("docker", "payloadA/xyz")
 	s.SetDoc(id, pl)
 
 	pp := s.NewPersistence()
@@ -263,7 +263,7 @@ func (s *workloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	s.Stub.SetErrors(txn.ErrAborted)
 
@@ -283,7 +283,7 @@ func (s *workloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	}})
 }
 
-func (s *workloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
