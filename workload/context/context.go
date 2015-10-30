@@ -19,7 +19,7 @@ type APIClient interface {
 	// List requests the workload info for the given IDs.
 	List(fullIDs ...string) ([]workload.Result, error)
 	// Register sends a request to update state with the provided workloads.
-	Track(workloads ...workload.Info) ([]workload.Result, error)
+	Track(payloads ...workload.Payload) ([]workload.Result, error)
 	// Untrack removes the workloads from our list track.
 	Untrack(fullIDs ...string) ([]workload.Result, error)
 	// SetStatus sets the status for the given IDs.
@@ -220,9 +220,9 @@ func (c *Context) Flush() error {
 	// TODO(natefinch): make this a noop and move this code into set.
 
 	if len(c.updates) > 0 {
-		var updates []workload.Info
+		var updates []workload.Payload
 		for _, info := range c.updates {
-			updates = append(updates, info)
+			updates = append(updates, info.AsPayload())
 		}
 
 		res, err := c.api.Track(updates...)

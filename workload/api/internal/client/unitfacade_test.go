@@ -64,7 +64,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 
 	pl, err := api.API2Payload(s.payload)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := pclient.Track(pl.AsWorkload())
+	results, err := pclient.Track(pl.Payload)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
