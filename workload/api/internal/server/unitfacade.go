@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 	"github.com/juju/juju/workload/api/internal"
 )
 
@@ -39,27 +40,29 @@ func NewUnitFacade(st UnitPayloads) *UnitFacade {
 }
 
 // Track stores a workload to be tracked in state.
-func (uf UnitFacade) Track(args internal.TrackArgs) (internal.WorkloadResults, error) {
-	logger.Debugf("tracking %d workloads from API", len(args.Workloads))
+func (uf UnitFacade) Track(args internal.TrackArgs) (internal.PayloadResults, error) {
+	logger.Debugf("tracking %d workloads from API", len(args.Payloads))
 
-	var r internal.WorkloadResults
-	for _, apiWorkload := range args.Workloads {
-		info := internal.API2Workload(apiWorkload)
-		logger.Debugf("tracking workload from API: %#v", info)
+	var r internal.PayloadResults
+	for _, apiPayload := range args.Payloads {
+		pl, err := api.API2Payload(apiPayload)
+		if err != nil {
+			return r, errors.Trace(err)
+		}
+		logger.Debugf("tracking payload from API: %#v", pl)
 
-		id, err := uf.track(info)
-		res := internal.NewWorkloadResult(id, err)
+		id, err := uf.track(pl.Payload)
+		res := internal.NewPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
 }
 
-func (uf UnitFacade) track(info workload.Info) (string, error) {
-	pl := info.AsPayload()
+func (uf UnitFacade) track(pl workload.Payload) (string, error) {
 	if err := uf.State.Track(pl); err != nil {
 		return "", errors.Trace(err)
 	}
-	id, err := uf.State.LookUp(info.Name, info.Details.ID)
+	id, err := uf.State.LookUp(pl.Name, pl.ID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -69,7 +72,7 @@ func (uf UnitFacade) track(info workload.Info) (string, error) {
 // List builds the list of workload being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // workloads for the unit are returned.
-func (uf UnitFacade) List(args params.Entities) (internal.WorkloadResults, error) {
+func (uf UnitFacade) List(args params.Entities) (internal.PayloadResults, error) {
 	if len(args.Entities) == 0 {
 		return uf.listAll()
 	}
@@ -78,17 +81,17 @@ func (uf UnitFacade) List(args params.Entities) (internal.WorkloadResults, error
 	for _, entity := range args.Entities {
 		id, err := internal.API2ID(entity.Tag)
 		if err != nil {
-			return internal.WorkloadResults{}, errors.Trace(err)
+			return internal.PayloadResults{}, errors.Trace(err)
 		}
 		ids = append(ids, id)
 	}
 
 	results, err := uf.State.List(ids...)
 	if err != nil {
-		return internal.WorkloadResults{}, errors.Trace(err)
+		return internal.PayloadResults{}, errors.Trace(err)
 	}
 
-	var r internal.WorkloadResults
+	var r internal.PayloadResults
 	for _, result := range results {
 		res := internal.Result2api(result)
 		r.Results = append(r.Results, res)
@@ -96,8 +99,8 @@ func (uf UnitFacade) List(args params.Entities) (internal.WorkloadResults, error
 	return r, nil
 }
 
-func (uf UnitFacade) listAll() (internal.WorkloadResults, error) {
-	var r internal.WorkloadResults
+func (uf UnitFacade) listAll() (internal.PayloadResults, error) {
+	var r internal.PayloadResults
 
 	results, err := uf.State.List()
 	if err != nil {
@@ -106,34 +109,36 @@ func (uf UnitFacade) listAll() (internal.WorkloadResults, error) {
 
 	for _, result := range results {
 		wl := *result.Workload
-		id, err := uf.State.LookUp(wl.Name, wl.Details.ID)
+		pl := wl.AsPayload()
+		id, err := uf.State.LookUp(pl.Name, pl.ID)
 		if err != nil {
-			logger.Errorf("failed to look up ID for %q: %v", wl.ID(), err)
+			logger.Errorf("failed to look up ID for %q: %v", pl.FullID(), err)
 			id = ""
 		}
-		apiwl := internal.Workload2api(wl)
+		fullPayload := workload.FullPayloadInfo{Payload: pl}
+		apipl := api.Payload2api(fullPayload)
 
-		res := internal.NewWorkloadResult(id, nil)
-		res.Workload = &apiwl
+		res := internal.NewPayloadResult(id, nil)
+		res.Payload = &apipl
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
 }
 
 // LookUp identifies the workload with the provided name and raw ID.
-func (uf UnitFacade) LookUp(args internal.LookUpArgs) (internal.WorkloadResults, error) {
-	var r internal.WorkloadResults
+func (uf UnitFacade) LookUp(args internal.LookUpArgs) (internal.PayloadResults, error) {
+	var r internal.PayloadResults
 	for _, arg := range args.Args {
 		id, err := uf.State.LookUp(arg.Name, arg.ID)
-		res := internal.NewWorkloadResult(id, err)
+		res := internal.NewPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
 }
 
 // SetStatus sets the raw status of a workload.
-func (uf UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.WorkloadResults, error) {
-	var r internal.WorkloadResults
+func (uf UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.PayloadResults, error) {
+	var r internal.PayloadResults
 	for _, arg := range args.Args {
 		id, err := internal.API2ID(arg.Tag)
 		if err != nil {
@@ -141,15 +146,15 @@ func (uf UnitFacade) SetStatus(args internal.SetStatusArgs) (internal.WorkloadRe
 		}
 
 		err = uf.State.SetStatus(id, arg.Status)
-		res := internal.NewWorkloadResult(id, err)
+		res := internal.NewPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil
 }
 
 // Untrack marks the identified workload as no longer being tracked.
-func (uf UnitFacade) Untrack(args params.Entities) (internal.WorkloadResults, error) {
-	var r internal.WorkloadResults
+func (uf UnitFacade) Untrack(args params.Entities) (internal.PayloadResults, error) {
+	var r internal.PayloadResults
 	for _, entity := range args.Entities {
 		id, err := internal.API2ID(entity.Tag)
 		if err != nil {
@@ -157,7 +162,7 @@ func (uf UnitFacade) Untrack(args params.Entities) (internal.WorkloadResults, er
 		}
 
 		err = uf.State.Untrack(id)
-		res := internal.NewWorkloadResult(id, err)
+		res := internal.NewPayloadResult(id, err)
 		r.Results = append(r.Results, res)
 	}
 	return r, nil

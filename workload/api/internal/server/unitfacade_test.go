@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 	"github.com/juju/juju/workload/api/internal"
 )
 
@@ -40,33 +41,23 @@ func (s *suite) TestTrack(c *gc.C) {
 	a := UnitFacade{s.state}
 
 	args := internal.TrackArgs{
-		Workloads: []internal.Workload{{
-			Definition: internal.WorkloadDefinition{
-				Name: "idfoo",
-				Type: "type",
-			},
-			Status: internal.WorkloadStatus{
-				State:   workload.StateRunning,
-				Message: "okay",
-			},
-			Details: internal.WorkloadDetails{
-				ID: "bar",
-				Status: internal.PluginStatus{
-					State: "running",
-				},
-			},
+		Payloads: []api.Payload{{
+			Class:  "idfoo",
+			Type:   "type",
+			ID:     "bar",
+			Status: workload.StateRunning,
 		}},
 	}
 
 	res, err := a.Track(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(res, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
-			Workload: nil,
+			Payload:  nil,
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -115,30 +106,20 @@ func (s *suite) TestListOne(c *gc.C) {
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := internal.Workload{
-		Definition: internal.WorkloadDefinition{
-			Name: "foobar",
-			Type: "type",
-		},
-		Status: internal.WorkloadStatus{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
+	expected := api.Payload{
+		Class:  "foobar",
+		Type:   "type",
+		ID:     "idfoo",
+		Status: workload.StateRunning,
 		Labels: []string{},
-		Details: internal.WorkloadDetails{
-			ID: "idfoo",
-			Status: internal.PluginStatus{
-				State: "running",
-			},
-		},
 	}
 
-	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(results, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
-			Workload: &expected,
+			Payload:  &expected,
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -174,29 +155,19 @@ func (s *suite) TestListAll(c *gc.C) {
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := internal.Workload{
-		Definition: internal.WorkloadDefinition{
-			Name: "foobar",
-			Type: "type",
-		},
-		Status: internal.WorkloadStatus{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
+	expected := api.Payload{
+		Class:  "foobar",
+		Type:   "type",
+		ID:     "idfoo",
+		Status: workload.StateRunning,
 		Labels: []string{},
-		Details: internal.WorkloadDetails{
-			ID: "idfoo",
-			Status: internal.PluginStatus{
-				State: "running",
-			},
-		},
 	}
-	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(results, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
-			Workload: &expected,
+			Payload:  &expected,
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -222,8 +193,8 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 		Args:     []interface{}{"fooID", "bar"},
 	}})
 
-	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(res, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -259,8 +230,8 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
-	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(res, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309").String(),
 			},
@@ -302,8 +273,8 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	c.Check(s.state.id, gc.Equals, id)
 	c.Assert(s.state.status, gc.Equals, workload.StateRunning)
 
-	expected := internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	expected := internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -328,8 +299,8 @@ func (s *suite) TestUntrack(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, id)
 
-	expected := internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	expected := internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -351,8 +322,8 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, "")
 
-	expected := internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	expected := internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: "",
 			},
@@ -375,7 +346,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, id)
 
-	expected := internal.WorkloadResults{}
+	expected := internal.PayloadResults{}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
