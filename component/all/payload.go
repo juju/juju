@@ -191,8 +191,8 @@ func (payloads) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
-	newUnitPayloads := func(persist state.Persistence, unit string) (state.UnitPayloads, error) {
-		return payloadstate.NewUnitPayloads(persist, unit), nil
+	newUnitPayloads := func(persist state.Persistence, unit, machine string) (state.UnitPayloads, error) {
+		return payloadstate.NewUnitPayloads(persist, unit, machine), nil
 	}
 	state.SetWorkloadsComponent(newUnitPayloads)
 
