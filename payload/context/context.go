@@ -18,7 +18,7 @@ var logger = loggo.GetLogger("juju.payload.context")
 type APIClient interface {
 	// List requests the workload info for the given IDs.
 	List(fullIDs ...string) ([]payload.Result, error)
-	// Register sends a request to update state with the provided workloads.
+	// Track sends a request to update state with the provided workloads.
 	Track(payloads ...payload.Payload) ([]payload.Result, error)
 	// Untrack removes the workloads from our list track.
 	Untrack(fullIDs ...string) ([]payload.Result, error)
