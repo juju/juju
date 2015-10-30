@@ -72,22 +72,16 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 	if err := c.validate(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	info := workload.Info{
+	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: c.class,
 			Type: c.typ,
 		},
-		Status: workload.Status{
-			State: workload.StateRunning,
-		},
-		Details: workload.Details{
-			ID: c.id,
-			Status: workload.PluginStatus{
-				State: workload.StateRunning,
-			},
-		},
+		ID:     c.id,
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
 	}
-	if err := c.api.Track(info); err != nil {
+	if err := c.api.Track(pl); err != nil {
 		return errors.Trace(err)
 	}
 

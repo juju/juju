@@ -24,8 +24,7 @@ type statusSetSuite struct {
 	compCtx *stubSetStatusContext
 	ctx     *cmd.Context
 
-	cmd     *context.StatusSetCmd
-	details workload.Details
+	cmd *context.StatusSetCmd
 }
 
 var _ = gc.Suite(&statusSetSuite{})
@@ -46,10 +45,6 @@ func (s *statusSetSuite) SetUpTest(c *gc.C) {
 func (s *statusSetSuite) init(c *gc.C, class, id, status string) {
 	err := s.cmd.Init([]string{class, id, status})
 	c.Assert(err, jc.ErrorIsNil)
-	s.details = workload.Details{
-		ID: class + "/" + id,
-	}
-	s.details.Status.State = workload.StateRunning
 }
 
 func (s *statusSetSuite) Component(name string) (context.Component, error) {

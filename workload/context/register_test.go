@@ -12,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/workload"
 )
@@ -63,12 +64,16 @@ func (registerSuite) TestRun(c *gc.C) {
 	ctx := setupMetadata(c)
 	err = r.Run(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(f.flushed, jc.IsTrue)
-	c.Assert(f.info.PayloadClass.Name, gc.Equals, "class")
-	c.Assert(f.info.PayloadClass.Type, gc.Equals, "type")
-	c.Assert(f.info.Status.State, gc.Equals, workload.StateRunning)
-	c.Assert(f.info.Details.ID, gc.Equals, "id")
-
+	c.Check(f.flushed, jc.IsTrue)
+	c.Check(f.payload, jc.DeepEquals, workload.Payload{
+		PayloadClass: charm.PayloadClass{
+			Name: "class",
+			Type: "type",
+		},
+		ID:     "id",
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
+	})
 	// TODO (natefinch): we need to do something with the labels
 }
 
@@ -118,14 +123,14 @@ func (registerSuite) TestRunFlushErr(c *gc.C) {
 
 type stubRegisterContext struct {
 	Component
-	info     workload.Info
+	payload  workload.Payload
 	flushed  bool
 	trackerr error
 	flusherr error
 }
 
-func (f *stubRegisterContext) Track(info workload.Info) error {
-	f.info = info
+func (f *stubRegisterContext) Track(pl workload.Payload) error {
+	f.payload = pl
 	return f.trackerr
 }
 
