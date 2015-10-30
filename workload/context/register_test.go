@@ -147,10 +147,10 @@ func setupMetadata(c *gc.C) *cmd.Context {
 }
 
 const metadataContents = `name: ducksay
-summary: Testing workload processes
+summary: Testing charm payload management
 maintainer: juju@canonical.com <Juju>
 description: |
-  Testing workloads
+  Testing payloads
 subordinate: false
 payloads:
   class:

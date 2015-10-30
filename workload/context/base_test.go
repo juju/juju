@@ -30,7 +30,7 @@ type baseSuite struct {
 func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 
-	s.payload = s.newPayload("workload A", "docker", "", "")
+	s.payload = s.newPayload("payload A", "docker", "", "")
 }
 
 func (s *baseSuite) newPayload(name, ptype, id, status string) workload.Payload {

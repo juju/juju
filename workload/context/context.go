@@ -181,7 +181,7 @@ func (c *Context) Track(pl workload.Payload) error {
 // Untrack tells juju to stop tracking this workload.
 func (c *Context) Untrack(class, id string) error {
 	fullID := workload.BuildID(class, id)
-	logger.Tracef("Calling untrack on workload context %q", fullID)
+	logger.Tracef("Calling untrack on payload context %q", fullID)
 
 	res, err := c.api.Untrack(fullID)
 	if err != nil {

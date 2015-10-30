@@ -37,7 +37,7 @@ func (s *contextSuite) SetUpTest(c *gc.C) {
 func (s *contextSuite) newContext(c *gc.C, payloads ...workload.Payload) *context.Context {
 	ctx := context.NewContext(s.apiClient, s.dataDir)
 	for _, pl := range payloads {
-		c.Logf("adding workload: %s", pl.FullID())
+		c.Logf("adding payload: %s", pl.FullID())
 		context.AddPayload(ctx, pl.FullID(), pl)
 	}
 	return ctx
