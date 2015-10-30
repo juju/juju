@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/payload/api"
 )
 
-// NewPayloadResult builds a new WorkloadResult from the provided tag
+// NewPayloadResult builds a new PayloadResult from the provided tag
 // and error. NotFound is also set based on the error.
 func NewPayloadResult(id string, err error) PayloadResult {
 	result := payload.Result{
@@ -55,7 +55,7 @@ func API2Result(r PayloadResult) (payload.Result, error) {
 	return result, nil
 }
 
-// Result2api converts the payload.Result into a WorkloadResult.
+// Result2api converts the payload.Result into a PayloadResult.
 func Result2api(result payload.Result) PayloadResult {
 	res := PayloadResult{
 		NotFound: result.NotFound,

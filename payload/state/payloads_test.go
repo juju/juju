@@ -19,13 +19,13 @@ import (
 var _ = gc.Suite(&envPayloadsSuite{})
 
 type envPayloadsSuite struct {
-	baseWorkloadsSuite
+	basePayloadsSuite
 
 	persists *stubPayloadsPersistence
 }
 
 func (s *envPayloadsSuite) SetUpTest(c *gc.C) {
-	s.baseWorkloadsSuite.SetUpTest(c)
+	s.basePayloadsSuite.SetUpTest(c)
 
 	s.persists = &stubPayloadsPersistence{stub: s.stub}
 }
@@ -155,7 +155,7 @@ func checkPayloads(c *gc.C, payloads, expectedList []payload.FullPayloadInfo) {
 type stubPayloadsPersistence struct {
 	stub *testing.Stub
 
-	persists map[string]map[string]*fakeWorkloadsPersistence
+	persists map[string]map[string]*fakePayloadsPersistence
 }
 
 func (s *stubPayloadsPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
@@ -189,17 +189,17 @@ func (s *stubPayloadsPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 
 func (s *stubPayloadsPersistence) setPayload(id string, pl payload.FullPayloadInfo) {
 	if s.persists == nil {
-		s.persists = make(map[string]map[string]*fakeWorkloadsPersistence)
+		s.persists = make(map[string]map[string]*fakePayloadsPersistence)
 	}
 
 	units := s.persists[pl.Machine]
 	if units == nil {
-		units = make(map[string]*fakeWorkloadsPersistence)
+		units = make(map[string]*fakePayloadsPersistence)
 		s.persists[pl.Machine] = units
 	}
 	unitPayloads := units[pl.Unit]
 	if unitPayloads == nil {
-		unitPayloads = &fakeWorkloadsPersistence{Stub: s.stub}
+		unitPayloads = &fakePayloadsPersistence{Stub: s.stub}
 		units[pl.Unit] = unitPayloads
 	}
 
