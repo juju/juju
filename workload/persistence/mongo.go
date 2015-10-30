@@ -17,17 +17,17 @@ import (
 )
 
 const (
-	workloadsC = "workloads"
+	payloadsC = "payloads"
 )
 
 // Collections is the list of names of the mongo collections where state
 // is stored for workloads.
 // TODO(ericsnow) Not needed anymore...modify for a new registration scheme?
 var Collections = []string{
-	workloadsC,
+	payloadsC,
 }
 
-// TODO(ericsnow) Move the methods under their own type (workloadcollection?).
+// TODO(ericsnow) Move the methods under their own type (payloadcollection?).
 
 func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*workload.Payload, bool) {
 	doc, ok := payloadDocs[id]
@@ -39,11 +39,11 @@ func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDo
 }
 
 func (pp Persistence) one(id string, doc interface{}) error {
-	return errors.Trace(pp.st.One(workloadsC, id, doc))
+	return errors.Trace(pp.st.One(payloadsC, id, doc))
 }
 
 func (pp Persistence) all(query bson.D, docs interface{}) error {
-	return errors.Trace(pp.st.All(workloadsC, query, docs))
+	return errors.Trace(pp.st.All(payloadsC, query, docs))
 }
 
 func (pp Persistence) allID(query bson.D, docs interface{}) error {
@@ -68,7 +68,7 @@ func (pp Persistence) newInsertPayloadOps(id string, p workload.Payload) []txn.O
 
 	doc := pp.newPayloadDoc(id, p)
 	ops = append(ops, txn.Op{
-		C:      workloadsC,
+		C:      payloadsC,
 		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -83,7 +83,7 @@ func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
 		{"state", status},
 	}
 	return []txn.Op{{
-		C:      workloadsC,
+		C:      payloadsC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", updates}},
@@ -93,7 +93,7 @@ func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
 func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
 	id = pp.payloadID(id)
 	return []txn.Op{{
-		C:      workloadsC,
+		C:      payloadsC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Remove: true,
