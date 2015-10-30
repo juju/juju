@@ -17,22 +17,22 @@ type idSuite struct {
 }
 
 func (s *idSuite) TestParseIDFull(c *gc.C) {
-	name, id := workload.ParseID("a-workload/my-workload")
+	name, id := workload.ParseID("a-payload/my-payload")
 
-	c.Check(name, gc.Equals, "a-workload")
-	c.Check(id, gc.Equals, "my-workload")
+	c.Check(name, gc.Equals, "a-payload")
+	c.Check(id, gc.Equals, "my-payload")
 }
 
 func (s *idSuite) TestParseIDNameOnly(c *gc.C) {
-	name, id := workload.ParseID("a-workload")
+	name, id := workload.ParseID("a-payload")
 
-	c.Check(name, gc.Equals, "a-workload")
+	c.Check(name, gc.Equals, "a-payload")
 	c.Check(id, gc.Equals, "")
 }
 
 func (s *idSuite) TestParseIDExtras(c *gc.C) {
-	name, id := workload.ParseID("somecharm/0/a-workload/my-workload")
+	name, id := workload.ParseID("somecharm/0/a-payload/my-payload")
 
 	c.Check(name, gc.Equals, "somecharm")
-	c.Check(id, gc.Equals, "0/a-workload/my-workload")
+	c.Check(id, gc.Equals, "0/a-payload/my-payload")
 }
