@@ -7,7 +7,6 @@ export SCRIPTS
 export USER=jenkins
 export JUJU_REPOSITORY=$HOME/repository
 export JUJU_HOME=$HOME/cloud-city
-export JUJU_COOKIEFILE=$WORKSPACE/cookies
 export ENV=$3
 source $JUJU_HOME/juju-qa.jujuci
 set -x
@@ -23,7 +22,6 @@ series=$2
 timeout=$4
 shift 4
 $SCRIPTS/jujuci.py -v setup-workspace --clean-env $JOB_NAME $WORKSPACE
-touch $JUJU_COOKIEFILE
 VERSION=$($SCRIPTS/jujuci.py get-build-vars --version $revision_build)
 package=$($SCRIPTS/jujuci.py get-package-name $VERSION)
 s3cmd --config $JUJU_HOME/juju-qa.s3cfg sync \
