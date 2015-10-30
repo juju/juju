@@ -120,7 +120,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames, 60)
+		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA)
 		toolsList, err = envtools.FindToolsForCloud(
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{}, c.stream,
 			version.Current.Major, minorVersion, coretools.Filter{})

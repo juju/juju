@@ -33,6 +33,28 @@ type DataSource interface {
 	Priority() int
 }
 
+const (
+	// These values used as priority factors for sorting data source data.
+
+	// EXISTING_CLOUD_DATA is the lowest in priority.
+	// It is mostly used in merge functions
+	// where existing data does not need to be ranked.
+	EXISTING_CLOUD_DATA = 0
+
+	// DEFAULT_CLOUD_DATA is used for common cloud data that
+	// is shared an is publically available.
+	DEFAULT_CLOUD_DATA = 10
+
+	// SPECIFIC_CLOUD_DATA is used to rank cloud specific data
+	// above commonly available.
+	// For e.g., openstack's "keystone catalogue".
+	SPECIFIC_CLOUD_DATA = 20
+
+	// CUSTOM_CLOUD_DATA is the highest available ranking and
+	// is given to custom data.
+	CUSTOM_CLOUD_DATA = 50
+)
+
 // A urlDataSource retrieves data from an HTTP URL.
 type urlDataSource struct {
 	description          string

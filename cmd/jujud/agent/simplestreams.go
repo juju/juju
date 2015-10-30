@@ -72,8 +72,8 @@ func (d environmentStorageDataSource) Priority() int {
 }
 
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
-func registerSimplestreamsDataSource(stor storage.Storage, priority int) {
-	ds := NewEnvironmentStorageDataSource(stor, priority)
+func registerSimplestreamsDataSource(stor storage.Storage) {
+	ds := NewEnvironmentStorageDataSource(stor, simplestreams.DEFAULT_CLOUD_DATA)
 	environs.RegisterUserImageDataSourceFunc(storageDataSourceId, func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})

@@ -130,7 +130,7 @@ func ParseMetadataFromDir(c *gc.C, metadataDir, stream string, expectMirrors boo
 
 // ParseMetadataFromStorage loads ToolsMetadata from the specified storage reader.
 func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string, expectMirrors bool) []*tools.ToolsMetadata {
-	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools", 100)
+	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools", simplestreams.CUSTOM_CLOUD_DATA)
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},

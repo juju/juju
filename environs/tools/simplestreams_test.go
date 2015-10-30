@@ -83,7 +83,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, 10),
+			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA),
 			RequireSigned:  false,
 			DataType:       tools.ContentDownload,
 			StreamsVersion: tools.CurrentStreamsVersion,
@@ -103,7 +103,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames, 10),
+		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		StreamsVersion:  tools.CurrentStreamsVersion,
@@ -262,7 +262,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				})
 		}
 		// Add invalid datasource and check later that resolveInfo is correct.
-		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames, 10)
+		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA)
 		tools, resolveInfo, err := tools.Fetch(
 			[]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint, s.RequireSigned)
 		if !c.Check(err, jc.ErrorIsNil) {
@@ -1065,7 +1065,7 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, 10)
+	signedSource := simplestreams.NewURLDataSource("test", "signedtest://host/signed", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

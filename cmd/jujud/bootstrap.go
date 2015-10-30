@@ -405,7 +405,7 @@ func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State) error {
 	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
 
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames, 50)
+	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA)
 
 	// Read user supplied image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
