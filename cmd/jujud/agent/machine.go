@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
@@ -75,6 +76,7 @@ import (
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/envworkermanager"
@@ -447,6 +449,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}
+	a.runner.StartWorker("engine", a.createEngine)
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
@@ -469,6 +472,29 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
 	return err
+}
+
+func (a *MachineAgent) createEngine() (worker.Worker, error) {
+	config := dependency.EngineConfig{
+		IsFatal:     cmdutil.IsFatal,
+		WorstError:  cmdutil.MoreImportantError,
+		ErrorDelay:  3 * time.Second,
+		BounceDelay: 10 * time.Millisecond,
+	}
+	engine, err := dependency.NewEngine(config)
+	if err != nil {
+		return nil, err
+	}
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		Agent: agent.APIHostPortsSetter{a},
+	})
+	if err := dependency.Install(engine, manifolds); err != nil {
+		if err := worker.Stop(engine); err != nil {
+			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+		}
+		return nil, err
+	}
+	return engine, nil
 }
 
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
