@@ -15,7 +15,7 @@ import (
 
 // Manifold returns a dependency.Manifold that wraps a single channel, shared
 // across all workers returned by the start func; it can be used to synchronize
-// operations acrosss manifolds that lack direct dependency relationships.
+// operations across manifolds that lack direct dependency relationships.
 //
 // The output func accepts an out pointer to either an Unlocker or a Waiter.
 func Manifold() dependency.Manifold {
