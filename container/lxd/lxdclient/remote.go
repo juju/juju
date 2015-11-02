@@ -140,28 +140,28 @@ func (r Remote) validateLocal() error {
 // with the host set to the IP address of the local lxcbr0 bridge
 // interface. The remote is also set up for remote access, setting
 // the cert if not already set.
-func (r Remote) UsingTCP() (*Remote, error) {
+func (r Remote) UsingTCP() (Remote, error) {
 	// Note that r is a value receiver, so it is an implicit copy.
 
 	if !r.isLocal() {
-		return &r, nil
+		return r, nil
 	}
 
 	netIF := lxc.DefaultLxcBridge
 	addr, err := utils.GetAddressForInterface(netIF)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return r, errors.Trace(err)
 	}
 	r.Host = addr
 
 	r, err = r.SetDefaults()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return r, errors.Trace(err)
 	}
 
 	// TODO(ericsnow) Change r.Name if "local"? Prepend "juju-"?
 
-	return &r, nil
+	return r, nil
 }
 
 // TODO(ericsnow) Add a "Connect(Config)" method that connects

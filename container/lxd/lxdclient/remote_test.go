@@ -253,7 +253,7 @@ func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
 	nonlocal, err := remote.UsingTCP()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(*nonlocal, jc.DeepEquals, remote)
+	c.Check(nonlocal, jc.DeepEquals, remote)
 }
 
 type remoteFunctionalSuite struct {
@@ -273,8 +273,8 @@ func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
 	nonlocal, err := remote.UsingTCP()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkValidRemote(c, nonlocal)
-	c.Check(*nonlocal, jc.DeepEquals, lxdclient.Remote{
+	checkValidRemote(c, &nonlocal)
+	c.Check(nonlocal, jc.DeepEquals, lxdclient.Remote{
 		Name: "my-remote",
 		Host: nonlocal.Host,
 		Cert: nonlocal.Cert,
