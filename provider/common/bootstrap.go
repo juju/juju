@@ -147,6 +147,21 @@ var FinishBootstrap = func(
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
+	addr, err := WaitSSH(
+		ctx.GetStderr(),
+		interrupted,
+		client,
+		GetCheckNonceCommand(instanceConfig),
+		&RefreshableInstance{inst, env},
+		instanceConfig.Config.BootstrapSSHOpts(),
+	)
+	if err != nil {
+		return err
+	}
+	return ConfigureMachine(ctx, client, addr, instanceConfig)
+}
+
+func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
 	// Each attempt to connect to an address must verify the machine is the
 	// bootstrap machine by checking its nonce file exists and contains the
 	// nonce in the InstanceConfig. This also blocks sshinit from proceeding
@@ -165,18 +180,7 @@ var FinishBootstrap = func(
 		exit 1
 	fi
 	`, nonceFile, utils.ShQuote(instanceConfig.MachineNonce))
-	addr, err := WaitSSH(
-		ctx.GetStderr(),
-		interrupted,
-		client,
-		checkNonceCommand,
-		&RefreshableInstance{inst, env},
-		instanceConfig.Config.BootstrapSSHOpts(),
-	)
-	if err != nil {
-		return err
-	}
-	return ConfigureMachine(ctx, client, addr, instanceConfig)
+	return checkNonceCommand
 }
 
 func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, instanceConfig *instancecfg.InstanceConfig) error {

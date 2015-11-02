@@ -21,11 +21,11 @@ const (
 )
 
 func init() {
-	provider, err := environs.Provider("openstack")
-	if err != nil {
-		logger.Errorf("Can't find openstack provider, error: %s", err)
-		return
+	osProvider := openstack.EnvironProvider{&rackspaceConfigurator{}, &firewallerFactory{}}
+	providerInstance = environProvider{
+		osProvider,
 	}
+<<<<<<< HEAD
 <<<<<<< HEAD
 	providerInstance = environProvider{
 <<<<<<< HEAD
@@ -63,4 +63,9 @@ func init() {
 		return
 	}
 >>>>>>> Firewaller interface added, Waith ssh method reused
+=======
+	environs.RegisterProvider(providerType, providerInstance)
+
+	registry.RegisterEnvironStorageProviders(providerType, openstack.CinderProviderType)
+>>>>>>> review comments implemented
 }

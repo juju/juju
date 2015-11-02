@@ -46,12 +46,13 @@ import (
 var logger = loggo.GetLogger("juju.provider.openstack")
 
 type EnvironProvider struct {
-	Configurator ProviderConfigurator
+	Configurator      ProviderConfigurator
+	FirewallerFactory FirewallerFactory
 }
 
 var _ environs.EnvironProvider = (*EnvironProvider)(nil)
 
-var providerInstance *EnvironProvider = &EnvironProvider{&defaultConfigurator{}}
+var providerInstance *EnvironProvider = &EnvironProvider{&defaultConfigurator{}, &firewallerFactory{}}
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 
@@ -246,9 +247,7 @@ func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	e := new(Environ)
 
-	e.firewaller = &defaultFirewaller{
-		environ: e,
-	}
+	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	err := e.SetConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -559,11 +558,6 @@ func (e *Environ) nova() *nova.Client {
 	nova := e.novaUnlocked
 	e.ecfgMutex.Unlock()
 	return nova
-}
-
-//Set Firewaller
-func (e *Environ) SetFirewaller(firewaller Firewaller) {
-	e.firewaller = firewaller
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.

@@ -27,18 +27,6 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.provider = rackspace.NewProvider(s.innerProvider)
 }
 
-func (s *providerSuite) TestOpen(c *gc.C) {
-	_, err := s.provider.Open(nil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "Open")
-	c.Check(err, gc.ErrorMatches, "Expected openstack.Environ, but got: <nil>")
-}
-
-func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
-	_, err := s.provider.PrepareForBootstrap(nil, nil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "PrepareForBootstrap")
-	c.Check(err, gc.ErrorMatches, "Expected openstack.Environ, but got: <nil>")
-}
-
 func (s *providerSuite) TestValidate(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",

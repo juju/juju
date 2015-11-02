@@ -4,12 +4,9 @@
 package rackspace
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/openstack"
 )
 
 var logger = loggo.GetLogger("juju.provider.rackspace")
@@ -28,6 +25,7 @@ type environProvider struct {
 
 var providerInstance environProvider
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -171,6 +169,8 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 =======
 >>>>>>> Firewaller interface added, Waith ssh method reused
+=======
+>>>>>>> review comments implemented
 // BoilerplateConfig implements environs.EnvironProvider.
 func (p environProvider) BoilerplateConfig() string {
 	return `
