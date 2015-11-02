@@ -485,8 +485,9 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
-		// TODO(axw) update tests that rely on timing to advance
-		// clock appropriately.
+		// TODO(axw) 2015-11-02 #1512191
+		// update tests that rely on timing to advance clock
+		// appropriately.
 		Clock: clock.WallClock,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
