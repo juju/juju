@@ -237,18 +237,18 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	c.Check(id, gc.Equals, "")
 }
 
-func (s *remoteSuite) TestAsNonLocalOkay(c *gc.C) {
+func (s *remoteSuite) TestUsingTCPOkay(c *gc.C) {
 	c.Skip("not implemented yet")
 	// TODO(ericsnow) Finish this!
 }
 
-func (s *remoteSuite) TestAsNonLocalNoop(c *gc.C) {
+func (s *remoteSuite) TestUsingTCPNoop(c *gc.C) {
 	remote := lxdclient.Remote{
 		Name: "my-remote",
 		Host: "some-host",
 		Cert: s.Cert,
 	}
-	nonlocal, err := remote.AsNonLocal()
+	nonlocal, err := remote.UsingTCP()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(*nonlocal, jc.DeepEquals, remote)
@@ -258,7 +258,7 @@ type remoteFunctionalSuite struct {
 	lxdclient.BaseSuite
 }
 
-func (s *remoteFunctionalSuite) TestAsNonLocal(c *gc.C) {
+func (s *remoteFunctionalSuite) TestUsingTCP(c *gc.C) {
 	if _, err := net.InterfaceByName(lxc.DefaultLxcBridge); err != nil {
 		c.Skip("network bridge interface not found")
 	}
@@ -268,7 +268,7 @@ func (s *remoteFunctionalSuite) TestAsNonLocal(c *gc.C) {
 		Host: "",
 		Cert: nil,
 	}
-	nonlocal, err := remote.AsNonLocal()
+	nonlocal, err := remote.UsingTCP()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkValidRemote(c, nonlocal)
