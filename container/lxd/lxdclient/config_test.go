@@ -151,18 +151,6 @@ func (s *configSuite) TestValidateZeroValue(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *configSuite) TestApplyOkay(c *gc.C) {
-	c.Skip("not implemented yet")
-	// TODO(ericsnow) Finish!
-}
-
-func (s *configSuite) TestApplyInvalid(c *gc.C) {
-	var cfg lxdclient.Config
-	err := cfg.Apply()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
 func (s *configSuite) TestWriteOkay(c *gc.C) {
 	c.Skip("not implemented yet")
 	// TODO(ericsnow) Finish!
@@ -191,19 +179,6 @@ func (s *configFunctionalSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) {
 		lxd.ConfigDir = origConfigDir
 	})
-}
-
-func (s *configFunctionalSuite) TestApply(c *gc.C) {
-	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-		Dirname:   "some-dir",
-		Filename:  "config.yml",
-		Remote:    s.remote,
-	}
-	err := cfg.Apply()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(lxd.ConfigDir, gc.Equals, cfg.Dirname)
 }
 
 func (s *configFunctionalSuite) TestWrite(c *gc.C) {
