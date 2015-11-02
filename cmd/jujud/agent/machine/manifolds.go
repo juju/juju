@@ -6,7 +6,9 @@ package machine
 import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/agent"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/terminationworker"
 )
 
@@ -33,10 +35,29 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// in. It has no inputs and its only output is the error it
 		// returns.
 		terminationName: terminationworker.Manifold(),
+
+		// The api caller is a thin concurrent wrapper around a connection
+		// to some API server. It's used by many other manifolds, which all
+		// select their own desired facades. It will be interesting to see
+		// how this works when we consolidate the agents; might be best to
+		// handle the auth changes server-side..?
+		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
+			AgentName:       agentName,
+			APIInfoGateName: apiInfoGateName,
+		}),
+
+		// This manifold is used to coordinate between the api caller and the
+		// log sender, which share the API credentials that the API caller may
+		// update. To avoid surprising races, the log sender waits for the api
+		// caller to unblock this, indicating that any password dance has been
+		// completed and the log-sender can now connect without confusion.
+		apiInfoGateName: gate.Manifold(),
 	}
 }
 
 const (
 	agentName       = "agent"
 	terminationName = "termination"
+	apiCallerName   = "api-caller"
+	apiInfoGateName = "api-info-gate"
 )
