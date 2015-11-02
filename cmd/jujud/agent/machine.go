@@ -71,7 +71,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
-	"github.com/juju/juju/worker/charmrevisionworker"
+	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dblogpruner"
@@ -1212,7 +1212,11 @@ func (a *MachineAgent) startEnvWorkers(
 		), nil
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
-		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil
+		return charmrevision.NewWorker(charmrevision.Config{
+			Facade: apiSt.CharmRevisionUpdater(),
+			Clock:  clock.WallClock,
+			Period: 24 * time.Hour,
+		})
 	})
 	runner.StartWorker("metricmanagerworker", func() (worker.Worker, error) {
 		return metricworker.NewMetricsManager(getMetricAPI(apiSt))

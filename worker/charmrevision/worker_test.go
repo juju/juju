@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevisionworker_test
+package charmrevision_test
 
 import (
 	"time"
@@ -13,7 +13,7 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/charmrevisionworker"
+	"github.com/juju/juju/worker/charmrevision"
 )
 
 type WorkerSuite struct {
@@ -81,7 +81,7 @@ func (s *WorkerSuite) TestDelayedUpdateError(c *gc.C) {
 	fix.facade.stub.CheckCallNames(c, "UpdateLatestRevisions", "UpdateLatestRevisions")
 }
 
-// workerFixture isolates a charmrevisionworker for testing.
+// workerFixture isolates a charmrevision worker for testing.
 type workerFixture struct {
 	facade mockFacade
 	clock  *coretesting.Clock
@@ -107,7 +107,7 @@ func (fix workerFixture) dirtyTest(c *gc.C, test testFunc) {
 }
 
 func (fix workerFixture) runTest(c *gc.C, test testFunc, checkWaitErr bool) {
-	w, err := charmrevisionworker.NewWorker(charmrevisionworker.WorkerConfig{
+	w, err := charmrevision.NewWorker(charmrevision.Config{
 		Facade: fix.facade,
 		Clock:  fix.clock,
 		Period: fix.period,

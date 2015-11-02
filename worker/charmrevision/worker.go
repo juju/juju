@@ -1,13 +1,12 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevisionworker
+package charmrevision
 
 import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"launchpad.net/tomb"
 
@@ -15,8 +14,6 @@ import (
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/worker"
 )
-
-var logger = loggo.GetLogger("juju.worker.charmrevisionworker")
 
 // Facade exposes the capabilities required by the worker.
 type Facade interface {
@@ -37,8 +34,8 @@ func NewFacade(apiCaller base.APICaller) (Facade, error) {
 	return charmrevisionupdater.NewState(apiCaller), nil
 }
 
-// WorkerConfig defines the operation of a charm revision updater worker.
-type WorkerConfig struct {
+// Config defines the operation of a charm revision updater worker.
+type Config struct {
 
 	// Facade is the worker's view of the controller.
 	Facade Facade
@@ -52,7 +49,7 @@ type WorkerConfig struct {
 
 // Validate returns an error if the configuration cannot be expected
 // to start a functional worker.
-func (config WorkerConfig) Validate() error {
+func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
@@ -67,7 +64,7 @@ func (config WorkerConfig) Validate() error {
 
 // NewWorker returns a worker that calls UpdateLatestRevisions on the
 // configured Facade, once when started and subsequently every Period.
-func NewWorker(config WorkerConfig) (worker.Worker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -83,7 +80,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 
 type revisionUpdateWorker struct {
 	tomb   tomb.Tomb
-	config WorkerConfig
+	config Config
 }
 
 func (ruw *revisionUpdateWorker) loop() error {

@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevisionworker_test
+package charmrevision_test
 
 import (
 	"time"
@@ -12,20 +12,20 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/charmrevisionworker"
+	"github.com/juju/juju/worker/charmrevision"
 )
 
 type ValidateSuite struct {
 	testing.IsolationSuite
-	config charmrevisionworker.WorkerConfig
+	config charmrevision.Config
 }
 
 var _ = gc.Suite(&ValidateSuite{})
 
 func (s *ValidateSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = charmrevisionworker.WorkerConfig{
-		Facade: struct{ charmrevisionworker.Facade }{},
+	s.config = charmrevision.Config{
+		Facade: struct{ charmrevision.Facade }{},
 		Clock:  struct{ clock.Clock }{},
 		Period: time.Hour,
 	}
@@ -64,7 +64,7 @@ func (s *ValidateSuite) checkNotValid(c *gc.C, match string) {
 	err := s.config.Validate()
 	check(err)
 
-	worker, err := charmrevisionworker.NewWorker(s.config)
+	worker, err := charmrevision.NewWorker(s.config)
 	c.Check(worker, gc.IsNil)
 	check(err)
 }

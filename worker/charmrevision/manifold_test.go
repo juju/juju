@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevisionworker_test
+package charmrevision_test
 
 import (
 	"time"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/charmrevisionworker"
+	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 )
@@ -26,7 +26,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) TestManifold(c *gc.C) {
-	manifold := charmrevisionworker.Manifold(charmrevisionworker.ManifoldConfig{
+	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
 		APICallerName: "billy",
 		ClockName:     "bob",
 	})
@@ -37,7 +37,7 @@ func (s *ManifoldSuite) TestManifold(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	manifold := charmrevisionworker.Manifold(charmrevisionworker.ManifoldConfig{
+	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 	})
@@ -50,7 +50,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
-	manifold := charmrevisionworker.Manifold(charmrevisionworker.ManifoldConfig{
+	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 	})
@@ -66,10 +66,10 @@ func (s *ManifoldSuite) TestNewFacadeError(c *gc.C) {
 	fakeAPICaller := &fakeAPICaller{}
 
 	stub := testing.Stub{}
-	manifold := charmrevisionworker.Manifold(charmrevisionworker.ManifoldConfig{
+	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
-		NewFacade: func(apiCaller base.APICaller) (charmrevisionworker.Facade, error) {
+		NewFacade: func(apiCaller base.APICaller) (charmrevision.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return nil, errors.New("blefgh")
 		},
@@ -91,14 +91,14 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	fakeAPICaller := &fakeAPICaller{}
 
 	stub := testing.Stub{}
-	manifold := charmrevisionworker.Manifold(charmrevisionworker.ManifoldConfig{
+	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
-		NewFacade: func(apiCaller base.APICaller) (charmrevisionworker.Facade, error) {
+		NewFacade: func(apiCaller base.APICaller) (charmrevision.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return fakeFacade, nil
 		},
-		NewWorker: func(config charmrevisionworker.WorkerConfig) (worker.Worker, error) {
+		NewWorker: func(config charmrevision.Config) (worker.Worker, error) {
 			stub.AddCall("NewWorker", config)
 			return nil, errors.New("snrght")
 		},
@@ -112,7 +112,7 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	stub.CheckCalls(c, []testing.StubCall{{
 		"NewFacade", []interface{}{fakeAPICaller},
 	}, {
-		"NewWorker", []interface{}{charmrevisionworker.WorkerConfig{
+		"NewWorker", []interface{}{charmrevision.Config{
 			Facade: fakeFacade,
 			Clock:  fakeClock,
 		}},
@@ -126,15 +126,15 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 	fakeAPICaller := fakeAPICaller{}
 
 	stub := testing.Stub{}
-	manifold := charmrevisionworker.Manifold(charmrevisionworker.ManifoldConfig{
+	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 		Period:        10 * time.Minute,
-		NewFacade: func(apiCaller base.APICaller) (charmrevisionworker.Facade, error) {
+		NewFacade: func(apiCaller base.APICaller) (charmrevision.Facade, error) {
 			stub.AddCall("NewFacade", apiCaller)
 			return fakeFacade, nil
 		},
-		NewWorker: func(config charmrevisionworker.WorkerConfig) (worker.Worker, error) {
+		NewWorker: func(config charmrevision.Config) (worker.Worker, error) {
 			stub.AddCall("NewWorker", config)
 			return fakeWorker, nil
 		},
@@ -149,7 +149,7 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 	stub.CheckCalls(c, []testing.StubCall{{
 		"NewFacade", []interface{}{fakeAPICaller},
 	}, {
-		"NewWorker", []interface{}{charmrevisionworker.WorkerConfig{
+		"NewWorker", []interface{}{charmrevision.Config{
 			Period: 10 * time.Minute,
 			Facade: fakeFacade,
 			Clock:  fakeClock,
@@ -170,5 +170,5 @@ type fakeWorker struct {
 }
 
 type fakeFacade struct {
-	charmrevisionworker.Facade
+	charmrevision.Facade
 }

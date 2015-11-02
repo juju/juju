@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charmrevisionworker
+package charmrevision
 
 import (
 	"time"
@@ -28,10 +28,10 @@ type ManifoldConfig struct {
 	// the NewFacade and NewWorker funcs defined in this package and not worry.
 	Period    time.Duration
 	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(WorkerConfig) (worker.Worker, error)
+	NewWorker func(Config) (worker.Worker, error)
 }
 
-// Manifold returns a dependency.Manifold that runs a charm revision updater
+// Manifold returns a dependency.Manifold that runs a charm revision worker
 // according to the supplied configuration.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
@@ -53,7 +53,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotatef(err, "cannot create facade")
 			}
 
-			worker, err := config.NewWorker(WorkerConfig{
+			worker, err := config.NewWorker(Config{
 				Period: config.Period,
 				Facade: facade,
 				Clock:  clock,
