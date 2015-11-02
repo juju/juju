@@ -7,6 +7,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/terminationworker"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -26,9 +27,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
+
+		// The termination worker returns ErrTerminateAgent if a
+		// termination signal is received by the process it's running
+		// in. It has no inputs and its only output is the error it
+		// returns.
+		terminationName: terminationworker.Manifold(),
 	}
 }
 
 const (
-	agentName = "agent"
+	agentName       = "agent"
+	terminationName = "termination"
 )

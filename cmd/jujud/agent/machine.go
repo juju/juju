@@ -99,7 +99,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
-	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
@@ -452,9 +451,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	a.runner.StartWorker("engine", a.createEngine)
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
-	a.runner.StartWorker("termination", func() (worker.Worker, error) {
-		return terminationworker.NewWorker(), nil
-	})
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
