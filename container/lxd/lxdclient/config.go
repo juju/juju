@@ -115,16 +115,6 @@ func (cfg Config) Write() error {
 	return nil
 }
 
-//type LXDOps interface {
-//    UpdateVars(dirname string) string
-//    InitializeConfDir() error
-//    CreateCertFile(filename string) (io.ReadCloser, error)
-//    CreateFile(filename string) (io.ReadCloser, error)
-//}
-//
-//type lxdOps struct {
-//}
-
 func updateLXDVars(dirname string) string {
 	// Change the hard-coded config dir that the raw client uses.
 	// TODO(ericsnow) This is exactly what happens in the lxc CLI for
@@ -160,9 +150,6 @@ func initializeConfigDir(cfg Config) error {
 
 	return nil
 }
-
-//type ConfigOps struct {
-//}
 
 func (cfg Config) write() error {
 	// Ensure the initial config is set up.
