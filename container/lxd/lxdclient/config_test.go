@@ -171,18 +171,18 @@ func (s *configSuite) TestWriteInvalid(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *configSuite) TestAsNonLocalOkay(c *gc.C) {
+func (s *configSuite) TestUsingTCPRemoteOkay(c *gc.C) {
 	// TODO(ericsnow) Finish!
 }
 
-func (s *configSuite) TestAsNonLocalNoop(c *gc.C) {
+func (s *configSuite) TestUsingTCPRemoteNoop(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
 		Filename:  "config.yml",
 		Remote:    s.remote,
 	}
-	nonlocal, err := cfg.AsNonLocal()
+	nonlocal, err := cfg.UsingTCPRemote()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(nonlocal, jc.DeepEquals, cfg)
@@ -237,7 +237,7 @@ func (s *configFunctionalSuite) TestWrite(c *gc.C) {
 	checkFiles(c, cfg)
 }
 
-func (s *configFunctionalSuite) TestAsNonLocal(c *gc.C) {
+func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	if s.client == nil {
 		c.Skip("LXD not running locally")
 	}
@@ -248,7 +248,7 @@ func (s *configFunctionalSuite) TestAsNonLocal(c *gc.C) {
 		Filename:  "config.yml",
 		Remote:    lxdclient.Local,
 	}
-	nonlocal, err := cfg.AsNonLocal()
+	nonlocal, err := cfg.UsingTCPRemote()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkValidRemote(c, &nonlocal.Remote)
