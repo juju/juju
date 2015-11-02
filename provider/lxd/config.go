@@ -263,8 +263,9 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())
 		keyPEM := []byte(c.clientKey())
-		remote.Cert = lxdclient.NewCert(certPEM, keyPEM)
-		remote.Cert.Name = fmt.Sprintf("juju cert for env %q", c.Name())
+		cert := lxdclient.NewCert(certPEM, keyPEM)
+		cert.Name = fmt.Sprintf("juju cert for env %q", c.Name())
+		remote.Cert = &cert
 	}
 
 	cfg := lxdclient.Config{
@@ -280,7 +281,7 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 }
 
 // TODO(ericsnow) Switch to a DI testing approach and eliminiate this var.
-var asNonLocal = lxdclient.Config.AsNonLocal
+var asNonLocal = lxdclient.Config.UsingTCPRemote
 
 func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*environConfig, error) {
 	nonlocal, err := asNonLocal(clientCfg)
