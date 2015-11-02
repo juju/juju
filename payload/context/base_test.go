@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/payload"

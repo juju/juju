@@ -6,7 +6,7 @@ package status
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v5"
+	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/payload"
 )
