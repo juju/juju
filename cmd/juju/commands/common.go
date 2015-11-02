@@ -6,13 +6,12 @@ package commands
 import (
 	"fmt"
 	"net/http"
-	"path"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/persistent-cookiejar"
-	"github.com/juju/utils"
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
@@ -223,16 +222,23 @@ var newCharmStoreClient = func() (*csClient, error) {
 	}, nil
 }
 
+// cookieFile returns the path to the cookie used to store authorization
+// macaroons. The returned value can be overridden by setting the
+// JUJU_COOKIEFILE or GO_COOKIEFILE environment variables.
+func cookieFile() string {
+	if file := os.Getenv("JUJU_COOKIEFILE"); file != "" {
+		return file
+	}
+	return cookiejar.DefaultCookieFile()
+}
+
 func newHTTPClient() (*cookiejar.Jar, *http.Client, error) {
-	cookieFile := path.Join(utils.Home(), ".go-cookies")
 	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename:         cookieFile(),
 		PublicSuffixList: publicsuffix.List,
 	})
 	if err != nil {
-		panic(err)
-	}
-	if err := jar.Load(cookieFile); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	client := httpbakery.NewHTTPClient()
 	client.Jar = jar
