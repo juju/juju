@@ -245,6 +245,7 @@ func checkFiles(c *gc.C, cfg lxdclient.Config) {
 	c.Check(config, jc.DeepEquals, lxd.Config{
 		DefaultRemote: "local",
 		Remotes: map[string]lxd.RemoteConfig{
+			// TODO(ericsnow) Use the following once we switch to a newer LXD.
 			//"local": lxd.LocalRemote,
 			"local": config.Remotes["local"],
 			cfg.Remote.Name: lxd.RemoteConfig{
@@ -252,6 +253,7 @@ func checkFiles(c *gc.C, cfg lxdclient.Config) {
 				Public: false,
 			},
 		},
+		// TODO(ericsnow) Use the following once we switch to a newer LXD.
 		//Aliases: nil,
 	})
 }
