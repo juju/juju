@@ -135,11 +135,11 @@ func (s *certFunctionalSuite) TestGenerateCert(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cert := lxdclient.NewCert(certPEM, keyPEM)
 
-	checkValidCert(c, cert)
+	checkValidCert(c, &cert)
 }
 
-func checkCert(c *gc.C, cert *lxdclient.Cert, certPEM, keyPEM []byte) {
-	c.Check(cert, jc.DeepEquals, &lxdclient.Cert{
+func checkCert(c *gc.C, cert lxdclient.Cert, certPEM, keyPEM []byte) {
+	c.Check(cert, jc.DeepEquals, lxdclient.Cert{
 		CertPEM: certPEM,
 		KeyPEM:  keyPEM,
 	})
@@ -148,6 +148,8 @@ func checkCert(c *gc.C, cert *lxdclient.Cert, certPEM, keyPEM []byte) {
 }
 
 func checkValidCert(c *gc.C, cert *lxdclient.Cert) {
+	c.Assert(cert, gc.NotNil)
+
 	_, err := tls.X509KeyPair(cert.CertPEM, cert.KeyPEM)
 	c.Check(err, jc.ErrorIsNil)
 

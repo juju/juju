@@ -74,7 +74,8 @@ func (r Remote) WithDefaults() (Remote, error) {
 		if err != nil {
 			return r, errors.Trace(err)
 		}
-		r.Cert = NewCert(certPEM, keyPEM)
+		cert := NewCert(certPEM, keyPEM)
+		r.Cert = &cert
 	}
 
 	cert, err := r.Cert.SetDefaults()
