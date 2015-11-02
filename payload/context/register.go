@@ -79,6 +79,7 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 		},
 		ID:     c.id,
 		Status: payload.StateRunning,
+		Labels: c.labels,
 		Unit:   "a-service/0",
 	}
 	if err := c.api.Track(pl); err != nil {
