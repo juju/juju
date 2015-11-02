@@ -49,6 +49,7 @@ type Config struct {
 // where needed.
 func (cfg Config) WithDefaults() (Config, error) {
 	// We leave a blank namespace alone.
+	// Also, note that cert is a value receiver, so it is an implicit copy.
 
 	if cfg.Filename == "" {
 		cfg.Filename = configDefaultFile

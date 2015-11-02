@@ -53,6 +53,8 @@ func NewCert(certPEM, keyPEM []byte) Cert {
 // SetDefaults updates a copy of the remote with default values
 // where needed.
 func (cert Cert) SetDefaults() (*Cert, error) {
+	// Note that cert is a value receiver, so it is an implicit copy.
+
 	if cert.Name == "" {
 		// TODO(ericsnow) Use x509.Certificate.Subject for the default?
 		cert.Name = certDefaultName
