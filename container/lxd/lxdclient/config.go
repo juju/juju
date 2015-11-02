@@ -146,6 +146,10 @@ func initializeConfigDir(cfg Config) error {
 		return errors.Trace(err)
 	}
 
+	// Force the default config to get written. LoadConfig() returns the
+	// default config from memory if there isn't a config file on disk.
+	// So we load that and then explicitly save it to disk with a call
+	// to SaveConfig().
 	config, err := lxd.LoadConfig()
 	if err != nil {
 		return errors.Trace(err)
