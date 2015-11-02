@@ -49,6 +49,13 @@ type serviceDoc struct {
 	MetricCredentials []byte     `bson:"metric-credentials"`
 }
 
+type dynamicEndpointDoc struct {
+	DocID     string `bson:"_id"`
+	Name      string `bson:"name"`
+	Interface string `bson:"interface"`
+	Service   string `bson:"service"`
+}
+
 func newService(st *State, doc *serviceDoc) *Service {
 	svc := &Service{
 		st:  st,
@@ -290,6 +297,93 @@ func (s *Service) CharmURL() (curl *charm.URL, force bool) {
 	return s.doc.CharmURL, s.doc.ForceCharm
 }
 
+func (s *Service) RemoveDynamicEndpoint(name, iface string) error {
+	if ep, err := s.Endpoint(name); err == nil {
+		return fmt.Errorf("cannot add dynamic endpoint for service %q: %v endpoint exists", s, ep)
+	}
+
+	endpointId := "e#" + name + "#" + iface
+	id := s.globalKey() + "-" + endpointId
+
+	ops := []txn.Op{{
+		C:      dynamicEndpointsC,
+		Id:     id,
+		Remove: true,
+	}}
+
+	if err := s.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot remove dynamic endpoint %v:%v for service %q: %v", name, iface, s, onAbort(err, errNotAlive))
+	}
+
+	logger.Debugf("removed dynamic endpoint %v for service %q", endpointId, s)
+	return nil
+}
+
+func (s *Service) AddDynamicEndpoint(name, iface string) error {
+	if ep, err := s.Endpoint(name); err == nil {
+		return fmt.Errorf("cannot add dynamic endpoint for service %q: %v endpoint exists", s, ep)
+	}
+
+	endpointId := "e#" + name + "#" + iface
+	id := s.globalKey() + "-" + endpointId
+
+	doc := dynamicEndpointDoc{
+		DocID:     id,
+		Service:   s.globalKey(),
+		Name:      name,
+		Interface: iface,
+	}
+
+	ops := []txn.Op{{
+		C:      dynamicEndpointsC,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+
+	if err := s.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot add dynamic endpoint %v:%v for service %q: %v", name, iface, s, onAbort(err, errNotAlive))
+	}
+
+	logger.Debugf("added dynamic endpoint %v for service %q", endpointId, s)
+	return nil
+}
+
+func (s *Service) IsDynamicEndpoint(name, iface string) bool {
+	for _, d := range s.DynamicEndpoints() {
+		if d.Relation.Name == name && d.Relation.Interface == iface && d.Dynamic {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) DynamicEndpoints() []Endpoint {
+	var endpoints []Endpoint
+
+	dynamicEndpoints, closer := s.st.getCollection(dynamicEndpointsC)
+	defer closer()
+
+	docs := []dynamicEndpointDoc{}
+	dynamicEndpoints.Find(bson.D{{"service", s.globalKey()}}).All(&docs)
+
+	for _, ep := range docs {
+		r := charm.Relation{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}
+		endpoints = append(endpoints, Endpoint{
+			ServiceName: s.doc.Name,
+			Relation:    r,
+			Dynamic:     true,
+		})
+	}
+	logger.Debugf("dynamic endpoints for service %q: %v", s, endpoints)
+	return endpoints
+}
+
 // Endpoints returns the service's currently available relation endpoints.
 func (s *Service) Endpoints() (eps []Endpoint, err error) {
 	ch, _, err := s.Charm()
@@ -316,7 +410,9 @@ func (s *Service) Endpoints() (eps []Endpoint, err error) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	eps = append(eps, s.DynamicEndpoints()...)
 	sort.Sort(epSlice(eps))
+	logger.Debugf("%+v", eps)
 	return eps, nil
 }
 

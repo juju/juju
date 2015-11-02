@@ -28,6 +28,10 @@ func (*RestrictedContext) ConfigSettings() (charm.Settings, error) { return nil,
 // UnitStatus implements jujuc.Context.
 func (*RestrictedContext) UnitStatus() (*StatusInfo, error) { return nil, ErrRestrictedContext }
 
+func (*RestrictedContext) AddDynamicEndpoint(name, iface string) error { return ErrRestrictedContext }
+
+func (*RestrictedContext) RemoveDynamicEndpoint(name, iface string) error { return ErrRestrictedContext }
+
 // SetUnitStatus implements jujuc.Context.
 func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 

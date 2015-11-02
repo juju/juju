@@ -386,12 +386,23 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+
+		service, err := r.st.Service(r.unit.ServiceTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		if ep, err := rel.Endpoint(); err != nil {
 			return errors.Trace(err)
 		} else if !ep.ImplementedBy(ch) {
-			logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
-			continue
+			if dynamic, err := service.IsDynamicEndpoint(ep.Name, ep.Interface); err != nil {
+				return errors.Trace(err)
+			} else if !dynamic {
+				logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
+				continue
+			}
 		}
+
 		dir, err := ReadStateDir(r.relationsDir, id)
 		if err != nil {
 			return errors.Trace(err)

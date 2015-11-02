@@ -31,6 +31,7 @@ func counterpartRole(r charm.RelationRole) charm.RelationRole {
 type Endpoint struct {
 	ServiceName string
 	charm.Relation
+	Dynamic bool
 }
 
 // String returns the unique identifier of the relation endpoint.

@@ -1670,7 +1670,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if !ep.ImplementedBy(ch) {
+			if !ep.Dynamic && !ep.ImplementedBy(ch) {
 				return nil, errors.Errorf("%q does not implement %q", ep.ServiceName, ep)
 			}
 			ops = append(ops, txn.Op{

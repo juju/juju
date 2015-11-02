@@ -115,6 +115,55 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
+func (s *Service) RemoveDynamicEndpoint(name, iface string) error {
+	var results params.ErrorResults
+	args := params.DynamicEndpoint{
+		Entities: []params.DynamicEndpointArgs{
+			{Tag: s.tag.String(), Name: name, Interface: iface},
+		},
+	}
+	err := s.st.facade.FacadeCall("RemoveDynamicEndpoint", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+func (s *Service) AddDynamicEndpoint(name, iface string) error {
+	var results params.ErrorResults
+	args := params.DynamicEndpoint{
+		Entities: []params.DynamicEndpointArgs{
+			{Tag: s.tag.String(), Name: name, Interface: iface},
+		},
+	}
+	err := s.st.facade.FacadeCall("AddDynamicEndpoint", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+
+}
+
+func (s *Service) IsDynamicEndpoint(name, iface string) (bool, error) {
+	var results params.IsDynamicEndpointResults
+	args := params.DynamicEndpoint{
+		Entities: []params.DynamicEndpointArgs{
+			{Tag: s.tag.String(), Name: name, Interface: iface},
+		},
+	}
+	err := s.st.facade.FacadeCall("IsDynamicEndpoint", args, &results)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Dynamic, errors.Trace(result.Error)
+	}
+
+	return result.Dynamic, nil
+}
+
 // OwnerTag returns the service's owner user tag.
 func (s *Service) OwnerTag() (names.UserTag, error) {
 	if s.st.BestAPIVersion() > 0 {
