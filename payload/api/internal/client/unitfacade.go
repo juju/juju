@@ -115,7 +115,7 @@ func (c UnitFacadeClient) lookUp(fullIDs []string) ([]string, error) {
 
 	var ids []string
 	for _, result := range results {
-		if result.Error != nil && !result.NotFound {
+		if result.Error != nil {
 			// TODO(ericsnow) Do not short-circuit?
 			return nil, errors.Annotate(result.Error, "while looking up IDs")
 		}
