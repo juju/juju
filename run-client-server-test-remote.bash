@@ -50,4 +50,4 @@ mkdir $log_dir
 env=compatibility-control-osx
 /Users/jenkins/Bin/juju destroy-environment --force -y $env || true
 $SCRIPT/assess_heterogeneous_control.py $server $client \
-  test-reliability-aws $env $log_dir "$@"
+  parallel-reliability-aws $env $log_dir "$@"
