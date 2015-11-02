@@ -20,6 +20,7 @@ const (
 var Local = Remote{
 	RemoteInfo: RemoteInfo{
 		Name: remoteLocalName,
+		Host: "", // The LXD API turns this into the local unix socket.
 	},
 }
 
@@ -44,7 +45,7 @@ type RemoteInfo struct {
 // SetDefaults updates a copy of the remote with default values
 // where needed.
 func (ri RemoteInfo) SetDefaults() (RemoteInfo, error) {
-	if ri.Host == "" {
+	if ri.Host == Local.Host {
 		return ri.setLocalDefaults(), nil
 	}
 
@@ -75,7 +76,7 @@ func (ri RemoteInfo) Validate() error {
 		return errors.NotValidf("remote missing name,")
 	}
 
-	if ri.Host == "" {
+	if ri.Host == Local.Host {
 		if err := ri.validateLocal(); err != nil {
 			return errors.Trace(err)
 		}
@@ -127,7 +128,7 @@ func (r Remote) setDefaults() (Remote, error) {
 
 // ID identifies the remote to the raw LXD client code.
 func (r Remote) ID() string {
-	if r.RemoteInfo.Host == "" {
+	if r.RemoteInfo.Host == Local.Host {
 		return remoteIDForLocal
 	}
 	return r.RemoteInfo.Name
