@@ -152,6 +152,7 @@ func (s *configSuite) TestValidateZeroValue(c *gc.C) {
 }
 
 func (s *configSuite) TestApplyOkay(c *gc.C) {
+	c.Skip("not implemented yet")
 	// TODO(ericsnow) Finish!
 }
 
@@ -163,10 +164,12 @@ func (s *configSuite) TestApplyInvalid(c *gc.C) {
 }
 
 func (s *configSuite) TestWriteOkay(c *gc.C) {
+	c.Skip("not implemented yet")
 	// TODO(ericsnow) Finish!
 }
 
 func (s *configSuite) TestWriteRemoteAlreadySet(c *gc.C) {
+	c.Skip("not implemented yet")
 	// TODO(ericsnow) Finish!
 }
 
