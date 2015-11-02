@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
+	"github.com/juju/juju/cmd/juju/crossmodel"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/version"
 )
@@ -118,6 +119,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newBootstrapCommand())
 	r.Register(newDeployCommand())
 	r.Register(newAddRelationCommand())
+	r.Register(crossmodel.NewOfferCommand())
 
 	// Destruction commands.
 	r.Register(newRemoveRelationCommand())

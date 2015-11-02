@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/service"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -49,6 +50,10 @@ func syncToolsHelpText() string {
 
 func blockHelpText() string {
 	return cmdtesting.HelpText(block.NewSuperBlockCommand(), "juju block")
+}
+
+func offerHelpText() string {
+	return cmdtesting.HelpText(crossmodel.NewOfferCommand(), "juju offer")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -162,6 +167,16 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"unblock"},
 		code:    0,
 		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to unblock\n",
+	}, {
+		summary: "check offer command has help",
+		args:    []string{"offer", "-h"},
+		code:    0,
+		out:     offerHelpText(),
+	}, {
+		summary: "check offer command registered properly",
+		args:    []string{"offer"},
+		code:    0,
+		out:     "error: an offer must at least specify service endpoint\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -229,6 +244,7 @@ var commandNames = []string{
 	"init",
 	"machine",
 	"publish",
+	"offer",
 	"remove-machine",  // alias for destroy-machine
 	"remove-relation", // alias for destroy-relation
 	"remove-service",  // alias for destroy-service
