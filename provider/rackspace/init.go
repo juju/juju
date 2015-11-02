@@ -14,21 +14,11 @@ const (
 )
 
 func init() {
-	provider, err := environs.Provider("openstack")
-	if err != nil {
-		logger.Errorf("Can't find openstack provider, error: %s", err)
-		return
+	osProvider := openstack.EnvironProvider{&rackspaceConfigurator{}, &firewallerFactory{}}
+	providerInstance = environProvider{
+		osProvider,
 	}
-	if osProvider, ok := provider.(*openstack.EnvironProvider); ok {
-		osProvider.Configurator = &rackspaceConfigurator{}
-		providerInstance = environProvider{
-			osProvider,
-		}
-		environs.RegisterProvider(providerType, providerInstance)
+	environs.RegisterProvider(providerType, providerInstance)
 
-		registry.RegisterEnvironStorageProviders(providerType, openstack.CinderProviderType)
-	} else {
-		logger.Errorf("Openstack provider has wrong type.")
-		return
-	}
+	registry.RegisterEnvironStorageProviders(providerType, openstack.CinderProviderType)
 }

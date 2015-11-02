@@ -7,11 +7,22 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 )
+
+type firewallerFactory struct {
+}
+
+var _ openstack.FirewallerFactory = (*firewallerFactory)(nil)
+
+// GetFirewaller implements FirewallerFactory
+func (f *firewallerFactory) GetFirewaller(env environs.Environ) openstack.Firewaller {
+	return &rackspaceFirewaller{}
+}
 
 type rackspaceFirewaller struct{}
 
@@ -22,8 +33,8 @@ func (c *rackspaceFirewaller) InitialNetworks() []nova.ServerNetworks {
 	// These are the default rackspace networks, see:
 	// http://docs.rackspace.com/servers/api/v2/cs-devguide/content/provision_server_with_networks.html
 	return []nova.ServerNetworks{
-		{NetworkId: "00000000-0000-0000-0000-000000000000"},
-		{NetworkId: "11111111-1111-1111-1111-111111111111"},
+		{NetworkId: "00000000-0000-0000-0000-000000000000"}, //Racksapce PublicNet
+		{NetworkId: "11111111-1111-1111-1111-111111111111"}, //Rackspace ServiceNet
 	}
 }
 

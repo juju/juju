@@ -14,10 +14,16 @@ import (
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
+
+//factory for obtaining firawaller object.
+type FirewallerFactory interface {
+	GetFirewaller(env environs.Environ) Firewaller
+}
 
 // Firewaller allows custom openstack provider behaviour.
 // This is used in other providers that embed the openstack provider.
@@ -51,6 +57,14 @@ type Firewaller interface {
 
 	// InstancePorts returns the port ranges opened for the specified  instance.
 	InstancePorts(inst instance.Instance, machineId string) ([]network.PortRange, error)
+}
+
+type firewallerFactory struct {
+}
+
+// GetFirewaller implements FirewallerFactory
+func (f *firewallerFactory) GetFirewaller(env environs.Environ) Firewaller {
+	return &defaultFirewaller{environ: env.(*Environ)}
 }
 
 type defaultFirewaller struct {
