@@ -145,9 +145,9 @@ func sharedSecretPath(dataDir string) string {
 }
 
 // newConf returns the init system config for the mongo state service.
-func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool, version Version) common.Conf {
+func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool, version Version, auth bool) common.Conf {
 	mongoCmd := mongoPath +
-		" --auth" +
+
 		" --dbpath " + utils.ShQuote(dbDir) +
 		" --sslOnNormalPorts" +
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
@@ -155,11 +155,20 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		" --port " + fmt.Sprint(port) +
 		" --syslog" +
 		" --journal" +
-		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
+
 		" --replSet " + ReplicaSetName +
 		" --ipv6" +
 		" --quiet" +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+
+	if auth {
+		mongoCmd = mongoCmd +
+			" --auth" +
+			" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
+	} else {
+		mongoCmd = mongoCmd +
+			" --noauth"
+	}
 	// TODO(perrito666) implement a proper version comparision with <>
 	// also make sure storageEngine is explicit every time it is possible.
 	if version != Mongo30wt {
@@ -186,4 +195,37 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		ExecStart:   mongoCmd,
 	}
 	return conf
+}
+
+// EnsureServiceInstalled is a convenience method to [re]create
+// the mongo service.
+func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version Version, auth bool) error {
+	mongoPath, err := Path(version)
+	if err != nil {
+		return errors.Annotate(err, "cannot get mongo path")
+	}
+
+	dbDir := filepath.Join(dataDir, "db")
+
+	if oplogSizeMB == 0 {
+		var err error
+		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
+			return err
+		}
+	}
+
+	svcConf := newConf(dataDir, dbDir, mongoPath, statePort, oplogSizeMB, setNumaControlPolicy, version, auth)
+	svc, err := newService(ServiceName(namespace), svcConf)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := svc.Remove(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := svc.Install(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
