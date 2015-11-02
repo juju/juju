@@ -823,14 +823,11 @@ type hasMeta interface {
 }
 
 func validateCharmVersion(ch hasMeta) error {
-	logger.Infof("Min juju version of charm: %#v", ch.Meta().MinJujuVersion)
 	minver := ch.Meta().MinJujuVersion
 	if minver != nil {
 		if minver.Compare(version.Current) > 0 {
-			logger.Infof("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current)
 			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, version.Current)
 		}
-		logger.Infof("Charm's min version (%s) is lte than this juju environment's version (%s)", minver, version.Current)
 	}
 	return nil
 }
