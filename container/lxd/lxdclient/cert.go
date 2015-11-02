@@ -42,9 +42,9 @@ type Cert struct {
 	KeyPEM []byte
 }
 
-// NewCert creates a new Cert for the given cert and key.
-func NewCert(certPEM, keyPEM []byte) *Cert {
-	return &Cert{
+// NewCertificate creates a new Certificate for the given cert and key.
+func NewCert(certPEM, keyPEM []byte) Cert {
+	return Cert{
 		CertPEM: certPEM,
 		KeyPEM:  keyPEM,
 	}
