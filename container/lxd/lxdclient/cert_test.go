@@ -34,27 +34,10 @@ func (s *certSuite) SetUpTest(c *gc.C) {
 	s.keyPEM = []byte("<a valid PEM-encoded x.509 key>")
 }
 
-func (s *certSuite) genCertAndKey() ([]byte, []byte, error) {
-	s.Stub.AddCall("genCertAndKey")
-	if err := s.Stub.NextErr(); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return s.certPEM, s.keyPEM, nil
-}
-
 func (s *certSuite) TestNewCert(c *gc.C) {
 	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
 
 	checkCert(c, cert, s.certPEM, s.keyPEM)
-}
-
-func (s *certSuite) TestGenerateCert(c *gc.C) {
-	cert, err := lxdclient.GenerateCert(s.genCertAndKey)
-	c.Assert(err, jc.ErrorIsNil)
-
-	checkCert(c, cert, s.certPEM, s.keyPEM)
-	s.Stub.CheckCallNames(c, "genCertAndKey")
 }
 
 func (s *certSuite) TestValidateOkay(c *gc.C) {
@@ -114,8 +97,9 @@ type certFunctionalSuite struct {
 
 func (s *certFunctionalSuite) TestGenerateCert(c *gc.C) {
 	// This test involves the filesystem.
-	cert, err := lxdclient.GenerateCert(lxdclient.GenCertAndKey)
+	certPEM, keyPEM, err := lxdclient.GenCertAndKey()
 	c.Assert(err, jc.ErrorIsNil)
+	cert := lxdclient.NewCert(certPEM, keyPEM)
 
 	_, err = tls.X509KeyPair(cert.CertPEM, cert.KeyPEM)
 	c.Check(err, jc.ErrorIsNil)
