@@ -84,7 +84,7 @@ func (r Remote) WithDefaults() (Remote, error) {
 	if err != nil {
 		return r, errors.Trace(err)
 	}
-	r.Cert = cert
+	r.Cert = &cert
 
 	return r, nil
 }
