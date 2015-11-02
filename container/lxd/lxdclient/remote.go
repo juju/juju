@@ -49,11 +49,11 @@ func (ri RemoteInfo) SetDefaults() (RemoteInfo, error) {
 	}
 
 	if ri.Cert == nil {
-		cert, err := GenerateCert(genCertAndKey)
+		certPEM, keyPEM, err := genCertAndKey()
 		if err != nil {
 			return ri, errors.Trace(err)
 		}
-		ri.Cert = cert
+		ri.Cert = NewCert(certPEM, keyPEM)
 	}
 
 	return ri, nil
