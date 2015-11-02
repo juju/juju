@@ -123,7 +123,7 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 		return cfg, errors.Trace(err)
 	}
 
-	cfg.Remote = *remote
+	cfg.Remote = remote
 	return cfg, nil
 }
 
