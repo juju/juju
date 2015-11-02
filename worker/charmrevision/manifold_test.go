@@ -120,10 +120,10 @@ func (s *ManifoldSuite) TestNewWorkerError(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestSuccess(c *gc.C) {
-	fakeClock := fakeClock{}
-	fakeFacade := fakeFacade{}
-	fakeWorker := fakeWorker{}
-	fakeAPICaller := fakeAPICaller{}
+	fakeClock := &fakeClock{}
+	fakeFacade := &fakeFacade{}
+	fakeWorker := &fakeWorker{}
+	fakeAPICaller := &fakeAPICaller{}
 
 	stub := testing.Stub{}
 	manifold := charmrevision.Manifold(charmrevision.ManifoldConfig{
