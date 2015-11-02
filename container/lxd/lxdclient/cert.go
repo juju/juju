@@ -20,9 +20,9 @@ const (
 	pemBlockTypeKey  = "RSA PRIVATE KEY"
 )
 
-// Certificate holds the information for a single certificate a client
+// Cert holds the information for a single certificate a client
 // may use to connect to a remote server.
-type Certificate struct {
+type Cert struct {
 	// CertPEM is the PEM-encoded x.509 cert.
 	CertPEM []byte
 
@@ -30,23 +30,23 @@ type Certificate struct {
 	KeyPEM []byte
 }
 
-// NewCertificate creates a new Certificate for the given cert and key.
-func NewCertificate(certPEM, keyPEM []byte) *Certificate {
-	return &Certificate{
+// NewCert creates a new Cert for the given cert and key.
+func NewCert(certPEM, keyPEM []byte) *Cert {
+	return &Cert{
 		CertPEM: certPEM,
 		KeyPEM:  keyPEM,
 	}
 }
 
-// GenerateCertificate creates a new LXD client certificate. It uses
+// GenerateCert creates a new LXD client certificate. It uses
 // the provided function to generate the raw data.
-func GenerateCertificate(genCertAndKey func() ([]byte, []byte, error)) (*Certificate, error) {
+func GenerateCert(genCertAndKey func() ([]byte, []byte, error)) (*Cert, error) {
 	certPEM, keyPEM, err := genCertAndKey()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return NewCertificate(certPEM, keyPEM), nil
+	return NewCert(certPEM, keyPEM), nil
 }
 
 func genCertAndKey() ([]byte, []byte, error) {
@@ -78,7 +78,7 @@ func genCertAndKey() ([]byte, []byte, error) {
 }
 
 // Validate ensures that the cert is valid.
-func (cert Certificate) Validate() error {
+func (cert Cert) Validate() error {
 	if len(cert.CertPEM) == 0 {
 		return errors.NotValidf("missing cert PEM")
 	}
@@ -92,7 +92,7 @@ func (cert Certificate) Validate() error {
 }
 
 // WriteCertPEM writes the cert's x.509 PEM data to the given writer.
-func (cert Certificate) WriteCertPEM(out io.Writer) error {
+func (cert Cert) WriteCertPEM(out io.Writer) error {
 	if _, err := out.Write(cert.CertPEM); err != nil {
 		return errors.Trace(err)
 	}
@@ -100,7 +100,7 @@ func (cert Certificate) WriteCertPEM(out io.Writer) error {
 }
 
 // WriteKeytPEM writes the key's x.509 PEM data to the given writer.
-func (cert Certificate) WriteKeyPEM(out io.Writer) error {
+func (cert Cert) WriteKeyPEM(out io.Writer) error {
 	if _, err := out.Write(cert.KeyPEM); err != nil {
 		return errors.Trace(err)
 	}
