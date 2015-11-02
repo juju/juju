@@ -82,21 +82,6 @@ func (cfg Config) Validate() error {
 	return nil
 }
 
-// Apply updates the current process such that the LXD client
-// will operate with this config satisfied.
-// A cfg.SetDefaults() call may be needed first.
-func (cfg Config) Apply() error {
-	if err := cfg.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
-	updateLXDVars(cfg.Dirname)
-
-	// TODO(ericsnow) Call cfg.write() here if not already done?
-
-	return nil
-}
-
 // Write writes all the various files for this config.
 func (cfg Config) Write() error {
 	if err := cfg.Validate(); err != nil {

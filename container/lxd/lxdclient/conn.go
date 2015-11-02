@@ -18,12 +18,13 @@ type Client struct {
 // Connect opens an API connection to LXD and returns a high-level
 // Client wrapper around that connection.
 func Connect(cfg Config) (*Client, error) {
-	if err := cfg.Apply(); err != nil {
+	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(ericsnow) Call cfg.Write here if necessary?
 	remote := cfg.Remote.ID()
 
-	raw, err := newRawClient(remote)
+	raw, err := newRawClient(remote, cfg.Dirname)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -36,8 +37,11 @@ func Connect(cfg Config) (*Client, error) {
 	return conn, nil
 }
 
-func newRawClient(remote string) (*lxd.Client, error) {
-	logger.Debugf("loading LXD client config from %q", lxd.ConfigDir)
+func newRawClient(remote, configDir string) (*lxd.Client, error) {
+	logger.Debugf("loading LXD client config from %q", configDir)
+
+	// This will go away once LoadConfig takes a dirname argument.
+	updateLXDVars(configDir)
 
 	cfg, err := lxd.LoadConfig()
 	if err != nil {
