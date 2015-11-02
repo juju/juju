@@ -289,7 +289,7 @@ func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arc
 	return f.findTools(majorVersion, minorVersion, series, arch)
 }
 
-func (f *fakeSyncToolsAPI) UploadTools(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
+func (f *fakeSyncToolsAPI) UploadTools(r io.ReadSeeker, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
 	return f.uploadTools(r, v, additionalSeries...)
 }
 
