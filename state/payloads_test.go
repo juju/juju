@@ -30,10 +30,12 @@ type envPayloadsSuite struct {
 }
 
 func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
+	machine := "0"
 	unit := addUnit(c, s.ConnSuite, unitArgs{
 		charm:    "dummy",
 		service:  "a-service",
 		metadata: payloadsMetaYAML,
+		machine:  machine,
 	})
 
 	ust, err := s.State.UnitPayloads(unit)
@@ -74,7 +76,7 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 			Labels: []string{},
 			Unit:   "a-service/0",
 		},
-		Machine: "0",
+		Machine: machine,
 	}})
 
 	id, err := ust.LookUp("payloadA", "xyz")
@@ -93,10 +95,12 @@ type unitPayloadsSuite struct {
 }
 
 func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
+	machine := "0"
 	unit := addUnit(c, s.ConnSuite, unitArgs{
 		charm:    "dummy",
 		service:  "a-service",
 		metadata: payloadsMetaYAML,
+		machine:  machine,
 	})
 
 	st, err := s.State.UnitPayloads(unit)
@@ -128,8 +132,7 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 		ID: id,
 		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
-			// TODO(ericsnow) Require machine "1"?
-			Machine: "",
+			Machine: machine,
 		},
 	}})
 
@@ -144,7 +147,7 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 		ID: id,
 		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
-			Machine: "",
+			Machine: machine,
 		},
 	}})
 
@@ -157,7 +160,7 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 		ID: id,
 		Payload: &payload.FullPayloadInfo{
 			Payload: pl,
-			Machine: "",
+			Machine: machine,
 		},
 	}})
 
@@ -189,6 +192,7 @@ type unitArgs struct {
 	charm    string
 	service  string
 	metadata string
+	machine  string
 }
 
 func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
@@ -200,7 +204,8 @@ func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
-	err = unit.AssignToNewMachine()
+	c.Assert(args.machine, gc.Equals, "0")
+	err = unit.AssignToNewMachine() // machine "0"
 	c.Assert(err, jc.ErrorIsNil)
 
 	return unit
