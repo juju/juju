@@ -67,7 +67,7 @@ func (r Remote) ID() string {
 // WithDefaults updates a copy of the remote with default values
 // where needed.
 func (r Remote) WithDefaults() (Remote, error) {
-	// Note that cert is a value receiver, so it is an implicit copy.
+	// Note that ri is a value receiver, so it is an implicit copy.
 
 	if r.isLocal() {
 		return r.withLocalDefaults(), nil
@@ -133,9 +133,16 @@ func (r Remote) validateLocal() error {
 	return nil
 }
 
-// AsNonLocal converts the remote into a non-local version. For
+// UsingTCP converts the remote into a non-local version. For
 // non-local remotes this is a no-op.
-func (r Remote) AsNonLocal() (*Remote, error) {
+//
+// For a "local" remote (see Local), the remote is changed to a one
+// with the host set to the IP address of the local lxcbr0 bridge
+// interface. The remote is also set up for remote access, setting
+// the cert if not already set.
+func (r Remote) UsingTCP() (*Remote, error) {
+	// Note that r is a value receiver, so it is an implicit copy.
+
 	if !r.isLocal() {
 		return &r, nil
 	}

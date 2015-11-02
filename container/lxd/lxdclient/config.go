@@ -49,7 +49,7 @@ type Config struct {
 // where needed.
 func (cfg Config) WithDefaults() (Config, error) {
 	// We leave a blank namespace alone.
-	// Also, note that cert is a value receiver, so it is an implicit copy.
+	// Also, note that cfg is a value receiver, so it is an implicit copy.
 
 	if cfg.Filename == "" {
 		cfg.Filename = configDefaultFile
@@ -101,14 +101,21 @@ func (cfg Config) Write() error {
 	return nil
 }
 
-// AsNonLocal converts the config into a non-local version. For
-// non-local remotes
-func (cfg Config) AsNonLocal() (Config, error) {
+// UsingTCPRemote converts the config into a "non-local" version. An
+// already non-local remote is left alone.
+//
+// For a "local" remote (see Local), the remote is changed to a one
+// with the host set to the IP address of the local lxcbr0 bridge
+// interface. The LXD server is also set up for remote access, exposing
+// the TCP port and adding a certificate for remote access.
+func (cfg Config) UsingTCPRemote() (Config, error) {
+	// Note that cfg is a value receiver, so it is an implicit copy.
+
 	if !cfg.Remote.isLocal() {
 		return cfg, nil
 	}
 
-	remote, err := cfg.Remote.AsNonLocal()
+	remote, err := cfg.Remote.UsingTCP()
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
