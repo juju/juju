@@ -20,7 +20,7 @@ type BaseSuite struct {
 
 	Stub   *testing.Stub
 	Client *stubClient
-	Cert   *Certificate
+	Cert   *Cert
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -28,7 +28,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &testing.Stub{}
 	s.Client = &stubClient{stub: s.Stub}
-	s.Cert = &Certificate{
+	s.Cert = &Cert{
 		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
 		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
 	}

@@ -156,7 +156,7 @@ func (s *remoteInfoSuite) TestValidateBadCert(c *gc.C) {
 	info := lxdclient.RemoteInfo{
 		Name: "my-remote",
 		Host: "some-host",
-		Cert: &lxdclient.Certificate{},
+		Cert: &lxdclient.Cert{},
 	}
 	err := info.Validate()
 
@@ -189,7 +189,7 @@ func (s *remoteInfoSuite) TestValidateLocalWithCert(c *gc.C) {
 	info := lxdclient.RemoteInfo{
 		Name: "my-local",
 		Host: "",
-		Cert: &lxdclient.Certificate{},
+		Cert: &lxdclient.Cert{},
 	}
 	err := info.Validate()
 
@@ -279,5 +279,5 @@ func (s *remoteSuite) TestCertMissing(c *gc.C) {
 	})
 	cert := remote.Cert()
 
-	c.Check(cert, jc.DeepEquals, lxdclient.Certificate{})
+	c.Check(cert, jc.DeepEquals, lxdclient.Cert{})
 }
