@@ -38,45 +38,6 @@ func NewCert(certPEM, keyPEM []byte) *Cert {
 	}
 }
 
-// GenerateCert creates a new LXD client certificate. It uses
-// the provided function to generate the raw data.
-func GenerateCert(genCertAndKey func() ([]byte, []byte, error)) (*Cert, error) {
-	certPEM, keyPEM, err := genCertAndKey()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return NewCert(certPEM, keyPEM), nil
-}
-
-func genCertAndKey() ([]byte, []byte, error) {
-	// See GenCert() in:
-	//  https://github.com/lxc/lxd/blob/master/shared/cert.go
-	// TODO(ericsnow) Split up GenCert so it is more re-usable.
-	tempdir, err := ioutil.TempDir("", tempPrefix)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	defer os.RemoveAll(tempdir)
-	certFile := filepath.Join(tempdir, configCertFile)
-	keyFile := filepath.Join(tempdir, configKeyFile)
-	if err := shared.GenCert(certFile, keyFile); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	certPEM, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	keyPEM, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return certPEM, keyPEM, nil
-}
-
 // Validate ensures that the cert is valid.
 func (cert Cert) Validate() error {
 	if len(cert.CertPEM) == 0 {
@@ -105,4 +66,32 @@ func (cert Cert) WriteKeyPEM(out io.Writer) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func genCertAndKey() ([]byte, []byte, error) {
+	// See GenCert() in:
+	//  https://github.com/lxc/lxd/blob/master/shared/cert.go
+	// TODO(ericsnow) Split up GenCert so it is more re-usable.
+	tempdir, err := ioutil.TempDir("", tempPrefix)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	defer os.RemoveAll(tempdir)
+	certFile := filepath.Join(tempdir, configCertFile)
+	keyFile := filepath.Join(tempdir, configKeyFile)
+	if err := shared.GenCert(certFile, keyFile); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	certPEM, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	keyPEM, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	return certPEM, keyPEM, nil
 }
