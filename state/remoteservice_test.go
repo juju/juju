@@ -42,6 +42,15 @@ func (s *remoteServiceSuite) SetUpTest(c *gc.C) {
 				Scope:     charm.ScopeGlobal,
 			},
 		},
+		{
+			ServiceName: "mysql",
+			Relation: charm.Relation{
+				Interface: "logging",
+				Name:      "logging",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
+		},
 	}
 	var err error
 	s.service, err = s.State.AddRemoteService("mysql", eps)
@@ -75,7 +84,6 @@ func (s *remoteServiceSuite) TestMysqlEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serverEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "mysql",
-		IsRemote:    true,
 		Relation: charm.Relation{
 			Interface: "mysql",
 			Name:      "db",
@@ -86,7 +94,6 @@ func (s *remoteServiceSuite) TestMysqlEndpoints(c *gc.C) {
 
 	adminEp := state.Endpoint{
 		ServiceName: "mysql",
-		IsRemote:    true,
 		Relation: charm.Relation{
 			Interface: "mysql-root",
 			Name:      "db-admin",
@@ -94,9 +101,18 @@ func (s *remoteServiceSuite) TestMysqlEndpoints(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
+	loggingEp := state.Endpoint{
+		ServiceName: "mysql",
+		Relation: charm.Relation{
+			Interface: "logging",
+			Name:      "logging",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
 	eps, err := s.service.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eps, gc.DeepEquals, []state.Endpoint{serverEP, adminEp})
+	c.Assert(eps, gc.DeepEquals, []state.Endpoint{serverEP, adminEp, loggingEp})
 }
 
 func (s *remoteServiceSuite) TestServiceRefresh(c *gc.C) {
@@ -109,46 +125,95 @@ func (s *remoteServiceSuite) TestServiceRefresh(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *remoteServiceSuite) TestAddRemoteRelationWrongEndpoints(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	eps, err := s.State.RelatedEndpoints("wordpress", "mysql")
+func (s *remoteServiceSuite) TestAddRelationBothRemote(c *gc.C) {
+	wpep := []state.Endpoint{
+		{
+			ServiceName: "wordpress",
+			Relation: charm.Relation{
+				Interface: "mysql",
+				Name:      "db",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeGlobal,
+			},
+		},
+	}
+	_, err := s.State.AddRemoteService("wordpress", wpep)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteRelation(eps[1], eps[0])
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:db": expecting endpoint "db" to be for a local service`)
-
-	s.AddTestingService(c, "localmysql", s.AddTestingCharm(c, "mysql"))
-	localeps, err := s.State.InferEndpoints("wordpress", "localmysql")
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteRelation(eps[0], localeps[1])
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db localmysql:server": expecting endpoint "server" to be for a remote service`)
+	_, err = s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:db": cannot add relation between remote services "wordpress" and "mysql"`)
 }
 
-func (s *remoteServiceSuite) TestAddRemoteRelation(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	eps, err := s.State.RelatedEndpoints("wordpress", "mysql")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRemoteRelation(eps[0], eps[1])
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rel.String(), gc.Equals, "wordpress:db mysql:db")
-	c.Assert(rel.Endpoints(), jc.DeepEquals, []state.Endpoint{{
-		ServiceName: "wordpress",
-		Relation: charm.Relation{
-			Interface: "mysql",
-			Name:      "db",
-			Role:      charm.RoleRequirer,
-			Scope:     charm.ScopeGlobal,
-			Limit:     1,
-		},
-	}, {
+func (s *remoteServiceSuite) TestInferEndpointsWrongScope(c *gc.C) {
+	subCharm := s.AddTestingCharm(c, "logging")
+	s.AddTestingService(c, "logging", subCharm)
+	_, err := s.State.InferEndpoints("logging", "mysql")
+	c.Assert(err, gc.ErrorMatches, "no relations found")
+}
+
+func (s *remoteServiceSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
+	subCharm := s.AddTestingCharm(c, "logging")
+	s.AddTestingService(c, "logging", subCharm)
+	ep1 := state.Endpoint{
 		ServiceName: "mysql",
-		IsRemote:    true,
 		Relation: charm.Relation{
-			Interface: "mysql",
-			Name:      "db",
+			Interface: "logging",
+			Name:      "logging",
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		},
-	}})
+	}
+	ep2 := state.Endpoint{
+		ServiceName: "logging",
+		Relation: charm.Relation{
+			Interface: "logging",
+			Name:      "logging-client",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	_, err := s.State.AddRelation(ep1, ep2)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:logging-client mysql:logging": both endpoints must be globally scoped for remote relations`)
+}
+
+func (s *remoteServiceSuite) TestAddRemoteRelationLocalFirst(c *gc.C) {
+	s.assertAddRemoteRelation(c, "wordpress", "mysql")
+}
+
+func (s *remoteServiceSuite) TestAddRemoteRelationRemoteFirst(c *gc.C) {
+	s.assertAddRemoteRelation(c, "mysql", "wordpress")
+}
+
+func (s *remoteServiceSuite) assertAddRemoteRelation(c *gc.C, service1, service2 string) {
+	endpoints := map[string]state.Endpoint{
+		"wordpress": state.Endpoint{
+			ServiceName: "wordpress",
+			Relation: charm.Relation{
+				Interface: "mysql",
+				Name:      "db",
+				Role:      charm.RoleRequirer,
+				Scope:     charm.ScopeGlobal,
+				Limit:     1,
+			},
+		},
+		"mysql": state.Endpoint{
+			ServiceName: "mysql",
+			Relation: charm.Relation{
+				Interface: "mysql",
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Scope:     charm.ScopeGlobal,
+			},
+		},
+	}
+	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints(service1, service2)
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.String(), gc.Equals, "wordpress:db mysql:db")
+	c.Assert(rel.Endpoints(), jc.DeepEquals, []state.Endpoint{endpoints[service1], endpoints[service2]})
 	remoteSvc, err := s.State.RemoteService("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	relations, err := remoteSvc.Relations()
@@ -167,9 +232,9 @@ func (s *remoteServiceSuite) TestDestroySimple(c *gc.C) {
 
 func (s *remoteServiceSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	eps, err := s.State.RelatedEndpoints("wordpress", "mysql")
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRemoteRelation(eps[0], eps[1])
+	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a local service with no units in relation scope; check service and
@@ -193,15 +258,15 @@ func (s *remoteServiceSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C
 func (s *remoteServiceSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	wordpress := s.AddTestingService(c, "wordpress", ch)
-	eps, err := s.State.RelatedEndpoints("wordpress", "mysql")
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	rel0, err := s.State.AddRemoteRelation(eps[0], eps[1])
+	rel0, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddTestingService(c, "another", ch)
-	eps, err = s.State.RelatedEndpoints("another", "mysql")
+	eps, err = s.State.InferEndpoints("another", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	rel1, err := s.State.AddRemoteRelation(eps[0], eps[1])
+	rel1, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
@@ -269,80 +334,42 @@ func (s *remoteServiceSuite) TestAllRemoteServices(c *gc.C) {
 	c.Assert(names[1], gc.Equals, "mysql")
 }
 
-var relatedEndpointsTests = []struct {
-	summary string
-	inputs  [][]string
-	eps     []state.Endpoint
-	err     string
-}{
-	{
-		summary: "invalid args",
-		inputs: [][]string{
-			{"ping:"},
-			{":pong"},
-			{":"},
-		},
-		err: `invalid endpoint ".*"`,
-	}, {
-		summary: "unknown service",
-		inputs:  [][]string{{"wooble", "mysql"}},
-		err:     `service "wooble" not found`,
-	}, {
-		summary: "invalid relations",
-		inputs: [][]string{
-			{"local", "mysql"},
-		},
-		err: `no relations found`,
-	}, {
-		summary: "unambiguous provider/requirer relation",
-		inputs: [][]string{
-			{"wordpress", "mysql"},
-			{"wordpress:db", "mysql"},
-		},
-		eps: []state.Endpoint{{
-			ServiceName: "wordpress",
-			Relation: charm.Relation{
-				Interface: "mysql",
-				Name:      "db",
-				Role:      charm.RoleRequirer,
-				Scope:     charm.ScopeGlobal,
-				Limit:     1,
-			},
-		}, {
-			ServiceName: "mysql",
-			IsRemote:    true,
-			Relation: charm.Relation{
-				Interface: "mysql",
-				Name:      "db",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			},
-		}},
-	},
+func (s *remoteServiceSuite) TestAddServiceSameLocalExists(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRemoteService("s1", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": local service with same name already exists`)
 }
 
-func (s *remoteServiceSuite) TestRelatedEndpoints(c *gc.C) {
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "local", s.AddTestingCharm(c, "mysql-alternative"))
+func (s *remoteServiceSuite) TestAddServiceLocalAddedAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that a service with a name conflict cannot be added if
+	// there is no conflict initially but a local service is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	_, err := s.State.AddRemoteService("s1", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": local service with same name already exists`)
+}
 
-	for i, t := range relatedEndpointsTests {
-		c.Logf("test %d: %s", i, t.summary)
-		for j, input := range t.inputs {
-			var local, remote string
-			if len(input) > 0 {
-				local = input[0]
-			}
-			if len(input) > 1 {
-				remote = input[1]
-			}
-			c.Logf("  input %d: %v, %v", j, local, remote)
-			eps, err := s.State.RelatedEndpoints(local, remote)
-			if t.err == "" {
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(eps, gc.DeepEquals, t.eps)
-			} else {
-				c.Assert(err, gc.ErrorMatches, t.err)
-			}
-		}
-	}
+func (s *remoteServiceSuite) TestAddServiceSameRemoteExists(c *gc.C) {
+	_, err := s.State.AddRemoteService("s1", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRemoteService("s1", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": remote service already exists`)
+}
+
+func (s *remoteServiceSuite) TestAddServiceRemoteAddedAfterInitial(c *gc.C) {
+	// Check that a service with a name conflict cannot be added if
+	// there is no conflict initially but a remote service is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.AddRemoteService("s1", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	_, err := s.State.AddRemoteService("s1", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote service "s1": remote service already exists`)
 }

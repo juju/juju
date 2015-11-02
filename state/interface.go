@@ -169,9 +169,15 @@ type GlobalEntity interface {
 	Tag() names.Tag
 }
 
-// EndpointsEntity is an entity (service or remote service) that has endpoints.
-type EndpointsEntity interface {
-	// Endpoints returns the entity's currently available relation endpoints.
+// ServiceEntity represents a local or remote service.
+type ServiceEntity interface {
+	// Life returns the life status of the service.
+	Life() Life
+
+	// IsRemote returns true if the service is remote (hosted in a different environment).
+	IsRemote() bool
+
+	// Endpoints returns the service's currently available relation endpoints.
 	Endpoints() ([]Endpoint, error)
 
 	// Endpoint returns the relation endpoint with the supplied name, if it exists.

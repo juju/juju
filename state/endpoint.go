@@ -30,7 +30,6 @@ func counterpartRole(r charm.RelationRole) charm.RelationRole {
 // Endpoint represents one endpoint of a relation.
 type Endpoint struct {
 	ServiceName string
-	IsRemote    bool
 	charm.Relation
 }
 

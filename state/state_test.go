@@ -1895,6 +1895,46 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
+func (s *StateSuite) TestAddServiceSameRemoteExists(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddRemoteService("s1", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": remote service with same name already exists`)
+}
+
+func (s *StateSuite) TestAddServiceRemotedAddedAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that a service with a name conflict cannot be added if
+	// there is no conflict initially but a remote service is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.AddRemoteService("s1", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": remote service with same name already exists`)
+}
+
+func (s *StateSuite) TestAddServiceSameLocalExists(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	s.AddTestingService(c, "s0", charm)
+	_, err := s.State.AddService("s0", s.Owner.String(), charm, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s0": service already exists`)
+}
+
+func (s *StateSuite) TestAddServiceLocalAddedAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that a service with a name conflict cannot be added if
+	// there is no conflict initially but a local service is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.AddTestingService(c, "s1", charm)
+	}).Check()
+	_, err := s.State.AddService("s1", s.Owner.String(), charm, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": service already exists`)
+}
+
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "s0", charm)

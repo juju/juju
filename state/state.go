@@ -1091,6 +1091,11 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 	return ops, nil
 }
 
+var (
+	errSameNameRemoteServiceExists = errors.Errorf("remote service with same name already exists")
+	errLocalServiceExists          = errors.Errorf("service already exists")
+)
+
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
@@ -1112,7 +1117,12 @@ func (st *State) AddService(
 	if exists, err := isNotDead(st, servicesC, name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
-		return nil, errors.Errorf("service already exists")
+		return nil, errLocalServiceExists
+	}
+	if _, err := st.RemoteService(name); err == nil {
+		return nil, errSameNameRemoteServiceExists
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
 	env, err := st.Environment()
 	if err != nil {
@@ -1162,55 +1172,83 @@ func (st *State) AddService(
 		NeverSet: true,
 	}
 
-	ops := []txn.Op{
-		env.assertAliveOp(),
-		createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
-		// TODO(dimitern) 2014-04-04 bug #1302498
-		// Once we can add networks independently of machine
-		// provisioning, we should check the given networks are valid
-		// and known before setting them.
-		createRequestedNetworksOp(st, svc.globalKey(), networks),
-		createStorageConstraintsOp(svc.globalKey(), storage),
-		createSettingsOp(svc.settingsKey(), nil),
-		addLeadershipSettingsOp(svc.Tag().Id()),
-		createStatusOp(st, svc.globalKey(), statusDoc),
-		{
-			C:      settingsrefsC,
-			Id:     st.docID(svc.settingsKey()),
-			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{
-				RefCount: 1,
-				EnvUUID:  st.EnvironUUID()},
-		}, {
-			C:      servicesC,
-			Id:     serviceID,
-			Assert: txn.DocMissing,
-			Insert: svcDoc,
-		},
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If we've tried once already and failed, check that
+		// environment may have been destroyed.
+		if attempt > 0 {
+			if err := checkEnvLife(st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			// Ensure a remote service with the same name doesn't exist.
+			if remoteExists, err := isNotDead(st, remoteServicesC, name); err != nil {
+				return nil, errors.Trace(err)
+			} else if remoteExists {
+				return nil, errSameNameRemoteServiceExists
+			}
+		}
+		ops := []txn.Op{
+			env.assertAliveOp(),
+			createConstraintsOp(st, svc.globalKey(), constraints.Value{}),
+			// TODO(dimitern) 2014-04-04 bug #1302498
+			// Once we can add networks independently of machine
+			// provisioning, we should check the given networks are valid
+			// and known before setting them.
+			createRequestedNetworksOp(st, svc.globalKey(), networks),
+			createStorageConstraintsOp(svc.globalKey(), storage),
+			createSettingsOp(svc.settingsKey(), nil),
+			addLeadershipSettingsOp(svc.Tag().Id()),
+			createStatusOp(st, svc.globalKey(), statusDoc),
+			{
+				C:      settingsrefsC,
+				Id:     st.docID(svc.settingsKey()),
+				Assert: txn.DocMissing,
+				Insert: settingsRefsDoc{
+					RefCount: 1,
+					EnvUUID:  st.EnvironUUID()},
+			}, {
+				C:      servicesC,
+				Id:     serviceID,
+				Assert: txn.DocMissing,
+				Insert: svcDoc,
+			}, {
+				C:      remoteServicesC,
+				Id:     serviceID,
+				Assert: txn.DocMissing,
+			},
+		}
+		// Collect peer relation addition operations.
+		peerOps, err := st.addPeerRelationsOps(name, peers)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, peerOps...)
+		return ops, nil
 	}
-	// Collect peer relation addition operations.
-	peerOps, err := st.addPeerRelationsOps(name, peers)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, peerOps...)
-
 	// At the last moment before inserting the service, prime status history.
 	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
 
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		if err := checkEnvLife(st); err != nil {
+	if err = st.run(buildTxn); err == nil {
+		// Refresh to pick the txn-revno.
+		if err = svc.Refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		return nil, errors.Errorf("service already exists")
-	} else if err != nil {
+		return svc, nil
+	}
+	if err != jujutxn.ErrExcessiveContention {
+		return nil, err
+	}
+	// Check the reason for failure - may be because of a name conflict.
+	if _, err = st.Service(name); err == nil {
+		return nil, errLocalServiceExists
+	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	// Refresh to pick the txn-revno.
-	if err = svc.Refresh(); err != nil {
-		return nil, errors.Trace(err)
+	if _, err = st.RemoteService(name); err == nil {
+		return nil, errSameNameRemoteServiceExists
+	} else if !errors.IsNotFound(err) {
+		return nil, txn.ErrAborted
 	}
-	return svc, nil
+	return nil, errors.Trace(err)
 }
 
 // AddIPAddress creates and returns a new IP address. It can return an
@@ -1483,14 +1521,6 @@ func (st *State) strictLocalID(ID string) (string, error) {
 	return localID, nil
 }
 
-func serviceEndpointsFunc(st *State, name string) (EndpointsEntity, error) {
-	s, err := st.Service(name)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
 // InferEndpoints returns the endpoints corresponding to the supplied names.
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
@@ -1501,7 +1531,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	var candidates [][]Endpoint
 	switch len(names) {
 	case 1:
-		eps, err := st.endpoints(names[0], serviceEndpointsFunc, isPeer)
+		eps, err := st.endpoints(names[0], isPeer)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1509,11 +1539,11 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 			candidates = append(candidates, []Endpoint{ep})
 		}
 	case 2:
-		eps1, err := st.endpoints(names[0], serviceEndpointsFunc, notPeer)
+		eps1, err := st.endpoints(names[0], notPeer)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		eps2, err := st.endpoints(names[1], serviceEndpointsFunc, notPeer)
+		eps2, err := st.endpoints(names[1], notPeer)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1571,6 +1601,8 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
 	var subordinateCount int
 	for _, ep := range []Endpoint{ep1, ep2} {
 		svc, err := st.Service(ep.ServiceName)
+		// If local service not found, it may be a remote service
+		// and so container scoped relations are not allowed.
 		if err != nil {
 			return false
 		}
@@ -1581,12 +1613,20 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
 	return subordinateCount >= 1
 }
 
-type serviceByNameFunc func(st *State, name string) (EndpointsEntity, error)
+func serviceByName(st *State, name string) (ServiceEntity, error) {
+	s, err := st.Service(name)
+	if err == nil {
+		return s, nil
+	} else if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	return st.RemoteService(name)
+}
 
 // endpoints returns all endpoints that could be intended by the
 // supplied endpoint name, and which cause the filter param to
 // return true.
-func (st *State) endpoints(name string, serviceByName serviceByNameFunc, filter func(ep Endpoint) bool) ([]Endpoint, error) {
+func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
 	var svcName, relName string
 	if i := strings.Index(name, ":"); i == -1 {
 		svcName = name
@@ -1634,6 +1674,24 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	if !eps[0].CanRelateTo(eps[1]) {
 		return nil, errors.Errorf("endpoints do not relate")
 	}
+
+	// Check services are alive and do checks if one is remote.
+	svc1, err := aliveService(st, eps[0].ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	svc2, err := aliveService(st, eps[1].ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	if svc1.IsRemote() && svc2.IsRemote() {
+		return nil, errors.Errorf("cannot add relation between remote services %q and %q", eps[0].ServiceName, eps[1].ServiceName)
+	}
+	remoteRelation := svc1.IsRemote() || svc2.IsRemote()
+	if remoteRelation && (eps[0].Scope != charm.ScopeGlobal || eps[1].Scope != charm.ScopeGlobal) {
+		return nil, errors.Errorf("both endpoints must be globally scoped for remote relations")
+	}
+
 	// If either endpoint has container scope, so must the other; and the
 	// services's series must also match, because they'll be deployed to
 	// the same machines.
@@ -1664,31 +1722,40 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
-			svc, err := st.Service(ep.ServiceName)
-			if errors.IsNotFound(err) {
-				return nil, errors.Errorf("service %q does not exist", ep.ServiceName)
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			} else if svc.doc.Life != Alive {
-				return nil, errors.Errorf("service %q is not alive", ep.ServiceName)
-			}
-			if svc.doc.Subordinate {
-				subordinateCount++
-			}
-			series[svc.doc.Series] = true
-			ch, _, err := svc.Charm()
+			svc, err := aliveService(st, ep.ServiceName)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, err
 			}
-			if !ep.ImplementedBy(ch) {
-				return nil, errors.Errorf("%q does not implement %q", ep.ServiceName, ep)
+			if svc.IsRemote() {
+				ops = append(ops, txn.Op{
+					C:      remoteServicesC,
+					Id:     st.docID(ep.ServiceName),
+					Assert: bson.D{{"life", Alive}},
+					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
+				})
+			} else {
+				localSvc := svc.(*Service)
+				if localSvc.doc.Subordinate {
+					if remoteRelation {
+						return nil, errors.Errorf("cannot relate subordinate %q to remote service", localSvc.Name())
+					}
+					subordinateCount++
+				}
+				series[localSvc.doc.Series] = true
+				ch, _, err := localSvc.Charm()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if !ep.ImplementedBy(ch) {
+					return nil, errors.Errorf("%q does not implement %q", ep.ServiceName, ep)
+				}
+				ops = append(ops, txn.Op{
+					C:      servicesC,
+					Id:     st.docID(ep.ServiceName),
+					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
+					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
+				})
 			}
-			ops = append(ops, txn.Op{
-				C:      servicesC,
-				Id:     st.docID(ep.ServiceName),
-				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
-				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
-			})
 		}
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate services' series must match")
@@ -1726,6 +1793,19 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+func aliveService(st *State, name string) (ServiceEntity, error) {
+	svc1, err := serviceByName(st, name)
+	// Increment relation count for local service.
+	if errors.IsNotFound(err) {
+		return nil, errors.Errorf("service %q does not exist", name)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if svc1.Life() != Alive {
+		return nil, errors.Errorf("service %q is not alive", name)
+	}
+	return svc1, err
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.

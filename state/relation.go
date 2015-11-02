@@ -182,7 +182,11 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 		if ep.ServiceName == ignoreService {
 			continue
 		}
-		if ep.IsRemote {
+		svc, err := serviceByName(r.st, ep.ServiceName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if svc.IsRemote() {
 			epOps, err := r.removeRemoteEndpointOps(ep, departingUnit != nil)
 			if err != nil {
 				return nil, errors.Trace(err)
