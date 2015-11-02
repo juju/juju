@@ -43,14 +43,14 @@ func (s *certSuite) genCertAndKey() ([]byte, []byte, error) {
 	return s.certPEM, s.keyPEM, nil
 }
 
-func (s *certSuite) TestNewCertificate(c *gc.C) {
-	cert := lxdclient.NewCertificate(s.certPEM, s.keyPEM)
+func (s *certSuite) TestNewCert(c *gc.C) {
+	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
 
 	checkCert(c, cert, s.certPEM, s.keyPEM)
 }
 
-func (s *certSuite) TestGenerateCertificate(c *gc.C) {
-	cert, err := lxdclient.GenerateCertificate(s.genCertAndKey)
+func (s *certSuite) TestGenerateCert(c *gc.C) {
+	cert, err := lxdclient.GenerateCert(s.genCertAndKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkCert(c, cert, s.certPEM, s.keyPEM)
@@ -58,28 +58,28 @@ func (s *certSuite) TestGenerateCertificate(c *gc.C) {
 }
 
 func (s *certSuite) TestValidateOkay(c *gc.C) {
-	cert := lxdclient.NewCertificate(s.certPEM, s.keyPEM)
+	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
 	err := cert.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *certSuite) TestValidateMissingCertPEM(c *gc.C) {
-	cert := lxdclient.NewCertificate(nil, s.keyPEM)
+	cert := lxdclient.NewCert(nil, s.keyPEM)
 	err := cert.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *certSuite) TestValidateMissingKeyPEM(c *gc.C) {
-	cert := lxdclient.NewCertificate(s.certPEM, nil)
+	cert := lxdclient.NewCert(s.certPEM, nil)
 	err := cert.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *certSuite) TestWriteCertPEM(c *gc.C) {
-	cert := lxdclient.NewCertificate(s.certPEM, s.keyPEM)
+	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
 	var pemfile bytes.Buffer
 	err := cert.WriteCertPEM(&pemfile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +88,7 @@ func (s *certSuite) TestWriteCertPEM(c *gc.C) {
 }
 
 func (s *certSuite) TestWriteKeyPEM(c *gc.C) {
-	cert := lxdclient.NewCertificate(s.certPEM, s.keyPEM)
+	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
 	var pemfile bytes.Buffer
 	err := cert.WriteKeyPEM(&pemfile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,7 +97,7 @@ func (s *certSuite) TestWriteKeyPEM(c *gc.C) {
 }
 
 func (s *certSuite) TestWritePEMs(c *gc.C) {
-	cert := lxdclient.NewCertificate(s.certPEM, s.keyPEM)
+	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
 	var pemfile bytes.Buffer
 	err := cert.WriteCertPEM(&pemfile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,9 +112,9 @@ type certFunctionalSuite struct {
 	lxdclient.BaseSuite
 }
 
-func (s *certFunctionalSuite) TestGenerateCertificate(c *gc.C) {
+func (s *certFunctionalSuite) TestGenerateCert(c *gc.C) {
 	// This test involves the filesystem.
-	cert, err := lxdclient.GenerateCertificate(lxdclient.GenCertAndKey)
+	cert, err := lxdclient.GenerateCert(lxdclient.GenCertAndKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = tls.X509KeyPair(cert.CertPEM, cert.KeyPEM)
@@ -127,8 +127,8 @@ func (s *certFunctionalSuite) TestGenerateCertificate(c *gc.C) {
 	c.Check(remainder, gc.HasLen, 0)
 }
 
-func checkCert(c *gc.C, cert *lxdclient.Certificate, certPEM, keyPEM []byte) {
-	c.Check(cert, jc.DeepEquals, &lxdclient.Certificate{
+func checkCert(c *gc.C, cert *lxdclient.Cert, certPEM, keyPEM []byte) {
+	c.Check(cert, jc.DeepEquals, &lxdclient.Cert{
 		CertPEM: certPEM,
 		KeyPEM:  keyPEM,
 	})

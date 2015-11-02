@@ -214,7 +214,7 @@ func (cfg Config) writeConfigFile() error {
 	return nil
 }
 
-func (cfg Config) writeCertPEM(cert Certificate) error {
+func (cfg Config) writeCertPEM(cert Cert) error {
 	filename := cfg.resolve(configCertFile)
 	logger.Debugf("writing cert PEM file %q", filename)
 
@@ -230,7 +230,7 @@ func (cfg Config) writeCertPEM(cert Certificate) error {
 	return nil
 }
 
-func (cfg Config) writeKeyPEM(cert Certificate) error {
+func (cfg Config) writeKeyPEM(cert Cert) error {
 	filename := cfg.resolve(configKeyFile)
 	logger.Debugf("writing key PEM file %q", filename)
 

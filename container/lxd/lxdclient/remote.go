@@ -38,7 +38,7 @@ type RemoteInfo struct {
 	Host string
 
 	// Cert holds the TLS certificate data for the client to use.
-	Cert *Certificate
+	Cert *Cert
 }
 
 // SetDefaults updates a copy of the remote with default values
@@ -49,7 +49,7 @@ func (ri RemoteInfo) SetDefaults() (RemoteInfo, error) {
 	}
 
 	if ri.Cert == nil {
-		cert, err := GenerateCertificate(genCertAndKey)
+		cert, err := GenerateCert(genCertAndKey)
 		if err != nil {
 			return ri, errors.Trace(err)
 		}
@@ -134,9 +134,9 @@ func (r Remote) ID() string {
 }
 
 // Cert returns the certificate the client should use.
-func (r Remote) Cert() Certificate {
+func (r Remote) Cert() Cert {
 	if r.RemoteInfo.Cert == nil {
-		return Certificate{}
+		return Cert{}
 	}
 	return *r.RemoteInfo.Cert
 }

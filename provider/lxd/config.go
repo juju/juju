@@ -261,7 +261,7 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())
 		keyPEM := []byte(c.clientKey())
-		remoteInfo.Cert = lxdclient.NewCertificate(certPEM, keyPEM)
+		remoteInfo.Cert = lxdclient.NewCert(certPEM, keyPEM)
 	}
 
 	cfg := lxdclient.Config{
