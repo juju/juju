@@ -19,10 +19,8 @@ import (
 // get handled in container/lxc/clonetemplate.go.
 
 func (client *Client) addInstance(spec InstanceSpec) error {
-	// TODO(ericsnow) Default to spec.ImageRemote.
+	// TODO(ericsnow) Default to spec.ImageRemote (once it gets added).
 	imageRemote := ""
-	//remote := client.remote
-	//remote := spec.ImageRemote
 	if imageRemote == "" {
 		imageRemote = client.remote
 	}
