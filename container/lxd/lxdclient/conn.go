@@ -66,16 +66,11 @@ func newRawClient(remote, configDir string) (*lxd.Client, error) {
 	logger.Debugf("using LXD remote %q", remote)
 	client, err := lxdNewClient(cfg, remote)
 	if err != nil {
-		if IsLocal(remote) {
+		if remote == "" {
 			return nil, errors.Annotate(err, "can't connect to the local LXD server")
 		}
 		return nil, errors.Trace(err)
 	}
 
 	return client, nil
-}
-
-// IsLocal reports whether the given remote represents the local LCD server.
-func IsLocal(remote string) bool {
-	return remote == ""
 }
