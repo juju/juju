@@ -7,7 +7,7 @@ if [[ -z $CONFIG ]]; then
 fi
 
 # Never delete the juju-ci4 control bucket.
-CI_CONTROL_BUCKET=$(juju get-env -e juju-ci4 control-bucket)
+CI_CONTROL_BUCKET=${2:-$(juju get-env -e juju-ci4 control-bucket)}
 # This could be almost 3 hours ago.
 HOURS_AGO=$(($(date +"%Y%m%d%H") - 2))
 
