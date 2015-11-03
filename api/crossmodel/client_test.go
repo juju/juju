@@ -10,6 +10,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/crossmodel"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
@@ -28,6 +29,7 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	user1 := "user1"
 	user2 := "user2"
 
+	msg := "fail"
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -47,12 +49,33 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			c.Assert(offer.Endpoints, jc.SameContents, []string{endPointA, endPointB})
 			c.Assert(offer.URL, gc.DeepEquals, url)
 			c.Assert(offer.Users, jc.SameContents, []string{user1, user2})
+
+			if results, k := result.(*params.CrossModelOfferResults); k {
+				all := make([]params.CrossModelOfferResult, len(args.Offers))
+				for i, one := range args.Offers {
+					all[i].Service = one.Service
+				}
+
+				// add one error to make sure it's catered for.
+				all = append(all, params.CrossModelOfferResult{
+					Service: "failed",
+					Error:   common.ServerError(errors.New(msg)),
+				})
+				results.Results = all
+			}
+
 			return nil
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	err := client.Offer(service, []string{endPointA, endPointB}, url, []string{user1, user2})
+	results, err := client.Offer(service, []string{endPointA, endPointB}, url, []string{user1, user2})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results, jc.DeepEquals,
+		[]params.CrossModelOfferResult{
+			params.CrossModelOfferResult{Service: "shared"},
+			params.CrossModelOfferResult{Service: "failed", Error: common.ServerError(errors.New(msg))},
+		})
 }
 
 func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
@@ -70,6 +93,7 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	err := client.Offer("", nil, "", nil)
+	results, err := client.Offer("", nil, "", nil)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(results, gc.IsNil)
 }

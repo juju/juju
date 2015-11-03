@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/crossmodel"
 )
@@ -127,13 +128,29 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 		userTags[i] = names.NewUserTag(user).String()
 	}
 
-	return c.api.Offer(c.Service, c.Endpoints, c.URL, userTags)
+	results, err := c.api.Offer(c.Service, c.Endpoints, c.URL, userTags)
+	if err != nil {
+		return err
+	}
+
+	// Only display feedback if there were errors
+	var errs params.ErrorResults
+	for _, result := range results {
+		if result.Error != nil {
+			errs.Results = append(errs.Results, params.ErrorResult{result.Error})
+			continue
+		}
+	}
+	if len(errs.Results) > 0 {
+		return errs.Combine()
+	}
+	return nil
 }
 
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(service string, endpoints []string, url string, users []string) error
+	Offer(service string, endpoints []string, url string, users []string) ([]params.CrossModelOfferResult, error)
 }
 
 var getOfferAPI = (*offerCommand).getOfferAPI

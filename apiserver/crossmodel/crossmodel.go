@@ -6,8 +6,12 @@
 package crossmodel
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -18,13 +22,11 @@ func init() {
 // API implements the cross model interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	access     crossmodelAccess
 	authorizer common.Authorizer
 }
 
 // createAPI returns a new cross model API facade.
 func createAPI(
-	st crossmodelAccess,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -33,7 +35,6 @@ func createAPI(
 	}
 
 	return &API{
-		access:     st,
 		authorizer: authorizer,
 	}, nil
 }
@@ -44,15 +45,47 @@ func NewAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	return createAPI(getState(st), resources, authorizer)
+	return createAPI(resources, authorizer)
 }
 
 // Offer makes service endpoints available for consumption.
-func (api *API) Offer(offers params.CrossModelOffers) error {
-	// TODO(anastasiamac 2015-11-02) validate:
-	// service name valid and exists,
-	// endpoints valid and exist,
-	// url conforms to format,
-	// users exist?
-	return api.access.Offer(offers)
+func (api *API) Offer(all params.CrossModelOffers) (params.CrossModelOfferResults, error) {
+	// export service offers
+	offers := make([]params.CrossModelOfferResult, len(all.Offers))
+	for i, one := range all.Offers {
+		offers[i].Service = one.Service
+
+		offer, err := ParseOffer(one)
+		if err != nil {
+			offers[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err := crossmodel.ExportOffer(offer); err != nil {
+			offers[i].Error = common.ServerError(err)
+		}
+	}
+	return params.CrossModelOfferResults{Results: offers}, nil
+}
+
+func ParseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
+	serviceTag, err := names.ParseServiceTag(p.Service)
+	if err != nil {
+		return crossmodel.Offer{}, errors.Annotatef(err, "cannot parse service tag %q", p.Service)
+	}
+
+	users := make([]names.UserTag, len(p.Users))
+	for i, user := range p.Users {
+		users[i], err = names.ParseUserTag(user)
+		if err != nil {
+			return crossmodel.Offer{}, errors.Annotatef(err, "cannot parse user tag %q", user)
+		}
+	}
+
+	return crossmodel.Offer{
+		Service:   serviceTag,
+		Endpoints: p.Endpoints,
+		URL:       p.URL,
+		Users:     users,
+	}, nil
 }

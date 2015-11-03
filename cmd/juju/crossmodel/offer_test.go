@@ -9,6 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/testing"
 )
@@ -56,10 +58,16 @@ func (s *offerSuite) runOffer(c *gc.C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommand(c, crossmodel.NewOfferCommandForTest(s.mockAPI), args...)
 }
 
-func (s *offerSuite) TestOfferErred(c *gc.C) {
+func (s *offerSuite) TestOfferCallErred(c *gc.C) {
 	s.args = []string{"tst:db"}
-	s.mockAPI.abort = true
+	s.mockAPI.errCall = true
 	s.assertOfferErrorOutput(c, ".*aborted.*")
+}
+
+func (s *offerSuite) TestOfferDataErred(c *gc.C) {
+	s.args = []string{"tst:db"}
+	s.mockAPI.errData = true
+	s.assertOfferErrorOutput(c, ".*failed.*")
 }
 
 func (s *offerSuite) TestOfferValid(c *gc.C) {
@@ -106,10 +114,10 @@ func (s *offerSuite) assertOfferOutput(c *gc.C, expectedService string, endpoint
 }
 
 type mockOfferAPI struct {
-	abort  bool
-	offers map[string][]string
-	users  map[string][]string
-	urls   map[string]string
+	errCall, errData bool
+	offers           map[string][]string
+	users            map[string][]string
+	urls             map[string]string
 }
 
 func NewMockOfferAPI() *mockOfferAPI {
@@ -124,12 +132,19 @@ func (s mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s mockOfferAPI) Offer(service string, endpoints []string, url string, users []string) error {
-	if s.abort {
-		return errors.New("aborted")
+func (s mockOfferAPI) Offer(service string, endpoints []string, url string, users []string) ([]params.CrossModelOfferResult, error) {
+	if s.errCall {
+		return nil, errors.New("aborted")
+	}
+	result := []params.CrossModelOfferResult{
+		params.CrossModelOfferResult{Service: service},
+	}
+	if s.errData {
+		result[0].Error = common.ServerError(errors.New("failed"))
+		return result, nil
 	}
 	s.offers[service] = endpoints
 	s.urls[service] = url
 	s.users[service] = users
-	return nil
+	return result, nil
 }
