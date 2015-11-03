@@ -32,6 +32,11 @@ func (s *offerSuite) TestOfferNoArgs(c *gc.C) {
 	s.assertOfferErrorOutput(c, ".*an offer must at least specify service endpoint.*")
 }
 
+func (s *offerSuite) TestOfferInvalidService(c *gc.C) {
+	s.args = []string{"123:"}
+	s.assertOfferErrorOutput(c, `.*service name "123" is not valid.*`)
+}
+
 func (s *offerSuite) TestOfferInvalidEndpoints(c *gc.C) {
 	s.args = []string{"tst/123"}
 	s.assertOfferErrorOutput(c, `.*endpoints must conform to format.*`)
@@ -59,32 +64,37 @@ func (s *offerSuite) TestOfferErred(c *gc.C) {
 
 func (s *offerSuite) TestOfferValid(c *gc.C) {
 	s.args = []string{"tst:db"}
-	s.assertOfferOutput(c, "tst", []string{"db"}, "", nil)
+	s.assertOfferOutput(c, "service-tst", []string{"db"}, "", nil)
 }
 
 func (s *offerSuite) TestOfferWithURL(c *gc.C) {
 	s.args = []string{"tst:db", "valid url"}
-	s.assertOfferOutput(c, "tst", []string{"db"}, "valid url", nil)
+	s.assertOfferOutput(c, "service-tst", []string{"db"}, "valid url", nil)
+}
+
+func (s *offerSuite) TestOfferToInvalidUser(c *gc.C) {
+	s.args = []string{"tst:db", "--to", "b_b"}
+	s.assertOfferErrorOutput(c, `.*user name "b_b" is not valid.*`)
 }
 
 func (s *offerSuite) TestOfferToUser(c *gc.C) {
 	s.args = []string{"tst:db", "--to", "blah"}
-	s.assertOfferOutput(c, "tst", []string{"db"}, "", []string{"blah"})
+	s.assertOfferOutput(c, "service-tst", []string{"db"}, "", []string{"user-blah"})
 }
 
 func (s *offerSuite) TestOfferToUsers(c *gc.C) {
 	s.args = []string{"tst:db", "--to", "blah,fluff"}
-	s.assertOfferOutput(c, "tst", []string{"db"}, "", []string{"blah", "fluff"})
+	s.assertOfferOutput(c, "service-tst", []string{"db"}, "", []string{"user-blah", "user-fluff"})
 }
 
 func (s *offerSuite) TestOfferMultipleEndpoints(c *gc.C) {
 	s.args = []string{"tst:db,admin"}
-	s.assertOfferOutput(c, "tst", []string{"db", "admin"}, "", nil)
+	s.assertOfferOutput(c, "service-tst", []string{"db", "admin"}, "", nil)
 }
 
 func (s *offerSuite) TestOfferAllArgs(c *gc.C) {
 	s.args = []string{"tst:db", "valid url", "--to", "blah"}
-	s.assertOfferOutput(c, "tst", []string{"db"}, "valid url", []string{"blah"})
+	s.assertOfferOutput(c, "service-tst", []string{"db"}, "valid url", []string{"user-blah"})
 }
 
 func (s *offerSuite) assertOfferOutput(c *gc.C, expectedService string, endpoints []string, url string, users []string) {

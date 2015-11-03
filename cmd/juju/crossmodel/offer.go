@@ -9,9 +9,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/crossmodel"
 )
 
 const (
@@ -53,7 +55,7 @@ type offerCommand struct {
 	CrossModelCommandBase
 	api OfferAPI
 
-	// Service stores service name.
+	// Service stores service tag.
 	Service string
 
 	// Endpoints stores a list of endpoints that are being offered.
@@ -90,10 +92,13 @@ func (c *offerCommand) Init(args []string) error {
 	}
 
 	if len(args) == 2 {
-		if err := c.parseOfferedURL(args[1]); err != nil {
-			return err
+		hostedURL := args[1]
+		if !crossmodel.IsValidURL(hostedURL) {
+			return errors.Errorf(`hosted url %q is not valid" `, hostedURL)
 		}
+		c.URL = hostedURL
 	}
+
 	return nil
 }
 
@@ -114,7 +119,15 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 		c.api = api
 	}
 
-	return c.api.Offer(c.Service, c.Endpoints, c.URL, c.Users)
+	userTags := make([]string, len(c.Users))
+	for i, user := range c.Users {
+		if !names.IsValidUser(user) {
+			return errors.Errorf(`user name %q is not valid`, user)
+		}
+		userTags[i] = names.NewUserTag(user).String()
+	}
+
+	return c.api.Offer(c.Service, c.Endpoints, c.URL, userTags)
 }
 
 // OfferAPI defines the API methods that the offer command uses.
@@ -135,18 +148,18 @@ func (c *offerCommand) parseEndpoints(arg string) error {
 	if len(parts) != 2 {
 		return errors.New(`endpoints must conform to format "<service-name>:<endpoint-name>[,...]" `)
 	}
-	c.Service = parts[0]
+
+	serviceName := parts[0]
+	if !names.IsValidService(serviceName) {
+		return errors.Errorf(`service name %q is not valid`, serviceName)
+	}
+	c.Service = names.NewServiceTag(serviceName).String()
+
 	endpoints := strings.SplitN(parts[1], ",", -1)
 	if len(endpoints) < 1 || endpoints[0] == "" {
-		return errors.Errorf(`specify endpoints for %v" `, c.Service)
+		return errors.Errorf(`specify endpoints for %v" `, serviceName)
 	}
 
 	c.Endpoints = endpoints
-	return nil
-}
-
-func (c *offerCommand) parseOfferedURL(arg string) error {
-	// TODO(anastasiamac 2015-11-02) validate url
-	c.URL = arg
 	return nil
 }
