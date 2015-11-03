@@ -24,8 +24,8 @@ A vendor offers a service endpoints for use by consumers.
 Example:
 $ juju offer db2:db 
 $ juju offer db2:db local:db2
-$ juju offer -e prod db2:db,log remote:/u/ibm/hosted-db2
-$ juju offer hosted-db2:db,log remote:/u/ibm/hosted-db2 --to public
+$ juju offer -e prod db2:db,log vendor:/u/ibm/hosted-db2
+$ juju offer hosted-db2:db,log vendor:/u/ibm/hosted-db2 --to public
 `
 	offerCommandAgs = `
 <service-name>:<endpoint-name>[,...] [<endpoint-url>] [--to <user-ident>,...]
@@ -38,12 +38,12 @@ endpoint-url    For local endpoints:
                     
                 endpoint “db” available at local:/u/user-name/env-name/hosted-db2
                     
-                For remote endpoints:
-                remote:/u/<username>/<servicename>
+                For vendor endpoints:
+                vendor:/u/<username>/<servicename>
                     
-                    $ juju offer db2:db remote:/u/ibm/hosted-db2
+                    $ juju offer db2:db vendor:/u/ibm/hosted-db2
 
-                endpoint “db” available at remote:/u/ibm/hosted-db2     
+                endpoint “db” available at vendor:/u/ibm/hosted-db2     
 `
 )
 
