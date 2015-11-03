@@ -46,23 +46,23 @@ var (
 	numaCtlPkg = "numactl"
 )
 
-// Storage represents the storage used by mongo.
-type Storage string
+// StorageEngine represents the storage used by mongo.
+type StorageEngine string
 
 const (
 	// MMAPIV2 is the default storage engine in mongo db up to 3.x
-	MMAPIV2 Storage = "mmapiv2"
+	MMAPIV2 StorageEngine = "mmapiv2"
 	// WiredTiger is a storage type introduced in 3
-	WiredTiger Storage = "wiredTiger"
+	WiredTiger StorageEngine = "wiredTiger"
 )
 
 // Version represents the major.minor version of the runnig mongo.
 // TODO (perrito666) Grow a storageConf
 type Version struct {
-	Major   int
-	Minor   int
-	Patch   string // supports variants like 1-alpha
-	Storage Storage
+	Major         int
+	Minor         int
+	Patch         string // supports variants like 1-alpha
+	StorageEngine StorageEngine
 }
 
 // NewVersion returns a mongo Version parsing the passed version string
@@ -75,11 +75,11 @@ func NewVersion(v string) (Version, error) {
 		return Version{}, errors.New("invalid version string")
 	}
 	if len(parts) == 2 {
-		switch Storage(parts[1]) {
+		switch StorageEngine(parts[1]) {
 		case MMAPIV2:
-			version.Storage = MMAPIV2
+			version.StorageEngine = MMAPIV2
 		case WiredTiger:
-			version.Storage = WiredTiger
+			version.StorageEngine = WiredTiger
 		}
 	}
 	vParts := strings.SplitN(parts[0], ".", 3)
@@ -110,8 +110,8 @@ func (v Version) String() string {
 	if v.Patch != "" {
 		s = fmt.Sprintf("%s.%s", s, v.Patch)
 	}
-	if v.Storage != "" {
-		s = fmt.Sprintf("%s/%s", s, v.Storage)
+	if v.StorageEngine != "" {
+		s = fmt.Sprintf("%s/%s", s, v.StorageEngine)
 	}
 	return s
 }
@@ -119,27 +119,27 @@ func (v Version) String() string {
 var (
 	// Mongo24 represents juju-mongodb 2.4.x
 	Mongo24 = Version{Major: 2,
-		Minor:   4,
-		Patch:   "",
-		Storage: MMAPIV2,
+		Minor:         4,
+		Patch:         "",
+		StorageEngine: MMAPIV2,
 	}
 	// Mongo26 represents juju-mongodb26 2.6.x
 	Mongo26 = Version{Major: 2,
-		Minor:   6,
-		Patch:   "",
-		Storage: MMAPIV2,
+		Minor:         6,
+		Patch:         "",
+		StorageEngine: MMAPIV2,
 	}
 	// Mongo30 represents juju-mongodb3 3.x.x
 	Mongo30 = Version{Major: 3,
-		Minor:   0,
-		Patch:   "",
-		Storage: MMAPIV2,
+		Minor:         0,
+		Patch:         "",
+		StorageEngine: MMAPIV2,
 	}
 	// Mongo30wt represents juju-mongodb3 3.x.x with wiredTiger storage.
 	Mongo30wt = Version{Major: 3,
-		Minor:   0,
-		Patch:   "",
-		Storage: WiredTiger,
+		Minor:         0,
+		Patch:         "",
+		StorageEngine: WiredTiger,
 	}
 )
 
@@ -231,7 +231,6 @@ func GenerateSharedSecret() (string, error) {
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
 func Path(version Version) (string, error) {
-	logger.Infof("*************************%v", version)
 	if version == Mongo24 {
 		if _, err := os.Stat(JujuMongodPath); err == nil {
 			return JujuMongodPath, nil

@@ -180,18 +180,16 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
 	}
-	pInformation, err := getPrimaryInformation(c.api.state())
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot determine mongo information")
 	}
 	return params.FullStatus{
-		EnvironmentName:      cfg.Name(),
-		AvailableVersion:     newToolsVersion,
-		PrimaryMachineStatus: pInformation,
-		Machines:             processMachines(context.machines),
-		Services:             context.processServices(),
-		Networks:             context.processNetworks(),
-		Relations:            context.processRelations(),
+		EnvironmentName:  cfg.Name(),
+		AvailableVersion: newToolsVersion,
+		Machines:         processMachines(context.machines),
+		Services:         context.processServices(),
+		Networks:         context.processNetworks(),
+		Relations:        context.processRelations(),
 	}, nil
 }
 
@@ -897,21 +895,4 @@ func processLife(entity lifer) string {
 		return life.String()
 	}
 	return ""
-}
-
-func getPrimaryInformation(st *state.State) (params.PrimaryMachineStatus, error) {
-	ssi, err := st.StateServerInfo()
-	if err != nil {
-		return params.PrimaryMachineStatus{}, errors.Annotate(err, "cannot get the the state serving info")
-	}
-	status := params.PrimaryMachineStatus{}
-
-	status.Nodes = len(ssi.MachineIds)
-	status.PartOfHA = status.Nodes > 1
-
-	status.MongoVersion, err = st.MongoVersion()
-	if err != nil {
-		return params.PrimaryMachineStatus{}, errors.Annotate(err, "cannot obtain mongo version")
-	}
-	return status, nil
 }

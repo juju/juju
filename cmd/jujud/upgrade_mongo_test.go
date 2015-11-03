@@ -68,8 +68,8 @@ func (f *fakeRunCommand) stat(statFile string) (os.FileInfo, error) {
 	return fakeFileInfo{}, nil
 }
 
-func (f *fakeRunCommand) rename(from, to string) error {
-	f.ranCommands = append(f.ranCommands, []string{from, to})
+func (f *fakeRunCommand) remove(toremove string) error {
+	f.ranCommands = append(f.ranCommands, []string{toremove})
 	return nil
 }
 
@@ -90,70 +90,70 @@ func (s *UpgradeMongoSuite) TestMongo26UpgradeStep(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot upgrade mongo 2.4 data: a generic error")
 }
 
-func (s *UpgradeMongoSuite) TestRenameOldDb(c *gc.C) {
+func (s *UpgradeMongoSuite) TestRemoveOldDb(c *gc.C) {
 	command := fakeRunCommand{}
-	err := renameOldDbCall("/a/fake/datadir", command.stat, command.rename, command.mkdir)
+	err := removeOldDbCall("/a/fake/datadir", command.stat, command.remove, command.mkdir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 3)
 	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/a/fake/datadir/db"})
-	c.Assert(command.ranCommands[1], gc.DeepEquals, []string{"/a/fake/datadir/db", "/a/fake/datadir/db.old"})
+	c.Assert(command.ranCommands[1], gc.DeepEquals, []string{"/a/fake/datadir/db"})
 	c.Assert(command.ranCommands[2], gc.DeepEquals, []string{"/a/fake/datadir/db"})
 }
 
 func (s *UpgradeMongoSuite) TestMongoDump(c *gc.C) {
 	command := fakeRunCommand{}
-	out, err := mongoDumpCall(command.runCommand, "/fake/mongo/path", "adminpass", "aMigrationName", 1234)
+	out, err := mongoDumpCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", 1234)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, gc.Equals, "")
 	c.Assert(command.ranCommands, gc.HasLen, 1)
-	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongodump", "--ssl", "-u", "admin", "-p", "adminpass", "--port", "1234", "--host", "localhost", "--out", "/home/ubuntu/migrateToaMigrationNamedump"})
+	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongodump", "--ssl", "-u", "admin", "-p", "adminpass", "--port", "1234", "--host", "localhost", "--out", "/fake/tmp/dir/migrateToaMigrationNamedump"})
 }
 
 func (s *UpgradeMongoSuite) TestMongoDumpRetries(c *gc.C) {
 	command := fakeRunCommand{}
-	out, err := mongoDumpCall(command.runCommandFail, "/fake/mongo/path", "", "aMigrationName", 1234)
+	out, err := mongoDumpCall(command.runCommandFail, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", 1234)
 	c.Assert(err, gc.ErrorMatches, "cannot dump mongo db: a generic error")
 	c.Assert(out, gc.Equals, "this failed")
 	c.Assert(command.ranCommands, gc.HasLen, 60)
 	for i := range command.ranCommands {
 		c.Log("Checking attempt %d", i)
-		c.Assert(command.ranCommands[i], gc.DeepEquals, []string{"/fake/mongo/path/mongodump", "--ssl", "-u", "admin", "-p", "", "--port", "1234", "--host", "localhost", "--out", "/home/ubuntu/migrateToaMigrationNamedump"})
+		c.Assert(command.ranCommands[i], gc.DeepEquals, []string{"/fake/mongo/path/mongodump", "--ssl", "-u", "admin", "-p", "", "--port", "1234", "--host", "localhost", "--out", "/fake/tmp/dir/migrateToaMigrationNamedump"})
 	}
 }
 
 func (s *UpgradeMongoSuite) TestMongoRestore(c *gc.C) {
 	command := fakeRunCommand{}
-	err := mongoRestoreCall(command.runCommand, "/fake/mongo/path", "adminpass", "aMigrationName", []string{}, 1234)
+	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", []string{}, 1234)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 1)
-	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "-u", "admin", "-p", "adminpass", "/home/ubuntu/migrateToaMigrationNamedump"})
+	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "-u", "admin", "-p", "adminpass", "/fake/tmp/dir/migrateToaMigrationNamedump"})
 }
 
 func (s *UpgradeMongoSuite) TestMongoRestoreWithoutAdmin(c *gc.C) {
 	command := fakeRunCommand{}
-	err := mongoRestoreCall(command.runCommand, "/fake/mongo/path", "", "aMigrationName", []string{}, 1234)
+	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", []string{}, 1234)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 1)
-	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "/home/ubuntu/migrateToaMigrationNamedump"})
+	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "/fake/tmp/dir/migrateToaMigrationNamedump"})
 }
 
 func (s *UpgradeMongoSuite) TestMongoRestoreWithDBs(c *gc.C) {
 	command := fakeRunCommand{}
-	err := mongoRestoreCall(command.runCommand, "/fake/mongo/path", "adminpass", "aMigrationName", []string{"onedb", "twodb"}, 1234)
+	err := mongoRestoreCall(command.runCommand, "/fake/tmp/dir", "/fake/mongo/path", "adminpass", "aMigrationName", []string{"onedb", "twodb"}, 1234)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ranCommands, gc.HasLen, 2)
-	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "-u", "admin", "-p", "adminpass", "--db=onedb", "/home/ubuntu/migrateToaMigrationNamedump/onedb"})
-	c.Assert(command.ranCommands[1], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "-u", "admin", "-p", "adminpass", "--db=twodb", "/home/ubuntu/migrateToaMigrationNamedump/twodb"})
+	c.Assert(command.ranCommands[0], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "-u", "admin", "-p", "adminpass", "--db=onedb", "/fake/tmp/dir/migrateToaMigrationNamedump/onedb"})
+	c.Assert(command.ranCommands[1], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "-u", "admin", "-p", "adminpass", "--db=twodb", "/fake/tmp/dir/migrateToaMigrationNamedump/twodb"})
 }
 
 func (s *UpgradeMongoSuite) TestMongoRestoreRetries(c *gc.C) {
 	command := fakeRunCommand{}
-	err := mongoRestoreCall(command.runCommandFail, "/fake/mongo/path", "", "aMigrationName", []string{}, 1234)
+	err := mongoRestoreCall(command.runCommandFail, "/fake/tmp/dir", "/fake/mongo/path", "", "aMigrationName", []string{}, 1234)
 	c.Assert(err, gc.ErrorMatches, "cannot restore dbs got: this failed: a generic error")
 	c.Assert(command.ranCommands, gc.HasLen, 60)
 	for i := range command.ranCommands {
 		c.Log("Checking attempt %d", i)
-		c.Assert(command.ranCommands[i], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "/home/ubuntu/migrateToaMigrationNamedump"})
+		c.Assert(command.ranCommands[i], gc.DeepEquals, []string{"/fake/mongo/path/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "1234", "--host", "localhost", "/fake/tmp/dir/migrateToaMigrationNamedump"})
 	}
 }
 
@@ -186,6 +186,11 @@ func (f *fakeRunCommand) satisfyPrerequisites(string) error {
 	return nil
 }
 
+func (f *fakeRunCommand) createTempDir() (string, error) {
+	f.ranCommands = append(f.ranCommands, []string{"CreateTempDir"})
+	return "/fake/temp/dir", nil
+}
+
 func (f *fakeRunCommand) startService(string) error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.StartService"})
 	return nil
@@ -197,6 +202,10 @@ func (f *fakeRunCommand) stopService(string) error {
 func (f *fakeRunCommand) reStartService(string) error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.ReStartService"})
 	return nil
+}
+func (f *fakeRunCommand) reStartServiceFail(string) error {
+	f.ranCommands = append(f.ranCommands, []string{"mongo.ReStartServiceFail"})
+	return errors.New("failing restart")
 }
 func (f *fakeRunCommand) ensureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version mongo.Version, auth bool) error {
 	ran := []string{"mongo.EnsureServiceInstalled",
@@ -228,7 +237,7 @@ func (s *UpgradeMongoCommandSuite) createFakeAgentConf(c *gc.C, agentDir string)
 			DataDir: agentDir,
 		},
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: version.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
@@ -269,13 +278,15 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		series:         "vivid",
 		namespace:      "",
 		configFilePath: testAgentConfig,
+		tmpDir:         "/fake/temp/dir",
 
 		stat:                 command.stat,
-		rename:               command.rename,
+		remove:               command.remove,
 		mkdir:                command.mkdir,
 		runCommand:           command.runCommand,
 		dialAndLogin:         command.dialAndLogin,
 		satisfyPrerequisites: command.satisfyPrerequisites,
+		createTempDir:        command.createTempDir,
 
 		mongoStart:                  command.startService,
 		mongoStop:                   command.stopService,
@@ -288,32 +299,95 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 	err := upgradeMongoCommand.run()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCommands := [][]string{
+		[]string{"CreateTempDir"},
 		[]string{"SatisfyPrerequisites"},
-		[]string{"/usr/lib/juju/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/home/ubuntu/migrateTo26dump"},
+		[]string{"/usr/lib/juju/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo26dump"},
 		[]string{"mongo.StopService"},
 		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
 		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/0", "", "69", "0", "false", "2.6/mmapiv2", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartService"},
-		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/home/ubuntu/migrateTo30dump"},
+		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
 		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/0", "", "69", "0", "false", "3.0/mmapiv2", "true"},
 		[]string{"mongo.StartService"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/home/ubuntu/migrateToTigerdump"},
+		[]string{"/usr/lib/juju/mongo3/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.StopService"},
 		[]string{"/tmp/check-5577006791947779410/0/db"},
-		[]string{"/tmp/check-5577006791947779410/0/db", "/tmp/check-5577006791947779410/0/db.old"},
+		[]string{"/tmp/check-5577006791947779410/0/db"},
 		[]string{"/tmp/check-5577006791947779410/0/db"},
 		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/0", "", "69", "0", "false", "3.0/wiredTiger", "false"},
 		[]string{"mongo.DialInfo"},
 		[]string{"mongo.StartService"},
 		[]string{"peergrouper.InitiateMongoServer"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=juju", "/home/ubuntu/migrateToTigerdump/juju"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=admin", "/home/ubuntu/migrateToTigerdump/admin"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=logs", "/home/ubuntu/migrateToTigerdump/logs"},
-		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=presence", "/home/ubuntu/migrateToTigerdump/presence"},
-		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/0", "", "69", "0", "false", "3.0/wiredTiger", "true"},
-		[]string{"mongo.ReStartService"}}
+		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=juju", "/fake/temp/dir/migrateToTigerdump/juju"},
+		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=admin", "/fake/temp/dir/migrateToTigerdump/admin"},
+		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=logs", "/fake/temp/dir/migrateToTigerdump/logs"},
+		[]string{"/usr/lib/juju/mongo3/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "--db=presence", "/fake/temp/dir/migrateToTigerdump/presence"},
+		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/0", "", "69", "0", "false", "3.0/wiredTiger", "true"}, []string{"mongo.ReStartService"}}
+	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
+}
+
+func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
+	session := fakeMgoSesion{}
+	db := fakeMgoDb{}
+	command := fakeRunCommand{
+		mgoSession: &session,
+		mgoDb:      &db,
+	}
+
+	testDir := c.MkDir()
+	testAgentConfig := agent.ConfigPath(testDir, names.NewMachineTag("0"))
+	s.createFakeAgentConf(c, testDir)
+
+	upgradeMongoCommand := &UpgradeMongoCommand{
+		machineTag:     "0",
+		series:         "vivid",
+		namespace:      "",
+		configFilePath: testAgentConfig,
+		tmpDir:         "/fake/temp/dir",
+
+		stat:                 command.stat,
+		remove:               command.remove,
+		mkdir:                command.mkdir,
+		runCommand:           command.runCommand,
+		dialAndLogin:         command.dialAndLogin,
+		satisfyPrerequisites: command.satisfyPrerequisites,
+		createTempDir:        command.createTempDir,
+
+		mongoStart:                  command.startService,
+		mongoStop:                   command.stopService,
+		mongoRestart:                command.reStartServiceFail,
+		mongoEnsureServiceInstalled: command.ensureServiceInstalled,
+		mongoDialInfo:               command.mongoDialInfo,
+		initiateMongoServer:         command.initiateMongoServer,
+	}
+
+	err := upgradeMongoCommand.run()
+	c.Assert(err, gc.ErrorMatches, "cannot upgrade from mongo 2.4 to 2.6: cannot restart mongodb 2.6 service: failing restart")
+	expectedCommands := [][]string{
+		[]string{"CreateTempDir"},
+		[]string{"SatisfyPrerequisites"},
+		[]string{"/usr/lib/juju/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo26dump"},
+		[]string{"mongo.StopService"},
+		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
+		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/1", "", "69", "0", "false", "2.6/mmapiv2", "true"},
+		[]string{"mongo.StartService"},
+		[]string{"DialAndlogin"},
+		[]string{"mongo.ReStartServiceFail"},
+		[]string{"/fake/temp/dir/migrateTo26dump"}, // Stat backup to see if present to start rollback.
+		[]string{"mongo.StopService"},
+		[]string{"/tmp/check-5577006791947779410/1/db"},
+		[]string{"/tmp/check-5577006791947779410/1/db"},
+		[]string{"/tmp/check-5577006791947779410/1/db"},
+		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/1", "", "69", "0", "false", "2.4/mmapiv2", "false"},
+		[]string{"mongo.StartService"},
+		[]string{"mongo.DialInfo"},
+		[]string{"peergrouper.InitiateMongoServer"},
+		[]string{"/usr/lib/juju/bin/mongorestore", "--ssl", "--sslAllowInvalidCertificates", "--port", "69", "--host", "localhost", "/fake/temp/dir/migrateTo24dump"},
+		[]string{"mongo.EnsureServiceInstalled", "/tmp/check-5577006791947779410/1", "", "69", "0", "false", "2.4/mmapiv2", "true"},
+		[]string{"mongo.ReStartServiceFail"}}
+
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
 }

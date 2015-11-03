@@ -18,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v2"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -344,10 +342,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 			cons +
 			metadataDir +
 			loggingOption
-		w.conf.AddScripts(
-			fmt.Sprintf("export %s=%s", osenv.JujuFeatureFlagEnvKey, featureflag.String()),
-			bootstrapCommand,
-		)
+		w.conf.AddScripts(bootstrapCommand)
 	}
 
 	return w.addMachineAgentToBoot()

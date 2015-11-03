@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -25,15 +26,21 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-// NewUpgradeMongoCommand returns a new UpogradeMongo command initialized
+func createTempDir() (string, error) {
+	return ioutil.TempDir("", "")
+}
+
+// NewUpgradeMongoCommand returns a new UpgradeMongo command initialized with
+// the default helper functions.
 func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 	return &UpgradeMongoCommand{
 		stat:                 os.Stat,
-		rename:               os.Rename,
+		remove:               os.RemoveAll,
 		mkdir:                os.Mkdir,
 		runCommand:           utils.RunCommand,
 		dialAndLogin:         dialAndLogin,
 		satisfyPrerequisites: satisfyPrerequisites,
+		createTempDir:        createTempDir,
 
 		mongoStart:                  mongo.StartService,
 		mongoStop:                   mongo.StopService,
@@ -45,8 +52,9 @@ func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 }
 
 type statFunc func(string) (os.FileInfo, error)
-type renameFunc func(string, string) error
+type removeFunc func(string) error
 type mkdirFunc func(string, os.FileMode) error
+type createTempDirFunc func() (string, error)
 
 type utilsRun func(command string, args ...string) (output string, err error)
 
@@ -76,14 +84,16 @@ type UpgradeMongoCommand struct {
 	namespace      string
 	configFilePath string
 	agentConfig    agent.ConfigSetterWriter
+	tmpDir         string
 
 	// utils used by this struct.
 	stat                 statFunc
-	rename               renameFunc
+	remove               removeFunc
 	mkdir                mkdirFunc
 	runCommand           utilsRun
 	dialAndLogin         dialAndLogger
 	satisfyPrerequisites requisitesSatisfier
+	createTempDir        createTempDirFunc
 
 	// mongo related utils.
 	mongoStart                  mongoService
@@ -122,6 +132,11 @@ func (u *UpgradeMongoCommand) Run(ctx *cmd.Context) error {
 }
 
 func (u *UpgradeMongoCommand) run() error {
+	var err error
+	u.tmpDir, err = u.createTempDir()
+	if err != nil {
+		return errors.Annotate(err, "could not create a temporary directory for the migration")
+	}
 	logger.Infof("begin migration to mongo 3")
 	dataDir, err := paths.DataDir(u.series)
 	if err != nil {
@@ -143,21 +158,82 @@ func (u *UpgradeMongoCommand) run() error {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
 	}
 	if err := u.maybeUpgrade24to26(dataDir); err != nil {
-		//TODO (perrito666) add rollback here
+		defer u.cleanup()
 		return errors.Annotate(err, "cannot upgrade from mongo 2.4 to 2.6")
 	}
-	//TODO AGENT CONFIG IS NOT WRITEN
+
 	if err := u.maybeUpgrade26to31(dataDir); err != nil {
-		//TODO (perrito666) add rollback here
+		defer u.cleanup()
 		return errors.Annotate(err, "cannot upgrade from mongo 2.6 to 3")
+	}
+	return nil
+}
+
+func (u *UpgradeMongoCommand) cleanup() error {
+	namespace := u.agentConfig.Value(agent.Namespace)
+
+	_, err := u.stat(path.Join(u.tmpDir, "migrateTo26dump"))
+	if err != nil {
+		return errors.Annotatef(err, "cannot stat backup dump, will not rollback")
+	}
+
+	if err := u.mongoStop(namespace); err != nil {
+		logger.Errorf("cannot stop the state server: %v", err)
+	}
+	if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
+		logger.Errorf("cannot restore the initial state server: %v", err)
+	}
+
+	u.agentConfig.SetMongoVersion(mongo.Mongo24)
+	if err := u.agentConfig.Write(); err != nil {
+		return errors.Annotate(err, "could not update mongo version in agent.config to rollback")
+	}
+
+	if err := u.UpdateService(namespace, false); err != nil {
+		return errors.Annotate(err, "cannot update mongo service to rollback")
+	}
+
+	if err := u.mongoStart(namespace); err != nil {
+		return errors.Annotate(err, "cannot start mongo 2.4 to rollback")
+	}
+
+	info, ok := u.agentConfig.MongoInfo()
+	if !ok {
+		return errors.New("cannot get mongo info from agent config")
+	}
+	dialOpts := mongo.DialOpts{}
+	dialInfo, err := u.mongoDialInfo(info.Info, dialOpts)
+	if err != nil {
+		return errors.Annotate(err, "cannot obtain dial info")
+	}
+
+	ssi, _ := u.agentConfig.StateServingInfo()
+	peerHostPort := net.JoinHostPort("localhost", fmt.Sprint(ssi.StatePort))
+	err = u.initiateMongoServer(peergrouper.InitiateMongoParams{
+		DialInfo:       dialInfo,
+		MemberHostPort: peerHostPort,
+	}, true)
+	if err != nil {
+		return errors.Annotate(err, "cannot initiate replicaset to rollback")
+	}
+	jujuMongoPath := path.Dir(mongo.JujuMongodPath)
+	err = u.mongoRestore(jujuMongoPath, "", "24", nil, ssi.StatePort)
+	if err != nil {
+		return errors.Annotate(err, "cannot restore the old db")
+	}
+
+	if err := u.UpdateService(namespace, true); err != nil {
+		return errors.Annotate(err, "cannot update service script post wired tiger migration")
+	}
+
+	if err := u.mongoRestart(namespace); err != nil {
+		return errors.Annotate(err, "cannot restart mongo service after upgrade")
 	}
 	return nil
 }
 
 // UpdateService will re-write the service scripts for mongo and restart it.
 func (u *UpgradeMongoCommand) UpdateService(namespace string, auth bool) error {
-	// TODO(perrito666) This ignores NumaControlPolicy
-	// and also oplog size
 	var oplogSize int
 	if oplogSizeString := u.agentConfig.Value(agent.MongoOplogSize); oplogSizeString != "" {
 		var err error
@@ -193,21 +269,17 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 	port := ssi.StatePort
 
 	logger.Infof("backing up 2.4 MongoDB")
-	// TODO(perrito666) dont ignore out if debug-log was used.
 	_, err := u.mongoDump(jujuMongoPath, password, "26", port)
 	if err != nil {
 		return errors.Annotate(err, "could not do pre migration backup")
 	}
 
-	//TODO(perrito666) figure namespace.
-	//By this point we assume that juju is no longer writing
-	// nor reading from the state server.
 	logger.Infof("stopping 2.4 MongoDB")
 	if err := u.mongoStop(namespace); err != nil {
 		return errors.Annotate(err, "cannot stop mongo to perform 2.6 upgrade step")
 	}
 
-	// Run the optional --upgrade step on mongodb 2.6.
+	// Run the not-so-optional --upgrade step on mongodb 2.6.
 	if err := u.mongo26UpgradeStep(dataDir); err != nil {
 		return errors.Annotate(err, "cannot run mongo 2.6 with --upgrade")
 	}
@@ -251,8 +323,6 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 	if err := u.mongoRestart(namespace); err != nil {
 		return errors.Annotate(err, "cannot restart mongodb 2.6 service")
 	}
-	// TODO(perrito666), if anything failed, mongo version should be rolled back
-	// and dump re-loaded into the old db path.
 	return nil
 }
 
@@ -299,7 +369,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 	if err := u.mongoStop(namespace); err != nil {
 		return errors.Annotate(err, "cannot stop mongo to update to wired tiger")
 	}
-	if err := u.renameOldDb(u.agentConfig.DataDir()); err != nil {
+	if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
 		return errors.Annotate(err, "cannot prepare the new db location for wired tiger")
 	}
 
@@ -332,8 +402,6 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 	// perhaps statehost port?
 	// we need localhost, since there is no admin user
 	peerHostPort := net.JoinHostPort("localhost", fmt.Sprint(ssi.StatePort))
-	// TODO(perrito666) this should be using noauth so we can so stuff
-	// or not, perhaps the no admin localhost only thing works
 	err = u.initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
@@ -410,15 +478,16 @@ func (u *UpgradeMongoCommand) mongo26UpgradeStep(dataDir string) error {
 	return mongo26UpgradeStepCall(u.runCommand, dataDir)
 }
 
-func renameOldDbCall(dataDir string, stat statFunc, rename renameFunc, mkdir mkdirFunc) error {
+func removeOldDbCall(dataDir string, stat statFunc, remove removeFunc, mkdir mkdirFunc) error {
 	dbPath := path.Join(dataDir, "db")
-	bkpDbPath := path.Join(dataDir, "db.old")
+
 	fi, err := stat(dbPath)
 	if err != nil {
 		return errors.Annotatef(err, "cannot stat %q", dbPath)
 	}
-	if err := rename(dbPath, bkpDbPath); err != nil {
-		return errors.Annotatef(err, "cannot mv %q to %q", dbPath, bkpDbPath)
+
+	if err := remove(dbPath); err != nil {
+		return errors.Annotatef(err, "cannot recursively remove %q", dbPath)
 	}
 	if err := mkdir(dbPath, fi.Mode()); err != nil {
 		return errors.Annotatef(err, "cannot re-create %q", dbPath)
@@ -426,8 +495,8 @@ func renameOldDbCall(dataDir string, stat statFunc, rename renameFunc, mkdir mkd
 	return nil
 }
 
-func (u *UpgradeMongoCommand) renameOldDb(dataDir string) error {
-	return renameOldDbCall(dataDir, u.stat, u.rename, u.mkdir)
+func (u *UpgradeMongoCommand) removeOldDb(dataDir string) error {
+	return removeOldDbCall(dataDir, u.stat, u.remove, u.mkdir)
 }
 
 func satisfyPrerequisites(operatingsystem string) error {
@@ -444,6 +513,7 @@ func satisfyPrerequisites(operatingsystem string) error {
 	if err := pacman.InstallPrerequisite(); err != nil {
 		return err
 	}
+	// TODO Remove the PPAs
 	if err := pacman.AddRepository("ppa:hduran-8/juju-mongodb2.6"); err != nil {
 		return errors.Annotate(err, "cannot add ppa for mongo 2.6")
 	}
@@ -463,7 +533,7 @@ func satisfyPrerequisites(operatingsystem string) error {
 	return nil
 }
 
-func mongoDumpCall(runCommand utilsRun, mongoPath, adminPassword, migrationName string, statePort int) (string, error) {
+func mongoDumpCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string, statePort int) (string, error) {
 	mongodump := path.Join(mongoPath, "mongodump")
 	dumpParams := []string{
 		"--ssl",
@@ -471,7 +541,7 @@ func mongoDumpCall(runCommand utilsRun, mongoPath, adminPassword, migrationName 
 		"-p", adminPassword,
 		"--port", strconv.Itoa(statePort),
 		"--host", "localhost",
-		"--out", fmt.Sprintf("/home/ubuntu/migrateTo%sdump", migrationName),
+		"--out", path.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)),
 	}
 	var out string
 	var err error
@@ -490,10 +560,10 @@ func mongoDumpCall(runCommand utilsRun, mongoPath, adminPassword, migrationName 
 }
 
 func (u *UpgradeMongoCommand) mongoDump(mongoPath, adminPassword, migrationName string, statePort int) (string, error) {
-	return mongoDumpCall(u.runCommand, mongoPath, adminPassword, migrationName, statePort)
+	return mongoDumpCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, statePort)
 }
 
-func mongoRestoreCall(runCommand utilsRun, mongoPath, adminPassword, migrationName string, dbs []string, statePort int) error {
+func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string, dbs []string, statePort int) error {
 	mongorestore := path.Join(mongoPath, "mongorestore")
 	restoreParams := []string{
 		"--ssl",
@@ -507,7 +577,7 @@ func mongoRestoreCall(runCommand utilsRun, mongoPath, adminPassword, migrationNa
 	var out string
 	var err error
 	if len(dbs) == 0 {
-		restoreParams = append(restoreParams, fmt.Sprintf("/home/ubuntu/migrateTo%sdump", migrationName))
+		restoreParams = append(restoreParams, path.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)))
 		for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
 			out, err = runCommand(mongorestore, restoreParams...)
 			if err == nil {
@@ -521,7 +591,7 @@ func mongoRestoreCall(runCommand utilsRun, mongoPath, adminPassword, migrationNa
 	for i := range dbs {
 		restoreDbParams := append(restoreParams,
 			fmt.Sprintf("--db=%s", dbs[i]),
-			fmt.Sprintf("/home/ubuntu/migrateTo%sdump/%s", migrationName, dbs[i]))
+			path.Join(tmpDir, fmt.Sprintf("migrateTo%sdump/%s", migrationName, dbs[i])))
 		for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
 			out, err = runCommand(mongorestore, restoreDbParams...)
 			if err == nil {
@@ -538,5 +608,5 @@ func mongoRestoreCall(runCommand utilsRun, mongoPath, adminPassword, migrationNa
 }
 
 func (u *UpgradeMongoCommand) mongoRestore(mongoPath, adminPassword, migrationName string, dbs []string, statePort int) error {
-	return mongoRestoreCall(u.runCommand, mongoPath, adminPassword, migrationName, dbs, statePort)
+	return mongoRestoreCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, dbs, statePort)
 }
