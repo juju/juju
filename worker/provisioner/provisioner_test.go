@@ -45,6 +45,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -443,7 +444,19 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
+	getResource := dt.StubGetResource(dt.StubResources{
+		"agent":      dt.StubResource{Output: mockAgent{config: agentConfig}},
+		"api-caller": dt.StubResource{Output: s.st},
+	})
+	manifold := provisioner.Manifold(provisioner.ManifoldConfig{
+		AgentName:     "agent",
+		APICallerName: "api-caller",
+	})
+	untyped, err := manifold.Start(getResource)
+	c.Assert(err, jc.ErrorIsNil)
+	typed, ok := untyped.(provisioner.Provisioner)
+	c.Assert(ok, jc.IsTrue)
+	return typed
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
@@ -1553,4 +1566,13 @@ func (f mockToolsFinder) FindTools(number version.Number, series string, a strin
 		v.Arch = a
 	}
 	return coretools.List{&coretools.Tools{Version: v}}, nil
+}
+
+type mockAgent struct {
+	agent.Agent
+	config agent.Config
+}
+
+func (mock mockAgent) CurrentConfig() agent.Config {
+	return mock.config
 }
