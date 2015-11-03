@@ -48,7 +48,9 @@ func (r Remote) isLocal() bool {
 	return r.Host == Local.Host
 }
 
-// ID identifies the remote to the raw LXD client code.
+// ID identifies the remote to the raw LXD client code. For the
+// non-local case this is Remote.Name. For the local case it is the
+// remote name that LXD special-cases for the local unix socket.
 func (r Remote) ID() string {
 	if r.isLocal() {
 		return remoteIDForLocal
