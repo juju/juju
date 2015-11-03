@@ -50,17 +50,11 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			c.Assert(offer.URL, gc.DeepEquals, url)
 			c.Assert(offer.Users, jc.SameContents, []string{user1, user2})
 
-			if results, k := result.(*params.CrossModelOfferResults); k {
-				all := make([]params.CrossModelOfferResult, len(args.Offers))
-				for i, one := range args.Offers {
-					all[i].Service = one.Service
-				}
-
+			if results, k := result.(*params.ErrorResults); k {
+				all := make([]params.ErrorResult, len(args.Offers))
 				// add one error to make sure it's catered for.
-				all = append(all, params.CrossModelOfferResult{
-					Service: "failed",
-					Error:   common.ServerError(errors.New(msg)),
-				})
+				all = append(all, params.ErrorResult{
+					Error: common.ServerError(errors.New(msg))})
 				results.Results = all
 			}
 
@@ -72,9 +66,9 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results, jc.DeepEquals,
-		[]params.CrossModelOfferResult{
-			params.CrossModelOfferResult{Service: "shared"},
-			params.CrossModelOfferResult{Service: "failed", Error: common.ServerError(errors.New(msg))},
+		[]params.ErrorResult{
+			params.ErrorResult{},
+			params.ErrorResult{Error: common.ServerError(errors.New(msg))},
 		})
 }
 

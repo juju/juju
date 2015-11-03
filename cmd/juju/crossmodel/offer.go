@@ -132,25 +132,13 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// Only display feedback if there were errors
-	var errs params.ErrorResults
-	for _, result := range results {
-		if result.Error != nil {
-			errs.Results = append(errs.Results, params.ErrorResult{result.Error})
-			continue
-		}
-	}
-	if len(errs.Results) > 0 {
-		return errs.Combine()
-	}
-	return nil
+	return params.ErrorResults{results}.Combine()
 }
 
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(service string, endpoints []string, url string, users []string) ([]params.CrossModelOfferResult, error)
+	Offer(service string, endpoints []string, url string, users []string) ([]params.ErrorResult, error)
 }
 
 var getOfferAPI = (*offerCommand).getOfferAPI

@@ -49,12 +49,10 @@ func NewAPI(
 }
 
 // Offer makes service endpoints available for consumption.
-func (api *API) Offer(all params.CrossModelOffers) (params.CrossModelOfferResults, error) {
+func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) {
 	// export service offers
-	offers := make([]params.CrossModelOfferResult, len(all.Offers))
+	offers := make([]params.ErrorResult, len(all.Offers))
 	for i, one := range all.Offers {
-		offers[i].Service = one.Service
-
 		offer, err := ParseOffer(one)
 		if err != nil {
 			offers[i].Error = common.ServerError(err)
@@ -65,7 +63,7 @@ func (api *API) Offer(all params.CrossModelOffers) (params.CrossModelOfferResult
 			offers[i].Error = common.ServerError(err)
 		}
 	}
-	return params.CrossModelOfferResults{Results: offers}, nil
+	return params.ErrorResults{Results: offers}, nil
 }
 
 func ParseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {

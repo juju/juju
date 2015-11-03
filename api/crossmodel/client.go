@@ -26,12 +26,12 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // Offer prepares service's endpoints for consumption.
-func (c *Client) Offer(service string, endpoints []string, url string, users []string) ([]params.CrossModelOfferResult, error) {
+func (c *Client) Offer(service string, endpoints []string, url string, users []string) ([]params.ErrorResult, error) {
 	offers := []params.CrossModelOffer{
 		params.CrossModelOffer{service, endpoints, url, users},
 	}
 
-	out := params.CrossModelOfferResults{}
+	out := params.ErrorResults{}
 	if err := c.facade.FacadeCall("Offer", params.CrossModelOffers{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}

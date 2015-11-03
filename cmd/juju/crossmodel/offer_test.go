@@ -132,13 +132,11 @@ func (s mockOfferAPI) Close() error {
 	return nil
 }
 
-func (s mockOfferAPI) Offer(service string, endpoints []string, url string, users []string) ([]params.CrossModelOfferResult, error) {
+func (s mockOfferAPI) Offer(service string, endpoints []string, url string, users []string) ([]params.ErrorResult, error) {
 	if s.errCall {
 		return nil, errors.New("aborted")
 	}
-	result := []params.CrossModelOfferResult{
-		params.CrossModelOfferResult{Service: service},
-	}
+	result := make([]params.ErrorResult, 1)
 	if s.errData {
 		result[0].Error = common.ServerError(errors.New("failed"))
 		return result, nil
