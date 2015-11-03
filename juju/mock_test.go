@@ -36,8 +36,8 @@ func (s *mockAPIState) EnvironTag() (names.EnvironTag, error) {
 	return names.ParseEnvironTag(s.environTag)
 }
 
-func (s *mockAPIState) ServerTag() (names.EnvironTag, error) {
-	return names.EnvironTag{}, errors.NotImplementedf("ServerTag")
+func (s *mockAPIState) ControllerTag() (names.EnvironTag, error) {
+	return names.EnvironTag{}, errors.NotImplementedf("ControllerTag")
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {

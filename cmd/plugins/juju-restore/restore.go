@@ -21,7 +21,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -53,10 +53,14 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	os.Exit(cmd.Main(envcmd.Wrap(&restoreCommand{}), ctx, args[1:]))
+	os.Exit(cmd.Main(newRestoreCommand(), ctx, args[1:]))
 }
 
 var logger = loggo.GetLogger("juju.plugins.restore")
+
+func newRestoreCommand() cmd.Command {
+	return envcmd.Wrap(&restoreCommand{})
+}
 
 const restoreDoc = `
 Restore restores a backup created with juju backup

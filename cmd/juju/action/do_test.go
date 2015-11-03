@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -39,8 +39,7 @@ broken-map:
 
 type DoSuite struct {
 	BaseActionSuite
-	subcommand *action.DoCommand
-	dir        string
+	dir string
 }
 
 var _ = gc.Suite(&DoSuite{})
@@ -57,7 +56,8 @@ func (s *DoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DoSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.subcommand)
+	cmd, _ := action.NewDoCommand()
+	s.checkHelp(c, cmd)
 }
 
 func (s *DoSuite) TestInit(c *gc.C) {
@@ -166,16 +166,17 @@ func (s *DoSuite) TestInit(c *gc.C) {
 	}}
 
 	for i, t := range tests {
-		s.subcommand = &action.DoCommand{}
+		wrappedCommand, command := action.NewDoCommand()
 		c.Logf("test %d: should %s:\n$ juju actions do %s\n", i,
 			t.should, strings.Join(t.args, " "))
-		err := testing.InitCommand(s.subcommand, t.args)
+		args := append([]string{"-e", "dummyenv"}, t.args...)
+		err := testing.InitCommand(wrappedCommand, args)
 		if t.expectError == "" {
-			c.Check(s.subcommand.UnitTag(), gc.Equals, t.expectUnit)
-			c.Check(s.subcommand.ActionName(), gc.Equals, t.expectAction)
-			c.Check(s.subcommand.ParamsYAMLPath(), gc.Equals, t.expectParamsYamlPath)
-			c.Check(s.subcommand.KeyValueDoArgs(), jc.DeepEquals, t.expectKVArgs)
-			c.Check(s.subcommand.ParseStrings(), gc.Equals, t.expectParseStrings)
+			c.Check(command.UnitTag(), gc.Equals, t.expectUnit)
+			c.Check(command.ActionName(), gc.Equals, t.expectAction)
+			c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
+			c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
+			c.Check(command.ParseStrings(), gc.Equals, t.expectParseStrings)
 		} else {
 			c.Check(err, gc.ErrorMatches, t.expectError)
 		}
@@ -232,17 +233,17 @@ func (s *DoSuite) TestRun(c *gc.C) {
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidParams.yml",
 		},
-		expectedErr: "YAML error: line 3: mapping values are not allowed in this context",
+		expectedErr: "yaml: line 3: mapping values are not allowed in this context",
 	}, {
 		should: "fail with invalid UTF in file",
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidUTF.yml",
 		},
-		expectedErr: "YAML error: invalid leading UTF-8 octet",
+		expectedErr: "yaml: invalid leading UTF-8 octet",
 	}, {
 		should:      "fail with invalid YAML passed as arg and no --string-args",
 		withArgs:    []string{validUnitId, "some-action", "foo.bar=\""},
-		expectedErr: "YAML error: found unexpected end of stream",
+		expectedErr: "yaml: found unexpected end of stream",
 	}, {
 		should:   "enqueue a basic action with no params",
 		withArgs: []string{validUnitId, "some-action"},
@@ -366,8 +367,9 @@ func (s *DoSuite) TestRun(c *gc.C) {
 			restore := s.patchAPIClient(fakeClient)
 			defer restore()
 
-			s.subcommand = &action.DoCommand{}
-			ctx, err := testing.RunCommand(c, s.subcommand, t.withArgs...)
+			wrappedCommand, _ := action.NewDoCommand()
+			args := append([]string{"-e", "dummyenv"}, t.withArgs...)
+			ctx, err := testing.RunCommand(c, wrappedCommand, args...)
 
 			if t.expectedErr != "" || t.withAPIErr != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)

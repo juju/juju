@@ -10,10 +10,16 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-// CreateCommand calls the API to create a new network space.
-type CreateCommand struct {
+func newCreateCommand() cmd.Command {
+	return envcmd.Wrap(&createCommand{})
+}
+
+// createCommand calls the API to create a new network space.
+type createCommand struct {
 	SpaceCommandBase
 	Name  string
 	CIDRs set.Strings
@@ -24,7 +30,7 @@ Creates a new space with the given name and associates the given
 (optional) list of existing subnet CIDRs with it.`
 
 // Info is defined on the cmd.Command interface.
-func (c *CreateCommand) Info() *cmd.Info {
+func (c *createCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create",
 		Args:    "<name> [<CIDR1> <CIDR2> ...]",
@@ -35,14 +41,14 @@ func (c *CreateCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *CreateCommand) Init(args []string) error {
+func (c *createCommand) Init(args []string) error {
 	var err error
 	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, true)
-	return errors.Trace(err)
+	return err
 }
 
 // Run implements Command.Run.
-func (c *CreateCommand) Run(ctx *cmd.Context) error {
+func (c *createCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Prepare a nicer message and proper arguments to use in case
 		// there are not CIDRs given.

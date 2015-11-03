@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -76,9 +74,10 @@ func Main(args []string) {
 
 func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:            "juju",
-		Doc:             jujuDoc,
-		MissingCallback: RunPlugin,
+		Name:                "juju",
+		Doc:                 jujuDoc,
+		MissingCallback:     RunPlugin,
+		UserAliasesFilename: osenv.JujuHomePath("aliases"),
 	})
 	jcmd.AddHelpTopic("basics", "Basic commands", helptopics.Basics)
 	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
@@ -95,6 +94,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		helptopics.MAASProvider, "maas")
 	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helptopics.Constraints)
 	jcmd.AddHelpTopic("placement", "How to use placement directives", helptopics.Placement)
+	jcmd.AddHelpTopic("spaces", "How to configure more complex networks using spaces", helptopics.Spaces, "networking")
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
 	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
@@ -113,61 +113,56 @@ type commandRegistry interface {
 }
 
 // registerCommands registers commands in the specified registry.
-// EnvironCommands must be wrapped with an envCmdWrapper.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
-	wrapEnvCommand := func(c envcmd.EnvironCommand) cmd.Command {
-		return envCmdWrapper{envcmd.Wrap(c), ctx}
-	}
-
 	// Creation commands.
-	r.Register(wrapEnvCommand(&BootstrapCommand{}))
-	r.Register(wrapEnvCommand(&DeployCommand{}))
-	r.Register(wrapEnvCommand(&AddRelationCommand{}))
+	r.Register(newBootstrapCommand())
+	r.Register(newDeployCommand())
+	r.Register(newAddRelationCommand())
 
 	// Destruction commands.
-	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
-	r.Register(wrapEnvCommand(&RemoveServiceCommand{}))
-	r.Register(wrapEnvCommand(&RemoveUnitCommand{}))
-	r.Register(&DestroyEnvironmentCommand{})
+	r.Register(newRemoveRelationCommand())
+	r.Register(newRemoveServiceCommand())
+	r.Register(newRemoveUnitCommand())
+	r.Register(newDestroyEnvironmentCommand())
 
 	// Reporting commands.
-	r.Register(wrapEnvCommand(&status.StatusCommand{}))
-	r.Register(&SwitchCommand{})
-	r.Register(wrapEnvCommand(&EndpointCommand{}))
-	r.Register(wrapEnvCommand(&APIInfoCommand{}))
-	r.Register(wrapEnvCommand(&status.StatusHistoryCommand{}))
+	r.Register(status.NewStatusCommand())
+	r.Register(newSwitchCommand())
+	r.Register(newEndpointCommand())
+	r.Register(newAPIInfoCommand())
+	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	r.Register(wrapEnvCommand(&RunCommand{}))
-	r.Register(wrapEnvCommand(&SCPCommand{}))
-	r.Register(wrapEnvCommand(&SSHCommand{}))
-	r.Register(wrapEnvCommand(&ResolvedCommand{}))
-	r.Register(wrapEnvCommand(&DebugLogCommand{}))
-	r.Register(wrapEnvCommand(&DebugHooksCommand{}))
+	r.Register(newRunCommand())
+	r.Register(newSCPCommand())
+	r.Register(newSSHCommand())
+	r.Register(newResolvedCommand())
+	r.Register(newDebugLogCommand())
+	r.Register(newDebugHooksCommand())
 
 	// Configuration commands.
-	r.Register(&InitCommand{})
-	r.RegisterDeprecated(wrapEnvCommand(&common.GetConstraintsCommand{}),
+	r.Register(newInitCommand())
+	r.RegisterDeprecated(common.NewGetConstraintsCommand(),
 		twoDotOhDeprecation("environment get-constraints or service get-constraints"))
-	r.RegisterDeprecated(wrapEnvCommand(&common.SetConstraintsCommand{}),
+	r.RegisterDeprecated(common.NewSetConstraintsCommand(),
 		twoDotOhDeprecation("environment set-constraints or service set-constraints"))
-	r.Register(wrapEnvCommand(&ExposeCommand{}))
-	r.Register(wrapEnvCommand(&SyncToolsCommand{}))
-	r.Register(wrapEnvCommand(&UnexposeCommand{}))
-	r.Register(wrapEnvCommand(&UpgradeJujuCommand{}))
-	r.Register(wrapEnvCommand(&UpgradeCharmCommand{}))
+	r.Register(newExposeCommand())
+	r.Register(newSyncToolsCommand())
+	r.Register(newUnexposeCommand())
+	r.Register(newUpgradeJujuCommand())
+	r.Register(newUpgradeCharmCommand())
 
 	// Charm publishing commands.
-	r.Register(wrapEnvCommand(&PublishCommand{}))
+	r.Register(newPublishCommand())
 
 	// Charm tool commands.
-	r.Register(&HelpToolCommand{})
+	r.Register(newHelpToolCommand())
 
 	// Manage backups.
-	r.Register(backups.NewCommand())
+	r.Register(backups.NewSuperCommand())
 
 	// Manage authorized ssh keys.
-	r.Register(NewAuthorizedKeysCommand())
+	r.Register(newAuthorizedKeysCommand())
 
 	// Manage users and access
 	r.Register(user.NewSuperCommand())
@@ -196,7 +191,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewSuperCommand())
 
 	// Manage state server availability
-	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
+	r.Register(newEnsureAvailabilityCommand())
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
@@ -207,7 +202,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())
-	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
+	r.Register(block.NewUnblockCommand())
 
 	// Manage storage
 	r.Register(storage.NewSuperCommand())
@@ -231,27 +226,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 }
 
-// envCmdWrapper is a struct that wraps an environment command and lets us handle
-// errors returned from Init before they're returned to the main function.
-type envCmdWrapper struct {
-	cmd.Command
-	ctx *cmd.Context
-}
-
-func (w envCmdWrapper) Init(args []string) error {
-	err := w.Command.Init(args)
-	if environs.IsNoEnv(err) {
-		fmt.Fprintln(w.ctx.Stderr, "No juju environment configuration file exists.")
-		fmt.Fprintln(w.ctx.Stderr, err)
-		fmt.Fprintln(w.ctx.Stderr, "Please create a configuration by running:")
-		fmt.Fprintln(w.ctx.Stderr, "    juju init")
-		fmt.Fprintln(w.ctx.Stderr, "then edit the file to configure your juju environment.")
-		fmt.Fprintln(w.ctx.Stderr, "You can then re-run the command.")
-		return cmd.ErrSilent
-	}
-	return err
-}
-
 func main() {
 	Main(os.Args)
 }
@@ -266,7 +240,7 @@ type versionDeprecation struct {
 // If the current version is after the deprecate version number,
 // the command is deprecated and the replacement should be used.
 func (v *versionDeprecation) Deprecated() (bool, string) {
-	if version.Current.Number.Compare(v.deprecate) > 0 {
+	if version.Current.Compare(v.deprecate) > 0 {
 		return true, v.replacement
 	}
 	return false, ""
@@ -276,7 +250,7 @@ func (v *versionDeprecation) Deprecated() (bool, string) {
 // If the current version is after the obsolete version number,
 // the command is obsolete and shouldn't be registered.
 func (v *versionDeprecation) Obsolete() bool {
-	return version.Current.Number.Compare(v.obsolete) > 0
+	return version.Current.Compare(v.obsolete) > 0
 }
 
 func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {

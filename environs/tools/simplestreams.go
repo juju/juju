@@ -157,6 +157,10 @@ func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	for _, ser := range tc.Series {
 		version, err := series.SeriesVersion(ser)
 		if err != nil {
+			if series.IsUnknownSeriesVersionError(err) {
+				logger.Debugf("ignoring unknown series %q", ser)
+				continue
+			}
 			return nil, err
 		}
 		ids := make([]string, len(tc.Arches))

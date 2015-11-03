@@ -10,7 +10,6 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -27,7 +26,7 @@ type metricRegistrationPost struct {
 	ServiceName     string `json:"service-name"`
 }
 
-var registerMeteredCharm = func(registrationURL string, state api.Connection, jar *cookiejar.Jar, charmURL string, serviceName, environmentUUID string) error {
+var registerMeteredCharm = func(registrationURL string, state api.Connection, client *http.Client, charmURL string, serviceName, environmentUUID string) error {
 	charmsClient := charms.NewClient(state)
 	defer charmsClient.Close()
 	metered, err := charmsClient.IsMetered(charmURL)
@@ -35,10 +34,8 @@ var registerMeteredCharm = func(registrationURL string, state api.Connection, ja
 		return err
 	}
 	if metered {
-		client := httpbakery.NewClient()
-		client.Client.Jar = jar
-		client.VisitWebPage = openWebBrowser
-		credentials, err := registerMetrics(registrationURL, environmentUUID, charmURL, serviceName, client)
+		bakeryClient := httpbakery.Client{Client: client, VisitWebPage: httpbakery.OpenWebBrowser}
+		credentials, err := registerMetrics(registrationURL, environmentUUID, charmURL, serviceName, &bakeryClient)
 		if err != nil {
 			logger.Infof("failed to register metrics: %v", err)
 			return err

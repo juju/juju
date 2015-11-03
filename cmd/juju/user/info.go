@@ -13,9 +13,10 @@ import (
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const InfoCommandDoc = `
+const infoCommandDoc = `
 Display infomation on a user.
 
 Examples:
@@ -54,21 +55,25 @@ type UserInfoAPI interface {
 	Close() error
 }
 
-// InfoCommandBase is a common base for 'juju user info' and 'juju user list'.
-type InfoCommandBase struct {
+// infoCommandBase is a common base for 'juju user info' and 'juju user list'.
+type infoCommandBase struct {
 	UserCommandBase
 	api       UserInfoAPI
 	exactTime bool
 	out       cmd.Output
 }
 
-func (c *InfoCommandBase) SetFlags(f *gnuflag.FlagSet) {
+func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
 }
 
-// InfoCommand retrieves information about a single user.
-type InfoCommand struct {
-	InfoCommandBase
+func newInfoCommand() cmd.Command {
+	return envcmd.WrapSystem(&infoCommand{})
+}
+
+// infoCommand retrieves information about a single user.
+type infoCommand struct {
+	infoCommandBase
 	Username string
 }
 
@@ -82,28 +87,28 @@ type UserInfo struct {
 }
 
 // Info implements Command.Info.
-func (c *InfoCommand) Info() *cmd.Info {
+func (c *infoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "info",
 		Args:    "<username>",
 		Purpose: "shows information on a user",
-		Doc:     InfoCommandDoc,
+		Doc:     infoCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *InfoCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.InfoCommandBase.SetFlags(f)
+func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.infoCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 }
 
 // Init implements Command.Init.
-func (c *InfoCommand) Init(args []string) (err error) {
+func (c *infoCommand) Init(args []string) (err error) {
 	c.Username, err = cmd.ZeroOrOneArgs(args)
 	return err
 }
 
-func (c *InfoCommandBase) getUserInfoAPI() (UserInfoAPI, error) {
+func (c *infoCommandBase) getUserInfoAPI() (UserInfoAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -111,7 +116,7 @@ func (c *InfoCommandBase) getUserInfoAPI() (UserInfoAPI, error) {
 }
 
 // Run implements Command.Run.
-func (c *InfoCommand) Run(ctx *cmd.Context) (err error) {
+func (c *infoCommand) Run(ctx *cmd.Context) (err error) {
 	client, err := c.getUserInfoAPI()
 	if err != nil {
 		return err
@@ -139,7 +144,7 @@ func (c *InfoCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, output[0])
 }
 
-func (c *InfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {
+func (c *infoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {
 	var output []UserInfo
 	var now = time.Now()
 	for _, info := range users {

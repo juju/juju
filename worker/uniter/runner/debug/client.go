@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"strings"
 
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 )
 
 type hookArgs struct {

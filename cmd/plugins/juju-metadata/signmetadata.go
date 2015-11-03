@@ -17,6 +17,10 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 )
 
+func newSignMetadataCommand() cmd.Command {
+	return &signMetadataCommand{}
+}
+
 var signMetadataDoc = `
 sign searches for json files in the specified directory tree and inline signs
 them using the private key in the specified keyring file. For each .json file, a
@@ -26,15 +30,15 @@ The specified keyring file is expected to contain an amored private key. If the 
 is encrypted, then the specified passphrase is used to decrypt the key.
 `
 
-// SignMetadataCommand is used to sign simplestreams metadata json files.
-type SignMetadataCommand struct {
+// signMetadataCommand is used to sign simplestreams metadata json files.
+type signMetadataCommand struct {
 	cmd.CommandBase
 	dir        string
 	keyFile    string
 	passphrase string
 }
 
-func (c *SignMetadataCommand) Info() *cmd.Info {
+func (c *signMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sign",
 		Purpose: "sign simplestreams metadata",
@@ -42,14 +46,14 @@ func (c *SignMetadataCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *SignMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *signMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.StringVar(&c.dir, "d", "", "directory in which to look for metadata")
 	f.StringVar(&c.keyFile, "k", "", "file containing the amored private signing key")
 	f.StringVar(&c.passphrase, "p", "", "passphrase used to decrypt the private key")
 }
 
-func (c *SignMetadataCommand) Init(args []string) error {
+func (c *signMetadataCommand) Init(args []string) error {
 	if c.dir == "" {
 		return fmt.Errorf("directory must be specified")
 	}
@@ -59,7 +63,7 @@ func (c *SignMetadataCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *SignMetadataCommand) Run(context *cmd.Context) error {
+func (c *signMetadataCommand) Run(context *cmd.Context) error {
 	loggo.RegisterWriter("signmetadata", cmd.NewCommandLogWriter("juju.plugins.metadata", context.Stdout, context.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("signmetadata")
 	keyData, err := ioutil.ReadFile(c.keyFile)

@@ -7,14 +7,37 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/rpc"
 )
 
-// Error is the type of error returned by any call to the state API
+// Error is the type of error returned by any call to the state API.
 type Error struct {
 	Message string
 	Code    string
+	Info    *ErrorInfo `json:",omitempty"`
+}
+
+// ErrorInfo holds additional information provided by an error.
+// Note that although these fields are compatible with the
+// same fields in httpbakery.ErrorInfo, the Juju API server does
+// not implement endpoints directly compatible with that protocol
+// because the error response format varies according to
+// the endpoint.
+type ErrorInfo struct {
+	// Macaroon may hold a macaroon that, when
+	// discharged, may allow access to the juju API.
+	// This field is associated with the ErrDischargeRequired
+	// error code.
+	Macaroon *macaroon.Macaroon `json:",omitempty"`
+
+	// MacaroonPath holds the URL path to be associated
+	// with the macaroon. The macaroon is potentially
+	// valid for all URLs under the given path.
+	// If it is empty, the macaroon will be associated with
+	// the original URL from which the error was returned.
+	MacaroonPath string `json:",omitempty"`
 }
 
 func (e *Error) Error() string {
@@ -30,7 +53,7 @@ var _ rpc.ErrorCoder = (*Error)(nil)
 // GoString implements fmt.GoStringer.  It means that a *Error shows its
 // contents correctly when printed with %#v.
 func (e Error) GoString() string {
-	return fmt.Sprintf("&params.Error{%q, %q}", e.Code, e.Message)
+	return fmt.Sprintf("&params.Error{Message: %q, Code:  %q}", e.Code, e.Message)
 }
 
 // The Code constants hold error codes for some kinds of error.
@@ -56,6 +79,10 @@ const (
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
 	CodeNotSupported              = "not supported"
+	CodeBadRequest                = "bad request"
+	CodeMethodNotAllowed          = "method not allowed"
+	CodeForbidden                 = "forbidden"
+	CodeDischargeRequired         = "macaroon discharge required"
 )
 
 // ErrCode returns the error code associated with
@@ -177,4 +204,12 @@ func IsCodeLeadershipClaimDenied(err error) bool {
 
 func IsCodeNotSupported(err error) bool {
 	return ErrCode(err) == CodeNotSupported
+}
+
+func IsBadRequest(err error) bool {
+	return ErrCode(err) == CodeBadRequest
+}
+
+func IsMethodNotAllowed(err error) bool {
+	return ErrCode(err) == CodeMethodNotAllowed
 }

@@ -61,8 +61,10 @@ func DestroyEnvironment(st *state.State, environTag names.EnvironTag) error {
 		return errors.Trace(err)
 	}
 
-	if err := destroyAllServices(st); err != nil {
-		return errors.Trace(err)
+	// If this is not the state server environment, remove all documents from
+	// state associated with the environment.
+	if env.EnvironTag() != env.ControllerTag() {
+		return errors.Trace(st.RemoveAllEnvironDocs())
 	}
 
 	// Return to the caller. If it's the CLI, it will finish up by calling the

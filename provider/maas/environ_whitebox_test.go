@@ -22,7 +22,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -737,7 +737,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Disable auto-uploading by setting the agent version.
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"agent-version": version.Current.Number.String(),
+		"agent-version": version.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)

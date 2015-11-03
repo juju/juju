@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -36,11 +35,7 @@ var osReleaseFile = "/etc/os-release"
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
-var Current = Binary{
-	Number: MustParse(version),
-	Series: series.HostSeries(),
-	Arch:   arch.HostArch(),
-}
+var Current = MustParse(version)
 
 var Compiler = runtime.Compiler
 
@@ -53,7 +48,7 @@ func init() {
 		}
 		return
 	}
-	Current.Number = MustParse(strings.TrimSpace(string(v)))
+	Current = MustParse(strings.TrimSpace(string(v)))
 }
 
 // Number represents a juju version.  When bugs are fixed the patch number is
@@ -127,23 +122,24 @@ func (vp *Binary) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetYAML implements goyaml.Getter
-func (v Binary) GetYAML() (tag string, value interface{}) {
-	return "", v.String()
+// MarshalYAML implements yaml.v2.Marshaller interface
+func (v Binary) MarshalYAML() (interface{}, error) {
+	return v.String(), nil
 }
 
-// SetYAML implements goyaml.Setter
-func (vp *Binary) SetYAML(tag string, value interface{}) bool {
-	vstr := fmt.Sprintf("%v", value)
-	if vstr == "" {
-		return false
+// UnmarshalYAML implements the yaml.Unmarshaller interface
+func (vp *Binary) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var vstr string
+	err := unmarshal(&vstr)
+	if err != nil {
+		return err
 	}
 	v, err := ParseBinary(vstr)
 	if err != nil {
-		return false
+		return err
 	}
 	*vp = v
-	return true
+	return nil
 }
 
 var (
@@ -304,23 +300,24 @@ func (vp *Number) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetYAML implements goyaml.Getter
-func (v Number) GetYAML() (tag string, value interface{}) {
-	return "", v.String()
+// MarshalYAML implements yaml.v2.Marshaller interface
+func (v Number) MarshalYAML() (interface{}, error) {
+	return v.String(), nil
 }
 
-// SetYAML implements goyaml.Setter
-func (vp *Number) SetYAML(tag string, value interface{}) bool {
-	vstr := fmt.Sprintf("%v", value)
-	if vstr == "" {
-		return false
+// UnmarshalYAML implements the yaml.Unmarshaller interface
+func (vp *Number) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var vstr string
+	err := unmarshal(&vstr)
+	if err != nil {
+		return err
 	}
 	v, err := Parse(vstr)
 	if err != nil {
-		return false
+		return err
 	}
 	*vp = v
-	return true
+	return nil
 }
 
 func isOdd(x int) bool {

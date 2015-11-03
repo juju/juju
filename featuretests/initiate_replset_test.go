@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package peergrouper_test
+package featuretests_test
 
 import (
 	gitjujutesting "github.com/juju/testing"

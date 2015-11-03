@@ -87,11 +87,11 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 		c.Logf("test %d: %s\n\t%s\n", i, t.info, t.args)
 		ctx := coretesting.Context(c)
 
-		debugHooksCmd := &DebugHooksCommand{}
+		debugHooksCmd := &debugHooksCommand{}
 		debugHooksCmd.proxy = true
 		err := envcmd.Wrap(debugHooksCmd).Init(t.args)
 		if err == nil {
-			err = debugHooksCmd.Run(ctx)
+			err = envcmd.Wrap(debugHooksCmd).Run(ctx)
 		}
 		if t.error != "" {
 			c.Assert(err, gc.ErrorMatches, t.error)

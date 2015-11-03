@@ -160,7 +160,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		return params.VersionResults{}, common.ServerError(err)
 	}
 	// Is the desired version greater than the current API server version?
-	isNewerVersion := agentVersion.Compare(version.Current.Number) > 0
+	isNewerVersion := agentVersion.Compare(version.Current) > 0
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
@@ -182,8 +182,8 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 			if !isNewerVersion || u.entityIsManager(tag) {
 				results[i].Version = &agentVersion
 			} else {
-				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current.Number)
-				results[i].Version = &version.Current.Number
+				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current)
+				results[i].Version = &version.Current
 			}
 			err = nil
 		}
