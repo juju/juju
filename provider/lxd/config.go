@@ -278,11 +278,18 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	return cfg, nil
 }
 
+func asNonLocal(cfg lxdclient.Config) (lxdclient.Config, error) {
+	// TODO(ericsnow) If local then set up cert and reset clientCfg.
+	//return errors.Errorf("not finished!")
+	return cfg, nil
+}
+
 func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*environConfig, error) {
-	if clientCfg.Remote.ID() == "" {
-		// TODO(ericsnow) Set up cert and reset clientCfg.
-		//return errors.Errorf("not finished!")
+	nonlocal, err := asNonLocal(clientCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	clientCfg = nonlocal
 
 	c.attrs[cfgNamespace] = clientCfg.Namespace
 
