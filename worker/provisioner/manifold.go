@@ -15,8 +15,8 @@ import (
 
 // ManifoldConfig defines an environment provisioner's dependencies. It's not
 // currently clear whether it'll be easier to extend this type to include all
-// provisionners, or to create separate (Environ|Container)Manifold[Config]s;
-// for now we dodge the question because we don't need containner provisioners
+// provisioners, or to create separate (Environ|Container)Manifold[Config]s;
+// for now we dodge the question because we don't need container provisioners
 // in dependency engines. Yet.
 type ManifoldConfig struct {
 	AgentName     string
