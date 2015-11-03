@@ -256,20 +256,20 @@ func (c *environConfig) clientKey() string {
 
 // clientConfig builds a LXD Config based on the env config and returns it.
 func (c *environConfig) clientConfig() (lxdclient.Config, error) {
-	remoteInfo := lxdclient.RemoteInfo{
+	remote := lxdclient.Remote{
 		Name: "juju-remote",
 		Host: c.remoteURL(),
 	}
 	if c.clientCert() != "" {
 		certPEM := []byte(c.clientCert())
 		keyPEM := []byte(c.clientKey())
-		remoteInfo.Cert = lxdclient.NewCert(certPEM, keyPEM)
+		remote.Cert = lxdclient.NewCert(certPEM, keyPEM)
 	}
 
 	cfg := lxdclient.Config{
 		Namespace: c.namespace(),
 		Dirname:   c.dirname(),
-		Remote:    lxdclient.NewRemote(remoteInfo),
+		Remote:    remote,
 	}
 	cfg, err := cfg.SetDefaults()
 	if err != nil {
@@ -295,7 +295,10 @@ func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*envi
 
 	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
 
-	cert := clientCfg.Remote.Cert()
+	var cert lxdclient.Cert
+	if clientCfg.Remote.Cert != nil {
+		cert = *clientCfg.Remote.Cert
+	}
 	c.attrs[cfgClientCert] = string(cert.CertPEM)
 	c.attrs[cfgClientKey] = string(cert.KeyPEM)
 
