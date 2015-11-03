@@ -33,10 +33,12 @@ type UnitPayloads struct {
 	// Persist is the persistence layer that will be used.
 	Persist payloadsPersistence
 
-	// Unit identifies the unit associated with the payloads.
+	// Unit identifies the unit associated with the payloads. This
+	// is the "unit ID" of the targeted unit.
 	Unit string
 
-	// Machine identifies the unit's machine.
+	// Machine identifies the unit's machine. This is the "machine ID"
+	// of the machine on which the unit is running.
 	Machine string
 
 	newID func() (string, error)
