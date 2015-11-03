@@ -39,9 +39,18 @@ type Remote struct {
 	Cert *Cert
 }
 
+// isLocal determines if the remote is the implicit "local" remote,
+// an unencrypted, unauthenticated unix socket to a locally running LXD.
+func (r Remote) isLocal() bool {
+	if Local.Host != "" {
+		logger.Errorf("%#v", Local)
+	}
+	return r.Host == Local.Host
+}
+
 // ID identifies the remote to the raw LXD client code.
 func (r Remote) ID() string {
-	if r.Host == Local.Host {
+	if r.isLocal() {
 		return remoteIDForLocal
 	}
 	return r.Name
@@ -50,7 +59,7 @@ func (r Remote) ID() string {
 // SetDefaults updates a copy of the remote with default values
 // where needed.
 func (r Remote) SetDefaults() (Remote, error) {
-	if r.ID() == Local.ID() {
+	if r.isLocal() {
 		return r.setLocalDefaults(), nil
 	}
 
@@ -81,7 +90,7 @@ func (r Remote) Validate() error {
 		return errors.NotValidf("remote missing name,")
 	}
 
-	if r.ID() == Local.ID() {
+	if r.isLocal() {
 		if err := r.validateLocal(); err != nil {
 			return errors.Trace(err)
 		}
