@@ -25,7 +25,7 @@ import (
 //  https://github.com/lxc/lxd/blob/master/lxc/remote.go
 // Note that we've removed some validation code (we don't need it).
 func addServer(config *lxd.Config, server string, addr string) error {
-	addr, err := fixAddr(addr)
+	addr, err := fixAddr(addr, shared.PathExists)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,11 @@ func addServer(config *lxd.Config, server string, addr string) error {
 
 // fixAddr is the portion of the original addServer function that fixes
 // up the provided addr to be a fully qualified URL.
-func fixAddr(addr string) (string, error) {
+func fixAddr(addr string, pathExists func(string) bool) (string, error) {
+	if addr == "" {
+		return addr, nil
+	}
+
 	var r_scheme string
 	var r_host string
 	var r_port string
@@ -63,7 +67,7 @@ func fixAddr(addr string) (string, error) {
 	} else if addr[0] == '/' {
 		r_scheme = "unix"
 	} else {
-		if !shared.PathExists(addr) {
+		if !pathExists(addr) {
 			r_scheme = "https"
 		} else {
 			r_scheme = "unix"
@@ -86,7 +90,7 @@ func fixAddr(addr string) (string, error) {
 
 	if r_scheme == "unix" {
 		if addr[0:5] == "unix:" {
-			if addr[0:7] == "unix://" {
+			if len(addr) > 6 && addr[0:7] == "unix://" {
 				if len(addr) > 8 {
 					r_host = addr[8:]
 				} else {
