@@ -174,7 +174,7 @@ func (cfg Config) writeConfigFile() error {
 		return errors.Trace(err)
 	}
 
-	if cfg.Remote.ID() != Local.ID() {
+	if !cfg.Remote.isLocal() {
 		// Ensure the remote is set correctly.
 		remote := cfg.Remote.Name
 		delete(config.Remotes, remote)
