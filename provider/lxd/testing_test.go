@@ -204,7 +204,6 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 }
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
-	//return NewCustomBaseConfig(c, updates)
 	if updates == nil {
 		updates = make(testing.Attrs)
 	}
