@@ -21,7 +21,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -1576,22 +1575,11 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 
 	started := make(chan struct{})
-	newWorker := func(
-		scope names.Tag,
-		storageDir string,
-		_ storageprovisioner.VolumeAccessor,
-		_ storageprovisioner.FilesystemAccessor,
-		_ storageprovisioner.LifecycleManager,
-		_ storageprovisioner.EnvironAccessor,
-		_ storageprovisioner.MachineAccessor,
-		_ storageprovisioner.StatusSetter,
-		_ clock.Clock,
-	) worker.Worker {
-		c.Check(scope, gc.Equals, m.Tag())
-		// storageDir is not empty for machine scoped storage provisioners
-		c.Assert(storageDir, gc.Not(gc.Equals), "")
+	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
+		c.Check(config.Scope, gc.Equals, m.Tag())
+		c.Check(config.Validate(), jc.ErrorIsNil)
 		close(started)
-		return worker.NewNoOpWorker()
+		return worker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 
@@ -1613,32 +1601,22 @@ func (s *MachineSuite) TestMachineAgentRunsEnvironStorageWorker(c *gc.C) {
 
 	var numWorkers, machineWorkers, environWorkers uint32
 	started := make(chan struct{})
-	newWorker := func(
-		scope names.Tag,
-		storageDir string,
-		_ storageprovisioner.VolumeAccessor,
-		_ storageprovisioner.FilesystemAccessor,
-		_ storageprovisioner.LifecycleManager,
-		_ storageprovisioner.EnvironAccessor,
-		_ storageprovisioner.MachineAccessor,
-		_ storageprovisioner.StatusSetter,
-		_ clock.Clock,
-	) worker.Worker {
-		// storageDir is empty for environ storage provisioners
-		if storageDir == "" {
-			c.Check(scope, gc.Equals, s.State.EnvironTag())
+	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
+		c.Check(config.Validate(), jc.ErrorIsNil)
+		switch config.Scope {
+		case s.State.EnvironTag():
 			c.Check(atomic.AddUint32(&environWorkers, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
-		}
-		if storageDir != "" {
-			c.Check(scope, gc.Equals, m.Tag())
+		case m.Tag():
 			c.Check(atomic.AddUint32(&machineWorkers, 1), gc.Equals, uint32(1))
 			atomic.AddUint32(&numWorkers, 1)
+		default:
+			c.Errorf("unexpected scope %v", config.Scope)
 		}
 		if atomic.LoadUint32(&environWorkers) == 1 && atomic.LoadUint32(&machineWorkers) == 1 {
 			close(started)
 		}
-		return worker.NewNoOpWorker()
+		return worker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 
@@ -1994,26 +1972,12 @@ func (s *MachineSuite) TestNewStorageWorkerIsScopedToNewEnviron(c *gc.C) {
 	// Check that newStorageWorker is called and the environ tag is scoped to
 	// that of the new environment tag.
 	started := make(chan struct{})
-	newWorker := func(
-		scope names.Tag,
-		storageDir string,
-		_ storageprovisioner.VolumeAccessor,
-		_ storageprovisioner.FilesystemAccessor,
-		_ storageprovisioner.LifecycleManager,
-		_ storageprovisioner.EnvironAccessor,
-		_ storageprovisioner.MachineAccessor,
-		_ storageprovisioner.StatusSetter,
-		_ clock.Clock,
-	) worker.Worker {
-		// storageDir is empty for environ storage provisioners
-		if storageDir == "" {
-			// If this is the worker for the new environment,
-			// close the channel.
-			if scope == st.EnvironTag() {
-				close(started)
-			}
+	newWorker := func(config storageprovisioner.Config) (worker.Worker, error) {
+		c.Check(config.Validate(), jc.ErrorIsNil)
+		if config.Scope == st.EnvironTag() {
+			close(started)
 		}
-		return worker.NewNoOpWorker()
+		return worker.NewNoOpWorker(), nil
 	}
 	s.PatchValue(&newStorageWorker, newWorker)
 

@@ -39,6 +39,7 @@ import (
 	apilogsender "github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/api/statushistory"
+	apistorageprovisioner "github.com/juju/juju/api/storageprovisioner"
 	apiupgrader "github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
@@ -832,12 +833,22 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 	runner.StartWorker("storageprovisioner-machine", func() (worker.Worker, error) {
 		scope := agentConfig.Tag()
-		api := st.StorageProvisioner(scope)
+		api, err := apistorageprovisioner.NewState(st, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		storageDir := filepath.Join(agentConfig.DataDir(), "storage")
-		return newStorageWorker(
-			scope, storageDir, api, api, api, api, api, api,
-			clock.WallClock,
-		), nil
+		return newStorageWorker(storageprovisioner.Config{
+			Scope:       scope,
+			StorageDir:  storageDir,
+			Volumes:     api,
+			Filesystems: api,
+			Life:        api,
+			Environ:     api,
+			Machines:    api,
+			Status:      api,
+			Clock:       clock.WallClock,
+		})
 	})
 
 	if isEnvironManager {
@@ -1227,11 +1238,20 @@ func (a *MachineAgent) startEnvWorkers(
 	})
 	singularRunner.StartWorker("environ-storageprovisioner", func() (worker.Worker, error) {
 		scope := st.EnvironTag()
-		api := apiSt.StorageProvisioner(scope)
-		return newStorageWorker(
-			scope, "", api, api, api, api, api, api,
-			clock.WallClock,
-		), nil
+		api, err := apistorageprovisioner.NewState(apiSt, scope)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newStorageWorker(storageprovisioner.Config{
+			Scope:       scope,
+			Volumes:     api,
+			Filesystems: api,
+			Life:        api,
+			Environ:     api,
+			Machines:    api,
+			Status:      api,
+			Clock:       clock.WallClock,
+		})
 	})
 	singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 		return charmrevisionworker.NewRevisionUpdateWorker(apiSt.CharmRevisionUpdater()), nil

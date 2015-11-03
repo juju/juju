@@ -21,7 +21,7 @@ func watchMachine(ctx *context, tag names.MachineTag) {
 	if ok {
 		return
 	}
-	w := newMachineWatcher(ctx.machineAccessor, tag, ctx.machineChanges)
+	w := newMachineWatcher(ctx.config.Machines, tag, ctx.machineChanges)
 	ctx.machines[tag] = w
 }
 
@@ -40,7 +40,7 @@ func refreshMachine(ctx *context, tag names.MachineTag) error {
 		delete(ctx.machines, tag)
 		return nil
 	}
-	results, err := ctx.machineAccessor.InstanceIds([]names.MachineTag{tag})
+	results, err := ctx.config.Machines.InstanceIds([]names.MachineTag{tag})
 	if err != nil {
 		return errors.Annotate(err, "getting machine instance ID")
 	}

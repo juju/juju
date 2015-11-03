@@ -4,9 +4,9 @@
 package storageprovisioner_test
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
@@ -55,19 +55,25 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
-	worker := storageprovisioner.NewStorageProvisioner(
-		coretesting.EnvironmentTag,
-		"dir",
-		newMockVolumeAccessor(),
-		newMockFilesystemAccessor(),
-		&mockLifecycleManager{},
-		newMockEnvironAccessor(c),
-		newMockMachineAccessor(c),
-		&mockStatusSetter{},
-		&mockClock{},
-	)
+	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
+		Scope:       coretesting.EnvironmentTag,
+		Volumes:     newMockVolumeAccessor(),
+		Filesystems: newMockFilesystemAccessor(),
+		Life:        &mockLifecycleManager{},
+		Environ:     newMockEnvironAccessor(c),
+		Machines:    newMockMachineAccessor(c),
+		Status:      &mockStatusSetter{},
+		Clock:       &mockClock{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
+}
+
+func (s *storageProvisionerSuite) TestInvalidConfig(c *gc.C) {
+	_, err := storageprovisioner.NewStorageProvisioner(almostValidConfig())
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
@@ -1695,7 +1701,12 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args == nil {
 		args = &workerArgs{}
 	}
-	if args.scope == nil {
+	var storageDir string
+	switch args.scope.(type) {
+	case names.MachineTag:
+		storageDir = "storage-dir"
+	case names.EnvironTag:
+	case nil:
 		args.scope = coretesting.EnvironmentTag
 	}
 	if args.volumes == nil {
@@ -1719,17 +1730,19 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args.statusSetter == nil {
 		args.statusSetter = &mockStatusSetter{}
 	}
-	return storageprovisioner.NewStorageProvisioner(
-		args.scope,
-		"storage-dir",
-		args.volumes,
-		args.filesystems,
-		args.life,
-		args.environ,
-		args.machines,
-		args.statusSetter,
-		args.clock,
-	)
+	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
+		Scope:       args.scope,
+		StorageDir:  storageDir,
+		Volumes:     args.volumes,
+		Filesystems: args.filesystems,
+		Life:        args.life,
+		Environ:     args.environ,
+		Machines:    args.machines,
+		Status:      args.statusSetter,
+		Clock:       args.clock,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return worker
 }
 
 type workerArgs struct {

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/resumer"
 	"github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
@@ -167,7 +166,6 @@ type Connection interface {
 	Provisioner() *provisioner.State
 	Uniter() (*uniter.State, error)
 	DiskManager() (*diskmanager.State, error)
-	StorageProvisioner(scope names.Tag) *storageprovisioner.State
 	Firewaller() *firewaller.State
 	Agent() *agent.State
 	Upgrader() *upgrader.State

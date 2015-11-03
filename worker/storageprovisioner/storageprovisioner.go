@@ -30,7 +30,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
@@ -178,27 +177,12 @@ type EnvironAccessor interface {
 // a storage directory, while environment-scoped workers
 // will not. If the directory path is non-empty, then it
 // will be passed to the storage source via its config.
-func NewStorageProvisioner(
-	scope names.Tag,
-	storageDir string,
-	v VolumeAccessor,
-	f FilesystemAccessor,
-	l LifecycleManager,
-	e EnvironAccessor,
-	m MachineAccessor,
-	s StatusSetter,
-	clock clock.Clock,
-) worker.Worker {
-	w := &storageprovisioner{
-		scope:       scope,
-		storageDir:  storageDir,
-		volumes:     v,
-		filesystems: f,
-		life:        l,
-		environ:     e,
-		machines:    m,
-		status:      s,
-		clock:       clock,
+func NewStorageProvisioner(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := &storageProvisioner{
+		config: config,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -208,33 +192,25 @@ func NewStorageProvisioner(
 		}
 		w.tomb.Kill(err)
 	}()
-	return w
+	return w, nil
 }
 
-type storageprovisioner struct {
-	tomb        tomb.Tomb
-	scope       names.Tag
-	storageDir  string
-	volumes     VolumeAccessor
-	filesystems FilesystemAccessor
-	life        LifecycleManager
-	environ     EnvironAccessor
-	machines    MachineAccessor
-	status      StatusSetter
-	clock       clock.Clock
+type storageProvisioner struct {
+	tomb   tomb.Tomb
+	config Config
 }
 
 // Kill implements Worker.Kill().
-func (w *storageprovisioner) Kill() {
+func (w *storageProvisioner) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait implements Worker.Wait().
-func (w *storageprovisioner) Wait() error {
+func (w *storageProvisioner) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *storageprovisioner) loop() error {
+func (w *storageProvisioner) loop() error {
 	var environConfigChanges <-chan struct{}
 	var volumesWatcher apiwatcher.StringsWatcher
 	var filesystemsWatcher apiwatcher.StringsWatcher
@@ -248,7 +224,7 @@ func (w *storageprovisioner) loop() error {
 	var machineBlockDevicesChanges <-chan struct{}
 	machineChanges := make(chan names.MachineTag)
 
-	environConfigWatcher, err := w.environ.WatchForEnvironConfigChanges()
+	environConfigWatcher, err := w.config.Environ.WatchForEnvironConfigChanges()
 	if err != nil {
 		return errors.Annotate(err, "watching environ config")
 	}
@@ -257,8 +233,8 @@ func (w *storageprovisioner) loop() error {
 
 	// Machine-scoped provisioners need to watch block devices, to create
 	// volume-backed filesystems.
-	if machineTag, ok := w.scope.(names.MachineTag); ok {
-		machineBlockDevicesWatcher, err = w.volumes.WatchBlockDevices(machineTag)
+	if machineTag, ok := w.config.Scope.(names.MachineTag); ok {
+		machineBlockDevicesWatcher, err = w.config.Volumes.WatchBlockDevices(machineTag)
 		if err != nil {
 			return errors.Annotate(err, "watching block devices")
 		}
@@ -274,19 +250,19 @@ func (w *storageprovisioner) loop() error {
 
 	startWatchers := func() error {
 		var err error
-		volumesWatcher, err = w.volumes.WatchVolumes()
+		volumesWatcher, err = w.config.Volumes.WatchVolumes()
 		if err != nil {
 			return errors.Annotate(err, "watching volumes")
 		}
-		filesystemsWatcher, err = w.filesystems.WatchFilesystems()
+		filesystemsWatcher, err = w.config.Filesystems.WatchFilesystems()
 		if err != nil {
 			return errors.Annotate(err, "watching filesystems")
 		}
-		volumeAttachmentsWatcher, err = w.volumes.WatchVolumeAttachments()
+		volumeAttachmentsWatcher, err = w.config.Volumes.WatchVolumeAttachments()
 		if err != nil {
 			return errors.Annotate(err, "watching volume attachments")
 		}
-		filesystemAttachmentsWatcher, err = w.filesystems.WatchFilesystemAttachments()
+		filesystemAttachmentsWatcher, err = w.config.Filesystems.WatchFilesystemAttachments()
 		if err != nil {
 			return errors.Annotate(err, "watching filesystem attachments")
 		}
@@ -298,14 +274,7 @@ func (w *storageprovisioner) loop() error {
 	}
 
 	ctx := context{
-		scope:                                w.scope,
-		storageDir:                           w.storageDir,
-		volumeAccessor:                       w.volumes,
-		filesystemAccessor:                   w.filesystems,
-		life:                                 w.life,
-		machineAccessor:                      w.machines,
-		statusSetter:                         w.status,
-		time:                                 w.clock,
+		config:                               w.config,
 		volumes:                              make(map[names.VolumeTag]storage.Volume),
 		volumeAttachments:                    make(map[params.MachineStorageId]storage.VolumeAttachment),
 		volumeBlockDevices:                   make(map[names.VolumeTag]storage.BlockDevice),
@@ -313,7 +282,7 @@ func (w *storageprovisioner) loop() error {
 		filesystemAttachments:                make(map[params.MachineStorageId]storage.FilesystemAttachment),
 		machines:                             make(map[names.MachineTag]*machineWatcher),
 		machineChanges:                       machineChanges,
-		schedule:                             schedule.NewSchedule(w.clock),
+		schedule:                             schedule.NewSchedule(w.config.Clock),
 		incompleteVolumeParams:               make(map[names.VolumeTag]storage.VolumeParams),
 		incompleteVolumeAttachmentParams:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
 		incompleteFilesystemParams:           make(map[names.FilesystemTag]storage.FilesystemParams),
@@ -342,7 +311,7 @@ func (w *storageprovisioner) loop() error {
 			if !ok {
 				return watcher.EnsureErr(environConfigWatcher)
 			}
-			environConfig, err := w.environ.EnvironConfig()
+			environConfig, err := w.config.Environ.EnvironConfig()
 			if err != nil {
 				return errors.Annotate(err, "getting environ config")
 			}
@@ -404,7 +373,7 @@ func (w *storageprovisioner) loop() error {
 
 // processSchedule executes scheduled operations.
 func processSchedule(ctx *context) error {
-	ready := ctx.schedule.Ready(ctx.time.Now())
+	ready := ctx.schedule.Ready(ctx.config.Clock.Now())
 	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
 	destroyVolumeOps := make(map[names.VolumeTag]*destroyVolumeOp)
 	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
@@ -478,22 +447,15 @@ func processSchedule(ctx *context) error {
 	return nil
 }
 
-func (p *storageprovisioner) maybeStopWatcher(w watcher.Stopper) {
+func (p *storageProvisioner) maybeStopWatcher(w watcher.Stopper) {
 	if w != nil {
 		watcher.Stop(w, &p.tomb)
 	}
 }
 
 type context struct {
-	scope              names.Tag
-	environConfig      *config.Config
-	storageDir         string
-	volumeAccessor     VolumeAccessor
-	filesystemAccessor FilesystemAccessor
-	life               LifecycleManager
-	machineAccessor    MachineAccessor
-	statusSetter       StatusSetter
-	time               clock.Clock
+	config        Config
+	environConfig *config.Config
 
 	// volumes contains information about provisioned volumes.
 	volumes map[names.VolumeTag]storage.Volume
