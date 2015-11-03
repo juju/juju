@@ -55,7 +55,7 @@ func (c *listBlocksCommand) getAPI() (listBlocksAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
-	return c.NewSystemManagerAPIClient()
+	return c.NewControllerAPIClient()
 }
 
 // Run implements Command.Run

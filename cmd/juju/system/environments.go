@@ -85,7 +85,7 @@ func (c *environmentsCommand) getSysAPI() (EnvironmentsSysAPI, error) {
 	if c.sysAPI != nil {
 		return c.sysAPI, nil
 	}
-	return c.NewSystemManagerAPIClient()
+	return c.NewControllerAPIClient()
 }
 
 func (c *environmentsCommand) getConnectionCredentials() (configstore.APICredentials, error) {

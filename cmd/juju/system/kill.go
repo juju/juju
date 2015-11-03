@@ -11,7 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/systemmanager"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -96,7 +96,7 @@ func (c *killCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemA
 		return nil, ErrConnTimedOut
 	}
 
-	return systemmanager.NewClient(apiRoot), nil
+	return controller.NewClient(apiRoot), nil
 }
 
 // Run implements Command.Run
@@ -170,7 +170,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 }
 
 // killSystemViaClient attempts to kill the system using the client
-// endpoint for older juju systems which do not implement systemmanager.DestroySystem
+// endpoint for older juju systems which do not implement controller.DestroySystem
 func (c *killCommand) killSystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {

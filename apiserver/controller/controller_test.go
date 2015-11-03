@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package systemmanager_test
+package controller_test
 
 import (
 	"time"
@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/controller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/systemmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -23,17 +23,17 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type systemManagerSuite struct {
+type controllerSuite struct {
 	jujutesting.JujuConnSuite
 
-	systemManager *systemmanager.SystemManagerAPI
-	resources     *common.Resources
-	authorizer    apiservertesting.FakeAuthorizer
+	controller *controller.ControllerAPI
+	resources  *common.Resources
+	authorizer apiservertesting.FakeAuthorizer
 }
 
-var _ = gc.Suite(&systemManagerSuite{})
+var _ = gc.Suite(&controllerSuite{})
 
-func (s *systemManagerSuite) SetUpTest(c *gc.C) {
+func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -42,39 +42,39 @@ func (s *systemManagerSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	systemManager, err := systemmanager.NewSystemManagerAPI(s.State, s.resources, s.authorizer)
+	controller, err := controller.NewControllerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.systemManager = systemManager
+	s.controller = controller
 
-	loggo.GetLogger("juju.apiserver.systemmanager").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
 
-func (s *systemManagerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
+func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := systemmanager.NewSystemManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *systemManagerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
+func (s *controllerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endPoint, err := systemmanager.NewSystemManagerAPI(s.State, s.resources, anAuthoriser)
+	endPoint, err := controller.NewControllerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *systemManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
+func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {
 	c.Check(env.Name, gc.Equals, expected.Name())
 	c.Check(env.UUID, gc.Equals, expected.UUID())
 	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
-func (s *systemManagerSuite) TestAllEnvironments(c *gc.C) {
+func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
 	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
@@ -88,7 +88,7 @@ func (s *systemManagerSuite) TestAllEnvironments(c *gc.C) {
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
 
-	response, err := s.systemManager.AllEnvironments()
+	response, err := s.controller.AllEnvironments()
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
 	expected := []string{"dummyenv", "no-access", "owned", "user"}
@@ -102,7 +102,7 @@ func (s *systemManagerSuite) TestAllEnvironments(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
-func (s *systemManagerSuite) TestListBlockedEnvironments(c *gc.C) {
+func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "test"})
 	defer st.Close()
@@ -112,7 +112,7 @@ func (s *systemManagerSuite) TestListBlockedEnvironments(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	list, err := s.systemManager.ListBlockedEnvironments()
+	list, err := s.controller.ListBlockedEnvironments()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(list.Environments, jc.DeepEquals, []params.EnvironmentBlockInfo{
@@ -138,32 +138,32 @@ func (s *systemManagerSuite) TestListBlockedEnvironments(c *gc.C) {
 
 }
 
-func (s *systemManagerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
-	list, err := s.systemManager.ListBlockedEnvironments()
+func (s *controllerSuite) TestListBlockedEnvironmentsNoBlocks(c *gc.C) {
+	list, err := s.controller.ListBlockedEnvironments()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list.Environments, gc.HasLen, 0)
 }
 
-func (s *systemManagerSuite) TestEnvironmentConfig(c *gc.C) {
-	env, err := s.systemManager.EnvironmentConfig()
+func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
+	env, err := s.controller.EnvironmentConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
 }
 
-func (s *systemManagerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
+func (s *controllerSuite) TestEnvironmentConfigFromNonStateServer(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "test"})
 	defer st.Close()
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
-	systemManager, err := systemmanager.NewSystemManagerAPI(st, common.NewResources(), authorizer)
+	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := systemManager.EnvironmentConfig()
+	env, err := controller.EnvironmentConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config["name"], gc.Equals, "dummyenv")
 }
 
-func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
+func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "test"})
 	defer st.Close()
@@ -173,7 +173,7 @@ func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.systemManager.RemoveBlocks(params.RemoveBlocksArgs{All: true})
+	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{All: true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	blocks, err := s.State.AllBlocksForSystem()
@@ -181,13 +181,13 @@ func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(blocks, gc.HasLen, 0)
 }
 
-func (s *systemManagerSuite) TestRemoveBlocksNotAll(c *gc.C) {
-	err := s.systemManager.RemoveBlocks(params.RemoveBlocksArgs{})
+func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
+	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
 }
 
-func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
-	watcherId, err := s.systemManager.WatchAllEnvs()
+func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
+	watcherId, err := s.controller.WatchAllEnvs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcherAPI_, err := apiserver.NewAllWatcher(s.State, s.resources, s.authorizer, watcherId.AllWatcherId)
