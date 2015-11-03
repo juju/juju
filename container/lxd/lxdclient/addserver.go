@@ -14,15 +14,16 @@ import (
 )
 
 // TODO(ericsnow) This file should be removed as soon as possible.
-// It is copied from https://github.com/lxc/lxd/blob/master/lxc/remote.go
-// and the code there should instead be exported so we could use it here.
+// It is based on https://github.com/lxc/lxd/blob/master/lxc/remote.go
+// and the code there should instead be cleaned up and exported so we
+// could use it here.
 
 // TODO(ericsnow) Address licensing.
 
 // addServer adds the given remote info to the provided config.
 // The implementation is derived from:
 //  https://github.com/lxc/lxd/blob/master/lxc/remote.go
-// Note that some validation code was removed (we don't need it).
+// Note that we've removed some validation code (we don't need it).
 func addServer(config *lxd.Config, server string, addr string) error {
 	addr, err := fixAddr(addr)
 	if err != nil {
