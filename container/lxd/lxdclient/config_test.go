@@ -30,11 +30,11 @@ type configBaseSuite struct {
 func (s *configBaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.remote = lxdclient.NewRemote(lxdclient.RemoteInfo{
+	s.remote = lxdclient.Remote{
 		Name: "my-remote",
 		Host: "some-host",
 		Cert: s.Cert,
-	})
+	}
 }
 
 type configSuite struct {
@@ -196,7 +196,10 @@ func (s *configFunctionalSuite) TestWrite(c *gc.C) {
 }
 
 func checkFiles(c *gc.C, cfg lxdclient.Config) {
-	certificate := cfg.Remote.Cert()
+	var certificate lxdclient.Cert
+	if cfg.Remote.Cert != nil {
+		certificate = *cfg.Remote.Cert
+	}
 
 	filename := filepath.Join(cfg.Dirname, "client.crt")
 	c.Logf("reading cert PEM from %q", filename)

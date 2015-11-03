@@ -18,18 +18,15 @@ const (
 // Local is LXD's default "remote". Essentially it is an unencrypted,
 // unauthenticated connection to localhost over a unix socket.
 var Local = Remote{
-	RemoteInfo: RemoteInfo{
-		Name: remoteLocalName,
-		Host: "", // The LXD API turns this into the local unix socket.
-	},
+	Name: remoteLocalName,
+	Host: "", // The LXD API turns this into the local unix socket.
+	Cert: nil,
 }
 
-// TODO(ericsnow) Fold RemoteInfo into Remote.
-
-// RemoteInfo describes a LXD "remote" server for a client. In
+// Remote describes a LXD "remote" server for a client. In
 // particular it holds the information needed for the client
 // to connect to the remote.
-type RemoteInfo struct {
+type Remote struct {
 	// Name is a label for this remote.
 	Name string
 
@@ -42,42 +39,50 @@ type RemoteInfo struct {
 	Cert *Cert
 }
 
+// ID identifies the remote to the raw LXD client code.
+func (r Remote) ID() string {
+	if r.Host == Local.Host {
+		return remoteIDForLocal
+	}
+	return r.Name
+}
+
 // SetDefaults updates a copy of the remote with default values
 // where needed.
-func (ri RemoteInfo) SetDefaults() (RemoteInfo, error) {
-	if ri.Host == Local.Host {
-		return ri.setLocalDefaults(), nil
+func (r Remote) SetDefaults() (Remote, error) {
+	if r.Host == Local.Host {
+		return r.setLocalDefaults(), nil
 	}
 
-	if ri.Cert == nil {
+	if r.Cert == nil {
 		certPEM, keyPEM, err := genCertAndKey()
 		if err != nil {
-			return ri, errors.Trace(err)
+			return r, errors.Trace(err)
 		}
-		ri.Cert = NewCert(certPEM, keyPEM)
+		r.Cert = NewCert(certPEM, keyPEM)
 	}
 
-	return ri, nil
+	return r, nil
 }
 
-func (ri RemoteInfo) setLocalDefaults() RemoteInfo {
-	if ri.Name == "" {
-		ri.Name = remoteLocalName
+func (r Remote) setLocalDefaults() Remote {
+	if r.Name == "" {
+		r.Name = remoteLocalName
 	}
 
-	// TODO(ericsnow) Set ri.Cert to nil?
+	// TODO(ericsnow) Set r.Cert to nil?
 
-	return ri
+	return r
 }
 
-// Validate checks the RemoteInfo fields for invalid values.
-func (ri RemoteInfo) Validate() error {
-	if ri.Name == "" {
+// Validate checks the Remote fields for invalid values.
+func (r Remote) Validate() error {
+	if r.Name == "" {
 		return errors.NotValidf("remote missing name,")
 	}
 
-	if ri.Host == Local.Host {
-		if err := ri.validateLocal(); err != nil {
+	if r.Host == Local.Host {
+		if err := r.validateLocal(); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
@@ -85,61 +90,21 @@ func (ri RemoteInfo) Validate() error {
 
 	// TODO(ericsnow) Ensure the host is a valid hostname or address?
 
-	if ri.Cert == nil {
+	if r.Cert == nil {
 		return errors.NotValidf("remote without cert")
-	} else if err := ri.Cert.Validate(); err != nil {
+	} else if err := r.Cert.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (ri RemoteInfo) validateLocal() error {
-	if ri.Cert != nil {
+func (r Remote) validateLocal() error {
+	if r.Cert != nil {
 		return errors.NotValidf("hostless remote with cert")
 	}
 
 	return nil
-}
-
-// Remote represents a single LXD remote server.
-type Remote struct {
-	RemoteInfo
-}
-
-// NewRemote builds a new Remote from the provided info.
-func NewRemote(info RemoteInfo) Remote {
-	return Remote{
-		RemoteInfo: info,
-	}
-}
-
-// setDefaults updates a copy of the remote with default values
-// where needed.
-func (r Remote) setDefaults() (Remote, error) {
-	info, err := r.RemoteInfo.SetDefaults()
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-	r.RemoteInfo = info
-
-	return r, nil
-}
-
-// ID identifies the remote to the raw LXD client code.
-func (r Remote) ID() string {
-	if r.RemoteInfo.Host == Local.Host {
-		return remoteIDForLocal
-	}
-	return r.RemoteInfo.Name
-}
-
-// Cert returns the certificate the client should use.
-func (r Remote) Cert() Cert {
-	if r.RemoteInfo.Cert == nil {
-		return Cert{}
-	}
-	return *r.RemoteInfo.Cert
 }
 
 // TODO(ericsnow) Add a "Connect(Config)" method that connects

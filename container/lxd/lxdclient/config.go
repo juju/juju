@@ -61,7 +61,7 @@ func (cfg Config) SetDefaults() (Config, error) {
 	}
 
 	var err error
-	cfg.Remote, err = cfg.Remote.setDefaults()
+	cfg.Remote, err = cfg.Remote.SetDefaults()
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
@@ -148,8 +148,10 @@ func (cfg Config) write() error {
 	}
 
 	// Write the cert file and key file, if applicable.
-	// TODO(ericsnow) cert should be a pointer?
-	cert := cfg.Remote.Cert()
+	var cert Cert
+	if cfg.Remote.Cert != nil {
+		cert = *cfg.Remote.Cert
+	}
 	if err := cert.Validate(); err != nil {
 		logger.Debugf("not writing invalid/empty certificate")
 	} else {
