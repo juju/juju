@@ -124,8 +124,6 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	err = common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
-
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, jc.IsTrue)
@@ -178,8 +176,6 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 
 	c.Assert(manager.Refresh(), jc.ErrorIsNil)
 	c.Assert(manager.Life(), gc.Equals, state.Alive)
-
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{{FuncName: "SendMetrics"}})
 }
 
 func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
@@ -188,7 +184,6 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	s.AssertBlocked(c, err, "TestBlockDestroyDestroyEnvironment")
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
@@ -197,7 +192,6 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveDestroyEnvironment")
 	err := common.DestroyEnvironment(s.State, s.State.EnvironTag(), false)
 	s.AssertBlocked(c, err, "TestBlockRemoveDestroyEnvironment")
-	s.metricSender.CheckCalls(c, []jtesting.StubCall{})
 }
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {

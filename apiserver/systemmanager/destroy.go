@@ -5,12 +5,13 @@ package systemmanager
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"launchpad.net/tomb"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/names"
-	"launchpad.net/tomb"
 )
 
 // DestroySystem will attempt to destroy the system. If the args specify the
@@ -38,13 +39,11 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 		return errors.Trace(err)
 	}
 
-	destroyer := newEnvironDestroyer(s.state, systemTag)
-
 	// Now we can be sure that no new environments will be added. But any of
 	// the environments may already be dying and die at any moment. So we need
 	// to watch and wait for all envs to be dead while destroying any
 	// living environments we've found.
-	destroyer.Watch()
+	destroyer := newEnvironDestroyer(s.state, systemTag)
 
 	var allEnvs []*state.Environment
 	allEnvs, err = s.state.AllEnvironments()
@@ -70,12 +69,11 @@ func areAllHostedEnvsDead(st *state.State) (bool, error) {
 
 	var notDeadCount int
 	for _, env := range allEnvs {
-		if env.Life() != state.Dead {
+		if env.Life() != state.Dead && env.ServerUUID() != env.UUID() {
 			notDeadCount++
 		}
 
-		// we'll always have at least one alive environment for the system.
-		if notDeadCount > 1 {
+		if notDeadCount == 0 {
 			return false, nil
 		}
 	}
@@ -93,18 +91,19 @@ type environDestroyer struct {
 }
 
 func newEnvironDestroyer(st *state.State, systemTag names.EnvironTag) *environDestroyer {
-	return &environDestroyer{
+
+	dest := &environDestroyer{
 		st:             st,
 		systemTag:      systemTag,
-		livingEnvirons: make(chan names.EnvironTag, 1),
+		livingEnvirons: make(chan names.EnvironTag),
 	}
-}
 
-func (e *environDestroyer) Watch() {
 	go func() {
 		defer e.tomb.Done()
 		e.tomb.Kill(e.loop())
 	}()
+
+	return dest
 }
 
 // Kill asks the watcher to stop without necessarily
@@ -121,6 +120,9 @@ func (w *environDestroyer) Wait() error {
 }
 
 func (w *environDestroyer) loop() error {
+	envWatcher := w.st.WatchEnvironments()
+	defer watcher.Stop(envWatcher, &w.tomb)
+
 	// There is a chance that the hosted environments have died before we
 	// started waiting. So we check here before we wait.
 	if allDead, err := areAllHostedEnvsDead(w.st); err != nil {
@@ -128,8 +130,9 @@ func (w *environDestroyer) loop() error {
 	} else if allDead {
 		return nil
 	}
-	envWatcher := w.st.WatchEnvironments()
-	defer watcher.Stop(envWatcher, &w.tomb)
+
+	// undeadEnvs is a slice of environ UUIDs that errored when being destroyed.
+	var undeadEnvs []string
 
 	for {
 		select {
@@ -139,6 +142,7 @@ func (w *environDestroyer) loop() error {
 			if environTag != w.systemTag {
 				if err := common.DestroyEnvironment(w.st, environTag, false); err != nil {
 					logger.Errorf("unable to destroy environment %q: %s", environTag.Id(), err)
+					undeadEnvs = append(undeadEnvs, environTag.Id())
 				}
 			}
 
