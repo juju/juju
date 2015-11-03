@@ -3,14 +3,9 @@
 
 // +build go1.3
 
-package lxd_test
+package all
 
+// Register all the available providers.
 import (
-	"testing"
-
-	gc "gopkg.in/check.v1"
+	_ "github.com/juju/juju/provider/lxd"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
