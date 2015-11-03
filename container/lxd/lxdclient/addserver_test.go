@@ -6,7 +6,6 @@ package lxdclient
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	//"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 )
 
@@ -27,11 +26,10 @@ func (t addrTest) pathExists(path string) bool {
 	return t.exists
 }
 
-var addrTests = []addrTest{{
+var typicalAddrTests = []addrTest{{
 	addr:     "",
 	expected: "",
 }, {
-	// the typical remote case
 	addr:     "https://x.y.z",
 	expected: "https://x.y.z:8443",
 }, {
@@ -41,6 +39,79 @@ var addrTests = []addrTest{{
 	addr:     "https://x.y.z:1234",
 	expected: "https://x.y.z:1234",
 }, {
+	addr:     "http://x.y.z",
+	expected: "https://x.y.z:8443",
+}, {
+	addr:     "1.2.3.4",
+	expected: "https://1.2.3.4:8443",
+}, {
+	addr:     "https://1.2.3.4",
+	expected: "https://1.2.3.4:8443",
+}, {
+	addr:     "2001:db8::ff00:42:8329",
+	expected: "https://[2001:db8::ff00:42:8329]:8443",
+}, {
+	addr:     "https://2001:db8::ff00:42:8329",
+	expected: "https://[2001:db8::ff00:42:8329]:8443",
+}, {
+	addr:     "https://[2001:db8::ff00:42:8329]:1234",
+	expected: "https://[2001:db8::ff00:42:8329]:1234",
+}, {
+	addr:     "unix://",
+	expected: "unix://",
+}, {
+	// TODO(ericsnow) Expect 3 slashes?
+	addr:     "unix:///x/y/z",
+	expected: "unix://x/y/z",
+}, {
+	// TODO(ericsnow) Expect 3 slashes?
+	addr:     "unix:/x/y/z",
+	expected: "unix://x/y/z",
+}, {
+	addr:     "/x/y/z",
+	expected: "unix:///x/y/z",
+}, {
+	addr:     "x/y/z",
+	exists:   true,
+	expected: "unix://x/y/z",
+}, {
+	addr:     "x.y.z",
+	exists:   false,
+	expected: "https://x.y.z:8443",
+}}
+
+func (s *fixAddrSuite) TestFixAddrTypical(c *gc.C) {
+	for i, test := range typicalAddrTests {
+		c.Logf("test %d: checking %q (exists: %v)", i, test.addr, test.exists)
+		c.Assert(test.err, gc.Equals, "")
+
+		fixed, err := fixAddr(test.addr, test.pathExists)
+
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		c.Check(fixed, gc.Equals, test.expected)
+	}
+}
+
+var failureAddrTests = []addrTest{{
+	// a malformed URL
+	addr: ":x.y.z",
+	err:  `.*`,
+}}
+
+func (s *fixAddrSuite) TestFixAddrFailures(c *gc.C) {
+	for i, test := range failureAddrTests {
+		c.Logf("test %d: checking %q (exists: %v)", i, test.addr, test.exists)
+		c.Assert(test.err, gc.Not(gc.Equals), "")
+
+		_, err := fixAddr(test.addr, test.pathExists)
+
+		c.Check(err, gc.ErrorMatches, test.err)
+	}
+}
+
+var weirdAddrTests = []addrTest{{
 	addr:     "https://x.y.z/:1234",
 	expected: "https://x.y.z:8443",
 }, {
@@ -48,9 +119,6 @@ var addrTests = []addrTest{{
 	expected: "https://x.y.z:8443",
 }, {
 	addr:     "https://x.y.z/a/b/c",
-	expected: "https://x.y.z:8443",
-}, {
-	addr:     "http://x.y.z",
 	expected: "https://x.y.z:8443",
 }, {
 	addr:     "http://x.y.z/a/b/c",
@@ -71,19 +139,12 @@ var addrTests = []addrTest{{
 	addr:     "https://[2001:db8::ff00:42:8329]/a/b/c",
 	expected: "https://[2001:db8::ff00:42:8329]:8443",
 }, {
-	addr:     "//x.y.z/a/b/c",
-	expected: "unix://x.y.z",
+	addr:     "//a.b.c/x/y/z",
+	expected: "unix://a.b.c",
 }, {
-	addr:     "/xyz/a/b/c",
-	expected: "unix:///xyz/a/b/c",
-}, {
-	addr:     "x.y.z/a/b/c",
+	addr:     "a.b.c/x/y/z",
 	exists:   true,
-	expected: "unix://x.y.z/a/b/c",
-}, {
-	addr:     "xyz/a/b/c",
-	exists:   true,
-	expected: "unix://xyz/a/b/c",
+	expected: "unix://a.b.c/x/y/z",
 }, {
 	addr:     "x.y.z/a/b/c",
 	exists:   false,
@@ -93,43 +154,26 @@ var addrTests = []addrTest{{
 	exists:   false,
 	expected: "https://xyz/a/b/c:8443",
 }, {
-	// the default local case
-	addr:     "unix://",
-	expected: "unix://",
-}, {
 	addr:     "unix:/",
 	expected: "unix://",
 }, {
 	addr:     "unix://x/y/z",
 	expected: "unix:///y/z",
 }, {
-	addr:     "unix:///x/y/z",
-	expected: "unix://x/y/z",
-}, {
-	addr:     "unix:/x/y/z",
-	expected: "unix://x/y/z",
-}, {
 	addr:     "unix:/x/y/z:8443",
 	expected: "unix://[x/y/z:8443]",
-}, {
-	// a malformed URL
-	addr: ":x.y.z",
-	err:  `.*`,
 }}
 
-func (s *fixAddrSuite) TestFixAddr(c *gc.C) {
-	for i, test := range addrTests {
+func (s *fixAddrSuite) TestFixAddrWeird(c *gc.C) {
+	for i, test := range weirdAddrTests {
 		c.Logf("test %d: checking %q (exists: %v)", i, test.addr, test.exists)
+		c.Assert(test.err, gc.Equals, "")
 
 		fixed, err := fixAddr(test.addr, test.pathExists)
 
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			c.Check(fixed, gc.Equals, test.expected)
-		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
 		}
+		c.Check(fixed, gc.Equals, test.expected)
 	}
 }
