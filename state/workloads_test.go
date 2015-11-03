@@ -37,6 +37,10 @@ func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
 	charmTag := ch.Tag().(names.CharmTag)
 	return charmTag, unit
 }
@@ -44,30 +48,23 @@ func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta strin
 func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	_, unit := s.addUnit(c, "dummy", "a-service", workloadsMetaYAML)
 
-	st, err := s.State.UnitWorkloads(unit)
+	st, err := s.State.UnitPayloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, 0)
 
-	info := workload.Info{
+	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "workloadA",
 			Type: "docker",
 		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Details: workload.Details{
-			ID: "xyz",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     "xyz",
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
 	}
-	err = st.Track(info)
+	err = st.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results, err = st.List()
@@ -78,21 +75,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	id := results[0].ID
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID: id,
-		Workload: &workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: "workloadA",
-				Type: "docker",
-			},
-			Status: workload.Status{
-				State:   workload.StateRunning,
-				Message: "okay",
-			},
-			Details: workload.Details{
-				ID: "xyz",
-				Status: workload.PluginStatus{
-					State: "running",
-				},
-			},
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "",
 		},
 	}})
 
@@ -104,8 +89,11 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, []workload.Result{{
-		ID:       id,
-		Workload: &info,
+		ID: id,
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "",
+		},
 	}})
 
 	err = st.SetStatus(id, "running")
@@ -115,26 +103,14 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, []workload.Result{{
 		ID: id,
-		Workload: &workload.Info{
-			PayloadClass: charm.PayloadClass{
-				Name: "workloadA",
-				Type: "docker",
-			},
-			Status: workload.Status{
-				State:   workload.StateRunning,
-				Message: "running",
-			},
-			Details: workload.Details{
-				ID: "xyz",
-				Status: workload.PluginStatus{
-					State: "running",
-				},
-			},
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "",
 		},
 	}})
 
 	// Ensure duplicates are not allowed.
-	err = st.Track(info)
+	err = st.Track(pl)
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)

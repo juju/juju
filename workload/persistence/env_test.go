@@ -83,10 +83,10 @@ func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	persist := NewEnvPersistence(s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
-	workloads, err := persist.ListAll()
+	payloads, err := persist.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(payloads, gc.HasLen, 0)
 	s.Stub.CheckCallNames(c,
 		"Machines",
 		"MachineUnits",
@@ -157,18 +157,16 @@ func (s *stubEnvPersistenceBase) setWorkloads(payloads ...workload.FullPayloadIn
 		s.unitPersists = make(map[string]*stubUnitPersistence)
 	}
 
-	for _, payload := range payloads {
-		workload := payload.AsWorkload()
+	for _, pl := range payloads {
+		s.setUnits(pl.Machine, pl.Unit)
 
-		s.setUnits(payload.Machine, payload.Unit)
-
-		unitWorkloads := s.unitPersists[payload.Unit]
-		if unitWorkloads == nil {
-			unitWorkloads = &stubUnitPersistence{stub: s.stub}
-			s.unitPersists[payload.Unit] = unitWorkloads
+		unitPayloads := s.unitPersists[pl.Unit]
+		if unitPayloads == nil {
+			unitPayloads = &stubUnitPersistence{stub: s.stub}
+			s.unitPersists[pl.Unit] = unitPayloads
 		}
 
-		unitWorkloads.setWorkloads(workload)
+		unitPayloads.setWorkloads(pl.Payload)
 	}
 }
 
@@ -229,18 +227,18 @@ func (s *stubEnvPersistenceBase) MachineUnits(machine string) ([]string, error) 
 type stubUnitPersistence struct {
 	stub *testing.Stub
 
-	workloads []workload.Info
+	payloads []workload.Payload
 }
 
-func (s *stubUnitPersistence) setWorkloads(workloads ...workload.Info) {
-	s.workloads = append(s.workloads, workloads...)
+func (s *stubUnitPersistence) setWorkloads(payloads ...workload.Payload) {
+	s.payloads = append(s.payloads, payloads...)
 }
 
-func (s *stubUnitPersistence) ListAll() ([]workload.Info, error) {
+func (s *stubUnitPersistence) ListAll() ([]workload.Payload, error) {
 	s.stub.AddCall("ListAll")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return s.workloads, nil
+	return s.payloads, nil
 }

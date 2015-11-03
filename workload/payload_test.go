@@ -100,31 +100,3 @@ func (s *payloadSuite) TestValidateMissingUnit(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, `missing Unit .*`)
 }
-
-func (s *payloadSuite) TestAsWorkload(c *gc.C) {
-	payload := workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
-		},
-		ID:     "idspam",
-		Status: workload.StateRunning,
-		Labels: []string{"a-tag"},
-		Unit:   "a-service/0",
-	}
-	converted := payload.AsWorkload()
-
-	c.Check(converted, jc.DeepEquals, workload.Info{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
-		},
-		Status: workload.Status{
-			State: workload.StateRunning,
-		},
-		Labels: []string{"a-tag"},
-		Details: workload.Details{
-			ID: "idspam",
-		},
-	})
-}

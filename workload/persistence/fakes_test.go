@@ -16,13 +16,13 @@ import (
 type fakeStatePersistence struct {
 	*gitjujutesting.Stub
 
-	docs map[string]*workloadDoc
+	docs map[string]*payloadDoc
 	ops  [][]txn.Op
 }
 
-func (sp *fakeStatePersistence) SetDocs(docs ...*workloadDoc) {
+func (sp *fakeStatePersistence) SetDocs(docs ...*payloadDoc) {
 	if sp.docs == nil {
-		sp.docs = make(map[string]*workloadDoc)
+		sp.docs = make(map[string]*payloadDoc)
 	}
 	for _, doc := range docs {
 		sp.docs[doc.DocID] = doc
@@ -46,11 +46,11 @@ func (sp fakeStatePersistence) CheckOps(c *gc.C, expected [][]txn.Op) {
 			c.Logf(" <op %d>\n", j)
 			expectedOp := expectedRun[j]
 			if expectedOp.Insert != nil {
-				if doc, ok := expectedOp.Insert.(*WorkloadDoc); ok {
+				if doc, ok := expectedOp.Insert.(*PayloadDoc); ok {
 					expectedOp.Insert = doc.convert()
 				}
 			} else if expectedOp.Update != nil {
-				if doc, ok := expectedOp.Update.(*WorkloadDoc); ok {
+				if doc, ok := expectedOp.Update.(*PayloadDoc); ok {
 					expectedOp.Update = doc.convert()
 				}
 			}
@@ -76,7 +76,7 @@ func (sp fakeStatePersistence) One(collName, id string, doc interface{}) error {
 	if !ok {
 		return errors.NotFoundf(id)
 	}
-	actual := doc.(*workloadDoc)
+	actual := doc.(*payloadDoc)
 	*actual = *found
 	return nil
 }
@@ -113,7 +113,7 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 		panic(query)
 	}
 
-	var found []workloadDoc
+	var found []payloadDoc
 	for _, id := range ids {
 		doc, ok := sp.docs[id]
 		if !ok {
@@ -121,7 +121,7 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 		}
 		found = append(found, *doc)
 	}
-	actual := docs.(*[]workloadDoc)
+	actual := docs.(*[]payloadDoc)
 	*actual = found
 	return nil
 }

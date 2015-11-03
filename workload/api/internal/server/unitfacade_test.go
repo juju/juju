@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 	"github.com/juju/juju/workload/api/internal"
 )
 
@@ -40,78 +41,56 @@ func (s *suite) TestTrack(c *gc.C) {
 	a := UnitFacade{s.state}
 
 	args := internal.TrackArgs{
-		Workloads: []internal.Workload{{
-			Definition: internal.WorkloadDefinition{
-				Name: "idfoo",
-				Type: "type",
-			},
-			Status: internal.WorkloadStatus{
-				State:   workload.StateRunning,
-				Message: "okay",
-			},
-			Details: internal.WorkloadDetails{
-				ID: "bar",
-				Status: internal.PluginStatus{
-					State: "running",
-				},
-			},
+		Payloads: []api.Payload{{
+			Class:  "idfoo",
+			Type:   "type",
+			ID:     "bar",
+			Status: workload.StateRunning,
 		}},
 	}
 
 	res, err := a.Track(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(res, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
-			Workload: nil,
+			Payload:  nil,
 			NotFound: false,
 			Error:    nil,
 		}},
 	})
 
-	c.Check(s.state.info, jc.DeepEquals, workload.Info{
+	c.Check(s.state.payload, jc.DeepEquals, workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "idfoo",
 			Type: "type",
 		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
+		Status: workload.StateRunning,
 		Labels: []string{},
-		Details: workload.Details{
-			ID: "bar",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     "bar",
 	})
 }
 
 func (s *suite) TestListOne(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
-	wl := workload.Info{
+	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
 			Type: "type",
 		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Details: workload.Details{
-			ID: "idfoo",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     "idfoo",
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
 	}
 	s.state.workloads = []workload.Result{{
-		ID:       id,
-		Workload: &wl,
+		ID: id,
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "1",
+		},
 	}}
 
 	a := UnitFacade{s.state}
@@ -123,30 +102,22 @@ func (s *suite) TestListOne(c *gc.C) {
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := internal.Workload{
-		Definition: internal.WorkloadDefinition{
-			Name: "foobar",
-			Type: "type",
-		},
-		Status: internal.WorkloadStatus{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Labels: []string{},
-		Details: internal.WorkloadDetails{
-			ID: "idfoo",
-			Status: internal.PluginStatus{
-				State: "running",
-			},
-		},
+	expected := api.Payload{
+		Class:   "foobar",
+		Type:    "type",
+		ID:      "idfoo",
+		Status:  workload.StateRunning,
+		Labels:  []string{},
+		Unit:    "unit-a-service-0",
+		Machine: "machine-1",
 	}
 
-	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(results, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
-			Workload: &expected,
+			Payload:  &expected,
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -156,25 +127,21 @@ func (s *suite) TestListOne(c *gc.C) {
 func (s *suite) TestListAll(c *gc.C) {
 	id := "ce5bc2a7-65d8-4800-8199-a7c3356ab309"
 	s.state.stateIDs = []string{id}
-	wl := workload.Info{
+	pl := workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: "foobar",
 			Type: "type",
 		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Details: workload.Details{
-			ID: "idfoo",
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     "idfoo",
+		Status: workload.StateRunning,
+		Unit:   "a-service/0",
 	}
 	s.state.workloads = []workload.Result{{
-		ID:       id,
-		Workload: &wl,
+		ID: id,
+		Payload: &workload.FullPayloadInfo{
+			Payload: pl,
+			Machine: "1",
+		},
 	}}
 
 	a := UnitFacade{s.state}
@@ -182,29 +149,21 @@ func (s *suite) TestListAll(c *gc.C) {
 	results, err := a.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := internal.Workload{
-		Definition: internal.WorkloadDefinition{
-			Name: "foobar",
-			Type: "type",
-		},
-		Status: internal.WorkloadStatus{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Labels: []string{},
-		Details: internal.WorkloadDetails{
-			ID: "idfoo",
-			Status: internal.PluginStatus{
-				State: "running",
-			},
-		},
+	expected := api.Payload{
+		Class:   "foobar",
+		Type:    "type",
+		ID:      "idfoo",
+		Status:  workload.StateRunning,
+		Labels:  []string{},
+		Unit:    "unit-a-service-0",
+		Machine: "machine-1",
 	}
-	c.Check(results, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(results, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
-			Workload: &expected,
+			Payload:  &expected,
 			NotFound: false,
 			Error:    nil,
 		}},
@@ -230,8 +189,8 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 		Args:     []interface{}{"fooID", "bar"},
 	}})
 
-	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(res, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -267,8 +226,8 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
-	c.Check(res, jc.DeepEquals, internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	c.Check(res, jc.DeepEquals, internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag("ce5bc2a7-65d8-4800-8199-a7c3356ab309").String(),
 			},
@@ -310,8 +269,8 @@ func (s *suite) TestSetStatus(c *gc.C) {
 	c.Check(s.state.id, gc.Equals, id)
 	c.Assert(s.state.status, gc.Equals, workload.StateRunning)
 
-	expected := internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	expected := internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -336,8 +295,8 @@ func (s *suite) TestUntrack(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, id)
 
-	expected := internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	expected := internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: names.NewPayloadTag(id).String(),
 			},
@@ -359,8 +318,8 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, "")
 
-	expected := internal.WorkloadResults{
-		Results: []internal.WorkloadResult{{
+	expected := internal.PayloadResults{
+		Results: []internal.PayloadResult{{
 			Entity: params.Entity{
 				Tag: "",
 			},
@@ -383,7 +342,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 
 	c.Assert(s.state.id, gc.Equals, id)
 
-	expected := internal.WorkloadResults{}
+	expected := internal.PayloadResults{}
 	c.Assert(res, gc.DeepEquals, expected)
 }
 
@@ -391,12 +350,10 @@ type FakeState struct {
 	stub *testing.Stub
 
 	// inputs
-	id     string
-	ids    []string
-	status string
-
-	// info is used as input and output
-	info workload.Info
+	id      string
+	ids     []string
+	status  string
+	payload workload.Payload
 
 	//outputs
 	stateIDs  []string
@@ -412,8 +369,8 @@ func (f *FakeState) nextID() string {
 	return id
 }
 
-func (f *FakeState) Track(info workload.Info) error {
-	f.info = info
+func (f *FakeState) Track(pl workload.Payload) error {
+	f.payload = pl
 	if err := f.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
