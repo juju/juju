@@ -12,209 +12,118 @@ import (
 )
 
 var (
-	_ = gc.Suite(&remoteInfoSuite{})
 	_ = gc.Suite(&remoteSuite{})
 )
-
-type remoteInfoSuite struct {
-	lxdclient.BaseSuite
-}
-
-func (s *remoteInfoSuite) TestSetDefaultsNoop(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
-	}
-	updated, err := info.SetDefaults()
-	c.Assert(err, jc.ErrorIsNil)
-	err = updated.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(updated, jc.DeepEquals, info)
-}
-
-func (s *remoteInfoSuite) TestSetDefaultsMissingName(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "",
-		Host: "some-host",
-		Cert: s.Cert,
-	}
-	updated, err := info.SetDefaults()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(updated, jc.DeepEquals, info) // Name is not updated.
-}
-
-// TODO(ericsnow) Move this test to a functional suite.
-func (s *remoteInfoSuite) TestSetDefaultsMissingCert(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: nil,
-	}
-	err := info.Validate()
-	c.Assert(err, gc.NotNil) // Make sure the original is invalid.
-
-	updated, err := info.SetDefaults()
-	c.Assert(err, jc.ErrorIsNil)
-	err = updated.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-	updated.Cert = nil // Validate ensured that the cert was okay.
-	c.Check(updated, jc.DeepEquals, lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: nil,
-	})
-}
-
-func (s *remoteInfoSuite) TestSetDefaultsZeroValue(c *gc.C) {
-	var info lxdclient.RemoteInfo
-	updated, err := info.SetDefaults()
-	c.Assert(err, jc.ErrorIsNil)
-	err = updated.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(updated, jc.DeepEquals, lxdclient.RemoteInfo{
-		Name: "local",
-		Host: "",
-		Cert: nil,
-	})
-}
-
-func (s *remoteInfoSuite) TestSetDefaultsLocalNoop(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-local",
-		Host: "",
-		Cert: nil,
-	}
-	updated, err := info.SetDefaults()
-	c.Assert(err, jc.ErrorIsNil)
-	err = updated.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(updated, jc.DeepEquals, lxdclient.RemoteInfo{
-		Name: "my-local",
-		Host: "",
-		Cert: nil,
-	})
-}
-
-func (s *remoteInfoSuite) TestSetDefaultsLocalMissingName(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "",
-		Host: "",
-		Cert: nil,
-	}
-	updated, err := info.SetDefaults()
-	c.Assert(err, jc.ErrorIsNil)
-	err = updated.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(updated, jc.DeepEquals, lxdclient.RemoteInfo{
-		Name: "local",
-		Host: "",
-		Cert: nil,
-	})
-}
-
-func (s *remoteInfoSuite) TestValidateOkay(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
-	}
-	err := info.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *remoteInfoSuite) TestValidateMissingName(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "",
-		Host: "some-host",
-		Cert: s.Cert,
-	}
-	err := info.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *remoteInfoSuite) TestValidateMissingCert(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: nil,
-	}
-	err := info.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *remoteInfoSuite) TestValidateBadCert(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: &lxdclient.Cert{},
-	}
-	err := info.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *remoteInfoSuite) TestValidateLocalOkay(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-local",
-		Host: "",
-		Cert: nil,
-	}
-	err := info.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *remoteInfoSuite) TestValidateLocalMissingName(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "",
-		Host: "",
-		Cert: nil,
-	}
-	err := info.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
-
-func (s *remoteInfoSuite) TestValidateLocalWithCert(c *gc.C) {
-	info := lxdclient.RemoteInfo{
-		Name: "my-local",
-		Host: "",
-		Cert: &lxdclient.Cert{},
-	}
-	err := info.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-}
 
 type remoteSuite struct {
 	lxdclient.BaseSuite
 }
 
-func (s *remoteSuite) TestLocal(c *gc.C) {
-	expected := lxdclient.NewRemote(lxdclient.RemoteInfo{
+func (s *remoteSuite) TestSetDefaultsNoop(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-remote",
+		Host: "some-host",
+		Cert: s.Cert,
+	}
+	updated, err := remote.SetDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	err = updated.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(updated, jc.DeepEquals, remote)
+}
+
+func (s *remoteSuite) TestSetDefaultsMissingName(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "",
+		Host: "some-host",
+		Cert: s.Cert,
+	}
+	updated, err := remote.SetDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(updated, jc.DeepEquals, remote) // Name is not updated.
+}
+
+// TODO(ericsnow) Move this test to a functional suite.
+func (s *remoteSuite) TestSetDefaultsMissingCert(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-remote",
+		Host: "some-host",
+		Cert: nil,
+	}
+	err := remote.Validate()
+	c.Assert(err, gc.NotNil) // Make sure the original is invalid.
+
+	updated, err := remote.SetDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	err = updated.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+	updated.Cert = nil // Validate ensured that the cert was okay.
+	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
+		Name: "my-remote",
+		Host: "some-host",
+		Cert: nil,
+	})
+}
+
+func (s *remoteSuite) TestSetDefaultsZeroValue(c *gc.C) {
+	var remote lxdclient.Remote
+	updated, err := remote.SetDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	err = updated.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
 		Name: "local",
 		Host: "",
 		Cert: nil,
 	})
-	c.Check(lxdclient.Local, jc.DeepEquals, expected)
+}
+
+func (s *remoteSuite) TestSetDefaultsLocalNoop(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-local",
+		Host: "",
+		Cert: nil,
+	}
+	updated, err := remote.SetDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	err = updated.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
+		Name: "my-local",
+		Host: "",
+		Cert: nil,
+	})
+}
+
+func (s *remoteSuite) TestSetDefaultsLocalMissingName(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "",
+		Host: "",
+		Cert: nil,
+	}
+	updated, err := remote.SetDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	err = updated.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(updated, jc.DeepEquals, lxdclient.Remote{
+		Name: "local",
+		Host: "",
+		Cert: nil,
+	})
 }
 
 func (s *remoteSuite) TestValidateOkay(c *gc.C) {
-	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
+	remote := lxdclient.Remote{
 		Name: "my-remote",
 		Host: "some-host",
 		Cert: s.Cert,
-	})
+	}
 	err := remote.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
@@ -227,57 +136,99 @@ func (s *remoteSuite) TestValidateZeroValue(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *remoteSuite) TestValidateInvalid(c *gc.C) {
-	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
+func (s *remoteSuite) TestValidateMissingName(c *gc.C) {
+	remote := lxdclient.Remote{
 		Name: "",
 		Host: "some-host",
 		Cert: s.Cert,
-	})
+	}
 	err := remote.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
+func (s *remoteSuite) TestValidateMissingCert(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-remote",
+		Host: "some-host",
+		Cert: nil,
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *remoteSuite) TestValidateBadCert(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-remote",
+		Host: "some-host",
+		Cert: &lxdclient.Cert{},
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *remoteSuite) TestValidateLocalOkay(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-local",
+		Host: "",
+		Cert: nil,
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *remoteSuite) TestValidateLocalMissingName(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "",
+		Host: "",
+		Cert: nil,
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *remoteSuite) TestValidateLocalWithCert(c *gc.C) {
+	remote := lxdclient.Remote{
+		Name: "my-local",
+		Host: "",
+		Cert: &lxdclient.Cert{},
+	}
+	err := remote.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *remoteSuite) TestLocal(c *gc.C) {
+	expected := lxdclient.Remote{
+		Name: "local",
+		Host: "",
+		Cert: nil,
+	}
+	c.Check(lxdclient.Local, jc.DeepEquals, expected)
+}
+
 func (s *remoteSuite) TestIDOkay(c *gc.C) {
-	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
+	remote := lxdclient.Remote{
 		Name: "my-remote",
 		Host: "some-host",
 		Cert: s.Cert,
-	})
+	}
 	id := remote.ID()
 
 	c.Check(id, gc.Equals, "my-remote")
 }
 
 func (s *remoteSuite) TestIDLocal(c *gc.C) {
-	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
+	remote := lxdclient.Remote{
 		Name: "my-remote",
 		Host: "",
 		Cert: s.Cert,
-	})
+	}
 	id := remote.ID()
 
 	c.Check(id, gc.Equals, "")
-}
-
-func (s *remoteSuite) TestCertOkay(c *gc.C) {
-	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: s.Cert,
-	})
-	cert := remote.Cert()
-
-	c.Check(cert, jc.DeepEquals, *s.Cert)
-}
-
-func (s *remoteSuite) TestCertMissing(c *gc.C) {
-	remote := lxdclient.NewRemote(lxdclient.RemoteInfo{
-		Name: "my-remote",
-		Host: "some-host",
-		Cert: nil,
-	})
-	cert := remote.Cert()
-
-	c.Check(cert, jc.DeepEquals, lxdclient.Cert{})
 }

@@ -57,11 +57,11 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 		Namespace: cfg.Name(),
 		Dirname:   os.ExpandEnv(lxdlib.ConfigDir),
 		Filename:  "config.yml",
-		Remote: lxdclient.NewRemote(lxdclient.RemoteInfo{
+		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "",
 			Cert: nil,
-		}),
+		},
 	})
 }
 
@@ -81,14 +81,14 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 		Namespace: cfg.Name(),
 		Dirname:   os.ExpandEnv(lxdlib.ConfigDir),
 		Filename:  "config.yml",
-		Remote: lxdclient.NewRemote(lxdclient.RemoteInfo{
+		Remote: lxdclient.Remote{
 			Name: "juju-remote",
 			Host: "10.0.0.1",
 			Cert: &lxdclient.Cert{
 				CertPEM: []byte("<a valid x.509 cert>"),
 				KeyPEM:  []byte("<a valid x.509 key>"),
 			},
-		}),
+		},
 	})
 }
 
