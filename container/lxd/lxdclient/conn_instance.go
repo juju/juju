@@ -52,7 +52,7 @@ func (client *Client) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
-	if client.remote.isLocal() {
+	if client.isLocal {
 		// TODO(ericsnow) Only do this if it's a state server...
 		if err := client.exposeHostAPI(spec); err != nil {
 			if err := client.removeInstance(spec.Name); err != nil {

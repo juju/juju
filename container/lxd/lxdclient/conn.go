@@ -13,6 +13,7 @@ type Client struct {
 	raw       rawClientWrapper
 	namespace string
 	remote    string
+	isLocal   bool
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -33,6 +34,7 @@ func Connect(cfg Config) (*Client, error) {
 		raw:       raw,
 		namespace: cfg.Namespace,
 		remote:    remote,
+		isLocal:   cfg.Remote.isLocal(),
 	}
 	return conn, nil
 }
