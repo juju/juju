@@ -21,7 +21,7 @@ type crossmodelMockSuite struct {
 var _ = gc.Suite(&crossmodelMockSuite{})
 
 func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
-	service := "shared-fs/0"
+	service := "shared"
 	endPointA := "endPointA"
 	endPointB := "endPointB"
 	url := "url"

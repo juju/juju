@@ -16,15 +16,13 @@ import (
 
 const (
 	offerCommandDoc = `
-A vendor offers a service endpoint for use by consumers.
-
-We could offer the same service under different URLs to allow different consumer metering rules.
+A vendor offers a service endpoints for use by consumers.
 
 Example:
 $ juju offer db2:db 
 $ juju offer db2:db local:db2
-$ juju offer -e prod db2:db,log jaas:/u/ibm/hosted-db2
-$ juju offer hosted-db2:db,log jaas:/u/ibm/hosted-db2 --to public
+$ juju offer -e prod db2:db,log remote:/u/ibm/hosted-db2
+$ juju offer hosted-db2:db,log remote:/u/ibm/hosted-db2 --to public
 `
 	offerCommandAgs = `
 <service-name>:<endpoint-name>[,...] [<endpoint-url>] [--to <user-ident>,...]
@@ -37,16 +35,16 @@ endpoint-url    For local endpoints:
                     
                 endpoint “db” available at local:/u/user-name/env-name/hosted-db2
                     
-                For JAAS endpoints:
-                jaas:/u/<username>/<servicename>
+                For remote endpoints:
+                remote:/u/<username>/<servicename>
                     
-                    $ juju offer db2:db jaas:/u/ibm/hosted-db2
+                    $ juju offer db2:db remote:/u/ibm/hosted-db2
 
-                endpoint “db” available at jaas:/u/ibm/hosted-db2     
+                endpoint “db” available at remote:/u/ibm/hosted-db2     
 `
 )
 
-// NewOfferCommand constructs comands that enables endpoints for export.
+// NewOfferCommand constructs commands that enables endpoints for export.
 func NewOfferCommand() cmd.Command {
 	return envcmd.Wrap(&offerCommand{})
 }

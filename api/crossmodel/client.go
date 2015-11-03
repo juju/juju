@@ -19,7 +19,7 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewClient creates a new client for accessing the cross model API.
+// NewClient creates a new client for accessing the cross model relations API.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "CrossModel")
 	return &Client{ClientFacade: frontend, facade: backend}
