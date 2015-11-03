@@ -36,7 +36,7 @@ func (s *offerSuite) TestOfferNoArgs(c *gc.C) {
 
 func (s *offerSuite) TestOfferInvalidService(c *gc.C) {
 	s.args = []string{"123:"}
-	s.assertOfferErrorOutput(c, `.*service name "123" is not valid.*`)
+	s.assertOfferErrorOutput(c, `.*service name "123" not valid.*`)
 }
 
 func (s *offerSuite) TestOfferInvalidEndpoints(c *gc.C) {
@@ -82,7 +82,7 @@ func (s *offerSuite) TestOfferWithURL(c *gc.C) {
 
 func (s *offerSuite) TestOfferToInvalidUser(c *gc.C) {
 	s.args = []string{"tst:db", "--to", "b_b"}
-	s.assertOfferErrorOutput(c, `.*user name "b_b" is not valid.*`)
+	s.assertOfferErrorOutput(c, `.*user name "b_b" not valid.*`)
 }
 
 func (s *offerSuite) TestOfferToUser(c *gc.C) {

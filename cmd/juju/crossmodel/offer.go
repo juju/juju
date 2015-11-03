@@ -123,7 +123,7 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 	userTags := make([]string, len(c.Users))
 	for i, user := range c.Users {
 		if !names.IsValidUser(user) {
-			return errors.Errorf(`user name %q is not valid`, user)
+			return errors.NotValidf(`user name %q`, user)
 		}
 		userTags[i] = names.NewUserTag(user).String()
 	}
@@ -168,7 +168,7 @@ func (c *offerCommand) parseEndpoints(arg string) error {
 
 	serviceName := parts[0]
 	if !names.IsValidService(serviceName) {
-		return errors.Errorf(`service name %q is not valid`, serviceName)
+		return errors.NotValidf(`service name %q`, serviceName)
 	}
 	c.Service = names.NewServiceTag(serviceName).String()
 
