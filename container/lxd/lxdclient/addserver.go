@@ -45,73 +45,76 @@ func addServer(config *lxd.Config, server string, addr string) error {
 // up the provided addr to be a fully qualified URL.
 func fixAddr(addr string, pathExists func(string) bool) (string, error) {
 	if addr == "" {
+		// TODO(ericsnow) Return lxd.LocalRemote.Addr?
 		return addr, nil
 	}
 
-	var r_scheme string
-	var r_host string
-	var r_port string
-
-	/* Complex remote URL parsing */
-	remote_url, err := url.Parse(addr)
+	parsedURL, err := url.Parse(addr)
 	if err != nil {
 		return "", err
 	}
+	remoteURL := url.URL{
+		Scheme: parsedURL.Scheme,
+		Host:   parsedURL.Host,
+		//Path:   parsedURL.Path,
+	}
 
-	if remote_url.Scheme != "" {
-		if remote_url.Scheme != "unix" && remote_url.Scheme != "https" {
-			r_scheme = "https"
-		} else {
-			r_scheme = remote_url.Scheme
+	// Fix the scheme.
+	switch remoteURL.Scheme {
+	case "https":
+	case "unix":
+	case "":
+		// TODO(ericsnow) Decided based on whether or not Host is set?
+		remoteURL.Scheme = "https"
+		// TODO(ericsnow) Use remoteURL.Path/.Opaque here instead of addr.
+		if addr[0] == '/' || pathExists(addr) {
+			remoteURL.Scheme = "unix"
 		}
-	} else if addr[0] == '/' {
-		r_scheme = "unix"
-	} else {
-		if !pathExists(addr) {
-			r_scheme = "https"
-		} else {
-			r_scheme = "unix"
-		}
+	default:
+		// TODO(ericsnow) Fail by default?
+		remoteURL.Scheme = "https"
 	}
 
-	if remote_url.Host != "" {
-		r_host = remote_url.Host
+	// Fix the host.
+	if remoteURL.Host == "" {
+		// TODO(ericsnow) Instead, make use of Path and Opaque below.
+		remoteURL.Host = addr
+	}
+	host, port, err := net.SplitHostPort(remoteURL.Host)
+	if err != nil {
+		port = shared.DefaultPort
 	} else {
-		r_host = addr
+		remoteURL.Host = host
 	}
 
-	host, port, err := net.SplitHostPort(r_host)
-	if err == nil {
-		r_host = host
-		r_port = port
-	} else {
-		r_port = shared.DefaultPort
-	}
-
-	if r_scheme == "unix" {
+	// Special-case "unix".
+	if remoteURL.Scheme == "unix" {
+		// TODO(ericsnow) All this could be done earlier.
+		// TODO(ericsnow) Use Path and Opaque instead of addr.
 		if addr[0:5] == "unix:" {
 			if len(addr) > 6 && addr[0:7] == "unix://" {
 				if len(addr) > 8 {
-					r_host = addr[8:]
+					remoteURL.Host = addr[8:]
 				} else {
-					r_host = ""
+					remoteURL.Host = ""
 				}
 			} else {
-				r_host = addr[6:]
+				remoteURL.Host = addr[6:]
 			}
 		}
-		r_port = ""
+		port = ""
 	}
 
-	if strings.Contains(r_host, ":") && !strings.HasPrefix(r_host, "[") {
-		r_host = fmt.Sprintf("[%s]", r_host)
+	// Handle IPv6 hosts.
+	if strings.Contains(remoteURL.Host, ":") && !strings.HasPrefix(remoteURL.Host, "[") {
+		remoteURL.Host = fmt.Sprintf("[%s]", remoteURL.Host)
 	}
 
-	if r_port != "" {
-		addr = r_scheme + "://" + r_host + ":" + r_port
-	} else {
-		addr = r_scheme + "://" + r_host
+	// Add the port, if applicable.
+	if port != "" {
+		remoteURL.Host += ":" + port
 	}
 
-	return addr, nil
+	// TODO(ericsnow) Use remoteUrl.String()
+	return fmt.Sprintf("%s://%s", remoteURL.Scheme, remoteURL.Host), nil
 }
