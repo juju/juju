@@ -44,8 +44,10 @@ func (s *AuthKeysSuite) TearDownTest(c *gc.C) {
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *gc.C) {
 	_, err := config.ReadAuthorizedKeys("")
 	c.Assert(err, gc.ErrorMatches, "no public ssh keys found")
+	c.Assert(err, gc.Equals, config.ErrNoAuthorizedKeys)
 	_, err = config.ReadAuthorizedKeys(filepath.Join(s.dotssh, "notthere.pub"))
 	c.Assert(err, gc.ErrorMatches, "no public ssh keys found")
+	c.Assert(err, gc.Equals, config.ErrNoAuthorizedKeys)
 }
 
 func writeFile(c *gc.C, filename string, contents string) {
