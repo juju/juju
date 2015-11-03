@@ -5,7 +5,7 @@
 
 package all
 
-// Register all the available providers.
+// Register all the available providers that require Go 1.3
 import (
 	_ "github.com/juju/juju/provider/lxd"
 )
