@@ -34,16 +34,19 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			c.Check(objType, gc.Equals, "CrossModel")
+			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Offer")
 
-			args, ok := a.(params.CrossModelOffer)
+			args, ok := a.(params.CrossModelOffers)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.Service, gc.DeepEquals, service)
-			c.Assert(args.Endpoints, jc.SameContents, []string{endPointA, endPointB})
-			c.Assert(args.URL, gc.DeepEquals, url)
-			c.Assert(args.Users, jc.SameContents, []string{user1, user2})
+			c.Assert(args.Offers, gc.HasLen, 1)
+
+			offer := args.Offers[0]
+			c.Assert(offer.Service, gc.DeepEquals, service)
+			c.Assert(offer.Endpoints, jc.SameContents, []string{endPointA, endPointB})
+			c.Assert(offer.URL, gc.DeepEquals, url)
+			c.Assert(offer.Users, jc.SameContents, []string{user1, user2})
 			return nil
 		})
 
@@ -60,7 +63,7 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 			id, request string,
 			a, result interface{},
 		) error {
-			c.Check(objType, gc.Equals, "CrossModel")
+			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Offer")
 

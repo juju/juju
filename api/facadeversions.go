@@ -23,7 +23,7 @@ var facadeVersions = map[string]int{
 	"CharmRevisionUpdater":         0,
 	"Cleaner":                      1,
 	"Client":                       0,
-	"CrossModel":                   1,
+	"CrossModelRelations":          1,
 	"Deployer":                     0,
 	"DiskManager":                  1,
 	"EntityWatcher":                1,

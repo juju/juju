@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("CrossModel", 1, NewAPI)
+	common.RegisterStandardFacade("CrossModelRelations", 1, NewAPI)
 }
 
 // API implements the cross model interface and is the concrete
@@ -48,11 +48,11 @@ func NewAPI(
 }
 
 // Offer makes service endpoints available for consumption.
-func (api *API) Offer(one params.CrossModelOffer) error {
+func (api *API) Offer(offers params.CrossModelOffers) error {
 	// TODO(anastasiamac 2015-11-02) validate:
 	// service name valid and exists,
 	// endpoints valid and exist,
 	// url conforms to format,
 	// users exist?
-	return api.access.Offer(one)
+	return api.access.Offer(offers)
 }

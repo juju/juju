@@ -21,12 +21,14 @@ type Client struct {
 
 // NewClient creates a new client for accessing the cross model relations API.
 func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "CrossModel")
+	frontend, backend := base.NewClientFacade(st, "CrossModelRelations")
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // Offer prepares service's endpoints for consumption.
 func (c *Client) Offer(service string, endpoints []string, url string, users []string) error {
-	in := params.CrossModelOffer{service, endpoints, url, users}
-	return errors.Trace(c.facade.FacadeCall("Offer", in, nil))
+	offers := []params.CrossModelOffer{
+		params.CrossModelOffer{service, endpoints, url, users},
+	}
+	return errors.Trace(c.facade.FacadeCall("Offer", params.CrossModelOffers{Offers: offers}, nil))
 }
