@@ -171,7 +171,7 @@ func (cfg Config) writeConfigFile() error {
 	logger.Debugf("writing config file %q", filename)
 
 	// TODO(ericsnow) Cache the low-level config in Config?
-	config, err := lxd.LoadConfig()
+	rawCfg, err := lxd.LoadConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -179,15 +179,16 @@ func (cfg Config) writeConfigFile() error {
 	if !cfg.Remote.isLocal() {
 		// Ensure the remote is set correctly.
 		remote := cfg.Remote.Name
-		delete(config.Remotes, remote)
+		delete(rawCfg.Remotes, remote)
 		addr := cfg.Remote.Host
-		if err := addServer(config, remote, addr); err != nil {
+		if err := addServer(rawCfg, remote, addr); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	// Write out the updated config.
-	if err := lxd.SaveConfig(config); err != nil {
+	// Write out the updated config, if changed.
+	// TODO(ericsnow) Check if changed.
+	if err := lxd.SaveConfig(rawCfg); err != nil {
 		return errors.Trace(err)
 	}
 
