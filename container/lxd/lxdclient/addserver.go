@@ -34,6 +34,7 @@ func addServer(config *lxd.Config, server string, addr string) error {
 	}
 
 	/* Actually add the remote */
+	// TODO(ericsnow) Fail on collision?
 	config.Remotes[server] = lxd.RemoteConfig{Addr: addr}
 
 	return nil
