@@ -19,9 +19,9 @@ import (
 
 const (
 	offerCommandDoc = `
-A vendor offers a service endpoints for use by consumers.
+A vendor offers deployed service endpoints for use by consumers in their own models.
 
-Example:
+Examples:
 $ juju offer db2:db 
 $ juju offer db2:db local:db2
 $ juju offer -e prod db2:db,log vendor:/u/ibm/hosted-db2
@@ -73,7 +73,7 @@ type offerCommand struct {
 func (c *offerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offer",
-		Purpose: "offer service endpoints for consumption",
+		Purpose: "offer service endpoints for use in other models",
 		Args:    offerCommandAgs,
 		Doc:     offerCommandDoc,
 	}
