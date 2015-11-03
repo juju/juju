@@ -50,7 +50,7 @@ func (r Remote) ID() string {
 // SetDefaults updates a copy of the remote with default values
 // where needed.
 func (r Remote) SetDefaults() (Remote, error) {
-	if r.Host == Local.Host {
+	if r.ID() == Local.ID() {
 		return r.setLocalDefaults(), nil
 	}
 
@@ -81,7 +81,7 @@ func (r Remote) Validate() error {
 		return errors.NotValidf("remote missing name,")
 	}
 
-	if r.Host == Local.Host {
+	if r.ID() == Local.ID() {
 		if err := r.validateLocal(); err != nil {
 			return errors.Trace(err)
 		}
