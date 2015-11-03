@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	remoteLocalName   = "local"
-	remoteDefaultName = remoteLocalName
+	// remoteLocalName is a specific remote name in the default LXD config.
+	// See https://github.com/lxc/lxd/blob/master/config.go:defaultRemote.
+	remoteLocalName = "local"
 
 	// TODO(ericsnow) This may be changing to "local"
 	remoteIDForLocal = ""
