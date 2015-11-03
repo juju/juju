@@ -369,6 +369,7 @@ const (
 	restoreInfoC           = "restoreInfo"
 	sequenceC              = "sequence"
 	servicesC              = "services"
+	serviceDirectoryC      = "servicedirectory"
 	settingsC              = "settings"
 	settingsrefsC          = "settingsrefs"
 	stateServersC          = "stateServers"
