@@ -294,33 +294,33 @@ func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
 	}
 }
 
-func (s *EnvUserSuite) TestIsSystemAdministrator(c *gc.C) {
-	isAdmin, err := s.State.IsSystemAdministrator(s.Owner)
+func (s *EnvUserSuite) TestIsControllerAdministrator(c *gc.C) {
+	isAdmin, err := s.State.IsControllerAdministrator(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
-	isAdmin, err = s.State.IsSystemAdministrator(user.UserTag())
+	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: user.UserTag().Username()})
-	isAdmin, err = s.State.IsSystemAdministrator(user.UserTag())
+	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: user.UserTag().Canonical()})
+	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 }
 
-func (s *EnvUserSuite) TestIsSystemAdministratorFromOtherState(c *gc.C) {
+func (s *EnvUserSuite) TestIsControllerAdministratorFromOtherState(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
 
 	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Owner: user.UserTag()})
 	defer otherState.Close()
 
-	isAdmin, err := otherState.IsSystemAdministrator(user.UserTag())
+	isAdmin, err := otherState.IsControllerAdministrator(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)
 
-	isAdmin, err = otherState.IsSystemAdministrator(s.Owner)
+	isAdmin, err = otherState.IsControllerAdministrator(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 }

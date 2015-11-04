@@ -60,7 +60,7 @@ func NewSystemManagerAPI(
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
-	isAdmin, err := st.IsSystemAdministrator(apiUser)
+	isAdmin, err := st.IsControllerAdministrator(apiUser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -203,7 +203,7 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 	}
 	if len(blocks) > 0 {
 		if !args.IgnoreBlocks {
-			return common.ErrOperationBlocked("found blocks in system environments")
+			return common.OperationBlockedError("found blocks in system environments")
 		}
 
 		err := s.state.RemoveAllBlocksForSystem()

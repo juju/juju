@@ -21,9 +21,13 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// RestoreCommand is a subcommand of backups that implement the restore behaior
+func newRestoreCommand() cmd.Command {
+	return envcmd.Wrap(&restoreCommand{})
+}
+
+// restoreCommand is a subcommand of backups that implement the restore behaior
 // it is invoked with "juju backups restore".
-type RestoreCommand struct {
+type restoreCommand struct {
 	CommandBase
 	constraints constraints.Value
 	filename    string
@@ -50,7 +54,7 @@ to that effect.
 `
 
 // Info returns the content for --help.
-func (c *RestoreCommand) Info() *cmd.Info {
+func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore",
 		Purpose: "restore from a backup archive to a new state server",
@@ -60,7 +64,7 @@ func (c *RestoreCommand) Info() *cmd.Info {
 }
 
 // SetFlags handles known option flags.
-func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
 		"constraints", "set environment constraints")
 
@@ -70,7 +74,7 @@ func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init is where the preconditions for this commands can be checked.
-func (c *RestoreCommand) Init(args []string) error {
+func (c *restoreCommand) Init(args []string) error {
 	if c.filename == "" && c.backupId == "" {
 		return errors.Errorf("you must specify either a file or a backup id.")
 	}
@@ -95,7 +99,7 @@ const restoreAPIIncompatibility = "server version not compatible for " +
 
 // runRestore will implement the actual calls to the different Client parts
 // of restore.
-func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
+func (c *restoreCommand) runRestore(ctx *cmd.Context) error {
 	client, closer, err := c.newClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -129,7 +133,7 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
-func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
+func (c *restoreCommand) rebootstrap(ctx *cmd.Context) error {
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Trace(err)
@@ -173,7 +177,7 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *RestoreCommand) newClient() (*backups.Client, func() error, error) {
+func (c *restoreCommand) newClient() (*backups.Client, func() error, error) {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -186,7 +190,7 @@ func (c *RestoreCommand) newClient() (*backups.Client, func() error, error) {
 }
 
 // Run is the entry point for this command.
-func (c *RestoreCommand) Run(ctx *cmd.Context) error {
+func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if c.bootstrap {
 		if err := c.rebootstrap(ctx); err != nil {
 			return errors.Trace(err)

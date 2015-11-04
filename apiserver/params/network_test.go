@@ -36,7 +36,7 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 	mkPortsResult := func(msg, code string, ports ...P) params.PortsResult {
 		pr := params.PortsResult{}
 		if msg != "" {
-			pr.Error = &params.Error{msg, code}
+			pr.Error = &params.Error{Message: msg, Code: code}
 		}
 		for _, p := range ports {
 			pr.Ports = append(pr.Ports, params.Port{p.prot, p.num})

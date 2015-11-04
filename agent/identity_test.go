@@ -28,7 +28,7 @@ var _ = gc.Suite(&identitySuite{})
 
 var attributeParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current.Number,
+	UpgradedToVersion: version.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},

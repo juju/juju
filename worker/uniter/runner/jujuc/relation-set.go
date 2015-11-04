@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 )
 
@@ -89,27 +89,6 @@ func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, erro
 	data, err := ioutil.ReadAll(in)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	skipValidation := false // for debugging
-	if !skipValidation {
-		// Can this validation be done more simply or efficiently?
-
-		var scalar string
-		if err := goyaml.Unmarshal(data, &scalar); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if scalar != "" {
-			return nil, errors.Errorf("expected YAML map, got %q", scalar)
-		}
-
-		var sequence []string
-		if err := goyaml.Unmarshal(data, &sequence); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if len(sequence) != 0 {
-			return nil, errors.Errorf("expected YAML map, got %#v", sequence)
-		}
 	}
 
 	kvs := make(map[string]string)

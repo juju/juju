@@ -109,14 +109,15 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		units:    []string{"wordpress/0", "wordpress/1"},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		runCmd := &RunCommand{}
-		testing.TestInit(c, envcmd.Wrap(runCmd), test.args, test.errMatch)
+		cmd := &runCommand{}
+		runCmd := envcmd.Wrap(cmd)
+		testing.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
-			c.Check(runCmd.all, gc.Equals, test.all)
-			c.Check(runCmd.machines, gc.DeepEquals, test.machines)
-			c.Check(runCmd.services, gc.DeepEquals, test.services)
-			c.Check(runCmd.units, gc.DeepEquals, test.units)
-			c.Check(runCmd.commands, gc.Equals, test.commands)
+			c.Check(cmd.all, gc.Equals, test.all)
+			c.Check(cmd.machines, gc.DeepEquals, test.machines)
+			c.Check(cmd.services, gc.DeepEquals, test.services)
+			c.Check(cmd.units, gc.DeepEquals, test.units)
+			c.Check(cmd.commands, gc.Equals, test.commands)
 		}
 	}
 }
@@ -145,10 +146,11 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 		timeout: (3 * time.Minute) + (30 * time.Second),
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		runCmd := &RunCommand{}
-		testing.TestInit(c, envcmd.Wrap(runCmd), test.args, test.errMatch)
+		cmd := &runCommand{}
+		runCmd := envcmd.Wrap(cmd)
+		testing.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
-			c.Check(runCmd.timeout, gc.Equals, test.timeout)
+			c.Check(cmd.timeout, gc.Equals, test.timeout)
 		}
 	}
 }
@@ -261,7 +263,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}),
+	context, err := testing.RunCommand(c, newRunCommand(),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -273,7 +275,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}),
+	_, err := testing.RunCommand(c, newRunCommand(),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 		"-e blah",
 	)
@@ -304,7 +306,7 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, &RunCommand{}, "--format=json", "--all", "hostname")
+	context, err := testing.RunCommand(c, newRunCommand(), "--format=json", "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
@@ -314,7 +316,7 @@ func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := testing.RunCommand(c, &RunCommand{}, "--format=json", "--all", "hostname")
+	_, err := testing.RunCommand(c, newRunCommand(), "--format=json", "--all", "hostname")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
@@ -364,7 +366,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 			args = append(args, "--format", test.format)
 		}
 		args = append(args, "--all", "ignored")
-		context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}), args...)
+		context, err := testing.RunCommand(c, newRunCommand(), args...)
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
@@ -377,7 +379,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 
 func (s *RunSuite) setupMockAPI() *mockRunAPI {
 	mock := &mockRunAPI{}
-	s.PatchValue(&getRunAPIClient, func(_ *RunCommand) (RunClient, error) {
+	s.PatchValue(&getRunAPIClient, func(_ *runCommand) (RunClient, error) {
 		return mock, nil
 	})
 	return mock
@@ -441,7 +443,7 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	var result []params.RunResult
 
 	if m.block {
-		return result, common.ErrOperationBlocked("The operation has been blocked.")
+		return result, common.OperationBlockedError("the operation has been blocked")
 	}
 	sortedMachineIds := make([]string, 0, len(m.machines))
 	for machineId := range m.machines {
@@ -465,7 +467,7 @@ func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.RunResult, error)
 	var result []params.RunResult
 
 	if m.block {
-		return result, common.ErrOperationBlocked("The operation has been blocked.")
+		return result, common.OperationBlockedError("the operation has been blocked")
 	}
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {

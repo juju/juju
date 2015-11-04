@@ -112,7 +112,7 @@ func (s *MachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.AddMachinesResults{
 		Machines: []params.AddMachinesResult{{
-			Error: &params.Error{"boom", ""},
+			Error: &params.Error{Message: "boom", Code: ""},
 		}},
 	})
 	c.Assert(s.st.calls, gc.Equals, 1)

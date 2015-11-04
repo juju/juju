@@ -12,13 +12,17 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// RemoveRelationCommand causes an existing service relation to be shut down.
-type RemoveRelationCommand struct {
+func newRemoveRelationCommand() cmd.Command {
+	return envcmd.Wrap(&removeRelationCommand{})
+}
+
+// removeRelationCommand causes an existing service relation to be shut down.
+type removeRelationCommand struct {
 	envcmd.EnvCommandBase
 	Endpoints []string
 }
 
-func (c *RemoveRelationCommand) Info() *cmd.Info {
+func (c *removeRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-relation",
 		Args:    "<service1>[:<relation name1>] <service2>[:<relation name2>]",
@@ -27,7 +31,7 @@ func (c *RemoveRelationCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *RemoveRelationCommand) Init(args []string) error {
+func (c *removeRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
 		return fmt.Errorf("a relation must involve two services")
 	}
@@ -35,7 +39,7 @@ func (c *RemoveRelationCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *RemoveRelationCommand) Run(_ *cmd.Context) error {
+func (c *removeRelationCommand) Run(_ *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err

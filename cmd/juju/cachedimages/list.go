@@ -11,9 +11,10 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
-const ListCommandDoc = `
+const listCommandDoc = `
 List cached os images in the Juju environment.
 
 Images can be filtered on:
@@ -34,24 +35,28 @@ Examples:
   juju cache-images list --kind lxc --series trusty --arch amd64
 `
 
-// ListCommand shows the images in the Juju server.
-type ListCommand struct {
+func newListCommand() cmd.Command {
+	return envcmd.Wrap(&listCommand{})
+}
+
+// listCommand shows the images in the Juju server.
+type listCommand struct {
 	CachedImagesCommandBase
 	out                cmd.Output
 	Kind, Series, Arch string
 }
 
 // Info implements Command.Info.
-func (c *ListCommand) Info() *cmd.Info {
+func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "shows cached os images",
-		Doc:     ListCommandDoc,
+		Doc:     listCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CachedImagesCommandBase.SetFlags(f)
 	f.StringVar(&c.Kind, "kind", "", "the image kind to list eg lxc")
 	f.StringVar(&c.Series, "series", "", "the series of the image to list eg trusty")
@@ -63,7 +68,7 @@ func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements Command.Init.
-func (c *ListCommand) Init(args []string) (err error) {
+func (c *listCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
@@ -73,7 +78,7 @@ type ListImagesAPI interface {
 	Close() error
 }
 
-var getListImagesAPI = func(p *ListCommand) (ListImagesAPI, error) {
+var getListImagesAPI = func(p *CachedImagesCommandBase) (ListImagesAPI, error) {
 	return p.NewImagesManagerClient()
 }
 
@@ -86,7 +91,7 @@ type ImageInfo struct {
 	Created   string `yaml:"created" json:"created"`
 }
 
-func (c *ListCommand) imageMetadataToImageInfo(images []params.ImageMetadata) []ImageInfo {
+func (c *listCommand) imageMetadataToImageInfo(images []params.ImageMetadata) []ImageInfo {
 	var output []ImageInfo
 	for _, metadata := range images {
 		imageInfo := ImageInfo{
@@ -102,8 +107,8 @@ func (c *ListCommand) imageMetadataToImageInfo(images []params.ImageMetadata) []
 }
 
 // Run implements Command.Run.
-func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := getListImagesAPI(c)
+func (c *listCommand) Run(ctx *cmd.Context) (err error) {
+	client, err := getListImagesAPI(&c.CachedImagesCommandBase)
 	if err != nil {
 		return err
 	}

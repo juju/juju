@@ -182,10 +182,8 @@ func (s *toolsStorage) toolsMetadata(v version.Binary) (toolsMetadataDoc, error)
 	err := s.metadataCollection.Find(bson.D{{"_id", v.String()}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return doc, errors.NotFoundf("%v tools metadata", v)
-	} else if err != nil {
-		return doc, err
 	}
-	return doc, nil
+	return doc, err
 }
 
 func (s *toolsStorage) toolsTarball(path string) (io.ReadCloser, error) {

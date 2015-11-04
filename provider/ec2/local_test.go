@@ -15,13 +15,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -193,11 +194,9 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
-	t.PatchValue(&version.Current, version.Binary{
-		Number: coretesting.FakeVersionNumber,
-		Series: coretesting.FakeDefaultSeries,
-		Arch:   arch.AMD64,
-	})
+	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
 	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
@@ -244,15 +243,22 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("first instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
-	err = goyaml.Unmarshal(userData, &userDataMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(userDataMap, jc.DeepEquals, map[interface{}]interface{}{
+	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
 		"output": map[interface{}]interface{}{
 			"all": "| tee -a /var/log/cloud-init-output.log",
 		},
-		"ssh_authorized_keys": splitAuthKeys(env.Config().AuthorizedKeys()),
+		"users": []interface{}{
+			map[interface{}]interface{}{
+				"name":        "ubuntu",
+				"lock_passwd": true,
+				"groups": []interface{}{"adm", "audio",
+					"cdrom", "dialout", "dip", "floppy",
+					"netdev", "plugdev", "sudo", "video"},
+				"shell":               "/bin/bash",
+				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
+			},
+		},
 		"runcmd": []interface{}{
 			"set -xe",
 			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
@@ -273,7 +279,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	userDataMap = nil
+	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)

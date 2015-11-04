@@ -93,7 +93,7 @@ func SyncTools(syncContext *SyncContext) error {
 		// We now store the tools in a directory named after their stream, but the
 		// legacy behaviour is to store all tools in a single "releases" directory.
 		toolsDir = envtools.LegacyReleaseDirectory
-		syncContext.Stream = envtools.PreferredStream(&version.Current.Number, false, syncContext.Stream)
+		syncContext.Stream = envtools.PreferredStream(&version.Current, false, syncContext.Stream)
 	}
 	sourceTools, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
