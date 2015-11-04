@@ -153,9 +153,6 @@ func initializeConfigDir(cfg Config) error {
 		return errors.Trace(err)
 	}
 
-	origConfigDir := updateLXDVars(cfg.Dirname)
-	defer updateLXDVars(origConfigDir)
-
 	if err := lxd.SaveConfig(config); err != nil {
 		return errors.Trace(err)
 	}
