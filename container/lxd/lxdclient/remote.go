@@ -59,11 +59,11 @@ func (r Remote) ID() string {
 	return r.Name
 }
 
-// SetDefaults updates a copy of the remote with default values
+// WithDefaults updates a copy of the remote with default values
 // where needed.
-func (r Remote) SetDefaults() (Remote, error) {
+func (r Remote) WithDefaults() (Remote, error) {
 	if r.isLocal() {
-		return r.setLocalDefaults(), nil
+		return r.withLocalDefaults(), nil
 	}
 
 	if r.Cert == nil {
@@ -77,7 +77,7 @@ func (r Remote) SetDefaults() (Remote, error) {
 	return r, nil
 }
 
-func (r Remote) setLocalDefaults() Remote {
+func (r Remote) withLocalDefaults() Remote {
 	if r.Name == "" {
 		r.Name = remoteLocalName
 	}

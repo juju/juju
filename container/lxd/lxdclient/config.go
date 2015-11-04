@@ -45,9 +45,9 @@ type Config struct {
 	Remote Remote
 }
 
-// SetDefaults updates a copy of the config with default values
+// WithDefaults updates a copy of the config with default values
 // where needed.
-func (cfg Config) SetDefaults() (Config, error) {
+func (cfg Config) WithDefaults() (Config, error) {
 	// We leave a blank namespace alone.
 
 	if cfg.Filename == "" {
@@ -61,7 +61,7 @@ func (cfg Config) SetDefaults() (Config, error) {
 	}
 
 	var err error
-	cfg.Remote, err = cfg.Remote.SetDefaults()
+	cfg.Remote, err = cfg.Remote.WithDefaults()
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}

@@ -19,13 +19,13 @@ type remoteSuite struct {
 	lxdclient.BaseSuite
 }
 
-func (s *remoteSuite) TestSetDefaultsNoop(c *gc.C) {
+func (s *remoteSuite) TestWithDefaultsNoop(c *gc.C) {
 	remote := lxdclient.Remote{
 		Name: "my-remote",
 		Host: "some-host",
 		Cert: s.Cert,
 	}
-	updated, err := remote.SetDefaults()
+	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	err = updated.Validate()
 
@@ -33,20 +33,20 @@ func (s *remoteSuite) TestSetDefaultsNoop(c *gc.C) {
 	c.Check(updated, jc.DeepEquals, remote)
 }
 
-func (s *remoteSuite) TestSetDefaultsMissingName(c *gc.C) {
+func (s *remoteSuite) TestWithDefaultsMissingName(c *gc.C) {
 	remote := lxdclient.Remote{
 		Name: "",
 		Host: "some-host",
 		Cert: s.Cert,
 	}
-	updated, err := remote.SetDefaults()
+	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, remote) // Name is not updated.
 }
 
 // TODO(ericsnow) Move this test to a functional suite.
-func (s *remoteSuite) TestSetDefaultsMissingCert(c *gc.C) {
+func (s *remoteSuite) TestWithDefaultsMissingCert(c *gc.C) {
 	remote := lxdclient.Remote{
 		Name: "my-remote",
 		Host: "some-host",
@@ -55,7 +55,7 @@ func (s *remoteSuite) TestSetDefaultsMissingCert(c *gc.C) {
 	err := remote.Validate()
 	c.Assert(err, gc.NotNil) // Make sure the original is invalid.
 
-	updated, err := remote.SetDefaults()
+	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	err = updated.Validate()
 
@@ -68,9 +68,9 @@ func (s *remoteSuite) TestSetDefaultsMissingCert(c *gc.C) {
 	})
 }
 
-func (s *remoteSuite) TestSetDefaultsZeroValue(c *gc.C) {
+func (s *remoteSuite) TestWithDefaultsZeroValue(c *gc.C) {
 	var remote lxdclient.Remote
-	updated, err := remote.SetDefaults()
+	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	err = updated.Validate()
 
@@ -82,13 +82,13 @@ func (s *remoteSuite) TestSetDefaultsZeroValue(c *gc.C) {
 	})
 }
 
-func (s *remoteSuite) TestSetDefaultsLocalNoop(c *gc.C) {
+func (s *remoteSuite) TestWithDefaultsLocalNoop(c *gc.C) {
 	remote := lxdclient.Remote{
 		Name: "my-local",
 		Host: "",
 		Cert: nil,
 	}
-	updated, err := remote.SetDefaults()
+	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	err = updated.Validate()
 
@@ -100,13 +100,13 @@ func (s *remoteSuite) TestSetDefaultsLocalNoop(c *gc.C) {
 	})
 }
 
-func (s *remoteSuite) TestSetDefaultsLocalMissingName(c *gc.C) {
+func (s *remoteSuite) TestWithDefaultsLocalMissingName(c *gc.C) {
 	remote := lxdclient.Remote{
 		Name: "",
 		Host: "",
 		Cert: nil,
 	}
-	updated, err := remote.SetDefaults()
+	updated, err := remote.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 	err = updated.Validate()
 
