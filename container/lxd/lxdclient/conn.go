@@ -49,7 +49,8 @@ func newRawClient(remote, configDir string) (*lxd.Client, error) {
 	logger.Debugf("loading LXD client config from %q", configDir)
 
 	// This will go away once LoadConfig takes a dirname argument.
-	updateLXDVars(configDir)
+	origDirname := updateLXDVars(configDir)
+	defer updateLXDVars(origDirname)
 
 	cfg, err := lxd.LoadConfig()
 	if err != nil {

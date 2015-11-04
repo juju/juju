@@ -270,9 +270,10 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 
 	cfg := lxdclient.Config{
 		Namespace: c.namespace(),
-		Dirname:   c.dirname(),
+		Dirname:   lxdclient.ConfigDirname(c.namespace()),
 		Remote:    remote,
 	}
+
 	cfg, err := cfg.WithDefaults()
 	if err != nil {
 		return cfg, errors.Trace(err)
