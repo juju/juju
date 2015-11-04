@@ -4,6 +4,10 @@
 package payload
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 )
@@ -29,7 +33,11 @@ var okayStates = set.NewStrings(
 // ValidateState verifies the state passed in is a valid okayState.
 func ValidateState(state string) error {
 	if !okayStates.Contains(state) {
-		return errors.NotValidf("state (%q)", state)
+		supported := okayStates.Values()
+		sort.Strings(supported)
+		states := strings.Join(supported, `", "`)
+		msg := fmt.Sprintf(`status %q not supported; expected one of ["%s"]`, state, states)
+		return errors.NewNotValid(nil, msg)
 	}
 	return nil
 }

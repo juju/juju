@@ -82,7 +82,7 @@ func (s *payloadSuite) TestValidateMissingStatus(c *gc.C) {
 	payload.Status = ""
 	err := payload.Validate()
 
-	c.Check(err, gc.ErrorMatches, `state .* not valid`)
+	c.Check(err, gc.ErrorMatches, `status .* not supported; expected one of .*`)
 }
 
 func (s *payloadSuite) TestValidateUnknownStatus(c *gc.C) {
@@ -90,7 +90,7 @@ func (s *payloadSuite) TestValidateUnknownStatus(c *gc.C) {
 	payload.Status = "some-unknown-value"
 	err := payload.Validate()
 
-	c.Check(err, gc.ErrorMatches, `state .* not valid`)
+	c.Check(err, gc.ErrorMatches, `status .* not supported; expected one of .*`)
 }
 
 func (s *payloadSuite) TestValidateMissingUnit(c *gc.C) {
