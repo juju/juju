@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package systemmanager
+package controller
 
 import (
 	"github.com/juju/errors"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-var logger = loggo.GetLogger("juju.api.systemmanager")
+var logger = loggo.GetLogger("juju.api.controller")
 
 // Client provides methods that the Juju client command uses to interact
 // with systems stored in the Juju Server.
@@ -25,7 +25,7 @@ type Client struct {
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
 func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "SystemManager")
+	frontend, backend := base.NewClientFacade(st, "Controller")
 	logger.Tracef("%#v", frontend)
 	return &Client{ClientFacade: frontend, facade: backend}
 }

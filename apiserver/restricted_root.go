@@ -27,8 +27,8 @@ func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
 // boundaries.
 var restrictedRootNames = set.NewStrings(
 	"AllEnvWatcher",
+	"Controller",
 	"EnvironmentManager",
-	"SystemManager",
 	"UserManager",
 )
 

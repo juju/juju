@@ -31,7 +31,7 @@ type DestroySuite struct {
 
 var _ = gc.Suite(&DestroySuite{})
 
-// fakeDestroyAPI mocks out the systemmanager API
+// fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	err          error
 	env          map[string]interface{}

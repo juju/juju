@@ -9,8 +9,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/environmentmanager"
-	"github.com/juju/juju/api/systemmanager"
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/environs/configstore"
 )
@@ -64,14 +64,14 @@ func (c *SysCommandBase) NewEnvironmentManagerAPIClient() (*environmentmanager.C
 	return environmentmanager.NewClient(root), nil
 }
 
-// NewSystemManagerAPIClient returns an API client for the SystemManager on
+// NewControllerAPIClient returns an API client for the Controller on
 // the current system using the current credentials.
-func (c *SysCommandBase) NewSystemManagerAPIClient() (*systemmanager.Client, error) {
+func (c *SysCommandBase) NewControllerAPIClient() (*controller.Client, error) {
 	root, err := c.newAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return systemmanager.NewClient(root), nil
+	return controller.NewClient(root), nil
 }
 
 // NewUserManagerAPIClient returns an API client for the UserManager on the

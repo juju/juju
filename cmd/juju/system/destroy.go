@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api/systemmanager"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -83,7 +83,7 @@ func (c *destroyCommand) getSystemAPI() (destroySystemAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return systemmanager.NewClient(root), nil
+	return controller.NewClient(root), nil
 }
 
 // Run implements Command.Run
@@ -139,7 +139,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 }
 
 // destroySystemViaClient attempts to destroy the system using the client
-// endpoint for older juju systems which do not implement systemmanager.DestroySystem
+// endpoint for older juju systems which do not implement controller.DestroySystem
 func (c *destroyCommand) destroySystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {

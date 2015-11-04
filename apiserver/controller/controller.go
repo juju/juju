@@ -1,9 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The systemmanager package defines an API end point for functions dealing
-// with systems as a whole. Primarily the destruction of systems.
-package systemmanager
+// The controller package defines an API end point for functions dealing
+// with controllers as a whole.
+package controller
 
 import (
 	"sort"
@@ -19,14 +19,14 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.systemmanager")
+var logger = loggo.GetLogger("juju.apiserver.controller")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("SystemManager", 1, NewSystemManagerAPI, feature.JES)
+	common.RegisterStandardFacadeForFeature("Controller", 1, NewControllerAPI, feature.JES)
 }
 
-// SystemManager defines the methods on the systemmanager API end point.
-type SystemManager interface {
+// Controller defines the methods on the controller API end point.
+type Controller interface {
 	AllEnvironments() (params.UserEnvironmentList, error)
 	DestroySystem(args params.DestroySystemArgs) error
 	EnvironmentConfig() (params.EnvironmentConfigResults, error)
@@ -35,24 +35,24 @@ type SystemManager interface {
 	WatchAllEnvs() (params.AllWatcherId, error)
 }
 
-// SystemManagerAPI implements the environment manager interface and is
+// ControllerAPI implements the environment manager interface and is
 // the concrete implementation of the api end point.
-type SystemManagerAPI struct {
+type ControllerAPI struct {
 	state      *state.State
 	authorizer common.Authorizer
 	apiUser    names.UserTag
 	resources  *common.Resources
 }
 
-var _ SystemManager = (*SystemManagerAPI)(nil)
+var _ Controller = (*ControllerAPI)(nil)
 
-// NewSystemManagerAPI creates a new api server endpoint for managing
+// NewControllerAPI creates a new api server endpoint for managing
 // environments.
-func NewSystemManagerAPI(
+func NewControllerAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*SystemManagerAPI, error) {
+) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
@@ -69,7 +69,7 @@ func NewSystemManagerAPI(
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	return &SystemManagerAPI{
+	return &ControllerAPI{
 		state:      st,
 		authorizer: authorizer,
 		apiUser:    apiUser,
@@ -79,7 +79,7 @@ func NewSystemManagerAPI(
 
 // AllEnvironments allows system administrators to get the list of all the
 // environments in the system.
-func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
+func (s *ControllerAPI) AllEnvironments() (params.UserEnvironmentList, error) {
 	result := params.UserEnvironmentList{}
 
 	// Get all the environments that the authenticated user can see, and
@@ -136,7 +136,7 @@ func (s *SystemManagerAPI) AllEnvironments() (params.UserEnvironmentList, error)
 // which have a block in place.  The resulting slice is sorted by environment
 // name, then owner. Callers must be system administrators to retrieve the
 // list.
-func (s *SystemManagerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error) {
+func (s *ControllerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInfoList, error) {
 	results := params.EnvironmentBlockInfoList{}
 
 	blocks, err := s.state.AllBlocksForSystem()
@@ -179,7 +179,7 @@ func (s *SystemManagerAPI) ListBlockedEnvironments() (params.EnvironmentBlockInf
 // DestroySystem will attempt to destroy the system. If the args specify the
 // removal of blocks or the destruction of the environments, this method will
 // attempt to do so.
-func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
+func (s *ControllerAPI) DestroySystem(args params.DestroySystemArgs) error {
 	// Get list of all environments in the system.
 	allEnvs, err := s.state.AllEnvironments()
 	if err != nil {
@@ -235,7 +235,7 @@ func (s *SystemManagerAPI) DestroySystem(args params.DestroySystemArgs) error {
 // EnvironmentConfig returns the environment config for the system
 // environment.  For information on the current environment, use
 // client.EnvironmentGet
-func (s *SystemManagerAPI) EnvironmentConfig() (params.EnvironmentConfigResults, error) {
+func (s *ControllerAPI) EnvironmentConfig() (params.EnvironmentConfigResults, error) {
 	result := params.EnvironmentConfigResults{}
 
 	stateServerEnv, err := s.state.StateServerEnvironment()
@@ -253,7 +253,7 @@ func (s *SystemManagerAPI) EnvironmentConfig() (params.EnvironmentConfigResults,
 }
 
 // RemoveBlocks removes all the blocks in the system.
-func (s *SystemManagerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 	if !args.All {
 		return errors.New("not supported")
 	}
@@ -263,7 +263,7 @@ func (s *SystemManagerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 // WatchAllEnvs starts watching events for all environments in the
 // system. The returned AllWatcherId should be used with Next on the
 // AllEnvWatcher endpoint to receive deltas.
-func (c *SystemManagerAPI) WatchAllEnvs() (params.AllWatcherId, error) {
+func (c *ControllerAPI) WatchAllEnvs() (params.AllWatcherId, error) {
 	w := c.state.WatchAllEnvs()
 	return params.AllWatcherId{
 		AllWatcherId: c.resources.Register(w),
