@@ -21,14 +21,14 @@ func NewRegisterCmd(ctx HookContext) (*RegisterCmd, error) {
 		// The component wasn't tracked properly.
 		return nil, errors.Trace(err)
 	}
-	return &RegisterCmd{api: compCtx}, nil
+	return &RegisterCmd{hctx: compCtx}, nil
 }
 
 // RegisterCmd is a command that registers a payload with juju.
 type RegisterCmd struct {
 	cmd.CommandBase
 
-	api    Component
+	hctx   Component
 	typ    string
 	class  string
 	id     string
@@ -79,15 +79,16 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 		},
 		ID:     c.id,
 		Status: payload.StateRunning,
+		Labels: c.labels,
 		Unit:   "a-service/0",
 	}
-	if err := c.api.Track(pl); err != nil {
+	if err := c.hctx.Track(pl); err != nil {
 		return errors.Trace(err)
 	}
 
 	// We flush to state immedeiately so that status reflects the
 	// payload correctly.
-	if err := c.api.Flush(); err != nil {
+	if err := c.hctx.Flush(); err != nil {
 		return errors.Trace(err)
 	}
 
