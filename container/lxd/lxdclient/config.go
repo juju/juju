@@ -40,9 +40,9 @@ type Config struct {
 	Remote Remote
 }
 
-// ConfigDirname returns the full path to Juju LXC config directory.
-func ConfigDirname(namespace string) string {
-	return os.ExpandEnv(lxd.ConfigDir) + "/juju-" + namespace
+// JujuConfigDir returns the full path to Juju LXC config directory.
+func JujuConfigDir(namespace string) string {
+	return filepath.Join(os.ExpandEnv(lxd.ConfigDir), namespace)
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -53,7 +53,7 @@ func (cfg Config) WithDefaults() (Config, error) {
 
 	if cfg.Dirname == "" {
 		// TODO(ericsnow) Switch to filepath as soon as LXD does.
-		dirname, _ := path.Split(lxd.ConfigPath(configDefaultFile))
+		dirname := path.Dir(lxd.ConfigPath("DUMMY"))
 		cfg.Dirname = path.Clean(dirname)
 	}
 
