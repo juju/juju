@@ -10,8 +10,13 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/utils/ssh"
 )
+
+func newListKeysCommand() cmd.Command {
+	return envcmd.Wrap(&listKeysCommand{})
+}
 
 var listKeysDoc = `
 List a user's authorized ssh keys, allowing the holders of those keys to log on to Juju nodes.
@@ -19,14 +24,14 @@ By default, just the key fingerprint is printed. Use --full to display the entir
 
 `
 
-// ListKeysCommand is used to list the authorized ssh keys.
-type ListKeysCommand struct {
+// listKeysCommand is used to list the authorized ssh keys.
+type listKeysCommand struct {
 	AuthorizedKeysBase
 	showFullKey bool
 	user        string
 }
 
-func (c *ListKeysCommand) Info() *cmd.Info {
+func (c *listKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Doc:     listKeysDoc,
@@ -34,12 +39,12 @@ func (c *ListKeysCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ListKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showFullKey, "full", false, "show full key instead of just the key fingerprint")
 	f.StringVar(&c.user, "user", "admin", "the user for which to list the keys")
 }
 
-func (c *ListKeysCommand) Run(context *cmd.Context) error {
+func (c *listKeysCommand) Run(context *cmd.Context) error {
 	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err

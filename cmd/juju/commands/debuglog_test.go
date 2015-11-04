@@ -88,7 +88,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 		},
 	} {
 		c.Logf("test %v", i)
-		command := &DebugLogCommand{}
+		command := &debugLogCommand{}
 		err := testing.InitCommand(envcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -101,10 +101,10 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 
 func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	fake := &fakeDebugLogAPI{}
-	s.PatchValue(&getDebugLogAPI, func(_ *DebugLogCommand) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
 		return fake, nil
 	})
-	_, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}),
+	_, err := testing.RunCommand(c, newDebugLogCommand(),
 		"-i", "machine-1*", "-x", "machine-1-lxc-1",
 		"--include-module=juju.provisioner",
 		"--lines=500",
@@ -121,10 +121,10 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 }
 
 func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
-	s.PatchValue(&getDebugLogAPI, func(_ *DebugLogCommand) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{log: "this is the log output"}, nil
 	})
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}))
+	ctx, err := testing.RunCommand(c, newDebugLogCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "this is the log output")
 }

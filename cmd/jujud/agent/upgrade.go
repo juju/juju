@@ -84,12 +84,12 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 	return a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
-				"have already been run.", version.Current.Number)
+				"have already been run.", version.Current)
 			close(c.UpgradeComplete)
 
 			// Even if no upgrade is required the version number in
 			// the agent's config still needs to be bumped.
-			agentConfig.SetUpgradedToVersion(version.Current.Number)
+			agentConfig.SetUpgradedToVersion(version.Current)
 		}
 		return nil
 	})
@@ -144,7 +144,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	c.agentConfig = c.agent.CurrentConfig()
 
 	c.fromVersion = c.agentConfig.UpgradedToVersion()
-	c.toVersion = version.Current.Number
+	c.toVersion = version.Current
 	if c.fromVersion == c.toVersion {
 		logger.Infof("upgrade to %v already completed.", c.toVersion)
 		close(c.UpgradeComplete)

@@ -39,6 +39,7 @@ func NewFactory(st *state.State) *Factory {
 	return &Factory{st: st}
 }
 
+// UserParams defines the parameters for creating a user with MakeUser.
 type UserParams struct {
 	Name        string
 	DisplayName string
@@ -136,6 +137,8 @@ func uniqueString(prefix string) string {
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
 // If params is not specified, defaults are used.
+// If params.NoEnvUser is false, the user will also be created
+// in the current environment.
 func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params == nil {
 		params = &UserParams{}
@@ -179,7 +182,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 	}
 	if params.User == "" {
 		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
-		params.User = user.UserTag().Username()
+		params.User = user.UserTag().Canonical()
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")

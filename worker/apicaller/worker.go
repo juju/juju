@@ -18,7 +18,7 @@ var logger = loggo.GetLogger("juju.worker.apicaller")
 // openConnection exists to be patched out in export_test.go (and let us test
 // this component without using a real API connection).
 var openConnection = func(a agent.Agent) (api.Connection, error) {
-	st, _, err := OpenAPIState(a)
+	st, err := OpenAPIState(a)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

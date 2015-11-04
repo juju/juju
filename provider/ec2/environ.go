@@ -523,10 +523,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, err
 	}
 
-	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(sources, e.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      series,
+		Series:      args.InstanceConfig.Series,
 		Arches:      arches,
 		Constraints: args.Constraints,
 		Storage:     []string{ssdStorage, ebsStorage},
@@ -560,10 +559,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, err := getBlockDeviceMappings(args.Constraints)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create block device mappings")
-	}
+	blockDeviceMappings := getBlockDeviceMappings(args.Constraints, args.InstanceConfig.Series)
 	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
 
 	for _, availZone := range availabilityZones {

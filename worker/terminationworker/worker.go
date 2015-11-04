@@ -22,14 +22,13 @@ import (
 // shutdown.
 const TerminationSignal = syscall.SIGABRT
 
-// NewWorker returns a worker that wais for a
-
 type terminationWorker struct {
 	tomb tomb.Tomb
 }
 
-// TerminationSignal signal and exits with
-// ErrTerminateAgent.
+// NewWorker returns a worker that waits for a
+// TerminationSignal signal, and then exits
+// with worker.ErrTerminateAgent.
 func NewWorker() worker.Worker {
 	u := &terminationWorker{}
 	go func() {
@@ -55,6 +54,6 @@ func (u *terminationWorker) loop() (err error) {
 	case <-c:
 		return worker.ErrTerminateAgent
 	case <-u.tomb.Dying():
-		return nil
+		return tomb.ErrDying
 	}
 }

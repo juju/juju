@@ -501,6 +501,208 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
 	})
 }
 
+func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	volumeAccessor.provisionedVolumes["volume-3"] = params.Volume{VolumeTag: "volume-3"}
+	volumeAccessor.provisionedVolumes["volume-4"] = params.Volume{
+		VolumeTag: "volume-4",
+		Info:      params.VolumeInfo{VolumeId: "vol-ume"},
+	}
+
+	var validateCalls int
+	validated := make(chan interface{}, 1)
+	s.provider.validateVolumeParamsFunc = func(p storage.VolumeParams) error {
+		validateCalls++
+		validated <- p
+		switch p.Tag.String() {
+		case "volume-1", "volume-3":
+			return errors.New("something is wrong")
+		}
+		return nil
+	}
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		results := make([]params.LifeResult, len(tags))
+		for i := range results {
+			switch tags[i].String() {
+			case "volume-3", "volume-4":
+				results[i].Life = params.Dead
+			default:
+				results[i].Life = params.Alive
+			}
+		}
+		return results, nil
+	}
+
+	createdVolumes := make(chan interface{}, 1)
+	s.provider.createVolumesFunc = func(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+		createdVolumes <- args
+		if len(args) != 1 {
+			return nil, errors.New("expected one argument")
+		}
+		return []storage.CreateVolumesResult{{
+			Volume: &storage.Volume{Tag: args[0].Tag},
+		}}, nil
+	}
+
+	destroyedVolumes := make(chan interface{}, 1)
+	s.provider.destroyVolumesFunc = func(volumeIds []string) ([]error, error) {
+		destroyedVolumes <- volumeIds
+		return make([]error, len(volumeIds)), nil
+	}
+
+	args := &workerArgs{
+		volumes: volumeAccessor,
+		life: &mockLifecycleManager{
+			life: life,
+		},
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "volume-1",
+	}, {
+		MachineTag: "machine-1", AttachmentTag: "volume-2",
+	}}
+	volumeAccessor.volumesWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, validated, "waiting for volume parameter validation")
+	assertNoEvent(c, createdVolumes, "volume created")
+	c.Assert(validateCalls, gc.Equals, 1)
+
+	// Failure to create volume-1 should not block creation volume-2.
+	volumeAccessor.volumesWatcher.changes <- []string{"2"}
+	waitChannel(c, validated, "waiting for volume parameter validation")
+	createVolumeParams := waitChannel(c, createdVolumes, "volume created").([]storage.VolumeParams)
+	c.Assert(createVolumeParams, gc.HasLen, 1)
+	c.Assert(createVolumeParams[0].Tag.String(), gc.Equals, "volume-2")
+	c.Assert(validateCalls, gc.Equals, 2)
+
+	volumeAccessor.volumesWatcher.changes <- []string{"3"}
+	waitChannel(c, validated, "waiting for volume parameter validation")
+	assertNoEvent(c, destroyedVolumes, "volume destroyed")
+	c.Assert(validateCalls, gc.Equals, 3)
+
+	// Failure to destroy volume-3 should not block creation of volume-4.
+	volumeAccessor.volumesWatcher.changes <- []string{"4"}
+	waitChannel(c, validated, "waiting for volume parameter validation")
+	destroyVolumeParams := waitChannel(c, destroyedVolumes, "volume destroyed").([]string)
+	c.Assert(destroyVolumeParams, jc.DeepEquals, []string{"vol-ume"})
+	c.Assert(validateCalls, gc.Equals, 4)
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "volume-1", Status: "error", Info: "something is wrong"},
+		{Tag: "volume-2", Status: "attaching"},
+		{Tag: "volume-3", Status: "error", Info: "something is wrong"},
+		// destroyed volumes are removed immediately,
+		// so there is no status update.
+	})
+}
+
+func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
+	filesystemAccessor := newMockFilesystemAccessor()
+	filesystemAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
+	filesystemAccessor.provisionedFilesystems["filesystem-3"] = params.Filesystem{FilesystemTag: "filesystem-3"}
+	filesystemAccessor.provisionedFilesystems["filesystem-4"] = params.Filesystem{
+		FilesystemTag: "filesystem-4",
+		Info:          params.FilesystemInfo{FilesystemId: "fs-id"},
+	}
+
+	var validateCalls int
+	validated := make(chan interface{}, 1)
+	s.provider.validateFilesystemParamsFunc = func(p storage.FilesystemParams) error {
+		validateCalls++
+		validated <- p
+		switch p.Tag.String() {
+		case "filesystem-1", "filesystem-3":
+			return errors.New("something is wrong")
+		}
+		return nil
+	}
+
+	life := func(tags []names.Tag) ([]params.LifeResult, error) {
+		results := make([]params.LifeResult, len(tags))
+		for i := range results {
+			switch tags[i].String() {
+			case "filesystem-3", "filesystem-4":
+				results[i].Life = params.Dead
+			default:
+				results[i].Life = params.Alive
+			}
+		}
+		return results, nil
+	}
+
+	createdFilesystems := make(chan interface{}, 1)
+	s.provider.createFilesystemsFunc = func(args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+		createdFilesystems <- args
+		if len(args) != 1 {
+			return nil, errors.New("expected one argument")
+		}
+		return []storage.CreateFilesystemsResult{{
+			Filesystem: &storage.Filesystem{Tag: args[0].Tag},
+		}}, nil
+	}
+
+	destroyedFilesystems := make(chan interface{}, 1)
+	s.provider.destroyFilesystemsFunc = func(filesystemIds []string) ([]error, error) {
+		destroyedFilesystems <- filesystemIds
+		return make([]error, len(filesystemIds)), nil
+	}
+
+	args := &workerArgs{
+		filesystems: filesystemAccessor,
+		life: &mockLifecycleManager{
+			life: life,
+		},
+	}
+	worker := newStorageProvisioner(c, args)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+
+	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
+	}, {
+		MachineTag: "machine-1", AttachmentTag: "filesystem-2",
+	}}
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
+	args.environ.watcher.changes <- struct{}{}
+	waitChannel(c, validated, "waiting for filesystem parameter validation")
+	assertNoEvent(c, createdFilesystems, "filesystem created")
+	c.Assert(validateCalls, gc.Equals, 1)
+
+	// Failure to create filesystem-1 should not block creation filesystem-2.
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"2"}
+	waitChannel(c, validated, "waiting for filesystem parameter validation")
+	createFilesystemParams := waitChannel(c, createdFilesystems, "filesystem created").([]storage.FilesystemParams)
+	c.Assert(createFilesystemParams, gc.HasLen, 1)
+	c.Assert(createFilesystemParams[0].Tag.String(), gc.Equals, "filesystem-2")
+	c.Assert(validateCalls, gc.Equals, 2)
+
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"3"}
+	waitChannel(c, validated, "waiting for filesystem parameter validation")
+	assertNoEvent(c, destroyedFilesystems, "filesystem destroyed")
+	c.Assert(validateCalls, gc.Equals, 3)
+
+	// Failure to destroy filesystem-3 should not block creation of filesystem-4.
+	filesystemAccessor.filesystemsWatcher.changes <- []string{"4"}
+	waitChannel(c, validated, "waiting for filesystem parameter validation")
+	destroyFilesystemParams := waitChannel(c, destroyedFilesystems, "filesystem destroyed").([]string)
+	c.Assert(destroyFilesystemParams, jc.DeepEquals, []string{"fs-id"})
+	c.Assert(validateCalls, gc.Equals, 4)
+
+	c.Assert(args.statusSetter.args, jc.DeepEquals, []params.EntityStatusArgs{
+		{Tag: "filesystem-1", Status: "error", Info: "something is wrong"},
+		{Tag: "filesystem-2", Status: "attaching"},
+		{Tag: "filesystem-3", Status: "error", Info: "something is wrong"},
+		// destroyed filesystems are removed immediately,
+		// so there is no status update.
+	})
+}
+
 func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 	expectedFilesystems := []params.Filesystem{{
 		FilesystemTag: "filesystem-1",
