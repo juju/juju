@@ -19,7 +19,7 @@ import (
 // The implementation is based loosely on:
 //  https://github.com/lxc/lxd/blob/master/lxc/remote.go
 func addServer(config *lxd.Config, server string, addr string) error {
-	addr, err := fixAddr(addr, shared.PathExists)
+	addr, err := fixAddr(addr)
 	if err != nil {
 		return err
 	}
@@ -35,12 +35,18 @@ func addServer(config *lxd.Config, server string, addr string) error {
 	return nil
 }
 
-func fixAddr(addr string, pathExists func(string) bool) (string, error) {
-	if addr == "" || addr == "unix://" {
+// TODO(ericsnow) Rename addr -> remoteURL?
+
+func fixAddr(addr string) (string, error) {
+	if addr == "" {
 		// TODO(ericsnow) Return lxd.LocalRemote.Addr?
 		return addr, nil
 	}
+	if strings.HasPrefix(addr, "unix:") {
+		return "", errors.NewNotValid(nil, fmt.Sprintf("unix socket URLs not supported (got %q)", addr))
+	}
 
+	// Fix IPv6 URLs.
 	if strings.HasPrefix(addr, ":") {
 		parts := strings.SplitN(addr, "/", 2)
 		if net.ParseIP(parts[0]) != nil {
@@ -49,12 +55,6 @@ func fixAddr(addr string, pathExists func(string) bool) (string, error) {
 				addr = "/" + parts[1]
 			}
 		}
-	}
-
-	if strings.HasPrefix(addr, "//") {
-		addr = addr[2:]
-	} else if strings.HasPrefix(addr, "unix://") {
-		addr = addr[len("unix://"):]
 	}
 
 	parsedURL, err := url.Parse(addr)
@@ -69,7 +69,7 @@ func fixAddr(addr string, pathExists func(string) bool) (string, error) {
 	}
 	if parsedURL.Opaque != "" {
 		if strings.Contains(parsedURL.Scheme, ".") {
-			addr, err := fixAddr("https://"+addr, pathExists)
+			addr, err := fixAddr("https://" + addr)
 			if err != nil {
 				return "", errors.Trace(err)
 			}
@@ -85,65 +85,39 @@ func fixAddr(addr string, pathExists func(string) bool) (string, error) {
 	}
 
 	// Fix the scheme.
-	remoteURL.Scheme = fixScheme(remoteURL, pathExists)
+	remoteURL.Scheme = fixScheme(remoteURL)
 	if err := validateScheme(remoteURL); err != nil {
 		return "", errors.Trace(err)
 	}
 
 	// Fix the host.
-	if remoteURL.Scheme == "unix" {
-		if remoteURL.Host != "" {
-			return "", errors.NewNotValid(nil, fmt.Sprintf("invalid unix socket URL (got %q)", addr))
+	if remoteURL.Host == "" {
+		if strings.HasPrefix(remoteURL.Path, "/") {
+			return "", errors.NewNotValid(nil, fmt.Sprintf("unix socket URLs not supported (got %q)", addr))
 		}
-		remoteURL.Host = remoteURL.Path
-		remoteURL.Path = ""
-	} else {
-		if remoteURL.Host == "" {
-			addr = fmt.Sprintf("%s://%s%s", remoteURL.Scheme, remoteURL.Host, remoteURL.Path)
-			addr, err := fixAddr(addr, pathExists)
-			if err != nil {
-				return "", errors.Trace(err)
-			}
-			return addr, nil
-		}
-		remoteURL.Host = fixHost(remoteURL.Host, shared.DefaultPort)
-		if err := validateHost(remoteURL); err != nil {
+		addr = fmt.Sprintf("%s://%s%s", remoteURL.Scheme, remoteURL.Host, remoteURL.Path)
+		addr, err := fixAddr(addr)
+		if err != nil {
 			return "", errors.Trace(err)
 		}
+		return addr, nil
 	}
-
-	// Do some final validation.
-	if remoteURL.Scheme == "unix" {
-		if !strings.HasPrefix(remoteURL.Host, "/") {
-			return "", errors.NewNotValid(nil, fmt.Sprintf("relative unix socket paths not supported (got %q)", addr))
-		}
-		if !pathExists(remoteURL.Host) {
-			return "", errors.NewNotValid(nil, fmt.Sprintf("unix socket file %q not found", remoteURL.Host))
-		}
+	remoteURL.Host = fixHost(remoteURL.Host, shared.DefaultPort)
+	if err := validateHost(remoteURL); err != nil {
+		return "", errors.Trace(err)
 	}
 
 	// TODO(ericsnow) Use remoteUrl.String()
 	return fmt.Sprintf("%s://%s%s", remoteURL.Scheme, remoteURL.Host, remoteURL.Path), nil
 }
 
-func fixScheme(url url.URL, pathExists func(string) bool) string {
+func fixScheme(url url.URL) string {
 	switch url.Scheme {
-	case "unix":
-		return url.Scheme
 	case "https":
 		return url.Scheme
 	case "http":
 		return "https"
 	case "":
-		if url.Host != "" {
-			return "https"
-		}
-		if strings.HasPrefix(url.Path, "/") {
-			return "unix"
-		}
-		if pathExists(url.Path) {
-			return "unix"
-		}
 		return "https"
 	default:
 		return url.Scheme
@@ -152,9 +126,7 @@ func fixScheme(url url.URL, pathExists func(string) bool) string {
 
 func validateScheme(url url.URL) error {
 	switch url.Scheme {
-	case "unix":
 	case "https":
-	case "http":
 	default:
 		return errors.NewNotValid(nil, fmt.Sprintf("unsupported URL scheme %q", url.Scheme))
 	}
