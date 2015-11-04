@@ -41,27 +41,27 @@ type configSuite struct {
 	configBaseSuite
 }
 
-func (s *configSuite) TestSetDefaultsOkay(c *gc.C) {
+func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
 		Filename:  "config.yaml",
 		Remote:    s.remote,
 	}
-	updated, err := cfg.SetDefaults()
+	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, cfg)
 }
 
-func (s *configSuite) TestSetDefaultsMissingDirname(c *gc.C) {
+func (s *configSuite) TestWithDefaultsMissingDirname(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "",
 		Filename:  "config.yaml",
 		Remote:    s.remote,
 	}
-	updated, err := cfg.SetDefaults()
+	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
@@ -74,14 +74,14 @@ func (s *configSuite) TestSetDefaultsMissingDirname(c *gc.C) {
 	})
 }
 
-func (s *configSuite) TestSetDefaultsFilename(c *gc.C) {
+func (s *configSuite) TestWithDefaultsFilename(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
 		Filename:  "",
 		Remote:    s.remote,
 	}
-	updated, err := cfg.SetDefaults()
+	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
@@ -92,13 +92,13 @@ func (s *configSuite) TestSetDefaultsFilename(c *gc.C) {
 	})
 }
 
-func (s *configSuite) TestSetDefaultsMissingRemote(c *gc.C) {
+func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
 	cfg := lxdclient.Config{
 		Namespace: "my-ns",
 		Dirname:   "some-dir",
 		Filename:  "config.yaml",
 	}
-	updated, err := cfg.SetDefaults()
+	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
