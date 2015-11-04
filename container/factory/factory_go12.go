@@ -1,6 +1,8 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !go1.3
+
 // This package exists solely to avoid circular imports.
 
 package factory
@@ -11,7 +13,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage/looputil"
 )
@@ -23,8 +24,6 @@ func NewContainerManager(forType instance.ContainerType, conf container.ManagerC
 	switch forType {
 	case instance.LXC:
 		return lxc.NewContainerManager(conf, imageURLGetter, looputil.NewLoopDeviceManager())
-	case instance.LXD:
-		return lxd.NewContainerManager(conf)
 	case instance.KVM:
 		return kvm.NewContainerManager(conf)
 	}
