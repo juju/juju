@@ -136,7 +136,7 @@ func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
 	err = os.Chdir(s.SeriesPath)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runDeploy(c, "multi-series")
-	c.Assert(err, gc.ErrorMatches, `.*"cs:trusty/multi-series": charm not found`)
+	c.Assert(err, gc.ErrorMatches, `.*path "multi-series" can not be a relative path`)
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
