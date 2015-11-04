@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
-	"github.com/juju/juju/payload/api/internal"
+	internal "github.com/juju/juju/payload/api/private"
 )
 
 // UnitPayloads exposes the State functionality for a unit's payloads.

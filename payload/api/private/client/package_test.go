@@ -1,10 +1,14 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client
+package client_test
 
 import (
-	"github.com/juju/loggo"
+	"testing"
+
+	gc "gopkg.in/check.v1"
 )
 
-var logger = loggo.GetLogger("juju.payload.api.internal.client")
+func Test(t *testing.T) {
+	gc.TestingT(t)
+}

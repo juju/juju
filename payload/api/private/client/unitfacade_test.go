@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package client_test
 
 import (
@@ -11,8 +14,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
-	"github.com/juju/juju/payload/api/internal"
-	"github.com/juju/juju/payload/api/internal/client"
+	internal "github.com/juju/juju/payload/api/private"
+	"github.com/juju/juju/payload/api/private/client"
 )
 
 type clientSuite struct {
