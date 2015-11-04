@@ -7,16 +7,16 @@ import (
 	"github.com/juju/juju/workload"
 )
 
-func AddWorkload(ctx *Context, id string, info workload.Info) {
-	if _, ok := ctx.workloads[id]; !ok {
-		ctx.workloads[id] = info
+func AddPayload(ctx *Context, id string, pl workload.Payload) {
+	if _, ok := ctx.payloads[id]; !ok {
+		ctx.payloads[id] = pl
 	} else {
-		ctx.updates[info.ID()] = info
+		ctx.updates[pl.FullID()] = pl
 	}
 }
 
-func AddWorkloads(ctx *Context, workloads ...workload.Info) {
-	for _, wl := range workloads {
-		AddWorkload(ctx, wl.Name, wl)
+func AddPayloads(ctx *Context, payloads ...workload.Payload) {
+	for _, pl := range payloads {
+		AddPayload(ctx, pl.FullID(), pl)
 	}
 }

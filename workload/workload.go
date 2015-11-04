@@ -13,8 +13,8 @@ const ComponentName = "workloads"
 type Result struct {
 	// ID is the ID of the workload that this result applies to.
 	ID string
-	// Workload holds the info about the workload, if available.
-	Workload *Info
+	// Payload holds the info about the workload, if available.
+	Payload *FullPayloadInfo
 	// NotFound indicates that the workload was not found in Juju.
 	NotFound bool
 	// Error is the error associated with this result (if any).

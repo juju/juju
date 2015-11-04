@@ -196,11 +196,6 @@ func (u *Unit) Life() Life {
 	return u.doc.Life
 }
 
-// Workloads returns the UnitWorkloads for this unit.
-func (u *Unit) Workloads() (UnitWorkloads, error) {
-	return u.st.UnitWorkloads(u)
-}
-
 // AgentTools returns the tools that the agent is currently running.
 // It an error that satisfies errors.IsNotFound if the tools have not
 // yet been set.

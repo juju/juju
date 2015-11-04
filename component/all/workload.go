@@ -121,7 +121,7 @@ func (workloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
 }
 
 func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
-	up, err := st.UnitWorkloads(unit)
+	up, err := st.UnitPayloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -191,10 +191,10 @@ func (workloads) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
-	newUnitWorkloads := func(persist state.Persistence, unit string) (state.UnitWorkloads, error) {
-		return workloadstate.NewUnitWorkloads(persist, unit), nil
+	newUnitPayloads := func(persist state.Persistence, unit string) (state.UnitPayloads, error) {
+		return workloadstate.NewUnitPayloads(persist, unit), nil
 	}
-	state.SetWorkloadsComponent(newUnitWorkloads)
+	state.SetWorkloadsComponent(newUnitPayloads)
 
 	newEnvPayloads := func(persist state.PayloadsEnvPersistence) (state.EnvPayloads, error) {
 		envPersist := persistence.NewEnvPersistence(persist)

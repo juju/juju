@@ -164,44 +164,44 @@ func (s *stubPayloadsPersistence) ListAll() ([]workload.FullPayloadInfo, error) 
 		return nil, errors.Trace(err)
 	}
 
-	var payloads []workload.FullPayloadInfo
+	var fullPayloads []workload.FullPayloadInfo
 	for machine, units := range s.persists {
-		for unit, unitWorkloads := range units {
-			workloads, err := unitWorkloads.ListAll()
+		for unit, unitPayloads := range units {
+			payloads, err := unitPayloads.ListAll()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			for _, info := range workloads {
-				payload := workload.FullPayloadInfo{
-					Payload: info.AsPayload(),
+			for _, pl := range payloads {
+				if pl.Unit == "" {
+					pl.Unit = unit
 				}
-				payload.Machine = machine
-				payload.Unit = unit
-				payloads = append(payloads, payload)
+				fullPayload := workload.FullPayloadInfo{
+					Payload: pl,
+					Machine: machine,
+				}
+				fullPayloads = append(fullPayloads, fullPayload)
 			}
 		}
 	}
-	return payloads, nil
+	return fullPayloads, nil
 }
 
-func (s *stubPayloadsPersistence) setPayload(id string, payload workload.FullPayloadInfo) {
+func (s *stubPayloadsPersistence) setPayload(id string, pl workload.FullPayloadInfo) {
 	if s.persists == nil {
 		s.persists = make(map[string]map[string]*fakeWorkloadsPersistence)
 	}
 
-	workload := payload.AsWorkload()
-
-	units := s.persists[payload.Machine]
+	units := s.persists[pl.Machine]
 	if units == nil {
 		units = make(map[string]*fakeWorkloadsPersistence)
-		s.persists[payload.Machine] = units
+		s.persists[pl.Machine] = units
 	}
-	unitWorkloads := units[payload.Unit]
-	if unitWorkloads == nil {
-		unitWorkloads = &fakeWorkloadsPersistence{Stub: s.stub}
-		units[payload.Unit] = unitWorkloads
+	unitPayloads := units[pl.Unit]
+	if unitPayloads == nil {
+		unitPayloads = &fakeWorkloadsPersistence{Stub: s.stub}
+		units[pl.Unit] = unitPayloads
 	}
 
-	unitWorkloads.setWorkload(id, &workload)
+	unitPayloads.setPayload(id, &pl.Payload)
 }

@@ -47,30 +47,12 @@ func (p Payload) Validate() error {
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Do not require Unit to be set?
 	if p.Unit == "" {
 		return errors.NotValidf("missing Unit")
 	}
 
 	return nil
-}
-
-// AsWorkload converts the Payload into an Info.
-func (p Payload) AsWorkload() Info {
-	labels := make([]string, len(p.Labels))
-	copy(labels, p.Labels)
-	return Info{
-		PayloadClass: charm.PayloadClass{
-			Name: p.Name,
-			Type: p.Type,
-		},
-		Status: Status{
-			State: p.Status,
-		},
-		Labels: labels,
-		Details: Details{
-			ID: p.ID,
-		},
-	}
 }
 
 // FullPayloadInfo completely describes a charm payload, including
