@@ -40,6 +40,7 @@ type Config struct {
 	Remote Remote
 }
 
+// ConfigDirname returns the full path to Juju LXC config directory.
 func ConfigDirname(namespace string) string {
 	return os.ExpandEnv(lxd.ConfigDir) + "/juju-" + namespace
 }
