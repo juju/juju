@@ -186,6 +186,11 @@ func allCollections() collectionSchema {
 		},
 		minUnitsC: {},
 
+		// This collection holds documents that indicate units which are queued
+		// to be assigned to machines. It is used exclusively by the
+		// AssignUnitWorker.
+		assignUnitC: {},
+
 		// meterStatusC is the collection used to store meter status information.
 		meterStatusC:  {},
 		settingsrefsC: {},
@@ -345,6 +350,7 @@ const (
 	actionresultsC         = "actionresults"
 	actionsC               = "actions"
 	annotationsC           = "annotations"
+	assignUnitC            = "assignUnits"
 	blockDevicesC          = "blockdevices"
 	blocksC                = "blocks"
 	charmsC                = "charms"

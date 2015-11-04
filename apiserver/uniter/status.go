@@ -4,9 +4,6 @@
 package uniter
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/names"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -24,22 +21,6 @@ type StatusAPI struct {
 	getCanModify  common.GetAuthFunc
 }
 
-type unitAgentFinder struct {
-	state.EntityFinder
-}
-
-func (ua *unitAgentFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	_, ok := tag.(names.UnitTag)
-	if !ok {
-		return nil, errors.Errorf("unsupported tag %T", tag)
-	}
-	entity, err := ua.EntityFinder.FindEntity(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return entity.(*state.Unit).Agent(), nil
-}
-
 // NewStatusAPI creates a new server-side Status setter API facade.
 func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
 	// TODO(fwereade): so *all* of these have exactly the same auth
@@ -48,7 +29,7 @@ func NewStatusAPI(st *state.State, getCanModify common.GetAuthFunc) *StatusAPI {
 	unitGetter := common.NewStatusGetter(st, getCanModify)
 	serviceSetter := common.NewServiceStatusSetter(st, getCanModify)
 	serviceGetter := common.NewServiceStatusGetter(st, getCanModify)
-	agentSetter := common.NewStatusSetter(&unitAgentFinder{st}, getCanModify)
+	agentSetter := common.NewStatusSetter(&common.UnitAgentFinder{st}, getCanModify)
 	return &StatusAPI{
 		agentSetter:   agentSetter,
 		unitSetter:    unitSetter,

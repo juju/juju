@@ -335,7 +335,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil)
+	service, err := factory.st.AddService(state.AddServiceArgs{Name: params.Name, Owner: params.Creator.String(), Charm: params.Charm})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {

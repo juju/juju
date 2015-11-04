@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
@@ -35,16 +36,24 @@ func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
-	units, err := service.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		units, err := service.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
-		machine, err := st.Machine(mid)
-		c.Assert(err, jc.ErrorIsNil)
-		machineCons, err := machine.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(machineCons, gc.DeepEquals, cons)
+		for _, unit := range units {
+			mid, err := unit.AssignedMachineId()
+			if !a.HasNext() {
+				c.Assert(err, jc.ErrorIsNil)
+			} else if err != nil {
+				continue
+			}
+			machine, err := st.Machine(mid)
+			c.Assert(err, jc.ErrorIsNil)
+			machineCons, err := machine.Constraints()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(machineCons, gc.DeepEquals, cons)
+		}
+		break
 	}
 	return service
 }
