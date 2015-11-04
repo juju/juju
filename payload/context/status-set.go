@@ -20,14 +20,14 @@ func NewStatusSetCmd(ctx HookContext) (*StatusSetCmd, error) {
 		// The component wasn't tracked properly.
 		return nil, errors.Trace(err)
 	}
-	return &StatusSetCmd{api: compCtx}, nil
+	return &StatusSetCmd{hctx: compCtx}, nil
 }
 
 // StatusSetCmd is a command that registers a payload with juju.
 type StatusSetCmd struct {
 	cmd.CommandBase
 
-	api    Component
+	hctx   Component
 	class  string
 	id     string
 	status string
@@ -65,7 +65,7 @@ func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.api.SetStatus(c.class, c.id, c.status); err != nil {
+	if err := c.hctx.SetStatus(c.class, c.id, c.status); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -73,7 +73,7 @@ func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
 
 	// We flush to state immedeiately so that status reflects the
 	// payload correctly.
-	if err := c.api.Flush(); err != nil {
+	if err := c.hctx.Flush(); err != nil {
 		return errors.Trace(err)
 	}
 

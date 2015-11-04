@@ -57,7 +57,7 @@ func (registerSuite) TestInitWithLabels(c *gc.C) {
 
 func (registerSuite) TestRun(c *gc.C) {
 	f := &stubRegisterContext{}
-	r := RegisterCmd{api: f}
+	r := RegisterCmd{hctx: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -72,6 +72,7 @@ func (registerSuite) TestRun(c *gc.C) {
 		},
 		ID:     "id",
 		Status: payload.StateRunning,
+		Labels: []string{"tag1", "tag 2"},
 		Unit:   "a-service/0",
 	})
 	// TODO (natefinch): we need to do something with the labels
@@ -79,7 +80,7 @@ func (registerSuite) TestRun(c *gc.C) {
 
 func (registerSuite) TestRunUnknownClass(c *gc.C) {
 	f := &stubRegisterContext{}
-	r := RegisterCmd{api: f}
+	r := RegisterCmd{hctx: f}
 	err := r.Init([]string{"type", "badclass", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -90,7 +91,7 @@ func (registerSuite) TestRunUnknownClass(c *gc.C) {
 
 func (registerSuite) TestRunUnknownType(c *gc.C) {
 	f := &stubRegisterContext{}
-	r := RegisterCmd{api: f}
+	r := RegisterCmd{hctx: f}
 	err := r.Init([]string{"badtype", "class", "id"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -101,7 +102,7 @@ func (registerSuite) TestRunUnknownType(c *gc.C) {
 
 func (registerSuite) TestRunTrackErr(c *gc.C) {
 	f := &stubRegisterContext{trackerr: errors.Errorf("boo")}
-	r := RegisterCmd{api: f}
+	r := RegisterCmd{hctx: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -112,7 +113,7 @@ func (registerSuite) TestRunTrackErr(c *gc.C) {
 
 func (registerSuite) TestRunFlushErr(c *gc.C) {
 	f := &stubRegisterContext{flusherr: errors.Errorf("boo")}
-	r := RegisterCmd{api: f}
+	r := RegisterCmd{hctx: f}
 	err := r.Init([]string{"type", "class", "id", "tag1", "tag 2"})
 	c.Assert(err, jc.ErrorIsNil)
 
