@@ -74,11 +74,11 @@ func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
 	c.Assert(env["name"], gc.Equals, "dummyenv")
 }
 
-func (s *controllerSuite) TestDestroySystem(c *gc.C) {
+func (s *controllerSuite) TestDestroyController(c *gc.C) {
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "foo"}).Close()
 
 	sysManager := s.OpenAPI(c)
-	err := sysManager.DestroySystem(false, false)
+	err := sysManager.DestroyController(false, false)
 	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
 }
 
@@ -111,7 +111,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	err := sysManager.RemoveBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := s.State.AllBlocksForSystem()
+	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
 }

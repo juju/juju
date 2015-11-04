@@ -155,7 +155,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to destroy the system with destroyEnvs and ignoreBlocks = true
-	err = api.DestroySystem(true, true)
+	err = api.DestroyController(true, true)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the client endpoint to destroy the system,
 		// sending the info we were already able to collect.

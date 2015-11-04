@@ -24,9 +24,9 @@ import (
 // is found in apiserver/common/environdestroy_test.go.
 //
 // The tests here are around the validation and behaviour of
-// the flags passed in to the system manager destroy system call.
+// the flags passed in to the destroy controller call.
 
-type destroySystemSuite struct {
+type destroyControllerSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
@@ -37,9 +37,9 @@ type destroySystemSuite struct {
 	otherEnvUUID  string
 }
 
-var _ = gc.Suite(&destroySystemSuite{})
+var _ = gc.Suite(&destroyControllerSuite{})
 
-func (s *destroySystemSuite) SetUpTest(c *gc.C) {
+func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
@@ -68,13 +68,13 @@ func (s *destroySystemSuite) SetUpTest(c *gc.C) {
 	s.otherEnvUUID = s.otherState.EnvironUUID()
 }
 
-func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvsWithBlocks(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroySystem(params.DestroySystemArgs{
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
 		IgnoreBlocks:        true,
 	})
@@ -88,18 +88,18 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironmentsErr(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroySystem(params.DestroySystemArgs{
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
 	})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
-	numBlocks, err := s.State.AllBlocksForSystem()
+	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 4)
 
@@ -107,8 +107,8 @@ func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *g
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
-	err := s.controller.DestroySystem(params.DestroySystemArgs{
+func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvs(c *gc.C) {
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,27 +121,27 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroySystem(params.DestroySystemArgs{
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		IgnoreBlocks: true,
 	})
 	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
 
-	numBlocks, err := s.State.AllBlocksForSystem()
+	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 4)
 }
 
-func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.controller.DestroySystem(params.DestroySystemArgs{})
+	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := s.State.Environment()
@@ -149,14 +149,14 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlock(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroySystem(params.DestroySystemArgs{
+	err = s.controller.DestroyController(params.DestroyControllerArgs{
 		IgnoreBlocks: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -166,17 +166,17 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroySystem(params.DestroySystemArgs{})
+	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
-	numBlocks, err := s.State.AllBlocksForSystem()
+	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 2)
 }

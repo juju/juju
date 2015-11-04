@@ -50,7 +50,7 @@ func (f *fakeDestroyAPI) EnvironmentConfig() (map[string]interface{}, error) {
 	return f.env, nil
 }
 
-func (f *fakeDestroyAPI) DestroySystem(destroyAll bool, ignoreBlocks bool) error {
+func (f *fakeDestroyAPI) DestroyController(destroyAll bool, ignoreBlocks bool) error {
 	f.destroyAll = destroyAll
 	f.ignoreBlocks = ignoreBlocks
 	return f.err

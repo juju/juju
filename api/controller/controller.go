@@ -16,7 +16,7 @@ import (
 var logger = loggo.GetLogger("juju.api.controller")
 
 // Client provides methods that the Juju client command uses to interact
-// with systems stored in the Juju Server.
+// with the Juju controller.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
@@ -30,8 +30,8 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AllEnvironments allows system administrators to get the list of all the
-// environments in the system.
+// AllEnvironments allows controller administrators to get the list of all the
+// environments in the controller.
 func (c *Client) AllEnvironments() ([]base.UserEnvironment, error) {
 	var environments params.UserEnvironmentList
 	err := c.facade.FacadeCall("AllEnvironments", nil, &environments)
@@ -55,26 +55,26 @@ func (c *Client) AllEnvironments() ([]base.UserEnvironment, error) {
 }
 
 // EnvironmentConfig returns all environment settings for the
-// system environment.
+// controller environment.
 func (c *Client) EnvironmentConfig() (map[string]interface{}, error) {
 	result := params.EnvironmentConfigResults{}
 	err := c.facade.FacadeCall("EnvironmentConfig", nil, &result)
 	return result.Config, err
 }
 
-// DestroySystem puts the system environment into a "dying" state,
+// DestroyController puts the controller environment into a "dying" state,
 // and removes all non-manager machine instances. Underlying DestroyEnvironment
 // calls will fail if there are any manually-provisioned non-manager machines
 // in state.
-func (c *Client) DestroySystem(destroyEnvs bool, ignoreBlocks bool) error {
-	args := params.DestroySystemArgs{
+func (c *Client) DestroyController(destroyEnvs bool, ignoreBlocks bool) error {
+	args := params.DestroyControllerArgs{
 		DestroyEnvironments: destroyEnvs,
 		IgnoreBlocks:        ignoreBlocks,
 	}
-	return c.facade.FacadeCall("DestroySystem", args, nil)
+	return c.facade.FacadeCall("DestroyController", args, nil)
 }
 
-// ListBlockedEnvironments returns a list of all environments within the system
+// ListBlockedEnvironments returns a list of all environments within the controller
 // which have at least one block in place.
 func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error) {
 	result := params.EnvironmentBlockInfoList{}
@@ -82,7 +82,7 @@ func (c *Client) ListBlockedEnvironments() ([]params.EnvironmentBlockInfo, error
 	return result.Environments, err
 }
 
-// RemoveBlocks removes all the blocks in the system.
+// RemoveBlocks removes all the blocks in the controller.
 func (c *Client) RemoveBlocks() error {
 	args := params.RemoveBlocksArgs{All: true}
 	return c.facade.FacadeCall("RemoveBlocks", args, nil)

@@ -176,7 +176,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{All: true})
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := s.State.AllBlocksForSystem()
+	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
 }
