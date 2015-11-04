@@ -17,24 +17,15 @@ type fixAddrSuite struct {
 
 type addrTest struct {
 	addr     string
-	exists   bool
 	expected string
 	err      string
-}
-
-func (t addrTest) pathExists(path string) bool {
-	return t.exists
 }
 
 var typicalAddrTests = []addrTest{{
 	addr:     "",
 	expected: "",
 }, {
-	addr:     "unix://",
-	expected: "unix://",
-}, {
 	addr:     "a.b.c",
-	exists:   false,
 	expected: "https://a.b.c:8443",
 }, {
 	addr:     "https://a.b.c",
@@ -44,7 +35,6 @@ var typicalAddrTests = []addrTest{{
 	expected: "https://a.b.c:8443",
 }, {
 	addr:     "a.b.c:1234",
-	exists:   false,
 	expected: "https://a.b.c:1234",
 }, {
 	addr:     "https://a.b.c:1234",
@@ -54,7 +44,6 @@ var typicalAddrTests = []addrTest{{
 	expected: "https://a.b.c:1234",
 }, {
 	addr:     "a.b.c/x/y/z",
-	exists:   false,
 	expected: "https://a.b.c:8443/x/y/z",
 }, {
 	addr:     "https://a.b.c/x/y/z",
@@ -93,29 +82,16 @@ var typicalAddrTests = []addrTest{{
 	addr:     "::1",
 	expected: "https://[::1]:8443",
 }, {
-	addr:     "unix:///x/y/z",
-	exists:   true,
-	expected: "unix:///x/y/z",
-}, {
-	addr:     "unix:/x/y/z",
-	exists:   true,
-	expected: "unix:///x/y/z",
-}, {
-	addr:     "/x/y/z",
-	exists:   true,
-	expected: "unix:///x/y/z",
-}, {
 	addr:     "a.b.c",
-	exists:   false,
 	expected: "https://a.b.c:8443",
 }}
 
 func (s *fixAddrSuite) TestFixAddrTypical(c *gc.C) {
 	for i, test := range typicalAddrTests {
-		c.Logf("test %d: checking %q (exists: %v)", i, test.addr, test.exists)
+		c.Logf("test %d: checking %q", i, test.addr)
 		c.Assert(test.err, gc.Equals, "")
 
-		fixed, err := fixAddr(test.addr, test.pathExists)
+		fixed, err := fixAddr(test.addr)
 
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
@@ -131,6 +107,18 @@ var failureAddrTests = []addrTest{{
 	// a malformed URL
 	addr: ":a.b.c",
 	err:  `.*`,
+}, {
+	addr: "unix://",
+	err:  `.*unix socket URLs not supported.*`,
+}, {
+	addr: "unix:///x/y/z",
+	err:  `.*unix socket URLs not supported.*`,
+}, {
+	addr: "unix:/x/y/z",
+	err:  `.*unix socket URLs not supported.*`,
+}, {
+	addr: "/x/y/z",
+	err:  `.*unix socket URLs not supported.*`,
 }, {
 	addr: "https://a.b.c:xyz",
 	err:  `.*invalid port.*`,
@@ -149,30 +137,14 @@ var failureAddrTests = []addrTest{{
 }, {
 	addr: "https://a.b.c#d",
 	err:  `.*URL fragments not supported.*`,
-}, {
-	addr:   "/x/y/z",
-	exists: false,
-	err:    `.*unix socket file .* not found.*`,
-}, {
-	addr:   "x/y/z",
-	exists: true,
-	err:    `.*relative unix socket paths not supported \(got "x/y/z"\).*`,
-}, {
-	addr:   "//x/y/z",
-	exists: true,
-	err:    `.*relative unix socket paths not supported \(got "x/y/z"\).*`,
-}, {
-	addr:   "unix://x/y/z",
-	exists: true,
-	err:    `.*relative unix socket paths not supported \(got "x/y/z"\).*`,
 }}
 
 func (s *fixAddrSuite) TestFixAddrFailures(c *gc.C) {
 	for i, test := range failureAddrTests {
-		c.Logf("test %d: checking %q (exists: %v)", i, test.addr, test.exists)
+		c.Logf("test %d: checking %q", i, test.addr)
 		c.Assert(test.err, gc.Not(gc.Equals), "")
 
-		_, err := fixAddr(test.addr, test.pathExists)
+		_, err := fixAddr(test.addr)
 
 		c.Check(err, gc.ErrorMatches, test.err)
 	}
