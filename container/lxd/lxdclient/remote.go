@@ -80,7 +80,7 @@ func (r Remote) WithDefaults() (Remote, error) {
 		r.Cert = &cert
 	}
 
-	cert, err := r.Cert.SetDefaults()
+	cert, err := r.Cert.WithDefaults()
 	if err != nil {
 		return r, errors.Trace(err)
 	}
@@ -152,7 +152,7 @@ func (r Remote) UsingTCP() (Remote, error) {
 	}
 	r.Host = addr
 
-	r, err = r.SetDefaults()
+	r, err = r.WithDefaults()
 	if err != nil {
 		return r, errors.Trace(err)
 	}
