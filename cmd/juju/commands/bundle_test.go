@@ -291,7 +291,7 @@ func (s *deployRepoCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
             1:
                 series: trusty
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": cannot assign unit "django/0" to machine 0: series does not match`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
 
 func (s *deployRepoCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
