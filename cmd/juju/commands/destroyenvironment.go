@@ -143,7 +143,7 @@ func (c *destroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 	}
 
-	if info.UUID == info.ServerUUID {
+	if info.UUID == info.ControllerUUID {
 		if !hasBootstrapCfg {
 			// serverEnviron will be nil as we didn't have the jenv bootstrap
 			// config to build it. But we do have a connection to the API

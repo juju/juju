@@ -201,9 +201,9 @@ func (e *Environment) UUID() string {
 	return e.doc.UUID
 }
 
-// ServerUUID returns the universally unique identifier of the server in which
-// the environment is running.
-func (e *Environment) ServerUUID() string {
+// ControllerUUID returns the universally unique identifier of the controller
+// in which the environment is running.
+func (e *Environment) ControllerUUID() string {
 	return e.doc.ServerUUID
 }
 
