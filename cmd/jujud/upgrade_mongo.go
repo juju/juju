@@ -114,7 +114,7 @@ func (*UpgradeMongoCommand) Info() *cmd.Info {
 
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (u *UpgradeMongoCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&u.machineTag, "machinetag", "0", "unique tag identifier for machine to be upgraded")
+	f.StringVar(&u.machineTag, "machinetag", "machine-0", "unique tag identifier for machine to be upgraded")
 	f.StringVar(&u.series, "series", "", "series for the machine")
 	f.StringVar(&u.configFilePath, "configfile", "", "path to the config file")
 	f.StringVar(&u.namespace, "namespace", "", "namespace, this should be blank unless the provider is local")
@@ -132,16 +132,7 @@ func (u *UpgradeMongoCommand) Run(ctx *cmd.Context) error {
 }
 
 func (u *UpgradeMongoCommand) run() error {
-	var err error
-	u.tmpDir, err = u.createTempDir()
-	if err != nil {
-		return errors.Annotate(err, "could not create a temporary directory for the migration")
-	}
-	logger.Infof("begin migration to mongo 3")
 	dataDir, err := paths.DataDir(u.series)
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine data dir for %q", u.series)
-	}
 	if u.configFilePath == "" {
 		machineTag, err := names.ParseMachineTag(u.machineTag)
 		if err != nil {
@@ -154,16 +145,40 @@ func (u *UpgradeMongoCommand) run() error {
 		return errors.Annotatef(err, "cannot read config file in %q", u.configFilePath)
 	}
 
+	// If the version is not 2.4 we consider it already migrated.
+	if current := u.agentConfig.MongoVersion(); current != mongo.Mongo24 {
+		return nil
+	}
+
+	u.tmpDir, err = u.createTempDir()
+	if err != nil {
+		return errors.Annotate(err, "could not create a temporary directory for the migration")
+	}
+
+	logger.Infof("begin migration to mongo 3")
+
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine data dir for %q", u.series)
+	}
+
 	if err := u.satisfyPrerequisites(u.series); err != nil {
 		return errors.Annotate(err, "cannot satisfy pre-requisites for the migration")
 	}
 	if err := u.maybeUpgrade24to26(dataDir); err != nil {
-		defer u.cleanup()
+		defer func() {
+			if err := u.cleanup(); err != nil {
+				logger.Errorf("could not rollback the upgrade: %v", err)
+			}
+		}()
 		return errors.Annotate(err, "cannot upgrade from mongo 2.4 to 2.6")
 	}
 
 	if err := u.maybeUpgrade26to31(dataDir); err != nil {
-		defer u.cleanup()
+		defer func() {
+			if err := u.cleanup(); err != nil {
+				logger.Errorf("could not rollback the upgrade: %v", err)
+			}
+		}()
 		return errors.Annotate(err, "cannot upgrade from mongo 2.6 to 3")
 	}
 	return nil
@@ -181,7 +196,7 @@ func (u *UpgradeMongoCommand) cleanup() error {
 		logger.Errorf("cannot stop the state server: %v", err)
 	}
 	if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
-		logger.Errorf("cannot restore the initial state server: %v", err)
+		logger.Errorf("cannot clean the db directory to rollback: %v", err)
 	}
 
 	u.agentConfig.SetMongoVersion(mongo.Mongo24)
@@ -217,7 +232,7 @@ func (u *UpgradeMongoCommand) cleanup() error {
 		return errors.Annotate(err, "cannot initiate replicaset to rollback")
 	}
 	jujuMongoPath := path.Dir(mongo.JujuMongodPath)
-	err = u.mongoRestore(jujuMongoPath, "", "24", nil, ssi.StatePort)
+	err = u.mongoRestore(jujuMongoPath, "", "26", nil, ssi.StatePort, false, 0)
 	if err != nil {
 		return errors.Annotate(err, "cannot restore the old db")
 	}
@@ -343,8 +358,6 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		return errors.Annotate(err, "cannot stop mongo to update to mongo 3")
 	}
 
-	// REWRITE SERVICE
-
 	// Mongo 3, no wired tiger
 	u.agentConfig.SetMongoVersion(mongo.Mongo30)
 	if err := u.agentConfig.Write(); err != nil {
@@ -355,7 +368,6 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		return errors.Annotate(err, "cannot update service script")
 	}
 
-	// TODO: this one is not working.
 	if err := u.mongoStart(namespace); err != nil {
 		return errors.Annotate(err, "cannot start mongo 3 to do a pre-tiger migration dump")
 	}
@@ -410,8 +422,10 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to31(dataDir string) error {
 		return errors.Annotate(err, "cannot initiate replicaset")
 	}
 
-	// TODO (perrito666) need to figure out why blobstore is not restoreable.
-	err = u.mongoRestore(jujuMongoPath, "", "Tiger", []string{"juju", "admin", "logs", "presence"}, port)
+	// blobstorage might fail to restore in certain versions of
+	// mongorestore because of a bug in mongorestore
+	// that breaks gridfs restoration https://jira.mongodb.org/browse/TOOLS-939
+	err = u.mongoRestore(jujuMongoPath, "", "Tiger", nil, port, true, 100)
 	if err != nil {
 		return errors.Annotate(err, "cannot restore the db.")
 	}
@@ -563,20 +577,27 @@ func (u *UpgradeMongoCommand) mongoDump(mongoPath, adminPassword, migrationName 
 	return mongoDumpCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, statePort)
 }
 
-func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string, dbs []string, statePort int) error {
+func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, migrationName string,
+	dbs []string, statePort int, invalidSSL bool, batchSize int) error {
 	mongorestore := path.Join(mongoPath, "mongorestore")
 	restoreParams := []string{
 		"--ssl",
-		"--sslAllowInvalidCertificates",
 		"--port", strconv.Itoa(statePort),
 		"--host", "localhost",
+	}
+
+	if invalidSSL {
+		restoreParams = append(restoreParams, "--sslAllowInvalidCertificates", strconv.Itoa(batchSize))
+	}
+	if batchSize > 0 {
+		restoreParams = append(restoreParams, "--batchSize", strconv.Itoa(batchSize))
 	}
 	if adminPassword != "" {
 		restoreParams = append(restoreParams, "-u", "admin", "-p", adminPassword)
 	}
 	var out string
 	var err error
-	if len(dbs) == 0 {
+	if len(dbs) == 0 || dbs == nil {
 		restoreParams = append(restoreParams, path.Join(tmpDir, fmt.Sprintf("migrateTo%sdump", migrationName)))
 		for attempt := connectAfterRestartRetryAttempts.Start(); attempt.Next(); {
 			out, err = runCommand(mongorestore, restoreParams...)
@@ -607,6 +628,6 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 	return nil
 }
 
-func (u *UpgradeMongoCommand) mongoRestore(mongoPath, adminPassword, migrationName string, dbs []string, statePort int) error {
-	return mongoRestoreCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, dbs, statePort)
+func (u *UpgradeMongoCommand) mongoRestore(mongoPath, adminPassword, migrationName string, dbs []string, statePort int, invalidSSL bool, batchSize int) error {
+	return mongoRestoreCall(u.runCommand, u.tmpDir, mongoPath, adminPassword, migrationName, dbs, statePort, invalidSSL, batchSize)
 }
