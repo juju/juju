@@ -33,12 +33,9 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(newRetryProvisioningCommand())
 	environmentCmd.Register(newEnvSetConstraintsCommand())
 	environmentCmd.Register(newEnvGetConstraintsCommand())
-
-	if featureflag.Enabled(feature.JES) {
-		environmentCmd.Register(newShareCommand())
-		environmentCmd.Register(newUnshareCommand())
-		environmentCmd.Register(newUsersCommand())
-		environmentCmd.Register(newDestroyCommand())
-	}
+	environmentCmd.Register(newShareCommand())
+	environmentCmd.Register(newUnshareCommand())
+	environmentCmd.Register(newUsersCommand())
+	environmentCmd.Register(newDestroyCommand())
 	return environmentCmd
 }

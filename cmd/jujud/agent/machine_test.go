@@ -813,8 +813,6 @@ func (s *MachineSuite) TestAddresserWorkerStopsWhenAddressDeallocationNotSupport
 }
 
 func (s *MachineSuite) TestManageEnvironRunsDbLogPrunerIfFeatureFlagEnabled(c *gc.C) {
-	s.SetFeatureFlags("db-log")
-
 	m, _, _ := s.primeAgent(c, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()

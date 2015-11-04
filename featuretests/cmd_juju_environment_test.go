@@ -27,7 +27,6 @@ type cmdEnvironmentSuite struct {
 
 func (s *cmdEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 }
 
 func (s *cmdEnvironmentSuite) run(c *gc.C, args ...string) *cmd.Context {

@@ -342,15 +342,10 @@ func (srv *Server) run(lis net.Listener) {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpCtxt, srv.logDir))
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
+	handleAll(mux, "/environment/:envuuid/logsink",
+		newLogSinkHandler(httpCtxt, srv.logDir))
+	handleAll(mux, "/environment/:envuuid/log",
+		newDebugLogDBHandler(httpCtxt, srvDying))
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			ctxt:    httpCtxt,
@@ -388,12 +383,7 @@ func (srv *Server) run(lis net.Listener) {
 		},
 	)
 	// For backwards compatibility we register all the old paths
-
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
+	handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
 
 	handleAll(mux, "/charms",
 		&charmsHandler{

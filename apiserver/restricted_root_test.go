@@ -24,7 +24,6 @@ var _ = gc.Suite(&restrictedRootSuite{})
 
 func (r *restrictedRootSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
-	r.SetFeatureFlags(feature.JES)
 	r.root = apiserver.TestingRestrictedApiHandler(nil)
 }
 

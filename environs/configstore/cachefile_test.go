@@ -25,7 +25,6 @@ type cacheFileInterfaceSuite struct {
 
 func (s *cacheFileInterfaceSuite) SetUpTest(c *gc.C) {
 	s.interfaceSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.JES)
 	s.dir = c.MkDir()
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)

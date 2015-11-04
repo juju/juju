@@ -46,7 +46,6 @@ type logsinkSuite struct {
 var _ = gc.Suite(&logsinkSuite{})
 
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
 	s.logsinkBaseSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{

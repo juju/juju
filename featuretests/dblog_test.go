@@ -36,7 +36,6 @@ type dblogSuite struct {
 }
 
 func (s *dblogSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
 	s.AgentSuite.SetUpTest(c)
 
 	// Change the path to "juju-run", so that the
@@ -47,13 +46,11 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
-	s.SetFeatureFlags("db-log")
 	foundLogs := s.runMachineAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDBWithJES(c *gc.C) {
-	s.SetFeatureFlags(feature.JES)
 	foundLogs := s.runMachineAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
 }
@@ -65,13 +62,11 @@ func (s *dblogSuite) TestMachineAgentWithoutFeatureFlag(c *gc.C) {
 }
 
 func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
-	s.SetFeatureFlags("db-log")
 	foundLogs := s.runUnitAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
 }
 
 func (s *dblogSuite) TestUnitAgentLogsGoToDBWithJES(c *gc.C) {
-	s.SetFeatureFlags(feature.JES)
 	foundLogs := s.runUnitAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
 }
@@ -153,8 +148,6 @@ type debugLogDbSuite struct {
 var _ = gc.Suite(&debugLogDbSuite{})
 
 func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
-
 	// Restart mongod with a the replicaset enabled.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{"--replSet", "juju"}

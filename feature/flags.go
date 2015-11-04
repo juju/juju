@@ -46,16 +46,6 @@ const AddressAllocation = "address-allocation"
 // (space list|create, subnet list|add).
 const PostNetCLIMVP = "post-net-cli-mvp"
 
-// dbLog indicates that Juju's logs go to MongoDB. It is not exported
-// because it should be checked for using IsDbLogEnabled.
-const dbLog = "db-log"
-
-// IsDbLogEnabled returns true if logging to MongoDB should be enabled
-// based on the dbLog or JES feature flags.
-func IsDbLogEnabled() bool {
-	return featureflag.Enabled(dbLog) || featureflag.Enabled(JES)
-}
-
 // DisableRsyslog will stop the writing of the rsyslog accumulation and
 // forwarding configuration files by stopping the rsyslog workers.
 const DisableRsyslog = "disable-rsyslog"

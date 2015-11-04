@@ -32,7 +32,6 @@ type controllerSuite struct {
 var _ = gc.Suite(&controllerSuite{})
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.JES)
 	s.JujuConnSuite.SetUpTest(c)
 }
 

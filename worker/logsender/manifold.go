@@ -26,11 +26,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-			if !feature.IsDbLogEnabled() {
-				logger.Warningf("log sender manifold disabled by feature flag")
-				return nil, dependency.ErrMissing
-			}
-
 			var apiCaller base.APICaller
 			if err := getResource(config.APICallerName, &apiCaller); err != nil {
 				return nil, err

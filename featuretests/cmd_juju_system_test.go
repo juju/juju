@@ -32,11 +32,6 @@ type cmdControllerSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdControllerSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.JES)
-	s.JujuConnSuite.SetUpTest(c)
-}
-
 func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 	command := controller.NewSuperCommand()
 	context, err := testing.RunCommand(c, command, args...)

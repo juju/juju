@@ -22,7 +22,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
 func init() {
-	common.RegisterStandardFacadeForFeature("Controller", 1, NewControllerAPI, feature.JES)
+	common.RegisterStandardFacade("Controller", 1, NewControllerAPI)
 }
 
 // Controller defines the methods on the controller API end point.

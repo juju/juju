@@ -130,8 +130,6 @@ func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
-	s.SetFeatureFlags("db-log")
-
 	logsCh, err := logsender.InstallBufferedLogWriter(10)
 	c.Assert(err, jc.ErrorIsNil)
 	defer logsender.UninstallBufferedLogWriter()
@@ -153,8 +151,6 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *gc.C) {
-	s.SetFeatureFlags("db-log")
-
 	_, err := logsender.InstallBufferedLogWriter(10)
 	c.Assert(err, jc.ErrorIsNil)
 

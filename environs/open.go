@@ -208,9 +208,7 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 		User:     configstore.DefaultAdminUsername,
 		Password: cfg.AdminSecret(),
 	}
-	if featureflag.Enabled(feature.JES) {
-		endpoint.ServerUUID = endpoint.EnvironUUID
-	}
+	endpoint.ServerUUID = endpoint.EnvironUUID
 	info.SetAPICredentials(creds)
 	info.SetAPIEndpoint(endpoint)
 	info.SetBootstrapConfig(cfg.AllAttrs())
