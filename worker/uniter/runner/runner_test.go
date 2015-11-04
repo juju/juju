@@ -6,7 +6,6 @@ package runner_test
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -169,8 +168,8 @@ func (ctx *MockContext) ActionData() (*context.ActionData, error) {
 	return ctx.actionData, nil
 }
 
-func (ctx *MockContext) SetProcess(process *os.Process) {
-	ctx.expectPid = process.Pid
+func (ctx *MockContext) SetProcess(process context.HookProcess) {
+	ctx.expectPid = process.Pid()
 }
 
 func (ctx *MockContext) Prepare() error {
