@@ -147,7 +147,7 @@ func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
 		c.Assert(envInfo.Name, gc.Equals, env.Name())
 		c.Assert(envInfo.Life, gc.Equals, multiwatcher.Life("alive"))
 		c.Assert(envInfo.Owner, gc.Equals, env.Owner().Id())
-		c.Assert(envInfo.ServerUUID, gc.Equals, env.ServerUUID())
+		c.Assert(envInfo.ServerUUID, gc.Equals, env.ControllerUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}

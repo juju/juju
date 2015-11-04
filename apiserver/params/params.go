@@ -800,3 +800,12 @@ type BundleChangesChange struct {
 	// before this change is applied.
 	Requires []string `json:"requires"`
 }
+
+// EnvironmentInfo holds information about the Juju environment.
+type EnvironmentInfo struct {
+	DefaultSeries  string `json:"DefaultSeries"`
+	ProviderType   string `json:"ProviderType"`
+	Name           string `json:"Name"`
+	UUID           string `json:"UUID"`
+	ControllerUUID string `json:"ServerUUID"`
+}
