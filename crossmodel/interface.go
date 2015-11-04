@@ -5,17 +5,30 @@ package crossmodel
 
 import "github.com/juju/names"
 
-// Offer holds information about service's offer.
-type Offer struct {
+// BaseDetails holds information about offered service and its endpoints.
+type BaseDetails interface {
 	// Service has service's tag.
-	Service names.ServiceTag
+	Service() names.ServiceTag
 
 	// Endpoints list of service's endpoints that are being offered.
-	Endpoints []string
+	Endpoints() []string
+}
 
-	// URL is the location where these endpoitns will be accessible from.
-	URL string
+// Offer holds information about service's offer.
+type Offer interface {
+	BaseDetails
+
+	// URL is the location where these endpoints will be accessible from.
+	URL() string
 
 	// Users is the list of user tags that are given permission to these endpoints.
-	Users []names.UserTag
+	Users() []names.UserTag
+}
+
+// ServiceDetails holds additional information about offered service and its endpoints.
+type ServiceDetails interface {
+	BaseDetails
+
+	// Description is description of this service.
+	Description() string
 }
