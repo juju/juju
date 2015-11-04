@@ -5,7 +5,7 @@
 // functionality.
 package crossmodel
 
-// IsValidURL checks if given string represents, i.e. can be parsed into, a valid Hosted URL.
+// IsValidURL checks if given string represents a valid cross model relations URL.
 func IsValidURL(url string) bool {
 	// TODO(anastasiamac 2015-11-02) validate url
 	return true
