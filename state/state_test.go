@@ -1863,7 +1863,7 @@ func (s *StateSuite) TestAddService(c *gc.C) {
 
 	insettings := charm.Settings{"tuning": "optimized"}
 
-	wordpress, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: s.Owner.String(), Charm: ch, Settings:insettings})
+	wordpress, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: s.Owner.String(), Charm: ch, Settings: insettings})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	outsettings, err := wordpress.ConfigSettings()

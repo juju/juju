@@ -759,6 +759,7 @@ type RebootActionResult struct {
 	Result RebootAction `json:"result,omitempty"`
 	Error  *Error       `json:"error,omitempty"`
 }
+
 // LogRecord is used to transmit log messages to the logsink API
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
@@ -799,4 +800,3 @@ type BundleChangesChange struct {
 	// before this change is applied.
 	Requires []string `json:"requires"`
 }
-
