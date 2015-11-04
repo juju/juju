@@ -19,19 +19,35 @@ type mockState struct {
 	env      *mockEnvironment
 	removed  bool
 	isSystem bool
+	machines []undertaker.Machine
+	services []undertaker.Service
 }
 
 var _ undertaker.State = (*mockState)(nil)
 
 func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockState {
+	machine := &mockMachine{
+		watcher: &mockWatcher{
+			changes: make(chan struct{}, 1),
+		},
+	}
+	service := &mockService{
+		watcher: &mockWatcher{
+			changes: make(chan struct{}, 1),
+		},
+	}
+
 	env := mockEnvironment{
 		owner: envOwner,
 		name:  envName,
 		life:  state.Alive,
 	}
+
 	m := &mockState{
 		env:      &env,
 		isSystem: isSystem,
+		machines: []undertaker.Machine{machine},
+		services: []undertaker.Service{service},
 	}
 	return m
 }
@@ -57,6 +73,14 @@ func (m *mockState) ProcessDyingEnviron() error {
 	}
 	m.env.life = state.Dead
 	return nil
+}
+
+func (m *mockState) AllMachines() ([]undertaker.Machine, error) {
+	return m.machines, nil
+}
+
+func (m *mockState) AllServices() ([]undertaker.Service, error) {
+	return m.services, nil
 }
 
 func (m *mockState) IsStateServer() bool {
@@ -102,4 +126,31 @@ func (m *mockEnvironment) UUID() string {
 func (m *mockEnvironment) Destroy() error {
 	m.life = state.Dying
 	return nil
+}
+
+type mockMachine struct {
+	watcher state.NotifyWatcher
+	err     error
+}
+
+func (m *mockMachine) Watch() state.NotifyWatcher {
+	return m.watcher
+}
+
+type mockService struct {
+	watcher state.NotifyWatcher
+	err     error
+}
+
+func (s *mockService) Watch() state.NotifyWatcher {
+	return s.watcher
+}
+
+type mockWatcher struct {
+	state.NotifyWatcher
+	changes chan struct{}
+}
+
+func (w *mockWatcher) Changes() <-chan struct{} {
+	return w.changes
 }

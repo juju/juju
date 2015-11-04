@@ -4,6 +4,5 @@
 package undertaker
 
 const (
-	RIPTime          = ripTime
-	UndertakerPeriod = undertakerPeriod
+	RIPTime = ripTime
 )

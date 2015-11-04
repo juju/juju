@@ -6,6 +6,7 @@ package undertaker
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
@@ -29,10 +30,58 @@ type State interface {
 	// RemoveAllEnvironDocs removes all documents from multi-environment
 	// collections.
 	RemoveAllEnvironDocs() error
+
+	// AllMachines returns all machines in the environment ordered by id.
+	AllMachines() ([]Machine, error)
+
+	// AllServices returns all deployed services in the environment.
+	AllServices() ([]Service, error)
 }
 
 type stateShim struct {
 	*state.State
+}
+
+func (s *stateShim) AllMachines() ([]Machine, error) {
+	stateMachines, err := s.State.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machines := make([]Machine, len(stateMachines))
+	for i := range stateMachines {
+		machines[i] = stateMachines[i]
+	}
+
+	return machines, nil
+}
+
+// Machine defines the needed methods of state.Machine for
+// the work of the undertaker API.
+type Machine interface {
+	// Watch returns a watcher for observing changes to a machine.
+	Watch() state.NotifyWatcher
+}
+
+func (s *stateShim) AllServices() ([]Service, error) {
+	stateServices, err := s.State.AllServices()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	services := make([]Service, len(stateServices))
+	for i := range stateServices {
+		services[i] = stateServices[i]
+	}
+
+	return services, nil
+}
+
+// Service defines the needed methods of state.Service for
+// the work of the undertaker API.
+type Service interface {
+	// Watch returns a watcher for observing changes to a service.
+	Watch() state.NotifyWatcher
 }
 
 func (s *stateShim) Environment() (Environment, error) {

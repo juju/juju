@@ -29,10 +29,12 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 			UUID: utils.MustNewUUID().String(),
 			HasMachinesAndServices: true,
 		},
+		watcher: &mockEnvironResourceWatcher{
+			events: make(chan struct{}, 1),
+		},
 	}
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := testing.NewClock(startTime)
-
 	worker := undertaker.NewUndertaker(client, mClock)
 	defer worker.Kill()
 
@@ -43,22 +45,20 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 	}{{
 		call: "EnvironInfo",
 		callback: func() {
-			mClock.Advance(undertaker.UndertakerPeriod)
+			client.watcher.(*mockEnvironResourceWatcher).events <- struct{}{}
 		},
 	}, {
 		call: "ProcessDyingEnviron",
 		callback: func() {
+
 			c.Assert(client.mockEnviron.Life, gc.Equals, state.Dying)
 			c.Assert(client.mockEnviron.TimeOfDeath, gc.IsNil)
 			client.mockEnviron.HasMachinesAndServices = false
+			client.watcher.(*mockEnvironResourceWatcher).events <- struct{}{}
 
-			mClock.Advance(undertaker.UndertakerPeriod)
 		}}, {
 		call: "ProcessDyingEnviron",
 		callback: func() {
-			nekMinute := startTime.Add(undertaker.UndertakerPeriod)
-			c.Assert(mClock.Now().After(nekMinute), jc.IsTrue)
-
 			c.Assert(client.mockEnviron.Life, gc.Equals, state.Dead)
 			c.Assert(client.mockEnviron.TimeOfDeath, gc.NotNil)
 
@@ -67,7 +67,7 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 		call: "RemoveEnviron",
 		callback: func() {
 			oneDayLater := startTime.Add(undertaker.RIPTime)
-			c.Assert(mClock.Now().After(oneDayLater), jc.IsTrue)
+			c.Assert(mClock.Now().Equal(oneDayLater), jc.IsTrue)
 			c.Assert(client.mockEnviron.Removed, gc.Equals, true)
 		}},
 	} {
@@ -90,6 +90,9 @@ func (s *undertakerSuite) TestAPICalls(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) {
+	mockWatcher := &mockEnvironResourceWatcher{
+		events: make(chan struct{}, 1),
+	}
 	client := &mockClient{
 		calls: make(chan string, 1),
 		mockEnviron: clientEnviron{
@@ -97,6 +100,7 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 			UUID:     utils.MustNewUUID().String(),
 			IsSystem: true,
 		},
+		watcher: mockWatcher,
 	}
 	startTime := time.Date(2015, time.September, 1, 17, 2, 1, 0, time.UTC)
 	mClock := testing.NewClock(startTime)
@@ -110,7 +114,7 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 	}{{
 		call: "EnvironInfo",
 		callback: func() {
-			mClock.Advance(undertaker.UndertakerPeriod)
+			mockWatcher.events <- struct{}{}
 		},
 	}, {
 		call: "ProcessDyingEnviron",
@@ -119,7 +123,9 @@ func (s *undertakerSuite) TestRemoveEnvironDocsNotCalledForStateServer(c *gc.C) 
 			c.Assert(client.mockEnviron.TimeOfDeath, gc.NotNil)
 
 			mClock.Advance(undertaker.RIPTime)
-		}}} {
+		},
+	},
+	} {
 		select {
 		case call := <-client.calls:
 			c.Assert(call, gc.Equals, test.call)

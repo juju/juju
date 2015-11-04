@@ -19,10 +19,6 @@ import (
 var logger = loggo.GetLogger("juju.worker.undertaker")
 
 const (
-	// undertakerPeriod is the time the work waits before checking if the
-	// environment lifecycle can be set to Dead.
-	undertakerPeriod = 5 * time.Minute
-
 	// ripTime is the time to wait after an environment has been set to dead,
 	// before removing all environment docs.
 	ripTime = 24 * time.Hour
@@ -75,12 +71,28 @@ func NewUndertaker(client apiundertaker.UndertakerClient, clock uc.Clock) worker
 }
 
 func processDyingEnv(client apiundertaker.UndertakerClient, clock uc.Clock, stopCh <-chan struct{}) error {
+	// ProcessDyingEnviron will fail quite a few times before it succeeds as
+	// it is being woken up as every machine or service changes. We ignore the
+	// error here and rely on the logging inside the ProcessDyingEnviron.
+	if err := client.ProcessDyingEnviron(); err == nil {
+		return nil
+	}
+	watcher, err := client.WatchEnvironResources()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer watcher.Stop()
+
 	for {
 		select {
-		case <-clock.After(undertakerPeriod):
+		case _, ok := <-watcher.Changes():
+			if !ok {
+				return watcher.Err()
+			}
+
 			err := client.ProcessDyingEnviron()
 			if err != nil {
-				logger.Warningf("failed to process dying environment: %v - will retry later", err)
+				// Yes, we ignore the error. See comment above.
 				continue
 			}
 			return nil

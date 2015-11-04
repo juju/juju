@@ -6,6 +6,7 @@ package undertaker
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -21,6 +22,7 @@ type UndertakerClient interface {
 	EnvironInfo() (params.UndertakerEnvironInfoResult, error)
 	ProcessDyingEnviron() error
 	RemoveEnviron() error
+	WatchEnvironResources() (watcher.NotifyWatcher, error)
 }
 
 // NewClient creates a new client for accessing the undertaker API.
@@ -66,4 +68,28 @@ func (c *Client) params() (params.Entities, error) {
 		return params.Entities{}, errors.Trace(err)
 	}
 	return params.Entities{Entities: []params.Entity{{envTag.String()}}}, nil
+}
+
+// WatchEnvironResources starts a watcher for changes to the environment's
+// machines and services.
+func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+
+	p, err := c.params()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = c.facade.FacadeCall("WatchEnvironResources", p, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }

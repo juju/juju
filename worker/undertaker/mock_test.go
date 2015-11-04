@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -26,6 +27,7 @@ type mockClient struct {
 	calls       chan string
 	lock        sync.RWMutex
 	mockEnviron clientEnviron
+	watcher     watcher.NotifyWatcher
 }
 
 func (m *mockClient) mockCall(call string) {
@@ -62,4 +64,26 @@ func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
 		TimeOfDeath: m.mockEnviron.TimeOfDeath,
 	}
 	return params.UndertakerEnvironInfoResult{Result: result}, nil
+}
+
+func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {
+	return m.watcher, nil
+}
+
+type mockEnvironResourceWatcher struct {
+	events chan struct{}
+	err    error
+}
+
+func (w *mockEnvironResourceWatcher) Changes() <-chan struct{} {
+	return w.events
+}
+
+func (w *mockEnvironResourceWatcher) Err() error {
+	return w.err
+}
+
+func (w *mockEnvironResourceWatcher) Stop() error {
+	close(w.events)
+	return nil
 }
