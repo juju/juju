@@ -25,7 +25,7 @@ func newEnsureAvailabilityCommand() cmd.Command {
 	return envcmd.Wrap(&ensureAvailabilityCommand{})
 }
 
-// ensureAvailabilityCommand makes the system highly available.
+// ensureAvailabilityCommand makes the controller highly available.
 type ensureAvailabilityCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
@@ -57,7 +57,7 @@ An odd number of state servers is required.
 
 Examples:
  juju ensure-availability
-     Ensure that the system is still in highly available mode. If
+     Ensure that the controller is still in highly available mode. If
      there is only 1 state server running, this will ensure there
      are 3 running. If you have previously requested more than 3,
      then that number will be ensured.

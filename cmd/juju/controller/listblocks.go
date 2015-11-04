@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"github.com/juju/cmd"
@@ -13,18 +13,18 @@ import (
 )
 
 func newListBlocksCommand() cmd.Command {
-	return envcmd.WrapSystem(&listBlocksCommand{})
+	return envcmd.WrapController(&listBlocksCommand{})
 }
 
-// listBlocksCommand lists all blocks for environments within the system.
+// listBlocksCommand lists all blocks for environments within the controller.
 type listBlocksCommand struct {
-	envcmd.SysCommandBase
+	envcmd.ControllerCommandBase
 	out    cmd.Output
 	api    listBlocksAPI
 	apierr error
 }
 
-var listBlocksDoc = `List all blocks for environments within the specified system`
+var listBlocksDoc = `List all blocks for environments within the specified controller`
 
 // listBlocksAPI defines the methods on the system manager API endpoint
 // that the list-blocks command calls.
@@ -37,7 +37,7 @@ type listBlocksAPI interface {
 func (c *listBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-blocks",
-		Purpose: "list all blocks within the system",
+		Purpose: "list all blocks within the controller",
 		Doc:     listBlocksDoc,
 	}
 }

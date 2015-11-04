@@ -40,7 +40,7 @@ type AddUserAPI interface {
 }
 
 func newAddCommand() cmd.Command {
-	return envcmd.WrapSystem(&addCommand{})
+	return envcmd.WrapController(&addCommand{})
 }
 
 // addCommand adds new users into a Juju Server.

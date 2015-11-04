@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"os"
@@ -24,12 +24,12 @@ import (
 )
 
 func newCreateEnvironmentCommand() cmd.Command {
-	return envcmd.WrapSystem(&createEnvironmentCommand{})
+	return envcmd.WrapController(&createEnvironmentCommand{})
 }
 
 // createEnvironmentCommand calls the API to create a new environment.
 type createEnvironmentCommand struct {
-	envcmd.SysCommandBase
+	envcmd.ControllerCommandBase
 	api CreateEnvironmentAPI
 
 	Name         string
@@ -41,7 +41,7 @@ type createEnvironmentCommand struct {
 
 const createEnvHelpDoc = `
 This command will create another environment within the current Juju
-Environment Server. The provider has to match, and the environment config must
+Controller. The provider has to match, and the environment config must
 specify all the required configuration values for the provider. In the cases
 of ‘ec2’ and ‘openstack’, the same environment variables are checked for the
 access and secret keys.

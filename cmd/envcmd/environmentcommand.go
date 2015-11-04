@@ -45,7 +45,7 @@ func GetDefaultEnvironment() (string, error) {
 	} else if currentEnv != "" {
 		return currentEnv, nil
 	}
-	if currentSystem, err := ReadCurrentSystem(); err != nil {
+	if currentSystem, err := ReadCurrentController(); err != nil {
 		return "", errors.Trace(err)
 	} else if currentSystem != "" {
 		return "", errors.Errorf("not operating on an environment, using system %q", currentSystem)
@@ -293,7 +293,7 @@ func (c *EnvCommandBase) ConnectionName() string {
 	return c.envName
 }
 
-// WrapSystemOption sets various parameters of the
+// WrapControllerOption sets various parameters of the
 // EnvironCommand wrapper.
 type WrapEnvOption func(*environCommandWrapper)
 

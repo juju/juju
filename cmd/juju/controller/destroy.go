@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"bufio"
@@ -28,22 +28,22 @@ func newDestroyCommand() cmd.Command {
 	return envcmd.WrapBase(&destroyCommand{})
 }
 
-// destroyCommand destroys the specified system.
+// destroyCommand destroys the specified controller.
 type destroyCommand struct {
 	destroyCommandBase
 	destroyEnvs bool
 }
 
-var destroyDoc = `Destroys the specified system`
+var destroyDoc = `Destroys the specified controller`
 var destroySysMsg = `
-WARNING! This command will destroy the %q system.
+WARNING! This command will destroy the %q controller.
 This includes all machines, services, data and other resources.
 
 Continue [y/N]? `[1:]
 
-// destroySystemAPI defines the methods on the system manager API endpoint
+// destroyControllerAPI defines the methods on the system manager API endpoint
 // that the destroy command calls.
-type destroySystemAPI interface {
+type destroyControllerAPI interface {
 	Close() error
 	EnvironmentConfig() (map[string]interface{}, error)
 	DestroyController(destroyEnvs bool, ignoreBlocks bool) error
@@ -62,23 +62,23 @@ type destroyClientAPI interface {
 func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy",
-		Args:    "<system name>",
-		Purpose: "terminate all machines and other associated resources for a system environment",
+		Args:    "<controller name>",
+		Purpose: "terminate all machines and other associated resources for juju controller",
 		Doc:     destroyDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.destroyEnvs, "destroy-all-environments", false, "destroy all hosted environments on the system")
+	f.BoolVar(&c.destroyEnvs, "destroy-all-environments", false, "destroy all hosted environments in the controller")
 	c.destroyCommandBase.SetFlags(f)
 }
 
-func (c *destroyCommand) getSystemAPI() (destroySystemAPI, error) {
+func (c *destroyCommand) getSystemAPI() (destroyControllerAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
-	root, err := c.NewAPIRoot(c.systemName)
+	root, err := c.NewAPIRoot(c.controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,57 +90,57 @@ func (c *destroyCommand) getSystemAPI() (destroySystemAPI, error) {
 func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	store, err := configstore.Default()
 	if err != nil {
-		return errors.Annotate(err, "cannot open system info storage")
+		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.systemName)
+	cfgInfo, err := store.ReadInfo(c.controllerName)
 	if err != nil {
-		return errors.Annotate(err, "cannot read system info")
+		return errors.Annotate(err, "cannot read controller info")
 	}
 
-	// Verify that we're destroying a system
+	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a system; use juju environment destroy to destroy it", c.systemName)
+		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.controllerName)
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.systemName); err != nil {
+		if err = confirmDestruction(ctx, c.controllerName); err != nil {
 			return err
 		}
 	}
 
 	// Attempt to connect to the API.  If we can't, fail the destroy.  Users will
-	// need to use the system kill command if we can't connect.
+	// need to use the controller kill command if we can't connect.
 	api, err := c.getSystemAPI()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
 	}
 	defer api.Close()
 
-	// Obtain bootstrap / system environ information
-	systemEnviron, err := c.getSystemEnviron(cfgInfo, api)
+	// Obtain bootstrap / controller environ information
+	controllerEnviron, err := c.getSystemEnviron(cfgInfo, api)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain bootstrap information")
 	}
 
-	// Attempt to destroy the system.
+	// Attempt to destroy the controller.
 	err = api.DestroyController(c.destroyEnvs, false)
 	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the client endpoint to destroy the system,
+		// Fall back to using the client endpoint to destroy the controller,
 		// sending the info we were already able to collect.
-		return c.destroySystemViaClient(ctx, cfgInfo, systemEnviron, store)
+		return c.destroyControLleRviaclient(ctx, cfgInfo, controllerEnviron, store)
 	}
 	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy system"), ctx, api)
+		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, api)
 	}
 
-	return environs.Destroy(systemEnviron, store)
+	return environs.Destroy(controllerEnviron, store)
 }
 
-// destroySystemViaClient attempts to destroy the system using the client
-// endpoint for older juju systems which do not implement controller.DestroySystem
-func (c *destroyCommand) destroySystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
+// destroyControLleRviaclient attempts to destroy the controller using the client
+// endpoint for older juju controllers which do not implement controller.DestroySystem
+func (c *destroyCommand) destroyControLleRviaclient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
 		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot connect to API"), ctx, nil)
@@ -149,23 +149,23 @@ func (c *destroyCommand) destroySystemViaClient(ctx *cmd.Context, info configsto
 
 	err = api.DestroyEnvironment()
 	if err != nil {
-		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy system"), ctx, nil)
+		return c.ensureUserFriendlyErrorLog(errors.Annotate(err, "cannot destroy controller"), ctx, nil)
 	}
 
-	return environs.Destroy(systemEnviron, store)
+	return environs.Destroy(controllerEnviron, store)
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
 // in a user-friendly manner with readable and digestable error message.
-func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.Context, api destroySystemAPI) error {
+func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.Context, api destroyControllerAPI) error {
 	if destroyErr == nil {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(destroyErr) {
-		logger.Errorf(`there are blocks preventing system destruction
-To remove all blocks in the system, please run:
+		logger.Errorf(`there are blocks preventing controller destruction
+To remove all blocks in the controller, please run:
 
-    juju system remove-blocks
+    juju controller remove-blocks
 
 `)
 		if api != nil {
@@ -183,17 +183,17 @@ To remove all blocks in the system, please run:
 		}
 		return cmd.ErrSilent
 	}
-	logger.Errorf(stdFailureMsg, c.systemName)
+	logger.Errorf(stdFailureMsg, c.controllerName)
 	return destroyErr
 }
 
-var stdFailureMsg = `failed to destroy system %q
+var stdFailureMsg = `failed to destroy controller %q
 
-If the system is unusable, then you may run
+If the controller is unusable, then you may run
 
-    juju system kill
+    juju controller kill
 
-to forcibly destroy the system. Upon doing so, review
+to forcibly destroy the controller. Upon doing so, review
 your environment provider console for any resources that need
 to be cleaned up.
 `
@@ -233,16 +233,16 @@ func blocksToStr(blocks []string) string {
 	return result
 }
 
-// destroyCommandBase provides common attributes and methods that both the system
-// destroy and system kill commands require.
+// destroyCommandBase provides common attributes and methods that both the controller
+// destroy and controller kill commands require.
 type destroyCommandBase struct {
 	envcmd.JujuCommandBase
-	systemName string
-	assumeYes  bool
+	controllerName string
+	assumeYes      bool
 
 	// The following fields are for mocking out
 	// api behavior for testing.
-	api       destroySystemAPI
+	api       destroyControllerAPI
 	apierr    error
 	clientapi destroyClientAPI
 }
@@ -251,7 +251,7 @@ func (c *destroyCommandBase) getClientAPI() (destroyClientAPI, error) {
 	if c.clientapi != nil {
 		return c.clientapi, nil
 	}
-	root, err := c.NewAPIRoot(c.systemName)
+	root, err := c.NewAPIRoot(c.controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -268,9 +268,9 @@ func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 func (c *destroyCommandBase) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no system specified")
+		return errors.New("no controller specified")
 	case 1:
-		c.systemName = args[0]
+		c.controllerName = args[0]
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -280,7 +280,7 @@ func (c *destroyCommandBase) Init(args []string) error {
 // getSystemEnviron gets the bootstrap information required to destroy the environment
 // by first checking the config store, then querying the API if the information is not
 // in the store.
-func (c *destroyCommandBase) getSystemEnviron(info configstore.EnvironInfo, sysAPI destroySystemAPI) (_ environs.Environ, err error) {
+func (c *destroyCommandBase) getSystemEnviron(info configstore.EnvironInfo, sysAPI destroyControllerAPI) (_ environs.Environ, err error) {
 	bootstrapCfg := info.BootstrapConfig()
 	if bootstrapCfg == nil {
 		if sysAPI == nil {
@@ -311,19 +311,19 @@ func (c *destroyCommandBase) getSystemEnviron(info configstore.EnvironInfo, sysA
 	return environs.New(cfg)
 }
 
-func confirmDestruction(ctx *cmd.Context, systemName string) error {
+func confirmDestruction(ctx *cmd.Context, controllerName string) error {
 	// Get confirmation from the user that they want to continue
-	fmt.Fprintf(ctx.Stdout, destroySysMsg, systemName)
+	fmt.Fprintf(ctx.Stdout, destroySysMsg, controllerName)
 
 	scanner := bufio.NewScanner(ctx.Stdin)
 	scanner.Scan()
 	err := scanner.Err()
 	if err != nil && err != io.EOF {
-		return errors.Annotate(err, "system destruction aborted")
+		return errors.Annotate(err, "controller destruction aborted")
 	}
 	answer := strings.ToLower(scanner.Text())
 	if answer != "y" && answer != "yes" {
-		return errors.New("system destruction aborted")
+		return errors.New("controller destruction aborted")
 	}
 
 	return nil

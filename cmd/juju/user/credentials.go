@@ -33,7 +33,7 @@ See Also:
 `
 
 func newCredentialsCommand() cmd.Command {
-	return envcmd.WrapSystem(&credentialsCommand{})
+	return envcmd.WrapController(&credentialsCommand{})
 }
 
 // credentialsCommand changes the password for a user.

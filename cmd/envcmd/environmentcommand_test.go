@@ -109,7 +109,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitSystemFile(c *gc.C) {
 	// If there is a current-system file, error raised.
-	err := envcmd.WriteCurrentSystem("fubar")
+	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = initTestCommand(c)
 	c.Assert(err, gc.ErrorMatches, `not operating on an environment, using system "fubar"`)

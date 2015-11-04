@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
@@ -28,23 +28,23 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type cmdSystemSuite struct {
+type cmdControllerSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdSystemSuite) SetUpTest(c *gc.C) {
+func (s *cmdControllerSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.JES)
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *cmdSystemSuite) run(c *gc.C, args ...string) *cmd.Context {
-	command := system.NewSuperCommand()
+func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
+	command := controller.NewSuperCommand()
 	context, err := testing.RunCommand(c, command, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
-func (s *cmdSystemSuite) createEnv(c *gc.C, envname string, isServer bool) {
+func (s *cmdControllerSuite) createEnv(c *gc.C, envname string, isServer bool) {
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
@@ -57,13 +57,13 @@ func (s *cmdSystemSuite) createEnv(c *gc.C, envname string, isServer bool) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cmdSystemSuite) TestSystemListCommand(c *gc.C) {
+func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list")
 	c.Assert(testing.Stdout(context), gc.Equals, "dummyenv\n")
 }
 
-func (s *cmdSystemSuite) TestSystemEnvironmentsCommand(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+func (s *cmdControllerSuite) TestControllerEnvironmentsCommand(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
 	s.createEnv(c, "new-env", false)
 	context := s.run(c, "environments")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
@@ -73,7 +73,7 @@ func (s *cmdSystemSuite) TestSystemEnvironmentsCommand(c *gc.C) {
 		"\n")
 }
 
-func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
+func (s *cmdControllerSuite) TestControllerLoginCommand(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		NoEnvUser: true,
 		Password:  "super-secret",
@@ -91,17 +91,17 @@ func (s *cmdSystemSuite) TestSystemLoginCommand(c *gc.C) {
 	err = ioutil.WriteFile(serverFilePath, []byte(content), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "login", "--server", serverFilePath, "just-a-system")
+	s.run(c, "login", "--server", serverFilePath, "just-a-controller")
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
-	api, err := juju.NewAPIFromName("just-a-system", nil)
+	api, err := juju.NewAPIFromName("just-a-controller", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()
 }
 
-func (s *cmdSystemSuite) TestCreateEnvironment(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+func (s *cmdControllerSuite) TestCreateEnvironment(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'state-server'.
@@ -109,7 +109,7 @@ func (s *cmdSystemSuite) TestCreateEnvironment(c *gc.C) {
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
 created environment "new-env"
-dummyenv (system) -> new-env
+dummyenv (controller) -> new-env
 `[1:])
 
 	// Make sure that the saved server details are sufficient to connect
@@ -119,9 +119,9 @@ dummyenv (system) -> new-env
 	api.Close()
 }
 
-func (s *cmdSystemSuite) TestSystemDestroy(c *gc.C) {
+func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
-		Name:        "just-a-system",
+		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"state-server": true},
 	})
 
@@ -133,8 +133,8 @@ func (s *cmdSystemSuite) TestSystemDestroy(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *cmdSystemSuite) TestRemoveBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+func (s *cmdControllerSuite) TestRemoveBlocks(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
@@ -145,7 +145,7 @@ func (s *cmdSystemSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(blocks, gc.HasLen, 0)
 }
 
-func (s *cmdSystemSuite) TestSystemKill(c *gc.C) {
+func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 	st := s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "foo",
 	})
@@ -159,8 +159,8 @@ func (s *cmdSystemSuite) TestSystemKill(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *cmdSystemSuite) TestListBlocks(c *gc.C) {
-	c.Assert(envcmd.WriteCurrentSystem("dummyenv"), jc.ErrorIsNil)
+func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
+	c.Assert(envcmd.WriteCurrentController("dummyenv"), jc.ErrorIsNil)
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 

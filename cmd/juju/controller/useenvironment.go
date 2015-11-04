@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"strings"
@@ -17,13 +17,13 @@ import (
 )
 
 func newUseEnvironmentCommand() cmd.Command {
-	return envcmd.WrapSystem(&useEnvironmentCommand{})
+	return envcmd.WrapController(&useEnvironmentCommand{})
 }
 
 // useEnvironmentCommand returns the list of all the environments the
-// current user can access on the current system.
+// current user can access on the current controller.
 type useEnvironmentCommand struct {
-	envcmd.SysCommandBase
+	envcmd.ControllerCommandBase
 
 	api       UseEnvironmentAPI
 	userCreds *configstore.APICredentials
@@ -53,14 +53,14 @@ of the environment, then the local name is just the name of the environment.
 If you are not the owner, the name is prefixed by the name of the owner and a
 dash.
 
-If there is just one environment called "test" in the current system that you
+If there is just one environment called "test" in the current controller that you
 have access to, then you can just specify the name.
 
-    $ juju system use-environment test
+    $ juju controller use-environment test
 
 If however there are multiple enviornments called "test" that are owned
 
-    $ juju system use-environment test
+    $ juju controller use-environment test
     Multiple environments matched name "test":
       cb4b94e8-29bb-44ae-820c-adac21194395, owned by bob@local
       ae673c19-73ef-437f-8224-4842a1772bdf, owned by mary@local
@@ -69,20 +69,20 @@ If however there are multiple enviornments called "test" that are owned
 
 You can specify either the environment UUID like this:
 
-    $ juju system use-environment cb4b94e8-29bb-44ae-820c-adac21194395
+    $ juju controller use-environment cb4b94e8-29bb-44ae-820c-adac21194395
 
 Or, specify the owner:
 
-    $ juju system use-environment mary@local/test
+    $ juju controller use-environment mary@local/test
 
 Since '@local' is the default for users, this can be shortened to:
 
-    $ juju system use-environment mary/test
+    $ juju controller use-environment mary/test
 
 
 See Also:
-    juju help juju-systems
-    juju help system create-environment
+    juju help juju-controllers
+    juju help controller create-environment
     juju help environment share
     juju help environment unshare
     juju help switch
@@ -93,7 +93,7 @@ See Also:
 func (c *useEnvironmentCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "use-environment",
-		Purpose: "use an environment that you have access to on this machine",
+		Purpose: "use an environment that you have access to on the controller",
 		Doc:     useEnvDoc,
 		Aliases: []string{"use-env"},
 	}
@@ -150,7 +150,7 @@ func (c *useEnvironmentCommand) Init(args []string) error {
 	}
 
 	// Environment names can generally be anything, but we take a good
-	// stab at trying to determine if the user has speicifed a UUID
+	// stab at trying to determine if the user has specified a UUID
 	// instead of a name. For now, we only accept a properly formatted UUID,
 	// which means one with dashes in the right place.
 	if names.IsValidEnvironment(c.EnvName) {

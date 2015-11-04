@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"strings"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -39,7 +39,7 @@ var _ = gc.Suite(&UseEnvironmentSuite{})
 func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	err := envcmd.WriteCurrentSystem("fake")
+	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
 	envs := []base.UserEnvironment{{
@@ -74,7 +74,7 @@ func (s *UseEnvironmentSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UseEnvironmentSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	wrappedCommand, _ := system.NewUseEnvironmentCommand(s.api, &s.creds, &s.endpoint)
+	wrappedCommand, _ := controller.NewUseEnvironmentCommand(s.api, &s.creds, &s.endpoint)
 	return testing.RunCommand(c, wrappedCommand, args...)
 }
 
@@ -122,7 +122,7 @@ func (s *UseEnvironmentSuite) TestInit(c *gc.C) {
 		envUUID: env1UUID,
 	}} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := system.NewUseEnvironmentCommand(nil, nil, nil)
+		wrappedCommand, command := controller.NewUseEnvironmentCommand(nil, nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.LocalName, gc.Equals, test.localName)
@@ -234,7 +234,7 @@ func (s *UseEnvironmentSuite) TestUseEnvAlreadyExistingSameEnv(c *gc.C) {
 
 	expected := `You already have environment details for "unique" cached locally.`
 	c.Assert(lines[0], gc.Equals, expected)
-	c.Assert(lines[1], gc.Equals, `fake (system) -> unique`)
+	c.Assert(lines[1], gc.Equals, `fake (controller) -> unique`)
 
 	current, err := envcmd.ReadCurrentEnvironment()
 	c.Assert(err, gc.IsNil)

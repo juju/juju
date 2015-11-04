@@ -321,7 +321,7 @@ var topicNames = []string{
 	"glossary",
 	"hpcloud-provider",
 	"juju",
-	"juju-systems",
+	"juju-controllers",
 	"local-provider",
 	"logging",
 	"maas-provider",

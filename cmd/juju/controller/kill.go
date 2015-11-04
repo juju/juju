@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"time"
@@ -21,26 +21,26 @@ import (
 
 var (
 	apiTimeout      = 10 * time.Second
-	ErrConnTimedOut = errors.New("connection to state server timed out")
+	ErrConnTimedOut = errors.New("connection to controller timed out")
 )
 
 const killDoc = `
-Forcibly destroy the specified system.  If the API server is accessible,
-this command will attempt to destroy the state server environment and all
+Forcibly destroy the specified controller.  If the API server is accessible,
+this command will attempt to destroy the controller environment and all
 hosted environments and their resources.
 
-If the API server is unreachable, the machines of the state server environment
+If the API server is unreachable, the machines of the controller environment
 will be destroyed through the cloud provisioner.  If there are additional
-machines, including machines within hosted environments, these machines
-will not be destroyed and will never be reconnected to the Juju system being
-destroyed.
+machines, including machines within hosted environments, these machines will
+not be destroyed and will never be reconnected to the Juju controller being
+destroyed. 
 `
 
 func newKillCommand() cmd.Command {
 	return envcmd.WrapBase(&killCommand{})
 }
 
-// killCommand kills the specified system.
+// killCommand kills the specified controller.
 type killCommand struct {
 	destroyCommandBase
 	// TODO (cherylj) If timeouts for dialing the API are added to new or
@@ -54,14 +54,14 @@ func (c *killCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "kill",
 		Args:    "<system name>",
-		Purpose: "forcibly terminate all machines and other associated resources for a system environment",
+		Purpose: "forcibly terminate all machines and other associated resources for a juju controller",
 		Doc:     killDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
+	f.BoolVar(&c.assumeYes, "y", false, "do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
@@ -70,7 +70,7 @@ func (c *killCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
-func (c *killCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemAPI, error) {
+func (c *killCommand) getSystemAPI(info configstore.EnvironInfo) (destroyControllerAPI, error) {
 	if c.api != nil {
 		return c.api, c.apierr
 	}
@@ -79,7 +79,7 @@ func (c *killCommand) getSystemAPI(info configstore.EnvironInfo) (destroySystemA
 	apic := make(chan api.Connection)
 	errc := make(chan error)
 	go func() {
-		api, dialErr := c.apiDialerFunc(c.systemName)
+		api, dialErr := c.apiDialerFunc(c.controllerName)
 		if dialErr != nil {
 			errc <- dialErr
 			return
@@ -107,22 +107,22 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	store, err := configstore.Default()
 	if err != nil {
-		return errors.Annotate(err, "cannot open system info storage")
+		return errors.Annotate(err, "cannot open controller info storage")
 	}
 
-	cfgInfo, err := store.ReadInfo(c.systemName)
+	cfgInfo, err := store.ReadInfo(c.controllerName)
 	if err != nil {
-		return errors.Annotate(err, "cannot read system info")
+		return errors.Annotate(err, "cannot read controller info")
 	}
 
-	// Verify that we're destroying a system
+	// Verify that we're destroying a controller
 	apiEndpoint := cfgInfo.APIEndpoint()
 	if apiEndpoint.ServerUUID != "" && apiEndpoint.EnvironUUID != apiEndpoint.ServerUUID {
-		return errors.Errorf("%q is not a system; use juju environment destroy to destroy it", c.systemName)
+		return errors.Errorf("%q is not a controller; use juju environment destroy to destroy it", c.controllerName)
 	}
 
 	if !c.assumeYes {
-		if err = confirmDestruction(ctx, c.systemName); err != nil {
+		if err = confirmDestruction(ctx, c.controllerName); err != nil {
 			return err
 		}
 	}
@@ -133,7 +133,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	case err == nil:
 		defer api.Close()
 	case errors.Cause(err) == common.ErrPerm:
-		return errors.Annotate(err, "cannot destroy system")
+		return errors.Annotate(err, "cannot destroy controller")
 	default:
 		if err != ErrConnTimedOut {
 			logger.Debugf("unable to open api: %s", err)
@@ -142,36 +142,36 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		api = nil
 	}
 
-	// Obtain bootstrap / system environ information
-	systemEnviron, err := c.getSystemEnviron(cfgInfo, api)
+	// Obtain bootstrap / controller environ information
+	controllerEnviron, err := c.getSystemEnviron(cfgInfo, api)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain bootstrap information")
 	}
 
-	// If we were unable to connect to the API, just destroy the system through
+	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
-		return environs.Destroy(systemEnviron, store)
+		return environs.Destroy(controllerEnviron, store)
 	}
 
-	// Attempt to destroy the system with destroyEnvs and ignoreBlocks = true
+	// Attempt to destroy the controller with destroyEnvs and ignoreBlocks = true
 	err = api.DestroyController(true, true)
 	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the client endpoint to destroy the system,
+		// Fall back to using the client endpoint to destroy the controller,
 		// sending the info we were already able to collect.
-		return c.killSystemViaClient(ctx, cfgInfo, systemEnviron, store)
+		return c.killControllerViaClient(ctx, cfgInfo, controllerEnviron, store)
 	}
 
 	if err != nil {
-		ctx.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
+		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 	}
 
-	return environs.Destroy(systemEnviron, store)
+	return environs.Destroy(controllerEnviron, store)
 }
 
-// killSystemViaClient attempts to kill the system using the client
-// endpoint for older juju systems which do not implement controller.DestroySystem
-func (c *killCommand) killSystemViaClient(ctx *cmd.Context, info configstore.EnvironInfo, systemEnviron environs.Environ, store configstore.Storage) error {
+// killControllerViaClient attempts to kill the controller using the client
+// endpoint for older juju controllers which do not implement systemmanager.DestroySystem
+func (c *killCommand) killControllerViaClient(ctx *cmd.Context, info configstore.EnvironInfo, controllerEnviron environs.Environ, store configstore.Storage) error {
 	api, err := c.getClientAPI()
 	if err != nil {
 		defer api.Close()
@@ -180,9 +180,9 @@ func (c *killCommand) killSystemViaClient(ctx *cmd.Context, info configstore.Env
 	if api != nil {
 		err = api.DestroyEnvironment()
 		if err != nil {
-			ctx.Infof("Unable to destroy system through the API: %s.  Destroying through provider.", err)
+			ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
 		}
 	}
 
-	return environs.Destroy(systemEnviron, store)
+	return environs.Destroy(controllerEnviron, store)
 }

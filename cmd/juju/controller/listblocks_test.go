@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"github.com/juju/cmd"
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -62,8 +62,8 @@ func (s *ListBlocksSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListBlocksSuite) runListBlocksCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := system.NewListBlocksCommand(s.api, s.apierror)
-	args = append(args, []string{"-s", "dummysys"}...)
+	cmd := controller.NewListBlocksCommand(s.api, s.apierror)
+	args = append(args, []string{"-c", "dummysys"}...)
 	return testing.RunCommand(c, cmd, args...)
 }
 

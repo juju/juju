@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"os"
@@ -30,7 +30,7 @@ func newLoginCommand() cmd.Command {
 // and returns the (locally defined) UserManager interface.
 type GetUserManagerFunc func(conn api.Connection) (UserManager, error)
 
-// loginCommand logs in to a Juju system and caches the connection
+// loginCommand logs in to a Juju controller and caches the connection
 // information.
 type loginCommand struct {
 	envcmd.JujuCommandBase
@@ -46,11 +46,11 @@ type loginCommand struct {
 }
 
 var loginDoc = `
-login connects to a juju system and caches the information that juju
+login connects to a juju controller and caches the information that juju
 needs to connect to the api server in the $(JUJU_HOME)/environments directory.
 
-In order to login to a system, you need to have a user already created for you
-in that system. The way that this occurs is for an existing user on the system
+In order to login to a controller, you need to have a user already created for you
+in that controller. The way that this occurs is for an existing user on the controller
 to create you as a user. This will generate a file that contains the
 information needed to connect.
 
@@ -58,21 +58,21 @@ If you have been sent one of these server files, you can login by doing the
 following:
 
     # if you have saved the server file as ~/erica.server
-    juju system login --server=~/erica.server test-system
+    juju controller login --server=~/erica.server test-controller
 
 A new strong random password is generated to replace the password defined in
-the server file. The 'test-system' will also become the current system that
+the server file. The 'test-controller' will also become the current controller that
 the juju command will talk to by default.
 
 If you have used the 'api-info' command to generate a copy of your current
-credentials for a system, you should use the --keep-password option as it will
+credentials for a controller, you should use the --keep-password option as it will
 mean that you will still be able to connect to the api server from the
 computer where you ran api-info.
 
 See Also:
-    juju help system environments
-    juju help system use-environment
-    juju help system create-environment
+    juju help controller environments
+    juju help controller use-environment
+    juju help controller create-environment
     juju help user add
     juju help switch
 `
@@ -186,7 +186,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ctx.Infof("cached connection details as system %q", c.Name)
+	ctx.Infof("cached connection details as controller %q", c.Name)
 
 	// If we get to here, we have been able to connect to the API server, and
 	// also have been able to write the cached information. Now we can change
@@ -199,7 +199,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return errors.Trace(envcmd.SetCurrentSystem(ctx, c.Name))
+	return errors.Trace(envcmd.SetCurrentController(ctx, c.Name))
 }
 
 func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiState api.Connection) (configstore.EnvironInfo, error) {
@@ -211,7 +211,7 @@ func (c *loginCommand) cacheConnectionInfo(serverDetails envcmd.ServerFile, apiS
 
 	controllerTag, err := apiState.ControllerTag()
 	if err != nil {
-		return nil, errors.Wrap(err, errors.New("juju system too old to support login"))
+		return nil, errors.Wrap(err, errors.New("juju controller too old to support login"))
 	}
 
 	connectedAddresses, err := network.ParseHostPorts(apiState.Addr())

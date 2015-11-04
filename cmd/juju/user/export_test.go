@@ -34,11 +34,11 @@ type DisenableUserBase struct {
 
 func NewAddCommand(api AddUserAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
-	return envcmd.WrapSystem(c), &AddCommand{c}
+	return envcmd.WrapController(c), &AddCommand{c}
 }
 
 func NewInfoCommand(api UserInfoAPI) cmd.Command {
-	return envcmd.WrapSystem(&infoCommand{
+	return envcmd.WrapController(&infoCommand{
 		infoCommandBase: infoCommandBase{
 			api: api,
 		}})
@@ -46,7 +46,7 @@ func NewInfoCommand(api UserInfoAPI) cmd.Command {
 
 func NewCredentialsCommand() (cmd.Command, *CredentialsCommand) {
 	c := &credentialsCommand{}
-	return envcmd.WrapSystem(c), &CredentialsCommand{c}
+	return envcmd.WrapController(c), &CredentialsCommand{c}
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
@@ -56,7 +56,7 @@ func NewChangePasswordCommand(api ChangePasswordAPI, writer EnvironInfoCredsWrit
 		api:    api,
 		writer: writer,
 	}
-	return envcmd.WrapSystem(c), &ChangePasswordCommand{c}
+	return envcmd.WrapController(c), &ChangePasswordCommand{c}
 }
 
 // NewDisableCommand returns a DisableCommand with the api provided as
@@ -67,7 +67,7 @@ func NewDisableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
 			api: api,
 		},
 	}
-	return envcmd.WrapSystem(c), &DisenableUserBase{&c.disenableUserBase}
+	return envcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewEnableCommand returns a EnableCommand with the api provided as
@@ -78,7 +78,7 @@ func NewEnableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
 			api: api,
 		},
 	}
-	return envcmd.WrapSystem(c), &DisenableUserBase{&c.disenableUserBase}
+	return envcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
@@ -88,5 +88,5 @@ func NewListCommand(api UserInfoAPI) cmd.Command {
 			api: api,
 		},
 	}
-	return envcmd.WrapSystem(c)
+	return envcmd.WrapController(c)
 }

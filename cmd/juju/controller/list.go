@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ func newListCommand() cmd.Command {
 	return envcmd.WrapBase(&listCommand{})
 }
 
-// listCommand returns the list of all systems the user is
+// listCommand returns the list of all controllers the user is
 // currently logged in to on the current machine.
 type listCommand struct {
 	envcmd.JujuCommandBase
@@ -26,24 +26,24 @@ type listCommand struct {
 }
 
 var listDoc = `
-List all the Juju systems logged in to on the current machine.
+List all the Juju controllers logged in to on the current machine.
 
-A system refers to a Juju Environment System (JES) that runs and manages the
-Juju API server and the underlying database used by Juju. A system may manage
+A controller refers to a Juju Controller that runs and manages the Juju API
+server and the underlying database used by Juju. A controller may host
 multiple environments.
 
 See Also:
-    juju help juju-systems
-    juju help system environments
-    juju help system create-environment
-    juju help system use-environment
+    juju help juju-controllers
+    juju help controller environments
+    juju help controller create-environment
+    juju help controller use-environment
 `
 
 // Info implements Command.Info
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
-		Purpose: "list all systems logged in to on the current machine",
+		Purpose: "list all controllers logged in to on the current machine",
 		Doc:     listDoc,
 	}
 }
@@ -65,7 +65,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 
 	list, err := store.ListSystems()
 	if err != nil {
-		return errors.Annotate(err, "failed to list systems in config store")
+		return errors.Annotate(err, "failed to list controllers in config store")
 	}
 
 	sort.Strings(list)

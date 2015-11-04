@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"io/ioutil"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
@@ -57,12 +57,12 @@ func (s *LoginSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection,
 	return s.apiConnection, nil
 }
 
-func (s *LoginSuite) getUserManager(conn api.Connection) (system.UserManager, error) {
+func (s *LoginSuite) getUserManager(conn api.Connection) (controller.UserManager, error) {
 	return s.apiConnection, nil
 }
 
 func (s *LoginSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := system.NewLoginCommand(s.apiOpen, s.getUserManager)
+	command := controller.NewLoginCommand(s.apiOpen, s.getUserManager)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -82,7 +82,7 @@ password: ` + s.password + `
 }
 
 func (s *LoginSuite) TestInit(c *gc.C) {
-	loginCommand := system.NewLoginCommand(nil, nil)
+	loginCommand := controller.NewLoginCommand(nil, nil)
 
 	err := testing.InitCommand(loginCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "no name specified")
@@ -136,7 +136,7 @@ func (s *LoginSuite) TestAPIOpenError(c *gc.C) {
 func (s *LoginSuite) TestOldServerNoServerUUID(c *gc.C) {
 	s.apiConnection.controllerTag = names.EnvironTag{}
 	_, err := s.runServerFile(c)
-	c.Assert(err, gc.ErrorMatches, `juju system too old to support login`)
+	c.Assert(err, gc.ErrorMatches, `juju controller too old to support login`)
 }
 
 func (s *LoginSuite) TestWritesConfig(c *gc.C) {
@@ -158,7 +158,7 @@ func (s *LoginSuite) TestWritesConfig(c *gc.C) {
 	c.Assert(endpoint.Addresses, jc.DeepEquals, []string{"192.168.2.1:1234"})
 	c.Assert(endpoint.Hostnames, jc.DeepEquals, []string{"192.168.2.1:1234"})
 
-	c.Assert(testing.Stderr(ctx), jc.Contains, "cached connection details as system \"foo\"\n")
+	c.Assert(testing.Stderr(ctx), jc.Contains, "cached connection details as controller \"foo\"\n")
 	c.Assert(testing.Stderr(ctx), jc.Contains, "password updated\n")
 }
 
@@ -202,7 +202,7 @@ func (s *LoginSuite) TestConnectsUsingServerFileInfo(c *gc.C) {
 func (s *LoginSuite) TestWritesCurrentSystem(c *gc.C) {
 	_, err := s.runServerFile(c)
 	c.Assert(err, jc.ErrorIsNil)
-	currentSystem, err := envcmd.ReadCurrentSystem()
+	currentSystem, err := envcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentSystem, gc.Equals, "foo")
 }

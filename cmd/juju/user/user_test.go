@@ -71,7 +71,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(user.ReadPassword, func() (string, error) {
 		return "sekrit", nil
 	})
-	err = envcmd.WriteCurrentSystem("testing")
+	err = envcmd.WriteCurrentController("testing")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

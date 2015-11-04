@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"github.com/juju/cmd"
@@ -33,13 +33,13 @@ func NewCreateEnvironmentCommand(api CreateEnvironmentAPI, parser func(interface
 		api:          api,
 		configParser: parser,
 	}
-	return envcmd.WrapSystem(c), &CreateEnvironmentCommand{c}
+	return envcmd.WrapController(c), &CreateEnvironmentCommand{c}
 }
 
 // NewEnvironmentsCommand returns a EnvironmentsCommand with the API and userCreds
 // provided as specified.
 func NewEnvironmentsCommand(envAPI EnvironmentsEnvAPI, sysAPI EnvironmentsSysAPI, userCreds *configstore.APICredentials) cmd.Command {
-	return envcmd.WrapSystem(&environmentsCommand{
+	return envcmd.WrapController(&environmentsCommand{
 		envAPI:    envAPI,
 		sysAPI:    sysAPI,
 		userCreds: userCreds,
@@ -67,20 +67,20 @@ func NewUseEnvironmentCommand(api UseEnvironmentAPI, userCreds *configstore.APIC
 		userCreds: userCreds,
 		endpoint:  endpoint,
 	}
-	return envcmd.WrapSystem(c), &UseEnvironmentCommand{c}
+	return envcmd.WrapController(c), &UseEnvironmentCommand{c}
 }
 
 // NewRemoveBlocksCommand returns a RemoveBlocksCommand with the function used
 // to open the API connection mocked out.
 func NewRemoveBlocksCommand(api removeBlocksAPI) cmd.Command {
-	return envcmd.WrapSystem(&removeBlocksCommand{
+	return envcmd.WrapController(&removeBlocksCommand{
 		api: api,
 	})
 }
 
 // NewDestroyCommand returns a DestroyCommand with the controller and client
 // endpoints mocked out.
-func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
+func NewDestroyCommand(api destroyControllerAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
 	return envcmd.WrapBase(&destroyCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
@@ -92,7 +92,7 @@ func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr 
 
 // NewKillCommand returns a killCommand with the controller and client
 // endpoints mocked out.
-func NewKillCommand(api destroySystemAPI,
+func NewKillCommand(api destroyControllerAPI,
 	clientapi destroyClientAPI,
 	apierr error,
 	dialFunc func(string) (api.Connection, error)) cmd.Command {
@@ -109,7 +109,7 @@ func NewKillCommand(api destroySystemAPI,
 // NewListBlocksCommand returns a ListBlocksCommand with the controller
 // endpoint mocked out.
 func NewListBlocksCommand(api listBlocksAPI, apierr error) cmd.Command {
-	return envcmd.WrapSystem(&listBlocksCommand{
+	return envcmd.WrapController(&listBlocksCommand{
 		api:    api,
 		apierr: apierr,
 	})

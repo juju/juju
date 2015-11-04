@@ -28,10 +28,10 @@ func (s *SwitchSimpleSuite) TestNoEnvironmentReadsConfigStore(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, jc.ErrorIsNil)
-	s.addTestSystem(c)
+	s.addTestController(c)
 	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "a-system (system)\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "a-controller (controller)\n")
 }
 
 func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
@@ -42,7 +42,7 @@ func (s *SwitchSimpleSuite) TestErrorReadingEnvironmentsFile(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Chmod(envPath, 0)
 	c.Assert(err, jc.ErrorIsNil)
-	s.addTestSystem(c)
+	s.addTestController(c)
 	_, err = testing.RunCommand(c, newSwitchCommand(), "--list")
 	c.Assert(err, gc.ErrorMatches, "couldn't read the environment: open .*: permission denied")
 }
@@ -76,12 +76,12 @@ func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecedence(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
 }
 
-func (s *SwitchSimpleSuite) TestCurrentSystemHasPrecedence(c *gc.C) {
+func (s *SwitchSimpleSuite) TestCurrentControllerHasPrecedence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	envcmd.WriteCurrentSystem("fubar")
+	envcmd.WriteCurrentController("fubar")
 	context, err := testing.RunCommand(c, newSwitchCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "fubar (system)\n")
+	c.Assert(testing.Stdout(context), gc.Equals, "fubar (controller)\n")
 }
 
 func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
@@ -111,12 +111,12 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	c.Assert(currentEnv, gc.Equals, "erewhemos-2")
 }
 
-func (s *SwitchSimpleSuite) addTestSystem(c *gc.C) {
-	// First set up a system in the config store.
+func (s *SwitchSimpleSuite) addTestController(c *gc.C) {
+	// First set up a controller in the config store.
 	s.SetFeatureFlags(feature.JES)
 	store, err := configstore.Default()
 	c.Assert(err, jc.ErrorIsNil)
-	info := store.CreateInfo("a-system")
+	info := store.CreateInfo("a-controller")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:  []string{"localhost"},
 		CACert:     testing.CACert,
@@ -126,22 +126,22 @@ func (s *SwitchSimpleSuite) addTestSystem(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *SwitchSimpleSuite) TestSettingWritesSystemFile(c *gc.C) {
-	s.addTestSystem(c)
-	context, err := testing.RunCommand(c, newSwitchCommand(), "a-system")
+func (s *SwitchSimpleSuite) TestSettingWritesControllerFile(c *gc.C) {
+	s.addTestController(c)
+	context, err := testing.RunCommand(c, newSwitchCommand(), "a-controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(context), gc.Equals, "-> a-system (system)\n")
-	currSystem, err := envcmd.ReadCurrentSystem()
+	c.Assert(testing.Stderr(context), gc.Equals, "-> a-controller (controller)\n")
+	currController, err := envcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currSystem, gc.Equals, "a-system")
+	c.Assert(currController, gc.Equals, "a-controller")
 }
 
-func (s *SwitchSimpleSuite) TestListWithSystem(c *gc.C) {
-	s.addTestSystem(c)
+func (s *SwitchSimpleSuite) TestListWithController(c *gc.C) {
+	s.addTestController(c)
 	context, err := testing.RunCommand(c, newSwitchCommand(), "--list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-a-system (system)
+a-controller (controller)
 erewhemos
 `[1:])
 }
@@ -149,7 +149,7 @@ erewhemos
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, newSwitchCommand(), "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment or system`)
+	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment or controller`)
 }
 
 func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {

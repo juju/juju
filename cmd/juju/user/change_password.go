@@ -37,7 +37,7 @@ Examples:
 `
 
 func newChangePasswordCommand() cmd.Command {
-	return envcmd.WrapSystem(&changePasswordCommand{})
+	return envcmd.WrapController(&changePasswordCommand{})
 }
 
 // changePasswordCommand changes the password for a user.

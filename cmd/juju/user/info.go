@@ -68,7 +68,7 @@ func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func newInfoCommand() cmd.Command {
-	return envcmd.WrapSystem(&infoCommand{})
+	return envcmd.WrapController(&infoCommand{})
 }
 
 // infoCommand retrieves information about a single user.

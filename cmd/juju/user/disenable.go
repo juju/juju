@@ -43,7 +43,7 @@ type disenableUserBase struct {
 }
 
 func newDisableCommand() cmd.Command {
-	return envcmd.WrapSystem(&disableCommand{})
+	return envcmd.WrapController(&disableCommand{})
 }
 
 // disableCommand disables users.
@@ -52,7 +52,7 @@ type disableCommand struct {
 }
 
 func newEnableCommand() cmd.Command {
-	return envcmd.WrapSystem(&enableCommand{})
+	return envcmd.WrapController(&enableCommand{})
 }
 
 // enableCommand enables users.

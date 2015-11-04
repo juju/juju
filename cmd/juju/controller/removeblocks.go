@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"github.com/juju/cmd"
@@ -11,13 +11,11 @@ import (
 )
 
 func newRemoveBlocksCommand() cmd.Command {
-	return envcmd.WrapSystem(&removeBlocksCommand{})
+	return envcmd.WrapController(&removeBlocksCommand{})
 }
 
-// removeBlocksCommand returns the list of all systems the user is
-// currently logged in to on the current machine.
 type removeBlocksCommand struct {
-	envcmd.SysCommandBase
+	envcmd.ControllerCommandBase
 	api removeBlocksAPI
 }
 
@@ -27,10 +25,10 @@ type removeBlocksAPI interface {
 }
 
 var removeBlocksDoc = `
-Remove all blocks in the Juju system.
+Remove all blocks in the Juju controller.
 
-A system administrator is able to remove all the blocks that have been added
-in a Juju system.
+A controller administrator is able to remove all the blocks that have been added
+in a Juju controller.
 
 See Also:
     juju help block
@@ -41,7 +39,7 @@ See Also:
 func (c *removeBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-blocks",
-		Purpose: "remove all blocks in the Juju system",
+		Purpose: "remove all blocks in the Juju controller",
 		Doc:     removeBlocksDoc,
 	}
 }
