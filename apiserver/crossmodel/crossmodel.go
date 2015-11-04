@@ -66,24 +66,49 @@ func (api *API) Offer(all params.CrossModelOffers) (params.ErrorResults, error) 
 	return params.ErrorResults{Results: offers}, nil
 }
 
+// Show gets SAAS endpoints details matching to provided filter.
+func (api *API) Show(filter params.SAASSearchFilter) (params.SAASDetailsResult, error) {
+	noResult := params.SAASDetailsResult{}
+
+	found, err := crossmodel.Search(filter)
+	if err != nil {
+		return noResult, errors.Trace(err)
+	}
+	if len(found) == 0 {
+		return noResult, errors.NotFoundf("endpoints with url %q", filter.URL)
+	}
+	if len(found) > 1 {
+		return noResult, errors.Errorf("expected to find one result for url %q but found %d", filter.URL, len(found))
+	}
+
+	return ConvertSAASDetails(found[0]), nil
+}
+
+// ParseOffer is a helper function that translates from params
+// structure into internal service layer one.
 func ParseOffer(p params.CrossModelOffer) (crossmodel.Offer, error) {
 	serviceTag, err := names.ParseServiceTag(p.Service)
 	if err != nil {
-		return crossmodel.Offer{}, errors.Annotatef(err, "cannot parse service tag %q", p.Service)
+		return nil, errors.Annotatef(err, "cannot parse service tag %q", p.Service)
 	}
 
 	users := make([]names.UserTag, len(p.Users))
 	for i, user := range p.Users {
 		users[i], err = names.ParseUserTag(user)
 		if err != nil {
-			return crossmodel.Offer{}, errors.Annotatef(err, "cannot parse user tag %q", user)
+			return nil, errors.Annotatef(err, "cannot parse user tag %q", user)
 		}
 	}
 
-	return crossmodel.Offer{
-		Service:   serviceTag,
-		Endpoints: p.Endpoints,
-		URL:       p.URL,
-		Users:     users,
-	}, nil
+	return crossmodel.NewOffer(serviceTag, p.Endpoints, p.URL, users), nil
+}
+
+// ParseOffer is a helper function that translates from params
+// structure into internal service layer one.
+func ConvertSAASDetails(c crossmodel.ServiceDetails) params.SAASDetailsResult {
+	return params.SAASDetailsResult{
+		Service:     c.Service().String(),
+		Endpoints:   c.Endpoints(),
+		Description: c.Description(),
+	}
 }

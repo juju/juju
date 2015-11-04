@@ -13,3 +13,8 @@ func NewOfferCommandForTest(api OfferAPI) cmd.Command {
 	cmd := &offerCommand{api: api}
 	return envcmd.Wrap(cmd)
 }
+
+func NewShowSAASEndpointCommandForTest(api ShowAPI) cmd.Command {
+	cmd := &showCommand{api: api}
+	return envcmd.Wrap(cmd)
+}

@@ -91,3 +91,67 @@ func (s *crossmodelMockSuite) TestOfferFacadeCallError(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
+
+func (s *crossmodelMockSuite) TestShow(c *gc.C) {
+	url := "local:/u/fred/prod/db2"
+
+	desc := "IBM DB2 Express Server Edition is an entry level database system"
+	endpoints := []string{"db2", "log"}
+	serviceTag := "service-hosted-db2"
+
+	called := false
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Show")
+
+			args, ok := a.(params.SAASSearchFilter)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.URL, gc.DeepEquals, url)
+
+			if saas, k := result.(*params.SAASDetailsResult); k {
+				saas.Description = desc
+				saas.Endpoints = endpoints
+				saas.Service = serviceTag
+			}
+			return nil
+		})
+	client := crossmodel.NewClient(apiCaller)
+	found, err := client.Show(url)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(called, jc.IsTrue)
+	c.Assert(found, gc.DeepEquals, params.SAASDetailsResult{
+		Description: desc,
+		Endpoints:   endpoints,
+		Service:     serviceTag})
+}
+
+func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
+	url := "local:/u/fred/prod/db2"
+	msg := "facade failure"
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "CrossModelRelations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Show")
+
+			return errors.New(msg)
+		})
+	client := crossmodel.NewClient(apiCaller)
+	found, err := client.Show(url)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(found, gc.DeepEquals, params.SAASDetailsResult{})
+}

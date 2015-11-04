@@ -56,6 +56,10 @@ func offerHelpText() string {
 	return cmdtesting.HelpText(crossmodel.NewOfferCommand(), "juju offer")
 }
 
+func showSAASHelpText() string {
+	return cmdtesting.HelpText(crossmodel.NewShowSAASEndpointCommand(), "juju show-saas")
+}
+
 func (s *MainSuite) TestRunMain(c *gc.C) {
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
@@ -177,6 +181,16 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"offer"},
 		code:    0,
 		out:     "error: an offer must at least specify service endpoint\n",
+	}, {
+		summary: "check show-saas command has help",
+		args:    []string{"show-saas", "-h"},
+		code:    0,
+		out:     showSAASHelpText(),
+	}, {
+		summary: "check show-saas command registered properly",
+		args:    []string{"show-saas"},
+		code:    0,
+		out:     "error: must specify endpoint URL\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -258,6 +272,7 @@ var commandNames = []string{
 	"set-constraints",
 	"set-env", // alias for set-environment
 	"set-environment",
+	"show-saas",
 	"space",
 	"ssh",
 	"stat", // alias for status
