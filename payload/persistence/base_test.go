@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/testing"
 )
 
 type BaseSuite struct {
