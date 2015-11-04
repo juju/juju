@@ -23,6 +23,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
@@ -485,6 +486,10 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
+		// TODO(axw) 2015-11-02 #1512191
+		// update tests that rely on timing to advance clock
+		// appropriately.
+		Clock: clock.WallClock,
 	}
 	ctx.uniter = uniter.NewUniter(&uniterParams)
 }

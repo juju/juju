@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
@@ -61,6 +62,7 @@ type Uniter struct {
 	relations relation.Relations
 	cleanups  []cleanup
 	storage   *storage.Attachments
+	clock     clock.Clock
 
 	// Cache the last reported status information
 	// so we don't make unnecessary api calls.
@@ -100,6 +102,7 @@ type UniterParams struct {
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
 	NewOperationExecutor NewExecutorFunc
+	Clock                clock.Clock
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
@@ -121,6 +124,7 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
+		clock:                uniterParams.Clock,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -408,7 +412,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	u.deployer = &deployerProxy{deployer}
 	contextFactory, err := context.NewContextFactory(
-		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths,
+		u.st, unitTag, u.leadershipTracker, u.relations.GetInfo, u.storage, u.paths, u.clock,
 	)
 	if err != nil {
 		return err
