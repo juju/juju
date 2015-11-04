@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/charmdir"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/operation"
 )
@@ -61,8 +61,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getResource(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}
-			var charmDirLocker charmdir.Locker
-			if err := getResource(config.CharmDirName, &charmDirLocker); err != nil {
+			var charmDirGuard fortress.Guard
+			if err := getResource(config.CharmDirName, &charmDirGuard); err != nil {
 				return nil, err
 			}
 
@@ -80,7 +80,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				LeadershipTracker:    leadershipTracker,
 				DataDir:              config.DataDir(),
 				MachineLock:          machineLock,
-				CharmDirLocker:       charmDirLocker,
+				CharmDirGuard:        charmDirGuard,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
 			}), nil

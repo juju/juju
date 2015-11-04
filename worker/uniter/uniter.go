@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/charmdir"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -74,7 +74,7 @@ type Uniter struct {
 	newOperationExecutor NewExecutorFunc
 
 	leadershipTracker leadership.Tracker
-	charmDirLocker    charmdir.Locker
+	charmDirGuard     fortress.Guard
 
 	hookLock    *fslock.Lock
 	runListener *RunListener
@@ -97,7 +97,7 @@ type UniterParams struct {
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
 	MachineLock          *fslock.Lock
-	CharmDirLocker       charmdir.Locker
+	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
 	NewOperationExecutor NewExecutorFunc
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
@@ -117,7 +117,7 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
 		hookLock:             uniterParams.MachineLock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
-		charmDirLocker:       uniterParams.CharmDirLocker,
+		charmDirGuard:        uniterParams.CharmDirGuard,
 		updateStatusAt:       uniterParams.UpdateStatusSignal,
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
@@ -269,13 +269,13 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		localState := resolver.LocalState{CharmURL: charmURL}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{
-				Resolver:       uniterResolver,
-				Watcher:        watcher,
-				Executor:       u.operationExecutor,
-				Factory:        u.operationFactory,
-				Dying:          u.tomb.Dying(),
-				OnIdle:         onIdle,
-				CharmDirLocker: u.charmDirLocker,
+				Resolver:      uniterResolver,
+				Watcher:       watcher,
+				Executor:      u.operationExecutor,
+				Factory:       u.operationFactory,
+				Abort:         u.tomb.Dying(),
+				OnIdle:        onIdle,
+				CharmDirGuard: u.charmDirGuard,
 			}, &localState)
 			switch cause := errors.Cause(err); cause {
 			case nil:
