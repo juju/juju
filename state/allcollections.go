@@ -293,8 +293,9 @@ func allCollections() collectionSchema {
 
 		// TODO(ericsnow) Use a component-oriented registration mechanism...
 
-		// This collection holds information associated with workloads.
-		"workloads": {},
+		// This collection holds information associated with charm payloads.
+		// See payload/persistence/mongo.go.
+		"payloads": {},
 
 		// -----
 
@@ -395,5 +396,5 @@ const (
 	envUserLastConnectionC = "envUserLastConnection"
 	volumeAttachmentsC     = "volumeattachments"
 	volumesC               = "volumes"
-	// "workloadprocesses" (see process/persistence/mongo.go)
+	// "payloads" (see payload/persistence/mongo.go)
 )
