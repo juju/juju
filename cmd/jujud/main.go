@@ -20,6 +20,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/dumplogs"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -190,6 +191,8 @@ func Main(args []string) int {
 		err = fmt.Errorf("jujuc should not be called directly")
 	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
+	} else if commandName == names.JujuDumpLogs {
+		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, ctx, args)
 	}

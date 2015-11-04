@@ -6,8 +6,9 @@
 package names
 
 const (
-	Juju    = "juju"
-	Jujud   = "jujud"
-	Jujuc   = "jujuc"
-	JujuRun = "juju-run"
+	Juju         = "juju"
+	Jujud        = "jujud"
+	Jujuc        = "jujuc"
+	JujuRun      = "juju-run"
+	JujuDumpLogs = "juju-dumplogs"
 )
