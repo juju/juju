@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -118,6 +119,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newBootstrapCommand())
 	r.Register(newDeployCommand())
 	r.Register(newAddRelationCommand())
+	r.Register(crossmodel.NewOfferCommand())
 
 	// Destruction commands.
 	r.Register(newRemoveRelationCommand())
