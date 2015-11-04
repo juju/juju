@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package systemmanager_test
+package controller_test
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/systemmanager"
+	"github.com/juju/juju/api/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
@@ -24,26 +24,26 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type systemManagerSuite struct {
+type controllerSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 }
 
-var _ = gc.Suite(&systemManagerSuite{})
+var _ = gc.Suite(&controllerSuite{})
 
-func (s *systemManagerSuite) SetUpTest(c *gc.C) {
+func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.JES)
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *systemManagerSuite) OpenAPI(c *gc.C) *systemmanager.Client {
+func (s *controllerSuite) OpenAPI(c *gc.C) *controller.Client {
 	conn, err := juju.NewAPIState(s.AdminUserTag(c), s.Environ, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
-	return systemmanager.NewClient(conn)
+	return controller.NewClient(conn)
 }
 
-func (s *systemManagerSuite) TestAllEnvironments(c *gc.C) {
+func (s *controllerSuite) TestAllEnvironments(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{
 		Name: "first", Owner: owner}).Close()
@@ -67,22 +67,22 @@ func (s *systemManagerSuite) TestAllEnvironments(c *gc.C) {
 	c.Assert(obtained, jc.SameContents, expected)
 }
 
-func (s *systemManagerSuite) TestEnvironmentConfig(c *gc.C) {
+func (s *controllerSuite) TestEnvironmentConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	env, err := sysManager.EnvironmentConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env["name"], gc.Equals, "dummyenv")
 }
 
-func (s *systemManagerSuite) TestDestroySystem(c *gc.C) {
+func (s *controllerSuite) TestDestroyController(c *gc.C) {
 	s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "foo"}).Close()
 
 	sysManager := s.OpenAPI(c)
-	err := sysManager.DestroySystem(false, false)
+	err := sysManager.DestroyController(false, false)
 	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
 }
 
-func (s *systemManagerSuite) TestListBlockedEnvironments(c *gc.C) {
+func (s *controllerSuite) TestListBlockedEnvironments(c *gc.C) {
 	err := s.State.SwitchBlockOn(state.ChangeBlock, "change block for state server")
 	err = s.State.SwitchBlockOn(state.DestroyBlock, "destroy block for state server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,7 +103,7 @@ func (s *systemManagerSuite) TestListBlockedEnvironments(c *gc.C) {
 	})
 }
 
-func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
+func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	s.State.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
@@ -111,12 +111,12 @@ func (s *systemManagerSuite) TestRemoveBlocks(c *gc.C) {
 	err := sysManager.RemoveBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := s.State.AllBlocksForSystem()
+	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
 }
 
-func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
+func (s *controllerSuite) TestWatchAllEnvs(c *gc.C) {
 	// The WatchAllEnvs infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
 	sysManager := s.OpenAPI(c)

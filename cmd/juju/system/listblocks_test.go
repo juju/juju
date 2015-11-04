@@ -23,7 +23,7 @@ type ListBlocksSuite struct {
 
 var _ = gc.Suite(&ListBlocksSuite{})
 
-// fakeListBlocksAPI mocks out the systemmanager API
+// fakeListBlocksAPI mocks out the controller API
 type fakeListBlocksAPI struct {
 	err    error
 	blocks []params.EnvironmentBlockInfo

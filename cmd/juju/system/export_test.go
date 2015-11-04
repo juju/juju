@@ -78,7 +78,7 @@ func NewRemoveBlocksCommand(api removeBlocksAPI) cmd.Command {
 	})
 }
 
-// NewDestroyCommand returns a DestroyCommand with the systemmanager and client
+// NewDestroyCommand returns a DestroyCommand with the controller and client
 // endpoints mocked out.
 func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr error) cmd.Command {
 	return envcmd.WrapBase(&destroyCommand{
@@ -90,7 +90,7 @@ func NewDestroyCommand(api destroySystemAPI, clientapi destroyClientAPI, apierr 
 	})
 }
 
-// NewKillCommand returns a killCommand with the systemmanager and client
+// NewKillCommand returns a killCommand with the controller and client
 // endpoints mocked out.
 func NewKillCommand(api destroySystemAPI,
 	clientapi destroyClientAPI,
@@ -106,7 +106,7 @@ func NewKillCommand(api destroySystemAPI,
 	})
 }
 
-// NewListBlocksCommand returns a ListBlocksCommand with the systemmanager
+// NewListBlocksCommand returns a ListBlocksCommand with the controller
 // endpoint mocked out.
 func NewListBlocksCommand(api listBlocksAPI, apierr error) cmd.Command {
 	return envcmd.WrapSystem(&listBlocksCommand{

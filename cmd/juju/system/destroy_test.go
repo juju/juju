@@ -31,7 +31,7 @@ type DestroySuite struct {
 
 var _ = gc.Suite(&DestroySuite{})
 
-// fakeDestroyAPI mocks out the systemmanager API
+// fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	err          error
 	env          map[string]interface{}
@@ -50,7 +50,7 @@ func (f *fakeDestroyAPI) EnvironmentConfig() (map[string]interface{}, error) {
 	return f.env, nil
 }
 
-func (f *fakeDestroyAPI) DestroySystem(destroyAll bool, ignoreBlocks bool) error {
+func (f *fakeDestroyAPI) DestroyController(destroyAll bool, ignoreBlocks bool) error {
 	f.destroyAll = destroyAll
 	f.ignoreBlocks = ignoreBlocks
 	return f.err

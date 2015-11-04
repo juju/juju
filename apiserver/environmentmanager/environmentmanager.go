@@ -76,7 +76,7 @@ func (em *EnvironmentManagerAPI) authCheck(user names.UserTag) error {
 		return errors.Trace(err)
 	}
 	if isAdmin {
-		logger.Tracef("%q is a system admin", apiUser.Canonical())
+		logger.Tracef("%q is a controller admin", apiUser.Canonical())
 		return nil
 	}
 

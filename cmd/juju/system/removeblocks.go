@@ -50,7 +50,7 @@ func (c *removeBlocksCommand) getAPI() (removeBlocksAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewSystemManagerAPIClient()
+	return c.NewControllerAPIClient()
 }
 
 // Run implements Command.Run

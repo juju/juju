@@ -140,7 +140,7 @@ func (s *cmdSystemSuite) TestRemoveBlocks(c *gc.C) {
 
 	s.run(c, "remove-blocks")
 
-	blocks, err := s.State.AllBlocksForSystem()
+	blocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocks, gc.HasLen, 0)
 }

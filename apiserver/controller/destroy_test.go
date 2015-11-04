@@ -1,7 +1,7 @@
 // Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package systemmanager_test
+package controller_test
 
 import (
 	"github.com/juju/errors"
@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/controller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/systemmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -24,22 +24,22 @@ import (
 // is found in apiserver/common/environdestroy_test.go.
 //
 // The tests here are around the validation and behaviour of
-// the flags passed in to the system manager destroy system call.
+// the flags passed in to the destroy controller call.
 
-type destroySystemSuite struct {
+type destroyControllerSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
-	systemManager *systemmanager.SystemManagerAPI
+	controller *controller.ControllerAPI
 
 	otherState    *state.State
 	otherEnvOwner names.UserTag
 	otherEnvUUID  string
 }
 
-var _ = gc.Suite(&destroySystemSuite{})
+var _ = gc.Suite(&destroyControllerSuite{})
 
-func (s *destroySystemSuite) SetUpTest(c *gc.C) {
+func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
@@ -51,9 +51,9 @@ func (s *destroySystemSuite) SetUpTest(c *gc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	systemManager, err := systemmanager.NewSystemManagerAPI(s.State, resources, authoriser)
+	controller, err := controller.NewControllerAPI(s.State, resources, authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	s.systemManager = systemManager
+	s.controller = controller
 
 	s.otherEnvOwner = names.NewUserTag("jess@dummy")
 	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
@@ -68,13 +68,13 @@ func (s *destroySystemSuite) SetUpTest(c *gc.C) {
 	s.otherEnvUUID = s.otherState.EnvironUUID()
 }
 
-func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvsWithBlocks(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
 		IgnoreBlocks:        true,
 	})
@@ -88,18 +88,18 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvsWithBlocks(c *gc.C)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironmentsErr(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
 	})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
-	numBlocks, err := s.State.AllBlocksForSystem()
+	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 4)
 
@@ -107,8 +107,8 @@ func (s *destroySystemSuite) TestDestroySystemReturnsBlockedEnvironmentsErr(c *g
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
-	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
+func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvs(c *gc.C) {
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyEnvironments: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,27 +121,27 @@ func (s *destroySystemSuite) TestDestroySystemKillsHostedEnvs(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemLeavesBlocksIfNotKillAll(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *gc.C) {
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyEnvironment")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.systemManager.DestroySystem(params.DestroySystemArgs{
+	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		IgnoreBlocks: true,
 	})
 	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
 
-	numBlocks, err := s.State.AllBlocksForSystem()
+	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 4)
 }
 
-func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.systemManager.DestroySystem(params.DestroySystemArgs{})
+	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := s.State.Environment()
@@ -149,14 +149,14 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvs(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlock(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.systemManager.DestroySystem(params.DestroySystemArgs{
+	err = s.controller.DestroyController(params.DestroyControllerArgs{
 		IgnoreBlocks: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -166,17 +166,17 @@ func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlock(c *gc.C) {
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroySystemSuite) TestDestroySystemNoHostedEnvsWithBlockFail(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
 	err := common.DestroyEnvironment(s.State, s.otherState.EnvironTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyEnvironment(c, "TestBlockDestroyEnvironment")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.systemManager.DestroySystem(params.DestroySystemArgs{})
+	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
-	numBlocks, err := s.State.AllBlocksForSystem()
+	numBlocks, err := s.State.AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 2)
 }
