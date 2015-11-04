@@ -17,7 +17,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -120,7 +119,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		c.Logf("test %d: %s -> %s", i, t.about, t.args)
 		ctx := coretesting.Context(c)
 		jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-		jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
+		jujucmd.Register(newSSHCommand())
 
 		code := cmd.Main(jujucmd, ctx, t.args)
 		c.Check(code, gc.Equals, 0)
@@ -136,7 +135,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
+	jujucmd.Register(newSSHCommand())
 	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -203,7 +202,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// Ensure that the ssh command waits for a public address, or the attempt
 	// strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	code := cmd.Main(envcmd.Wrap(&SSHCommand{}), ctx, args)
+	code := cmd.Main(newSSHCommand(), ctx, args)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(called, gc.Equals, 2)
 	called = 0
@@ -214,7 +213,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		}
 		return true
 	}
-	code = cmd.Main(envcmd.Wrap(&SSHCommand{}), ctx, args)
+	code = cmd.Main(newSSHCommand(), ctx, args)
 	c.Check(code, gc.Equals, 0)
 	c.Assert(called, gc.Equals, 2)
 }

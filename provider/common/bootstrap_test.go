@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
@@ -81,7 +82,7 @@ func configGetter(c *gc.C) configFunc {
 }
 
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
 	env := &mockEnviron{
@@ -118,15 +119,23 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		Constraints:    checkCons,
-		Placement:      checkPlacement,
-		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+		Constraints: checkCons,
+		Placement:   checkPlacement,
+		AvailableTools: tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number: version.Current,
+					Arch:   arch.HostArch(),
+					Series: series.HostSeries(),
+				},
+			},
+		},
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
@@ -157,7 +166,15 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	}
 	ctx := envtesting.BootstrapContext(c)
 	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+		AvailableTools: tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number: version.Current,
+					Arch:   arch.HostArch(),
+					Series: series.HostSeries(),
+				},
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(arch, gc.Equals, "ppc64el") // based on hardware characteristics

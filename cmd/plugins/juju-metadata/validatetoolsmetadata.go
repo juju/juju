@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/arch"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
@@ -20,9 +21,13 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// ValidateToolsMetadataCommand
-type ValidateToolsMetadataCommand struct {
-	ImageMetadataCommandBase
+func newValidateToolsMetadataCommand() cmd.Command {
+	return envcmd.Wrap(&validateToolsMetadataCommand{})
+}
+
+// validateToolsMetadataCommand
+type validateToolsMetadataCommand struct {
+	imageMetadataCommandBase
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -98,7 +103,7 @@ RETVAL=$?
 [ $RETVAL -ne 0 ] && echo Failure
 `
 
-func (c *ValidateToolsMetadataCommand) Info() *cmd.Info {
+func (c *validateToolsMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "validate-tools",
 		Purpose: "validate tools metadata and ensure tools tarball(s) exist for Juju version(s)",
@@ -106,7 +111,7 @@ func (c *ValidateToolsMetadataCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
@@ -121,7 +126,7 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.stream, "stream", tools.ReleasedStream, "simplestreams stream for which to generate the metadata")
 }
 
-func (c *ValidateToolsMetadataCommand) Init(args []string) error {
+func (c *validateToolsMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
 		if c.region == "" {
 			return fmt.Errorf("region required if provider type is specified")
@@ -131,7 +136,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 		}
 	}
 	if c.exactVersion == "current" {
-		c.exactVersion = version.Current.Number.String()
+		c.exactVersion = version.Current.String()
 	}
 	if c.partVersion != "" {
 		var err error
@@ -142,7 +147,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
+func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {

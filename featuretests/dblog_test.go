@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -89,7 +88,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 		Nonce: agent.BootstrapNonce,
 	})
 
-	s.PrimeAgent(c, m.Tag(), password, version.Current)
+	s.PrimeAgent(c, m.Tag(), password)
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1000)
@@ -110,7 +109,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
-	s.PrimeAgent(c, u.Tag(), password, version.Current)
+	s.PrimeAgent(c, u.Tag(), password)
 	logsCh, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
 	a := agentcmd.NewUnitAgent(nil, logsCh)

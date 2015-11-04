@@ -31,6 +31,25 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 	for sourceName, volumeParams := range paramsBySource {
 		logger.Debugf("creating volumes: %v", volumeParams)
 		volumeSource := volumeSources[sourceName]
+		validVolumeParams, validationErrors := validateVolumeParams(volumeSource, volumeParams)
+		for i, err := range validationErrors {
+			if err == nil {
+				continue
+			}
+			statuses = append(statuses, params.EntityStatusArgs{
+				Tag:    volumeParams[i].Tag.String(),
+				Status: params.StatusError,
+				Info:   err.Error(),
+			})
+			logger.Debugf(
+				"failed to validate parameters for %s: %v",
+				names.ReadableString(volumeParams[i].Tag), err,
+			)
+		}
+		volumeParams = validVolumeParams
+		if len(volumeParams) == 0 {
+			continue
+		}
 		results, err := volumeSource.CreateVolumes(volumeParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
@@ -186,6 +205,25 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 	for sourceName, volumeParams := range paramsBySource {
 		logger.Debugf("destroying volumes from %q: %v", sourceName, volumeParams)
 		volumeSource := volumeSources[sourceName]
+		validVolumeParams, validationErrors := validateVolumeParams(volumeSource, volumeParams)
+		for i, err := range validationErrors {
+			if err == nil {
+				continue
+			}
+			statuses = append(statuses, params.EntityStatusArgs{
+				Tag:    volumeParams[i].Tag.String(),
+				Status: params.StatusError,
+				Info:   err.Error(),
+			})
+			logger.Debugf(
+				"failed to validate parameters for %s: %v",
+				names.ReadableString(volumeParams[i].Tag), err,
+			)
+		}
+		volumeParams = validVolumeParams
+		if len(volumeParams) == 0 {
+			continue
+		}
 		volumeIds := make([]string, len(volumeParams))
 		for i, volumeParams := range volumeParams {
 			volume, ok := ctx.volumes[volumeParams.Tag]
@@ -319,15 +357,25 @@ func volumeParamsBySource(
 			// volume should be created by the machine-provisioner.
 			continue
 		}
-		err := volumeSource.ValidateVolumeParams(params)
-		switch errors.Cause(err) {
-		case nil:
-			paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
-		default:
-			return nil, nil, errors.Annotatef(err, "invalid parameters for volume %s", params.Tag.Id())
-		}
+		paramsBySource[sourceName] = append(paramsBySource[sourceName], params)
 	}
 	return paramsBySource, volumeSources, nil
+}
+
+// validateVolumeParams validates a collection of volume parameters.
+func validateVolumeParams(
+	volumeSource storage.VolumeSource, volumeParams []storage.VolumeParams,
+) ([]storage.VolumeParams, []error) {
+	valid := make([]storage.VolumeParams, 0, len(volumeParams))
+	results := make([]error, len(volumeParams))
+	for i, params := range volumeParams {
+		err := volumeSource.ValidateVolumeParams(params)
+		if err == nil {
+			valid = append(valid, params)
+		}
+		results[i] = err
+	}
+	return valid, results
 }
 
 // volumeAttachmentParamsBySource separates the volume attachment parameters by volume source.

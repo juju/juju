@@ -129,7 +129,11 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		Name: "jujud",
 		Doc:  jujudDoc,
 	})
-	jujud.Log.Factory = &writerFactory{}
+
+	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {
+		return &jujudWriter{target: target}
+	}
+
 	jujud.Register(NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
@@ -189,19 +193,11 @@ func Main(args []string) int {
 	return code
 }
 
-type writerFactory struct{}
-
-func (*writerFactory) NewWriter(target io.Writer) loggo.Writer {
-	return &jujudWriter{target: target}
-}
-
 type jujudWriter struct {
 	target           io.Writer
 	unitFormatter    simpleFormatter
 	defaultFormatter loggo.DefaultFormatter
 }
-
-var _ loggo.Writer = (*jujudWriter)(nil)
 
 func (w *jujudWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
 	if strings.HasPrefix(module, "unit.") {

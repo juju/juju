@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/constraints"
 )
@@ -55,14 +56,18 @@ See Also:
    juju help add-unit
 `
 
-// ServiceGetConstraintsCommand shows the constraints for a service.
+func newServiceGetConstraintsCommand() cmd.Command {
+	return envcmd.Wrap(&serviceGetConstraintsCommand{})
+}
+
+// serviceGetConstraintsCommand shows the constraints for a service.
 // It is just a wrapper for the common GetConstraintsCommand which
 // enforces that a service is specified.
-type ServiceGetConstraintsCommand struct {
+type serviceGetConstraintsCommand struct {
 	common.GetConstraintsCommand
 }
 
-func (c *ServiceGetConstraintsCommand) Info() *cmd.Info {
+func (c *serviceGetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-constraints",
 		Args:    "<service>",
@@ -71,7 +76,7 @@ func (c *ServiceGetConstraintsCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ServiceGetConstraintsCommand) Init(args []string) error {
+func (c *serviceGetConstraintsCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service name specified")
 	}
@@ -83,14 +88,18 @@ func (c *ServiceGetConstraintsCommand) Init(args []string) error {
 	return nil
 }
 
-// ServiceSetConstraintsCommand sets the constraints for a service.
+func newServiceSetConstraintsCommand() cmd.Command {
+	return envcmd.Wrap(&serviceSetConstraintsCommand{})
+}
+
+// serviceSetConstraintsCommand sets the constraints for a service.
 // It is just a wrapper for the common SetConstraintsCommand which
 // enforces that a service is specified.
-type ServiceSetConstraintsCommand struct {
+type serviceSetConstraintsCommand struct {
 	common.SetConstraintsCommand
 }
 
-func (c *ServiceSetConstraintsCommand) Info() *cmd.Info {
+func (c *serviceSetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-constraints",
 		Args:    "<service> [key=[value] ...]",
@@ -102,9 +111,9 @@ func (c *ServiceSetConstraintsCommand) Info() *cmd.Info {
 // SetFlags overrides SetFlags for SetConstraintsCommand since that
 // will register a flag to specify the service, and the flag is not
 // required with this service supercommand.
-func (c *ServiceSetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {}
+func (c *serviceSetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {}
 
-func (c *ServiceSetConstraintsCommand) Init(args []string) (err error) {
+func (c *serviceSetConstraintsCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("no service name specified")
 	}

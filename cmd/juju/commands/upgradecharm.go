@@ -21,8 +21,12 @@ import (
 	"github.com/juju/juju/cmd/juju/service"
 )
 
+func newUpgradeCharmCommand() cmd.Command {
+	return envcmd.Wrap(&upgradeCharmCommand{})
+}
+
 // UpgradeCharm is responsible for upgrading a service's charm.
-type UpgradeCharmCommand struct {
+type upgradeCharmCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 	Force       bool
@@ -85,7 +89,7 @@ error state will not have upgrade-charm hooks executed, and may cause unexpected
 behavior.
 `
 
-func (c *UpgradeCharmCommand) Info() *cmd.Info {
+func (c *upgradeCharmCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-charm",
 		Args:    "<service>",
@@ -94,7 +98,7 @@ func (c *UpgradeCharmCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "upgrade all units immediately, even if in error state")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
@@ -102,7 +106,7 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.Revision, "revision", -1, "explicit revision of current charm")
 }
 
-func (c *UpgradeCharmCommand) Init(args []string) error {
+func (c *upgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
 		if !names.IsValidService(args[0]) {
@@ -128,7 +132,7 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 
 // Run connects to the specified environment and starts the charm
 // upgrade process.
-func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
+func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
@@ -149,11 +153,11 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = curl.String()
 	}
 
-	csClient, err := newCharmStoreClient()
+	httpClient, err := c.HTTPClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer csClient.jar.Save()
+	csClient := newCharmStoreClient(httpClient)
 
 	addedURL, err := c.addCharm(oldURL, newRef, ctx, client, csClient)
 	if err != nil {
@@ -165,7 +169,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
 // to what's already deployed as specified by oldURL.
-func (c *UpgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *cmd.Context,
+func (c *upgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *cmd.Context,
 	client *api.Client, csClient *csClient,
 ) (*charm.URL, error) {
 	// Charm may have been supplied via a path reference.
@@ -192,7 +196,7 @@ func (c *UpgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 		return nil, err
 	}
 
-	newURL, repo, err := resolveCharmURL(charmRef, csClient.params, ctx.AbsPath(c.RepoPath), conf)
+	newURL, repo, err := resolveCharmStoreEntityURL(charmRef, csClient.params, ctx.AbsPath(c.RepoPath), conf)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -210,5 +214,14 @@ func (c *UpgradeCharmCommand) addCharm(oldURL *charm.URL, charmRef string, ctx *
 			return nil, fmt.Errorf("already running latest charm %q", newURL)
 		}
 	}
-	return addCharmFromURL(client, ctx, newURL, repo, csClient)
+
+	addedURL, err := addCharmFromURL(client, newURL, repo, csClient)
+	if err != nil {
+		return nil, err
+	}
+	ctx.Infof("Added charm %q to the environment.", addedURL)
+	if err := client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force); err != nil {
+		return nil, err
+	}
+	return addedURL, nil
 }

@@ -56,7 +56,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&version.Current.Number, coretesting.FakeVersionNumber)
+	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 }
 
@@ -204,7 +204,7 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = env.SetConfig(cfg)
 		c.Assert(err, jc.ErrorIsNil)
-		s.PatchValue(&version.Current.Number, t.currentVersion)
+		s.PatchValue(&version.Current, t.currentVersion)
 		bootstrapTools, err := bootstrap.SetBootstrapTools(env, availableTools)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(bootstrapTools.Version.Number, gc.Equals, t.expectedTools)
@@ -283,14 +283,10 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
 }
 
-func (s *bootstrapSuite) setupBootstrapSpecificVersion(
-	c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number,
-) (error, int, version.Number) {
+func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number) (error, int, version.Number) {
 	currentVersion := version.Current
 	currentVersion.Major = clientMajor
 	currentVersion.Minor = clientMinor
-	currentVersion.Series = "incorrect" // callers should be consulting series.HostSeries
-	currentVersion.Arch = "amd64"
 	currentVersion.Tag = ""
 	s.PatchValue(&version.Current, currentVersion)
 	s.PatchValue(&series.HostSeries, func() string { return "trusty" })

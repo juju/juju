@@ -17,6 +17,11 @@ const (
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
 
+	// JujuStartupLoggingConfigEnvKey if set is used to configure the initial
+	// logging before the command objects are even created to allow debugging
+	// of the command creation and initialisation process.
+	JujuStartupLoggingConfigEnvKey = "JUJU_STARTUP_LOGGING_CONFIG"
+
 	// Registry key containing juju related information
 	JujuRegistryKey = `HKLM:\SOFTWARE\juju-core`
 
