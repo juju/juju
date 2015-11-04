@@ -4,6 +4,7 @@
 package workload_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
@@ -13,27 +14,31 @@ import (
 
 var _ = gc.Suite(&filterSuite{})
 
-type filterSuite struct{}
+type filterSuite struct {
+	testing.IsolationSuite
+}
 
-func (s *filterSuite) newPayload(name string) workload.Payload {
-	return workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: name,
-			Type: "docker",
+func (s *filterSuite) newPayload(name string) workload.FullPayloadInfo {
+	return workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: name,
+				Type: "docker",
+			},
+			ID:     "id" + name,
+			Status: "running",
+			Labels: []string{"a-tag"},
+			Unit:   "a-service/0",
 		},
-		ID:      "id" + name,
-		Status:  "running",
-		Tags:    []string{"a-tag"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
 }
 
 func (s *filterSuite) TestFilterOkay(c *gc.C) {
-	payloads := []workload.Payload{
+	payloads := []workload.FullPayloadInfo{
 		s.newPayload("spam"),
 	}
-	predicate := func(workload.Payload) bool {
+	predicate := func(workload.FullPayloadInfo) bool {
 		return true
 	}
 	matched := workload.Filter(payloads, predicate)
@@ -42,11 +47,11 @@ func (s *filterSuite) TestFilterOkay(c *gc.C) {
 }
 
 func (s *filterSuite) TestFilterMatchAll(c *gc.C) {
-	payloads := []workload.Payload{
+	payloads := []workload.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
 	}
-	predicate := func(workload.Payload) bool {
+	predicate := func(workload.FullPayloadInfo) bool {
 		return true
 	}
 	matched := workload.Filter(payloads, predicate)
@@ -55,10 +60,10 @@ func (s *filterSuite) TestFilterMatchAll(c *gc.C) {
 }
 
 func (s *filterSuite) TestFilterMatchNone(c *gc.C) {
-	payloads := []workload.Payload{
+	payloads := []workload.FullPayloadInfo{
 		s.newPayload("spam"),
 	}
-	predicate := func(workload.Payload) bool {
+	predicate := func(workload.FullPayloadInfo) bool {
 		return false
 	}
 	matched := workload.Filter(payloads, predicate)
@@ -67,7 +72,7 @@ func (s *filterSuite) TestFilterMatchNone(c *gc.C) {
 }
 
 func (s *filterSuite) TestFilterNoPayloads(c *gc.C) {
-	predicate := func(workload.Payload) bool {
+	predicate := func(workload.FullPayloadInfo) bool {
 		return true
 	}
 	matched := workload.Filter(nil, predicate)
@@ -76,11 +81,11 @@ func (s *filterSuite) TestFilterNoPayloads(c *gc.C) {
 }
 
 func (s *filterSuite) TestFilterMatchPartial(c *gc.C) {
-	payloads := []workload.Payload{
+	payloads := []workload.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
 	}
-	predicate := func(p workload.Payload) bool {
+	predicate := func(p workload.FullPayloadInfo) bool {
 		return p.Name == "spam"
 	}
 	matched := workload.Filter(payloads, predicate)
@@ -89,14 +94,14 @@ func (s *filterSuite) TestFilterMatchPartial(c *gc.C) {
 }
 
 func (s *filterSuite) TestFilterMultiMatch(c *gc.C) {
-	payloads := []workload.Payload{
+	payloads := []workload.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
 	}
-	predA := func(p workload.Payload) bool {
+	predA := func(p workload.FullPayloadInfo) bool {
 		return p.Name == "spam"
 	}
-	predB := func(p workload.Payload) bool {
+	predB := func(p workload.FullPayloadInfo) bool {
 		return p.Name == "eggs"
 	}
 	matched := workload.Filter(payloads, predA, predB)
@@ -105,35 +110,37 @@ func (s *filterSuite) TestFilterMultiMatch(c *gc.C) {
 }
 
 func (s *filterSuite) TestFilterMultiMatchPartial(c *gc.C) {
-	payloads := []workload.Payload{
+	payloads := []workload.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("eggs"),
 		s.newPayload("ham"),
 	}
-	predA := func(p workload.Payload) bool {
+	predA := func(p workload.FullPayloadInfo) bool {
 		return p.Name == "ham"
 	}
-	predB := func(p workload.Payload) bool {
+	predB := func(p workload.FullPayloadInfo) bool {
 		return p.Name == "spam"
 	}
 	matched := workload.Filter(payloads, predA, predB)
 
-	c.Check(matched, jc.DeepEquals, []workload.Payload{
+	c.Check(matched, jc.DeepEquals, []workload.FullPayloadInfo{
 		s.newPayload("spam"),
 		s.newPayload("ham"),
 	})
 }
 
 func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
-	payload := workload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: "spam",
-			Type: "docker",
+	payload := workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: "running",
+			Labels: []string{"tagA", "tagB"},
+			Unit:   "a-service/0",
 		},
-		ID:      "idspam",
-		Status:  "running",
-		Tags:    []string{"tagA", "tagB"},
-		Unit:    "unit-a-service-0",
 		Machine: "1",
 	}
 
@@ -146,7 +153,7 @@ func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
 		"running",
 		"tagA",
 		"tagB",
-		"unit-a-service-0",
+		"a-service/0",
 		"1",
 	}
 	for _, pattern := range patterns {
@@ -196,4 +203,46 @@ func (s *filterSuite) TestBuildPredicatesForMulti(c *gc.C) {
 		false,
 		true,
 	})
+}
+
+func (s *filterSuite) TestMatch(c *gc.C) {
+	payload := workload.FullPayloadInfo{
+		Payload: workload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: "spam",
+				Type: "docker",
+			},
+			ID:     "idspam",
+			Status: "running",
+			Labels: []string{"tagA", "tagB"},
+			Unit:   "a-service/0",
+		},
+		Machine: "1",
+	}
+
+	// match
+	for _, pattern := range []string{
+		"spam",
+		"docker",
+		"idspam",
+		"running",
+		"tagA",
+		"tagB",
+		"a-service/0",
+		"1",
+	} {
+		c.Logf("check %q", pattern)
+		matched := workload.Match(payload, pattern)
+		c.Check(matched, jc.IsTrue)
+	}
+
+	// no match
+	for _, pattern := range []string{
+		"tagC",
+		"2",
+	} {
+		c.Logf("check %q", pattern)
+		matched := workload.Match(payload, pattern)
+		c.Check(matched, jc.IsFalse)
+	}
 }

@@ -17,13 +17,13 @@ var logger = loggo.GetLogger("juju.workload.context")
 // APIClient represents the API needs of a Context.
 type APIClient interface {
 	// List requests the workload info for the given IDs.
-	List(ids ...string) ([]workload.Info, error)
+	List(fullIDs ...string) ([]workload.Result, error)
 	// Register sends a request to update state with the provided workloads.
-	Track(workloads ...workload.Info) ([]string, error)
+	Track(workloads ...workload.Info) ([]workload.Result, error)
 	// Untrack removes the workloads from our list track.
-	Untrack(ids []string) ([]workload.Result, error)
+	Untrack(fullIDs ...string) ([]workload.Result, error)
 	// SetStatus sets the status for the given IDs.
-	SetStatus(class, status string, ids ...string) ([]workload.Result, error)
+	SetStatus(status string, fullIDs ...string) ([]workload.Result, error)
 }
 
 // TODO(ericsnow) Rename Get and Set to more specifically describe what
@@ -32,11 +32,11 @@ type APIClient interface {
 // Component provides the hook context data specific to workloads.
 type Component interface {
 	// Get returns the workload info corresponding to the given ID.
-	Get(id string) (*workload.Info, error)
+	Get(class, id string) (*workload.Info, error)
 	// Track records the workload info in the hook context.
 	Track(info workload.Info) error
 	// Untrack removes the workload from our list of workloads to track.
-	Untrack(id string) error
+	Untrack(class, id string) error
 	// SetStatus sets the status of the payload.
 	SetStatus(class, id, status string) error
 	// List returns the list of registered workload IDs.
@@ -49,8 +49,9 @@ var _ Component = (*Context)(nil)
 
 // Context is the workload portion of the hook context.
 type Context struct {
-	api       APIClient
-	dataDir   string
+	api     APIClient
+	dataDir string
+	// TODO(ericsnow) Use the Juju ID for the key rather than Info.ID().
 	workloads map[string]workload.Info
 	updates   map[string]workload.Info
 }
@@ -67,14 +68,16 @@ func NewContext(api APIClient, dataDir string) *Context {
 
 // NewContextAPI returns a new jujuc.ContextComponent for workloads.
 func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
-	workloads, err := api.List()
+	results, err := api.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	ctx := NewContext(api, dataDir)
-	for _, wl := range workloads {
-		ctx.workloads[wl.ID()] = wl
+	for _, result := range results {
+		wl := result.Workload
+		// TODO(ericsnow) Use id instead of wl.ID().
+		ctx.workloads[wl.ID()] = *wl
 	}
 	return ctx, nil
 }
@@ -128,14 +131,15 @@ func mergeWorkloadMaps(workloads, updates map[string]workload.Info) map[string]w
 }
 
 // Get returns the workload info corresponding to the given ID.
-func (c *Context) Get(id string) (*workload.Info, error) {
-	logger.Tracef("getting %q from hook context", id)
+func (c *Context) Get(class, id string) (*workload.Info, error) {
+	fullID := workload.BuildID(class, id)
+	logger.Tracef("getting %q from hook context", fullID)
 
-	actual, ok := c.updates[id]
+	actual, ok := c.updates[fullID]
 	if !ok {
-		actual, ok = c.workloads[id]
+		actual, ok = c.workloads[fullID]
 		if !ok {
-			return nil, errors.NotFoundf("%s", id)
+			return nil, errors.NotFoundf("%s", fullID)
 		}
 	}
 	return &actual, nil
@@ -167,6 +171,7 @@ func (c *Context) Track(info workload.Info) error {
 	if err := info.Validate(); err != nil {
 		return errors.Trace(err)
 	}
+
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
 	id := info.ID()
 	c.updates[id] = info
@@ -174,15 +179,16 @@ func (c *Context) Track(info workload.Info) error {
 }
 
 // Untrack tells juju to stop tracking this workload.
-func (c *Context) Untrack(id string) error {
-	logger.Tracef("Calling untrack on workload context %q", id)
+func (c *Context) Untrack(class, id string) error {
+	fullID := workload.BuildID(class, id)
+	logger.Tracef("Calling untrack on workload context %q", fullID)
 
-	res, err := c.api.Untrack([]string{id})
+	res, err := c.api.Untrack(fullID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(res) > 0 && res[0].Err != nil {
-		return errors.Trace(res[0].Err)
+	if len(res) > 0 && res[0].Error != nil {
+		return errors.Trace(res[0].Error)
 	}
 	delete(c.workloads, id)
 
@@ -190,14 +196,15 @@ func (c *Context) Untrack(id string) error {
 }
 
 func (c *Context) SetStatus(class, id, status string) error {
-	logger.Tracef("Calling status-set on payload context %q", id)
+	fullID := workload.BuildID(class, id)
+	logger.Tracef("Calling status-set on payload context %q", fullID)
 
-	res, err := c.api.SetStatus(class, status, id)
+	res, err := c.api.SetStatus(status, fullID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(res) > 0 && res[0].Err != nil {
-		return errors.Trace(res[0].Err)
+	if len(res) > 0 && res[0].Error != nil {
+		return errors.Trace(res[0].Error)
 	}
 
 	return nil
@@ -217,9 +224,15 @@ func (c *Context) Flush() error {
 		for _, info := range c.updates {
 			updates = append(updates, info)
 		}
-		if _, err := c.api.Track(updates...); err != nil {
+
+		res, err := c.api.Track(updates...)
+		if err != nil {
 			return errors.Trace(err)
 		}
+		if len(res) > 0 && res[0].Error != nil {
+			return errors.Trace(res[0].Error)
+		}
+
 		for k, v := range c.updates {
 			c.workloads[k] = v
 		}

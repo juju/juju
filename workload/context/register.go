@@ -28,12 +28,14 @@ func NewRegisterCmd(ctx HookContext) (*RegisterCmd, error) {
 type RegisterCmd struct {
 	cmd.CommandBase
 
-	api   Component
-	typ   string
-	class string
-	id    string
-	tags  []string
+	api    Component
+	typ    string
+	class  string
+	id     string
+	labels []string
 }
+
+// TODO(ericsnow) Change "tags" to "labels" in the help text?
 
 // Info implements cmd.Command.
 func (c RegisterCmd) Info() *cmd.Info {
@@ -61,7 +63,7 @@ func (c *RegisterCmd) Init(args []string) error {
 	c.typ = args[0]
 	c.class = args[1]
 	c.id = args[2]
-	c.tags = args[3:]
+	c.labels = args[3:]
 	return nil
 }
 

@@ -4,6 +4,7 @@
 package status_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -12,19 +13,21 @@ import (
 
 var _ = gc.Suite(&outputTabularSuite{})
 
-type outputTabularSuite struct{}
+type outputTabularSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *outputTabularSuite) TestFormatTabularOkay(c *gc.C) {
 	payload := status.NewPayload("spam", "a-service", 1, 0)
-	payload.Tags = []string{"a-tag", "other"}
+	payload.Labels = []string{"a-tag", "other"}
 	formatted := status.Formatted(payload)
 	data, err := status.FormatTabular(formatted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-UNIT             MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS        
-unit-a-service-0 1       spam          running docker idspam a-tag other 
+UNIT        MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS        
+a-service/0 1       spam          running docker idspam a-tag other 
 `[1:])
 }
 
@@ -36,24 +39,24 @@ func (s *outputTabularSuite) TestFormatTabularMinimal(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-UNIT             MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS 
-unit-a-service-0 1       spam          running docker idspam      
+UNIT        MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS 
+a-service/0 1       spam          running docker idspam      
 `[1:])
 }
 
 func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 	p10A := status.NewPayload("spam", "a-service", 1, 0)
-	p10A.Tags = []string{"a-tag"}
+	p10A.Labels = []string{"a-tag"}
 	p21A := status.NewPayload("spam", "a-service", 2, 1)
 	p21A.Status = "stopped"
-	p21A.Tags = []string{"a-tag"}
+	p21A.Labels = []string{"a-tag"}
 	p21B := status.NewPayload("spam", "a-service", 2, 1)
 	p21B.ID += "B"
 	p21x := status.NewPayload("eggs", "a-service", 2, 1)
 	p21x.Type = "kvm"
 	p22A := status.NewPayload("spam", "a-service", 2, 2)
 	p10x := status.NewPayload("ham", "another-service", 1, 0)
-	p10x.Tags = []string{"other", "extra"}
+	p10x.Labels = []string{"other", "extra"}
 	formatted := status.Formatted(
 		p10A,
 		p21A,
@@ -67,13 +70,13 @@ func (s *outputTabularSuite) TestFormatTabularMulti(c *gc.C) {
 
 	c.Check(string(data), gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE PAYLOAD-CLASS STATUS  TYPE   ID      TAGS        
-unit-a-service-0       1       spam          running docker idspam  a-tag       
-unit-a-service-1       2       spam          stopped docker idspam  a-tag       
-unit-a-service-1       2       spam          running docker idspamB             
-unit-a-service-1       2       eggs          running kvm    ideggs              
-unit-a-service-2       2       spam          running docker idspam              
-unit-another-service-0 1       ham           running docker idham   other extra 
+UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID      TAGS        
+a-service/0       1       spam          running docker idspam  a-tag       
+a-service/1       2       spam          stopped docker idspam  a-tag       
+a-service/1       2       spam          running docker idspamB             
+a-service/1       2       eggs          running kvm    ideggs              
+a-service/2       2       spam          running docker idspam              
+another-service/0 1       ham           running docker idham   other extra 
 `[1:])
 }
 

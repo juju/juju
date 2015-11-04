@@ -4,6 +4,7 @@
 package workload_test
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/workload"
@@ -11,7 +12,9 @@ import (
 
 var _ = gc.Suite(&idSuite{})
 
-type idSuite struct{}
+type idSuite struct {
+	testing.IsolationSuite
+}
 
 func (s *idSuite) TestParseIDFull(c *gc.C) {
 	name, id := workload.ParseID("a-workload/my-workload")

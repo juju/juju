@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package internal
 
 // TODO(ericsnow) Eliminate the params import if possible.
 
@@ -15,47 +15,20 @@ type TrackArgs struct {
 	Workloads []Workload
 }
 
-// WorkloadResults is the result for a call that makes one or more requests
-// about workloads.
-type WorkloadResults struct {
-	// Results is the list of results.
-	Results []WorkloadResult
-	// Error is the error (if any) for the call as a whole.
-	Error *params.Error
+// List uses params.Entities.
+
+// LookUpArgs are the arguments for the LookUp endpoint.
+type LookUpArgs struct {
+	// Args is the list of arguments to pass to this function.
+	Args []LookUpArg
 }
 
-// WorkloadResult contains the result for a single call.
-type WorkloadResult struct {
-	// ID is the id of the workload referenced in the call..
+// LookUpArg contains all the information necessary to identify a workload.
+type LookUpArg struct {
+	// Name is the workload name.
+	Name string
+	// ID uniquely identifies the workload for the given name.
 	ID string
-	// Error is the error (if any) for the call referring to ID.
-	Error *params.Error
-}
-
-// ListArgs are the arguments for the List endpoint.
-type ListArgs struct {
-	// IDs is the list of IDs of the workloads you want information on.
-	IDs []string
-}
-
-// ListResults contains the results for a call to List.
-type ListResults struct {
-	// Results is the list of workload results.
-	Results []ListResult
-	// Error is the error (if any) for the call as a whole.
-	Error *params.Error
-}
-
-// ListResult contains the results for a single call to List.
-type ListResult struct {
-	// ID is the id of the workload this result applies to.
-	ID string
-	// Info holds the details of the workload.
-	Info Workload
-	// NotFound indicates that the workload was not found in state.
-	NotFound bool
-	// Error holds the error retrieving this information (if any).
-	Error *params.Error
 }
 
 // SetStatusArgs are the arguments for the SetStatus endpoint.
@@ -67,18 +40,30 @@ type SetStatusArgs struct {
 // SetStatusArg are the arguments for a single call to the
 // SetStatus endpoint.
 type SetStatusArg struct {
-	// Class is the Class of the workload.
-	Class string
-	// ID is the ID of the workload.
-	ID string
-	// Status is the status of the workload.
+	params.Entity
+	// Status is the new status of the workload.
 	Status string
 }
 
-// UntrackArgs are the arguments for the Untrack endpoint.
-type UntrackArgs struct {
-	// IDs is a list of IDs of workloads.
-	IDs []string
+// Untrack uses params.Entities.
+
+// WorkloadResults is the result for a call that makes one or more requests
+// about workloads.
+type WorkloadResults struct {
+	Results []WorkloadResult
+}
+
+// TODO(ericsnow) Eliminate the NotFound field?
+
+// WorkloadResult contains the result for a single call.
+type WorkloadResult struct {
+	params.Entity
+	// Workload holds the details of the workload, if any.
+	Workload *Workload
+	// NotFound indicates that the workload was not found in state.
+	NotFound bool
+	// Error is the error (if any) for the call referring to ID.
+	Error *params.Error
 }
 
 // Workload contains information about a workload.
@@ -87,8 +72,8 @@ type Workload struct {
 	Definition WorkloadDefinition
 	// Status is the Juju-level status for the workload.
 	Status WorkloadStatus
-	// Tags are the tags assigned to a workload.
-	Tags []string
+	// Labels are the labels assigned to a workload.
+	Labels []string
 	// Details are the information returned from starting the workload.
 	Details WorkloadDetails
 }

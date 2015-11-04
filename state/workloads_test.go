@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,17 +24,9 @@ const workloadsMetaYAML = `
 name: a-charm
 summary: a charm...
 description: a charm...
-workloads:
+payloads:
   workloadA:
     type: docker
-    command: do-something cool
-    image: spam/eggs
-    ports:
-      - 8080:80
-    volumes:
-      - /var/nginx/html:/usr/share/nginx/html:ro
-    env:
-      IMPORTANT: YES
 `
 
 func (s *unitWorkloadsSuite) addUnit(c *gc.C, charmName, serviceName, meta string) (names.CharmTag, *state.Unit) {
@@ -54,9 +47,9 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	st, err := s.State.UnitWorkloads(unit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err := st.List()
+	results, err := st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(results, gc.HasLen, 0)
 
 	info := workload.Info{
 		PayloadClass: charm.PayloadClass{
@@ -77,55 +70,80 @@ func (s *unitWorkloadsSuite) TestFunctional(c *gc.C) {
 	err = st.Track(info)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err = st.List()
+	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		PayloadClass: charm.PayloadClass{
-			Name: "workloadA",
-			Type: "docker",
-		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "okay",
-		},
-		Details: workload.Details{
-			ID: "xyz",
-			Status: workload.PluginStatus{
-				State: "running",
+	// TODO(ericsnow) Once Track returns the new ID we can drop
+	// the following two lines.
+	c.Assert(results, gc.HasLen, 1)
+	id := results[0].ID
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID: id,
+		Workload: &workload.Info{
+			PayloadClass: charm.PayloadClass{
+				Name: "workloadA",
+				Type: "docker",
+			},
+			Status: workload.Status{
+				State:   workload.StateRunning,
+				Message: "okay",
+			},
+			Details: workload.Details{
+				ID: "xyz",
+				Status: workload.PluginStatus{
+					State: "running",
+				},
 			},
 		},
 	}})
 
-	workloads, err = st.List("workloadA/xyz")
+	lookedUpID, err := st.LookUp("workloadA", "xyz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{info})
+	c.Check(lookedUpID, gc.Equals, id)
 
-	err = st.SetStatus("workloadA/xyz", "running")
+	c.Logf("using ID %q", id)
+	results, err = st.List(id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID:       id,
+		Workload: &info,
+	}})
+
+	err = st.SetStatus(id, "running")
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err = st.List("workloadA/xyz")
+	results, err = st.List(id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, jc.DeepEquals, []workload.Info{{
-		PayloadClass: charm.PayloadClass{
-			Name: "workloadA",
-			Type: "docker",
-		},
-		Status: workload.Status{
-			State:   workload.StateRunning,
-			Message: "running",
-		},
-		Details: workload.Details{
-			ID: "xyz",
-			Status: workload.PluginStatus{
-				State: "running",
+	c.Check(results, jc.DeepEquals, []workload.Result{{
+		ID: id,
+		Workload: &workload.Info{
+			PayloadClass: charm.PayloadClass{
+				Name: "workloadA",
+				Type: "docker",
+			},
+			Status: workload.Status{
+				State:   workload.StateRunning,
+				Message: "running",
+			},
+			Details: workload.Details{
+				ID: "xyz",
+				Status: workload.PluginStatus{
+					State: "running",
+				},
 			},
 		},
 	}})
 
-	err = st.Untrack("workloadA/xyz")
+	// Ensure duplicates are not allowed.
+	err = st.Track(info)
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+	results, err = st.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 1)
+
+	err = st.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloads, err = st.List()
+	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(workloads, gc.HasLen, 0)
+	c.Check(results, gc.HasLen, 0)
 }

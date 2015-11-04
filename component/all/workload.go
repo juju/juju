@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
@@ -19,6 +18,8 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/workload"
 	"github.com/juju/juju/workload/api/client"
+	internalclient "github.com/juju/juju/workload/api/internal/client"
+	internalserver "github.com/juju/juju/workload/api/internal/server"
 	"github.com/juju/juju/workload/api/server"
 	"github.com/juju/juju/workload/context"
 	"github.com/juju/juju/workload/persistence"
@@ -100,7 +101,7 @@ func (c workloads) registerHookContext() {
 
 	unitercontext.RegisterComponentFunc(workload.ComponentName,
 		func(config unitercontext.ComponentConfig) (jujuc.ContextComponent, error) {
-			hctxClient := c.newHookContextAPIClient(config.APICaller)
+			hctxClient := c.newUnitFacadeClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			component, err := context.NewContextAPI(hctxClient, config.DataDir)
 			if err != nil {
@@ -114,9 +115,9 @@ func (c workloads) registerHookContext() {
 	c.registerHookContextFacade()
 }
 
-func (workloads) newHookContextAPIClient(caller base.APICaller) context.APIClient {
+func (workloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
 	facadeCaller := base.NewFacadeCallerForVersion(caller, workloadsHookContextFacade, 0)
-	return client.NewHookContextClient(facadeCaller)
+	return internalclient.NewUnitFacadeClient(facadeCaller)
 }
 
 func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interface{}, error) {
@@ -124,7 +125,7 @@ func (workloads) newHookContextFacade(st *state.State, unit *state.Unit) (interf
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return server.NewHookContextAPI(up), nil
+	return internalserver.NewUnitFacade(up), nil
 }
 
 func (c workloads) registerHookContextFacade() {
@@ -132,7 +133,7 @@ func (c workloads) registerHookContextFacade() {
 		workloadsHookContextFacade,
 		0,
 		c.newHookContextFacade,
-		reflect.TypeOf(&server.HookContextAPI{}),
+		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
 }
 
@@ -190,43 +191,15 @@ func (workloads) registerState() {
 	// TODO(ericsnow) Use a more general registration mechanism.
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
-	newUnitWorkloads := func(persist state.Persistence, unit names.UnitTag) (state.UnitWorkloads, error) {
+	newUnitWorkloads := func(persist state.Persistence, unit string) (state.UnitWorkloads, error) {
 		return workloadstate.NewUnitWorkloads(persist, unit), nil
 	}
 	state.SetWorkloadsComponent(newUnitWorkloads)
 
-	newEnvPayloads := func(persist state.Persistence, listMachines func() ([]string, error), listUnits func(string) ([]names.UnitTag, error)) (state.EnvPayloads, error) {
-		unitListFuncs := func() ([]func() ([]workload.Info, string, string, error), error) {
-			machines, err := listMachines()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			var funcs []func() ([]workload.Info, string, string, error)
-			for i := range machines {
-				machine := machines[i]
-				units, err := listUnits(machine)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-
-				for i := range units {
-					unit := units[i]
-					machine := machine
-					workloadsPersist := persistence.NewPersistence(persist, unit)
-					funcs = append(funcs, func() ([]workload.Info, string, string, error) {
-						workloads, err := workloadsPersist.ListAll()
-						if err != nil {
-							return nil, "", "", errors.Trace(err)
-						}
-						return workloads, machine, unit.String(), nil
-					})
-				}
-			}
-			return funcs, nil
-		}
+	newEnvPayloads := func(persist state.PayloadsEnvPersistence) (state.EnvPayloads, error) {
+		envPersist := persistence.NewEnvPersistence(persist)
 		envPayloads := workloadstate.EnvPayloads{
-			UnitListFuncs: unitListFuncs,
+			Persist: envPersist,
 		}
 		return envPayloads, nil
 	}
