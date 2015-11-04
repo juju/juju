@@ -277,7 +277,7 @@ func (st *state) Machiner() *machiner.State {
 
 // UnitAssigner returns a version of the state that provides functionality
 // required by the unitassigner worker.
-func (st *State) UnitAssigner() unitassigner.API {
+func (st *state) UnitAssigner() unitassigner.API {
 	return unitassigner.New(st)
 }
 
