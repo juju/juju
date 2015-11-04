@@ -684,7 +684,7 @@ REMOVE_RELEASE=""
 SIGNING_KEY=""
 IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
-INIT_VERSION="1.24."
+INIT_VERSION="1.25."
 RESIGN="false"
 KEEP=""
 while getopts "r:s:t:k:u:i:na" o; do
