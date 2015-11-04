@@ -50,9 +50,9 @@ func NewCert(certPEM, keyPEM []byte) Cert {
 	}
 }
 
-// SetDefaults updates a copy of the remote with default values
+// WithDefaults updates a copy of the remote with default values
 // where needed.
-func (cert Cert) SetDefaults() (Cert, error) {
+func (cert Cert) WithDefaults() (Cert, error) {
 	// Note that cert is a value receiver, so it is an implicit copy.
 
 	if cert.Name == "" {
