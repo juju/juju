@@ -5,6 +5,5 @@ package common
 
 var (
 	ConnectSSH                          = &connectSSH
-	WaitSSH                             = waitSSH
 	InternalAvailabilityZoneAllocations = &internalAvailabilityZoneAllocations
 )

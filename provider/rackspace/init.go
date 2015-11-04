@@ -14,13 +14,9 @@ const (
 )
 
 func init() {
-	openstackProvider, err := environs.Provider("openstack")
-	if err != nil {
-		logger.Errorf("Can't find openstack provider, error: %s", err)
-		return
-	}
+	osProvider := openstack.EnvironProvider{&rackspaceConfigurator{}, &firewallerFactory{}}
 	providerInstance = environProvider{
-		openstackProvider,
+		osProvider,
 	}
 	environs.RegisterProvider(providerType, providerInstance)
 
