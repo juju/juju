@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/ssh"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
@@ -34,7 +35,6 @@ import (
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/utils/ssh"
 )
 
 var updateBootstrapMachineTemplate = mustParseTemplate(`

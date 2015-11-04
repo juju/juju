@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/ssh"
 	goyaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
@@ -44,7 +45,6 @@ import (
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
