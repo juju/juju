@@ -63,7 +63,15 @@ func mungeDocForMultiEnv(doc interface{}, envUUID string, envUUIDFlags int) (bso
 	for i, elem := range bDoc {
 		switch elem.Name {
 		case "_id":
-			bDoc[i].Value = ensureEnvUUIDIfString(envUUID, elem.Value)
+			if id, ok := elem.Value.(string); ok {
+				bDoc[i].Value = ensureEnvUUID(envUUID, id)
+			} else if subquery, ok := elem.Value.(bson.D); ok {
+				munged, err := mungeIDSubQueryForMultiEnv(subquery, envUUID)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				bDoc[i].Value = munged
+			}
 		case "env-uuid":
 			if envUUIDFlags&noEnvUUIDInInput > 0 {
 				return nil, errors.New("env-uuid is added automatically and should not be provided")
@@ -78,6 +86,34 @@ func mungeDocForMultiEnv(doc interface{}, envUUID string, envUUIDFlags int) (bso
 	}
 	if envUUIDFlags&envUUIDRequired > 0 && !envUUIDSeen {
 		bDoc = append(bDoc, bson.DocElem{"env-uuid", envUUID})
+	}
+	return bDoc, nil
+}
+
+func mungeIDSubQueryForMultiEnv(doc interface{}, envUUID string) (bson.D, error) {
+	var bDoc bson.D
+	var err error
+	if doc != nil {
+		bDoc, err = toBsonD(doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	for i, elem := range bDoc {
+		switch elem.Name {
+		case "$in":
+			ids, ok := elem.Value.([]string)
+			if !ok {
+				return bDoc, errors.New("$in requires []string")
+			}
+			var fullIDs []string
+			for _, id := range ids {
+				fullID := ensureEnvUUID(envUUID, id)
+				fullIDs = append(fullIDs, fullID)
+			}
+			bDoc[i].Value = fullIDs
+		}
 	}
 	return bDoc, nil
 }

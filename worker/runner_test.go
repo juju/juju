@@ -4,24 +4,30 @@
 package worker_test
 
 import (
-	"errors"
 	"fmt"
+	"sort"
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	workertesting "github.com/juju/juju/worker/testing"
+)
+
+var (
+	_ = gc.Suite(&runnerSuite{})
+	_ = gc.Suite(&workersSuite{})
 )
 
 type runnerSuite struct {
 	testing.BaseSuite
 }
-
-var _ = gc.Suite(&runnerSuite{})
 
 func noneFatal(error) bool {
 	return false
@@ -419,4 +425,120 @@ func (t *testWorker) run() {
 	if count := atomic.AddInt32(&t.starter.startCount, -1); count != 0 {
 		panic(fmt.Errorf("unexpected start count %d; expected 0", count))
 	}
+}
+
+type workersSuite struct {
+	testing.BaseSuite
+
+	calls []string
+	stub  *gitjujutesting.Stub
+}
+
+func (s *workersSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	s.stub = &gitjujutesting.Stub{}
+	s.calls = nil
+}
+
+func (s *workersSuite) newWorkerFunc(id string) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		s.calls = append(s.calls, id)
+		return nil, nil
+	}
+}
+
+func (*workersSuite) TestNewWorkers(c *gc.C) {
+	workers := worker.NewWorkers()
+	ids, funcs := worker.ExtractWorkers(workers)
+
+	c.Check(ids, gc.HasLen, 0)
+	c.Check(funcs, gc.HasLen, 0)
+}
+
+func (*workersSuite) TestIDsOkay(c *gc.C) {
+	newWorker := func() (worker.Worker, error) { return nil, nil }
+
+	workers := worker.NewWorkers()
+	err := workers.Add("spam", newWorker)
+	c.Assert(err, jc.ErrorIsNil)
+	err = workers.Add("eggs", newWorker)
+	c.Assert(err, jc.ErrorIsNil)
+	ids := workers.IDs()
+
+	c.Check(ids, jc.DeepEquals, []string{"spam", "eggs"})
+}
+
+func (*workersSuite) TestIDsEmpty(c *gc.C) {
+	workers := worker.NewWorkers()
+	ids := workers.IDs()
+
+	c.Check(ids, gc.HasLen, 0)
+}
+
+func (s *workersSuite) TestAddOkay(c *gc.C) {
+	workers := worker.NewWorkers()
+	expected := []string{"spam", "eggs"}
+	for _, id := range expected {
+		err := workers.Add(id, s.newWorkerFunc(id))
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	ids, funcs := worker.ExtractWorkers(workers)
+
+	c.Check(ids, jc.DeepEquals, expected)
+	// We can't compare functions so we work around it.
+	for _, newWorker := range funcs {
+		newWorker()
+	}
+	sort.Strings(s.calls)
+	sort.Strings(expected)
+	c.Check(s.calls, jc.DeepEquals, expected)
+}
+
+func (*workersSuite) TestAddAlreadyRegistered(c *gc.C) {
+	newWorker := func() (worker.Worker, error) { return nil, nil }
+
+	workers := worker.NewWorkers()
+	err := workers.Add("spam", newWorker)
+	c.Assert(err, jc.ErrorIsNil)
+	err = workers.Add("spam", newWorker)
+
+	c.Check(err, gc.ErrorMatches, `.*already registered.*`)
+}
+
+func (s *workersSuite) TestStartOkay(c *gc.C) {
+	runner := workertesting.NewStubRunner(s.stub)
+	runner.CallWhenStarted = true
+
+	workers := worker.NewWorkers()
+	expected := []string{"spam", "eggs", "ham"}
+	for _, id := range expected {
+		err := workers.Add(id, s.newWorkerFunc(id))
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err := workers.Start(runner)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We would use s.stub.CheckCalls if functions could be compared...
+	runner.CheckCallIDs(c, "StartWorker", expected...)
+	sort.Strings(s.calls)
+	sort.Strings(expected)
+	c.Check(s.calls, jc.DeepEquals, expected)
+}
+
+func (s *workersSuite) TestStartError(c *gc.C) {
+	runner := workertesting.NewStubRunner(s.stub)
+	failure := errors.Errorf("<failed>")
+	s.stub.SetErrors(nil, failure)
+
+	workers := worker.NewWorkers()
+	expected := []string{"spam", "eggs", "ham"}
+	for _, id := range expected {
+		err := workers.Add(id, s.newWorkerFunc(id))
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	err := workers.Start(runner)
+
+	s.stub.CheckCallNames(c, "StartWorker", "StartWorker")
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
