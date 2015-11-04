@@ -15,7 +15,7 @@ const UnregisterCmdName = "payload-unregister"
 type UnregisterCmd struct {
 	cmd.CommandBase
 
-	api   Component
+	hctx  Component
 	class string
 	id    string
 }
@@ -28,7 +28,7 @@ func NewUnregisterCmd(ctx HookContext) (*UnregisterCmd, error) {
 		return nil, errors.Trace(err)
 	}
 	c := &UnregisterCmd{
-		api: compCtx,
+		hctx: compCtx,
 	}
 	return c, nil
 }
@@ -72,7 +72,7 @@ func (c *UnregisterCmd) Run(ctx *cmd.Context) error {
 
 	// TODO(ericsnow) Verify that Untrack gives a meaningful error when
 	// the ID is not found.
-	if err := c.api.Untrack(c.class, c.id); err != nil {
+	if err := c.hctx.Untrack(c.class, c.id); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -80,7 +80,7 @@ func (c *UnregisterCmd) Run(ctx *cmd.Context) error {
 
 	// We flush to state immedeiately so that status reflects the
 	// payload correctly.
-	if err := c.api.Flush(); err != nil {
+	if err := c.hctx.Flush(); err != nil {
 		return errors.Trace(err)
 	}
 
