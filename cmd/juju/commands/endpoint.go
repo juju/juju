@@ -11,8 +11,12 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// EndpointCommand returns the API endpoints
-type EndpointCommand struct {
+func newEndpointCommand() cmd.Command {
+	return envcmd.Wrap(&endpointCommand{})
+}
+
+// endpointCommand returns the API endpoints
+type endpointCommand struct {
 	envcmd.EnvCommandBase
 	out     cmd.Output
 	refresh bool
@@ -43,7 +47,7 @@ Additionally, you can use the --format argument to specify the output format.
 Supported formats are: "yaml", "json", or "smart" (default - host:port, one per line).
 `
 
-func (c *EndpointCommand) Info() *cmd.Info {
+func (c *endpointCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-endpoints",
 		Args:    "",
@@ -52,14 +56,14 @@ func (c *EndpointCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *endpointCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.refresh, "refresh", false, "connect to the API to ensure an up-to-date endpoint location")
 	f.BoolVar(&c.all, "all", false, "display all known endpoints, not just the first one")
 }
 
 // Print out the addresses of the API server endpoints.
-func (c *EndpointCommand) Run(ctx *cmd.Context) error {
+func (c *endpointCommand) Run(ctx *cmd.Context) error {
 	apiendpoint, err := endpoint(c.EnvCommandBase, c.refresh)
 	if err != nil && !errors.IsNotFound(err) {
 		return err

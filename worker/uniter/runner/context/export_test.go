@@ -6,6 +6,7 @@ package context
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -37,6 +38,7 @@ func NewHookContext(
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 	paths Paths,
+	clock clock.Clock,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:               unit,
@@ -53,6 +55,7 @@ func NewHookContext(
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
+		clock:              clock,
 	}
 	// Get and cache the addresses.
 	var err error

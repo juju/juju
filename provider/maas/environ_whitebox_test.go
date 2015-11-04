@@ -737,7 +737,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Disable auto-uploading by setting the agent version.
 	cfg, err := env.Config().Apply(map[string]interface{}{
-		"agent-version": version.Current.Number.String(),
+		"agent-version": version.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)

@@ -5,6 +5,7 @@ package local
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -268,7 +269,16 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 			if cert, ok := cfg.CACert(); ok {
 				caCert = []byte(cert)
 			}
-			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid, caCert)
+			baseUrl := ecfg.CloudImageBaseURL()
+
+			imageURLGetter = container.NewImageURLGetter(
+				// Explicitly call the non-named constructor so if anyone
+				// adds additional fields, this fails.
+				container.ImageURLGetterConfig{
+					ecfg.stateServerAddr(), uuid, caCert, baseUrl,
+					container.ImageDownloadURL,
+				})
+
 		}
 	}
 	env.containerManager, err = factory.NewContainerManager(
@@ -510,6 +520,10 @@ func (env *localEnviron) Destroy() error {
 		if err := env.containerManager.DestroyContainer(inst.Id()); err != nil {
 			return err
 		}
+	}
+	uninstallFile := filepath.Join(env.config.rootDir(), agent.UninstallAgentFile)
+	if err := ioutil.WriteFile(uninstallFile, nil, 0644); err != nil {
+		logger.Debugf("could not write uninstall file: %s", err)
 	}
 	cmd := exec.Command(
 		"pkill",

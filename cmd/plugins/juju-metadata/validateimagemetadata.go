@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -20,9 +21,13 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 )
 
-// ValidateImageMetadataCommand
-type ValidateImageMetadataCommand struct {
-	ImageMetadataCommandBase
+func newValidateImageMetadataCommand() cmd.Command {
+	return envcmd.Wrap(&validateImageMetadataCommand{})
+}
+
+// validateImageMetadataCommand
+type validateImageMetadataCommand struct {
+	imageMetadataCommandBase
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -71,7 +76,7 @@ RETVAL=$?
 [ $RETVAL -ne 0 ] && echo Failure
 `
 
-func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
+func (c *validateImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "validate-images",
 		Purpose: "validate image metadata and ensure image(s) exist for an environment",
@@ -79,7 +84,7 @@ func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *validateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
@@ -89,7 +94,7 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.stream, "m", "", "the images stream (defaults to released)")
 }
 
-func (c *ValidateImageMetadataCommand) Init(args []string) error {
+func (c *validateImageMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
 		if c.series == "" {
 			return fmt.Errorf("series required if provider type is specified")
@@ -128,7 +133,7 @@ func (oes *overrideEnvStream) Config() *config.Config {
 	return newCfg
 }
 
-func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
+func (c *validateImageMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {

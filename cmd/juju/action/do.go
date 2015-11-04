@@ -15,14 +15,19 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/common"
 )
 
 var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 
-// DoCommand enqueues an Action for running on the given unit with given
+func newDoCommand() cmd.Command {
+	return envcmd.Wrap(&doCommand{})
+}
+
+// doCommand enqueues an Action for running on the given unit with given
 // params
-type DoCommand struct {
+type doCommand struct {
 	ActionCommandBase
 	unitTag      names.UnitTag
 	actionName   string
@@ -100,17 +105,17 @@ $ juju action do sleeper/0 pause --string-args time=1000
 The value for the "time" param will be the string literal "1000".
 `
 
-// actionNameRule describes the format an action name must match to be valid.
-var actionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
+// ActionNameRule describes the format an action name must match to be valid.
+var ActionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 
 // SetFlags offers an option for YAML output.
-func (c *DoCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *doCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "use raw string values of CLI args")
 }
 
-func (c *DoCommand) Info() *cmd.Info {
+func (c *doCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "do",
 		Args:    "<unit> <action name> [key.key.key...=value]",
@@ -120,7 +125,7 @@ func (c *DoCommand) Info() *cmd.Info {
 }
 
 // Init gets the unit tag, and checks for other correct args.
-func (c *DoCommand) Init(args []string) error {
+func (c *doCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return errors.New("no unit specified")
@@ -132,12 +137,12 @@ func (c *DoCommand) Init(args []string) error {
 		if !names.IsValidUnit(unitName) {
 			return errors.Errorf("invalid unit name %q", unitName)
 		}
-		actionName := args[1]
-		if valid := actionNameRule.MatchString(actionName); !valid {
-			return fmt.Errorf("invalid action name %q", actionName)
+		ActionName := args[1]
+		if valid := ActionNameRule.MatchString(ActionName); !valid {
+			return fmt.Errorf("invalid action name %q", ActionName)
 		}
 		c.unitTag = names.NewUnitTag(unitName)
-		c.actionName = actionName
+		c.actionName = ActionName
 		if len(args) == 2 {
 			return nil
 		}
@@ -162,7 +167,7 @@ func (c *DoCommand) Init(args []string) error {
 	}
 }
 
-func (c *DoCommand) Run(ctx *cmd.Context) error {
+func (c *doCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err

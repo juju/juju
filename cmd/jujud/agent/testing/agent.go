@@ -11,6 +11,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
@@ -105,10 +107,22 @@ type AgentSuite struct {
 	testing.JujuConnSuite
 }
 
-// PrimeAgent writes the configuration file and tools with version vers
-// for an agent with the given entity name.  It returns the agent's
+// PrimeAgentVersion writes the configuration file and tools for an agent
+// with the given entity name. It returns the agent's configuration and the
+// current tools.
+func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
+	vers := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	return s.PrimeAgentVersion(c, tag, password, vers)
+}
+
+// PrimeAgentVersion writes the configuration file and tools with version
+// vers for an agent with the given entity name. It returns the agent's
 // configuration and the current tools.
-func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	c.Logf("priming agent %s", tag.String())
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)

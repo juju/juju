@@ -115,7 +115,7 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 // User returns the state User for the given name.
 func (st *State) User(tag names.UserTag) (*User, error) {
 	if !tag.IsLocal() {
-		return nil, errors.NotFoundf("user %q", tag.Username())
+		return nil, errors.NotFoundf("user %q", tag.Canonical())
 	}
 	user := &User{st: st}
 	if err := st.getUser(tag.Name(), &user.doc); err != nil {
@@ -183,7 +183,7 @@ type userLastLoginDoc struct {
 
 // String returns "<name>@local" where <name> is the Name of the user.
 func (u *User) String() string {
-	return u.UserTag().Username()
+	return u.UserTag().Canonical()
 }
 
 // Name returns the User name.

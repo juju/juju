@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
@@ -29,8 +28,8 @@ func (s *CredentialsCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CredentialsCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := envcmd.WrapSystem(&user.CredentialsCommand{})
-	return testing.RunCommand(c, command, args...)
+	wrappedCommand, _ := user.NewCredentialsCommand()
+	return testing.RunCommand(c, wrappedCommand, args...)
 }
 
 func (s *CredentialsCommandSuite) TestInit(c *gc.C) {
@@ -53,8 +52,8 @@ func (s *CredentialsCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		command := &user.CredentialsCommand{}
-		err := testing.InitCommand(command, test.args)
+		wrappedCommand, command := user.NewCredentialsCommand()
+		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(command.OutPath, gc.Equals, test.outPath)
 		} else {

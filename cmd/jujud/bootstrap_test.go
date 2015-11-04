@@ -19,6 +19,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -88,7 +89,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	s.PatchValue(&version.Current.Number, testing.FakeVersionNumber)
+	s.PatchValue(&version.Current, testing.FakeVersionNumber)
 	s.makeTestEnv(c)
 }
 
@@ -112,12 +113,17 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
-	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, version.Current))
+	current := version.Binary{
+		Number: version.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.writeDownloadedTools(c, &tools.Tools{Version: version.Current})
+	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -159,7 +165,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		},
 		Jobs:              jobs,
 		Tag:               names.NewMachineTag("0"),
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: version.Current,
 		Password:          testPasswordHash(),
 		Nonce:             agent.BootstrapNonce,
 		Environment:       testing.EnvironmentTag,
@@ -262,6 +268,37 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
+}
+
+func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
+	// bootstrap with 1.99.1 but there will be no tools so version will be reset.
+	envcfg, err := s.envcfg.Apply(map[string]interface{}{
+		"agent-version": "1.99.1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
+
+	hw := instance.MustParseHardware("arch=amd64 mem=8G")
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st, err := state.Open(testing.EnvironmentTag, &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	vers, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(vers.String(), gc.Equals, "1.99.0")
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
@@ -548,8 +585,12 @@ func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 	// Tools uploaded over ssh.
 	s.writeDownloadedTools(c, &tools.Tools{
-		Version: version.Current,
-		URL:     "file:///does/not/matter",
+		Version: version.Binary{
+			Number: version.Current,
+			Arch:   arch.HostArch(),
+			Series: series.HostSeries(),
+		},
+		URL: "file:///does/not/matter",
 	})
 	s.testToolsMetadata(c, true)
 }
@@ -584,7 +625,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		for _, ser := range series.SupportedSeries() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := series.GetOSFromSeries(version.Current.Series)
+			hostos, err := series.GetOSFromSeries(series.HostSeries())
 			c.Assert(err, jc.ErrorIsNil)
 			if os == hostos {
 				expectedSeries.Add(ser)
@@ -798,7 +839,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version":     version.Current.Number.String(),
+			"agent-version":     version.Current.String(),
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")

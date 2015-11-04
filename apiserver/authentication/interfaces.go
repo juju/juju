@@ -4,6 +4,9 @@
 package authentication
 
 import (
+	"github.com/juju/names"
+
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
@@ -11,5 +14,10 @@ import (
 // to authenticate juju entities.
 type EntityAuthenticator interface {
 	// Authenticate authenticates the given entity
-	Authenticate(entity state.Entity, password, nonce string) error
+	Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error)
+}
+
+// EntityFinder finds the entity described by the tag.
+type EntityFinder interface {
+	FindEntity(tag names.Tag) (state.Entity, error)
 }

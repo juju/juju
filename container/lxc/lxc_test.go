@@ -662,9 +662,9 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	c.Assert(location, gc.Equals, expectedTarget)
 }
 
-func (s *LxcSuite) TestCreateContainerFailsWithInjectedError(c *gc.C) {
+func (s *LxcSuite) TestCreateContainerFailsWithInjectedStartError(c *gc.C) {
 	errorChannel := make(chan error, 1)
-	cleanup := mock.PatchTransientErrorInjectionChannel(errorChannel)
+	cleanup := mock.PatchStartTransientErrorInjectionChannel(errorChannel)
 	defer cleanup()
 
 	// One injected error means the container creation will fail
@@ -681,9 +681,44 @@ func (s *LxcSuite) TestCreateContainerFailsWithInjectedError(c *gc.C) {
 	c.Assert(isRetryable, jc.IsTrue)
 }
 
+func (s *LxcSuite) TestCreateContainerFailsWithInjectedCreateError(c *gc.C) {
+	errorChannel := make(chan error, 1)
+	cleanup := mock.PatchCreateTransientErrorInjectionChannel(errorChannel)
+	defer cleanup()
+
+	errorChannel <- errors.New("lxc-create error")
+
+	manager := s.makeManager(c, "test")
+	_, err := containertesting.CreateContainerTest(c, manager, "1/lxc/0")
+	c.Assert(err, gc.NotNil)
+
+	// this should be a retryable error
+	isRetryable := instance.IsRetryableCreationError(errors.Cause(err))
+	c.Assert(isRetryable, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "lxc container creation failed.*")
+}
+
+func (s *LxcSuite) TestCreateContainerFailsWithInjectedCloneError(c *gc.C) {
+	errorChannel := make(chan error, 1)
+	cleanup := mock.PatchCloneTransientErrorInjectionChannel(errorChannel)
+	defer cleanup()
+
+	errorChannel <- errors.New("lxc-clone error")
+
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+	_, err := containertesting.CreateContainerTest(c, manager, "1")
+
+	// this should be a retryable error
+	isRetryable := instance.IsRetryableCreationError(errors.Cause(err))
+	c.Assert(isRetryable, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "lxc container cloning failed.*")
+}
+
 func (s *LxcSuite) TestCreateContainerWithInjectedErrorDestroyFails(c *gc.C) {
 	errorChannel := make(chan error, 2)
-	cleanup := mock.PatchTransientErrorInjectionChannel(errorChannel)
+	cleanup := mock.PatchStartTransientErrorInjectionChannel(errorChannel)
 	defer cleanup()
 
 	// Two injected errors mean that the container creation and subsequent

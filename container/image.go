@@ -5,6 +5,7 @@ package container
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -26,44 +27,46 @@ type ImageURLGetter interface {
 	CACert() []byte
 }
 
+type ImageURLGetterConfig struct {
+	ServerRoot        string
+	EnvUUID           string
+	CACert            []byte
+	CloudimgBaseUrl   string
+	ImageDownloadFunc func(kind instance.ContainerType, series, arch, cloudimgBaseUrl string) (string, error)
+}
+
 type imageURLGetter struct {
-	serverRoot string
-	envuuid    string
-	caCert     []byte
+	config ImageURLGetterConfig
 }
 
 // NewImageURLGetter returns an ImageURLGetter for the specified state
 // server address and environment UUID.
-func NewImageURLGetter(serverRoot, envuuid string, caCert []byte) ImageURLGetter {
-	return &imageURLGetter{
-		serverRoot,
-		envuuid,
-		caCert,
-	}
+func NewImageURLGetter(config ImageURLGetterConfig) ImageURLGetter {
+	return &imageURLGetter{config}
 }
 
 // ImageURL is specified on the NewImageURLGetter interface.
 func (ug *imageURLGetter) ImageURL(kind instance.ContainerType, series, arch string) (string, error) {
-	imageURL, err := ImageDownloadURL(kind, series, arch)
+	imageURL, err := ug.config.ImageDownloadFunc(kind, series, arch, ug.config.CloudimgBaseUrl)
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}
 	imageFilename := path.Base(imageURL)
 
 	imageUrl := fmt.Sprintf(
-		"https://%s/environment/%s/images/%v/%s/%s/%s", ug.serverRoot, ug.envuuid, kind, series, arch, imageFilename,
+		"https://%s/environment/%s/images/%v/%s/%s/%s", ug.config.ServerRoot, ug.config.EnvUUID, kind, series, arch, imageFilename,
 	)
 	return imageUrl, nil
 }
 
 // CACert is specified on the NewImageURLGetter interface.
 func (ug *imageURLGetter) CACert() []byte {
-	return ug.caCert
+	return ug.config.CACert
 }
 
 // ImageDownloadURL determines the public URL which can be used to obtain an
 // image blob with the specified parameters.
-func ImageDownloadURL(kind instance.ContainerType, series, arch string) (string, error) {
+func ImageDownloadURL(kind instance.ContainerType, series, arch, cloudimgBaseUrl string) (string, error) {
 	// TODO - we currently only need to support LXC images - kind is ignored.
 	if kind != instance.LXC {
 		return "", errors.Errorf("unsupported container type: %v", kind)
@@ -72,11 +75,17 @@ func ImageDownloadURL(kind instance.ContainerType, series, arch string) (string,
 	// Use the ubuntu-cloudimg-query command to get the url from which to fetch the image.
 	// This will be somewhere on http://cloud-images.ubuntu.com.
 	cmd := exec.Command("ubuntu-cloudimg-query", series, "released", arch, "--format", "%{url}")
+	if cloudimgBaseUrl != "" {
+		// If the base url isn't specified, we don't need to copy the current
+		// environment, because this is the default behaviour of the exec package.
+		cmd.Env = append(os.Environ(), fmt.Sprintf("UBUNTU_CLOUDIMG_QUERY_BASEURL=%s", cloudimgBaseUrl))
+	}
 	urlBytes, err := cmd.CombinedOutput()
 	if err != nil {
 		stderr := string(urlBytes)
 		return "", errors.Annotatef(err, "cannot determine LXC image URL: %v", stderr)
 	}
+	logger.Debugf("%s image for %s (%s) is %s", kind, series, arch, urlBytes)
 	imageURL := strings.Replace(string(urlBytes), ".tar.gz", "-root.tar.gz", -1)
 	return imageURL, nil
 }

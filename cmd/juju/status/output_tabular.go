@@ -36,6 +36,16 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 
+	if envStatus := fs.EnvironmentStatus; envStatus != nil {
+		p("[Environment]")
+		if envStatus.AvailableVersion != "" {
+			p("UPGRADE-AVAILABLE")
+			p(envStatus.AvailableVersion)
+		}
+		p()
+		tw.Flush()
+	}
+
 	units := make(map[string]unitStatus)
 	p("[Services]")
 	p("NAME\tSTATUS\tEXPOSED\tCHARM")
@@ -105,13 +115,6 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			az = *hw.AvailabilityZone
 		}
 		p(m.Id, m.AgentState, m.DNSName, m.InstanceId, m.Series, az)
-	}
-	tw.Flush()
-
-	if fs.AvailableVersion != "" {
-		p("\n[Juju]")
-		p("UPGRADE-AVAILABLE")
-		p(fs.AvailableVersion)
 	}
 	tw.Flush()
 
