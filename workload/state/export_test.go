@@ -7,7 +7,7 @@ var (
 	NewID = newID
 )
 
-func SetNewID(uw UnitWorkloads, newID func() (string, error)) UnitWorkloads {
+func SetNewID(uw UnitPayloads, newID func() (string, error)) UnitPayloads {
 	uw.newID = newID
 	return uw
 }

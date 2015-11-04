@@ -7,12 +7,13 @@ package internal
 
 import (
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/workload/api"
 )
 
 // TrackArgs are the arguments for the Track endpoint.
 type TrackArgs struct {
-	// Workloads is the list of Workloads to track
-	Workloads []Workload
+	// Payloads is the list of Workloads to track
+	Payloads []api.Payload
 }
 
 // List uses params.Entities.
@@ -47,105 +48,21 @@ type SetStatusArg struct {
 
 // Untrack uses params.Entities.
 
-// WorkloadResults is the result for a call that makes one or more requests
+// PayloadResults is the result for a call that makes one or more requests
 // about workloads.
-type WorkloadResults struct {
-	Results []WorkloadResult
+type PayloadResults struct {
+	Results []PayloadResult
 }
 
 // TODO(ericsnow) Eliminate the NotFound field?
 
-// WorkloadResult contains the result for a single call.
-type WorkloadResult struct {
+// PayloadResult contains the result for a single call.
+type PayloadResult struct {
 	params.Entity
-	// Workload holds the details of the workload, if any.
-	Workload *Workload
+	// Payload holds the details of the workload, if any.
+	Payload *api.Payload
 	// NotFound indicates that the workload was not found in state.
 	NotFound bool
 	// Error is the error (if any) for the call referring to ID.
 	Error *params.Error
-}
-
-// Workload contains information about a workload.
-type Workload struct {
-	// Workload is information about the workload itself.
-	Definition WorkloadDefinition
-	// Status is the Juju-level status for the workload.
-	Status WorkloadStatus
-	// Labels are the labels assigned to a workload.
-	Labels []string
-	// Details are the information returned from starting the workload.
-	Details WorkloadDetails
-}
-
-// WorkloadDefinition is the static definition of a workload in a charm.
-type WorkloadDefinition struct {
-	// Name is the name of the workload.
-	Name string
-	// Description is a brief description of the workload.
-	Description string
-	// Type is the name of the workload type.
-	Type string
-	// TypeOptions is a map of arguments for the workload type.
-	TypeOptions map[string]string
-	// Command is use command executed used by the workload, if any.
-	Command string
-	// Image is the image used by the workload, if any.
-	Image string
-	// Ports is a list of WorkloadPort.
-	Ports []WorkloadPort
-	// Volumes is a list of WorkloadVolume.
-	Volumes []WorkloadVolume
-	// EnvVars is map of environment variables used by the workload.
-	EnvVars map[string]string
-}
-
-// WorkloadPort is network port information for a workload.
-type WorkloadPort struct {
-	// External is the port on the host.
-	External int
-	// Internal is the port on the workload.
-	Internal int
-	// Endpoint is the unit-relation endpoint matching the external
-	// port, if any.
-	Endpoint string
-}
-
-// WorkloadVolume is storage volume information for a workload.
-type WorkloadVolume struct {
-	// ExternalMount is the path on the host.
-	ExternalMount string
-	// InternalMount is the path on the workload.
-	InternalMount string
-	// Mode is the "ro" OR "rw"
-	Mode string
-	// Name is the name of the storage metadata entry, if any.
-	Name string
-}
-
-// WorkloadStatus represents the Juju-level status of the workload.
-type WorkloadStatus struct {
-	// State is the Juju-defined state the workload is in.
-	State string
-	// Blocker identifies the kind of blocker preventing interaction
-	// with the workload.
-	Blocker string
-	// Message is the human-readable information about the status of
-	// the workload.
-	Message string
-}
-
-// WorkloadDetails represents information about a workload launched by a plugin.
-type WorkloadDetails struct {
-	// ID is a unique string identifying the workload to the plugin.
-	ID string
-	// Status is the status of the workload after launch.
-	Status PluginStatus
-}
-
-// PluginStatus represents the plugin-defined status for the workload.
-type PluginStatus struct {
-	// State represents the human-readable label returned by the plugin for
-	// the workload that represents the status of the workload.
-	State string
 }

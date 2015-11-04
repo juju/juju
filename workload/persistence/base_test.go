@@ -31,35 +31,32 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Unit = "a-unit/0"
 }
 
-type WorkloadDoc workloadDoc
+type PayloadDoc payloadDoc
 
-func (doc WorkloadDoc) convert() *workloadDoc {
-	return (*workloadDoc)(&doc)
+func (doc PayloadDoc) convert() *payloadDoc {
+	return (*payloadDoc)(&doc)
 }
 
-func (s *BaseSuite) NewDoc(id string, wl workload.Info) *workloadDoc {
-	return &workloadDoc{
-		DocID:  "workload#" + s.Unit + "#" + id,
+func (s *BaseSuite) NewDoc(id string, pl workload.Payload) *payloadDoc {
+	return &payloadDoc{
+		DocID:  "payload#" + s.Unit + "#" + id,
 		UnitID: s.Unit,
 
-		Name: wl.Name,
-		Type: wl.Type,
-
-		PluginID:       wl.Details.ID,
-		OriginalStatus: wl.Details.Status.State,
-
-		PluginStatus: wl.Details.Status.State,
+		Name:  pl.Name,
+		Type:  pl.Type,
+		RawID: pl.ID,
+		State: pl.Status,
 	}
 }
 
-func (s *BaseSuite) SetDoc(id string, wl workload.Info) *workloadDoc {
-	workloadDoc := s.NewDoc(id, wl)
-	s.State.SetDocs(workloadDoc)
-	return workloadDoc
+func (s *BaseSuite) SetDoc(id string, pl workload.Payload) *payloadDoc {
+	payloadDoc := s.NewDoc(id, pl)
+	s.State.SetDocs(payloadDoc)
+	return payloadDoc
 }
 
 func (s *BaseSuite) RemoveDoc(id string) {
-	docID := "workload#" + s.Unit + "#" + id
+	docID := "payload#" + s.Unit + "#" + id
 	delete(s.State.docs, docID)
 }
 
@@ -71,31 +68,28 @@ func (s *BaseSuite) SetUnit(id string) {
 	s.Unit = id
 }
 
-func (s *BaseSuite) NewWorkloads(pType string, ids ...string) []workload.Info {
-	var workloads []workload.Info
+func (s *BaseSuite) NewPayloads(pType string, ids ...string) []workload.Payload {
+	var payloads []workload.Payload
 	for _, id := range ids {
-		wl := s.NewWorkload(pType, id)
-		workloads = append(workloads, wl)
+		pl := s.NewPayload(pType, id)
+		payloads = append(payloads, pl)
 	}
-	return workloads
+	return payloads
 }
 
-func (s *BaseSuite) NewWorkload(pType string, id string) workload.Info {
+func (s *BaseSuite) NewPayload(pType string, id string) workload.Payload {
 	name, pluginID := workload.ParseID(id)
 	if pluginID == "" {
 		pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
 	}
 
-	return workload.Info{
+	return workload.Payload{
 		PayloadClass: charm.PayloadClass{
 			Name: name,
 			Type: pType,
 		},
-		Details: workload.Details{
-			ID: pluginID,
-			Status: workload.PluginStatus{
-				State: "running",
-			},
-		},
+		ID:     pluginID,
+		Status: "running",
+		Unit:   s.Unit,
 	}
 }

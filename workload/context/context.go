@@ -19,7 +19,7 @@ type APIClient interface {
 	// List requests the workload info for the given IDs.
 	List(fullIDs ...string) ([]workload.Result, error)
 	// Register sends a request to update state with the provided workloads.
-	Track(workloads ...workload.Info) ([]workload.Result, error)
+	Track(payloads ...workload.Payload) ([]workload.Result, error)
 	// Untrack removes the workloads from our list track.
 	Untrack(fullIDs ...string) ([]workload.Result, error)
 	// SetStatus sets the status for the given IDs.
@@ -32,9 +32,9 @@ type APIClient interface {
 // Component provides the hook context data specific to workloads.
 type Component interface {
 	// Get returns the workload info corresponding to the given ID.
-	Get(class, id string) (*workload.Info, error)
+	Get(class, id string) (*workload.Payload, error)
 	// Track records the workload info in the hook context.
-	Track(info workload.Info) error
+	Track(payload workload.Payload) error
 	// Untrack removes the workload from our list of workloads to track.
 	Untrack(class, id string) error
 	// SetStatus sets the status of the payload.
@@ -52,17 +52,17 @@ type Context struct {
 	api     APIClient
 	dataDir string
 	// TODO(ericsnow) Use the Juju ID for the key rather than Info.ID().
-	workloads map[string]workload.Info
-	updates   map[string]workload.Info
+	payloads map[string]workload.Payload
+	updates  map[string]workload.Payload
 }
 
 // NewContext returns a new jujuc.ContextComponent for workloads.
 func NewContext(api APIClient, dataDir string) *Context {
 	return &Context{
-		api:       api,
-		dataDir:   dataDir,
-		workloads: make(map[string]workload.Info),
-		updates:   make(map[string]workload.Info),
+		api:      api,
+		dataDir:  dataDir,
+		payloads: make(map[string]workload.Payload),
+		updates:  make(map[string]workload.Payload),
 	}
 }
 
@@ -75,9 +75,9 @@ func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
 
 	ctx := NewContext(api, dataDir)
 	for _, result := range results {
-		wl := result.Workload
-		// TODO(ericsnow) Use id instead of wl.ID().
-		ctx.workloads[wl.ID()] = *wl
+		pl := result.Payload
+		// TODO(ericsnow) Use id instead of pl.FullID().
+		ctx.payloads[pl.FullID()] = pl.Payload
 	}
 	return ctx, nil
 }
@@ -106,22 +106,22 @@ func ContextComponent(ctx HookContext) (Component, error) {
 
 // TODO(ericsnow) Should we build in refreshes in all the methods?
 
-// Workloads returns the workloads known to the context.
-func (c *Context) Workloads() ([]workload.Info, error) {
-	workloads := mergeWorkloadMaps(c.workloads, c.updates)
-	var newWorkloads []workload.Info
-	for _, info := range workloads {
-		newWorkloads = append(newWorkloads, info)
+// Payloads returns the workloads known to the context.
+func (c *Context) Payloads() ([]workload.Payload, error) {
+	payloads := mergePayloadMaps(c.payloads, c.updates)
+	var newPayloads []workload.Payload
+	for _, pl := range payloads {
+		newPayloads = append(newPayloads, pl)
 	}
 
-	return newWorkloads, nil
+	return newPayloads, nil
 }
 
-func mergeWorkloadMaps(workloads, updates map[string]workload.Info) map[string]workload.Info {
+func mergePayloadMaps(payloads, updates map[string]workload.Payload) map[string]workload.Payload {
 	// At this point workloads and updates have already been checked for
 	// nil values so we won't see any here.
-	result := make(map[string]workload.Info)
-	for k, v := range workloads {
+	result := make(map[string]workload.Payload)
+	for k, v := range payloads {
 		result[k] = v
 	}
 	for k, v := range updates {
@@ -131,13 +131,13 @@ func mergeWorkloadMaps(workloads, updates map[string]workload.Info) map[string]w
 }
 
 // Get returns the workload info corresponding to the given ID.
-func (c *Context) Get(class, id string) (*workload.Info, error) {
+func (c *Context) Get(class, id string) (*workload.Payload, error) {
 	fullID := workload.BuildID(class, id)
 	logger.Tracef("getting %q from hook context", fullID)
 
 	actual, ok := c.updates[fullID]
 	if !ok {
-		actual, ok = c.workloads[fullID]
+		actual, ok = c.payloads[fullID]
 		if !ok {
 			return nil, errors.NotFoundf("%s", fullID)
 		}
@@ -147,34 +147,34 @@ func (c *Context) Get(class, id string) (*workload.Info, error) {
 
 // List returns the sorted names of all registered workloads.
 func (c *Context) List() ([]string, error) {
-	logger.Tracef("listing all workloads in hook context")
+	logger.Tracef("listing all payloads in hook context")
 
-	workloads, err := c.Workloads()
+	payloads, err := c.Payloads()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(workloads) == 0 {
+	if len(payloads) == 0 {
 		return nil, nil
 	}
 	var ids []string
-	for _, wl := range workloads {
-		ids = append(ids, wl.ID())
+	for _, wl := range payloads {
+		ids = append(ids, wl.FullID())
 	}
 	sort.Strings(ids)
 	return ids, nil
 }
 
 // Track records the workload info in the hook context.
-func (c *Context) Track(info workload.Info) error {
-	logger.Tracef("adding %q to hook context: %#v", info.ID(), info)
+func (c *Context) Track(pl workload.Payload) error {
+	logger.Tracef("adding %q to hook context: %#v", pl.FullID(), pl)
 
-	if err := info.Validate(); err != nil {
+	if err := pl.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
 	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
-	id := info.ID()
-	c.updates[id] = info
+	id := pl.FullID()
+	c.updates[id] = pl
 	return nil
 }
 
@@ -190,7 +190,7 @@ func (c *Context) Untrack(class, id string) error {
 	if len(res) > 0 && res[0].Error != nil {
 		return errors.Trace(res[0].Error)
 	}
-	delete(c.workloads, id)
+	delete(c.payloads, id)
 
 	return nil
 }
@@ -213,16 +213,16 @@ func (c *Context) SetStatus(class, id, status string) error {
 // TODO(ericsnow) The context machinery is not actually using this yet.
 
 // Flush implements jujuc.ContextComponent. In this case that means all
-// added and updated workload.Info in the hook context are pushed to
+// added and updated workload.Payload in the hook context are pushed to
 // Juju state via the API.
 func (c *Context) Flush() error {
 	logger.Tracef("flushing from hook context to state")
 	// TODO(natefinch): make this a noop and move this code into set.
 
 	if len(c.updates) > 0 {
-		var updates []workload.Info
-		for _, info := range c.updates {
-			updates = append(updates, info)
+		var updates []workload.Payload
+		for _, pl := range c.updates {
+			updates = append(updates, pl)
 		}
 
 		res, err := c.api.Track(updates...)
@@ -234,9 +234,9 @@ func (c *Context) Flush() error {
 		}
 
 		for k, v := range c.updates {
-			c.workloads[k] = v
+			c.payloads[k] = v
 		}
-		c.updates = map[string]workload.Info{}
+		c.updates = map[string]workload.Payload{}
 	}
 	return nil
 }

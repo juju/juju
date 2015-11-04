@@ -9,19 +9,19 @@ package internal
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/workload"
+	"github.com/juju/juju/workload/api"
 )
 
-// NewWorkloadResult builds a new WorkloadResult from the provided tag
+// NewPayloadResult builds a new WorkloadResult from the provided tag
 // and error. NotFound is also set based on the error.
-func NewWorkloadResult(id string, err error) WorkloadResult {
+func NewPayloadResult(id string, err error) PayloadResult {
 	result := workload.Result{
 		ID:       id,
-		Workload: nil,
+		Payload:  nil,
 		NotFound: errors.IsNotFound(err),
 		Error:    err,
 	}
@@ -29,7 +29,7 @@ func NewWorkloadResult(id string, err error) WorkloadResult {
 }
 
 // API2Result converts the API result to a workload.Result.
-func API2Result(r WorkloadResult) (workload.Result, error) {
+func API2Result(r PayloadResult) (workload.Result, error) {
 	result := workload.Result{
 		NotFound: r.NotFound,
 	}
@@ -40,9 +40,12 @@ func API2Result(r WorkloadResult) (workload.Result, error) {
 	}
 	result.ID = id
 
-	if r.Workload != nil {
-		info := API2Workload(*r.Workload)
-		result.Workload = &info
+	if r.Payload != nil {
+		pl, err := api.API2Payload(*r.Payload)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		result.Payload = &pl
 	}
 
 	if r.Error != nil {
@@ -53,8 +56,8 @@ func API2Result(r WorkloadResult) (workload.Result, error) {
 }
 
 // Result2api converts the workload.Result into a WorkloadResult.
-func Result2api(result workload.Result) WorkloadResult {
-	res := WorkloadResult{
+func Result2api(result workload.Result) PayloadResult {
+	res := PayloadResult{
 		NotFound: result.NotFound,
 	}
 
@@ -62,9 +65,9 @@ func Result2api(result workload.Result) WorkloadResult {
 		res.Tag = names.NewPayloadTag(result.ID).String()
 	}
 
-	if result.Workload != nil {
-		wl := Workload2api(*result.Workload)
-		res.Workload = &wl
+	if result.Payload != nil {
+		pl := api.Payload2api(*result.Payload)
+		res.Payload = &pl
 	}
 
 	if result.Error != nil {
@@ -86,13 +89,14 @@ func API2ID(tagStr string) (string, error) {
 	return tag.Id(), nil
 }
 
-// Infos2TrackArgs converts the provided workload info into arguments
+// Payloads2TrackArgs converts the provided workload info into arguments
 // for the Track API endpoint.
-func Infos2TrackArgs(workloads []workload.Info) TrackArgs {
+func Payloads2TrackArgs(payloads []workload.Payload) TrackArgs {
 	var args TrackArgs
-	for _, wl := range workloads {
-		arg := Workload2api(wl)
-		args.Workloads = append(args.Workloads, arg)
+	for _, pl := range payloads {
+		fullPayload := workload.FullPayloadInfo{Payload: pl}
+		arg := api.Payload2api(fullPayload)
+		args.Payloads = append(args.Payloads, arg)
 	}
 	return args
 }
@@ -146,88 +150,4 @@ func ids2args(ids []string) params.Entities {
 		})
 	}
 	return args
-}
-
-// API2Definition converts an API workload definition struct into
-// a charm.PayloadClass struct.
-func API2Definition(d WorkloadDefinition) charm.PayloadClass {
-	return charm.PayloadClass{
-		Name: d.Name,
-		Type: d.Type,
-	}
-}
-
-// Definition2api converts a charm.PayloadClass struct into an
-// api.WorkloadDefinition struct.
-func Definition2api(d charm.PayloadClass) WorkloadDefinition {
-	return WorkloadDefinition{
-		Name: d.Name,
-		Type: d.Type,
-	}
-}
-
-// API2Workload converts an API Workload info struct into a workload.Info struct.
-func API2Workload(p Workload) workload.Info {
-	labels := make([]string, len(p.Labels))
-	copy(labels, p.Labels)
-	return workload.Info{
-		PayloadClass: API2Definition(p.Definition),
-		Status:       APIStatus2Status(p.Status),
-		Labels:       labels,
-		Details: workload.Details{
-			ID:     p.Details.ID,
-			Status: APIPluginStatus2PluginStatus(p.Details.Status),
-		},
-	}
-}
-
-// Workload2api converts a workload.Info struct into an api.Workload struct.
-func Workload2api(p workload.Info) Workload {
-	labels := make([]string, len(p.Labels))
-	copy(labels, p.Labels)
-	return Workload{
-		Definition: Definition2api(p.PayloadClass),
-		Status:     Status2apiStatus(p.Status),
-		Labels:     labels,
-		Details: WorkloadDetails{
-			ID:     p.Details.ID,
-			Status: PluginStatus2apiPluginStatus(p.Details.Status),
-		},
-	}
-}
-
-// APIStatus2Status converts an API WorkloadStatus struct into a
-// workload.Status struct.
-func APIStatus2Status(status WorkloadStatus) workload.Status {
-	return workload.Status{
-		State:   status.State,
-		Blocker: status.Blocker,
-		Message: status.Message,
-	}
-}
-
-// Status2apiStatus converts a workload.Status struct into an
-// API WorkloadStatus struct.
-func Status2apiStatus(status workload.Status) WorkloadStatus {
-	return WorkloadStatus{
-		State:   status.State,
-		Blocker: status.Blocker,
-		Message: status.Message,
-	}
-}
-
-// APIPluginStatus2PluginStatus converts an API PluginStatus struct into
-// a workload.PluginStatus struct.
-func APIPluginStatus2PluginStatus(status PluginStatus) workload.PluginStatus {
-	return workload.PluginStatus{
-		State: status.State,
-	}
-}
-
-// PluginStatus2apiPluginStatus converts a workload.PluginStatus struct
-// into an API PluginStatus struct.
-func PluginStatus2apiPluginStatus(status workload.PluginStatus) PluginStatus {
-	return PluginStatus{
-		State: status.State,
-	}
 }
