@@ -6,11 +6,11 @@ package config
 import (
 	"bytes"
 	"crypto/tls"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/cert"
@@ -24,6 +24,8 @@ const (
 	JujuSystemKey = "juju-system-key"
 )
 
+var ErrNoAuthorizedKeys = errors.New("no public ssh keys found")
+
 // ReadAuthorizedKeys implements the standard juju behaviour for finding
 // authorized_keys. It returns a set of keys in in authorized_keys format
 // (see sshd(8) for a description).  If path is non-empty, it names the
@@ -35,6 +37,9 @@ const (
 // The result of utils/ssh.PublicKeyFiles will always be prepended to the
 // result. In practice, this means ReadAuthorizedKeys never returns an
 // error when the call originates in the CLI.
+//
+// If no SSH keys are found, ReadAuthorizedKeys returns
+// ErrNoAuthorizedKeys.
 func ReadAuthorizedKeys(path string) (string, error) {
 	files := ssh.PublicKeyFiles()
 	if path == "" {
@@ -67,7 +72,7 @@ func ReadAuthorizedKeys(path string) (string, error) {
 	}
 	if len(keyData) == 0 {
 		if firstError == nil {
-			firstError = fmt.Errorf("no public ssh keys found")
+			firstError = ErrNoAuthorizedKeys
 		}
 		return "", firstError
 	}
