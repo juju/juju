@@ -15,7 +15,7 @@ from tests import (
     TestCase,
 )
 from test_schedule_hetero_control import make_build_var_file
-from test_utility import parse_error
+from tests import parse_error
 from utility import temp_dir
 
 

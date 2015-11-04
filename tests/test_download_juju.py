@@ -19,7 +19,7 @@ from download_juju import (
     s3_download_files,
     select_build
 )
-from test_utility import parse_error
+from tests import parse_error
 from utility import temp_dir
 
 

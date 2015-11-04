@@ -1,10 +1,13 @@
 """Testing helpers and base classes for better isolation."""
 
+from contextlib import contextmanager
 import logging
 import os
 import StringIO
 import subprocess
 import unittest
+
+from mock import patch
 
 import utility
 
@@ -55,3 +58,11 @@ def setup_test_logging(testcase, level=None):
     if level is not None:
         testcase.addCleanup(log.setLevel, log.level)
         log.setLevel(level)
+
+
+@contextmanager
+def parse_error(test_case):
+    stderr = StringIO.StringIO()
+    with test_case.assertRaises(SystemExit):
+        with patch('sys.stderr', stderr):
+            yield stderr
