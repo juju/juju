@@ -273,7 +273,6 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 		Dirname:   lxdclient.ConfigDirname(c.namespace()),
 		Remote:    remote,
 	}
-
 	cfg, err := cfg.WithDefaults()
 	if err != nil {
 		return cfg, errors.Trace(err)
