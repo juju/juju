@@ -247,12 +247,20 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 
 	svc, err := s.State.Service("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := svc.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-	mid, err := units[0].AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mid, gc.Not(gc.Equals), machine.Id())
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		units, err := svc.AllUnits()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(units, gc.HasLen, 1)
+		mid, err := units[0].AssignedMachineId()
+		if !a.HasNext() {
+			c.Assert(err, jc.ErrorIsNil)
+		} else if err != nil {
+			continue
+		}
+		c.Assert(mid, gc.Not(gc.Equals), machine.Id())
+		break
+	}
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
@@ -280,12 +288,20 @@ func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
 func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	svc, err := s.State.Service("portlandia")
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := svc.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-	mid, err := units[0].AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mid, gc.Equals, machineId)
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		units, err := svc.AllUnits()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(units, gc.HasLen, 1)
+		mid, err := units[0].AssignedMachineId()
+		if !a.HasNext() {
+			c.Assert(err, jc.ErrorIsNil)
+		} else if err != nil {
+			continue
+		}
+		c.Assert(mid, gc.Equals, machineId)
+		break
+	}
 }
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
@@ -320,9 +336,18 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
-	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 2)
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		machines, err := s.State.AllMachines()
+		c.Assert(err, jc.ErrorIsNil)
+		if !a.HasNext() {
+			c.Assert(machines, gc.HasLen, 2)
+			break
+		}
+		if len(machines) == 2 {
+			break
+		}
+	}
 }
 
 func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
