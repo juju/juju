@@ -39,7 +39,7 @@ type Config struct {
 }
 
 // ConfigPath returns the full path to Juju LXC config directory.
-// This is here so we do not have to import lxc/lxd into provider.
+// This is here so we do not have to import lxc/lxd into the provider.
 func ConfigPath(namespace string) string {
 	return lxd.ConfigPath(namespace)
 }
@@ -146,7 +146,7 @@ func initializeConfigDir(cfg Config) error {
 		return errors.Trace(err)
 	}
 
-	// Force the default config to get written. on
+	// Force the default config to get written. LoadConfig() returns the
 	// default config from memory if there isn't a config file on disk.
 	// So we load that and then explicitly save it to disk with a call
 	// to SaveConfig().
