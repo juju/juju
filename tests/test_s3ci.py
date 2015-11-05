@@ -4,8 +4,11 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import TestCase
 
+from mock import patch
+
 from s3ci import (
     get_s3_credentials,
+    main,
     parse_args,
     )
 from tests import parse_error
@@ -16,7 +19,7 @@ class TestParseArgs(TestCase):
     def test_get_juju_bin_defaults(self):
         args = parse_args(['get-juju-bin', 'myconfig', '3275'])
         self.assertEqual(Namespace(
-            command='get-juju-bin', config='myconfig', revision_build='3275',
+            command='get-juju-bin', config='myconfig', revision_build=3275,
             workspace='.'),
             args)
 
@@ -67,3 +70,26 @@ class TestGetS3Credentials(TestCase):
                     NoOptionError,
                     "No option 'secret_key' in section: 'default'"):
                 get_s3_credentials(temp_file.name)
+
+
+class TestMain(TestCase):
+
+    def test_main_args(self):
+        with NamedTemporaryFile() as temp_file:
+            temp_file.write(dedent("""\
+                [default]
+                access_key = fake_username
+                secret_key = fake_pass
+                """))
+            temp_file.flush()
+            with patch('sys.argv', [
+                    'foo', 'get-juju-bin', temp_file.name, '28',
+                    'bar-workspace']):
+                with patch('s3ci.S3Connection', autospec=True) as s3c_mock:
+                    with patch('s3ci.get_juju_bin', autospec=True) as gbj_mock:
+                        main()
+        s3c_mock.assert_called_once_with('fake_username', 'fake_pass')
+        gb_mock = s3c_mock.return_value.get_bucket
+        gb_mock.assert_called_once_with('juju-qa-data')
+        gbj_mock.assert_called_once_with(gb_mock.return_value, 28,
+                                         'bar-workspace')
