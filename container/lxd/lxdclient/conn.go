@@ -15,8 +15,10 @@ type Client struct {
 	*serverConfigClient
 	*certClient
 	*profileClient
+	*instanceClient
 
-	raw       rawClientWrapper
+	// TODO(ericsnow) Remove the namespace and isLocal fields?
+
 	namespace string
 	remote    string
 	isLocal   bool
@@ -28,7 +30,9 @@ func Connect(cfg Config) (*Client, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// TODO(ericsnow) Call cfg.Write here if necessary?
+
 	remote := cfg.Remote.ID()
 
 	raw, err := newRawClient(remote, cfg.Dirname)
@@ -40,8 +44,8 @@ func Connect(cfg Config) (*Client, error) {
 		serverConfigClient: &serverConfigClient{raw},
 		certClient:         &certClient{raw},
 		profileClient:      &profileClient{raw},
+		instanceClient:     &instanceClient{raw, remote},
 
-		raw:       raw,
 		namespace: cfg.Namespace,
 		remote:    remote,
 		isLocal:   cfg.Remote.isLocal(),
