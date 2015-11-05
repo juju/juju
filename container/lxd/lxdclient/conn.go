@@ -66,20 +66,3 @@ func newRawClient(remote, configDir string) (*lxd.Client, error) {
 
 	return client, nil
 }
-
-func prepareRemote(cfg Config, newCert Cert) error {
-	client, err := Connect(cfg)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := client.SetConfig("core.https_address", "[::]"); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := client.AddCert(newCert); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
