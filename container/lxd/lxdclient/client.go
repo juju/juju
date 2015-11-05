@@ -7,8 +7,11 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/lxc/lxd"
 )
+
+var logger = loggo.GetLogger("juju.container.lxd.lxdclient")
 
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
