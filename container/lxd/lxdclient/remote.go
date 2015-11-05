@@ -48,9 +48,6 @@ type Remote struct {
 // isLocal determines if the remote is the implicit "local" remote,
 // an unencrypted, unauthenticated unix socket to a locally running LXD.
 func (r Remote) isLocal() bool {
-	if Local.Host != "" {
-		logger.Errorf("%#v", Local)
-	}
 	return r.Host == Local.Host
 }
 
