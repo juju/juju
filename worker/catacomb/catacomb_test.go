@@ -183,23 +183,21 @@ func (s *CatacombSuite) TestAddFailedWorkerKills(c *gc.C) {
 	w.assertDead(c)
 }
 
-func (s *CatacombSuite) TestFinishAddedWorkerKills(c *gc.C) {
+func (s *CatacombSuite) TestFinishAddedWorkerDoesNotKill(c *gc.C) {
 	w := s.startErrorWorker(c, nil)
 	s.assertAddAlive(c, w)
-
 	w.Kill()
-	s.waitDying(c)
-	s.assertDoneError(c, nil)
+	s.assertAddAlive(c, s.startErrorWorker(c, nil))
 	w.assertDead(c)
+	s.assertDoneError(c, nil)
 }
 
-func (s *CatacombSuite) TestAddFinishedWorkerKills(c *gc.C) {
+func (s *CatacombSuite) TestAddFinishedWorkerDoesNotKill(c *gc.C) {
 	w := s.startErrorWorker(c, nil)
 	w.Kill()
 	err := s.catacomb.Add(w)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.waitDying(c)
+	s.assertAddAlive(c, s.startErrorWorker(c, nil))
 	s.assertDoneError(c, nil)
 }
 

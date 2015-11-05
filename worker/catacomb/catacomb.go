@@ -58,6 +58,9 @@ func (catacomb *Catacomb) loop() {
 // Add causes the supplied worker's lifetime to be bound to that of the Catacomb,
 // relieving the client of responsibility for Kill()ing it and Wait()ing for an
 // error, *whether or not this method succeeds*.
+//
+// If the worker completes without error, the catacomb will continue unaffected;
+// otherwise the catacomb's tomb will be killed with the returned error.
 func (catacomb *Catacomb) Add(w worker.Worker) error {
 	reply := make(chan struct{})
 	requests := catacomb.requests
@@ -85,7 +88,9 @@ func (catacomb *Catacomb) add(request addRequest) {
 	close(request.reply)
 	go func() {
 		defer catacomb.wg.Done()
-		catacomb.tomb.Kill(request.worker.Wait())
+		if err := request.worker.Wait(); err != nil {
+			catacomb.tomb.Kill(err)
+		}
 	}()
 	go func() {
 		<-catacomb.tomb.Dying()
