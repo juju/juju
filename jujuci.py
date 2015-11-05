@@ -189,8 +189,12 @@ def get_juju_binary(credentials, file_name, build_data, workspace):
     artifact = get_filename_artifact(file_name, build_data)
     target_path = os.path.join(workspace, artifact.file_name)
     retrieve_artifact(credentials, artifact.location, target_path)
+    return acquire_binary(target_path, workspace)
+
+
+def acquire_binary(package_path, workspace):
     bin_dir = os.path.join(workspace, 'extracted-bin')
-    extract_deb(target_path, bin_dir)
+    extract_deb(package_path, bin_dir)
     for root, dirs, files in os.walk(bin_dir):
         if 'juju' in files:
             return os.path.join(root, 'juju')

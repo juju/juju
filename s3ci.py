@@ -8,6 +8,7 @@ import re
 import sys
 
 from jujuci import (
+    acquire_binary,
     JobNamer,
     PackageNamer,
     )
@@ -53,7 +54,9 @@ def get_juju_bin(bucket, revision_build, workspace):
     package_key, filename = find_package_key(bucket, revision_build)
     logging.info('Selected: %s', package_key.name)
     _download_files([package_key], workspace)
-    return os.path.join(workspace, filename)
+    package_path = os.path.join(workspace, filename)
+    logging.info('Extracting: %s', package_path)
+    return acquire_binary(package_path, workspace)
 
 
 def main():
