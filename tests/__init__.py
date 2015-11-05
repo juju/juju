@@ -5,7 +5,6 @@ import logging
 import os
 import StringIO
 import subprocess
-import sys
 import unittest
 
 from mock import patch

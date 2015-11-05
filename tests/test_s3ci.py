@@ -5,11 +5,20 @@ from textwrap import dedent
 from unittest import TestCase
 from StringIO import StringIO
 
-from mock import patch
+from boto.s3.bucket import Bucket
+from boto.s3.key import Key as S3Key
+from mock import (
+    create_autospec,
+    patch,
+    )
 
+from jujuci import PackageNamer
 from s3ci import (
+    find_package_key,
+    get_job_path,
     get_s3_credentials,
     main,
+    PackageNotFound,
     parse_args,
     )
 from tests import (
@@ -75,6 +84,52 @@ class TestGetS3Credentials(TestCase):
                     NoOptionError,
                     "No option 'secret_key' in section: 'default'"):
                 get_s3_credentials(temp_file.name)
+
+
+class TestFindPackageKey(TestCase):
+
+    def make_package_key(self, revision_build, build=27, distro_release=None):
+        key = create_autospec(S3Key, instance=True)
+        namer = PackageNamer.factory()
+        if distro_release is not None:
+            namer.distro_release = distro_release
+        package = namer.get_release_package('109.6')
+        key.name = '{}/build-{}/{}'.format(
+            get_job_path(revision_build), build, package)
+        return key
+
+    def make_bucket(self, keys):
+        bucket = create_autospec(Bucket, instance=True)
+        bucket.list.return_value = keys
+        return bucket
+
+    def test_find_package_key(self):
+        key = self.make_package_key(390)
+        bucket = self.make_bucket([key])
+        found_key, filename = find_package_key(bucket, 390)
+        bucket.list.assert_called_once_with(get_job_path(390))
+        self.assertIs(key, found_key)
+        self.assertEqual(filename, key.name.split('/')[-1])
+
+    def test_selects_latest(self):
+        new_key = self.make_package_key(390, build=27)
+        old_key = self.make_package_key(390, build=9)
+        bucket = self.make_bucket([old_key, new_key, old_key])
+        found_key = find_package_key(bucket, 390)[0]
+        self.assertIs(new_key, found_key)
+
+    def test_wrong_version(self):
+        key = self.make_package_key(390, distro_release='01.01')
+        bucket = self.make_bucket([key])
+        with self.assertRaises(PackageNotFound):
+            find_package_key(bucket, 390)
+
+    def test_wrong_file(self):
+        key = self.make_package_key(390)
+        key.name = key.name.replace('juju-core', 'juju-dore')
+        bucket = self.make_bucket([key])
+        with self.assertRaises(PackageNotFound):
+            find_package_key(bucket, 390)
 
 
 class TestMain(TestCase):

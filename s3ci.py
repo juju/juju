@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
-from boto.s3.connection import S3Connection
 from ConfigParser import ConfigParser
 import logging
 import os
 import re
 import sys
+
+from boto.s3.connection import S3Connection
 
 from jujuci import (
     acquire_binary,
@@ -38,14 +39,25 @@ def get_s3_credentials(s3cfg_path):
     return access_key, secret_key
 
 
+def get_job_path(revision_build):
+    namer = JobNamer.factory()
+    job = namer.get_build_binary_job()
+    return 'juju-ci/products/version-{}/{}'.format(revision_build, job)
+
+
+class PackageNotFound(Exception):
+    """Raised when a package cannot be found."""
+
+
 def find_package_key(bucket, revision_build):
-    job = JobNamer.factory().get_build_binary_job()
-    prefix = 'juju-ci/products/version-{}/{}'.format(revision_build, job)
+    prefix = get_job_path(revision_build)
     keys = bucket.list(prefix)
     suffix = PackageNamer.factory().get_release_package_suffix()
     filtered = [
         (k, f) for k, f in filter_keys(keys, suffix)
         if f.startswith('juju-core_')]
+    if len(filtered) == 0:
+        raise PackageNotFound('Package could not be found.')
     return sorted(filtered, key=lambda x: int(
         re.search(r'build-(\d+)/', x[0].name).group(1)))[-1]
 
