@@ -5,11 +5,28 @@ import logging
 import os
 import StringIO
 import subprocess
+import sys
 import unittest
 
 from mock import patch
 
 import utility
+
+
+@contextmanager
+def stdout_guard():
+    stdout = StringIO.StringIO()
+    with patch('sys.stdout', stdout):
+        yield
+    if stdout.getvalue() != '':
+        raise AssertionError(
+            'Value written to stdout: {}'.format(stdout.getvalue()))
+
+
+def use_context(test_case, context):
+    result = context.__enter__()
+    test_case.addCleanup(lambda: context.__exit__(None, None, None))
+    return result
 
 
 class TestCase(unittest.TestCase):

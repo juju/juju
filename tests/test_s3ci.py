@@ -3,6 +3,7 @@ from ConfigParser import NoOptionError
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import TestCase
+from StringIO import StringIO
 
 from mock import patch
 
@@ -11,7 +12,11 @@ from s3ci import (
     main,
     parse_args,
     )
-from tests import parse_error
+from tests import (
+    parse_error,
+    stdout_guard,
+    use_context,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -74,7 +79,11 @@ class TestGetS3Credentials(TestCase):
 
 class TestMain(TestCase):
 
+    def setUp(self):
+        use_context(self, stdout_guard())
+
     def test_main_args(self):
+        stdout = StringIO()
         with NamedTemporaryFile() as temp_file:
             temp_file.write(dedent("""\
                 [default]
@@ -86,10 +95,13 @@ class TestMain(TestCase):
                     'foo', 'get-juju-bin', temp_file.name, '28',
                     'bar-workspace']):
                 with patch('s3ci.S3Connection', autospec=True) as s3c_mock:
-                    with patch('s3ci.get_juju_bin', autospec=True) as gbj_mock:
-                        main()
+                    with patch('s3ci.get_juju_bin', autospec=True,
+                               return_value='gjb') as gbj_mock:
+                        with patch('sys.stdout', stdout):
+                            main()
         s3c_mock.assert_called_once_with('fake_username', 'fake_pass')
         gb_mock = s3c_mock.return_value.get_bucket
         gb_mock.assert_called_once_with('juju-qa-data')
         gbj_mock.assert_called_once_with(gb_mock.return_value, 28,
                                          'bar-workspace')
+        self.assertEqual('gjb\n', stdout.getvalue())
