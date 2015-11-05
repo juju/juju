@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
@@ -239,7 +240,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	machineAgentFactory := MachineAgentFactoryFn(
 		&agentConf, logsCh, &mockLoopDeviceManager{},
 	)
-	return machineAgentFactory(m.Id())
+	return machineAgentFactory(m.Id(), c.MkDir())
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
@@ -247,9 +248,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		agentConf := agentConf{dataDir: s.DataDir()}
 		a := NewMachineAgentCmd(
 			nil,
-			MachineAgentFactoryFn(
-				&agentConf, nil, &mockLoopDeviceManager{},
-			),
+			MachineAgentFactoryFn(&agentConf, nil, &mockLoopDeviceManager{}),
 			&agentConf,
 			&agentConf,
 		)
@@ -317,23 +316,19 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 }
 
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
-
+	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(
-			agentConf, nil, &mockLoopDeviceManager{},
-		),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}),
 		agentConf,
 		agentConf,
 	)
 	// little hack to set the data that Init expects to already be set
 	a.(*machineAgentCmd).machineId = "42"
 
-	err = a.Init(nil)
+	err := a.Init(nil)
 	c.Assert(err, gc.IsNil)
 
 	l, ok := ctx.Stderr.(*lumberjack.Logger)
@@ -345,17 +340,12 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
-
+	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
 
 	a := NewMachineAgentCmd(
 		ctx,
-		MachineAgentFactoryFn(
-			agentConf, nil,
-			&mockLoopDeviceManager{},
-		),
+		MachineAgentFactoryFn(agentConf, nil, &mockLoopDeviceManager{}),
 		agentConf,
 		agentConf,
 	)
@@ -365,7 +355,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	// set the value that normally gets set by the flag parsing
 	a.(*machineAgentCmd).logToStdErr = true
 
-	err = a.Init(nil)
+	err := a.Init(nil)
 	c.Assert(err, gc.IsNil)
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
