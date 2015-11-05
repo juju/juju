@@ -1733,13 +1733,20 @@ func (a *MachineAgent) Tag() names.Tag {
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {
+	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
+	jujuRunLink := filepath.Join(a.rootDir, JujuRun)
+
 	// TODO do not remove the symlink if it already points
 	// to the right place.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(jujuRunLink); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
-	return symlink.New(jujud, JujuRun)
+
+	err := os.MkdirAll(filepath.Dir(jujuRunLink), os.FileMode(0755))
+	if err != nil {
+		return err
+	}
+	return symlink.New(jujud, jujuRunLink)
 }
 
 // writeUninstallAgentFile creates the uninstall-agent file on disk,
@@ -1775,7 +1782,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	}
 
 	// Remove the juju-run symlink.
-	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(filepath.Join(a.rootDir, JujuRun)); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
 	}
 
