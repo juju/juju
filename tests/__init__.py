@@ -25,7 +25,7 @@ def stdout_guard():
 
 def use_context(test_case, context):
     result = context.__enter__()
-    test_case.addCleanup(lambda: context.__exit__(None, None, None))
+    test_case.addCleanup(context.__exit__, None, None, None)
     return result
 
 
@@ -56,9 +56,7 @@ class FakeHomeTestCase(TestCase):
 
     def setUp(self):
         super(FakeHomeTestCase, self).setUp()
-        ctx = utility.temp_dir()
-        self.home_dir = ctx.__enter__()
-        self.addCleanup(ctx.__exit__, None, None, None)
+        self.home_dir = use_context(self, utility.temp_dir())
         os.environ["HOME"] = self.home_dir
         os.environ["PATH"] = os.path.join(self.home_dir, ".local", "bin")
         os.mkdir(os.path.join(self.home_dir, ".juju"))

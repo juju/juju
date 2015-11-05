@@ -52,6 +52,7 @@ from remote import (
 )
 from tests import (
     FakeHomeTestCase,
+    use_context,
 )
 from test_jujupy import (
     assert_juju_call,
@@ -756,9 +757,7 @@ class TestBootContext(FakeHomeTestCase):
 
         :return: The value emitted by cxt.__enter__.
         """
-        result = cxt.__enter__()
-        self.addCleanup(lambda: cxt.__exit__(None, None, None))
-        return result
+        return use_context(self, cxt)
 
     @contextmanager
     def bc_context(self, client, log_dir=None, jes=False, keep_env=False):
