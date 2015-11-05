@@ -129,6 +129,23 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	return cfg, nil
 }
 
+func prepareRemote(cfg Config, newCert Cert) error {
+	client, err := Connect(cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := client.SetConfig("core.https_address", "[::]"); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := client.AddCert(newCert); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 func updateLXDVars(dirname string) string {
 	// Change the hard-coded config dir that the raw client uses.
 	// TODO(ericsnow) This is exactly what happens in the lxc CLI for
