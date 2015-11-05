@@ -67,7 +67,10 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	}
 	addrs = append(addrs, network.NewAddresses(ips...)...)
 
-	return addrs, nil
+	// Although we would prefer a DNS name there's no point
+	// returning unresolvable names because activities like 'juju
+	// ssh 0' will instantly fail.
+	return network.ResolvableHostnames(addrs), nil
 }
 
 func (mi *maasInstance) ipAddresses() ([]string, error) {
