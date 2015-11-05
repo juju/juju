@@ -40,9 +40,10 @@ type Config struct {
 	Remote Remote
 }
 
-// JujuConfigDir returns the full path to Juju LXC config directory.
-func JujuConfigDir(namespace string) string {
-	return filepath.Join(os.ExpandEnv(lxd.ConfigDir), namespace)
+// ConfigPath returns the full path to Juju LXC config directory.
+// This is here so we do not have to import lxc/lxd into provider.
+func ConfigPath(namespace string) string {
+	return lxd.ConfigPath(namespace)
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -156,6 +157,7 @@ func updateLXDVars(dirname string) string {
 	return origConfigDir
 }
 
+//TODO(wwitzel3) make sure this is idempotent
 func initializeConfigDir(cfg Config) error {
 	logger.Debugf("initializing config dir %q", cfg.Dirname)
 
