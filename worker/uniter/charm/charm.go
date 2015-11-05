@@ -8,9 +8,10 @@ import (
 	"net/url"
 
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
+
+	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")
