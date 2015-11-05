@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"path/filepath"
 	"time"
 
@@ -403,10 +402,8 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
 }
 
-// WriteLogWithOplog writes out a log record to the a (probably fake)
-// oplog collection and the logs collection.
-func WriteLogWithOplog(
-	oplog *mgo.Collection,
+// MakeLogDoc creates a database document for a single log message.
+func MakeLogDoc(
 	envUUID string,
 	entity names.Tag,
 	t time.Time,
@@ -414,8 +411,8 @@ func WriteLogWithOplog(
 	location string,
 	level loggo.Level,
 	msg string,
-) error {
-	doc := &logDoc{
+) *logDoc {
+	return &logDoc{
 		Id:       bson.NewObjectId(),
 		Time:     t,
 		EnvUUID:  envUUID,
@@ -425,20 +422,6 @@ func WriteLogWithOplog(
 		Level:    level,
 		Message:  msg,
 	}
-	err := oplog.Insert(bson.D{
-		{"ts", bson.MongoTimestamp(time.Now().Unix() << 32)}, // an approximation which will do
-		{"h", rand.Int63()},                                  // again, a suitable fake
-		{"op", "i"},                                          // this will always be an insert
-		{"ns", "logs.logs"},
-		{"o", doc},
-	})
-	if err != nil {
-		return err
-	}
-
-	session := oplog.Database.Session
-	logs := session.DB("logs").C("logs")
-	return logs.Insert(doc)
 }
 
 func SpaceDoc(s *Space) spaceDoc {

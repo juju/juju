@@ -5,6 +5,7 @@ package meterstatus_test
 
 import (
 	"path"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,20 +26,47 @@ func (t *StateFileSuite) SetUpTest(c *gc.C) {
 }
 
 func (t *StateFileSuite) TestReadNonExist(c *gc.C) {
-	code, info, err := t.state.Read()
+	code, info, disconnected, err := t.state.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(code, gc.Equals, "")
 	c.Assert(info, gc.Equals, "")
+	c.Assert(disconnected, gc.IsNil)
 }
 
 func (t *StateFileSuite) TestWriteRead(c *gc.C) {
 	code := "GREEN"
 	info := "some message"
-	err := t.state.Write(code, info)
+	err := t.state.Write(code, info, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	rCode, rInfo, err := t.state.Read()
+	rCode, rInfo, _, err := t.state.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rCode, gc.Equals, code)
 	c.Assert(rInfo, gc.Equals, info)
+}
+
+func (t *StateFileSuite) TestWriteReadExtra(c *gc.C) {
+	code := "GREEN"
+	info := "some message"
+	err := t.state.Write(code, info, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rCode, rInfo, rDisconnected, err := t.state.Read()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rCode, gc.Equals, code)
+	c.Assert(rInfo, gc.Equals, info)
+	c.Assert(rDisconnected, gc.IsNil)
+
+	disconnected := meterstatus.Disconnected{
+		Disconnected: time.Now().Unix(),
+		State:        meterstatus.WaitingRed,
+	}
+
+	err = t.state.Write(code, info, &disconnected)
+
+	rCode, rInfo, rDisconnected, err = t.state.Read()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rCode, gc.Equals, code)
+	c.Assert(rInfo, gc.Equals, info)
+	c.Assert(*rDisconnected, gc.DeepEquals, disconnected)
 }
