@@ -1,180 +1,273 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package azure
 
 import (
-	"encoding/pem"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
+	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/juju/errors"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
 )
 
+const (
+	configAttrAppId              = "application-id"
+	configAttrSubscriptionId     = "subscription-id"
+	configAttrTenantId           = "tenant-id"
+	configAttrAppKey             = "application-key"
+	configAttrLocation           = "location"
+	configAttrStorageAccountType = "storage-account-type"
+
+	// The below bits are internal book-keeping things, rather than
+	// configuration. Config is just what we have to work with.
+
+	// configAttrStorageAccount is the name of the storage account. We
+	// can't just use a well-defined name for the storage acocunt because
+	// storage account names must be globally unique; each storage account
+	// has an associated public DNS entry.
+	configAttrStorageAccount = "storage-account"
+
+	// configAttrStorageAccountKey is the primary key for the storage
+	// account.
+	configAttrStorageAccountKey = "storage-account-key"
+
+	// configAttrControllerResourceGroup is the resource group
+	// corresponding to the controller environment. Each environment needs
+	// to know this because some resources are shared, and live in the
+	// controller environment's resource group.
+	configAttrControllerResourceGroup = "controller-resource-group"
+)
+
 var configFields = schema.Fields{
-	"location":                    schema.String(),
-	"management-subscription-id":  schema.String(),
-	"management-certificate-path": schema.String(),
-	"management-certificate":      schema.String(),
-	"storage-account-name":        schema.String(),
-	"force-image-name":            schema.String(),
-	"availability-sets-enabled":   schema.Bool(),
+	configAttrLocation:                schema.String(),
+	configAttrAppId:                   schema.String(),
+	configAttrSubscriptionId:          schema.String(),
+	configAttrTenantId:                schema.String(),
+	configAttrAppKey:                  schema.String(),
+	configAttrStorageAccount:          schema.String(),
+	configAttrStorageAccountKey:       schema.String(),
+	configAttrStorageAccountType:      schema.String(),
+	configAttrControllerResourceGroup: schema.String(),
 }
+
 var configDefaults = schema.Defaults{
-	"location":                    "",
-	"management-certificate":      "",
-	"management-certificate-path": "",
-	"force-image-name":            "",
-	// availability-sets-enabled is set to Omit (equivalent
-	// to false) for backwards compatibility.
-	"availability-sets-enabled": schema.Omit,
+	configAttrStorageAccount:          schema.Omit,
+	configAttrStorageAccountKey:       schema.Omit,
+	configAttrControllerResourceGroup: schema.Omit,
+	configAttrStorageAccountType:      string(storage.StandardLRS),
+}
+
+var requiredConfigAttributes = []string{
+	configAttrAppId,
+	configAttrAppKey,
+	configAttrSubscriptionId,
+	configAttrTenantId,
+	configAttrLocation,
+	configAttrControllerResourceGroup,
+}
+
+var immutableConfigAttributes = []string{
+	configAttrSubscriptionId,
+	configAttrTenantId,
+	configAttrControllerResourceGroup,
+	configAttrStorageAccount,
+	configAttrStorageAccountType,
+}
+
+var internalConfigAttributes = []string{
+	configAttrStorageAccount,
+	configAttrStorageAccountKey,
+	configAttrControllerResourceGroup,
 }
 
 type azureEnvironConfig struct {
 	*config.Config
-	attrs map[string]interface{}
+	token                   *azure.ServicePrincipalToken
+	subscriptionId          string
+	location                string // canonicalized
+	storageAccount          string
+	storageAccountKey       string
+	storageAccountType      storage.AccountType
+	controllerResourceGroup string
 }
 
-func (cfg *azureEnvironConfig) location() string {
-	return cfg.attrs["location"].(string)
+var knownStorageAccountTypes = []string{
+	"Standard_LRS", "Standard_GRS", "Standard_RAGRS", "Standard_ZRS", "Premium_LRS",
 }
 
-func (cfg *azureEnvironConfig) managementSubscriptionId() string {
-	return cfg.attrs["management-subscription-id"].(string)
-}
-
-func (cfg *azureEnvironConfig) managementCertificate() string {
-	return cfg.attrs["management-certificate"].(string)
-}
-
-func (cfg *azureEnvironConfig) storageAccountName() string {
-	return cfg.attrs["storage-account-name"].(string)
-}
-
-func (cfg *azureEnvironConfig) forceImageName() string {
-	return cfg.attrs["force-image-name"].(string)
-}
-
-func (cfg *azureEnvironConfig) availabilitySetsEnabled() bool {
-	enabled, _ := cfg.attrs["availability-sets-enabled"].(bool)
-	return enabled
-}
-
-func (prov azureEnvironProvider) newConfig(cfg *config.Config) (*azureEnvironConfig, error) {
-	validCfg, err := prov.Validate(cfg, nil)
+func (prov *azureEnvironProvider) newConfig(cfg *config.Config) (*azureEnvironConfig, error) {
+	azureConfig, err := validateConfig(cfg, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	result := new(azureEnvironConfig)
-	result.Config = validCfg
-	result.attrs = validCfg.UnknownAttrs()
-	return result, nil
+	return azureConfig, nil
 }
 
-// Validate ensures that config is a valid configuration for this
-// provider like specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
-	// Validate base configuration change before validating Azure specifics.
-	err := config.Validate(cfg, oldCfg)
+// Validate ensures that the provided configuration is valid for this
+// provider, and that changes between the old (if provided) and new
+// configurations are valid.
+func (*azureEnvironProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, error) {
+	_, err := validateConfig(newCfg, oldCfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newCfg, nil
+}
+
+func validateConfig(newCfg, oldCfg *config.Config) (*azureEnvironConfig, error) {
+	err := config.Validate(newCfg, oldCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	// User cannot change availability-sets-enabled after environment is prepared.
+	validated, err := newCfg.ValidateUnknownAttrs(configFields, configDefaults)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure required configuration is provided.
+	for _, key := range requiredConfigAttributes {
+		if value, ok := validated[key].(string); !ok || value == "" {
+			return nil, errors.Errorf("%q config not specified", key)
+		}
+	}
 	if oldCfg != nil {
-		if oldCfg.AllAttrs()["availability-sets-enabled"] != cfg.AllAttrs()["availability-sets-enabled"] {
-			return nil, fmt.Errorf("cannot change availability-sets-enabled")
+		// Ensure immutable configuration isn't changed.
+		oldUnknownAttrs := oldCfg.UnknownAttrs()
+		for _, key := range immutableConfigAttributes {
+			oldValue, hadValue := oldUnknownAttrs[key].(string)
+			if hadValue {
+				newValue, haveValue := validated[key].(string)
+				if !haveValue {
+					return nil, errors.Errorf(
+						"cannot remove immutable %q config", key,
+					)
+				}
+				if newValue != oldValue {
+					return nil, errors.Errorf(
+						"cannot change immutable %q config (%v -> %v)",
+						key, oldValue, newValue,
+					)
+				}
+			}
+			// It's valid to go from not having to having.
 		}
+		// TODO(axw) figure out how we intend to handle changing
+		// secrets, such as application key
 	}
 
-	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
+	location := canonicalLocation(validated[configAttrLocation].(string))
+	appId := validated[configAttrAppId].(string)
+	subscriptionId := validated[configAttrSubscriptionId].(string)
+	tenantId := validated[configAttrTenantId].(string)
+	appKey := validated[configAttrAppKey].(string)
+	storageAccount, _ := validated[configAttrStorageAccount].(string)
+	storageAccountKey, _ := validated[configAttrStorageAccountKey].(string)
+	storageAccountType := validated[configAttrStorageAccountType].(string)
+	controllerResourceGroup := validated[configAttrControllerResourceGroup].(string)
+
+	if newCfg.FirewallMode() == config.FwGlobal {
+		// We do not currently support the "global" firewall mode.
+		return nil, errNoFwGlobal
+	}
+
+	if !isKnownStorageAccountType(storageAccountType) {
+		return nil, errors.Errorf(
+			"invalid storage account type %q, expected one of: %q",
+			storageAccountType, knownStorageAccountTypes,
+		)
+	}
+
+	token, err := azure.NewServicePrincipalToken(
+		appId, appKey, tenantId,
+		azure.AzureResourceManagerScope,
+	)
 	if err != nil {
-		return nil, err
-	}
-	envCfg := new(azureEnvironConfig)
-	envCfg.Config = cfg
-	envCfg.attrs = validated
-
-	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		// Default volume source not specified; set
-		// it to the azure storage provider.
-		envCfg.attrs[config.StorageDefaultBlockSourceKey] = storageProviderType
+		return nil, errors.Annotate(err, "constructing service principal token")
 	}
 
-	cert := envCfg.managementCertificate()
-	if cert == "" {
-		certPath := envCfg.attrs["management-certificate-path"].(string)
-		pemData, err := readPEMFile(certPath)
-		if err != nil {
-			return nil, fmt.Errorf("invalid management-certificate-path: %s", err)
-		}
-		envCfg.attrs["management-certificate"] = string(pemData)
-	} else {
-		if block, _ := pem.Decode([]byte(cert)); block == nil {
-			return nil, fmt.Errorf("invalid management-certificate: not a PEM encoded certificate")
-		}
+	azureConfig := &azureEnvironConfig{
+		newCfg,
+		token,
+		subscriptionId,
+		location,
+		storageAccount,
+		storageAccountKey,
+		storage.AccountType(storageAccountType),
+		controllerResourceGroup,
 	}
-	delete(envCfg.attrs, "management-certificate-path")
 
-	if envCfg.location() == "" {
-		return nil, fmt.Errorf("environment has no location; you need to set one.  E.g. 'West US'")
-	}
-	return cfg.Apply(envCfg.attrs)
+	return azureConfig, nil
 }
 
-func readPEMFile(path string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
+// isKnownStorageAccountType reports whether or not the given string identifies
+// a known storage account type.
+func isKnownStorageAccountType(t string) bool {
+	for _, knownStorageAccountType := range knownStorageAccountTypes {
+		if t == knownStorageAccountType {
+			return true
+		}
 	}
-	defer f.Close()
-
-	// 640K ought to be enough for anybody.
-	data, err := ioutil.ReadAll(io.LimitReader(f, 1024*640))
-	if err != nil {
-		return nil, err
-	}
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return nil, fmt.Errorf("%q is not a PEM encoded certificate file", path)
-	}
-	return data, nil
+	return false
 }
 
+// canonicalLocation returns the canonicalized location string. This involves
+// stripping whitespace, and lowercasing. The ARM APIs do not support embedded
+// whitespace, whereas the old Service Management APIs used to; we allow the
+// user to provide either, and canonicalize them to one form that ARM allows.
+func canonicalLocation(s string) string {
+	s = strings.Replace(s, " ", "", -1)
+	return strings.ToLower(s)
+}
+
+// TODO(axw) update with prose re credentials
 var boilerplateYAML = `
 # https://juju.ubuntu.com/docs/config-azure.html
 azure:
     type: azure
 
-    # location specifies the place where instances will be started,
-    # for example: West US, North Europe.
-    #
+    # NOTE: below we refer to the "Azure CLI", which is a CLI for Azure
+    # provided by Microsoft. Please see the documentation for this at:
+    #   https://azure.microsoft.com/en-us/documentation/articles/xplat-cli/
+
+    # application-id is the ID of an application you create in Azure Active
+    # Directory for Juju to use. For instructions on how to do this, see:
+    #   https://azure.microsoft.com/en-us/documentation/articles/resource-group-authenticate-service-principal
+    application-id: 00000000-0000-0000-0000-000000000000
+
+    # application-key is the password specified when creating the application
+    # in Azure Active Directory.
+    application-password: XXX
+
+    # subscription-id defines the Azure account subscription ID to
+    # manage resources in. You can list your account subscriptions
+    # with the Azure CLI's "account list" action: "azure account list".
+    # The ID associated with each account is the subscription ID.
+    subscription-id: 00000000-0000-0000-0000-000000000000
+
+    # tenant-id is the ID of the Azure tenant, which identifies the Azure
+    # Active Directory instance. You can obtain this ID by using the Azure
+    # CLI's "account show" action. First list your accounts with
+    # "azure account list", and then feed the account ID to
+    # "azure account show" to obtain the properties of the account, including
+    # the tenant ID.
+    tenant-id: 00000000-0000-0000-0000-000000000000
+
+    # storage-account-type specifies the type of the storage account,
+    # which defines the replication strategy and support for different
+    # disk types.
+    storage-account-type: Standard_LRS
+
+    # location specifies the Azure data center ("location") where
+    # instances will be started, for example: West US, North Europe.
     location: West US
 
-    # The following attributes specify Windows Azure Management
-    # information. See:
-    # http://msdn.microsoft.com/en-us/library/windowsazure
-    # for details.
-    #
-    management-subscription-id: 00000000-0000-0000-0000-000000000000
-    management-certificate-path: /home/me/azure.pem
-
-    # storage-account-name holds Windows Azure Storage info.
-    #
-    storage-account-name: abcdefghijkl
-
-    # force-image-name overrides the OS image selection to use a fixed
-    # image for all deployments. Most useful for developers.
-    #
-    # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
+    # image-stream chooses an stream from which to select OS images. This
+    # can be "released" (default), or "daily".
     #
     # image-stream: "released"
 
@@ -199,18 +292,3 @@ azure:
     # enable-os-upgrade: true
 
 `[1:]
-
-func (prov azureEnvironProvider) BoilerplateConfig() string {
-	return boilerplateYAML
-}
-
-// SecretAttrs is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	secretAttrs := make(map[string]string)
-	azureCfg, err := prov.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	secretAttrs["management-certificate"] = azureCfg.managementCertificate()
-	return secretAttrs, nil
-}

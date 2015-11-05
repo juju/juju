@@ -12,6 +12,17 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 )
 
+const (
+	// The userdata on windows will arrive as CustomData.bin
+	// We need to execute that as a powershell script and then remove it
+	bootstrapUserdataScript = `#ps1_sysnative
+mv C:\AzureData\CustomData.bin C:\AzureData\CustomData.ps1
+& C:\AzureData\CustomData.ps1
+rm C:\AzureData\CustomData.ps1
+`
+	bootstrapUserdataScriptFilename = "juju-userdata.ps1"
+)
+
 type AzureRenderer struct{}
 
 func (AzureRenderer) EncodeUserdata(udata []byte, vers os.OSType) ([]byte, error) {
