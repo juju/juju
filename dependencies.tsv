@@ -12,7 +12,7 @@ github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	337aa7d5d712728d181dbda2547a6556d4189626	2015-05-08T07:43:36Z
 github.com/juju/bundlechanges	git	b2d0b097c9a98f88cd85b964c7c096b83bd1346b	2015-10-13T13:38:12Z
-github.com/juju/cmd	git	b1413672b3bcc049754fe66e9d21633c5071c86a	2015-10-22T20:49:08Z
+github.com/juju/cmd	git	33554d631f79b840d76673665b292215882ba90a	2015-10-28T03:05:29Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
@@ -25,7 +25,7 @@ github.com/juju/names	git	860f27da4816cee6ee62ed781f9060c78ab1c23e	2015-10-14T15
 github.com/juju/persistent-cookiejar	git	c1502e864932ca865fc79c94bb39e7ccd7edf7e0	2015-11-02T12:13:01Z
 github.com/juju/ratelimit	git	aa5bb718d4d435629821789cb90970319f57bfe5	2015-03-30T01:41:32Z
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
-github.com/juju/retry	git	d0750b18c5852d076fac8ec735de49f9eb28df9e	2015-10-27T01:53:53Z
+github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/schema	git	afe1151cb49d1d7ed3c75592dfc6f38703f2e988	2015-08-07T07:58:08Z
 github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T15:59:36Z
 github.com/juju/testing	git	ad6f815f49f8209a27a3b7efb6d44876493e5939	2015-10-12T16:09:06Z
