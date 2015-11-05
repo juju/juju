@@ -1,7 +1,19 @@
+#!/usr/bin/env python
 from argparse import ArgumentParser
 from boto.s3.connection import S3Connection
 from ConfigParser import ConfigParser
+import logging
+import re
 import sys
+
+from jujuci import (
+    JobNamer,
+    PackageNamer,
+    )
+from download_juju import (
+    filter_keys,
+    )
+from utility import configure_logging
 
 
 def parse_args(args=None):
@@ -23,11 +35,24 @@ def get_s3_credentials(s3cfg_path):
     return access_key, secret_key
 
 
+def find_package_key(bucket, revision_build):
+    job = JobNamer.factory().get_build_binary_job()
+    prefix = 'juju-ci/products/version-{}/{}'.format(revision_build, job)
+    keys = bucket.list(prefix)
+    suffix = PackageNamer.factory().get_release_package_suffix()
+    filtered = [
+        k for k, f in filter_keys(keys, suffix) if f.startswith('juju-core_')]
+    return sorted(filtered, key=lambda x: int(
+        re.search(r'build-(\d+)/', x.name).group(1)))[-1]
+
+
 def get_juju_bin(bucket, revision_build, workspace):
-    pass
+    package_key = find_package_key(bucket, revision_build)
+    logging.info('Selected: %s', package_key.name)
 
 
 def main():
+    configure_logging(logging.INFO)
     args = parse_args()
     credentials = get_s3_credentials(args.config)
     conn = S3Connection(*credentials)

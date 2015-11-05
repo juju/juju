@@ -425,11 +425,14 @@ class Namer:
 class PackageNamer(Namer):
     """A class knows the names of packages."""
 
+    def get_release_package_suffix(self):
+        return '-0ubuntu1~{distro_release}.1~juju1_{arch}.deb'.format(
+            distro_release=self.distro_release, arch=self.arch)
+
     def get_release_package(self, version):
         return (
-            'juju-core_{version}-0ubuntu1~{distro_release}.1~juju1_{arch}.deb'
-            ).format(version=version, distro_release=self.distro_release,
-                     arch=self.arch)
+            'juju-core_{version}{suffix}'
+            ).format(version=version, suffix=self.get_release_package_suffix())
 
     def get_certification_package(self, version):
         return (
