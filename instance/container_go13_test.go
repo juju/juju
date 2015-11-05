@@ -13,13 +13,13 @@ import (
 )
 
 func (s *InstanceSuite) TestParseContainerTypeLXD(c *gc.C) {
-	ctype, err = instance.ParseContainerType("lxd")
+	ctype, err := instance.ParseContainerType("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXD)
 }
 
 func (s *InstanceSuite) TestParseContainerTypeLXDOrNone(c *gc.C) {
-	ctype, err = instance.ParseContainerTypeOrNone("lxd")
+	ctype, err := instance.ParseContainerTypeOrNone("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXD)
 }
