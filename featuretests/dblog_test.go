@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/api"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"

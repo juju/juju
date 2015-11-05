@@ -10,13 +10,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/feature"
 	statebackups "github.com/juju/juju/state/backups"
 )
 

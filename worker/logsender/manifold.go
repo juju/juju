@@ -6,7 +6,6 @@ package logsender
 import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )

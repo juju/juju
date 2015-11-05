@@ -6,9 +6,6 @@ package environment
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
-
-	"github.com/juju/juju/feature"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.environment")

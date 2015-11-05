@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -60,12 +59,6 @@ func (s *environmentmanagerSuite) TestCreateEnvironmentBadUser(c *gc.C) {
 	envManager := s.OpenAPI(c)
 	_, err := envManager.CreateEnvironment("not a user", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
-}
-
-func (s *environmentmanagerSuite) TestCreateEnvironmentFeatureNotEnabled(c *gc.C) {
-	envManager := s.OpenAPI(c)
-	_, err := envManager.CreateEnvironment("owner", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `unknown object type "EnvironmentManager"`)
 }
 
 func (s *environmentmanagerSuite) TestCreateEnvironmentMissingConfig(c *gc.C) {

@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
 )

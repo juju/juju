@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 )
 

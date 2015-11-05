@@ -144,6 +144,7 @@ func (s *debugLogSocketImpl) sendError(err error) {
 type debugLogParams struct {
 	maxLines      uint
 	fromTheStart  bool
+	noTail        bool
 	backlog       uint
 	filterLevel   loggo.Level
 	includeEntity []string
@@ -169,6 +170,14 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
+	}
+
+	if value := queryMap.Get("noTail"); value != "" {
+		noTail, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
+		}
+		params.noTail = noTail
 	}
 
 	if value := queryMap.Get("backlog"); value != "" {

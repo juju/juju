@@ -15,12 +15,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 )
 

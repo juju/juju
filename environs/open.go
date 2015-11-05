@@ -9,12 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/feature"
 )
 
 var (

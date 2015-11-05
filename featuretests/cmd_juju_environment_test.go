@@ -14,7 +14,6 @@ import (
 
 	cmdenvironment "github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
