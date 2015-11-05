@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/legacy/azure"
 	"github.com/juju/juju/testing"
 )
 
