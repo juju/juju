@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-from ConfigParser import ConfigParser
 import json
 import os
 import sys
@@ -21,6 +20,7 @@ from jujuci import(
     get_job_data,
     JENKINS_URL,
 )
+from s3ci import get_s3_credentials
 from utility import until_timeout
 
 
@@ -282,11 +282,7 @@ def get_s3_access():
     """
     s3cfg_path = os.path.join(
         os.getenv('HOME'), 'cloud-city/juju-qa.s3cfg')
-    config = ConfigParser()
-    config.read(s3cfg_path)
-    access_key = config.get('default', 'access_key')
-    secret_key = config.get('default', 'secret_key')
-    return access_key, secret_key
+    return get_s3_credentials(s3cfg_path)
 
 
 def get_args(argv=None):
