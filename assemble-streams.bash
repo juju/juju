@@ -44,6 +44,7 @@ usage() {
 
 check_deps() {
     echo "Phase 0: Checking requirements."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     has_deps=1
     which lftp || has_deps=0
     if [[ GET_RELEASED_TOOL == "true" ]]; then
@@ -60,6 +61,7 @@ check_deps() {
 
 build_tool_tree() {
     echo "Phase 1: Building collection and republication tree."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     if [[ ! -d $DEST_DEBS ]]; then
         mkdir $DEST_DEBS
     fi
@@ -79,6 +81,7 @@ sync_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     if [[ $PURPOSE == "released" ]]; then
         # The directory layout doesn't describe the released dir as "release".
         local source_dist="juju-dist"
@@ -99,6 +102,7 @@ sync_released_tools() {
 
 retract_tools() {
     echo "Phase 3: Reseting streams as needed."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
         echo "Removing all testing agents to reset for $PURPOSE."
         local RETRACT_GLOB="juju-*.tgz"
@@ -118,6 +122,7 @@ retract_tools() {
 
 init_tools_maybe() {
     echo "Phase 4: Checking for $PURPOSE tools in the tree."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
     echo "Found $count agents in $DESTINATION/juju-dist/tools/releases"
     if [[ $((count)) == 0 && -d $DESTINATION/tools/releases ]]; then
@@ -169,6 +174,7 @@ retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
     echo "Phase 5: Retrieving juju-core packages from archives"
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     if [[ $IS_LOCAL == "true" ]]; then
         linked_files=$(
             find $TEST_DEBS_DIR -name 'juju-core_*.deb' -or -name 'juju-*.tgz')
@@ -265,6 +271,7 @@ archive_extra_ppc64_tool() {
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
     echo "Phase 6: Extracting jujud from packages and archiving tools."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     cd $DESTINATION
     WORK=$(mktemp -d)
     mkdir ${WORK}/juju
@@ -345,6 +352,7 @@ archive_tools() {
 
 copy_proposed_to_release() {
     echo "Phase 6: Copying proposed tools to released."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     local proposed_releases="$DESTINATION/juju-dist/tools/proposed"
     count=$(find $proposed_releases -name "juju-${RELEASE}*.tgz" | wc -l)
     if [[ $((count)) == 0  ]]; then
@@ -389,6 +397,7 @@ extract_new_juju() {
 generate_streams() {
     # Create the streams metadata and organised the tree for later publication.
     echo "Phase 7: Generating streams data."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     cd $DEST_DIST
     JUJU_PATH=$(mktemp -d)
     # Prefer the juju that matches the version being released.
@@ -448,7 +457,7 @@ generate_streams() {
     # When 1.21.0 is run this way, the released product file still uses
     # the releases dir.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
-        $JUJU_EXEC metadata generate-tools $CLEAN -d $DEST_DIST
+        $JUJU_EXEC metadata generate-tools -d $DEST_DIST
 
     # Colon-to-dashed transition part 2, ensure both sets are the same.
     echo "Reconciling the current product file names with other file names."
@@ -544,7 +553,7 @@ generate_streams() {
     $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools \
-        --clean -d $JUJU_DIST --stream $PURPOSE
+        -d $JUJU_DIST --stream $PURPOSE
     rm -r $JUJU_PATH
 
     # Colon-to-dashed transition part 2, ensure both sets are the same.
@@ -606,6 +615,7 @@ generate_streams() {
 
 generate_mirrors() {
     echo "Phase 8: Creating mirror json."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     ${SCRIPT_DIR}/generate_mirrors.py $DEST_DIST/tools/
     #
     # New one-tree support.
@@ -619,6 +629,7 @@ generate_mirrors() {
 
 sign_metadata() {
     echo "Phase 9: Signing metadata with $SIGNING_KEY."
+    echo "$(date +%Y-%m-%dT%H:%M:%S)"
     key_option="--default-key $SIGNING_KEY"
     gpg_options=""
     if [[ -n $SIGNING_PASSPHRASE_FILE ]]; then
