@@ -20,6 +20,8 @@ type Clock struct {
 }
 
 // Timer implements a mock clock.Timer for testing purposes.
+// It's Reset and Stop functions might alter the contents
+// of clock by changing the alarm with id ID.
 type Timer struct {
 	clock *Clock
 	ID    int
@@ -30,17 +32,14 @@ func (t *Timer) Reset(d time.Duration) bool {
 	t.clock.mu.Lock()
 	defer t.clock.mu.Unlock()
 
-	found := false
 	for i, alarm := range t.clock.alarms {
 		if t.ID == alarm.ID {
 			t.clock.alarms[i].time = t.clock.now.Add(d)
-			found = true
+			sort.Sort(byTime(t.clock.alarms))
+			return true
 		}
 	}
-	if found {
-		sort.Sort(byTime(t.clock.alarms))
-	}
-	return found
+	return false
 }
 
 // Stop is part of the clock.Timer interface
@@ -48,17 +47,13 @@ func (t *Timer) Stop() bool {
 	t.clock.mu.Lock()
 	defer t.clock.mu.Unlock()
 
-	found := false
 	for i, alarm := range t.clock.alarms {
 		if t.ID == alarm.ID {
 			t.clock.alarms = removeFromSlice(t.clock.alarms, i)
-			found = true
+			return true
 		}
 	}
-	if found {
-		sort.Sort(byTime(t.clock.alarms))
-	}
-	return found
+	return false
 }
 
 // NewClock returns a new clock set to the supplied time.
@@ -81,14 +76,7 @@ func (clock *Clock) After(d time.Duration) <-chan time.Time {
 	if d <= 0 {
 		notify <- clock.now
 	} else {
-		alarm := alarm{
-			time:      clock.now.Add(d),
-			notify:    notify,
-			ID:        clock.currentAlarmID,
-			alarmType: notifyAlarm,
-		}
-		clock.alarms = append(clock.alarms, alarm)
-		sort.Sort(byTime(clock.alarms))
+		clock.setAlarm(clock.now.Add(d), func() { notify <- clock.now })
 		clock.currentAlarmID = clock.currentAlarmID + 1
 	}
 	return notify
@@ -101,18 +89,24 @@ func (clock *Clock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	if d <= 0 {
 		f()
 	} else {
-		alarm := alarm{
-			time:      clock.now.Add(d),
-			function:  f,
-			ID:        clock.currentAlarmID,
-			alarmType: funcAlarm,
-		}
-		clock.alarms = append(clock.alarms, alarm)
-		sort.Sort(byTime(clock.alarms))
+		clock.setAlarm(clock.now.Add(d), f)
 	}
-	t := &Timer{clock, clock.currentAlarmID}
+
+	// If d <= we're sending an id that's not attached to any alarm
+	// which is what's intended
 	clock.currentAlarmID = clock.currentAlarmID + 1
+	t := &Timer{clock, clock.currentAlarmID}
 	return t
+}
+
+func (clock *Clock) setAlarm(t time.Time, trigger func()) {
+	alarm := alarm{
+		time:    t,
+		trigger: trigger,
+		ID:      clock.currentAlarmID,
+	}
+	clock.alarms = append(clock.alarms, alarm)
+	sort.Sort(byTime(clock.alarms))
 }
 
 // Advance advances the result of Now by the supplied duration, and sends
@@ -126,35 +120,17 @@ func (clock *Clock) Advance(d time.Duration) {
 		if clock.now.Before(alarm.time) {
 			break
 		}
-		alarm.Trigger(clock.now)
+		alarm.trigger()
 		rung++
 	}
 	clock.alarms = clock.alarms[rung:]
 }
 
-type alarmType int
-
-const (
-	notifyAlarm alarmType = iota
-	funcAlarm
-)
-
-// alarm records the time at which we're expected to send on notify.
+// alarm records the time at which we're expected to execute trigger.
 type alarm struct {
-	time      time.Time
-	notify    chan time.Time
-	function  func()
-	ID        int
-	alarmType alarmType
-}
-
-func (a *alarm) Trigger(now time.Time) {
-	switch a.alarmType {
-	case notifyAlarm:
-		a.notify <- now
-	case funcAlarm:
-		a.function()
-	}
+	time    time.Time
+	trigger func()
+	ID      int
 }
 
 // removeFromSlice removes item at the specified index from the slice
