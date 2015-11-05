@@ -50,7 +50,7 @@ def find_package_key(bucket, revision_build):
         re.search(r'build-(\d+)/', x[0].name).group(1)))[-1]
 
 
-def get_juju_bin(bucket, revision_build, workspace):
+def fetch_juju_binary(bucket, revision_build, workspace):
     package_key, filename = find_package_key(bucket, revision_build)
     logging.info('Selected: %s', package_key.name)
     _download_files([package_key], workspace)
@@ -62,10 +62,17 @@ def get_juju_bin(bucket, revision_build, workspace):
 def main():
     configure_logging(logging.INFO)
     args = parse_args()
+    if args.command == 'get-juju-bin':
+        return get_juju_bin(args)
+    else:
+        raise Exception('{} not implemented.'.format(args.command))
+
+
+def get_juju_bin(args):
     credentials = get_s3_credentials(args.config)
     conn = S3Connection(*credentials)
     bucket = conn.get_bucket('juju-qa-data')
-    print(get_juju_bin(bucket, args.revision_build, args.workspace))
+    print(fetch_juju_binary(bucket, args.revision_build, args.workspace))
 
 
 if __name__ == '__main__':

@@ -95,7 +95,7 @@ class TestMain(TestCase):
                     'foo', 'get-juju-bin', temp_file.name, '28',
                     'bar-workspace']):
                 with patch('s3ci.S3Connection', autospec=True) as s3c_mock:
-                    with patch('s3ci.get_juju_bin', autospec=True,
+                    with patch('s3ci.fetch_juju_binary', autospec=True,
                                return_value='gjb') as gbj_mock:
                         with patch('sys.stdout', stdout):
                             main()
