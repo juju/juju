@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/gorilla/websocket"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 )
@@ -87,14 +88,14 @@ type rawContainerMethods interface {
 	ContainerStatus(name string) (*shared.ContainerState, error)
 
 	// container data (create, actions, destroy)
-	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	LocalCopy(source string, name string, config map[string]string, profiles []string, ephemeral bool) (*lxd.Response, error)
 	MigrateFrom(name string, operation string, secrets map[string]string, config map[string]string, profiles []string, baseImage string, ephemeral bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
 	// exec
-	Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error)
+	Exec(name string, cmd []string, env map[string]string, stdin io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, controlHandler func(*lxd.Client, *websocket.Conn)) (int, error)
 
 	// files
 	PushFile(container string, p string, gid int, uid int, mode os.FileMode, buf io.ReadSeeker) error

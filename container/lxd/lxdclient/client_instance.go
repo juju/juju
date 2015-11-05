@@ -7,10 +7,11 @@ package lxdclient
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
@@ -22,10 +23,9 @@ import (
 type rawInstanceClient interface {
 	ListContainers() ([]shared.ContainerInfo, error)
 	ContainerStatus(name string) (*shared.ContainerState, error)
-	Init(name string, imgremote string, image string, profiles *[]string, ephem bool) (*lxd.Response, error)
-	SetContainerConfig(container, key, value string) error
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool) (*lxd.Response, error)
-	Exec(name string, cmd []string, env map[string]string, stdin *os.File, stdout *os.File, stderr *os.File) (int, error)
+	Exec(name string, cmd []string, env map[string]string, stdin io.ReadCloser, stdout io.WriteCloser, stderr io.WriteCloser, controlHandler func(*lxd.Client, *websocket.Conn)) (int, error)
 	Delete(name string) (*lxd.Response, error)
 
 	WaitForSuccess(waitURL string) error
@@ -51,7 +51,8 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 
 	// TODO(ericsnow) Copy the image first?
 
-	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, spec.Ephemeral)
+	config := spec.config()
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -65,24 +66,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		return errors.Trace(err)
 	}
 
-	if err := client.initInstanceConfig(spec); err != nil {
-		if err := client.removeInstance(spec.Name); err != nil {
-			logger.Errorf("could not remove container %q after configuring it failed", spec.Name)
-		}
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (client *instanceClient) initInstanceConfig(spec InstanceSpec) error {
-	config := spec.config()
-	for key, value := range config {
-		err := client.raw.SetContainerConfig(spec.Name, key, value)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
 	return nil
 }
 
@@ -100,24 +83,18 @@ func (err execFailure) Error() string {
 func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
 	var env map[string]string
 
-	stdin, stdout, stderr, err := ioFiles()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	cmdStr := strings.Join(cmd, " ")
 	fmt.Println("running", cmdStr)
 
-	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr)
+	var input, output closingBuffer
+	stdin, stdout, stderr := &input, &output, &output
+	rc, err := client.raw.Exec(spec.Name, cmd, env, stdin, stdout, stderr, nil)
 	if err != nil {
 		return errors.Trace(err)
 	} else if rc != 0 {
-		msg := "<reason unknown>"
-		if _, err := stdout.Seek(0, 0); err == nil {
-			data, err := ioutil.ReadAll(stdout)
-			if err == nil {
-				msg = string(data)
-			}
+		msg := output.String()
+		if msg == "" {
+			msg = "<reason unknown>"
 		}
 		err := &execFailure{
 			cmd:    cmdStr,
@@ -128,22 +105,6 @@ func (client *instanceClient) exec(spec InstanceSpec, cmd []string) error {
 	}
 
 	return nil
-}
-
-// TODO(ericsnow) We *should* be able to use bytes.Buffer instead...
-func ioFiles() (*os.File, *os.File, *os.File, error) {
-	infile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	outfile, err := ioutil.TempFile("", "")
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	// We combine stdout and stderr...
-	return infile, outfile, outfile, nil
 }
 
 func (client *instanceClient) chmod(spec InstanceSpec, filename string, mode os.FileMode) error {

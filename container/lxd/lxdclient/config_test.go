@@ -277,18 +277,17 @@ func checkFiles(c *gc.C, cfg lxdclient.Config) {
 	var config lxd.Config
 	err = goyaml.Unmarshal(configData, &config)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config.Aliases, gc.HasLen, 0)
+	config.Aliases = nil
 	c.Check(config, jc.DeepEquals, lxd.Config{
 		DefaultRemote: "local",
 		Remotes: map[string]lxd.RemoteConfig{
-			// TODO(ericsnow) Use the following once we switch to a newer LXD.
-			//"local": lxd.LocalRemote,
-			"local": config.Remotes["local"],
+			"local": lxd.LocalRemote,
 			cfg.Remote.Name: lxd.RemoteConfig{
 				Addr:   "https://" + cfg.Remote.Host + ":8443",
 				Public: false,
 			},
 		},
-		// TODO(ericsnow) Use the following once we switch to a newer LXD.
-		//Aliases: nil,
+		Aliases: nil,
 	})
 }

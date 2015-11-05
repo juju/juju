@@ -236,7 +236,7 @@ func (s *remoteSuite) TestIDLocal(c *gc.C) {
 	}
 	id := remote.ID()
 
-	c.Check(id, gc.Equals, "")
+	c.Check(id, gc.Equals, "local")
 }
 
 func (s *remoteSuite) TestUsingTCPOkay(c *gc.C) {
