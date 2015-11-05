@@ -182,16 +182,26 @@ type address struct {
 	AddressType string `bson:"addresstype"`
 	NetworkName string `bson:"networkname,omitempty"`
 	Scope       string `bson:"networkscope,omitempty"`
+	Origin      string `bson:"origin,omitempty"`
 }
+
+type Origin string
+
+const (
+	OriginUnknown  Origin = ""
+	OriginProvider Origin = "provider"
+	OriginMachine  Origin = "machine"
+)
 
 // fromNetworkAddress is a convenience helper to create a state type
 // out of the network type, here for Address.
-func fromNetworkAddress(netAddr network.Address) address {
+func fromNetworkAddress(netAddr network.Address, origin Origin) address {
 	return address{
 		Value:       netAddr.Value,
 		AddressType: string(netAddr.Type),
 		NetworkName: netAddr.NetworkName,
 		Scope:       string(netAddr.Scope),
+		Origin:      string(origin),
 	}
 }
 
@@ -208,10 +218,10 @@ func (addr *address) networkAddress() network.Address {
 
 // fromNetworkAddresses is a convenience helper to create a state type
 // out of the network type, here for a slice of Address.
-func fromNetworkAddresses(netAddrs []network.Address) []address {
+func fromNetworkAddresses(netAddrs []network.Address, origin Origin) []address {
 	addrs := make([]address, len(netAddrs))
 	for i, netAddr := range netAddrs {
-		addrs[i] = fromNetworkAddress(netAddr)
+		addrs[i] = fromNetworkAddress(netAddr, origin)
 	}
 	return addrs
 }
