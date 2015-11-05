@@ -1,9 +1,10 @@
 from argparse import Namespace
 from ConfigParser import NoOptionError
+import os
+from StringIO import StringIO
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import TestCase
-from StringIO import StringIO
 
 from boto.s3.bucket import Bucket
 from boto.s3.key import Key as S3Key
@@ -14,6 +15,7 @@ from mock import (
 
 from jujuci import PackageNamer
 from s3ci import (
+    fetch_juju_binary,
     find_package_key,
     get_job_path,
     get_s3_credentials,
@@ -24,8 +26,10 @@ from s3ci import (
 from tests import (
     parse_error,
     stdout_guard,
+    TestCase as StrictTestCase,
     use_context,
     )
+from utility import temp_dir
 
 
 class TestParseArgs(TestCase):
@@ -86,53 +90,89 @@ class TestGetS3Credentials(TestCase):
                 get_s3_credentials(temp_file.name)
 
 
-class TestFindPackageKey(TestCase):
+def mock_package_key(revision_build, build=27, distro_release=None):
+    key = create_autospec(S3Key, instance=True)
+    namer = PackageNamer.factory()
+    if distro_release is not None:
+        namer.distro_release = distro_release
+    package = namer.get_release_package('109.6')
+    key.name = '{}/build-{}/{}'.format(
+        get_job_path(revision_build), build, package)
+    return key
 
-    def make_package_key(self, revision_build, build=27, distro_release=None):
-        key = create_autospec(S3Key, instance=True)
-        namer = PackageNamer.factory()
-        if distro_release is not None:
-            namer.distro_release = distro_release
-        package = namer.get_release_package('109.6')
-        key.name = '{}/build-{}/{}'.format(
-            get_job_path(revision_build), build, package)
-        return key
 
-    def make_bucket(self, keys):
-        bucket = create_autospec(Bucket, instance=True)
-        bucket.list.return_value = keys
-        return bucket
+def mock_bucket(keys):
+    bucket = create_autospec(Bucket, instance=True)
+    bucket.list.return_value = keys
+    return bucket
+
+
+def get_key_filename(key):
+    return key.name.split('/')[-1]
+
+
+class TestFindPackageKey(StrictTestCase):
+
+    def setUp(self):
+        use_context(self, patch('utility.get_deb_arch', return_value='amd65',
+                                autospec=True))
 
     def test_find_package_key(self):
-        key = self.make_package_key(390)
-        bucket = self.make_bucket([key])
+        key = mock_package_key(390)
+        bucket = mock_bucket([key])
         found_key, filename = find_package_key(bucket, 390)
         bucket.list.assert_called_once_with(get_job_path(390))
         self.assertIs(key, found_key)
-        self.assertEqual(filename, key.name.split('/')[-1])
+        self.assertEqual(filename, get_key_filename(key))
 
     def test_selects_latest(self):
-        new_key = self.make_package_key(390, build=27)
-        old_key = self.make_package_key(390, build=9)
-        bucket = self.make_bucket([old_key, new_key, old_key])
+        new_key = mock_package_key(390, build=27)
+        old_key = mock_package_key(390, build=9)
+        bucket = mock_bucket([old_key, new_key, old_key])
         found_key = find_package_key(bucket, 390)[0]
         self.assertIs(new_key, found_key)
 
     def test_wrong_version(self):
-        key = self.make_package_key(390, distro_release='01.01')
-        bucket = self.make_bucket([key])
+        key = mock_package_key(390, distro_release='01.01')
+        bucket = mock_bucket([key])
         with self.assertRaises(PackageNotFound):
             find_package_key(bucket, 390)
 
     def test_wrong_file(self):
-        key = self.make_package_key(390)
+        key = mock_package_key(390)
         key.name = key.name.replace('juju-core', 'juju-dore')
-        bucket = self.make_bucket([key])
+        bucket = mock_bucket([key])
         with self.assertRaises(PackageNotFound):
             find_package_key(bucket, 390)
 
 
-class TestMain(TestCase):
+class TestFetchJujuBinary(StrictTestCase):
+
+    def setUp(self):
+        use_context(self, patch('utility.get_deb_arch', return_value='amd65',
+                                autospec=True))
+
+    def test_fetch_juju_binary(self):
+        key = mock_package_key(275)
+        filename = get_key_filename(key)
+        bucket = mock_bucket([key])
+
+        def extract(package, out_dir):
+            os.mkdir(out_dir)
+            open(os.path.join(out_dir, 'juju'), 'w')
+
+        with temp_dir() as workspace:
+            with patch('jujuci.extract_deb', autospec=True,
+                       side_effect=extract) as ed_mock:
+                extracted = fetch_juju_binary(bucket, 275, workspace)
+        local_deb = os.path.join(workspace, filename)
+        key.get_contents_to_filename.assert_called_once_with(local_deb)
+        eb_dir = os.path.join(workspace, 'extracted-bin')
+        ed_mock.assert_called_once_with(local_deb, eb_dir)
+        self.assertEqual(os.path.join(eb_dir, 'juju'), extracted)
+
+
+class TestMain(StrictTestCase):
 
     def setUp(self):
         use_context(self, stdout_guard())
