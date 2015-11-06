@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -44,6 +46,7 @@ type fakeRunCommand struct {
 	ranCommands [][]string
 	mgoSession  mgoSession
 	mgoDb       mgoDb
+	service     service.Service
 }
 
 func (f *fakeRunCommand) runCommand(command string, args ...string) (string, error) {
@@ -232,6 +235,71 @@ func (f *fakeRunCommand) initiateMongoServer(args peergrouper.InitiateMongoParam
 	return nil
 }
 
+func (f *fakeRunCommand) discoverService(serviceName string, c common.Conf) (service.Service, error) {
+	ran := []string{"service.DiscoverService", serviceName}
+	f.ranCommands = append(f.ranCommands, ran)
+	return f.service, nil
+}
+
+type fakeService struct {
+	ranCommands []string
+}
+
+func (f *fakeService) Start() error {
+	f.ranCommands = append(f.ranCommands, "Start")
+	return nil
+}
+
+func (f *fakeService) Stop() error {
+	f.ranCommands = append(f.ranCommands, "Stop")
+	return nil
+}
+
+func (f *fakeService) Install() error {
+	f.ranCommands = append(f.ranCommands, "Install")
+	return nil
+}
+
+func (f *fakeService) Remove() error {
+	f.ranCommands = append(f.ranCommands, "Remove")
+	return nil
+}
+
+func (f *fakeService) Name() string {
+	f.ranCommands = append(f.ranCommands, "Name")
+	return "FakeService"
+}
+
+func (f *fakeService) Conf() common.Conf {
+	f.ranCommands = append(f.ranCommands, "Conf")
+	return common.Conf{}
+}
+
+func (f *fakeService) Running() (bool, error) {
+	f.ranCommands = append(f.ranCommands, "Running")
+	return true, nil
+}
+
+func (f *fakeService) Exists() (bool, error) {
+	f.ranCommands = append(f.ranCommands, "Exists")
+	return true, nil
+}
+
+func (f *fakeService) Installed() (bool, error) {
+	f.ranCommands = append(f.ranCommands, "Installed")
+	return true, nil
+}
+
+func (f *fakeService) InstallCommands() ([]string, error) {
+	f.ranCommands = append(f.ranCommands, "InstalledCommands")
+	return []string{"echo", "install"}, nil
+}
+
+func (f *fakeService) StartCommands() ([]string, error) {
+	f.ranCommands = append(f.ranCommands, "StartCommands")
+	return []string{"echo", "start"}, nil
+}
+
 func (s *UpgradeMongoCommandSuite) createFakeAgentConf(c *gc.C, agentDir string, mongoVersion mongo.Version) {
 	attributeParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
@@ -266,9 +334,11 @@ func (s *UpgradeMongoCommandSuite) createFakeAgentConf(c *gc.C, agentDir string,
 func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 	session := fakeMgoSesion{}
 	db := fakeMgoDb{}
+	service := fakeService{}
 	command := fakeRunCommand{
 		mgoSession: &session,
 		mgoDb:      &db,
+		service:    &service,
 	}
 
 	testDir := c.MkDir()
@@ -289,6 +359,7 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		dialAndLogin:         command.dialAndLogin,
 		satisfyPrerequisites: command.satisfyPrerequisites,
 		createTempDir:        command.createTempDir,
+		discoverService:      command.discoverService,
 
 		mongoStart:                  command.startService,
 		mongoStop:                   command.stopService,
@@ -301,6 +372,7 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 	err := upgradeMongoCommand.run()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCommands := [][]string{
+		{"service.DiscoverService", "unity-settings-daemon"},
 		{"CreateTempDir"},
 		{"SatisfyPrerequisites"},
 		{"/usr/lib/juju/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo26dump"},
@@ -328,14 +400,19 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 	}
 
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
+	c.Assert(session.ranClose, gc.Equals, 2)
+	c.Assert(db.ranAction, gc.Equals, "authSchemaUpgrade")
+	c.Assert(service.ranCommands, gc.DeepEquals, []string{"Stop", "Start"})
 }
 
 func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 	session := fakeMgoSesion{}
 	db := fakeMgoDb{}
+	service := fakeService{}
 	command := fakeRunCommand{
 		mgoSession: &session,
 		mgoDb:      &db,
+		service:    &service,
 	}
 
 	testDir := c.MkDir()
@@ -356,6 +433,7 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 		dialAndLogin:         command.dialAndLogin,
 		satisfyPrerequisites: command.satisfyPrerequisites,
 		createTempDir:        command.createTempDir,
+		discoverService:      command.discoverService,
 
 		mongoStart:                  command.startService,
 		mongoStop:                   command.stopService,
@@ -368,6 +446,7 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 	err := upgradeMongoCommand.run()
 	c.Assert(err, gc.ErrorMatches, "cannot upgrade from mongo 2.4 to 2.6: cannot restart mongodb 2.6 service: failing restart")
 	expectedCommands := [][]string{
+		{"service.DiscoverService", "unity-settings-daemon"},
 		{"CreateTempDir"},
 		{"SatisfyPrerequisites"},
 		{"/usr/lib/juju/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo26dump"},
@@ -392,6 +471,9 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 	}
 
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)
+	c.Assert(session.ranClose, gc.Equals, 2)
+	c.Assert(db.ranAction, gc.Equals, "authSchemaUpgrade")
+	c.Assert(service.ranCommands, gc.DeepEquals, []string{"Stop", "Start"})
 }
 
 func (s *UpgradeMongoCommandSuite) TestRunStopsIfNotMongo24(c *gc.C) {
@@ -420,6 +502,7 @@ func (s *UpgradeMongoCommandSuite) TestRunStopsIfNotMongo24(c *gc.C) {
 		dialAndLogin:         command.dialAndLogin,
 		satisfyPrerequisites: command.satisfyPrerequisites,
 		createTempDir:        command.createTempDir,
+		discoverService:      command.discoverService,
 
 		mongoStart:                  command.startService,
 		mongoStop:                   command.stopService,

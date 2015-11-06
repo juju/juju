@@ -161,7 +161,7 @@ func (u *UpgradeMongoCommand) run() error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		svc, err := service.DiscoverService(agentServiceName, common.Conf{})
+		svc, err := u.discoverService(agentServiceName, common.Conf{})
 		if err != nil {
 			return errors.Annotate(err, "cannot determine juju service")
 		}
