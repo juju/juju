@@ -17,7 +17,8 @@ func init() {
 
 // UndertakerAPI implements the API used by the machine undertaker worker.
 type UndertakerAPI struct {
-	st State
+	st        State
+	resources *common.Resources
 }
 
 // NewUndertakerAPI creates a new instance of the undertaker API.
@@ -75,4 +76,34 @@ func (u *UndertakerAPI) RemoveEnviron() error {
 		return errors.New("an error occurred, unable to remove environment")
 	}
 	return nil
+}
+
+// WatchEnvironResources creates watchers for changes to the lifecycle of an
+// environment's machines and services.
+func (u *UndertakerAPI) WatchEnvironResources() (params.NotifyWatchResults, error) {
+	results := params.NotifyWatchResults{}
+	machines, err := u.st.AllMachines()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	services, err := u.st.AllServices()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	var watchers []state.NotifyWatcher
+	for _, machine := range machines {
+		watchers = append(watchers, machine.Watch())
+	}
+	for _, service := range services {
+		watchers = append(watchers, service.Watch())
+	}
+
+	watch := common.NewMultiNotifyWatcher(watchers...)
+	if _, ok := <-watch.Changes(); ok {
+		results.Results = append(results.Results, params.NotifyWatchResult{
+			NotifyWatcherId: u.resources.Register(watch),
+		})
+	}
+	return results, nil
 }

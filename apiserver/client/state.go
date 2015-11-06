@@ -28,7 +28,7 @@ type Unit interface {
 }
 
 // stateInterface contains the state.State methods used in this package,
-// allowing stubs to ve created for testing.
+// allowing stubs to be created for testing.
 type stateInterface interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	Unit(string) (Unit, error)
