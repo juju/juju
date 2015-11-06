@@ -35,14 +35,15 @@ type Config struct {
 	// default: "$HOME/.config/lxc"
 	Dirname string
 
-	// Filename is the name of the file in the config directory
-	// that holds the client config.
-	// default: "config.yaml"
-	Filename string
-
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.
 	Remote Remote
+}
+
+// ConfigPath returns the full path to Juju LXC config directory.
+// This is here so we do not have to import lxc/lxd into the provider.
+func ConfigPath(namespace string) string {
+	return lxd.ConfigPath(namespace)
 }
 
 // WithDefaults updates a copy of the config with default values
@@ -51,13 +52,9 @@ func (cfg Config) WithDefaults() (Config, error) {
 	// We leave a blank namespace alone.
 	// Also, note that cfg is a value receiver, so it is an implicit copy.
 
-	if cfg.Filename == "" {
-		cfg.Filename = configDefaultFile
-	}
-
 	if cfg.Dirname == "" {
 		// TODO(ericsnow) Switch to filepath as soon as LXD does.
-		dirname, _ := path.Split(lxd.ConfigPath(cfg.Filename))
+		dirname := path.Dir(lxd.ConfigPath("DUMMY"))
 		cfg.Dirname = path.Clean(dirname)
 	}
 
@@ -160,6 +157,7 @@ func updateLXDVars(dirname string) string {
 	return origConfigDir
 }
 
+//TODO(wwitzel3) make sure this is idempotent
 func initializeConfigDir(cfg Config) error {
 	logger.Debugf("initializing config dir %q", cfg.Dirname)
 
@@ -175,6 +173,7 @@ func initializeConfigDir(cfg Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if err := lxd.SaveConfig(config); err != nil {
 		return errors.Trace(err)
 	}
@@ -213,7 +212,7 @@ func (cfg Config) write() error {
 }
 
 func (cfg Config) writeConfigFile() error {
-	filename := cfg.resolve(cfg.Filename)
+	filename := cfg.resolve(configDefaultFile)
 	logger.Debugf("writing config file %q", filename)
 
 	// TODO(ericsnow) Cache the low-level config in Config?
