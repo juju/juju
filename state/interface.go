@@ -168,3 +168,18 @@ type GlobalEntity interface {
 	globalKey() string
 	Tag() names.Tag
 }
+
+// ServiceEntity represents a local or remote service.
+type ServiceEntity interface {
+	// Life returns the life status of the service.
+	Life() Life
+
+	// IsRemote returns true if the service is remote (hosted in a different environment).
+	IsRemote() bool
+
+	// Endpoints returns the service's currently available relation endpoints.
+	Endpoints() ([]Endpoint, error)
+
+	// Endpoint returns the relation endpoint with the supplied name, if it exists.
+	Endpoint(relationName string) (Endpoint, error)
+}

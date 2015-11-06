@@ -57,6 +57,11 @@ func newService(st *State, doc *serviceDoc) *Service {
 	return svc
 }
 
+// IsRemote returns false for a local service.
+func (s *Service) IsRemote() bool {
+	return false
+}
+
 // Name returns the service name.
 func (s *Service) Name() string {
 	return s.doc.Name
