@@ -9,10 +9,10 @@ should be (1) that a zero Catacomb is not valid, so you need to use New();
 and (2) you can call .Add(someWorker) to bind the worker's lifetime to the
 catacomb, and cause errors from that worker to be exposed via the catacomb.
 
-This approach costs an extra goroutine over tomb.v2, but is slightly more
+This approach costs many extra goroutines over tomb.v2, but is slightly more
 robust because Catacomb.Add() verfies worker registration, and is thus safer
 than Tomb.Go(); and, of course, because it's designed to integrate with the
-worker model already common in juju.
+worker.Worker model already common in juju.
 
 Note that a Catacomb is *not* a worker itself, despite the internal goroutine;
 it's a tool to help you construct workers, just like tomb.Tomb.
@@ -79,5 +79,10 @@ extension (watcher.Stop is fine *if* the watcher is started in NewWorker,
 and deferred to run *after* the tomb is killed with the loop error; but that
 becomes unwieldy when more than one watcher/worker is needed, and profoundly
 tedious when the set is either large or dynamic).
+
+It's also important to note that you can easily manage dynamic workers: once
+you've Add()ed the worker you can freely Kill() it at any time; so long as it
+cleans itself up successfully, and returns no error from Wait(), it will be
+silently unregistered and leave the catacomb otherwise unaffected.
 */
 package catacomb

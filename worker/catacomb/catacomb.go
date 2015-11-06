@@ -60,7 +60,11 @@ func (catacomb *Catacomb) loop() {
 // error, *whether or not this method succeeds*.
 //
 // If the worker completes without error, the catacomb will continue unaffected;
-// otherwise the catacomb's tomb will be killed with the returned error.
+// otherwise the catacomb's tomb will be killed with the returned error. This
+// allows clients to freely Kill() workers that have been Add()ed; any errors
+// encountered will still kill the catacomb, so the workers stay under control
+// until the last moment, and so can be managed pretty casually once they've
+// been added.
 func (catacomb *Catacomb) Add(w worker.Worker) error {
 	reply := make(chan struct{})
 	requests := catacomb.requests
@@ -86,15 +90,24 @@ func (catacomb *Catacomb) Add(w worker.Worker) error {
 func (catacomb *Catacomb) add(request addRequest) {
 	catacomb.wg.Add(1)
 	close(request.reply)
+
+	// The coordination via stopped is not externally observable, and hence
+	// not tested, but it's yucky to leave the second goroutine running when
+	// we don't need to.
+	stopped := make(chan struct{})
 	go func() {
 		defer catacomb.wg.Done()
+		defer close(stopped)
 		if err := request.worker.Wait(); err != nil {
 			catacomb.tomb.Kill(err)
 		}
 	}()
 	go func() {
-		<-catacomb.tomb.Dying()
-		request.worker.Kill()
+		select {
+		case <-stopped:
+		case <-catacomb.tomb.Dying():
+			request.worker.Kill()
+		}
 	}()
 }
 
