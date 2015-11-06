@@ -272,7 +272,7 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 
 	cfg := lxdclient.Config{
 		Namespace: c.namespace(),
-		Dirname:   c.dirname(),
+		Dirname:   lxdclient.ConfigPath("juju-" + c.namespace()),
 		Remote:    remote,
 	}
 	cfg, err := cfg.WithDefaults()
