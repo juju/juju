@@ -24,14 +24,26 @@ from utility import configure_logging
 def parse_args(args=None):
     parser = ArgumentParser()
     default_config = os.path.join(get_juju_home(), 'juju-qa.s3cfg')
-    subparsers = parser.add_subparsers(help='sub-command help', dest='command')
+    subparsers = parser.add_subparsers(help='Sub-command to run',
+                                       dest='command')
     parser_get_juju_bin = subparsers.add_parser(
-        'get-juju-bin', help='Retrieve and extract juju binaries.')
-    parser_get_juju_bin.add_argument('revision_build', type=int)
-    parser_get_juju_bin.add_argument('workspace', nargs='?', default='.')
-    parser_get_juju_bin.add_argument('--config', default=default_config)
-    parser_get_juju_bin.add_argument('--verbose', '-v', default=0,
-                                     action='count')
+        'get-juju-bin', help='Retrieve and extract juju binaries.',
+        description="""
+        Download the package for this client machine from s3.
+        Extract the package files.  Print the location of the juju client.
+        """)
+    parser_get_juju_bin.add_argument('revision_build', type=int,
+        help='The revision-build to get binaries from')
+    parser_get_juju_bin.add_argument(
+        'workspace', nargs='?', default='.',
+        help='The directory to download into')
+    parser_get_juju_bin.add_argument(
+        '--config', default=default_config,
+        help=('s3cmd config file for credentials.  Default to juju-qa.s3cfg in'
+              ' juju home.'))
+    parser_get_juju_bin.add_argument(
+        '--verbose', '-v', default=0, action='count',
+        help='Increase verbosity')
     return parser.parse_args(args)
 
 
