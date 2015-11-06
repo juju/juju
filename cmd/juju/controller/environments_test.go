@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"time"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
@@ -57,7 +57,7 @@ func (f *fakeEnvMgrAPIClient) AllEnvironments() ([]base.UserEnvironment, error) 
 func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	err := envcmd.WriteCurrentSystem("fake")
+	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
 	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
@@ -85,7 +85,7 @@ func (s *EnvironmentsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnvironmentsSuite) newCommand() cmd.Command {
-	return system.NewEnvironmentsCommand(s.api, s.api, s.creds)
+	return controller.NewEnvironmentsCommand(s.api, s.api, s.creds)
 }
 
 func (s *EnvironmentsSuite) checkSuccess(c *gc.C, user string, args ...string) {

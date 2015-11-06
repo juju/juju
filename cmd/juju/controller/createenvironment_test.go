@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"io/ioutil"
@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
@@ -67,7 +67,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := system.NewCreateEnvironmentCommand(s.fake, s.parser)
+	command, _ := controller.NewCreateEnvironmentCommand(s.fake, s.parser)
 	return testing.RunCommand(c, command, args...)
 }
 
@@ -110,7 +110,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := system.NewCreateEnvironmentCommand(nil, nil)
+		wrappedCommand, command := controller.NewCreateEnvironmentCommand(nil, nil)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
@@ -336,18 +336,18 @@ func (s *createSuite) TestSetConfigSpecialCaseDefaults(c *gc.C) {
 	noUserCurrent := func() (*user.User, error) {
 		panic("should not be called")
 	}
-	s.PatchValue(system.UserCurrent, noUserCurrent)
+	s.PatchValue(controller.UserCurrent, noUserCurrent)
 	// We test setConfigSpecialCaseDefaults independently
 	// because we can't use the local provider in the tests.
 	for i, test := range setConfigSpecialCaseDefaultsTests {
 		c.Logf("test %d: %s", i, test.about)
 		os.Setenv("USER", test.userEnvVar)
 		if test.userCurrent != nil {
-			*system.UserCurrent = test.userCurrent
+			*controller.UserCurrent = test.userCurrent
 		} else {
-			*system.UserCurrent = noUserCurrent
+			*controller.UserCurrent = noUserCurrent
 		}
-		err := system.SetConfigSpecialCaseDefaults(test.config["name"].(string), test.config)
+		err := controller.SetConfigSpecialCaseDefaults(test.config["name"].(string), test.config)
 		if test.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectError)
 		} else {
@@ -413,7 +413,7 @@ type fakeCreateClient struct {
 	env     params.Environment
 }
 
-var _ system.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
+var _ controller.CreateEnvironmentAPI = (*fakeCreateClient)(nil)
 
 func (*fakeCreateClient) Close() error {
 	return nil

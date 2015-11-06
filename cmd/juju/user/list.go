@@ -24,7 +24,7 @@ See Also:
 `
 
 func newListCommand() cmd.Command {
-	return envcmd.WrapSystem(&listCommand{})
+	return envcmd.WrapController(&listCommand{})
 }
 
 // listCommand shows all the users in the Juju server.

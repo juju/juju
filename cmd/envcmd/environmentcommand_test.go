@@ -107,12 +107,12 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
 	testEnsureEnvName(c, "fubar")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitSystemFile(c *gc.C) {
-	// If there is a current-system file, error raised.
-	err := envcmd.WriteCurrentSystem("fubar")
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitControllerFile(c *gc.C) {
+	// If there is a current-controller file, error raised.
+	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = initTestCommand(c)
-	c.Assert(err, gc.ErrorMatches, `not operating on an environment, using system "fubar"`)
+	c.Assert(err, gc.ErrorMatches, `not operating on an environment, using controller "fubar"`)
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {

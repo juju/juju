@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system
+package controller
 
 import (
 	"bytes"
@@ -20,13 +20,13 @@ import (
 )
 
 func newEnvironmentsCommand() cmd.Command {
-	return envcmd.WrapSystem(&environmentsCommand{})
+	return envcmd.WrapController(&environmentsCommand{})
 }
 
 // environmentsCommand returns the list of all the environments the
-// current user can access on the current system.
+// current user can access on the current controller.
 type environmentsCommand struct {
-	envcmd.SysCommandBase
+	envcmd.ControllerCommandBase
 	out       cmd.Output
 	all       bool
 	user      string
@@ -38,14 +38,14 @@ type environmentsCommand struct {
 }
 
 var envsDoc = `
-List all the environments the user can access on the current system.
+List all the environments the user can access on the current controller.
 
 The environments listed here are either environments you have created
 yourself, or environments which have been shared with you.
 
 See Also:
-    juju help juju-systems
-    juju help systems
+    juju help juju-controllers
+    juju help controllers
     juju help environment users
     juju help environment share
     juju help environment unshare
@@ -58,7 +58,7 @@ type EnvironmentsEnvAPI interface {
 	ListEnvironments(user string) ([]base.UserEnvironment, error)
 }
 
-// EnvironmentsSysAPI defines the methods on the system manager API that the
+// EnvironmentsSysAPI defines the methods on the controller manager API that the
 // environments command calls.
 type EnvironmentsSysAPI interface {
 	Close() error
@@ -69,7 +69,7 @@ type EnvironmentsSysAPI interface {
 func (c *environmentsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "environments",
-		Purpose: "list all environments the user can access on the current system",
+		Purpose: "list all environments the user can access on the current controller",
 		Doc:     envsDoc,
 	}
 }

@@ -1,14 +1,14 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
@@ -77,19 +77,19 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ListSuite) TestSystemList(c *gc.C) {
-	context, err := testing.RunCommand(c, system.NewListCommand(s.store))
+func (s *ListSuite) TestControllerList(c *gc.C) {
+	context, err := testing.RunCommand(c, controller.NewListCommand(s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "test1\ntest3\n")
 }
 
 func (s *ListSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, system.NewListCommand(s.store), "whoops")
+	_, err := testing.RunCommand(c, controller.NewListCommand(s.store), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *ListSuite) TestListSystemsError(c *gc.C) {
 	s.store = errorStore{err: errors.New("cannot read info")}
-	_, err := testing.RunCommand(c, system.NewListCommand(s.store))
-	c.Assert(err, gc.ErrorMatches, "failed to list systems in config store: cannot read info")
+	_, err := testing.RunCommand(c, controller.NewListCommand(s.store))
+	c.Assert(err, gc.ErrorMatches, "failed to list controllers in config store: cannot read info")
 }

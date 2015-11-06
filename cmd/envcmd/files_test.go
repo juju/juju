@@ -26,18 +26,18 @@ func (s *filesSuite) assertCurrentEnvironment(c *gc.C, environmentName string) {
 	c.Assert(current, gc.Equals, environmentName)
 }
 
-func (s *filesSuite) assertCurrentSystem(c *gc.C, systemName string) {
-	current, err := envcmd.ReadCurrentSystem()
+func (s *filesSuite) assertCurrentController(c *gc.C, controllerName string) {
+	current, err := envcmd.ReadCurrentController()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(current, gc.Equals, systemName)
+	c.Assert(current, gc.Equals, controllerName)
 }
 
 func (s *filesSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
 	s.assertCurrentEnvironment(c, "")
 }
 
-func (s *filesSuite) TestReadCurrentSystemUnset(c *gc.C) {
-	s.assertCurrentSystem(c, "")
+func (s *filesSuite) TestReadCurrentControllerUnset(c *gc.C) {
+	s.assertCurrentController(c, "")
 }
 
 func (s *filesSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
@@ -46,10 +46,10 @@ func (s *filesSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 	s.assertCurrentEnvironment(c, "fubar")
 }
 
-func (s *filesSuite) TestReadCurrentSystemSet(c *gc.C) {
-	err := envcmd.WriteCurrentSystem("fubar")
+func (s *filesSuite) TestReadCurrentControllerSet(c *gc.C) {
+	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentSystem(c, "fubar")
+	s.assertCurrentController(c, "fubar")
 }
 
 func (s *filesSuite) TestWriteEnvironmentAddsNewline(c *gc.C) {
@@ -60,26 +60,26 @@ func (s *filesSuite) TestWriteEnvironmentAddsNewline(c *gc.C) {
 	c.Assert(string(current), gc.Equals, "fubar\n")
 }
 
-func (s *filesSuite) TestWriteSystemAddsNewline(c *gc.C) {
-	err := envcmd.WriteCurrentSystem("fubar")
+func (s *filesSuite) TestWriteControllerAddsNewline(c *gc.C) {
+	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	current, err := ioutil.ReadFile(envcmd.GetCurrentSystemFilePath())
+	current, err := ioutil.ReadFile(envcmd.GetCurrentControllerFilePath())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(current), gc.Equals, "fubar\n")
 }
 
-func (s *filesSuite) TestWriteEnvironmentRemovesSystemFile(c *gc.C) {
-	err := envcmd.WriteCurrentSystem("baz")
+func (s *filesSuite) TestWriteEnvironmentRemovesControllerFile(c *gc.C) {
+	err := envcmd.WriteCurrentController("baz")
 	c.Assert(err, jc.ErrorIsNil)
 	err = envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envcmd.GetCurrentSystemFilePath(), jc.DoesNotExist)
+	c.Assert(envcmd.GetCurrentControllerFilePath(), jc.DoesNotExist)
 }
 
-func (s *filesSuite) TestWriteSystemRemovesEnvironmentFile(c *gc.C) {
+func (s *filesSuite) TestWriteControllerRemovesEnvironmentFile(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	err = envcmd.WriteCurrentSystem("baz")
+	err = envcmd.WriteCurrentController("baz")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envcmd.GetCurrentEnvironmentFilePath(), jc.DoesNotExist)
 }
@@ -91,35 +91,35 @@ func (*filesSuite) TestErrorWritingCurrentEnvironment(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
 }
 
-func (*filesSuite) TestErrorWritingCurrentSystem(c *gc.C) {
+func (*filesSuite) TestErrorWritingCurrentController(c *gc.C) {
 	// Can't write a file over a directory.
-	os.MkdirAll(envcmd.GetCurrentSystemFilePath(), 0777)
-	err := envcmd.WriteCurrentSystem("fubar")
-	c.Assert(err, gc.ErrorMatches, "unable to write to the system file: .*")
+	os.MkdirAll(envcmd.GetCurrentControllerFilePath(), 0777)
+	err := envcmd.WriteCurrentController("fubar")
+	c.Assert(err, gc.ErrorMatches, "unable to write to the controller file: .*")
 }
 
 func (*filesSuite) TestCurrentCommenctionNameMissing(c *gc.C) {
-	name, isSystem, err := envcmd.CurrentConnectionName()
+	name, isController, err := envcmd.CurrentConnectionName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isSystem, jc.IsFalse)
+	c.Assert(isController, jc.IsFalse)
 	c.Assert(name, gc.Equals, "")
 }
 
 func (*filesSuite) TestCurrentCommenctionNameEnvironment(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
-	name, isSystem, err := envcmd.CurrentConnectionName()
+	name, isController, err := envcmd.CurrentConnectionName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isSystem, jc.IsFalse)
+	c.Assert(isController, jc.IsFalse)
 	c.Assert(name, gc.Equals, "fubar")
 }
 
-func (*filesSuite) TestCurrentCommenctionNameSystem(c *gc.C) {
-	err := envcmd.WriteCurrentSystem("baz")
+func (*filesSuite) TestCurrentCommenctionNameController(c *gc.C) {
+	err := envcmd.WriteCurrentController("baz")
 	c.Assert(err, jc.ErrorIsNil)
-	name, isSystem, err := envcmd.CurrentConnectionName()
+	name, isController, err := envcmd.CurrentConnectionName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isSystem, jc.IsTrue)
+	c.Assert(isController, jc.IsTrue)
 	c.Assert(name, gc.Equals, "baz")
 }
 
@@ -141,40 +141,40 @@ func (s *filesSuite) TestSetCurrentEnvironmentExistingEnv(c *gc.C) {
 	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-env\n")
 }
 
-func (s *filesSuite) TestSetCurrentEnvironmentExistingSystem(c *gc.C) {
-	err := envcmd.WriteCurrentSystem("fubar")
+func (s *filesSuite) TestSetCurrentEnvironmentExistingController(c *gc.C) {
+	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	err = envcmd.SetCurrentEnvironment(ctx, "new-env")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCurrentEnvironment(c, "new-env")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (system) -> new-env\n")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (controller) -> new-env\n")
 }
 
-func (s *filesSuite) TestSetCurrentSystem(c *gc.C) {
+func (s *filesSuite) TestSetCurrentController(c *gc.C) {
 	ctx := testing.Context(c)
-	err := envcmd.SetCurrentSystem(ctx, "new-sys")
+	err := envcmd.SetCurrentController(ctx, "new-sys")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentSystem(c, "new-sys")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "-> new-sys (system)\n")
+	s.assertCurrentController(c, "new-sys")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "-> new-sys (controller)\n")
 }
 
-func (s *filesSuite) TestSetCurrentSystemExistingEnv(c *gc.C) {
+func (s *filesSuite) TestSetCurrentControllerExistingEnv(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	err = envcmd.SetCurrentSystem(ctx, "new-sys")
+	err = envcmd.SetCurrentController(ctx, "new-sys")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentSystem(c, "new-sys")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-sys (system)\n")
+	s.assertCurrentController(c, "new-sys")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar -> new-sys (controller)\n")
 }
 
-func (s *filesSuite) TestSetCurrentSystemExistingSystem(c *gc.C) {
-	err := envcmd.WriteCurrentSystem("fubar")
+func (s *filesSuite) TestSetCurrentControllerExistingController(c *gc.C) {
+	err := envcmd.WriteCurrentController("fubar")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	err = envcmd.SetCurrentSystem(ctx, "new-sys")
+	err = envcmd.SetCurrentController(ctx, "new-sys")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCurrentSystem(c, "new-sys")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (system) -> new-sys (system)\n")
+	s.assertCurrentController(c, "new-sys")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "fubar (controller) -> new-sys (controller)\n")
 }

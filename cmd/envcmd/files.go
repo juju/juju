@@ -19,16 +19,16 @@ import (
 
 const (
 	CurrentEnvironmentFilename = "current-environment"
-	CurrentSystemFilename      = "current-system"
+	CurrentControllerFilename  = "current-controller"
 
 	lockName = "current.lock"
 
-	systemSuffix = " (system)"
+	controllerSuffix = " (controller)"
 )
 
 var (
 	// 5 seconds should be way more than enough to write or read any files
-	// even on heavily loaded systems.
+	// even on heavily loaded controllers.
 	lockTimeout = 5 * time.Second
 )
 
@@ -50,12 +50,13 @@ func getCurrentEnvironmentFilePath() string {
 	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
 }
 
-func getCurrentSystemFilePath() string {
-	return filepath.Join(osenv.JujuHome(), CurrentSystemFilename)
+func getCurrentControllerFilePath() string {
+	return filepath.Join(osenv.JujuHome(), CurrentControllerFilename)
 }
 
-// Read the file $JUJU_HOME/current-environment and return the value stored
-// there.  If the file doesn't exist an empty string is returned and no error.
+// ReadCurrentEnvironment reads the file $JUJU_HOME/current-environment and
+// return the value stored there.  If the file doesn't exist an empty string
+// is returned and no error.
 func ReadCurrentEnvironment() (string, error) {
 	lock, err := acquireEnvironmentLock("read current-environment")
 	if err != nil {
@@ -73,16 +74,17 @@ func ReadCurrentEnvironment() (string, error) {
 	return strings.TrimSpace(string(current)), nil
 }
 
-// Read the file $JUJU_HOME/current-system and return the value stored there.
-// If the file doesn't exist an empty string is returned and no error.
-func ReadCurrentSystem() (string, error) {
-	lock, err := acquireEnvironmentLock("read current-system")
+// ReadCurrentController reads the file $JUJU_HOME/current-controller and
+// return the value stored there. If the file doesn't exist an empty string is
+// returned and no error.
+func ReadCurrentController() (string, error) {
+	lock, err := acquireEnvironmentLock("read current-controller")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	defer lock.Unlock()
 
-	current, err := ioutil.ReadFile(getCurrentSystemFilePath())
+	current, err := ioutil.ReadFile(getCurrentControllerFilePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
@@ -92,7 +94,8 @@ func ReadCurrentSystem() (string, error) {
 	return strings.TrimSpace(string(current)), nil
 }
 
-// Write the envName to the file $JUJU_HOME/current-environment file.
+// WriteCurrentEnvironment writes the envName to the file
+// $JUJU_HOME/current-environment file.
 func WriteCurrentEnvironment(envName string) error {
 	lock, err := acquireEnvironmentLock("write current-environment")
 	if err != nil {
@@ -105,8 +108,8 @@ func WriteCurrentEnvironment(envName string) error {
 	if err != nil {
 		return errors.Errorf("unable to write to the environment file: %q, %s", path, err)
 	}
-	// If there is a current system file, remove it.
-	if err := os.Remove(getCurrentSystemFilePath()); err != nil && !os.IsNotExist(err) {
+	// If there is a current controller file, remove it.
+	if err := os.Remove(getCurrentControllerFilePath()); err != nil && !os.IsNotExist(err) {
 		logger.Debugf("removing the current environment file due to %s", err)
 		// Best attempt to remove the file we just wrote.
 		os.Remove(path)
@@ -115,22 +118,23 @@ func WriteCurrentEnvironment(envName string) error {
 	return nil
 }
 
-// Write the systemName to the file $JUJU_HOME/current-system file.
-func WriteCurrentSystem(systemName string) error {
-	lock, err := acquireEnvironmentLock("write current-system")
+// WriteCurrentController writes the controllerName to the file
+// $JUJU_HOME/current-controller file.
+func WriteCurrentController(controllerName string) error {
+	lock, err := acquireEnvironmentLock("write current-controller")
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer lock.Unlock()
 
-	path := getCurrentSystemFilePath()
-	err = ioutil.WriteFile(path, []byte(systemName+"\n"), 0644)
+	path := getCurrentControllerFilePath()
+	err = ioutil.WriteFile(path, []byte(controllerName+"\n"), 0644)
 	if err != nil {
-		return errors.Errorf("unable to write to the system file: %q, %s", path, err)
+		return errors.Errorf("unable to write to the controller file: %q, %s", path, err)
 	}
 	// If there is a current environment file, remove it.
 	if err := os.Remove(getCurrentEnvironmentFilePath()); err != nil && !os.IsNotExist(err) {
-		logger.Debugf("removing the current system file due to %s", err)
+		logger.Debugf("removing the current controller file due to %s", err)
 		// Best attempt to remove the file we just wrote.
 		os.Remove(path)
 		return err
@@ -154,10 +158,10 @@ func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
 }
 
 // CurrentConnectionName looks at both the current environment file
-// and the current system file to determine which is active.
-// The name of the current environment or system is returned along with
-// a boolean to express whether the name refers to a system or environment.
-func CurrentConnectionName() (name string, is_system bool, err error) {
+// and the current controller file to determine which is active.
+// The name of the current environment or controller is returned along with
+// a boolean to express whether the name refers to a controller or environment.
+func CurrentConnectionName() (name string, is_controller bool, err error) {
 	currentEnv, err := ReadCurrentEnvironment()
 	if err != nil {
 		return "", false, errors.Trace(err)
@@ -165,23 +169,23 @@ func CurrentConnectionName() (name string, is_system bool, err error) {
 		return currentEnv, false, nil
 	}
 
-	currentSystem, err := ReadCurrentSystem()
+	currentController, err := ReadCurrentController()
 	if err != nil {
 		return "", false, errors.Trace(err)
-	} else if currentSystem != "" {
-		return currentSystem, true, nil
+	} else if currentController != "" {
+		return currentController, true, nil
 	}
 
 	return "", false, nil
 }
 
 func currentName() (string, error) {
-	name, isSystem, err := CurrentConnectionName()
+	name, isController, err := CurrentConnectionName()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if isSystem {
-		name = name + systemSuffix
+	if isController {
+		name = name + controllerSuffix
 	}
 	if name != "" {
 		name += " "
@@ -204,17 +208,17 @@ func SetCurrentEnvironment(context *cmd.Context, environmentName string) error {
 	return nil
 }
 
-// SetCurrentSystem writes out the current system file and writes a standard
+// SetCurrentController writes out the current controller file and writes a standard
 // message to the command context.
-func SetCurrentSystem(context *cmd.Context, systemName string) error {
+func SetCurrentController(context *cmd.Context, controllerName string) error {
 	current, err := currentName()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = WriteCurrentSystem(systemName)
+	err = WriteCurrentController(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	context.Infof("%s-> %s%s", current, systemName, systemSuffix)
+	context.Infof("%s-> %s%s", current, controllerName, controllerSuffix)
 	return nil
 }

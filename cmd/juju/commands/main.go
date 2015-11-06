@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/helptopics"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
-	"github.com/juju/juju/cmd/juju/system"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
@@ -98,7 +98,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helptopics.Glossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helptopics.Logging)
 	jcmd.AddHelpTopic("juju", "What is Juju?", helptopics.Juju)
-	jcmd.AddHelpTopic("juju-systems", "About Juju Environment Systems (JES)", helptopics.JujuSystems)
+	jcmd.AddHelpTopic("juju-controllers", "About Juju Controllers", helptopics.JujuControllers)
 	jcmd.AddHelpTopic("users", "About users in Juju", helptopics.Users)
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
@@ -213,16 +213,16 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage subnets
 	r.Register(subnet.NewSuperCommand())
 
-	// Manage systems
+	// Manage controllers
 	if featureflag.Enabled(feature.JES) {
-		r.Register(system.NewSuperCommand())
-		r.RegisterSuperAlias("systems", "system", "list", nil)
+		r.Register(controller.NewSuperCommand())
+		r.RegisterSuperAlias("list-controllers", "controller", "list", nil)
 
 		// Add top level aliases of the same name as the subcommands.
-		r.RegisterSuperAlias("environments", "system", "environments", nil)
-		r.RegisterSuperAlias("login", "system", "login", nil)
-		r.RegisterSuperAlias("create-environment", "system", "create-environment", nil)
-		r.RegisterSuperAlias("create-env", "system", "create-env", nil)
+		r.RegisterSuperAlias("list-environments", "controller", "environments", nil)
+		r.RegisterSuperAlias("login", "controller", "login", nil)
+		r.RegisterSuperAlias("create-environment", "controller", "create-environment", nil)
+		r.RegisterSuperAlias("create-env", "controller", "create-env", nil)
 	}
 }
 

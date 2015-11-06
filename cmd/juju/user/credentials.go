@@ -16,7 +16,7 @@ import (
 
 const userCredentialsDoc = `
 Writes out the current user and credentials to a file that can be used
-with 'juju system login' to allow the user to access the same environments
+with 'juju controller login' to allow the user to access the same environments
 as the same user from another machine.
 
 Examples:
@@ -25,15 +25,15 @@ Examples:
 
     # copy the staging.creds file to another machine
 
-    $ juju system login staging --server staging.creds --keep-password
+    $ juju controller login staging --server staging.creds --keep-password
 
 
 See Also:
-    juju system login
+    juju controller login
 `
 
 func newCredentialsCommand() cmd.Command {
-	return envcmd.WrapSystem(&credentialsCommand{})
+	return envcmd.WrapController(&credentialsCommand{})
 }
 
 // credentialsCommand changes the password for a user.

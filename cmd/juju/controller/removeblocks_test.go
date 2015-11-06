@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"github.com/juju/cmd"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,14 +24,14 @@ var _ = gc.Suite(&removeBlocksSuite{})
 func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 
-	err := envcmd.WriteCurrentSystem("fake")
+	err := envcmd.WriteCurrentController("fake")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.api = &fakeRemoveBlocksAPI{}
 }
 
 func (s *removeBlocksSuite) newCommand() cmd.Command {
-	return system.NewRemoveBlocksCommand(s.api)
+	return controller.NewRemoveBlocksCommand(s.api)
 }
 
 func (s *removeBlocksSuite) TestRemove(c *gc.C) {

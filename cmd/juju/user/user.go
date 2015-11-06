@@ -44,5 +44,5 @@ func NewSuperCommand() cmd.Command {
 // UserCommandBase is a helper base structure that has a method to get the
 // user manager client.
 type UserCommandBase struct {
-	envcmd.SysCommandBase
+	envcmd.ControllerCommandBase
 }

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package system_test
+package controller_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/system"
+	"github.com/juju/juju/cmd/juju/controller"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -142,27 +142,27 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := system.NewDestroyCommand(s.api, s.clientapi, s.apierror)
+	cmd := controller.NewDestroyCommand(s.api, s.clientapi, s.apierror)
 	return testing.RunCommand(c, cmd, args...)
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return system.NewDestroyCommand(s.api, s.clientapi, s.apierror)
+	return controller.NewDestroyCommand(s.api, s.clientapi, s.apierror)
 }
 
-func checkSystemExistsInStore(c *gc.C, name string, store configstore.Storage) {
+func checkControllerExistsInStore(c *gc.C, name string, store configstore.Storage) {
 	_, err := store.ReadInfo(name)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func checkSystemRemovedFromStore(c *gc.C, name string, store configstore.Storage) {
+func checkControllerRemovedFromStore(c *gc.C, name string, store configstore.Storage) {
 	_, err := store.ReadInfo(name)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *DestroySuite) TestDestroyNoSystemNameError(c *gc.C) {
+func (s *DestroySuite) TestDestroyNoControllerNameError(c *gc.C) {
 	_, err := s.runDestroyCommand(c)
-	c.Assert(err, gc.ErrorMatches, "no system specified")
+	c.Assert(err, gc.ErrorMatches, "no controller specified")
 }
 
 func (s *DestroySuite) TestDestroyBadFlags(c *gc.C) {
@@ -175,30 +175,30 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
-func (s *DestroySuite) TestDestroyUnknownSystem(c *gc.C) {
+func (s *DestroySuite) TestDestroyUnknownController(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read system info: environment "foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot read controller info: environment "foo" not found`)
 }
 
-func (s *DestroySuite) TestDestroyNonSystemEnvFails(c *gc.C) {
+func (s *DestroySuite) TestDestroyNonControllerEnvFails(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2")
-	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a system; use juju environment destroy to destroy it")
+	c.Assert(err, gc.ErrorMatches, "\"test2\" is not a controller; use juju environment destroy to destroy it")
 }
 
-func (s *DestroySuite) TestDestroySystemNotFoundNotRemovedFromStore(c *gc.C) {
+func (s *DestroySuite) TestDestroyControllerNotFoundNotRemovedFromStore(c *gc.C) {
 	s.apierror = errors.NotFoundf("test1")
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: test1 not found")
-	c.Check(c.GetTestLog(), jc.Contains, "If the system is unusable")
-	checkSystemExistsInStore(c, "test1", s.store)
+	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
+	checkControllerExistsInStore(c, "test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 	s.apierror = errors.New("connection refused")
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot connect to API: connection refused")
-	c.Check(c.GetTestLog(), jc.Contains, "If the system is unusable")
-	checkSystemExistsInStore(c, "test1", s.store)
+	c.Check(c.GetTestLog(), jc.Contains, "If the controller is unusable")
+	checkControllerExistsInStore(c, "test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroy(c *gc.C) {
@@ -207,7 +207,7 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
-	checkSystemRemovedFromStore(c, "test1", s.store)
+	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
@@ -215,14 +215,14 @@ func (s *DestroySuite) TestDestroyWithDestroyAllEnvsFlag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
-	checkSystemRemovedFromStore(c, "test1", s.store)
+	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *DestroySuite) TestDestroyEnvironmentGetFails(c *gc.C) {
-	s.api.err = errors.NotFoundf(`system "test3"`)
+	s.api.err = errors.NotFoundf(`controller "test3"`)
 	_, err := s.runDestroyCommand(c, "test3", "-y")
-	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: system \"test3\" not found")
-	checkSystemExistsInStore(c, "test3", s.store)
+	c.Assert(err, gc.ErrorMatches, "cannot obtain bootstrap information: controller \"test3\" not found")
+	checkControllerExistsInStore(c, "test3", s.store)
 }
 
 func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
@@ -230,7 +230,7 @@ func (s *DestroySuite) TestDestroyFallsBackToClient(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkSystemRemovedFromStore(c, "test1", s.store)
+	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *DestroySuite) TestEnvironmentGetFallsBackToClient(c *gc.C) {
@@ -240,19 +240,19 @@ func (s *DestroySuite) TestEnvironmentGetFallsBackToClient(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clientapi.envgetcalled, jc.IsTrue)
 	c.Assert(s.clientapi.destroycalled, jc.IsTrue)
-	checkSystemRemovedFromStore(c, "test3", s.store)
+	checkControllerRemovedFromStore(c, "test3", s.store)
 }
 
 func (s *DestroySuite) TestFailedDestroyEnvironment(c *gc.C) {
 	s.api.err = errors.New("permission denied")
 	_, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, gc.ErrorMatches, "cannot destroy system: permission denied")
+	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	c.Assert(s.api.ignoreBlocks, jc.IsFalse)
 	c.Assert(s.api.destroyAll, jc.IsFalse)
-	checkSystemExistsInStore(c, "test1", s.store)
+	checkControllerExistsInStore(c, "test1", s.store)
 }
 
-func (s *DestroySuite) resetSystem(c *gc.C) {
+func (s *DestroySuite) resetController(c *gc.C) {
 	info := s.store.CreateInfo("test1")
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   []string{"localhost"},
@@ -277,12 +277,12 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc := cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "system destruction aborted")
+		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
-	checkSystemExistsInStore(c, "test1", s.store)
+	checkControllerExistsInStore(c, "test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
@@ -290,12 +290,12 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
-		c.Check(err, gc.ErrorMatches, "system destruction aborted")
+		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
 	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
-	checkSystemExistsInStore(c, "test1", s.store)
+	checkControllerExistsInStore(c, "test1", s.store)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
@@ -308,10 +308,10 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("command took too long")
 		}
-		checkSystemRemovedFromStore(c, "test1", s.store)
+		checkControllerRemovedFromStore(c, "test1", s.store)
 
-		// Add the test1 system back into the store for the next test
-		s.resetSystem(c)
+		// Add the test1 controller back into the store for the next test
+		s.resetController(c)
 	}
 }
 
@@ -319,8 +319,8 @@ func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
 	s.runDestroyCommand(c, "test1", "-y")
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, "To remove all blocks in the system, please run:")
-	c.Check(testLog, jc.Contains, "juju system remove-blocks")
+	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
+	c.Check(testLog, jc.Contains, "juju controller remove-blocks")
 }
 
 func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
@@ -328,8 +328,8 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 	s.api.blocksErr = errors.New("unexpected api error")
 	s.runDestroyCommand(c, "test1", "-y")
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, "To remove all blocks in the system, please run:")
-	c.Check(testLog, jc.Contains, "juju system remove-blocks")
+	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
+	c.Check(testLog, jc.Contains, "juju controller remove-blocks")
 	c.Check(testLog, jc.Contains, "Unable to list blocked environments: unexpected api error")
 }
 
