@@ -1,0 +1,4 @@
+#!/bin/bash
+crm node standby
+service pacemaker stop
+service corosync stop

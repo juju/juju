@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -ue
+
+ip=`relation-get ip`
+
+if [ -z "$ip" ] ; then
+  echo "Remote node must provide IP"
+  exit 0
+fi
+
+reip="^`echo $ip | sed -e 's,\.,\\.,g'`$"
+
+# Make sure its installed
+apt-get -y install munin-node libcache-cache-perl
+
+if grep -q "^allow $reip$" /etc/munin/munin-node.conf ; then
+  echo $ip already has access.
+else
+  echo "# added by $0 `date`" >> /etc/munin/munin-node.conf
+  echo allow $reip >> /etc/munin/munin-node.conf
+  service munin-node reload
+fi
+
+# now tell remote server about our IP
+relation-set ip=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'|head -n 1`
