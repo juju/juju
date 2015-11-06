@@ -34,6 +34,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	apilogsender "github.com/juju/juju/api/logsender"
@@ -1733,17 +1734,25 @@ func (a *MachineAgent) Tag() names.Tag {
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
+	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
 	jujuRunLink := filepath.Join(a.rootDir, JujuRun)
 
-	// TODO do not remove the symlink if it already points
-	// to the right place.
-	if err := os.Remove(jujuRunLink); err != nil && !os.IsNotExist(err) {
+	link, err := symlink.Read(jujuRunLink)
+	if err != nil && !os.IsNotExist(err) {
 		return err
+	} else if err == nil {
+		// Link already in place - check it.
+		if link == jujud {
+			// Link already points to the right place - nothing to do.
+			return nil
+		}
+		// Link points to the wrong place - delete it.
+		if err := os.Remove(jujuRunLink); err != nil {
+			return err
+		}
 	}
 
-	err := os.MkdirAll(filepath.Dir(jujuRunLink), os.FileMode(0755))
-	if err != nil {
+	if err := os.MkdirAll(filepath.Dir(jujuRunLink), os.FileMode(0755)); err != nil {
 		return err
 	}
 	return symlink.New(jujud, jujuRunLink)
